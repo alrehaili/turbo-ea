@@ -441,10 +441,61 @@ export default function UsersAdmin() {
   const columnDefs = useMemo<ColDef<User>[]>(
     () => [
       {
+        colId: "actions",
+        headerName: "",
+        width: 140,
+        pinned: "left",
+        sortable: false,
+        filter: false,
+        resizable: false,
+        cellRenderer: (p: { data?: User }) => {
+          const u = p.data;
+          if (!u) return null;
+          return (
+            <Box
+              sx={{ display: "flex", gap: 0.25, alignItems: "center", height: "100%" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Tooltip title={t("users.editTooltip")}>
+                <IconButton size="small" onClick={() => openEdit(u)}>
+                  <MaterialSymbol icon="edit" size={20} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip
+                title={u.is_active ? t("users.deactivateTooltip") : t("users.activateTooltip")}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() => toggleActive(u)}
+                  color={u.is_active ? "warning" : "success"}
+                >
+                  <MaterialSymbol
+                    icon={u.is_active ? "person_off" : "person"}
+                    size={20}
+                  />
+                </IconButton>
+              </Tooltip>
+              {!u.is_active && (
+                <Tooltip title={t("users.deleteTooltip")}>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDelete(u)}
+                  >
+                    <MaterialSymbol icon="delete" size={20} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+          );
+        },
+      },
+      {
         field: "display_name",
         headerName: t("users.columns.name"),
         flex: 1,
         minWidth: 160,
+        pinned: "left",
         hide: false, // always shown (locked)
         sortable: true,
       },
@@ -638,56 +689,6 @@ export default function UsersAdmin() {
               —
             </Typography>
           ),
-      },
-      {
-        colId: "actions",
-        headerName: "",
-        width: 140,
-        pinned: "right",
-        sortable: false,
-        filter: false,
-        resizable: false,
-        cellRenderer: (p: { data?: User }) => {
-          const u = p.data;
-          if (!u) return null;
-          return (
-            <Box
-              sx={{ display: "flex", gap: 0.25, alignItems: "center", height: "100%" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Tooltip title={t("users.editTooltip")}>
-                <IconButton size="small" onClick={() => openEdit(u)}>
-                  <MaterialSymbol icon="edit" size={20} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip
-                title={u.is_active ? t("users.deactivateTooltip") : t("users.activateTooltip")}
-              >
-                <IconButton
-                  size="small"
-                  onClick={() => toggleActive(u)}
-                  color={u.is_active ? "warning" : "success"}
-                >
-                  <MaterialSymbol
-                    icon={u.is_active ? "person_off" : "person"}
-                    size={20}
-                  />
-                </IconButton>
-              </Tooltip>
-              {!u.is_active && (
-                <Tooltip title={t("users.deleteTooltip")}>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(u)}
-                  >
-                    <MaterialSymbol icon="delete" size={20} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          );
-        },
       },
     ],
     [
