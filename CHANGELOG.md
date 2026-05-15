@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.13.1] - 2026-05-15
+
+Iteration polish on the task-driven mitigation feature: human-readable task IDs, both target and completion dates visible per cycle, bounded inline history with full-history export, and a true XLSX register export carrying mitigation tasks on a second sheet.
+
+### Added
+- **Human-readable mitigation task IDs.** Every `risk_mitigation_tasks` row now carries a `T-NNNNNN` reference paralleling the risk register's `R-NNNNNN` pattern. Migration 086 adds the column, backfills existing rows by `created_at`, and locks in a unique constraint. Rendered as a monospaced chip next to the task title on the Risk Detail page. Format auto-widens past `T-999999` (column is `String(16)`, headroom to 14 digits ≈ 10¹⁴ tasks).
+- **Two-line per-cycle history.** Each occurrence in the history list now shows both `Target: {due_date}` and `Completed: {timestamp}` (or `Skipped: {timestamp}`) so auditors can compare scheduled vs. actual at a glance.
+- **Bounded inline history + escape hatch.** History renders the latest 5 cycles inline with a `"Show N older cycles"` toggle for the rest. A per-task **Export history (Excel)** button writes a single-sheet workbook (`mitigation-task-T-000042-{timestamp}.xlsx`) carrying every cycle.
+- **Register XLSX export with two sheets.** The Risk Register's existing Export button now writes `.xlsx` (was `.csv`). Sheet 1 keeps the existing risk columns; sheet 2 carries one row per mitigation-task occurrence, joined back to the parent risk via `risk_reference`/`task_reference`. New `GET /risks/mitigation-tasks/export` endpoint accepts the same filter shape as `GET /risks` so the workbook always matches what the user has on screen.
+
+### Changed
+- **`_load_filtered_risks` → `load_filtered_risks`** in `app/api/v1/risks.py` (public so the mitigation-task export endpoint can reuse the canonical filter pipeline).
+
 ## [1.13.0] - 2026-05-14
 
 Mitigation on the EA Risk Register becomes task-driven. The legacy free-text `mitigation` field is replaced with owned, optionally recurring mitigation tasks that surface in the assignee's Todo list and capture per-occurrence completion history (including who owned the task at the time each cycle closed).

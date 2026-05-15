@@ -43,6 +43,7 @@ class RiskMitigationTask(Base, UUIDMixin, TimestampMixin):
 
     __tablename__ = "risk_mitigation_tasks"
 
+    reference: Mapped[str] = mapped_column(String(16), nullable=False, unique=True)
     risk_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("risks.id", ondelete="CASCADE"),

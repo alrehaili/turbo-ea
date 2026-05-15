@@ -1,14 +1,20 @@
 /**
  * Read-only audit list for a task's past occurrences.
  *
- * One line per cycle (including the currently-open one), showing
- * sequence number, status, due date, completion timestamp, who closed
- * it, and — critically — who was the task owner at the moment of
- * completion. That last snapshot is the audit trail the user asked
- * for, since the parent task's owner may have rotated since.
+ * One block per cycle, showing **both** the originally-scheduled due
+ * date and the actual completion (or skip) timestamp. The owner snapshot
+ * (``owner_at_completion``) is rendered alongside the completer so the
+ * audit trail survives owner rotation.
+ *
+ * Recurring controls accumulate many cycles over the years. We render
+ * the latest 5 by default and offer "Show {N} older" to expand the
+ * full history — keeps the inline experience tidy and shifts the bulk
+ * read to the per-task Excel export button on the parent panel.
  */
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -17,6 +23,8 @@ import type { MitigationTaskOccurrence } from "@/types";
 interface Props {
   occurrences: MitigationTaskOccurrence[];
 }
+
+const COLLAPSED_LIMIT = 5;
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
@@ -29,8 +37,14 @@ function formatDateTime(iso: string | null): string {
 
 export default function OccurrenceHistoryList({ occurrences }: Props) {
   const { t } = useTranslation("delivery");
+  const [expanded, setExpanded] = useState(false);
 
-  if (occurrences.length === 0) {
+  const sorted = useMemo(
+    () => [...occurrences].sort((a, b) => b.sequence - a.sequence),
+    [occurrences],
+  );
+
+  if (sorted.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         {t("risks.tasks.history.empty")}
@@ -38,12 +52,12 @@ export default function OccurrenceHistoryList({ occurrences }: Props) {
     );
   }
 
-  // Sort newest first so the latest cycle is at the top.
-  const sorted = [...occurrences].sort((a, b) => b.sequence - a.sequence);
+  const visible = expanded ? sorted : sorted.slice(0, COLLAPSED_LIMIT);
+  const hiddenCount = sorted.length - visible.length;
 
   return (
     <Stack spacing={1.5}>
-      {sorted.map((occ) => {
+      {visible.map((occ) => {
         const isOpen = occ.status === "open";
         const icon =
           occ.status === "done"
@@ -57,6 +71,10 @@ export default function OccurrenceHistoryList({ occurrences }: Props) {
             : occ.status === "skipped"
               ? "warning.main"
               : "text.secondary";
+        const closeLabelKey =
+          occ.status === "skipped"
+            ? "risks.tasks.history.skippedLabel"
+            : "risks.tasks.history.completedLabel";
         return (
           <Box
             key={occ.id}
@@ -82,12 +100,12 @@ export default function OccurrenceHistoryList({ occurrences }: Props) {
                 <Typography variant="caption" color="text.secondary">
                   {t(`risks.tasks.status.${occ.status}`)}
                 </Typography>
-                {occ.due_date && (
-                  <Typography variant="caption" color="text.secondary">
-                    · {t("risks.tasks.history.dueOn", { date: occ.due_date })}
-                  </Typography>
-                )}
               </Stack>
+              {/* Target date — always render for cycles that have one
+                  so auditors can compare scheduled vs. actual. */}
+              <Typography variant="caption" color="text.secondary">
+                {t("risks.tasks.history.targetLabel")}: {occ.due_date ?? "—"}
+              </Typography>
               {isOpen ? (
                 <Typography variant="caption" color="text.secondary">
                   {occ.assigned_owner_name
@@ -99,9 +117,7 @@ export default function OccurrenceHistoryList({ occurrences }: Props) {
               ) : (
                 <>
                   <Typography variant="caption" color="text.secondary">
-                    {t("risks.tasks.history.closedAt", {
-                      timestamp: formatDateTime(occ.completed_at),
-                    })}
+                    {t(closeLabelKey)}: {formatDateTime(occ.completed_at)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {t("risks.tasks.history.completedBy", {
@@ -123,6 +139,28 @@ export default function OccurrenceHistoryList({ occurrences }: Props) {
           </Box>
         );
       })}
+      {hiddenCount > 0 && (
+        <Box>
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="expand_more" size={16} />}
+            onClick={() => setExpanded(true)}
+          >
+            {t("risks.tasks.history.showOlder", { count: hiddenCount })}
+          </Button>
+        </Box>
+      )}
+      {expanded && sorted.length > COLLAPSED_LIMIT && (
+        <Box>
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="expand_less" size={16} />}
+            onClick={() => setExpanded(false)}
+          >
+            {t("risks.tasks.history.collapse")}
+          </Button>
+        </Box>
+      )}
     </Stack>
   );
 }

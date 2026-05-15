@@ -4524,6 +4524,10 @@
             "title": "Recurrence Unit",
             "type": "string"
           },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
           "risk_id": {
             "title": "Risk Id",
             "type": "string"
@@ -4547,6 +4551,7 @@
         },
         "required": [
           "id",
+          "reference",
           "risk_id",
           "title",
           "recurrence_unit",
@@ -22035,6 +22040,178 @@
           }
         },
         "summary": "Risk Metrics",
+        "tags": [
+          "Risks"
+        ]
+      }
+    },
+    "/api/v1/risks/mitigation-tasks/export": {
+      "get": {
+        "description": "Flat list of every mitigation task on every risk matching the filters.\n\nMirrors the filter shape of ``GET /risks`` so the workbook export on\nthe Risk Register page can call once and produce a second sheet that\nalways matches what the user has on screen. Each task includes its\nfull occurrence history so the frontend can flatten cycles into\nspreadsheet rows.",
+        "operationId": "export_mitigation_tasks_api_v1_risks_mitigation_tasks_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "card_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "overdue",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Overdue",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MitigationTaskOut"
+                  },
+                  "title": "Response Export Mitigation Tasks Api V1 Risks Mitigation Tasks Export Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Mitigation Tasks",
         "tags": [
           "Risks"
         ]

@@ -631,5 +631,15 @@
   "risks.tasks.history.assignedTo": "Назначена {{name}}",
   "risks.tasks.history.unassigned": "Не назначена",
   "risks.tasks.history.closedAt": "Закрыта {{timestamp}}",
-  "risks.tasks.history.completedBy": "Выполнил(а): {{name}} · ответственный на момент: {{owner}}"
+  "risks.tasks.history.completedBy": "Выполнил(а): {{name}} · ответственный на момент: {{owner}}",
+  "risks.tasks.field.reference": "ID задачи",
+  "risks.tasks.actions.exportHistory": "Экспорт истории (Excel)",
+  "risks.tasks.history.targetLabel": "Цель",
+  "risks.tasks.history.completedLabel": "Завершено",
+  "risks.tasks.history.skippedLabel": "Пропущено",
+  "risks.tasks.history.showOlder_one": "Показать {{count}} предыдущий цикл",
+  "risks.tasks.history.showOlder_other": "Показать {{count}} предыдущих циклов",
+  "risks.tasks.history.collapse": "Свернуть историю",
+  "risks.export.sheetRisks": "Риски",
+  "risks.export.sheetTasks": "Меры по снижению"
 }

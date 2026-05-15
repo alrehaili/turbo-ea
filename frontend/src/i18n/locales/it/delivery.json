@@ -631,5 +631,15 @@
   "risks.tasks.history.assignedTo": "Assegnata a {{name}}",
   "risks.tasks.history.unassigned": "Non assegnata",
   "risks.tasks.history.closedAt": "Chiusa il {{timestamp}}",
-  "risks.tasks.history.completedBy": "Da {{name}} · responsabile al momento: {{owner}}"
+  "risks.tasks.history.completedBy": "Da {{name}} · responsabile al momento: {{owner}}",
+  "risks.tasks.field.reference": "ID attività",
+  "risks.tasks.actions.exportHistory": "Esporta cronologia (Excel)",
+  "risks.tasks.history.targetLabel": "Obiettivo",
+  "risks.tasks.history.completedLabel": "Completata",
+  "risks.tasks.history.skippedLabel": "Saltata",
+  "risks.tasks.history.showOlder_one": "Mostra {{count}} ciclo precedente",
+  "risks.tasks.history.showOlder_other": "Mostra {{count}} cicli precedenti",
+  "risks.tasks.history.collapse": "Comprimi cronologia",
+  "risks.export.sheetRisks": "Rischi",
+  "risks.export.sheetTasks": "Attività di mitigazione"
 }

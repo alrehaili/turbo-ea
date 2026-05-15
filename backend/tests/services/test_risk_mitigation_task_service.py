@@ -118,3 +118,28 @@ def test_occurrence_statuses_have_three_terminals():
 )
 def test_compute_next_due_rejects_non_positive_intervals(unit: str, interval: int):
     assert compute_next_due(date(2026, 5, 14), unit, interval) is None
+
+
+# ---------------------------------------------------------------------------
+# Task reference format — width auto-extends past T-999999
+# ---------------------------------------------------------------------------
+
+
+def test_task_reference_format_pads_to_six_digits():
+    # The format spec is min-width, not max. These three should all
+    # produce the canonical reference string the next_task_reference
+    # helper emits.
+    assert f"T-{1:06d}" == "T-000001"
+    assert f"T-{42:06d}" == "T-000042"
+    assert f"T-{999999:06d}" == "T-999999"
+
+
+def test_task_reference_format_widens_beyond_six_digits():
+    # Past 999999 the format auto-widens. The column is String(16), and
+    # "T-" eats 2 chars, leaving 14 digits of headroom (~10^14 tasks).
+    # This is the canonical answer to "what happens after T-999999?" —
+    # nothing breaks, the reference is just one char wider per decade.
+    assert f"T-{1_000_000:06d}" == "T-1000000"
+    assert f"T-{12_345_678:06d}" == "T-12345678"
+    # Confirm a 14-digit reference still fits in the 16-char column.
+    assert len(f"T-{99_999_999_999_999:06d}") == 16

@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +53,7 @@ from app.services.risk_mitigation_task_service import (
     skip_occurrence,
     task_to_dict,
     tasks_for_risk,
+    tasks_for_risks,
 )
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,55 @@ def _parse_optional_owner(value: str | None) -> uuid.UUID | None:
     if value is None or value == "":
         return None
     return _parse_uuid(value, "owner_id")
+
+
+# ---------------------------------------------------------------------------
+# Register-level export (declared before the parametric route so the
+# static segment matches first, although Starlette would resolve it
+# correctly either way — segment counts differ).
+# ---------------------------------------------------------------------------
+
+
+@risks_router.get("/mitigation-tasks/export", response_model=list[MitigationTaskOut])
+async def export_mitigation_tasks(
+    status: list[str] | None = Query(None),
+    category: list[str] | None = Query(None),
+    level: list[str] | None = Query(None),
+    owner_id: str | None = None,
+    card_id: str | None = None,
+    source_type: list[str] | None = Query(None),
+    search: str | None = None,
+    overdue: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[MitigationTaskOut]:
+    """Flat list of every mitigation task on every risk matching the filters.
+
+    Mirrors the filter shape of ``GET /risks`` so the workbook export on
+    the Risk Register page can call once and produce a second sheet that
+    always matches what the user has on screen. Each task includes its
+    full occurrence history so the frontend can flatten cycles into
+    spreadsheet rows.
+    """
+    await PermissionService.require_permission(db, user, "risks.view")
+
+    # Lazy import to keep the cross-router dependency localized.
+    from app.api.v1.risks import load_filtered_risks
+
+    risks = await load_filtered_risks(
+        db,
+        status=status,
+        category=category,
+        level=level,
+        owner_id=owner_id,
+        card_id=card_id,
+        source_type=source_type,
+        search=search,
+        overdue=overdue,
+    )
+    risk_ids = [r.id for r in risks]
+    tasks = await tasks_for_risks(db, risk_ids)
+    return [MitigationTaskOut.model_validate(await task_to_dict(db, t)) for t in tasks]
 
 
 # ---------------------------------------------------------------------------

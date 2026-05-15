@@ -631,5 +631,15 @@
   "risks.tasks.history.assignedTo": "指派给 {{name}}",
   "risks.tasks.history.unassigned": "未指派",
   "risks.tasks.history.closedAt": "于 {{timestamp}} 关闭",
-  "risks.tasks.history.completedBy": "由 {{name}} 完成 · 当时负责人：{{owner}}"
+  "risks.tasks.history.completedBy": "由 {{name}} 完成 · 当时负责人：{{owner}}",
+  "risks.tasks.field.reference": "任务编号",
+  "risks.tasks.actions.exportHistory": "导出历史（Excel）",
+  "risks.tasks.history.targetLabel": "目标",
+  "risks.tasks.history.completedLabel": "已完成",
+  "risks.tasks.history.skippedLabel": "已跳过",
+  "risks.tasks.history.showOlder_one": "显示更早的 {{count}} 次执行",
+  "risks.tasks.history.showOlder_other": "显示更早的 {{count}} 次执行",
+  "risks.tasks.history.collapse": "收起历史",
+  "risks.export.sheetRisks": "风险",
+  "risks.export.sheetTasks": "缓解任务"
 }

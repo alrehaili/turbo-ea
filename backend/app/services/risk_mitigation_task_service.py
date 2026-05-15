@@ -24,6 +24,7 @@ recurring task.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
@@ -45,6 +46,26 @@ logger = logging.getLogger(__name__)
 
 RECURRENCE_UNITS = ("none", "days", "weeks", "months", "years")
 OCCURRENCE_STATUSES = ("open", "done", "skipped")
+
+_TASK_REFERENCE_RE = re.compile(r"^T-(\d+)$")
+
+
+async def next_task_reference(db: AsyncSession) -> str:
+    """Return the next monotonic ``T-NNNNNN`` reference.
+
+    Mirrors ``risk_service.next_reference``. Format is zero-padded to a
+    minimum of 6 digits — past ``T-999999`` the format auto-widens (the
+    column is ``String(16)``, matching ``risks.reference``). Race-safe in
+    practice because the unique constraint rejects duplicates and the
+    caller can retry.
+    """
+    result = await db.execute(select(RiskMitigationTask.reference))
+    highest = 0
+    for (ref,) in result.all():
+        match = _TASK_REFERENCE_RE.match(ref or "")
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return f"T-{highest + 1:06d}"
 
 
 # ---------------------------------------------------------------------------
@@ -279,8 +300,10 @@ async def create_task_with_first_occurrence(
     if recurrence_interval < 1:
         raise ValueError("recurrence_interval must be >= 1")
 
+    reference = await next_task_reference(db)
     task = RiskMitigationTask(
         id=uuid.uuid4(),
+        reference=reference,
         risk_id=risk.id,
         title=title,
         description=description,
@@ -610,6 +633,7 @@ async def task_to_dict(
 
     return {
         "id": str(task.id),
+        "reference": task.reference,
         "risk_id": str(task.risk_id),
         "title": task.title,
         "description": task.description,
@@ -630,5 +654,22 @@ async def tasks_for_risk(db: AsyncSession, risk_id: uuid.UUID) -> list[RiskMitig
         select(RiskMitigationTask)
         .where(RiskMitigationTask.risk_id == risk_id)
         .order_by(RiskMitigationTask.is_active.desc(), RiskMitigationTask.created_at.asc())
+    )
+    return list(res.scalars().all())
+
+
+async def tasks_for_risks(db: AsyncSession, risk_ids: list[uuid.UUID]) -> list[RiskMitigationTask]:
+    """Bulk-load tasks for many risks in a single query.
+
+    Used by the register-level Excel export so we hit the DB once rather
+    than looping per-risk. Ordered by risk_id then created_at so callers
+    can group rows without resorting.
+    """
+    if not risk_ids:
+        return []
+    res = await db.execute(
+        select(RiskMitigationTask)
+        .where(RiskMitigationTask.risk_id.in_(risk_ids))
+        .order_by(RiskMitigationTask.risk_id, RiskMitigationTask.created_at.asc())
     )
     return list(res.scalars().all())

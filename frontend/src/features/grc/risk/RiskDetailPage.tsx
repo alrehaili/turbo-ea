@@ -644,6 +644,7 @@ export default function RiskDetailPage() {
             below as context for the manual residual assessment. */}
         <MitigationTasksPanel
           riskId={risk.id}
+          riskReference={risk.reference}
           riskClosed={isClosed}
           users={users}
           currentUserId={currentUserId}

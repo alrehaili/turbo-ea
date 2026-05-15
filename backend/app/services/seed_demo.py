@@ -5968,6 +5968,7 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
 
     now = datetime.now(timezone.utc)
     count = 0
+    task_seq = 0
     for idx, r in enumerate(demo, 1):
         risk = Risk(
             id=__import__("uuid").uuid4(),
@@ -6004,8 +6005,10 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
         # task so the recurrence UI has demo data too.
         mitigation_text = r.get("mitigation")
         if mitigation_text:
+            task_seq += 1
             task = RiskMitigationTask(
                 id=__import__("uuid").uuid4(),
+                reference=f"T-{task_seq:06d}",
                 risk_id=risk.id,
                 title="Initial mitigation plan",
                 description=mitigation_text,
@@ -6048,8 +6051,10 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
         # Showcase recurring tasks on a couple of risks.
         recurring_tasks = r.get("recurring_tasks") or []
         for rt in recurring_tasks:
+            task_seq += 1
             rtask = RiskMitigationTask(
                 id=__import__("uuid").uuid4(),
+                reference=f"T-{task_seq:06d}",
                 risk_id=risk.id,
                 title=rt["title"],
                 description=rt.get("description"),

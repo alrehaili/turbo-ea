@@ -95,12 +95,85 @@ async def test_create_one_shot_task_seeds_first_occurrence(client, db, env):
     assert body["recurrence_interval"] == 1
     assert body["is_active"] is True
     assert body["owner_id"] == str(env["admin"].id)
+    # Reference is allocated on create — T-NNNNNN, zero-padded to 6 digits.
+    assert body["reference"].startswith("T-")
+    assert len(body["reference"]) >= len("T-000001")
     assert len(body["occurrences"]) == 1
     occ = body["occurrences"][0]
     assert occ["sequence"] == 1
     assert occ["status"] == "open"
     assert occ["assigned_owner_id"] == str(env["admin"].id)
     assert occ["due_date"] == "2026-06-30"
+
+
+async def test_create_two_tasks_get_distinct_sequential_references(client, db, env):
+    """T-000001 → T-000002 → ... — same shape as risk references."""
+    risk = env["risk"]
+    first = await client.post(
+        _api(risk),
+        json={"title": "First", "owner_id": str(env["admin"].id)},
+        headers=auth_headers(env["admin"]),
+    )
+    second = await client.post(
+        _api(risk),
+        json={"title": "Second", "owner_id": str(env["admin"].id)},
+        headers=auth_headers(env["admin"]),
+    )
+    a = first.json()["reference"]
+    b = second.json()["reference"]
+    assert a != b
+    assert a.startswith("T-") and b.startswith("T-")
+    # Monotonic.
+    assert int(b.split("-")[1]) == int(a.split("-")[1]) + 1
+
+
+async def test_export_endpoint_returns_tasks_for_filtered_risks(client, db, env):
+    risk = env["risk"]
+    # Create two tasks across the (single) risk.
+    await client.post(
+        _api(risk),
+        json={"title": "Audit MFA", "owner_id": str(env["admin"].id)},
+        headers=auth_headers(env["admin"]),
+    )
+    await client.post(
+        _api(risk),
+        json={
+            "title": "Quarterly review",
+            "owner_id": str(env["admin"].id),
+            "recurrence_unit": "months",
+            "recurrence_interval": 3,
+        },
+        headers=auth_headers(env["admin"]),
+    )
+
+    resp = await client.get(
+        "/api/v1/risks/mitigation-tasks/export",
+        headers=auth_headers(env["admin"]),
+    )
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 2
+    titles = {t["title"] for t in rows}
+    assert titles == {"Audit MFA", "Quarterly review"}
+    # Each task carries its occurrence history.
+    assert all(len(t["occurrences"]) >= 1 for t in rows)
+
+
+async def test_export_endpoint_honours_status_filter(client, db, env):
+    """A status filter that excludes the risk should yield zero tasks."""
+    risk = env["risk"]
+    await client.post(
+        _api(risk),
+        json={"title": "Some task", "owner_id": str(env["admin"].id)},
+        headers=auth_headers(env["admin"]),
+    )
+    # Risk is in "identified" — filter for "closed" should drop everything.
+    resp = await client.get(
+        "/api/v1/risks/mitigation-tasks/export?status=closed",
+        headers=auth_headers(env["admin"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
 
 
 async def test_create_recurring_task_persists_recurrence_rule(client, db, env):

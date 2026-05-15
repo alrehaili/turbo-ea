@@ -1504,6 +1504,7 @@ export interface MitigationTaskOccurrence {
 
 export interface MitigationTask {
   id: string;
+  reference: string;
   risk_id: string;
   title: string;
   description: string | null;

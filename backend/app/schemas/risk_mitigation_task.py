@@ -83,6 +83,7 @@ class MitigationTaskOccurrenceOut(BaseModel):
 
 class MitigationTaskOut(BaseModel):
     id: str
+    reference: str
     risk_id: str
 
     title: str

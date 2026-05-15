@@ -33,6 +33,7 @@ import MitigationTaskDialog, {
 } from "./MitigationTaskDialog";
 import OccurrenceHistoryList from "./OccurrenceHistoryList";
 import { formatRecurrence } from "./recurrenceLabel";
+import { exportTaskHistory } from "./taskHistoryExport";
 
 interface UserOption {
   id: string;
@@ -42,6 +43,7 @@ interface UserOption {
 
 interface Props {
   riskId: string;
+  riskReference: string;
   riskClosed: boolean;
   users: UserOption[];
   currentUserId: string | null;
@@ -86,6 +88,7 @@ function openOccurrence(task: MitigationTask): MitigationTaskOccurrence | null {
 
 export default function MitigationTasksPanel({
   riskId,
+  riskReference,
   riskClosed,
   users,
   currentUserId,
@@ -242,6 +245,12 @@ export default function MitigationTasksPanel({
                 >
                   <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={task.reference}
+                        sx={{ fontFamily: "monospace", fontWeight: 600 }}
+                      />
                       <Typography variant="body1" fontWeight={600}>
                         {task.title}
                       </Typography>
@@ -349,6 +358,14 @@ export default function MitigationTasksPanel({
                           <MaterialSymbol icon="edit" size={18} />
                         </IconButton>
                       </span>
+                    </Tooltip>
+                    <Tooltip title={t("risks.tasks.actions.exportHistory") ?? ""}>
+                      <IconButton
+                        size="small"
+                        onClick={() => exportTaskHistory(task, riskReference)}
+                      >
+                        <MaterialSymbol icon="download" size={18} />
+                      </IconButton>
                     </Tooltip>
                     <Tooltip title={t("risks.tasks.actions.delete") ?? ""}>
                       <span>
