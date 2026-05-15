@@ -39,6 +39,26 @@ function recurrenceLabel(task: MitigationTask): string {
   return `every ${task.recurrence_interval} ${task.recurrence_unit}`;
 }
 
+// Column order is the canonical schema for sheet rendering. Used as the
+// header row when a task has zero occurrences (so an empty export still
+// produces a usable workbook instead of a sheet with no headers).
+const OCCURRENCE_COLUMNS: readonly (keyof OccurrenceRow)[] = [
+  "risk_reference",
+  "task_reference",
+  "task_title",
+  "task_owner",
+  "recurrence",
+  "is_active",
+  "cycle",
+  "assigned_owner",
+  "due_date",
+  "status",
+  "completed_at",
+  "completed_by",
+  "owner_at_completion",
+  "completion_notes",
+] as const;
+
 /**
  * Flatten tasks to one row per occurrence. Tasks with no occurrences
  * (shouldn't happen — every task gets a first cycle on create) drop out
@@ -54,8 +74,8 @@ export function flattenTasksForExport(
     for (const occ of task.occurrences) {
       rows.push({
         risk_reference: riskRef,
-        task_reference: task.reference,
-        task_title: task.title,
+        task_reference: task.reference ?? "",
+        task_title: task.title ?? "",
         task_owner: task.owner_name ?? "",
         recurrence: recurrenceLabel(task),
         is_active: task.is_active ? "yes" : "no",
@@ -81,9 +101,7 @@ function timestamp(now: Date = new Date()): string {
   );
 }
 
-function autoFitColumns(rows: Record<string, unknown>[]): XLSX.ColInfo[] {
-  if (rows.length === 0) return [];
-  const headers = Object.keys(rows[0]);
+function autoFitColumns(rows: Record<string, unknown>[], headers: string[]): XLSX.ColInfo[] {
   return headers.map((h) => {
     const longest = rows.reduce((max, row) => {
       const v = String(row[h] ?? "");
@@ -93,13 +111,49 @@ function autoFitColumns(rows: Record<string, unknown>[]): XLSX.ColInfo[] {
   });
 }
 
+/**
+ * Build a worksheet that always has a header row, even when there are
+ * no data rows. ``XLSX.utils.json_to_sheet([])`` produces a sheet with
+ * no ``!ref`` and no headers — some Excel clients render that as a
+ * blank file. Using ``aoa_to_sheet`` with the canonical header row up
+ * front guarantees a usable spreadsheet.
+ */
+function buildOccurrenceSheet(rows: OccurrenceRow[]): XLSX.WorkSheet {
+  const headers = OCCURRENCE_COLUMNS as readonly string[];
+  const aoa: (string | number)[][] = [headers as string[]];
+  for (const row of rows) {
+    aoa.push(
+      headers.map((h) => {
+        const v = (row as unknown as Record<string, unknown>)[h];
+        if (typeof v === "number") return v;
+        return v === null || v === undefined ? "" : String(v);
+      }),
+    );
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = autoFitColumns(
+    rows as unknown as Record<string, unknown>[],
+    headers as string[],
+  );
+  return ws;
+}
+
 export function exportTaskHistory(task: MitigationTask, riskReference: string): void {
-  const rows = flattenTasksForExport([task], new Map([[task.risk_id, riskReference]]));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws["!cols"] = autoFitColumns(rows as unknown as Record<string, unknown>[]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "History");
-  XLSX.writeFile(wb, `mitigation-task-${task.reference}-${timestamp()}.xlsx`);
+  try {
+    const rows = flattenTasksForExport(
+      [task],
+      new Map([[task.risk_id, riskReference]]),
+    );
+    const ws = buildOccurrenceSheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "History");
+    const ref = task.reference || task.id;
+    XLSX.writeFile(wb, `mitigation-task-${ref}-${timestamp()}.xlsx`);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to export mitigation task history:", err);
+    throw err;
+  }
 }
 
 interface RiskRow {
@@ -130,18 +184,51 @@ function risksToRows(risks: Risk[]): RiskRow[] {
   }));
 }
 
+const RISK_COLUMNS: readonly (keyof RiskRow)[] = [
+  "reference",
+  "title",
+  "category",
+  "initial_level",
+  "residual_level",
+  "status",
+  "owner",
+  "target_resolution_date",
+  "cards",
+  "updated_at",
+] as const;
+
+function buildRiskSheet(rows: RiskRow[]): XLSX.WorkSheet {
+  const headers = RISK_COLUMNS as readonly string[];
+  const aoa: (string | number)[][] = [headers as string[]];
+  for (const row of rows) {
+    aoa.push(
+      headers.map((h) => {
+        const v = (row as unknown as Record<string, unknown>)[h];
+        return v === null || v === undefined ? "" : String(v);
+      }),
+    );
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = autoFitColumns(
+    rows as unknown as Record<string, unknown>[],
+    headers as string[],
+  );
+  return ws;
+}
+
 export function exportRegister(risks: Risk[], allTasks: MitigationTask[]): void {
-  const riskRefById = new Map(risks.map((r) => [r.id, r.reference] as const));
-  const riskRows = risksToRows(risks);
-  const taskRows = flattenTasksForExport(allTasks, riskRefById);
+  try {
+    const riskRefById = new Map(risks.map((r) => [r.id, r.reference] as const));
+    const riskRows = risksToRows(risks);
+    const taskRows = flattenTasksForExport(allTasks, riskRefById);
 
-  const risksSheet = XLSX.utils.json_to_sheet(riskRows);
-  risksSheet["!cols"] = autoFitColumns(riskRows as unknown as Record<string, unknown>[]);
-  const tasksSheet = XLSX.utils.json_to_sheet(taskRows);
-  tasksSheet["!cols"] = autoFitColumns(taskRows as unknown as Record<string, unknown>[]);
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, risksSheet, "Risks");
-  XLSX.utils.book_append_sheet(wb, tasksSheet, "Mitigation tasks");
-  XLSX.writeFile(wb, `risk-register-${timestamp()}.xlsx`);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, buildRiskSheet(riskRows), "Risks");
+    XLSX.utils.book_append_sheet(wb, buildOccurrenceSheet(taskRows), "Mitigation tasks");
+    XLSX.writeFile(wb, `risk-register-${timestamp()}.xlsx`);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to export risk register:", err);
+    throw err;
+  }
 }
