@@ -704,7 +704,7 @@ export default function ComplianceScanner() {
                   to="/admin/settings?tab=ai"
                   color="inherit"
                 >
-                  {t("compliance.aiRequired.configureCta")}
+                  {t("grc:compliance.aiRequired.configureCta")}
                 </Button>
               ) : null
             }
