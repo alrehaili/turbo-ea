@@ -1275,14 +1275,15 @@ export const DOC_PAGES: PageDef[] = [
   // skip the KPI/overview pane and land on the actual register grid.
   //
   // `[role="tab"]` matches every Tab on the page; the inner Compliance tab
-  // sits at index 5 (3 GRC outer tabs + Overview + CVEs + Compliance).
+  // sits at index 4 (3 GRC outer tabs + Overview + Compliance — the
+  // dedicated CVEs sub-tab was removed with the TurboLens CVE scanner).
   {
     id: "54_grc_compliance",
     route: "/grc?tab=compliance",
     waitFor: "[role='tab']",
     actions: [
       { type: "wait", ms: 1000 },
-      { type: "click", selector: "[role='tab']", nth: 5 },
+      { type: "click", selector: "[role='tab']", nth: 4 },
       { type: "wait", ms: 1500 },
     ],
     filenames: {
