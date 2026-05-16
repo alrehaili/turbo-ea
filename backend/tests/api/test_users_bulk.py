@@ -202,35 +202,30 @@ class TestBulkDelete:
         assert resp.status_code == 400
 
     async def test_last_admin_delete_refused(self, client, db, bulk_env):
-        """Deleting the last admin row (even if deactivated) is blocked."""
+        """Deleting the last admin row is blocked even when the caller has
+        admin.users via a non-admin role."""
         admin = bulk_env["admin"]
-        # Create a deletable second admin we'll target
-        second_admin = await create_user(db, email="admin2@test.com", role="admin")
-        second_admin.is_active = False
-        await db.flush()
-
-        # Make the original admin the sole active admin so we still have a
-        # token to call with. Deleting second_admin would leave only one admin
-        # row (the original) which is fine — that path should succeed.
-        resp = await client.post(
-            "/api/v1/users/bulk-delete",
-            json={"ids": [str(second_admin.id)]},
-            headers=auth_headers(admin),
+        # Custom role that has admin.users without being named "admin" — this
+        # is the only realistic way to exercise the last-admin guard, since
+        # the admin user themselves would be filtered by the self-delete skip.
+        await create_role(
+            db,
+            key="ops",
+            label="Ops",
+            permissions={"admin.users": True},
+            is_system=False,
         )
-        assert resp.status_code == 200
-        assert resp.json()["deleted"] == 1
+        ops_user = await create_user(db, email="ops@test.com", role="ops")
 
-        # Now make the original admin deactivated, and try to bulk-delete it
-        # using its own token. Self-delete guard blocks first, but use a fresh
-        # admin's token to actually attempt last-admin deletion.
-        third_admin = await create_user(db, email="admin3@test.com", role="admin")
+        # Deactivate the sole admin so it's "deletable" per the active-only rule
         admin.is_active = False
         await db.flush()
+
         resp = await client.post(
             "/api/v1/users/bulk-delete",
-            json={"ids": [str(admin.id), str(third_admin.id)]},
-            headers=auth_headers(third_admin),
+            json={"ids": [str(admin.id)]},
+            headers=auth_headers(ops_user),
         )
-        # third_admin can't delete itself (self-skip) AND deleting admin would
-        # leave zero admin rows total → guard should reject.
+        # Deleting the last admin row leaves zero admins → guard rejects.
         assert resp.status_code == 400
+        assert "last admin" in resp.json()["detail"].lower()
