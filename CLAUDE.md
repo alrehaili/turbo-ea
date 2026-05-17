@@ -329,7 +329,7 @@ turbo-ea/
 │   │   ├── api/
 │   │   │   ├── deps.py                # Auth dependencies (get_current_user, require_permission)
 │   │   │   └── v1/
-│   │   │       ├── router.py          # Mounts all 39 API routers
+│   │   │       ├── router.py          # Mounts all 46 API routers
 │   │   │       ├── auth.py            # /auth (login, register, me, SSO, set-password)
 │   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status + CSV export
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
@@ -365,14 +365,18 @@ turbo-ea/
 │   │   │       ├── adr.py             # /adr (Architecture Decision Records)
 │   │   │       ├── file_attachments.py # /cards/{id}/attachments (file uploads)
 │   │   │       ├── risks.py           # /risks + /cards/{id}/risks (TOGAF Risk Register)
+│   │   │       ├── risk_mitigation_tasks.py # /risks/{id}/mitigation-tasks (+ recurring occurrences)
 │   │   │       ├── favorites.py       # /favorites (per-user favorited cards)
-│   │   │       └── capability_catalogue.py # /capability-catalogue (industry catalogue)
+│   │   │       ├── capability_catalogue.py # /capability-catalogue (industry catalogue)
+│   │   │       ├── principles_catalogue.py # /principles-catalogue (curated reference set)
+│   │   │       ├── process_catalogue.py    # /process-catalogue (industry process reference)
+│   │   │       └── value_stream_catalogue.py # /value-stream-catalogue (value stream reference)
 │   │   ├── core/
 │   │   │   ├── security.py            # JWT creation/validation (PyJWT HS256), bcrypt
 │   │   │   ├── permissions.py         # Permission key registry (single source of truth)
 │   │   │   ├── encryption.py          # Fernet symmetric encryption for DB secrets
 │   │   │   └── rate_limit.py          # slowapi rate limiter instance
-│   │   ├── models/                    # SQLAlchemy ORM models (44 files, see Database section)
+│   │   ├── models/                    # SQLAlchemy ORM models (47 files, see Database section)
 │   │   ├── schemas/                   # Pydantic request/response models
 │   │   │   ├── auth.py                # Auth schemas
 │   │   │   ├── card.py                # Card schemas
@@ -398,10 +402,12 @@ turbo-ea/
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop + AI auto-config)
-│   ├── alembic/                       # Database migrations (65 versions)
+│   ├── alembic/                       # Database migrations (89 versions)
 │   ├── tests/
-│   ├── pyproject.toml
-│   └── Dockerfile                     # Python 3.12-alpine + uvicorn (root context)
+│   └── pyproject.toml
+│
+├── Dockerfile                         # Root multi-stage build (targets: backend, db, frontend, nginx, ollama, mcp-server)
+├── nginx/                             # Edge nginx config + assets (default.conf, assets/)
 │
 ├── frontend/
 │   ├── src/
@@ -530,6 +536,18 @@ turbo-ea/
 │   │   │   │   ├── CapabilityCataloguePage.tsx
 │   │   │   │   ├── CapabilityCatalogueBrowser.tsx
 │   │   │   │   └── IndustryFilter.tsx
+│   │   │   ├── principles-catalogue/        # Curated EA principles reference set
+│   │   │   ├── process-catalogue/           # Industry business process reference
+│   │   │   ├── value-stream-catalogue/      # Value stream reference set
+│   │   │   ├── reference-catalogue/         # Shared catalogue shell + utilities
+│   │   │   ├── grc/                         # GRC module — embeds Risk Register, Compliance, etc.
+│   │   │   │   ├── GrcPage.tsx              # Tabbed shell (risk / compliance / …)
+│   │   │   │   └── risk/                    # Risk Register + mitigation tasks (TOGAF Phase G)
+│   │   │   │       ├── RiskRegisterPage.tsx
+│   │   │   │       ├── RiskDetailPage.tsx
+│   │   │   │       ├── RiskMatrix.tsx
+│   │   │   │       ├── CreateRiskDialog.tsx
+│   │   │   │       └── mitigation/          # MitigationTasksPanel + dialogs + occurrence history
 │   │   │   ├── turbolens/                   # AI-powered EA intelligence (see TurboLens section)
 │   │   │   └── admin/
 │   │   │       ├── MetamodelAdmin.tsx       # Type list + relation graph orchestrator
@@ -562,8 +580,7 @@ turbo-ea/
 │   ├── drawio-config/                       # PreConfig.js, PostConfig.js
 │   ├── nginx.conf                           # API proxy + DrawIO + security headers
 │   ├── package.json
-│   ├── vite.config.ts                       # __APP_VERSION__ injection from VERSION file
-│   └── Dockerfile                           # Multi-stage: node → drawio → nginx (root context)
+│   └── vite.config.ts                       # __APP_VERSION__ injection from VERSION file
 │
 ├── mcp-server/
 │   ├── turbo_ea_mcp/
@@ -575,11 +592,9 @@ turbo-ea/
 │   ├── tests/
 │   │   ├── test_server.py         # MCP tool tests
 │   │   └── test_oauth.py          # OAuth flow tests
-│   ├── pyproject.toml
-│   └── Dockerfile                 # Python 3.12-alpine + uvicorn
+│   └── pyproject.toml
 │
-├── plan.md
-└── Statement_of_Architecture_Work_Template.md
+└── (root) Dockerfile is shared across services — see top of tree
 ```
 
 ---
@@ -724,7 +739,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (65 migration files, sequentially numbered `001_` through `065_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (89 migration files, sequentially numbered `001_` through `089_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -935,6 +950,10 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | **Events** | `GET /events`, `GET /events/stream` (SSE) |
 | **ADR** | `GET/POST /adr`, `GET/PATCH/DELETE /adr/{id}`, `/adr/{id}/cards`, `/adr/{id}/sign` |
 | **File Attachments** | `POST /cards/{id}/attachments`, `GET/DELETE /attachments/{id}` |
+| **Capability Catalogue** | `GET /capability-catalogue/*` (industry capability reference, includes Macro tier) |
+| **Principles Catalogue** | `GET /principles-catalogue/*` (curated EA principles reference set) |
+| **Process Catalogue** | `GET /process-catalogue/*` (industry business process reference) |
+| **Value Stream Catalogue** | `GET /value-stream-catalogue/*` (value stream reference set) |
 | **OData Feeds** | `GET /bookmarks/{id}/odata` (OData-style JSON feed for saved views) |
 | **Health** | `GET /api/health` (no auth, includes version) |
 
@@ -1338,8 +1357,8 @@ Owner assignment on create / patch / promote auto-creates a single `is_system` T
 | `/turbolens` (Architect tab) | `TurboLensArchitect` | 5-step architecture AI wizard with Layered Dependency View visualization |
 | `/turbolens` (Compliance tab) | `TurboLensSecurity` | On-demand compliance scan with phase-aware progress bar, compliance heatmap, and **Create risk** / **Open risk** actions on every finding |
 | `/turbolens` (History tab) | `TurboLensHistory` | Analysis run history table |
-| `/ea-delivery?tab=risks` | `RiskRegisterPage` (embedded in `EADeliveryPage`) | Risk Register — KPIs, Initial/Residual 4×4 matrix toggle, filters, risk table |
-| `/ea-delivery/risks/:id` | `RiskDetailPage` | Full TOGAF-shaped detail: Identification, Initial assessment, Mitigation & residual (with Owner picker), Affected cards (M:N), Status stepper + primary **Next step** + secondary side actions (Accept / Reopen / Close-early), Audit |
+| `/grc?tab=risk` | `RiskRegisterPage` (embedded in `GrcPage`) | Risk Register — KPIs, Initial/Residual 4×4 matrix toggle, filters, risk table. (`/ea-delivery/risks` 301-redirects here for backwards compatibility.) |
+| `/grc/risks/:id` | `RiskDetailPage` | Full TOGAF-shaped detail: Identification, Initial assessment, Mitigation & residual (with Owner picker), Affected cards (M:N), Status stepper + primary **Next step** + secondary side actions (Accept / Reopen / Close-early), Audit. (`/ea-delivery/risks/:id` redirects here.) |
 
 ### Key Frontend Components
 
@@ -1365,7 +1384,7 @@ TurboLens was originally created by [Vinod](https://github.com/vinod-ea/archlens
 
 ## EA Risk Register (TOGAF Phase G)
 
-Landscape-level risk register aligned to TOGAF ADM Phase G. Separate from `PpmRisk` (which is initiative-scoped). Lives as a tab inside the EA Delivery page (`/ea-delivery?tab=risks`) with detail pages at `/ea-delivery/risks/:id`.
+Landscape-level risk register aligned to TOGAF ADM Phase G. Separate from `PpmRisk` (which is initiative-scoped). Lives as a tab inside the **GRC** page (`/grc?tab=risk`) with detail pages at `/grc/risks/:id`. The legacy `/ea-delivery/risks` and `/ea-delivery/risks/:id` paths redirect to the GRC routes.
 
 ### Tables
 
@@ -1653,13 +1672,20 @@ docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d --build
 - **Memory**: Configurable via `OLLAMA_MEMORY_LIMIT` (default 4G)
 - **Health check**: Uses `ollama list`
 
-### Frontend Dockerfile (multi-stage, root context)
-1. **build stage**: `node:20-alpine` — copies `frontend/package.json` + `VERSION`, npm ci, vite build
-2. **drawio stage**: `alpine/git` — clone jgraph/drawio v26.0.9
-3. **production stage**: `nginx:alpine` — serve built frontend + DrawIO + security configs, runs as non-root `nginx` user
+### Root Dockerfile (single file, multiple build targets)
+All container images are built from one `/Dockerfile` at the repo root using multi-stage `--target` selection. Each `target` becomes a published GHCR image. Stages:
 
-### Backend Dockerfile (root context)
-Single stage: `python:3.12-alpine` — copies `VERSION` + `backend/`, pip install, runs as non-root `appuser`
+| Target | Base | Purpose |
+|--------|------|---------|
+| `backend-build` | `python:3.12-alpine` | Compile-time wheel/deps builder for backend |
+| `backend` | `python:3.12-alpine` | Final backend image — copies `VERSION` + `backend/`, runs as non-root `appuser` |
+| `db` | `postgres:18-alpine` | Bundled PostgreSQL image |
+| `frontend-build` | `node:20-alpine` | Vite build of `frontend/` (consumes `VERSION` for `__APP_VERSION__`) |
+| `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v26.0.9 |
+| `frontend` | `nginx:alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
+| `nginx` | `nginx:alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
+| `ollama` | `ollama/ollama:latest` | Thin non-root patch over upstream Ollama |
+| `mcp-server` | `python:3.12-alpine` | MCP server image — copies `VERSION` + `mcp-server/`, runs as non-root |
 
 ### Nginx Configuration
 - `/api/*` → proxy to `backend:8000` (with SSE support headers)
