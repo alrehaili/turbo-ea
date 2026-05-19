@@ -1,5 +1,9 @@
-import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import { useTranslation } from "react-i18next";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup, TagRef } from "@/types";
 
@@ -12,11 +16,20 @@ interface Params {
 
 const TagsCellEditor = forwardRef<{ getValue: () => TagRef[] }, Params>(
   (props, ref) => {
+    const { t } = useTranslation(["common", "inventory"]);
+
     const initialIds = useMemo(
       () => (props.value || []).map((t) => t.id),
       [props.value],
     );
     const [ids, setIds] = useState<string[]>(initialIds);
+
+    // Mirror state into a ref so AG Grid's getValue() always reads the latest
+    // selection, regardless of when it grabs the imperative handle.
+    const idsRef = useRef(ids);
+    useEffect(() => {
+      idsRef.current = ids;
+    }, [ids]);
 
     const refsById = useMemo(() => {
       const map = new Map<string, TagRef>();
@@ -35,15 +48,23 @@ const TagsCellEditor = forwardRef<{ getValue: () => TagRef[] }, Params>(
 
     useImperativeHandle(ref, () => ({
       getValue: () =>
-        ids
+        idsRef.current
           .map((id) => refsById.get(id))
           .filter((tag): tag is TagRef => Boolean(tag)),
     }));
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        props.stopEditing?.(true);
+      }
+    };
+
     return (
       <Box
-        sx={{ p: 1, minWidth: 320, bgcolor: "background.paper" }}
+        sx={{ p: 1.5, minWidth: 340, bgcolor: "background.paper" }}
         onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <TagPicker
           groups={props.groups}
@@ -53,6 +74,23 @@ const TagsCellEditor = forwardRef<{ getValue: () => TagRef[] }, Params>(
           size="small"
           disablePortal
         />
+        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.5 }}>
+          <Button
+            size="small"
+            onClick={() => props.stopEditing?.(true)}
+            startIcon={<MaterialSymbol icon="close" size={16} />}
+          >
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => props.stopEditing?.()}
+            startIcon={<MaterialSymbol icon="check" size={16} />}
+          >
+            {t("common:actions.save")}
+          </Button>
+        </Stack>
       </Box>
     );
   },
