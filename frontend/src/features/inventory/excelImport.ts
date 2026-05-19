@@ -1,8 +1,17 @@
 import * as XLSX from "xlsx";
-import i18n from "@/i18n";
-import { resolveLabel } from "@/hooks/useResolveLabel";
-import type { CalculatedFieldsMap, Card, CardType, FieldDef, TagGroup } from "@/types";
+
 import { api } from "@/api/client";
+import { resolveLabel, resolveMetaLabel } from "@/hooks/useResolveLabel";
+import i18n from "@/i18n";
+import type {
+  CalculatedFieldsMap,
+  Card,
+  CardType,
+  FieldDef,
+  Relation,
+  RelationType,
+  TagGroup,
+} from "@/types";
 
 const t = (key: string, opts?: Record<string, unknown>) =>
   i18n.t(key, { ns: "inventory", ...opts });
@@ -45,6 +54,60 @@ export interface ParsedRow {
   tagIds?: string[];
 }
 
+/**
+ * One queued mutation against the relation graph. Either an upsert (the
+ * default — used for both create and update of attribute-bearing relations)
+ * or an explicit delete (only emitted from the `Relations` sheet's `action`
+ * column, or implicitly when an inline `rel:<key>` cell drops a target
+ * that previously existed for that source/relation_type).
+ */
+export interface RelationOp {
+  /** Row number from the originating sheet — 0 indicates the inline cell. */
+  rowIndex: number;
+  sheet: string;
+  action: "upsert" | "delete";
+  /** Relation type key. */
+  relationType: string;
+  /** Resolved or to-be-resolved source. `sourceId` is filled in once we
+   * know it (existing cards: at validation time; new cards: at apply time
+   * after the bulk-create returns ids). */
+  sourceRef: CardRefHandle;
+  targetRef: CardRefHandle;
+  /** Optional attribute payload — only populated from the Relations sheet. */
+  attributes?: Record<string, unknown>;
+  description?: string;
+}
+
+/**
+ * Either a freshly-resolved server card (UUID known) or a reference to a
+ * card row created in the same import batch (UUID assigned after bulk-create
+ * returns). The `pathKey` flavour points at a `ParsedRow.ownPathKey`.
+ */
+export type CardRefHandle =
+  | { kind: "id"; id: string }
+  | { kind: "pathKey"; pathKey: string; type: string };
+
+export interface RelationCellRef {
+  rowIndex: number;
+  sheet: string;
+  column: string;
+  /** Source card — either an existing UUID or the row's own path key. */
+  sourceRef: CardRefHandle;
+  /** Cell content split into individual `ref` strings. */
+  targetRefs: string[];
+  /** Relation type metadata. */
+  relationType: string;
+  targetTypeKey: string;
+}
+
+export interface MetaInfo {
+  formatVersion?: string;
+  exportedAt?: string;
+  tenantUrl?: string;
+  cardCount?: number;
+  relationCount?: number;
+}
+
 export interface ImportReport {
   errors: ImportError[];
   warnings: ImportWarning[];
@@ -52,13 +115,32 @@ export interface ImportReport {
   updates: ParsedRow[];
   skipped: number;
   totalRows: number;
+  /** Relation upsert / delete operations queued by validation. */
+  relationOps: RelationOp[];
+  /** Meta-sheet info — used for the format-version banner. */
+  meta?: MetaInfo;
 }
 
 export interface ImportResult {
   created: number;
   updated: number;
   failed: number;
+  /** Per relation status — populated when relationOps is non-empty. */
+  relationsUpserted: number;
+  relationsDeleted: number;
+  relationsFailed: number;
   failedDetails: { row: number; message: string }[];
+}
+
+/** Output of `parseWorkbook` — split per sheet so the validator can keep
+ * the originating sheet name in errors. The legacy "single sheet, no
+ * meta" path produces one `cards` entry with `sheet: <sheetName>`. */
+export interface ParsedWorkbook {
+  /** Card rows grouped by their sheet name. Sheet name → rows. */
+  sheets: { sheet: string; rows: Record<string, unknown>[]; typeHint?: string }[];
+  /** Relations-sheet rows, if a Relations sheet was present. */
+  relationRows: Record<string, unknown>[];
+  meta?: MetaInfo;
 }
 
 // ---- Helpers -------------------------------------------------------------
@@ -101,6 +183,12 @@ function decodePath(path: string): string[] {
 /** Build a case-insensitive index key for `(type, segments)`. */
 function pathKey(type: string, segments: string[]): string {
   return `${type}|${segments.map((s) => s.toLowerCase()).join("/")}`;
+}
+
+/** Mirror of `encodePathSegment()` in `excelExport.ts` — escape `\` and `/`
+ * so a card name containing either character round-trips cleanly. */
+function encodePathSegment(name: string): string {
+  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/");
 }
 
 /** Walk parent_id chain to produce the full ancestor segments (root first, including the card itself). */
@@ -266,6 +354,14 @@ function buildPatch(
 
 // ---- Core: parse workbook ------------------------------------------------
 
+const META_SHEET_NAME = "_Meta";
+const RELATIONS_SHEET_NAME = "Relations";
+
+/**
+ * Legacy single-sheet parser. Kept for backwards compatibility with callers
+ * that only care about the first sheet. New code should use
+ * `parseWorkbookSheets()` to get a structured view of every sheet.
+ */
 export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
   // cellDates: true so that Excel-reformatted date cells come back as JS Date
   // objects (handled by str()) instead of opaque serial numbers.
@@ -273,6 +369,74 @@ export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return [];
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+}
+
+/**
+ * Multi-sheet parser: returns one entry per non-meta, non-relations sheet,
+ * plus the relations rows and meta info. Sheet → type-key mapping is best
+ * effort: the workbook produced by `exportToExcel()` uses the type's label
+ * (or key) as the sheet name, and `parseWorkbookSheets()` tries both.
+ *
+ * Workbooks that don't follow the new layout (single sheet, no `_Meta`)
+ * still parse correctly — the single sheet becomes the only entry and the
+ * downstream validator falls back to the row's own `type` column or the
+ * caller-supplied `preSelectedType`.
+ */
+export function parseWorkbookSheets(
+  file: ArrayBuffer,
+  allTypes: CardType[],
+): ParsedWorkbook {
+  const wb = XLSX.read(file, { type: "array", cellDates: true });
+  const out: ParsedWorkbook = { sheets: [], relationRows: [] };
+
+  // Match a sheet name back to a card type. Match by translated label first,
+  // then key, then label — all case-insensitive — so a file translated
+  // by Excel on a German laptop still resolves to "Application" etc.
+  function typeForSheet(sheet: string): string | undefined {
+    const lower = sheet.trim().toLowerCase();
+    for (const t of allTypes) {
+      const candidates = new Set<string>();
+      candidates.add(t.key.toLowerCase());
+      candidates.add(t.label.toLowerCase());
+      const translated = resolveMetaLabel(t.key, t.translations, "label", i18n.language);
+      if (translated) candidates.add(translated.toLowerCase());
+      if (candidates.has(lower)) return t.key;
+    }
+    return undefined;
+  }
+
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) continue;
+
+    if (sheetName === META_SHEET_NAME) {
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+      const meta: MetaInfo = {};
+      for (const r of rows) {
+        const key = String(r["key"] ?? "").trim();
+        const value = String(r["value"] ?? "").trim();
+        if (key === "format_version") meta.formatVersion = value;
+        else if (key === "exported_at") meta.exportedAt = value;
+        else if (key === "tenant_url") meta.tenantUrl = value;
+        else if (key === "card_count") meta.cardCount = Number(value) || undefined;
+        else if (key === "relation_count") meta.relationCount = Number(value) || undefined;
+      }
+      out.meta = meta;
+      continue;
+    }
+
+    if (sheetName === RELATIONS_SHEET_NAME) {
+      out.relationRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+        defval: "",
+      });
+      continue;
+    }
+
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+    out.sheets.push({ sheet: sheetName, rows, typeHint: typeForSheet(sheetName) });
+  }
+
+  return out;
 }
 
 // ---- Core: validate ------------------------------------------------------
@@ -293,7 +457,15 @@ export function validateImport(
 
   if (rows.length === 0) {
     errors.push({ row: 0, message: t("import.errors.noDataRows") });
-    return { errors, warnings, creates, updates, skipped, totalRows: 0 };
+    return {
+      errors,
+      warnings,
+      creates,
+      updates,
+      skipped,
+      totalRows: 0,
+      relationOps: [],
+    };
   }
 
   // Check for required columns
@@ -314,7 +486,15 @@ export function validateImport(
 
   // If structural errors already, return early
   if (errors.length > 0) {
-    return { errors, warnings, creates, updates, skipped, totalRows: rows.length };
+    return {
+      errors,
+      warnings,
+      creates,
+      updates,
+      skipped,
+      totalRows: rows.length,
+      relationOps: [],
+    };
   }
 
   // Warn about unrecognised columns
@@ -832,7 +1012,432 @@ export function validateImport(
     }
   }
 
-  return { errors, warnings, creates, updates, skipped, totalRows: rows.length };
+  return {
+    errors,
+    warnings,
+    creates,
+    updates,
+    skipped,
+    totalRows: rows.length,
+    relationOps: [],
+  };
+}
+
+// ---- Multi-sheet validation ----------------------------------------------
+
+/**
+ * Top-level validator for the new multi-sheet workbook format. Wraps the
+ * legacy single-sheet `validateImport()` for each card sheet, then parses
+ * the inline `rel:<key>` columns and the optional `Relations` sheet into
+ * a `relationOps` list. Refs that don't match a row in the workbook nor an
+ * existing card are flagged with `errors`.
+ */
+export async function validateMultiSheet(
+  parsed: ParsedWorkbook,
+  existingCards: Card[],
+  allTypes: CardType[],
+  relationTypes: RelationType[],
+  existingRelations: Relation[],
+  preSelectedType?: string,
+  tagGroups: TagGroup[] = [],
+  calculatedFields: CalculatedFieldsMap = {},
+): Promise<ImportReport> {
+  const errors: ImportError[] = [];
+  const warnings: ImportWarning[] = [];
+  const creates: ParsedRow[] = [];
+  const updates: ParsedRow[] = [];
+  let skipped = 0;
+  let totalRows = 0;
+
+  const meta = parsed.meta;
+  // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
+  if (meta?.formatVersion && meta.formatVersion !== "2") {
+    warnings.push({
+      message: t("import.warnings.formatVersionMismatch", {
+        version: meta.formatVersion,
+      }),
+    });
+  }
+
+  // Run the per-sheet validation; type hint from the sheet name becomes
+  // the preSelectedType for that sheet.
+  for (const sheet of parsed.sheets) {
+    const sheetReport = validateImport(
+      sheet.rows,
+      existingCards,
+      allTypes,
+      sheet.typeHint ?? preSelectedType,
+      tagGroups,
+      calculatedFields,
+    );
+    errors.push(
+      ...sheetReport.errors.map((e) => ({
+        ...e,
+        message: `${sheet.sheet}: ${e.message}`,
+      })),
+    );
+    warnings.push(
+      ...sheetReport.warnings.map((w) => ({
+        ...w,
+        message: `${sheet.sheet}: ${w.message}`,
+      })),
+    );
+    creates.push(...sheetReport.creates);
+    updates.push(...sheetReport.updates);
+    skipped += sheetReport.skipped;
+    totalRows += sheetReport.totalRows;
+  }
+
+  // Collect relation cell references from inline `rel:<key>` columns and
+  // the Relations sheet. The collector builds CardRefHandles so the apply
+  // step can later swap pathKeys for the resolved UUID once bulk-create
+  // returns.
+  const relationOps: RelationOp[] = [];
+  const inlineRefs: RelationCellRef[] = [];
+
+  // Build helpful indexes.
+  const byCardId = new Map<string, Card>();
+  for (const c of existingCards) byCardId.set(c.id, c);
+
+  function existingCardPathSegs(card: Card): string[] {
+    const segs: string[] = [];
+    let cur: Card | undefined = card;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur.id) && segs.length < MAX_PATH_DEPTH) {
+      seen.add(cur.id);
+      segs.unshift(cur.name);
+      cur = cur.parent_id ? byCardId.get(cur.parent_id) : undefined;
+    }
+    return segs;
+  }
+
+  // Build (type, name lowercase) → list of existing cards for name-only refs.
+  const existingByTypeName = new Map<string, Card[]>();
+  for (const c of existingCards) {
+    const k = `${c.type}|${c.name.trim().toLowerCase()}`;
+    const arr = existingByTypeName.get(k) || [];
+    arr.push(c);
+    existingByTypeName.set(k, arr);
+  }
+
+  // Track all freshly-parsed creates' own path keys so a relation cell
+  // can point at a row created in the same workbook.
+  const fileByOwnPathKey = new Map<string, ParsedRow>();
+  for (const r of creates) {
+    if (r.ownPathKey) fileByOwnPathKey.set(r.ownPathKey, r);
+  }
+
+  /**
+   * Resolve a single ref string into a CardRefHandle. Order of precedence:
+   *   1. row in the same workbook (matched by name + parent path)
+   *   2. exactly one existing card of the right type
+   *   3. otherwise: error.
+   */
+  function resolveRef(
+    targetTypeKey: string,
+    ref: string,
+    rowIndex: number,
+    _sheet: string,
+    column: string,
+  ): CardRefHandle | undefined {
+    const segs = decodePath(ref);
+    if (segs.length === 0) return undefined;
+    const name = segs[segs.length - 1];
+    const parentSegs = segs.slice(0, -1);
+    const fullKey = pathKey(targetTypeKey, segs);
+    // Same-batch row?
+    const fileMatch = fileByOwnPathKey.get(fullKey);
+    if (fileMatch) {
+      return { kind: "pathKey", pathKey: fullKey, type: targetTypeKey };
+    }
+    // Existing card match.
+    const candidates = existingByTypeName.get(
+      `${targetTypeKey}|${name.trim().toLowerCase()}`,
+    ) || [];
+    let matches = candidates;
+    if (parentSegs.length > 0) {
+      matches = candidates.filter((c) => {
+        const ancestors = existingCardPathSegs(c).slice(0, -1);
+        if (ancestors.length !== parentSegs.length) return false;
+        return ancestors.every(
+          (seg, i) => seg.trim().toLowerCase() === parentSegs[i].trim().toLowerCase(),
+        );
+      });
+    }
+    if (matches.length === 1) {
+      return { kind: "id", id: matches[0].id };
+    }
+    if (matches.length === 0) {
+      errors.push({
+        row: rowIndex,
+        column,
+        message: t("import.errors.relationTargetMissing", {
+          type: targetTypeKey,
+          ref,
+        }),
+      });
+      return undefined;
+    }
+    // Ambiguous — provide a hint with the first few candidate paths.
+    const hints = matches
+      .slice(0, 3)
+      .map((c) => [...existingCardPathSegs(c)].join(" / "))
+      .join("; ");
+    errors.push({
+      row: rowIndex,
+      column,
+      message: t("import.errors.relationTargetAmbiguous", {
+        type: targetTypeKey,
+        ref,
+        hints,
+      }),
+    });
+    return undefined;
+  }
+
+  // ----- Inline `rel:<key>` columns on card sheets -------------------------
+  // Build a lookup: source card identity → set of existing relations of each type.
+  // We use this to compute deletes (cell empty → drop everything) and noops.
+  const outgoingByCard = new Map<string, Map<string, string[]>>(); // cardId → type → target ids
+  for (const rel of existingRelations) {
+    let perType = outgoingByCard.get(rel.source_id);
+    if (!perType) {
+      perType = new Map();
+      outgoingByCard.set(rel.source_id, perType);
+    }
+    const list = perType.get(rel.type) || [];
+    list.push(rel.target_id);
+    perType.set(rel.type, list);
+  }
+
+  for (const sheet of parsed.sheets) {
+    if (sheet.rows.length === 0) continue;
+    const sheetType = sheet.typeHint ?? preSelectedType;
+    if (!sheetType) continue;
+
+    const headers = Object.keys(sheet.rows[0]);
+    const relColumns = headers.filter((h) => h.startsWith("rel:"));
+    if (relColumns.length === 0) continue;
+
+    // Map relation type key → RelationType, filtered to those with this
+    // sheet's type as source. Reject columns referring to relation types
+    // that don't match or that carry attributes (those belong on the
+    // Relations sheet).
+    const validRelTypes = new Map<string, RelationType>();
+    for (const rt of relationTypes) {
+      if (rt.source_type_key !== sheetType) continue;
+      if (rt.attributes_schema && rt.attributes_schema.length > 0) continue;
+      validRelTypes.set(rt.key, rt);
+    }
+
+    for (let i = 0; i < sheet.rows.length; i++) {
+      const raw = sheet.rows[i];
+      const rowNum = i + 2;
+      const name = str(raw["name"] ?? raw["Name"]);
+      const idCell = str(raw["id"] ?? raw["Id"] ?? raw["ID"]);
+      const parentPathRaw = str(raw["parent_path"]);
+      if (!name) continue;
+
+      // Locate the source: either existing (UUID known via idCell) or a
+      // creates row in this batch (by own path key).
+      let sourceRef: CardRefHandle | undefined;
+      const ownPath = parentPathRaw
+        ? [...decodePath(parentPathRaw), name]
+        : [name];
+      const ownKey = pathKey(sheetType, ownPath);
+      if (idCell && UUID_RE.test(idCell) && byCardId.has(idCell)) {
+        sourceRef = { kind: "id", id: idCell };
+      } else if (fileByOwnPathKey.has(ownKey)) {
+        sourceRef = { kind: "pathKey", pathKey: ownKey, type: sheetType };
+      } else {
+        // Fallback: try to resolve against existing cards via name+path.
+        const handle = resolveRef(sheetType, ownPath.map(encodePathSegment).join(" / "), rowNum, sheet.sheet, "row");
+        if (!handle) continue; // resolveRef already pushed an error
+        sourceRef = handle;
+      }
+
+      for (const col of relColumns) {
+        const relTypeKey = col.slice(4);
+        const rt = validRelTypes.get(relTypeKey);
+        if (!rt) {
+          warnings.push({
+            row: rowNum,
+            column: col,
+            message: t("import.warnings.unknownRelationType", { type: relTypeKey }),
+          });
+          continue;
+        }
+        const cellRaw = str(raw[col]);
+        const targetRefs = cellRaw
+          ? cellRaw.split(",").map((s) => s.trim()).filter(Boolean)
+          : [];
+        const targetHandles: CardRefHandle[] = [];
+        let resolvedAll = true;
+        for (const tr of targetRefs) {
+          const handle = resolveRef(rt.target_type_key, tr, rowNum, sheet.sheet, col);
+          if (!handle) {
+            resolvedAll = false;
+            continue;
+          }
+          targetHandles.push(handle);
+        }
+        if (!resolvedAll) continue;
+
+        // For existing sources, compute the diff against `existingRelations`
+        // so we can emit upsert + delete ops. For new sources (pathKey),
+        // every target is an upsert.
+        if (sourceRef.kind === "id") {
+          const existingTargets = outgoingByCard.get(sourceRef.id)?.get(rt.key) || [];
+          const newIds = new Set<string>();
+          // Map handles to ids for new same-batch rows we resolve lazily at apply time.
+          const handlesForCompare: CardRefHandle[] = [];
+          for (const h of targetHandles) {
+            if (h.kind === "id") newIds.add(h.id);
+            handlesForCompare.push(h);
+          }
+          // Upsert each new + existing (existing ones with no changes are no-ops at apply).
+          for (const h of handlesForCompare) {
+            relationOps.push({
+              rowIndex: rowNum,
+              sheet: sheet.sheet,
+              action: "upsert",
+              relationType: rt.key,
+              sourceRef,
+              targetRef: h,
+            });
+          }
+          // Delete relations that disappeared from the cell.
+          for (const tid of existingTargets) {
+            if (!newIds.has(tid)) {
+              relationOps.push({
+                rowIndex: rowNum,
+                sheet: sheet.sheet,
+                action: "delete",
+                relationType: rt.key,
+                sourceRef,
+                targetRef: { kind: "id", id: tid },
+              });
+            }
+          }
+        } else {
+          for (const h of targetHandles) {
+            relationOps.push({
+              rowIndex: rowNum,
+              sheet: sheet.sheet,
+              action: "upsert",
+              relationType: rt.key,
+              sourceRef,
+              targetRef: h,
+            });
+          }
+        }
+
+        inlineRefs.push({
+          rowIndex: rowNum,
+          sheet: sheet.sheet,
+          column: col,
+          sourceRef,
+          targetRefs,
+          relationType: rt.key,
+          targetTypeKey: rt.target_type_key,
+        });
+      }
+    }
+  }
+
+  // ----- Relations sheet --------------------------------------------------
+  if (parsed.relationRows.length > 0) {
+    for (let i = 0; i < parsed.relationRows.length; i++) {
+      const raw = parsed.relationRows[i];
+      const rowNum = i + 2;
+      const relType = str(raw["relation_type"]);
+      if (!relType) {
+        errors.push({
+          row: rowNum,
+          column: "relation_type",
+          message: t("import.errors.relationTypeRequired"),
+        });
+        continue;
+      }
+      const rt = relationTypes.find((r) => r.key === relType);
+      if (!rt) {
+        errors.push({
+          row: rowNum,
+          column: "relation_type",
+          message: t("import.errors.unknownRelationType", { type: relType }),
+        });
+        continue;
+      }
+      const action = (str(raw["action"]) || "upsert").toLowerCase();
+      if (action !== "upsert" && action !== "delete") {
+        errors.push({
+          row: rowNum,
+          column: "action",
+          message: t("import.errors.invalidRelationAction", { action }),
+        });
+        continue;
+      }
+      const sourceTypeKey = str(raw["source_type"]) || rt.source_type_key;
+      const targetTypeKey = str(raw["target_type"]) || rt.target_type_key;
+      const sourceRefStr = str(raw["source_ref"]);
+      const targetRefStr = str(raw["target_ref"]);
+      const sourceHandle = resolveRef(
+        sourceTypeKey,
+        sourceRefStr,
+        rowNum,
+        RELATIONS_SHEET_NAME,
+        "source_ref",
+      );
+      const targetHandle = resolveRef(
+        targetTypeKey,
+        targetRefStr,
+        rowNum,
+        RELATIONS_SHEET_NAME,
+        "target_ref",
+      );
+      if (!sourceHandle || !targetHandle) continue;
+      // Parse attr_* columns into an attributes payload using the relation type's schema.
+      const attrFields = rt.attributes_schema || [];
+      const attributes: Record<string, unknown> = {};
+      for (const f of attrFields) {
+        const cell = str(raw[`attr_${f.key}`]);
+        if (cell === "") continue;
+        // Type coercion mirrors the card attribute path; cost/number → Number, boolean, etc.
+        if (f.type === "number" || f.type === "cost") {
+          const n = Number(cell);
+          if (!isNaN(n)) attributes[f.key] = n;
+        } else if (f.type === "boolean") {
+          const lower = cell.toLowerCase();
+          if (TRUTHY.has(lower)) attributes[f.key] = true;
+          else if (FALSY.has(lower)) attributes[f.key] = false;
+        } else {
+          attributes[f.key] = cell;
+        }
+      }
+      relationOps.push({
+        rowIndex: rowNum,
+        sheet: RELATIONS_SHEET_NAME,
+        action: action as "upsert" | "delete",
+        relationType: relType,
+        sourceRef: sourceHandle,
+        targetRef: targetHandle,
+        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+        description: str(raw["description"]) || undefined,
+      });
+    }
+  }
+
+  void inlineRefs;
+  return {
+    errors,
+    warnings,
+    creates,
+    updates,
+    skipped,
+    totalRows,
+    relationOps,
+    meta,
+  };
 }
 
 // ---- Core: execute import ------------------------------------------------
@@ -841,11 +1446,15 @@ export async function executeImport(
   report: ImportReport,
   onProgress?: (done: number, total: number) => void,
 ): Promise<ImportResult> {
-  const total = report.creates.length + report.updates.length;
+  const total =
+    report.creates.length + report.updates.length + report.relationOps.length;
   let done = 0;
   let created = 0;
   let updated = 0;
   let failed = 0;
+  let relationsUpserted = 0;
+  let relationsDeleted = 0;
+  let relationsFailed = 0;
   const failedDetails: { row: number; message: string }[] = [];
 
   // Map old id (from file) → new id (from server) for parent_id resolution
@@ -939,5 +1548,285 @@ export async function executeImport(
     onProgress?.(done, total);
   }
 
-  return { created, updated, failed, failedDetails };
+  // ----- Relation operations --------------------------------------------
+  // The legacy single-sheet entrypoint never queues relation ops, so this
+  // loop is a no-op for those callers. New `executeMultiSheetImport` does
+  // its own bulk relation apply (chunked) so we don't double-up here.
+  for (const op of report.relationOps) {
+    try {
+      const payload: {
+        action: "upsert" | "delete";
+        type: string;
+        source: { id?: string; type?: string; name?: string; parent_path?: string[] };
+        target: { id?: string; type?: string; name?: string; parent_path?: string[] };
+        attributes?: Record<string, unknown>;
+        description?: string;
+      } = {
+        action: op.action,
+        type: op.relationType,
+        source: refHandleToPayload(op.sourceRef),
+        target: refHandleToPayload(op.targetRef),
+        attributes: op.attributes,
+        description: op.description,
+      };
+      const resp = await api.post<{
+        results: { status: "upserted" | "deleted" | "noop" | "failed"; error?: string }[];
+      }>("/relations/bulk", { operations: [{ row_index: op.rowIndex, ...payload }] });
+      const r = resp.results[0];
+      if (r.status === "upserted") relationsUpserted++;
+      else if (r.status === "deleted") relationsDeleted++;
+      else if (r.status === "failed") {
+        relationsFailed++;
+        failedDetails.push({ row: op.rowIndex, message: r.error ?? t("import.errors.unknown") });
+      }
+    } catch (e) {
+      relationsFailed++;
+      failedDetails.push({
+        row: op.rowIndex,
+        message: e instanceof Error ? e.message : t("import.errors.unknown"),
+      });
+    }
+    done++;
+    onProgress?.(done, total);
+  }
+
+  return {
+    created,
+    updated,
+    failed,
+    relationsUpserted,
+    relationsDeleted,
+    relationsFailed,
+    failedDetails,
+  };
+}
+
+function refHandleToPayload(
+  handle: CardRefHandle,
+): { id?: string; type?: string; name?: string; parent_path?: string[] } {
+  if (handle.kind === "id") return { id: handle.id };
+  // pathKey form: `type|seg1/seg2/.../name` (lowercased). We can't recover
+  // the casing, but the resolver is case-insensitive so that's fine.
+  const segs = handle.pathKey.split("|")[1]?.split("/") ?? [];
+  if (segs.length === 0) return { type: handle.type };
+  const name = segs[segs.length - 1];
+  const parentPath = segs.slice(0, -1);
+  return { type: handle.type, name, parent_path: parentPath };
+}
+
+/**
+ * Multi-sheet executor. Uses the new backend bulk endpoints so a 500-row
+ * workbook doesn't fire 500 HTTP requests.
+ *
+ * Phases:
+ *   1. `POST /cards/bulk-create` (chunked) for new cards. Captures the
+ *      server-assigned UUID for each row's own path key so relation ops
+ *      that referenced a same-batch row can swap their pathKey for a real id.
+ *   2. Per-row `PATCH /cards/{id}` for updates — kept per-row because
+ *      the patch logic still computes a diff against the existing card
+ *      and applying that as a bulk would need a richer endpoint. Tags
+ *      stay per-row for the same reason.
+ *   3. `POST /relations/bulk` (chunked) for the queued relation operations.
+ */
+export async function executeMultiSheetImport(
+  report: ImportReport,
+  onProgress?: (done: number, total: number) => void,
+): Promise<ImportResult> {
+  const total =
+    report.creates.length + report.updates.length + report.relationOps.length;
+  let done = 0;
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+  let relationsUpserted = 0;
+  let relationsDeleted = 0;
+  let relationsFailed = 0;
+  const failedDetails: { row: number; message: string }[] = [];
+
+  // pathKey → server uuid, populated as bulk-create finishes.
+  const pathToId = new Map<string, string>();
+  // file row's `parsed.id` (legacy parent_id form) → server id
+  const idMapping = new Map<string, string>();
+
+  // Build the bulk-create payload from the topo-sorted creates so that
+  // parents land before children inside the chunk.
+  const sortedCreates = topoSortCreates(report.creates);
+  const CHUNK = 200;
+  for (let i = 0; i < sortedCreates.length; i += CHUNK) {
+    const chunk = sortedCreates.slice(i, i + CHUNK);
+    const body = {
+      cards: chunk.map((row) => {
+        const d = row.data as Record<string, unknown>;
+        const parentSegments = row.parentPath;
+        const lastSeg = parentSegments && parentSegments.length > 0
+          ? parentSegments[parentSegments.length - 1]
+          : undefined;
+        const parentPath = parentSegments && parentSegments.length > 1
+          ? parentSegments.slice(0, -1)
+          : parentSegments && parentSegments.length === 1
+            ? []
+            : undefined;
+        // Prefer resolved parent ids (parent referenced an existing card)
+        // over name-based refs. Otherwise hand a name+path to the server.
+        const parentId = (d.parent_id as string | undefined)
+          ?? (row.parentId && idMapping.has(row.parentId)
+            ? idMapping.get(row.parentId)
+            : undefined);
+        return {
+          row_index: row.rowIndex,
+          type: row.type,
+          name: (d.name as string) ?? "",
+          subtype: d.subtype as string | undefined,
+          description: d.description as string | undefined,
+          parent_id: parentId,
+          parent_name: parentId ? undefined : lastSeg,
+          parent_path: parentId ? undefined : parentPath,
+          lifecycle: d.lifecycle as Record<string, unknown> | undefined,
+          attributes: d.attributes as Record<string, unknown> | undefined,
+          external_id: d.external_id as string | undefined,
+          alias: d.alias as string | undefined,
+        };
+      }),
+    };
+    try {
+      const resp = await api.post<{
+        results: { row_index: number; status: "created" | "failed"; id?: string; error?: string }[];
+      }>("/cards/bulk-create", body);
+      for (const r of resp.results) {
+        const row = chunk.find((c) => c.rowIndex === r.row_index);
+        if (!row) continue;
+        if (r.status === "created" && r.id) {
+          created++;
+          if (row.id) idMapping.set(row.id, r.id);
+          if (row.ownPathKey) pathToId.set(row.ownPathKey, r.id);
+          if (row.tagIds && row.tagIds.length > 0) {
+            try {
+              await api.post(`/cards/${r.id}/tags`, row.tagIds);
+            } catch {
+              // Non-fatal — same behaviour as legacy importer.
+            }
+          }
+        } else {
+          failed++;
+          failedDetails.push({
+            row: row.rowIndex,
+            message: r.error ?? t("import.errors.unknown"),
+          });
+        }
+      }
+    } catch (e) {
+      // Whole-chunk failure — count everything as failed so the user sees the totals.
+      for (const row of chunk) {
+        failed++;
+        failedDetails.push({
+          row: row.rowIndex,
+          message: e instanceof Error ? e.message : t("import.errors.unknown"),
+        });
+      }
+    }
+    done += chunk.length;
+    onProgress?.(done, total);
+  }
+
+  // Per-row updates (existing endpoint). Tags follow the same logic as the
+  // legacy importer.
+  for (const row of report.updates) {
+    try {
+      const { patch } = buildPatch(row.data, row.existing!);
+      let didSomething = false;
+      if (Object.keys(patch).length > 0) {
+        await api.patch(`/cards/${row.id}`, patch);
+        didSomething = true;
+      }
+      if (row.tagIds !== undefined && row.existing) {
+        const oldIds = new Set((row.existing.tags || []).map((tg) => tg.id));
+        const newIds = new Set(row.tagIds);
+        const toAdd = [...newIds].filter((id) => !oldIds.has(id));
+        const toRemove = [...oldIds].filter((id) => !newIds.has(id));
+        if (toAdd.length > 0) {
+          await api.post(`/cards/${row.id}/tags`, toAdd);
+          didSomething = true;
+        }
+        for (const id of toRemove) {
+          await api.delete(`/cards/${row.id}/tags/${id}`);
+          didSomething = true;
+        }
+      }
+      if (didSomething) updated++;
+    } catch (e) {
+      failed++;
+      failedDetails.push({
+        row: row.rowIndex,
+        message: e instanceof Error ? e.message : t("import.errors.unknown"),
+      });
+    }
+    done++;
+    onProgress?.(done, total);
+  }
+
+  // Relation ops in chunks of 200. We rewrite pathKey refs into name+path
+  // refs (or, when the bulk-create has already assigned an id, into the
+  // resolved UUID directly) just before sending.
+  function materialize(handle: CardRefHandle): {
+    id?: string;
+    type?: string;
+    name?: string;
+    parent_path?: string[];
+  } {
+    if (handle.kind === "id") return { id: handle.id };
+    const resolved = pathToId.get(handle.pathKey);
+    if (resolved) return { id: resolved };
+    return refHandleToPayload(handle);
+  }
+
+  for (let i = 0; i < report.relationOps.length; i += CHUNK) {
+    const chunk = report.relationOps.slice(i, i + CHUNK);
+    const body = {
+      operations: chunk.map((op) => ({
+        row_index: op.rowIndex,
+        action: op.action,
+        type: op.relationType,
+        source: materialize(op.sourceRef),
+        target: materialize(op.targetRef),
+        attributes: op.attributes,
+        description: op.description,
+      })),
+    };
+    try {
+      const resp = await api.post<{
+        results: { row_index: number; status: string; error?: string }[];
+      }>("/relations/bulk", body);
+      for (const r of resp.results) {
+        if (r.status === "upserted") relationsUpserted++;
+        else if (r.status === "deleted") relationsDeleted++;
+        else if (r.status === "failed") {
+          relationsFailed++;
+          failedDetails.push({
+            row: r.row_index,
+            message: r.error ?? t("import.errors.unknown"),
+          });
+        }
+      }
+    } catch (e) {
+      for (const op of chunk) {
+        relationsFailed++;
+        failedDetails.push({
+          row: op.rowIndex,
+          message: e instanceof Error ? e.message : t("import.errors.unknown"),
+        });
+      }
+    }
+    done += chunk.length;
+    onProgress?.(done, total);
+  }
+
+  return {
+    created,
+    updated,
+    failed,
+    relationsUpserted,
+    relationsDeleted,
+    relationsFailed,
+    failedDetails,
+  };
 }

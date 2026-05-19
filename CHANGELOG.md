@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.23.0] - 2026-05-19
+
+LeanIX-style multi-sheet spreadsheet import / export with relations: a single workbook can now round-trip a sub-landscape — cards across any number of types plus the relations between them — without ever exposing UUIDs.
+
+### Added
+- **Multi-sheet workbook format.** Inventory exports produce one sheet per card type (Application, Business Capability, IT Component, …), plus an optional `Relations` sheet for relation types that carry attributes (cost, description), plus a `_Meta` sheet with the format version. Mixed-type exports become fully editable in one file.
+- **Inline relation columns.** Each card sheet carries a `rel:<relation_type_key>` column for every relation type whose source is that card type. Cell values are comma-separated target card references — by name when unique, with a `parent_path/name` prefix when needed to disambiguate. Editing a cell in Excel and re-importing creates / deletes the implied relations declaratively.
+- **`Relations` sheet for attribute-bearing relations.** Source / target are referenced the same way as inline cells, plus per-attribute `attr_<key>` columns and an `action` column (`upsert` / `delete`) for explicit graph mutations.
+- **Bulk endpoints.** `POST /cards/bulk-create` performs server-side topological sort and name-based parent resolution; `POST /cards/resolve-refs` resolves a batch of human-readable references in a single round-trip; `POST /relations/bulk` upserts / deletes relations with cardinality + source/target type validation. Large imports now run in ~N/200 round-trips instead of N.
+- **Ambiguity surfaced before any write.** The import preview shows the candidate paths whenever a relation target's bare name matches more than one existing card. Errors block the apply until the user disambiguates by adding the full path.
+- **Relation diff chips in the import preview** — "X relations to add", "Y relations to remove" — and matching status chips on the completion screen.
+
+### Changed
+- **`POST /relations/bulk` enforces cardinality.** `1:1` relation types reject a second relation from the same source or to the same target; `1:n` rejects a second relation from the same source. Each row succeeds or fails independently — the rest of the batch is unaffected.
+- **Importer matches updates by `(type, parent_path, name)`** when no UUID is supplied, so exports edited in Excel without an `id` column still round-trip cleanly.
+
 ## [1.22.2] - 2026-05-18
 
 ### Fixed
