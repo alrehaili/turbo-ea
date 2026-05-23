@@ -703,7 +703,7 @@
         "title": "Body_upload_logo_api_v1_settings_logo_post",
         "type": "object"
       },
-      "Body_upload_snapshot_api_v1_migration_leanix_upload_post": {
+      "Body_upload_snapshot_api_v1_migration_upload_post": {
         "properties": {
           "file": {
             "contentMediaType": "application/octet-stream",
@@ -718,13 +718,19 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "source_key": {
+            "description": "Registered source adapter key (e.g. 'leanix')",
+            "title": "Source Key",
+            "type": "string"
           }
         },
         "required": [
+          "source_key",
           "name",
           "file"
         ],
-        "title": "Body_upload_snapshot_api_v1_migration_leanix_upload_post",
+        "title": "Body_upload_snapshot_api_v1_migration_upload_post",
         "type": "object"
       },
       "BookmarkCreate": {
@@ -4756,6 +4762,10 @@
             ],
             "title": "Snapshot Version"
           },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          },
           "stats": {
             "anyOf": [
               {
@@ -4787,6 +4797,7 @@
         "required": [
           "id",
           "name",
+          "source_type",
           "status",
           "file_hash",
           "file_size",
@@ -9753,6 +9764,32 @@
         "title": "SoAWUpdate",
         "type": "object"
       },
+      "SourceOut": {
+        "properties": {
+          "accepted_extensions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepted Extensions",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "accepted_extensions"
+        ],
+        "title": "SourceOut",
+        "type": "object"
+      },
       "SsoCallbackRequest": {
         "properties": {
           "code": {
@@ -11866,8 +11903,12 @@
             "title": "Id",
             "type": "string"
           },
-          "leanix_id": {
-            "title": "Leanix Id",
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "title": "Source Type",
             "type": "string"
           },
           "status": {
@@ -11889,7 +11930,8 @@
         "required": [
           "id",
           "entity_kind",
-          "leanix_id",
+          "source_id",
+          "source_type",
           "card_type_key",
           "action",
           "status",
@@ -20287,9 +20329,27 @@
         ]
       }
     },
-    "/api/v1/migration/leanix": {
+    "/api/v1/migration": {
       "get": {
-        "operationId": "list_migrations_api_v1_migration_leanix_get",
+        "operationId": "list_migrations_api_v1_migration_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Type"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -20298,12 +20358,22 @@
                   "items": {
                     "$ref": "#/components/schemas/MigrationOut"
                   },
-                  "title": "Response List Migrations Api V1 Migration Leanix Get",
+                  "title": "Response List Migrations Api V1 Migration Get",
                   "type": "array"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "List Migrations",
@@ -20312,14 +20382,40 @@
         ]
       }
     },
-    "/api/v1/migration/leanix/upload": {
+    "/api/v1/migration/sources": {
+      "get": {
+        "description": "Return every registered source adapter so the picker can render them.",
+        "operationId": "list_sources_api_v1_migration_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceOut"
+                  },
+                  "title": "Response List Sources Api V1 Migration Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/upload": {
       "post": {
-        "operationId": "upload_snapshot_api_v1_migration_leanix_upload_post",
+        "operationId": "upload_snapshot_api_v1_migration_upload_post",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_upload_snapshot_api_v1_migration_leanix_upload_post"
+                "$ref": "#/components/schemas/Body_upload_snapshot_api_v1_migration_upload_post"
               }
             }
           },
@@ -20353,9 +20449,9 @@
         ]
       }
     },
-    "/api/v1/migration/leanix/{migration_id}": {
+    "/api/v1/migration/{migration_id}": {
       "delete": {
-        "operationId": "delete_migration_api_v1_migration_leanix__migration_id__delete",
+        "operationId": "delete_migration_api_v1_migration__migration_id__delete",
         "parameters": [
           {
             "in": "path",
@@ -20389,7 +20485,7 @@
         ]
       },
       "get": {
-        "operationId": "get_migration_api_v1_migration_leanix__migration_id__get",
+        "operationId": "get_migration_api_v1_migration__migration_id__get",
         "parameters": [
           {
             "in": "path",
@@ -20430,9 +20526,9 @@
         ]
       }
     },
-    "/api/v1/migration/leanix/{migration_id}/apply": {
+    "/api/v1/migration/{migration_id}/apply": {
       "post": {
-        "operationId": "apply_migration_endpoint_api_v1_migration_leanix__migration_id__apply_post",
+        "operationId": "apply_migration_endpoint_api_v1_migration__migration_id__apply_post",
         "parameters": [
           {
             "in": "path",
@@ -20473,10 +20569,10 @@
         ]
       }
     },
-    "/api/v1/migration/leanix/{migration_id}/errors.csv": {
+    "/api/v1/migration/{migration_id}/errors.csv": {
       "get": {
         "description": "CSV report of every staged row in `error` status for this migration.",
-        "operationId": "download_error_report_api_v1_migration_leanix__migration_id__errors_csv_get",
+        "operationId": "download_error_report_api_v1_migration__migration_id__errors_csv_get",
         "parameters": [
           {
             "in": "path",
@@ -20515,9 +20611,9 @@
         ]
       }
     },
-    "/api/v1/migration/leanix/{migration_id}/preview": {
+    "/api/v1/migration/{migration_id}/preview": {
       "get": {
-        "operationId": "preview_migration_api_v1_migration_leanix__migration_id__preview_get",
+        "operationId": "preview_migration_api_v1_migration__migration_id__preview_get",
         "parameters": [
           {
             "in": "path",

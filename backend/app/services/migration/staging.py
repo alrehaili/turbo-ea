@@ -66,7 +66,7 @@ def map_relation(source: MigrationSource, native_rel: str) -> str | None:
     onto ``SourceEntity.parent_id`` so they should not be staged as
     relations.
     """
-    hierarchy = getattr(source, "hierarchy_relations", frozenset())
+    hierarchy: frozenset[str] = getattr(source, "hierarchy_relations", frozenset())
     if native_rel in hierarchy:
         return None
     return source.relation_mapping.get(native_rel)
@@ -385,7 +385,7 @@ async def stage_relations(
         if rt.is_custom and rt.name not in source.relation_mapping
     }
 
-    hierarchy_relations = getattr(source, "hierarchy_relations", frozenset())
+    hierarchy_relations: frozenset[str] = getattr(source, "hierarchy_relations", frozenset())
 
     for rel in snapshot.relations:
         # Skip hierarchy edges — already folded into Card.parent_id.
