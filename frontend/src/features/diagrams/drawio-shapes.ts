@@ -3188,3 +3188,66 @@ export function resetViewColors(
   }
   return touched;
 }
+
+/**
+ * Add (or refresh) the card-type icon on every card-shaped cell already on the
+ * canvas. Used by the "Apply card-type icons" toolbar action so cards placed on
+ * a diagram before the icon feature existed can be upgraded in one click.
+ *
+ * Only touches rounded-rect card cells (those carrying a `cardType` attribute);
+ * swimlane containers, ellipses, images and other hand-drawn shapes are skipped
+ * so their geometry is preserved. The operation is additive and idempotent —
+ * existing icon tokens are stripped and re-applied from the current metamodel,
+ * so it also corrects any drift. Cells whose type has no bundled icon are left
+ * as a plain coloured rectangle.
+ */
+export function applyCardTypeIcons(
+  iframe: HTMLIFrameElement,
+  iconByType: Map<string, string>,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.value?.getAttribute) continue;
+      if (cell.edge) continue;
+      const cardType = cell.value.getAttribute("cardType");
+      if (!cardType) continue;
+      const styleStr = (model.getStyle(cell) || "") as string;
+      // Preserve swimlane containers / ellipses / images / user shapes — only
+      // our default-rectangle card cells (no `shape=`) and already-iconed
+      // `shape=label` cells are eligible.
+      const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+      if (shapeMatch && shapeMatch[1] !== "label") continue;
+      const kept = styleStr
+        .split(";")
+        .filter(Boolean)
+        .filter(
+          (p) =>
+            !(
+              p === "shape=label" ||
+              p.startsWith("image=") ||
+              p.startsWith("imageAlign=") ||
+              p.startsWith("imageVerticalAlign=") ||
+              p.startsWith("imageWidth=") ||
+              p.startsWith("imageHeight=") ||
+              p.startsWith("spacing")
+            ),
+        );
+      const next = kept.concat(iconStyleParts(iconByType.get(cardType))).join(";");
+      if (next !== styleStr) {
+        model.setStyle(cell, next);
+        touched += 1;
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
+}

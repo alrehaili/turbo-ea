@@ -70,6 +70,7 @@ import {
   getNestedCardIds,
   applyViewToGraph,
   resetViewColors,
+  applyCardTypeIcons,
 } from "./drawio-shapes";
 import type {
   HierarchyChild,
@@ -2452,6 +2453,24 @@ export default function DiagramEditor() {
     }
   }, [view, collectCanvasCards, t]);
 
+  /** Upgrade cards already on the canvas with their card-type icon. Lets users
+   *  add icons to diagrams created before the icon feature existed. */
+  const handleApplyIcons = useCallback(() => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    const iconByType = new Map<string, string>(
+      fsTypesRef.current
+        .filter((tp) => tp.icon)
+        .map((tp) => [tp.key, tp.icon] as const),
+    );
+    const touched = applyCardTypeIcons(frame, iconByType);
+    setSnackMsg(
+      touched > 0
+        ? t("editor.toolbar.iconsApplied", { count: touched })
+        : t("editor.toolbar.iconsNoneToApply"),
+    );
+  }, [t]);
+
   // Re-apply the view whenever the user picks a new perspective or the
   // diagram object changes (xml loaded / saved). Synced-cell additions
   // also trigger re-application via syncOpen / refreshSyncPanel hooks.
@@ -2594,6 +2613,14 @@ export default function DiagramEditor() {
           {diagram.name}
         </Typography>
         {saving && <CircularProgress size={16} sx={{ ml: 1 }} />}
+
+        {/* Apply card-type icons to cards already on the canvas — lets older
+            diagrams pick up the type icons added by newer inserts. */}
+        <Tooltip title={t("editor.toolbar.applyIconsTooltip")}>
+          <IconButton size="small" onClick={handleApplyIcons}>
+            <MaterialSymbol icon="emoji_symbols" size={20} />
+          </IconButton>
+        </Tooltip>
 
         {/* View perspective dropdown (Phase 5) */}
         <ViewSelector
