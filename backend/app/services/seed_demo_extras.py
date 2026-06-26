@@ -26,6 +26,7 @@ from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.saved_report import SavedReport
 from app.models.stakeholder import Stakeholder
+from app.models.standard import Standard, StandardPrinciple
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
@@ -1349,6 +1350,77 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
             principle_count += 1
         await db.flush()
     counts["principles"] = principle_count
+
+    # Seed demo standards linked to principles
+    standard_count = 0
+    existing_standards = await db.execute(select(Standard.id).limit(1))
+    if existing_standards.scalar_one_or_none() is None:
+        # Get seeded principles to link to standards
+        principles_list = (
+            (await db.execute(select(EAPrinciple).order_by(EAPrinciple.sort_order))).scalars().all()
+        )
+
+        standards_data = [
+            {
+                "title": "Approved Relational Database",
+                "description": "PostgreSQL is the standard relational database for new applications.",
+                "rationale": "PostgreSQL provides open-source, enterprise-grade ACID compliance, JSON support, and strong community adoption.",
+                "implications": "All new RDBMS selections must use PostgreSQL unless explicitly exempted.\nExisting Oracle/SQL Server systems remain supported through end-of-life.",
+                "principle_indices": [0] if principles_list else [],
+            },
+            {
+                "title": "Cloud-First Infrastructure",
+                "description": "New deployments default to Azure cloud services.",
+                "rationale": "Cloud-first reduces operational overhead, enables auto-scaling, and aligns with our digital transformation roadmap.",
+                "implications": "On-premise deployments require business case justification.\nAll new infrastructure should evaluate Azure services before considering alternatives.",
+                "principle_indices": [0, 1]
+                if len(principles_list) >= 2
+                else ([0] if principles_list else []),
+            },
+            {
+                "title": "API-First Integration",
+                "description": "System integrations use REST or event-driven APIs, not database or file-based coupling.",
+                "rationale": "API-first enables loose coupling, faster iteration, and independent scaling of services.",
+                "implications": "Direct database access between systems is prohibited.\nLegacy file-exchange integrations must be migrated to event-driven pub/sub within 12 months.",
+                "principle_indices": [1]
+                if len(principles_list) >= 2
+                else ([0] if principles_list else []),
+            },
+        ]
+
+        for idx, std_data in enumerate(standards_data):
+            std_id = uuid.uuid4()
+            db.add(
+                Standard(
+                    id=std_id,
+                    title=std_data["title"],
+                    description=std_data["description"],
+                    rationale=std_data["rationale"],
+                    implications=std_data["implications"],
+                    is_active=True,
+                    sort_order=(idx + 1) * 10,
+                )
+            )
+            standard_count += 1
+
+        await db.flush()
+
+        # Link standards to principles (all standards created above are still in the session)
+        standards_list = (
+            (await db.execute(select(Standard).order_by(Standard.sort_order))).scalars().all()
+        )
+        for std, std_data in zip(standards_list, standards_data):
+            for p_idx in std_data["principle_indices"]:
+                if p_idx < len(principles_list):
+                    db.add(
+                        StandardPrinciple(
+                            standard_id=std.id,
+                            principle_id=principles_list[p_idx].id,
+                        )
+                    )
+        await db.flush()
+
+    counts["standards"] = standard_count
 
     await db.commit()
     return counts
