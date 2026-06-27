@@ -52,5 +52,16 @@
   "userMenu.valueStreamCatalogue": "价值流目录",
   "userMenu.viewAsRole": "以角色身份查看…",
   "impersonation.banner": "正在以 {{role}} 身份查看",
-  "impersonation.stop": "停止"
+  "impersonation.stop": "停止",
+  "reports.transformationRoadmap": "转型路线图",
+  "reports.changeImpact": "变更影响",
+  "reports.strategyMap": "战略地图",
+  "reports.rationalization": "应用合理化",
+  "reports.freshness": "仓库新鲜度",
+  "reports.techStandards": "技术雷达",
+  "reports.resilience": "韧性",
+  "reports.arb": "评审委员会",
+  "reports.scenarios": "场景",
+  "reports.dataFlow": "数据流",
+  "reports.integration": "集成"
 }

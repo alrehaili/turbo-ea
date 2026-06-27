@@ -52,5 +52,16 @@
   "userMenu.valueStreamCatalogue": "Каталог потоков создания ценности",
   "userMenu.viewAsRole": "Просмотр в роли…",
   "impersonation.banner": "Просмотр как {{role}}",
-  "impersonation.stop": "Остановить"
+  "impersonation.stop": "Остановить",
+  "reports.transformationRoadmap": "Дорожная карта трансформации",
+  "reports.changeImpact": "Влияние изменений",
+  "reports.strategyMap": "Стратегическая карта",
+  "reports.rationalization": "Рационализация приложений",
+  "reports.freshness": "Актуальность репозитория",
+  "reports.techStandards": "Технологический радар",
+  "reports.resilience": "Отказоустойчивость",
+  "reports.arb": "Архитектурный совет",
+  "reports.scenarios": "Сценарии",
+  "reports.dataFlow": "Поток данных",
+  "reports.integration": "Интеграции"
 }

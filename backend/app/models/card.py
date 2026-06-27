@@ -28,6 +28,17 @@ class Card(Base, UUIDMixin, TimestampMixin):
     external_id: Mapped[str | None] = mapped_column(String(500))
     alias: Mapped[str | None] = mapped_column(String(500))
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Repository-freshness metadata (Wave 2 #4). last_confirmed_at is stamped
+    # when a steward confirms the card is still accurate; source_system records
+    # the system of record the data came from; confidence is a coarse
+    # low/medium/high data-confidence marker. last_confirmed_at is instance-local
+    # operational state (like archived_at) and is intentionally NOT carried in the
+    # workspace-transfer bundle; source_system + confidence ARE transferred.
+    last_confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+    source_system: Mapped[str | None] = mapped_column(String(200))
+    confidence: Mapped[str | None] = mapped_column(String(20))
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )

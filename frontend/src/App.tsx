@@ -31,7 +31,22 @@ const PortfolioReport = lazy(() => import("@/features/reports/PortfolioReport"))
 const FlexiblePortfolioReport = lazy(() => import("@/features/reports/FlexiblePortfolioReport"));
 const CapabilityMapReport = lazy(() => import("@/features/reports/CapabilityMapReport"));
 const LifecycleReport = lazy(() => import("@/features/reports/LifecycleReport"));
+const TransformationRoadmap = lazy(() => import("@/features/reports/TransformationRoadmap"));
 const DependencyReport = lazy(() => import("@/features/reports/DependencyReport"));
+const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
+const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStrategyMap"));
+const ApplicationRationalizationBoard = lazy(
+  () => import("@/features/rationalization/ApplicationRationalizationBoard"),
+);
+const RepositoryFreshnessView = lazy(() => import("@/features/reports/RepositoryFreshnessView"));
+const TechnologyStandardsRadar = lazy(
+  () => import("@/features/tech-standards/TechnologyStandardsRadar"),
+);
+const ResilienceView = lazy(() => import("@/features/reports/ResilienceView"));
+const ArchitectureReviewBoard = lazy(() => import("@/features/arb/ArchitectureReviewBoard"));
+const ScenarioPlanning = lazy(() => import("@/features/scenarios/ScenarioPlanning"));
+const DataFlowMap = lazy(() => import("@/features/reports/DataFlowMap"));
+const IntegrationStatusView = lazy(() => import("@/features/reports/IntegrationStatusView"));
 const CostReport = lazy(() => import("@/features/reports/CostReport"));
 const MatrixReport = lazy(() => import("@/features/reports/MatrixReport"));
 const DataQualityReport = lazy(() => import("@/features/reports/DataQualityReport"));
@@ -157,7 +172,18 @@ function AppRoutes() {
                 <Route path="/reports/flexible-portfolio" element={<FlexiblePortfolioReport />} />
                 <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
                 <Route path="/reports/lifecycle" element={<LifecycleReport />} />
+                <Route path="/reports/transformation-roadmap" element={<TransformationRoadmap />} />
                 <Route path="/reports/dependencies" element={<DependencyReport />} />
+                <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
+                <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />
+                <Route path="/rationalization" element={<ApplicationRationalizationBoard />} />
+                <Route path="/reports/freshness" element={<RepositoryFreshnessView />} />
+                <Route path="/tech-standards" element={<TechnologyStandardsRadar />} />
+                <Route path="/reports/resilience" element={<ResilienceView />} />
+                <Route path="/arb" element={<ArchitectureReviewBoard />} />
+                <Route path="/scenarios" element={<ScenarioPlanning />} />
+                <Route path="/reports/data-flow" element={<DataFlowMap />} />
+                <Route path="/reports/integration-status" element={<IntegrationStatusView />} />
                 <Route path="/reports/cost" element={<CostReport />} />
                 <Route path="/reports/matrix" element={<MatrixReport />} />
                 <Route path="/reports/data-quality" element={<DataQualityReport />} />

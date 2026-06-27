@@ -52,5 +52,16 @@
   "userMenu.valueStreamCatalogue": "Catalogo dei flussi di valore",
   "userMenu.viewAsRole": "Visualizza come ruolo…",
   "impersonation.banner": "Visualizzazione come {{role}}",
-  "impersonation.stop": "Interrompi"
+  "impersonation.stop": "Interrompi",
+  "reports.transformationRoadmap": "Roadmap di trasformazione",
+  "reports.changeImpact": "Impatto delle modifiche",
+  "reports.strategyMap": "Mappa strategica",
+  "reports.rationalization": "Razionalizzazione app",
+  "reports.freshness": "Aggiornamento del repository",
+  "reports.techStandards": "Radar tecnologico",
+  "reports.resilience": "Resilienza",
+  "reports.arb": "Comitato di revisione",
+  "reports.scenarios": "Scenari",
+  "reports.dataFlow": "Flusso dati",
+  "reports.integration": "Integrazioni"
 }

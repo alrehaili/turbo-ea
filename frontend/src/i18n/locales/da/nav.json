@@ -52,5 +52,16 @@
   "userMenu.valueStreamCatalogue": "Værdistrømskatalog",
   "userMenu.viewAsRole": "Vis som rolle…",
   "impersonation.banner": "Vises som {{role}}",
-  "impersonation.stop": "Stop"
+  "impersonation.stop": "Stop",
+  "reports.transformationRoadmap": "Transformationsplan",
+  "reports.changeImpact": "Ændringspåvirkning",
+  "reports.strategyMap": "Strategikort",
+  "reports.rationalization": "App-rationalisering",
+  "reports.freshness": "Repository-friskhed",
+  "reports.techStandards": "Teknologiradar",
+  "reports.resilience": "Modstandsdygtighed",
+  "reports.arb": "Reviewudvalg",
+  "reports.scenarios": "Scenarier",
+  "reports.dataFlow": "Dataflow",
+  "reports.integration": "Integrationer"
 }

@@ -615,6 +615,8 @@ def _make_cards_applier(user: User):
                     alias=data.get("alias"),
                     status=data.get("status") or "ACTIVE",
                     approval_status=data.get("approval_status") or "DRAFT",
+                    source_system=data.get("source_system"),
+                    confidence=data.get("confidence"),
                     created_by=user.id,
                     updated_by=user.id,
                 )

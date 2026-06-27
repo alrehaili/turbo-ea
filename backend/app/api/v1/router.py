@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     adr,
     ai_suggest,
+    arb,
     auth,
     bookmarks,
     bpm,
@@ -27,12 +28,15 @@ from app.api.v1 import (
     ppm_reports,
     principles_catalogue,
     process_catalogue,
+    rationalization,
     relations,
     reports,
     risk_mitigation_tasks,
     risks,
+    roadmaps,
     roles,
     saved_reports,
+    scenarios,
     servicenow,
     settings,
     soaw,
@@ -40,6 +44,7 @@ from app.api.v1 import (
     stakeholders,
     surveys,
     tags,
+    tech_standards,
     todos,
     turbolens,
     users,
@@ -61,6 +66,7 @@ api_router.include_router(documents.router)
 api_router.include_router(bookmarks.router)
 api_router.include_router(saved_reports.router)
 api_router.include_router(reports.router)
+api_router.include_router(roadmaps.router)
 api_router.include_router(diagrams.router)
 api_router.include_router(soaw.router)
 api_router.include_router(eol.router)
@@ -98,3 +104,7 @@ api_router.include_router(capability_catalogue.router)
 api_router.include_router(process_catalogue.router)
 api_router.include_router(value_stream_catalogue.router)
 api_router.include_router(principles_catalogue.router)
+api_router.include_router(rationalization.router)
+api_router.include_router(tech_standards.router)
+api_router.include_router(arb.router)
+api_router.include_router(scenarios.router)

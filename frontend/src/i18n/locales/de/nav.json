@@ -52,5 +52,16 @@
   "userMenu.valueStreamCatalogue": "Wertstrom-Katalog",
   "userMenu.viewAsRole": "Als Rolle anzeigen…",
   "impersonation.banner": "Anzeige als {{role}}",
-  "impersonation.stop": "Beenden"
+  "impersonation.stop": "Beenden",
+  "reports.transformationRoadmap": "Transformationsfahrplan",
+  "reports.changeImpact": "Änderungsauswirkung",
+  "reports.strategyMap": "Strategie-Karte",
+  "reports.rationalization": "App-Rationalisierung",
+  "reports.freshness": "Repository-Aktualität",
+  "reports.techStandards": "Technologie-Radar",
+  "reports.resilience": "Resilienz",
+  "reports.arb": "Review-Board",
+  "reports.scenarios": "Szenarien",
+  "reports.dataFlow": "Datenfluss",
+  "reports.integration": "Integrationen"
 }

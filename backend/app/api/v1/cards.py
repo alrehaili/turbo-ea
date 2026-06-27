@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -2532,6 +2532,49 @@ async def update_approval_status(
 
     await db.commit()
     return {"approval_status": card.approval_status}
+
+
+@router.post("/{card_id}/confirm")
+async def confirm_card(
+    card_id: str,
+    source_system: str | None = Query(None, max_length=200),
+    confidence: str | None = Query(None, pattern="^(low|medium|high)$"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Stamp a card as freshly confirmed (Repository Freshness View).
+
+    Sets ``last_confirmed_at`` to now and optionally records the system of record
+    and a data-confidence marker. Requires inventory edit rights on the card.
+    """
+    card_uuid = uuid.UUID(card_id)
+    if not await PermissionService.check_permission(
+        db, user, "inventory.edit", card_uuid, "card.edit"
+    ):
+        raise HTTPException(403, "Not enough permissions")
+    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
+    card.last_confirmed_at = datetime.now(timezone.utc)
+    if source_system is not None:
+        card.source_system = source_system or None
+    if confidence is not None:
+        card.confidence = confidence
+    card.updated_by = user.id
+    await event_bus.publish(
+        "card.confirmed",
+        {"id": str(card.id), "last_confirmed_at": card.last_confirmed_at.isoformat()},
+        db=db,
+        card_id=card.id,
+        user_id=user.id,
+    )
+    await db.commit()
+    return {
+        "last_confirmed_at": card.last_confirmed_at.isoformat(),
+        "source_system": card.source_system,
+        "confidence": card.confidence,
+    }
 
 
 @router.get("/{card_id}/my-permissions")

@@ -10,6 +10,7 @@ are applied earlier by the bespoke core sections, so card FKs always resolve.
 
 from __future__ import annotations
 
+from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
@@ -28,12 +29,16 @@ from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
+from app.models.rationalization import CampaignDecision, RationalizationCampaign
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
+from app.models.roadmap import Roadmap, RoadmapMilestone
 from app.models.saved_report import SavedReport
+from app.models.scenario import Scenario, ScenarioChange
 from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
+from app.models.tech_standard import StandardException, TechStandard
 from app.models.todo import Todo
 from app.models.web_portal import WebPortal
 from app.services.workspace_io.entities import EntitySection
@@ -155,6 +160,44 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
+    ),
+    # --- Transformation roadmaps (roadmap before its milestones) ---------
+    EntitySection("Roadmaps", Roadmap, user_fk_columns=("owner_id",)),
+    EntitySection("RoadmapMilestones", RoadmapMilestone, card_fk_columns=("initiative_id",)),
+    # --- Rationalization (campaign before its decisions) -----------------
+    EntitySection(
+        "RationalizationCampaigns",
+        RationalizationCampaign,
+        user_fk_columns=("created_by",),
+    ),
+    EntitySection(
+        "CampaignDecisions",
+        CampaignDecision,
+        card_fk_columns=("card_id", "successor_id", "initiative_id"),
+    ),
+    # --- Technology standards (standard before its exceptions) -----------
+    # replacement_id is an intra-module self-FK; module rows keep their PKs on
+    # import so it resolves verbatim (no remap needed).
+    EntitySection("TechStandards", TechStandard, user_fk_columns=("owner_id",)),
+    EntitySection(
+        "StandardExceptions",
+        StandardException,
+        card_fk_columns=("card_id", "initiative_id"),
+        user_fk_columns=("approver_id", "created_by"),
+    ),
+    # --- Architecture Review Board ---------------------------------------
+    EntitySection(
+        "ArbReviews",
+        ArbReview,
+        card_fk_columns=("subject_card_id",),
+        user_fk_columns=("reviewer_id", "created_by"),
+    ),
+    # --- Scenario planning (scenario before its changes) -----------------
+    EntitySection(
+        "Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")
+    ),
+    EntitySection(
+        "ScenarioChanges", ScenarioChange, card_fk_columns=("target_card_id",)
     ),
     # --- Saved views + surveys -------------------------------------------
     EntitySection("SavedReports", SavedReport, user_fk_columns=("owner_id",)),
