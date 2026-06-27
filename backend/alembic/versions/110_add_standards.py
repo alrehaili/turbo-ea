@@ -5,8 +5,8 @@ more EA principles. The ``standard_principles`` junction is the many-to-many lin
 between a standard and the principles it realises (Admin → Metamodel → Standards,
 GRC → Governance → Standards).
 
-Revision ID: 109
-Revises: 108
+Revision ID: 110
+Revises: 109
 Create Date: 2026-06-26
 """
 
@@ -17,8 +17,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "109"
-down_revision: Union[str, None] = "108"
+revision: str = "110"
+down_revision: Union[str, None] = "109"
 branch_labels: Union[str, None] = None
 depends_on: Union[str, None] = None
 
