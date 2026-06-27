@@ -5,7 +5,7 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [fork-feature] - 2026-06-26
+## [Unreleased - Fork Features]
 
 ### Added
 - **Architecture Standards, linked to Principles.** A new managed entity captures the concrete standards that implement your architecture principles (e.g. "Approved RDBMS is PostgreSQL"). Manage them under **Admin → Metamodel → Standards** — each standard can be linked to one or more EA principles — and browse the active set under **GRC → Governance → Standards**. Standards (and their principle links) are included in the workspace export/import bundle.
