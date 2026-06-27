@@ -4,7 +4,7 @@ O **Metamodelo** define toda a estrutura de dados da sua plataforma — quais ti
 
 ![Configuração do Metamodelo](../assets/img/pt/20_admin_metamodelo.png)
 
-Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele possui sete abas: **Tipos de Card**, **Tipos de Relacionamento**, **Cálculos**, **Tags**, **Grafo do Metamodelo**, **Princípios EA** e **Regulações de Conformidade**.
+Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele possui oito abas: **Tipos de Card**, **Tipos de Relacionamento**, **Cálculos**, **Tags**, **Grafo do Metamodelo**, **Princípios EA**, **Padrões** e **Regulações de Conformidade**.
 
 ## Tipos de Card
 
@@ -167,6 +167,8 @@ Cada princípio tem quatro campos:
 
 Os princípios podem ser **ativados** ou **desativados** individualmente através do interruptor em cada cartão.
 
+Os mesmos controles de criação, edição, ativação e exclusão também estão disponíveis diretamente em **GRC → Governança → Princípios** para usuários com a permissão de administração do metamodelo, permitindo redigir princípios sem sair da visão de governança. Usuários sem essa permissão veem ali os princípios ativos em somente leitura.
+
 ### Importar do Catálogo de princípios
 
 O Turbo EA é fornecido com um **catálogo de referência curado com 10 princípios EA padrão do setor** para que não tenha de começar com uma página em branco. Abra o menu do avatar no canto superior direito e selecione **Catálogos de referência → Catálogo de princípios**. A partir daí pode:
@@ -186,6 +188,14 @@ Quando gera **Insights IA do portfólio** no [Relatório de portfólio](../guide
 - Ações corretivas recomendadas
 
 Por exemplo, um princípio «Comprar SaaS» faria com que a IA sinalize aplicações alojadas on-premise ou em IaaS e sugira prioridades de migração para a cloud.
+
+## Padrões
+
+A aba **Padrões** permite definir os padrões de arquitetura que colocam os seus princípios em prática. Enquanto um princípio é uma crença duradoura («Minimizar a diversidade tecnológica»), um padrão é a especificação concreta e aplicável que o concretiza («O banco de dados relacional aprovado é PostgreSQL»).
+
+Cada padrão tem os mesmos campos de um princípio — **Título**, **Enunciado**, **Justificativa**, **Implicações** — mais um seletor de **Princípios associados**. Associe cada padrão a um ou mais princípios EA para que a rastreabilidade do «porquê» (princípio) ao «o quê» (padrão) seja explícita.
+
+Os padrões podem ser **ativados** ou **desativados** individualmente com o botão em cada cartão. Os mesmos controles de gestão completos (criar, editar, associar princípios, ativar, excluir) também estão disponíveis diretamente em **GRC → Governança → Padrões** para usuários com a permissão de administração do metamodelo; usuários sem ela veem ali os padrões ativos em somente leitura, cada um com os seus princípios associados.
 
 ## Grafo do Metamodelo
 

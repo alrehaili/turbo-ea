@@ -44,6 +44,7 @@
 | **Sektion** | Et grupperbart område af kortdetaljesiden, der indeholder relaterede felter, kan konfigureres pr. korttype |
 | **Underskriver** | En bruger udpeget til at gennemgå og underskrive et ADR- eller SoAW-dokument. Underskrivelsesarbejdsprocessen sporer ventende og fuldførte underskrifter |
 | **SoAW** | Statement of Architecture Work — et formelt TOGAF-dokument, der definerer omfang og leverancer for et initiativ |
+| **Standard (arkitekturstandard)** | En konkret, håndhævelig specifikation, der implementerer et eller flere EA-principper (f.eks. «Godkendt RDBMS er PostgreSQL»). Administreres under Admin → Metamodel → Standarder og vises skrivebeskyttet under GRC → Governance → Standarder |
 | **SSO** | Single Sign-On — login ved hjælp af virksomhedslegitimationsoplysninger via en identitetsudbyder (Microsoft, Google, Okta, OIDC) |
 | **Undertype** | En sekundær klassifikation inden for en korttype (f.eks. har Applikation undertyperne: Business Application, Microservice, AI Agent, Deployment). Hver undertype fungerer som en underskabelon, der kan styre feltsynlighed |
 | **Undertypeskabelon** | Konfigurationen af, hvilke felter der er synlige eller skjulte for en specifik undertype. Administratorer konfigurerer dette i metamodel-administrationen ved at klikke på en undertype-chip |

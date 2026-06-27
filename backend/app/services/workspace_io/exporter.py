@@ -32,8 +32,10 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import diagram_cards
+from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.standard import Standard, StandardPrinciple
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services.workspace_io import bundle as bundle_io
@@ -347,6 +349,25 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows, assets
     )
     section_counts[SHEET_DIAGRAM_CARDS] = len(dc_rows)
+
+    # Standard↔Principle links (bespoke association by title — both endpoints are
+    # title-matched config rows whose PKs are reassigned on import, so raw UUIDs
+    # are meaningless on the target).
+    std_by_id = {s.id: s for s in (await db.execute(select(Standard))).scalars().all()}
+    prin_by_id = {p.id: p for p in (await db.execute(select(EAPrinciple))).scalars().all()}
+    sp_rows: list[dict] = []
+    for link in (await db.execute(select(StandardPrinciple))).scalars().all():
+        std = std_by_id.get(link.standard_id)
+        prin = prin_by_id.get(link.principle_id)
+        if std is None or prin is None:
+            continue
+        sp_rows.append({"standard_title": std.title, "principle_title": prin.title})
+    _emit(
+        schema.SHEET_STANDARD_PRINCIPLES,
+        ("standard_title", "principle_title"),
+        frozenset(),
+        sp_rows,
+    )
 
     # Branding binaries → assets/branding/ with a real extension from the MIME.
     if settings_row and settings_row.custom_logo:

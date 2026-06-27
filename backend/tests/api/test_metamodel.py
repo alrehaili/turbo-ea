@@ -788,3 +788,135 @@ class TestRelationAttributeValues:
         schema = response.json()["attributes_schema"]
         assert schema[0]["label"] == "Renamed Tier"
         assert [o["key"] for o in schema[0]["options"]] == ["b"]
+
+
+# ---------------------------------------------------------------------------
+# Architecture Standards — CRUD + principle links
+# ---------------------------------------------------------------------------
+
+
+async def _create_principle(client, admin, title: str) -> str:
+    resp = await client.post(
+        "/api/v1/metamodel/principles",
+        json={"title": title},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+class TestStandards:
+    async def test_create_with_principle_links(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        p1 = await _create_principle(client, admin, "Minimize technology diversity")
+        p2 = await _create_principle(client, admin, "Buy before build")
+
+        resp = await client.post(
+            "/api/v1/metamodel/standards",
+            json={
+                "title": "Approved RDBMS is PostgreSQL",
+                "description": "Use PostgreSQL for relational data",
+                "principle_ids": [p1, p2],
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201, resp.text
+        data = resp.json()
+        assert data["title"] == "Approved RDBMS is PostgreSQL"
+        assert set(data["principle_ids"]) == {p1, p2}
+
+        listed = await client.get("/api/v1/metamodel/standards", headers=auth_headers(admin))
+        assert listed.status_code == 200
+        rows = listed.json()
+        assert len(rows) == 1
+        assert set(rows[0]["principle_ids"]) == {p1, p2}
+
+    async def test_patch_replaces_principle_links(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        p1 = await _create_principle(client, admin, "Principle A")
+        p2 = await _create_principle(client, admin, "Principle B")
+        created = await client.post(
+            "/api/v1/metamodel/standards",
+            json={"title": "Std", "principle_ids": [p1]},
+            headers=auth_headers(admin),
+        )
+        sid = created.json()["id"]
+
+        patched = await client.patch(
+            f"/api/v1/metamodel/standards/{sid}",
+            json={"principle_ids": [p2]},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200
+        assert patched.json()["principle_ids"] == [p2]
+
+    async def test_patch_without_principle_ids_keeps_links(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        p1 = await _create_principle(client, admin, "Keepme")
+        created = await client.post(
+            "/api/v1/metamodel/standards",
+            json={"title": "Std2", "principle_ids": [p1]},
+            headers=auth_headers(admin),
+        )
+        sid = created.json()["id"]
+
+        patched = await client.patch(
+            f"/api/v1/metamodel/standards/{sid}",
+            json={"is_active": False},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200
+        assert patched.json()["is_active"] is False
+        assert patched.json()["principle_ids"] == [p1]
+
+    async def test_unknown_principle_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        resp = await client.post(
+            "/api/v1/metamodel/standards",
+            json={
+                "title": "Bad",
+                "principle_ids": ["00000000-0000-0000-0000-000000000000"],
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_delete_cascades_links(self, client, db, metamodel_env):
+        from sqlalchemy import select
+
+        from app.models.standard import StandardPrinciple
+
+        admin = metamodel_env["admin"]
+        p1 = await _create_principle(client, admin, "Linked principle")
+        created = await client.post(
+            "/api/v1/metamodel/standards",
+            json={"title": "ToDelete", "principle_ids": [p1]},
+            headers=auth_headers(admin),
+        )
+        sid = created.json()["id"]
+
+        resp = await client.delete(
+            f"/api/v1/metamodel/standards/{sid}", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 204
+        remaining = (await db.execute(select(StandardPrinciple))).scalars().all()
+        assert remaining == []
+
+    async def test_viewer_cannot_write_but_can_read(self, client, db, metamodel_env):
+        viewer = metamodel_env["viewer"]
+        admin = metamodel_env["admin"]
+        await client.post(
+            "/api/v1/metamodel/standards",
+            json={"title": "Readable"},
+            headers=auth_headers(admin),
+        )
+
+        read = await client.get("/api/v1/metamodel/standards", headers=auth_headers(viewer))
+        assert read.status_code == 200
+
+        write = await client.post(
+            "/api/v1/metamodel/standards",
+            json={"title": "Blocked"},
+            headers=auth_headers(viewer),
+        )
+        assert write.status_code == 403

@@ -363,3 +363,57 @@ async def test_diagram_with_card_link_roundtrips(db):
     assert restored.data["thumbnail"] == "data:image/png;base64,AA"  # meta preserved
     links = (await db.execute(select(diagram_cards))).all()
     assert any(row.diagram_id == diag_id and row.card_id == card.id for row in links)
+
+
+async def test_standards_and_principle_links_roundtrip(db):
+    """A standard, the principles it links to, and the Standard↔Principle
+    association survive export → delete → re-import (links resolved by title
+    since both endpoints are reassigned new PKs on import)."""
+    from app.models.ea_principle import EAPrinciple
+    from app.models.standard import Standard, StandardPrinciple
+
+    user = await create_user(db, email="std@test.com", role="admin")
+    p1 = EAPrinciple(title="Minimize technology diversity")
+    p2 = EAPrinciple(title="Buy before build")
+    std = Standard(title="Approved RDBMS is PostgreSQL", description="Use PostgreSQL")
+    db.add_all([p1, p2, std])
+    await db.flush()
+    db.add_all(
+        [
+            StandardPrinciple(standard_id=std.id, principle_id=p1.id),
+            StandardPrinciple(standard_id=std.id, principle_id=p2.id),
+        ]
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Re-import onto the same data is a no-op for the link section.
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    sp_section = next(s for s in result.sections if s.sheet == schema.SHEET_STANDARD_PRINCIPLES)
+    assert sp_section.created == 0 and sp_section.skipped == 2
+
+    # Wipe standards + links, then re-apply: the standard and both links come
+    # back (resolved by title against the re-created principles).
+    await db.execute(delete(StandardPrinciple))
+    await db.execute(delete(Standard))
+    await db.flush()
+
+    result2 = await apply_bundle(db, parse_bundle(raw), user)
+    assert result2.total_failed == 0, result2.as_dict()
+
+    restored = (
+        await db.execute(select(Standard).where(Standard.title == "Approved RDBMS is PostgreSQL"))
+    ).scalar_one()
+    assert restored.description == "Use PostgreSQL"
+    link_count = len(
+        (
+            await db.execute(
+                select(StandardPrinciple).where(StandardPrinciple.standard_id == restored.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert link_count == 2

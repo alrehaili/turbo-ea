@@ -4,7 +4,7 @@ Das **Metamodell** definiert die gesamte Datenstruktur Ihrer Plattform — welch
 
 ![Metamodell-Konfiguration](../assets/img/de/20_admin_metamodell.png)
 
-Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat sieben Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags**, **Metamodell-Graph**, **EA-Prinzipien** und **Compliance-Regulierungen**.
+Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat acht Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags**, **Metamodell-Graph**, **EA-Prinzipien**, **Standards** und **Compliance-Regulierungen**.
 
 ## Kartentypen
 
@@ -167,6 +167,8 @@ Jedes Prinzip hat vier Felder:
 
 Prinzipien können über den Umschalter auf jeder Karte einzeln **aktiviert** oder **deaktiviert** werden.
 
+Dieselben Steuerelemente zum Erstellen, Bearbeiten, Aktivieren und Löschen stehen für Benutzer mit der Metamodell-Administratorberechtigung auch direkt unter **GRC → Governance → Prinzipien** zur Verfügung, sodass Sie Prinzipien pflegen können, ohne die Governance-Ansicht zu verlassen. Benutzer ohne diese Berechtigung sehen dort die aktiven Prinzipien schreibgeschützt.
+
 ### Aus dem Prinzipienkatalog importieren
 
 Turbo EA liefert einen **kuratierten Referenzkatalog mit 10 branchenüblichen EA-Prinzipien**, damit Sie nicht bei null anfangen müssen. Öffnen Sie das Avatar-Menü oben rechts und wählen Sie **Referenzkataloge → Prinzipienkatalog**. Dort können Sie:
@@ -186,6 +188,14 @@ Wenn Sie **KI-Portfolio-Insights** im [Portfolio-Bericht](../guide/reports.md#ai
 - Empfohlene Korrekturmaßnahmen
 
 Beispielsweise würde ein „SaaS kaufen"-Prinzip dazu führen, dass die KI On-Premise- oder IaaS-gehostete Anwendungen markiert und Cloud-Migrationsprioritäten vorschlägt.
+
+## Standards
+
+Der Tab **Standards** ermöglicht die Definition der Architekturstandards, die Ihre Prinzipien in die Praxis umsetzen. Wo ein Prinzip eine dauerhafte Überzeugung ist („Technologievielfalt minimieren“), ist ein Standard die konkrete, durchsetzbare Spezifikation, die es umsetzt („Die genehmigte relationale Datenbank ist PostgreSQL“).
+
+Jeder Standard hat dieselben Felder wie ein Prinzip — **Titel**, **Aussage**, **Begründung**, **Auswirkungen** — plus eine Auswahl **Verknüpfte Prinzipien**. Verknüpfen Sie jeden Standard mit einem oder mehreren EA-Prinzipien, damit die Nachvollziehbarkeit vom „Warum“ (Prinzip) zum „Was“ (Standard) explizit ist.
+
+Standards können einzeln über den Schalter auf jeder Karte **aktiviert** oder **deaktiviert** werden. Dieselben vollständigen Verwaltungsfunktionen (Erstellen, Bearbeiten, Prinzipien verknüpfen, Aktivieren, Löschen) stehen für Benutzer mit der Metamodell-Administratorberechtigung auch direkt unter **GRC → Governance → Standards** zur Verfügung; Benutzer ohne diese Berechtigung sehen die aktiven Standards dort schreibgeschützt, jeweils mit ihren verknüpften Prinzipien.
 
 ## Metamodell-Graph
 

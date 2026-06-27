@@ -44,6 +44,7 @@
 | **Section** | A groupable area of the card detail page containing related fields, configurable per card type |
 | **Signatory** | A user designated to review and sign off on an ADR or SoAW document. The signing workflow tracks pending and completed signatures |
 | **SoAW** | Statement of Architecture Work — a formal TOGAF document defining scope and deliverables for an initiative |
+| **Standard (Architecture Standard)** | A concrete, enforceable specification that implements one or more EA principles (e.g. «Approved RDBMS is PostgreSQL»). Managed in Admin → Metamodel → Standards and shown read-only under GRC → Governance → Standards |
 | **SSO** | Single Sign-On — login using corporate credentials via an identity provider (Microsoft, Google, Okta, OIDC) |
 | **Subtype** | A secondary classification within a card type (e.g., Application has subtypes: Business Application, Microservice, AI Agent, Deployment). Each subtype acts as a sub-template that can control field visibility |
 | **Subtype Template** | The configuration of which fields are visible or hidden for a specific subtype. Admins configure this in the metamodel admin by clicking on a subtype chip |

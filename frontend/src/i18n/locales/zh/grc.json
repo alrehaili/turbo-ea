@@ -11,6 +11,7 @@
   "governance": {
     "subtabs": {
       "principles": "原则",
+      "standards": "标准",
       "decisions": "决策"
     },
     "principles": {
@@ -18,6 +19,13 @@
       "empty": "尚无活跃原则。请在「管理 › 元模型」中定义。",
       "rationale": "理由",
       "implications": "影响"
+    },
+    "standards": {
+      "title": "架构标准",
+      "empty": "尚无启用的标准。请在管理 › 元模型中定义。",
+      "rationale": "理由",
+      "implications": "影响",
+      "linkedPrinciples": "关联原则"
     },
     "decisions": {
       "title": "架构决策",

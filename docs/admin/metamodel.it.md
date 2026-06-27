@@ -4,7 +4,7 @@ Il **Metamodello** definisce l'intera struttura dati della piattaforma — quali
 
 ![Configurazione del metamodello](../assets/img/it/20_admin_metamodello.png)
 
-Navigate su **Admin > Metamodello** per accedere all'editor del metamodello. Ha sette schede: **Tipi di card**, **Tipi di relazione**, **Calcoli**, **Tag**, **Grafo del metamodello**, **Principi EA** e **Regolamenti di conformità**.
+Vai su **Admin > Metamodello** per accedere all'editor del metamodello. Ha otto schede: **Tipi di card**, **Tipi di relazione**, **Calcoli**, **Tag**, **Grafo del metamodello**, **Principi EA**, **Standard** e **Regolamenti di conformità**.
 
 ## Tipi di card
 
@@ -167,6 +167,8 @@ Ogni principio ha quattro campi:
 
 I principi possono essere **attivati** o **disattivati** individualmente tramite l'interruttore su ciascuna scheda.
 
+Gli stessi controlli di creazione, modifica, attivazione ed eliminazione sono disponibili anche direttamente in **GRC → Governance → Principi** per gli utenti con il permesso di amministrazione del metamodello, così da poter redigere i principi senza lasciare la vista di governance. Gli utenti senza tale permesso vi vedono i principi attivi in sola lettura.
+
 ### Importare dal Catalogo dei principi
 
 Turbo EA include un **catalogo di riferimento curato con 10 principi EA standard del settore** in modo da non dover partire da una pagina vuota. Apri il menu dell'avatar in alto a destra e seleziona **Cataloghi di riferimento → Catalogo dei principi**. Da qui puoi:
@@ -186,6 +188,14 @@ Quando generate **Insight IA del portafoglio** nel [Report del portafoglio](../g
 - Azioni correttive raccomandate
 
 Ad esempio, un principio «Acquistare SaaS» farebbe sì che l'IA segnali le applicazioni ospitate on-premise o in IaaS e suggerisca priorità di migrazione cloud.
+
+## Standard
+
+La scheda **Standard** consente di definire gli standard di architettura che mettono in pratica i tuoi principi. Mentre un principio è una convinzione duratura («Minimizzare la diversità tecnologica»), uno standard è la specifica concreta e applicabile che lo realizza («Il database relazionale approvato è PostgreSQL»).
+
+Ogni standard ha gli stessi campi di un principio — **Titolo**, **Enunciato**, **Motivazione**, **Implicazioni** — più un selettore **Principi collegati**. Collega ogni standard a uno o più principi EA in modo che la tracciabilità dal «perché» (principio) al «cosa» (standard) sia esplicita.
+
+Gli standard possono essere **attivati** o **disattivati** singolarmente con l'interruttore su ciascuna scheda. Gli stessi controlli di gestione completi (creare, modificare, collegare principi, attivare, eliminare) sono disponibili anche direttamente in **GRC → Governance → Standard** per gli utenti con il permesso di amministrazione del metamodello; gli utenti che non lo possiedono vi vedono gli standard attivi in sola lettura, ciascuno con i propri principi collegati.
 
 ## Grafo del metamodello
 

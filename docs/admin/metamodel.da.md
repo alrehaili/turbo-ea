@@ -4,7 +4,7 @@
 
 ![Metamodel-konfiguration](../assets/img/en/20_admin_metamodel.png)
 
-Naviger til **Admin > Metamodel** for at få adgang til metamodel-editoren. Den har syv faneblade: **Korttyper**, **Relationstyper**, **Beregninger**, **Tags**, **Metamodel-graf**, **EA-principper** og **Compliance-reguleringer**.
+Naviger til **Admin > Metamodel** for at få adgang til metamodel-editoren. Den har otte faneblade: **Korttyper**, **Relationstyper**, **Beregninger**, **Tags**, **Metamodel-graf**, **EA-principper**, **Standarder** og **Compliance-reguleringer**.
 
 ## Korttyper
 
@@ -167,6 +167,8 @@ Hvert princip har fire felter:
 
 Principper kan **aktiveres** eller **deaktiveres** individuelt ved hjælp af omskifteren på hvert kort.
 
+De samme knapper til oprettelse, redigering, aktivering og sletning er også tilgængelige direkte under **GRC → Governance → Principper** for brugere med Metamodel-administratortilladelsen, så du kan udarbejde principper uden at forlade governance-visningen. Brugere uden den tilladelse ser de aktive principper skrivebeskyttet der.
+
 ### Import fra Principkataloget
 
 Turbo EA leveres med et **kurateret referencekatalog med 10 industristandard EA-principper**, så du ikke skal starte fra en blank side. Åbn avatarmenuen i øverste højre hjørne og vælg **Referencekataloger → Principkatalog**. Derfra kan du:
@@ -186,6 +188,14 @@ Når du genererer **AI Portfolio Insights** på [Porteføljerapporten](../guide/
 - Anbefalede korrigerende handlinger
 
 For eksempel ville et "Køb SaaS"-princip få AI'en til at flage on-premise- eller IaaS-hostede applikationer og foreslå prioriteter for cloud-migrering.
+
+## Standarder
+
+Fanebladet **Standarder** giver dig mulighed for at definere de arkitekturstandarder, der omsætter dine principper til praksis. Hvor et princip er en vedvarende overbevisning («Minimer teknologisk mangfoldighed»), er en standard den konkrete, håndhævelige specifikation, der realiserer det («Den godkendte relationsdatabase er PostgreSQL»).
+
+Hver standard har de samme felter som et princip — **Titel**, **Erklæring**, **Begrundelse**, **Konsekvenser** — plus en **Tilknyttede principper**-vælger. Knyt hver standard til et eller flere EA-principper, så sporbarheden fra «hvorfor» (princip) til «hvad» (standard) er eksplicit.
+
+Standarder kan **aktiveres** eller **deaktiveres** enkeltvis med kontakten på hvert kort. Aktive standarder vises også skrivebeskyttet for alle brugere under **GRC → Governance → Standarder**, hver med deres tilknyttede principper.
 
 ## Metamodel-graf
 

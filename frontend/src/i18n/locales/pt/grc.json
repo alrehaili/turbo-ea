@@ -11,6 +11,7 @@
   "governance": {
     "subtabs": {
       "principles": "Princípios",
+      "standards": "Padrões",
       "decisions": "Decisões"
     },
     "principles": {
@@ -18,6 +19,13 @@
       "empty": "Ainda não há princípios ativos. Defina-os em Admin › Metamodelo.",
       "rationale": "Justificativa",
       "implications": "Implicações"
+    },
+    "standards": {
+      "title": "Padrões de arquitetura",
+      "empty": "Ainda não há padrões ativos. Defina-os em Administração › Metamodelo.",
+      "rationale": "Justificativa",
+      "implications": "Implicações",
+      "linkedPrinciples": "Princípios associados"
     },
     "decisions": {
       "title": "Decisões de arquitetura",

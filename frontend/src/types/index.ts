@@ -303,6 +303,20 @@ export interface EAPrinciple {
   updated_at?: string;
 }
 
+export interface Standard {
+  id: string;
+  title: string;
+  description?: string;
+  rationale?: string;
+  implications?: string;
+  is_active: boolean;
+  sort_order: number;
+  principle_ids: string[];
+  catalogue_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CataloguePrinciple {
   id: string;
   title: string;

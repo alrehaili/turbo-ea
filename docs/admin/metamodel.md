@@ -4,7 +4,7 @@ The **Metamodel** defines your platform's entire data structure — what types o
 
 ![Metamodel Configuration](../assets/img/en/20_admin_metamodel.png)
 
-Navigate to **Admin > Metamodel** to access the metamodel editor. It has seven tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **Metamodel Graph**, **EA Principles**, and **Compliance Regulations**.
+Navigate to **Admin > Metamodel** to access the metamodel editor. It has eight tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **Metamodel Graph**, **EA Principles**, **Standards**, and **Compliance Regulations**.
 
 ## Card Types
 
@@ -167,6 +167,8 @@ Each principle has four fields:
 
 Principles can be **activated** or **deactivated** individually using the toggle switch on each card.
 
+The same create, edit, activate and delete controls are also available inline under **GRC → Governance → Principles** for users with the Metamodel admin permission, so you can author principles without leaving the governance view. Users without that permission see the active principles read-only there.
+
 ### Importing from the Principles Catalogue
 
 Turbo EA ships a **curated reference catalogue of 10 industry-standard EA principles** so you don't have to start from a blank page. Open the avatar menu in the top-right corner and pick **Reference Catalogues → Principles Catalogue**. From there you can:
@@ -186,6 +188,14 @@ When you generate **AI Portfolio Insights** on the [Portfolio Report](../guide/r
 - Recommended corrective actions
 
 For example, a "Buy SaaS" principle would cause the AI to flag on-premise or IaaS-hosted applications and suggest cloud migration priorities.
+
+## Standards
+
+The **Standards** tab lets you define the architecture standards that put your principles into practice. Where a principle is an enduring belief ("Minimize technology diversity"), a standard is the concrete, enforceable specification that realises it ("The approved relational database is PostgreSQL").
+
+Each standard has the same fields as a principle — **Title**, **Statement**, **Rationale**, **Implications** — plus a **Linked Principles** picker. Link each standard to one or more EA principles so the traceability from "why" (principle) to "what" (standard) is explicit.
+
+Standards can be **activated** or **deactivated** individually with the toggle on each card. The same full management controls (create, edit, link principles, activate, delete) are also available inline under **GRC → Governance → Standards** for users with the Metamodel admin permission; users without it see the active standards read-only there, each with its linked principles.
 
 ## Metamodel Graph
 

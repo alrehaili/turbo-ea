@@ -49,6 +49,7 @@ from app.models.soaw import SoAW
 from app.models.sso_invitation import SsoInvitation
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+from app.models.standard import Standard, StandardPrinciple
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
@@ -86,6 +87,8 @@ __all__ = [
     "Card",
     "Relation",
     "Stakeholder",
+    "Standard",
+    "StandardPrinciple",
     "TagGroup",
     "Tag",
     "CardTag",

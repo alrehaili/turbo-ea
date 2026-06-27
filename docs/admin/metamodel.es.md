@@ -4,7 +4,7 @@ El **Metamodelo** define la estructura de datos completa de su plataforma — qu
 
 ![Configuración del Metamodelo](../assets/img/es/20_admin_metamodelo.png)
 
-Navegue a **Administración > Metamodelo** para acceder al editor. Tiene siete pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas**, **Grafo del Metamodelo**, **Principios EA** y **Regulaciones de Cumplimiento**.
+Navegue a **Administración > Metamodelo** para acceder al editor. Tiene ocho pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas**, **Grafo del Metamodelo**, **Principios EA**, **Estándares** y **Regulaciones de Cumplimiento**.
 
 ## Tipos de Fichas
 
@@ -167,6 +167,8 @@ Cada principio tiene cuatro campos:
 
 Los principios se pueden **activar** o **desactivar** individualmente mediante el interruptor en cada tarjeta.
 
+Los mismos controles de creación, edición, activación y eliminación también están disponibles directamente en **GRC → Gobernanza → Principios** para los usuarios con el permiso de administración del metamodelo, de modo que pueda redactar principios sin salir de la vista de gobernanza. Los usuarios sin ese permiso ven allí los principios activos en solo lectura.
+
 ### Importar desde el Catálogo de principios
 
 Turbo EA incluye un **catálogo de referencia comisariado con 10 principios EA estándar del sector** para que no tenga que empezar desde una página en blanco. Abra el menú de avatar en la esquina superior derecha y seleccione **Catálogos de referencia → Catálogo de principios**. Desde ahí puede:
@@ -186,6 +188,14 @@ Cuando genera **Insights IA del portafolio** en el [Informe de portafolio](../gu
 - Acciones correctivas recomendadas
 
 Por ejemplo, un principio «Comprar SaaS» haría que la IA señale aplicaciones alojadas on-premise o en IaaS y sugiera prioridades de migración a la nube.
+
+## Estándares
+
+La pestaña **Estándares** permite definir los estándares de arquitectura que llevan sus principios a la práctica. Mientras que un principio es una creencia duradera («Minimizar la diversidad tecnológica»), un estándar es la especificación concreta y exigible que lo materializa («La base de datos relacional aprobada es PostgreSQL»).
+
+Cada estándar tiene los mismos campos que un principio — **Título**, **Enunciado**, **Justificación**, **Implicaciones** — más un selector de **Principios vinculados**. Vincule cada estándar con uno o más principios EA para que la trazabilidad del «por qué» (principio) al «qué» (estándar) sea explícita.
+
+Los estándares pueden **activarse** o **desactivarse** individualmente con el interruptor de cada tarjeta. Los mismos controles de gestión completos (crear, editar, vincular principios, activar, eliminar) también están disponibles directamente en **GRC → Gobernanza → Estándares** para los usuarios con el permiso de administración del metamodelo; los usuarios sin él ven allí los estándares activos en solo lectura, cada uno con sus principios vinculados.
 
 ## Grafo del Metamodelo
 

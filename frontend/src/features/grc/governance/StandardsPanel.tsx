@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -8,33 +9,40 @@ import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { hasPermission } from "@/components/RequirePermission";
-import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
+import StandardsAdmin from "@/features/admin/StandardsAdmin";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { surface } from "@/theme/tokens";
-import type { EAPrinciple } from "@/types";
+import type { EAPrinciple, Standard } from "@/types";
 
-export default function PrinciplesPanel() {
+export default function StandardsPanel() {
   const { user } = useAuthContext();
   // Admins get the full create/edit/delete UI (same component as
-  // Admin › Metamodel › Principles); everyone else gets a read-only view.
+  // Admin › Metamodel › Standards); everyone else gets a read-only view.
   if (hasPermission(user?.permissions, "admin.metamodel")) {
-    return <PrinciplesAdmin />;
+    return <StandardsAdmin />;
   }
-  return <ReadOnlyPrinciples />;
+  return <ReadOnlyStandards />;
 }
 
-function ReadOnlyPrinciples() {
+function ReadOnlyStandards() {
   const { t } = useTranslation("grc");
   const [loading, setLoading] = useState(true);
+  const [standards, setStandards] = useState<Standard[]>([]);
   const [principles, setPrinciples] = useState<EAPrinciple[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await api.get<EAPrinciple[]>("/metamodel/principles");
+        const [stds, prins] = await Promise.all([
+          api.get<Standard[]>("/metamodel/standards"),
+          api.get<EAPrinciple[]>("/metamodel/principles"),
+        ]);
         if (!cancelled) {
-          setPrinciples(data.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order));
+          setStandards(
+            stds.filter((s) => s.is_active).sort((a, b) => a.sort_order - b.sort_order),
+          );
+          setPrinciples(prins);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -45,6 +53,8 @@ function ReadOnlyPrinciples() {
     };
   }, []);
 
+  const principleTitle = (id: string) => principles.find((p) => p.id === id)?.title ?? id;
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
@@ -53,7 +63,7 @@ function ReadOnlyPrinciples() {
     );
   }
 
-  if (principles.length === 0) {
+  if (standards.length === 0) {
     return (
       <Box
         sx={{
@@ -64,9 +74,9 @@ function ReadOnlyPrinciples() {
           borderRadius: 2,
         }}
       >
-        <MaterialSymbol icon="bookmark_star" size={40} color="#bbb" />
+        <MaterialSymbol icon="rule" size={40} color="#bbb" />
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {t("governance.principles.empty")}
+          {t("governance.standards.empty")}
         </Typography>
       </Box>
     );
@@ -75,10 +85,10 @@ function ReadOnlyPrinciples() {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       <Typography variant="h6" fontWeight={600}>
-        {t("governance.principles.title")}
+        {t("governance.standards.title")}
       </Typography>
-      {principles.map((p, idx) => (
-        <MuiCard key={p.id} variant="outlined">
+      {standards.map((s, idx) => (
+        <MuiCard key={s.id} variant="outlined">
           <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
             <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
               <Typography
@@ -101,22 +111,40 @@ function ReadOnlyPrinciples() {
               </Typography>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25 }}>
-                  {p.title}
+                  {s.title}
                 </Typography>
-                {p.description && (
+                {s.description && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    {p.description}
+                    {s.description}
                   </Typography>
                 )}
-                {(p.rationale || p.implications) && (
+                {s.principle_ids.length > 0 && (
+                  <Box
+                    sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.5, flexWrap: "wrap" }}
+                  >
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      {t("governance.standards.linkedPrinciples")}:
+                    </Typography>
+                    {s.principle_ids.map((pid) => (
+                      <Chip
+                        key={pid}
+                        size="small"
+                        icon={<MaterialSymbol icon="bookmark_star" size={14} />}
+                        label={principleTitle(pid)}
+                        sx={{ height: 22, fontSize: 11 }}
+                      />
+                    ))}
+                  </Box>
+                )}
+                {(s.rationale || s.implications) && (
                   <Box sx={{ display: "flex", gap: 3, mt: 0.5, flexWrap: "wrap" }}>
-                    {p.rationale && (
+                    {s.rationale && (
                       <Box sx={{ flex: 1, minWidth: 200 }}>
                         <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                          {t("governance.principles.rationale")}:
+                          {t("governance.standards.rationale")}:
                         </Typography>
                         <Box component="ul" sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}>
-                          {p.rationale
+                          {s.rationale
                             .split("\n")
                             .filter(Boolean)
                             .map((line, i) => (
@@ -133,13 +161,13 @@ function ReadOnlyPrinciples() {
                         </Box>
                       </Box>
                     )}
-                    {p.implications && (
+                    {s.implications && (
                       <Box sx={{ flex: 1, minWidth: 200 }}>
                         <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                          {t("governance.principles.implications")}:
+                          {t("governance.standards.implications")}:
                         </Typography>
                         <Box component="ul" sx={{ m: 0, pl: 2, listStyleType: "'•  '" }}>
-                          {p.implications
+                          {s.implications
                             .split("\n")
                             .filter(Boolean)
                             .map((line, i) => (

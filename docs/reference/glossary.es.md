@@ -44,6 +44,7 @@
 | **Sección** | Un área agrupable de la página de detalle de ficha que contiene campos relacionados, configurable por tipo de ficha |
 | **Signatario** | Un usuario designado para revisar y firmar un documento ADR o SoAW. El flujo de firma rastrea las firmas pendientes y completadas |
 | **SoAW** | Declaración de Trabajo de Arquitectura — un documento formal TOGAF que define el alcance y entregables de una iniciativa |
+| **Estándar (estándar de arquitectura)** | Una especificación concreta y exigible que implementa uno o más principios EA (p. ej., «El RDBMS aprobado es PostgreSQL»). Se gestiona en Administración → Metamodelo → Estándares y se muestra en solo lectura en GRC → Gobernanza → Estándares |
 | **SSO** | Inicio de Sesión Único — acceso con credenciales corporativas a través de un proveedor de identidad (Microsoft, Google, Okta, OIDC) |
 | **Subtipo** | Una clasificación secundaria dentro de un tipo de ficha (ej., Aplicación tiene subtipos: Aplicación de Negocio, Microservicio, Agente IA, Despliegue). Cada subtipo actúa como una subplantilla que puede controlar la visibilidad de campos |
 | **Plantilla de Subtipo** | La configuración de qué campos son visibles u ocultos para un subtipo específico. Los administradores configuran esto en la administración del metamodelo haciendo clic en un chip de subtipo |

@@ -11,6 +11,7 @@
   "governance": {
     "subtabs": {
       "principles": "Principper",
+      "standards": "Standarder",
       "decisions": "Beslutninger"
     },
     "principles": {
@@ -18,6 +19,13 @@
       "empty": "Ingen aktive principper endnu. Definér dem under Administration › Metamodel.",
       "rationale": "Begrundelse",
       "implications": "Konsekvenser"
+    },
+    "standards": {
+      "title": "Arkitekturstandarder",
+      "empty": "Ingen aktive standarder endnu. Definer dem under Administration › Metamodel.",
+      "rationale": "Begrundelse",
+      "implications": "Konsekvenser",
+      "linkedPrinciples": "Tilknyttede principper"
     },
     "decisions": {
       "title": "Arkitekturbeslutninger",

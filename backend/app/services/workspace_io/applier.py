@@ -34,9 +34,11 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import Diagram, diagram_cards
+from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
+from app.models.standard import Standard, StandardPrinciple
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services.card_resolver import CardResolver
@@ -188,6 +190,10 @@ async def _run(
         sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
         result.sections.append(sr)
         await _apply_diagram_cards(db, bundle, sr, ent_resolver)
+
+        sr = SectionResult(sheet=schema.SHEET_STANDARD_PRINCIPLES)
+        result.sections.append(sr)
+        await _apply_standard_principles(db, bundle, sr)
     finally:
         if dry_run:
             assert root is not None
@@ -224,6 +230,34 @@ async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, r
         await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=res.card_id))
         existing.add(pair)
         sr.created += 1
+
+
+async def _apply_standard_principles(db, bundle: WorkspaceBundle, sr: SectionResult) -> None:
+    """Bespoke Standard↔Principle association resolved by title. Runs after the
+    config sections so both endpoints exist; idempotent on re-import."""
+    rows = bundle.rows(schema.SHEET_STANDARD_PRINCIPLES)
+    if not rows:
+        return
+    std_by_title = {s.title: s for s in (await db.execute(select(Standard))).scalars().all()}
+    prin_by_title = {p.title: p for p in (await db.execute(select(EAPrinciple))).scalars().all()}
+    existing = {
+        (link.standard_id, link.principle_id)
+        for link in (await db.execute(select(StandardPrinciple))).scalars().all()
+    }
+    for row in rows:
+        std = std_by_title.get(row.get("standard_title"))
+        prin = prin_by_title.get(row.get("principle_title"))
+        if std is None or prin is None:
+            sr.conflict += 1
+            continue
+        pair = (std.id, prin.id)
+        if pair in existing:
+            sr.skipped += 1
+            continue
+        db.add(StandardPrinciple(standard_id=std.id, principle_id=prin.id))
+        existing.add(pair)
+        sr.created += 1
+    await db.flush()
 
 
 # ---------------------------------------------------------------------------

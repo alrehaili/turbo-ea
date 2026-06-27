@@ -11,6 +11,7 @@
   "governance": {
     "subtabs": {
       "principles": "المبادئ",
+      "standards": "المعايير",
       "decisions": "القرارات"
     },
     "principles": {
@@ -18,6 +19,13 @@
       "empty": "لا توجد مبادئ نشطة بعد. عرّفها ضمن المسؤول › نموذج البيانات الوصفية.",
       "rationale": "الأساس المنطقي",
       "implications": "التبعات"
+    },
+    "standards": {
+      "title": "معايير البنية",
+      "empty": "لا توجد معايير نشطة بعد. عرّفها من الإدارة › النموذج الفوقي.",
+      "rationale": "المبرر",
+      "implications": "التبعات",
+      "linkedPrinciples": "المبادئ المرتبطة"
     },
     "decisions": {
       "title": "قرارات البنية المؤسسية",

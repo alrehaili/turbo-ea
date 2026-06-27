@@ -44,6 +44,7 @@
 | **Seção** | Uma área agrupável da página de detalhes do card contendo campos relacionados, configurável por tipo de card |
 | **Signatário** | Um usuário designado para revisar e assinar um documento ADR ou SoAW. O fluxo de assinatura rastreia as assinaturas pendentes e concluídas |
 | **SoAW** | Statement of Architecture Work — um documento formal TOGAF que define o escopo e as entregas de uma iniciativa |
+| **Padrão (padrão de arquitetura)** | Uma especificação concreta e aplicável que implementa um ou mais princípios EA (p. ex., «O SGBD relacional aprovado é PostgreSQL»). Gerenciado em Admin → Metamodelo → Padrões e exibido em somente leitura em GRC → Governança → Padrões |
 | **SSO** | Single Sign-On — login usando credenciais corporativas por meio de um provedor de identidade (Microsoft, Google, Okta, OIDC) |
 | **Subtipo** | Uma classificação secundária dentro de um tipo de card (ex.: Aplicação tem subtipos: Aplicação de Negócio, Microsserviço, Agente IA, Implantação). Cada subtipo funciona como um submodelo que pode controlar a visibilidade dos campos |
 | **Modelo de Subtipo** | A configuração de quais campos são visíveis ou ocultos para um subtipo específico. Os administradores configuram isso na administração do metamodelo clicando em um chip de subtipo |

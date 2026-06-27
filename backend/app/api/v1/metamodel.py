@@ -17,6 +17,7 @@ from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
+from app.models.standard import Standard, StandardPrinciple
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
@@ -999,6 +1000,153 @@ async def delete_principle(
     """Delete an EA principle (admin only)."""
     await PermissionService.require_permission(db, user, "admin.metamodel")
     await db.execute(delete(EAPrinciple).where(EAPrinciple.id == uuid.UUID(principle_id)))
+    await db.commit()
+
+
+# ── Architecture Standards ────────────────────────────────────────────
+
+
+class StandardCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    rationale: str | None = None
+    implications: str | None = None
+    is_active: bool = True
+    sort_order: int = 0
+    principle_ids: list[str] = Field(default_factory=list)
+
+
+class StandardUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    rationale: str | None = None
+    implications: str | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
+    principle_ids: list[str] | None = None
+
+
+def _serialize_standard(s: Standard, principle_ids: list[str]) -> dict:
+    return {
+        "id": str(s.id),
+        "title": s.title,
+        "description": s.description,
+        "rationale": s.rationale,
+        "implications": s.implications,
+        "is_active": s.is_active,
+        "sort_order": s.sort_order,
+        "principle_ids": principle_ids,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+async def _standard_principle_map(
+    db: AsyncSession, standard_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[str]]:
+    """Return {standard_id: [principle_id_str, ...]} for the given standards."""
+    mapping: dict[uuid.UUID, list[str]] = {sid: [] for sid in standard_ids}
+    if not standard_ids:
+        return mapping
+    links = await db.execute(
+        select(StandardPrinciple).where(StandardPrinciple.standard_id.in_(standard_ids))
+    )
+    for link in links.scalars().all():
+        mapping.setdefault(link.standard_id, []).append(str(link.principle_id))
+    return mapping
+
+
+async def _set_standard_principles(
+    db: AsyncSession, standard_id: uuid.UUID, principle_ids: list[str]
+) -> list[str]:
+    """Replace the principle links for a standard. Returns the validated id strings."""
+    await db.execute(delete(StandardPrinciple).where(StandardPrinciple.standard_id == standard_id))
+    valid: list[str] = []
+    for pid in dict.fromkeys(principle_ids):  # dedupe, preserve order
+        try:
+            pid_uuid = uuid.UUID(pid)
+        except (ValueError, AttributeError):
+            raise HTTPException(400, f"Invalid principle id: {pid}") from None
+        exists = await db.execute(select(EAPrinciple.id).where(EAPrinciple.id == pid_uuid))
+        if exists.scalar_one_or_none() is None:
+            raise HTTPException(400, f"Principle not found: {pid}")
+        db.add(StandardPrinciple(standard_id=standard_id, principle_id=pid_uuid))
+        valid.append(str(pid_uuid))
+    return valid
+
+
+@router.get("/standards")
+async def list_standards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all architecture standards ordered by sort_order."""
+    result = await db.execute(select(Standard).order_by(Standard.sort_order, Standard.created_at))
+    standards = result.scalars().all()
+    pmap = await _standard_principle_map(db, [s.id for s in standards])
+    return [_serialize_standard(s, pmap.get(s.id, [])) for s in standards]
+
+
+@router.post("/standards", status_code=201)
+async def create_standard(
+    body: StandardCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a new architecture standard (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    s = Standard(
+        id=uuid.uuid4(),
+        title=body.title,
+        description=body.description,
+        rationale=body.rationale,
+        implications=body.implications,
+        is_active=body.is_active,
+        sort_order=body.sort_order,
+    )
+    db.add(s)
+    await db.flush()
+    principle_ids = await _set_standard_principles(db, s.id, body.principle_ids)
+    await db.commit()
+    await db.refresh(s)
+    return _serialize_standard(s, principle_ids)
+
+
+@router.patch("/standards/{standard_id}")
+async def update_standard(
+    standard_id: str,
+    body: StandardUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update an architecture standard (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(Standard).where(Standard.id == uuid.UUID(standard_id)))
+    s = result.scalar_one_or_none()
+    if not s:
+        raise HTTPException(404, "Standard not found")
+    updates = body.model_dump(exclude_unset=True)
+    principle_ids = updates.pop("principle_ids", None)
+    for k, v in updates.items():
+        setattr(s, k, v)
+    if principle_ids is not None:
+        new_ids = await _set_standard_principles(db, s.id, principle_ids)
+    else:
+        new_ids = (await _standard_principle_map(db, [s.id])).get(s.id, [])
+    await db.commit()
+    await db.refresh(s)
+    return _serialize_standard(s, new_ids)
+
+
+@router.delete("/standards/{standard_id}", status_code=204)
+async def delete_standard(
+    standard_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete an architecture standard (admin only). Links cascade-delete."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    await db.execute(delete(Standard).where(Standard.id == uuid.UUID(standard_id)))
     await db.commit()
 
 

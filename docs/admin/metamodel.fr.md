@@ -4,7 +4,7 @@ Le **Métamodèle** définit l'ensemble de la structure de données de votre pla
 
 ![Configuration du métamodèle](../assets/img/fr/20_admin_metamodele.png)
 
-Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte sept onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags**, **Graphe du métamodèle**, **Principes EA** et **Réglementations de conformité**.
+Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte huit onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags**, **Graphe du métamodèle**, **Principes EA**, **Standards** et **Réglementations de conformité**.
 
 ## Types de fiches
 
@@ -167,6 +167,8 @@ Chaque principe comporte quatre champs :
 
 Les principes peuvent être **activés** ou **désactivés** individuellement via l'interrupteur sur chaque carte.
 
+Les mêmes commandes de création, modification, activation et suppression sont également disponibles directement sous **GRC → Gouvernance → Principes** pour les utilisateurs disposant de l'autorisation d'administration du métamodèle, ce qui vous permet de rédiger des principes sans quitter la vue de gouvernance. Les utilisateurs sans cette autorisation y voient les principes actifs en lecture seule.
+
 ### Importer depuis le catalogue de principes
 
 Turbo EA est livré avec un **catalogue de référence comprenant 10 principes EA standards de l'industrie** afin que vous n'ayez pas à partir d'une page blanche. Ouvrez le menu avatar en haut à droite et choisissez **Catalogues de référence → Catalogue de principes**. Vous pouvez alors :
@@ -186,6 +188,14 @@ Lorsque vous générez des **Insights IA du portefeuille** dans le [Rapport de p
 - Des actions correctives recommandées
 
 Par exemple, un principe « Acheter du SaaS » amènerait l'IA à signaler les applications hébergées on-premise ou en IaaS et à suggérer des priorités de migration cloud.
+
+## Standards
+
+L'onglet **Standards** permet de définir les standards d'architecture qui mettent vos principes en pratique. Là où un principe est une conviction durable (« Minimiser la diversité technologique »), un standard est la spécification concrète et applicable qui le concrétise (« La base de données relationnelle approuvée est PostgreSQL »).
+
+Chaque standard possède les mêmes champs qu'un principe — **Titre**, **Énoncé**, **Justification**, **Implications** — plus un sélecteur **Principes liés**. Reliez chaque standard à un ou plusieurs principes EA afin que la traçabilité du « pourquoi » (principe) au « quoi » (standard) soit explicite.
+
+Les standards peuvent être **activés** ou **désactivés** individuellement à l'aide du commutateur sur chaque carte. Les standards actifs sont également affichés en lecture seule à tous les utilisateurs sous **GRC → Gouvernance → Standards**, chacun avec ses principes liés.
 
 ## Graphe du métamodèle
 
