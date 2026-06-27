@@ -195,6 +195,7 @@ export interface DataQualityConfig {
   lifecycle?: number;
   relations?: number;
   tags?: number;
+  stakeholders?: number;
 }
 
 export interface CardType {
@@ -426,6 +427,7 @@ export interface TagGroup {
 export interface Tag {
   id: string;
   name: string;
+  description?: string;
   color?: string;
   tag_group_id: string;
 }
@@ -642,6 +644,12 @@ export interface FileAttachment {
 // Surveys
 // ---------------------------------------------------------------------------
 
+/** A card reference linked through a survey relation field. */
+export interface SurveyRelationRef {
+  id: string;
+  name: string;
+}
+
 export interface SurveyField {
   key: string;
   section: string;
@@ -651,6 +659,12 @@ export interface SurveyField {
   action: "maintain" | "confirm";
   translations?: TranslationMap;
   section_translations?: TranslationMap;
+  // Relation fields: when kind === "relation" the field surveys a relationship
+  // rather than an attribute. The respondent's value is a list of SurveyRelationRef.
+  kind?: "attribute" | "relation";
+  relation_type_key?: string;
+  direction?: "outgoing" | "incoming";
+  related_type_key?: string;
 }
 
 export interface SurveyTargetFilters {

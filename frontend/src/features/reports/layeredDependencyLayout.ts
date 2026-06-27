@@ -11,6 +11,7 @@
 
 import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
+import { getCurrentPhase } from "@/components/LifecycleBadge";
 import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType } from "@/types";
 
@@ -39,6 +40,27 @@ export interface GEdge {
   attributes?: Record<string, unknown>;
 }
 
+/**
+ * Drop nodes whose current lifecycle phase is `endOfLife`, then drop any edge
+ * that lost an endpoint. The centered card (`centerId`) and any proposed/NEW
+ * card are always kept, so an end-of-life card can still be inspected when it
+ * is the focus of the view.
+ */
+export function filterEndOfLifeNodes(
+  nodes: GNode[],
+  edges: GEdge[],
+  centerId?: string,
+): { nodes: GNode[]; edges: GEdge[] } {
+  const visible = nodes.filter(
+    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle) !== "endOfLife",
+  );
+  const ids = new Set(visible.map((n) => n.id));
+  return {
+    nodes: visible,
+    edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Custom node data                                                   */
 /* ------------------------------------------------------------------ */
@@ -48,6 +70,7 @@ export interface LdvNodeData {
   typeKey: string;
   typeLabel: string;
   typeColor: string;
+  typeIcon: string;
   category: string;
   nodeId?: string;
   onClick?: (id: string, shiftKey: boolean) => void;
@@ -96,6 +119,9 @@ const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
 
 /** Padding inside each group boundary */
 const PAD = 30;
+/** Extra empty space inside each layer box so cards can be dragged/rearranged
+ *  within their layer (they are clamped to the box via extent: "parent"). */
+const DRAG_ROOM = 56;
 /** Height reserved for the category label at top of group */
 const LABEL_H = 32;
 /** Vertical gap between stacked category groups */
@@ -113,6 +139,10 @@ function typeColor(key: string, types: CardType[]): string {
 
 function typeLabel(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.label || key;
+}
+
+function typeIcon(key: string, types: CardType[]): string {
+  return types.find((t) => t.key === key)?.icon || "category";
 }
 
 function typeCategory(key: string, types: CardType[]): string {
@@ -270,8 +300,8 @@ export function buildLdvFlow(
     groupLayouts.push({
       cat,
       positioned,
-      groupW: innerW + 2 * PAD,
-      groupH: innerH + LABEL_H + 2 * PAD,
+      groupW: innerW + 2 * PAD + DRAG_ROOM,
+      groupH: innerH + LABEL_H + 2 * PAD + DRAG_ROOM,
     });
   }
 
@@ -320,6 +350,7 @@ export function buildLdvFlow(
           typeKey: nd.type,
           typeLabel: typeLabel(nd.type, types),
           typeColor: typeColor(nd.type, types),
+          typeIcon: typeIcon(nd.type, types),
           category: gl.cat,
           proposed: nd.proposed,
         } satisfies LdvNodeData,
@@ -331,11 +362,15 @@ export function buildLdvFlow(
     yOffset += gl.groupH + GROUP_GAP;
   }
 
+  // Lookup map for node-by-id, reused by the position + grouping passes below
+  // (was a linear `.find()` inside each loop — O(N²)).
+  const nodeById = new Map(rfNodes.map((n) => [n.id, n]));
+
   // Compute absolute center positions for each node (for edge routing)
   const absPos = new Map<string, { x: number; y: number }>();
   for (const n of rfNodes) {
     if (n.type === "ldvNode" && n.parentId) {
-      const parent = rfNodes.find((p) => p.id === n.parentId);
+      const parent = nodeById.get(n.parentId);
       if (parent) {
         absPos.set(n.id, {
           x: parent.position.x + n.position.x + LDV_NODE_W / 2,
@@ -601,7 +636,7 @@ export function buildLdvFlow(
   const nodeGroupCat = new Map<string, string>();
   for (const n of rfNodes) {
     if (n.type === "ldvNode" && n.parentId) {
-      const parent = rfNodes.find((p) => p.id === n.parentId);
+      const parent = nodeById.get(n.parentId);
       if (parent && parent.type === "ldvGroup") {
         nodeGroupCat.set(n.id, parent.id);
       }
