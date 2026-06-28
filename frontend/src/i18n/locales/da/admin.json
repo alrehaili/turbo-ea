@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Mislykkedes",
   "workspaceTransfer.import.uploading": "Uploader…",
   "workspaceTransfer.import.uploadingHelp": "Uploader bundtet — store workspaces kan tage et øjeblik.",
-  "settings.tabs.platformMigration": "Platformsmigrering"
+  "settings.tabs.platformMigration": "Platformsmigrering",
+  "webPortals.kind": "Portaltype",
+  "webPortals.kindHelper": "Katalog = filtreret udforsker for én korttype. Hub = landingsside med fliser, der linker til andre visninger.",
+  "webPortals.kindCatalogue": "Katalog (én korttype)",
+  "webPortals.kindHub": "Hub (flise-landingsside)",
+  "webPortals.section.hub": "Fliser",
+  "webPortals.addSection": "Tilføj sektion",
+  "webPortals.sectionTitle": "Sektionstitel",
+  "webPortals.addTile": "Tilføj flise",
+  "webPortals.tileLabel": "Etiket",
+  "webPortals.tileIcon": "Ikon",
+  "webPortals.tileTarget": "Link (f.eks. /reports/portfolio)"
 }

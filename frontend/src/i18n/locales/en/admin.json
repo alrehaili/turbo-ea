@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Failed",
   "workspaceTransfer.import.uploading": "Uploading…",
   "workspaceTransfer.import.uploadingHelp": "Uploading the bundle — large workspaces may take a moment.",
-  "settings.tabs.platformMigration": "Platform migration"
+  "settings.tabs.platformMigration": "Platform migration",
+  "webPortals.kind": "Portal type",
+  "webPortals.kindHelper": "Catalogue = a filtered explorer for one card type. Hub = a landing page of tiles linking to other views.",
+  "webPortals.kindCatalogue": "Catalogue (single card type)",
+  "webPortals.kindHub": "Hub (tile landing page)",
+  "webPortals.section.hub": "Tiles",
+  "webPortals.addSection": "Add section",
+  "webPortals.sectionTitle": "Section title",
+  "webPortals.addTile": "Add tile",
+  "webPortals.tileLabel": "Label",
+  "webPortals.tileIcon": "Icon",
+  "webPortals.tileTarget": "Link (e.g. /reports/portfolio)"
 }

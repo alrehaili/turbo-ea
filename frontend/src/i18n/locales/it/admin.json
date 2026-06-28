@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Falliti",
   "workspaceTransfer.import.uploading": "Caricamento…",
   "workspaceTransfer.import.uploadingHelp": "Caricamento del pacchetto — i workspace grandi possono richiedere un momento.",
-  "settings.tabs.platformMigration": "Migrazione di piattaforma"
+  "settings.tabs.platformMigration": "Migrazione di piattaforma",
+  "webPortals.kind": "Tipo di portale",
+  "webPortals.kindHelper": "Catalogo = esploratore filtrato per un tipo di scheda. Hub = pagina di riquadri che rimandano ad altre viste.",
+  "webPortals.kindCatalogue": "Catalogo (un tipo di scheda)",
+  "webPortals.kindHub": "Hub (pagina di riquadri)",
+  "webPortals.section.hub": "Riquadri",
+  "webPortals.addSection": "Aggiungi sezione",
+  "webPortals.sectionTitle": "Titolo della sezione",
+  "webPortals.addTile": "Aggiungi riquadro",
+  "webPortals.tileLabel": "Etichetta",
+  "webPortals.tileIcon": "Icona",
+  "webPortals.tileTarget": "Link (es. /reports/portfolio)"
 }

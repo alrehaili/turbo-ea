@@ -439,6 +439,78 @@ export default function PortalViewer() {
     );
   }
 
+  // Hub portal: a curated landing page of grouped tiles linking to other views.
+  if (portal.kind === "hub") {
+    const sections = portal.tiles || [];
+    return (
+      <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <Box sx={{ bgcolor: TOOLBAR_COLOR, color: "#fff", py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 } }}>
+          <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              {portal.name}
+            </Typography>
+            {portal.description && (
+              <Typography variant="body1" sx={{ mt: 1, opacity: 0.8 }}>
+                {portal.description}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+        <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 4 }}>
+          {sections.length === 0 && (
+            <Typography color="text.secondary">{t("portal.hubEmpty")}</Typography>
+          )}
+          {sections.map((section, si) => (
+            <Box key={si} sx={{ mb: 4 }}>
+              {section.title && (
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  {section.title}
+                </Typography>
+              )}
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    sm: "repeat(2, 1fr)",
+                    md: "repeat(3, 1fr)",
+                  },
+                }}
+              >
+                {(section.tiles || []).map((tile, ti) => {
+                  const external = /^https?:\/\//.test(tile.target || "");
+                  return (
+                    <Card key={ti} variant="outlined">
+                      <CardActionArea
+                        component="a"
+                        href={tile.target || "#"}
+                        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                        sx={{ height: "100%", p: 2 }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                          <Icon name={tile.icon || "dashboard"} size={24} color={TOOLBAR_COLOR} />
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            {tile.label}
+                          </Typography>
+                        </Box>
+                        {tile.description && (
+                          <Typography variant="body2" color="text.secondary">
+                            {tile.description}
+                          </Typography>
+                        )}
+                      </CardActionArea>
+                    </Card>
+                  );
+                })}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    );
+  }
+
   const typeColor = portal.type_info?.color || "#1976d2";
 
   return (
@@ -1485,7 +1557,7 @@ export default function PortalViewer() {
 
                 const grouped: Record<string, typeof visibleRels> = {};
                 for (const rel of visibleRels) {
-                  const rt = portal.relation_types.find((r) => r.key === rel.type);
+                  const rt = (portal.relation_types || []).find((r) => r.key === rel.type);
                   const label =
                     rel.direction === "outgoing"
                       ? (rt ? rml(rt.key, rt.translations, "label") : rel.type)

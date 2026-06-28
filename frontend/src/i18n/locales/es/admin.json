@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Fallidos",
   "workspaceTransfer.import.uploading": "Subiendo…",
   "workspaceTransfer.import.uploadingHelp": "Subiendo el paquete — los espacios de trabajo grandes pueden tardar un momento.",
-  "settings.tabs.platformMigration": "Migración de plataforma"
+  "settings.tabs.platformMigration": "Migración de plataforma",
+  "webPortals.kind": "Tipo de portal",
+  "webPortals.kindHelper": "Catálogo = explorador filtrado para un tipo de tarjeta. Hub = página de mosaicos que enlaza a otras vistas.",
+  "webPortals.kindCatalogue": "Catálogo (un tipo de tarjeta)",
+  "webPortals.kindHub": "Hub (página de mosaicos)",
+  "webPortals.section.hub": "Mosaicos",
+  "webPortals.addSection": "Añadir sección",
+  "webPortals.sectionTitle": "Título de la sección",
+  "webPortals.addTile": "Añadir mosaico",
+  "webPortals.tileLabel": "Etiqueta",
+  "webPortals.tileIcon": "Icono",
+  "webPortals.tileTarget": "Enlace (p. ej. /reports/portfolio)"
 }

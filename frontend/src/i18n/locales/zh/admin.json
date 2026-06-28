@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "失败",
   "workspaceTransfer.import.uploading": "上传中…",
   "workspaceTransfer.import.uploadingHelp": "正在上传捆绑包——大型工作区可能需要一些时间。",
-  "settings.tabs.platformMigration": "平台迁移"
+  "settings.tabs.platformMigration": "平台迁移",
+  "webPortals.kind": "门户类型",
+  "webPortals.kindHelper": "目录 = 针对单一卡片类型的筛选浏览器。中心 = 链接到其他视图的磁贴落地页。",
+  "webPortals.kindCatalogue": "目录（单一卡片类型）",
+  "webPortals.kindHub": "中心（磁贴落地页）",
+  "webPortals.section.hub": "磁贴",
+  "webPortals.addSection": "添加分区",
+  "webPortals.sectionTitle": "分区标题",
+  "webPortals.addTile": "添加磁贴",
+  "webPortals.tileLabel": "标签",
+  "webPortals.tileIcon": "图标",
+  "webPortals.tileTarget": "链接（如 /reports/portfolio）"
 }

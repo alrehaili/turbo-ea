@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Ошибки",
   "workspaceTransfer.import.uploading": "Загрузка…",
   "workspaceTransfer.import.uploadingHelp": "Загрузка пакета — для больших рабочих областей это может занять некоторое время.",
-  "settings.tabs.platformMigration": "Миграция платформы"
+  "settings.tabs.platformMigration": "Миграция платформы",
+  "webPortals.kind": "Тип портала",
+  "webPortals.kindHelper": "Каталог = фильтруемый обозреватель одного типа карточек. Хаб = страница плиток со ссылками на другие представления.",
+  "webPortals.kindCatalogue": "Каталог (один тип карточек)",
+  "webPortals.kindHub": "Хаб (страница плиток)",
+  "webPortals.section.hub": "Плитки",
+  "webPortals.addSection": "Добавить раздел",
+  "webPortals.sectionTitle": "Заголовок раздела",
+  "webPortals.addTile": "Добавить плитку",
+  "webPortals.tileLabel": "Подпись",
+  "webPortals.tileIcon": "Значок",
+  "webPortals.tileTarget": "Ссылка (напр. /reports/portfolio)"
 }

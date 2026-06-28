@@ -244,3 +244,72 @@ class TestPublicPortal:
     async def test_public_portal_nonexistent_slug(self, client, db, portals_env):
         resp = await client.get("/api/v1/web-portals/public/no-such-slug")
         assert resp.status_code == 404
+
+
+class TestHubPortal:
+    """Hub portals: curated tile landing pages (no card type)."""
+
+    async def test_create_hub_portal_without_card_type(self, client, db, portals_env):
+        admin = portals_env["admin"]
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Data Management",
+                "slug": "data",
+                "kind": "hub",
+                "is_published": True,
+                "tiles": [
+                    {
+                        "title": "Catalogues",
+                        "tiles": [
+                            {
+                                "icon": "database",
+                                "label": "Data Catalogue",
+                                "description": "Browse data objects",
+                                "target": "/portal/data-catalogue",
+                            }
+                        ],
+                    }
+                ],
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["kind"] == "hub"
+        assert body["card_type"] is None
+        assert body["tiles"][0]["title"] == "Catalogues"
+
+    async def test_catalogue_still_requires_card_type(self, client, db, portals_env):
+        admin = portals_env["admin"]
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={"name": "Broken", "slug": "broken", "kind": "catalogue"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_public_hub_returns_tiles(self, client, db, portals_env):
+        admin = portals_env["admin"]
+        await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Apps",
+                "slug": "apps",
+                "kind": "hub",
+                "is_published": True,
+                "tiles": [
+                    {
+                        "title": "Analysis",
+                        "tiles": [{"label": "Portfolio", "target": "/reports/portfolio"}],
+                    }
+                ],
+            },
+            headers=auth_headers(admin),
+        )
+        # Public endpoint (no auth) returns the hub layout.
+        resp = await client.get("/api/v1/web-portals/public/apps")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["kind"] == "hub"
+        assert data["tiles"][0]["tiles"][0]["target"] == "/reports/portfolio"

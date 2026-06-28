@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Échecs",
   "workspaceTransfer.import.uploading": "Téléversement…",
   "workspaceTransfer.import.uploadingHelp": "Téléversement du paquet — les grands espaces de travail peuvent prendre un moment.",
-  "settings.tabs.platformMigration": "Migration de plateforme"
+  "settings.tabs.platformMigration": "Migration de plateforme",
+  "webPortals.kind": "Type de portail",
+  "webPortals.kindHelper": "Catalogue = explorateur filtré pour un type de carte. Hub = page d’accueil de tuiles vers d’autres vues.",
+  "webPortals.kindCatalogue": "Catalogue (un type de carte)",
+  "webPortals.kindHub": "Hub (page de tuiles)",
+  "webPortals.section.hub": "Tuiles",
+  "webPortals.addSection": "Ajouter une section",
+  "webPortals.sectionTitle": "Titre de la section",
+  "webPortals.addTile": "Ajouter une tuile",
+  "webPortals.tileLabel": "Libellé",
+  "webPortals.tileIcon": "Icône",
+  "webPortals.tileTarget": "Lien (ex. /reports/portfolio)"
 }

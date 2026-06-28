@@ -816,15 +816,29 @@ export interface DiagramSummary {
 // Web Portals
 // ---------------------------------------------------------------------------
 
+export interface PortalTile {
+  icon?: string;
+  label: string;
+  description?: string;
+  target: string;
+}
+
+export interface PortalTileSection {
+  title?: string;
+  tiles: PortalTile[];
+}
+
 export interface WebPortal {
   id: string;
   name: string;
   slug: string;
   description?: string;
-  card_type: string;
+  kind?: "catalogue" | "hub";
+  card_type?: string | null;
   filters?: Record<string, unknown>;
   display_fields?: string[];
   card_config?: Record<string, unknown>;
+  tiles?: PortalTileSection[];
   is_published: boolean;
   created_by?: string;
   created_at?: string;
@@ -863,13 +877,15 @@ export interface PublicPortal {
   name: string;
   slug: string;
   description?: string;
-  card_type: string;
+  kind?: "catalogue" | "hub";
+  card_type?: string | null;
   filters?: Record<string, unknown>;
   display_fields?: string[];
   card_config?: Record<string, unknown>;
-  type_info: PortalTypeInfo | null;
-  relation_types: PortalRelationType[];
-  tag_groups: PortalTagGroup[];
+  tiles?: PortalTileSection[];
+  type_info?: PortalTypeInfo | null;
+  relation_types?: PortalRelationType[];
+  tag_groups?: PortalTagGroup[];
 }
 
 export interface PortalCard {

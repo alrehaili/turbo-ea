@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Fehlgeschlagen",
   "workspaceTransfer.import.uploading": "Wird hochgeladen…",
   "workspaceTransfer.import.uploadingHelp": "Das Paket wird hochgeladen — bei großen Workspaces kann das einen Moment dauern.",
-  "settings.tabs.platformMigration": "Plattform-Migration"
+  "settings.tabs.platformMigration": "Plattform-Migration",
+  "webPortals.kind": "Portaltyp",
+  "webPortals.kindHelper": "Katalog = gefilterter Explorer für einen Kartentyp. Hub = Startseite mit Kacheln zu anderen Ansichten.",
+  "webPortals.kindCatalogue": "Katalog (ein Kartentyp)",
+  "webPortals.kindHub": "Hub (Kachel-Startseite)",
+  "webPortals.section.hub": "Kacheln",
+  "webPortals.addSection": "Abschnitt hinzufügen",
+  "webPortals.sectionTitle": "Abschnittstitel",
+  "webPortals.addTile": "Kachel hinzufügen",
+  "webPortals.tileLabel": "Bezeichnung",
+  "webPortals.tileIcon": "Symbol",
+  "webPortals.tileTarget": "Link (z. B. /reports/portfolio)"
 }

@@ -13404,8 +13404,15 @@
             "title": "Card Config"
           },
           "card_type": {
-            "title": "Card Type",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Type"
           },
           "description": {
             "anyOf": [
@@ -13447,6 +13454,11 @@
             "title": "Is Published",
             "type": "boolean"
           },
+          "kind": {
+            "default": "catalogue",
+            "title": "Kind",
+            "type": "string"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -13454,12 +13466,23 @@
           "slug": {
             "title": "Slug",
             "type": "string"
+          },
+          "tiles": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tiles"
           }
         },
         "required": [
           "name",
-          "slug",
-          "card_type"
+          "slug"
         ],
         "title": "WebPortalCreate",
         "type": "object"
@@ -13535,6 +13558,17 @@
             ],
             "title": "Is Published"
           },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
           "name": {
             "anyOf": [
               {
@@ -13556,6 +13590,18 @@
               }
             ],
             "title": "Slug"
+          },
+          "tiles": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tiles"
           }
         },
         "title": "WebPortalUpdate",

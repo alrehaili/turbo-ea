@@ -1545,5 +1545,16 @@
   "workspaceTransfer.report.failed": "Falhados",
   "workspaceTransfer.import.uploading": "A carregar…",
   "workspaceTransfer.import.uploadingHelp": "A carregar o pacote — workspaces grandes podem demorar um momento.",
-  "settings.tabs.platformMigration": "Migração de plataforma"
+  "settings.tabs.platformMigration": "Migração de plataforma",
+  "webPortals.kind": "Tipo de portal",
+  "webPortals.kindHelper": "Catálogo = explorador filtrado para um tipo de cartão. Hub = página de blocos com links para outras visões.",
+  "webPortals.kindCatalogue": "Catálogo (um tipo de cartão)",
+  "webPortals.kindHub": "Hub (página de blocos)",
+  "webPortals.section.hub": "Blocos",
+  "webPortals.addSection": "Adicionar seção",
+  "webPortals.sectionTitle": "Título da seção",
+  "webPortals.addTile": "Adicionar bloco",
+  "webPortals.tileLabel": "Rótulo",
+  "webPortals.tileIcon": "Ícone",
+  "webPortals.tileTarget": "Link (ex.: /reports/portfolio)"
 }
