@@ -56,12 +56,13 @@
   "reports.transformationRoadmap": "خريطة طريق التحول",
   "reports.changeImpact": "تأثير التغيير",
   "reports.strategyMap": "خريطة الاستراتيجية",
-  "reports.rationalization": "ترشيد التطبيقات",
   "reports.freshness": "حداثة المستودع",
-  "reports.techStandards": "رادار التقنيات",
   "reports.resilience": "المرونة",
-  "reports.arb": "مجلس المراجعة",
-  "reports.scenarios": "السيناريوهات",
   "reports.dataFlow": "تدفق البيانات",
-  "reports.integration": "التكاملات"
+  "reports.integration": "التكاملات",
+  "governance": "الحوكمة",
+  "governance.scenarios": "السيناريوهات",
+  "governance.rationalization": "ترشيد التطبيقات",
+  "governance.techStandards": "رادار التقنيات",
+  "governance.arb": "مجلس المراجعة"
 }

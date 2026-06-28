@@ -56,12 +56,13 @@
   "reports.transformationRoadmap": "Transformation Roadmap",
   "reports.changeImpact": "Change Impact",
   "reports.strategyMap": "Strategy Map",
-  "reports.rationalization": "App Rationalization",
   "reports.freshness": "Repository Freshness",
-  "reports.techStandards": "Technology Radar",
   "reports.resilience": "Resilience",
-  "reports.arb": "Review Board",
-  "reports.scenarios": "Scenarios",
   "reports.dataFlow": "Data Flow",
-  "reports.integration": "Integrations"
+  "reports.integration": "Integrations",
+  "governance": "Governance",
+  "governance.scenarios": "Scenarios",
+  "governance.rationalization": "App Rationalization",
+  "governance.techStandards": "Technology Radar",
+  "governance.arb": "Review Board"
 }

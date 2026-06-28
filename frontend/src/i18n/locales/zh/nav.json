@@ -56,12 +56,13 @@
   "reports.transformationRoadmap": "转型路线图",
   "reports.changeImpact": "变更影响",
   "reports.strategyMap": "战略地图",
-  "reports.rationalization": "应用合理化",
   "reports.freshness": "仓库新鲜度",
-  "reports.techStandards": "技术雷达",
   "reports.resilience": "韧性",
-  "reports.arb": "评审委员会",
-  "reports.scenarios": "场景",
   "reports.dataFlow": "数据流",
-  "reports.integration": "集成"
+  "reports.integration": "集成",
+  "governance": "治理",
+  "governance.scenarios": "场景",
+  "governance.rationalization": "应用合理化",
+  "governance.techStandards": "技术雷达",
+  "governance.arb": "评审委员会"
 }

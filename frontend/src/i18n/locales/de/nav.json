@@ -56,12 +56,13 @@
   "reports.transformationRoadmap": "Transformationsfahrplan",
   "reports.changeImpact": "Änderungsauswirkung",
   "reports.strategyMap": "Strategie-Karte",
-  "reports.rationalization": "App-Rationalisierung",
   "reports.freshness": "Repository-Aktualität",
-  "reports.techStandards": "Technologie-Radar",
   "reports.resilience": "Resilienz",
-  "reports.arb": "Review-Board",
-  "reports.scenarios": "Szenarien",
   "reports.dataFlow": "Datenfluss",
-  "reports.integration": "Integrationen"
+  "reports.integration": "Integrationen",
+  "governance": "Governance",
+  "governance.scenarios": "Szenarien",
+  "governance.rationalization": "App-Rationalisierung",
+  "governance.techStandards": "Technologie-Radar",
+  "governance.arb": "Review-Board"
 }

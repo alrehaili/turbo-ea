@@ -56,12 +56,13 @@
   "reports.transformationRoadmap": "Дорожная карта трансформации",
   "reports.changeImpact": "Влияние изменений",
   "reports.strategyMap": "Стратегическая карта",
-  "reports.rationalization": "Рационализация приложений",
   "reports.freshness": "Актуальность репозитория",
-  "reports.techStandards": "Технологический радар",
   "reports.resilience": "Отказоустойчивость",
-  "reports.arb": "Архитектурный совет",
-  "reports.scenarios": "Сценарии",
   "reports.dataFlow": "Поток данных",
-  "reports.integration": "Интеграции"
+  "reports.integration": "Интеграции",
+  "governance": "Руководство",
+  "governance.scenarios": "Сценарии",
+  "governance.rationalization": "Рационализация приложений",
+  "governance.techStandards": "Технологический радар",
+  "governance.arb": "Архитектурный совет"
 }

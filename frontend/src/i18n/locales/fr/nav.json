@@ -56,12 +56,13 @@
   "reports.transformationRoadmap": "Feuille de route de transformation",
   "reports.changeImpact": "Impact des changements",
   "reports.strategyMap": "Carte stratégique",
-  "reports.rationalization": "Rationalisation des applications",
   "reports.freshness": "Fraîcheur du référentiel",
-  "reports.techStandards": "Radar technologique",
   "reports.resilience": "Résilience",
-  "reports.arb": "Comité d’architecture",
-  "reports.scenarios": "Scénarios",
   "reports.dataFlow": "Flux de données",
-  "reports.integration": "Intégrations"
+  "reports.integration": "Intégrations",
+  "governance": "Gouvernance",
+  "governance.scenarios": "Scénarios",
+  "governance.rationalization": "Rationalisation des applications",
+  "governance.techStandards": "Radar technologique",
+  "governance.arb": "Comité d’architecture"
 }
