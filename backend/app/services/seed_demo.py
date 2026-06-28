@@ -5744,6 +5744,14 @@ async def seed_demo_data(db: AsyncSession) -> dict:
     except Exception:  # noqa: BLE001
         risk_count = 0
 
+    # --- Demo web portals -------------------------------------------------
+    # Catalogue portals (single card type) + Essential-style hub portals
+    # (curated tile landing pages) so the Web Portals feature has content.
+    try:
+        portal_count = await _seed_demo_web_portals(db, admin_id)
+    except Exception:  # noqa: BLE001
+        portal_count = 0
+
     await db.commit()
     return {
         "cards": len(all_fs),
@@ -5752,7 +5760,188 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         "adrs": len(DEMO_ADRS) + len(DEMO_ADRS_EXTRA),
         "soaws": len(DEMO_SOAWS),
         "risks": risk_count,
+        "web_portals": portal_count,
     }
+
+
+async def _seed_demo_web_portals(db, admin_id) -> int:
+    """Create demo catalogue + hub portals. Idempotent by slug."""
+    from app.models.web_portal import WebPortal
+
+    existing = await db.execute(select(WebPortal.slug))
+    have = {row[0] for row in existing.all()}
+
+    catalogues = [
+        ("Application Catalogue", "applications", "Application", "Browse all applications"),
+        ("Data Catalogue", "data-objects", "DataObject", "Browse all data objects"),
+        (
+            "Capability Catalogue",
+            "capabilities",
+            "BusinessCapability",
+            "Browse business capabilities",
+        ),
+    ]
+    hubs = [
+        {
+            "name": "Application Portfolio",
+            "slug": "apps",
+            "description": "Everything for managing the application portfolio.",
+            "tiles": [
+                {
+                    "title": "Catalogue",
+                    "tiles": [
+                        {
+                            "icon": "apps",
+                            "label": "Application Catalogue",
+                            "description": "Browse and filter all applications",
+                            "target": "/portal/applications",
+                        }
+                    ],
+                },
+                {
+                    "title": "Analysis",
+                    "tiles": [
+                        {
+                            "icon": "bubble_chart",
+                            "label": "Portfolio",
+                            "description": "Bubble chart of the application portfolio",
+                            "target": "/reports/portfolio",
+                        },
+                        {
+                            "icon": "grid_view",
+                            "label": "Capability Map",
+                            "description": "Application support by business capability",
+                            "target": "/reports/capability-map",
+                        },
+                        {
+                            "icon": "recycling",
+                            "label": "Rationalization",
+                            "description": "TIME-based rationalization assessments",
+                            "target": "/rationalization",
+                        },
+                        {
+                            "icon": "payments",
+                            "label": "Cost",
+                            "description": "Application cost treemap",
+                            "target": "/reports/cost",
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            "name": "Data Management",
+            "slug": "data",
+            "description": "Understand and manage the data critical to the business.",
+            "tiles": [
+                {
+                    "title": "Catalogue",
+                    "tiles": [
+                        {
+                            "icon": "database",
+                            "label": "Data Catalogue",
+                            "description": "Browse all data objects",
+                            "target": "/portal/data-objects",
+                        }
+                    ],
+                },
+                {
+                    "title": "Data Architecture",
+                    "tiles": [
+                        {
+                            "icon": "schema",
+                            "label": "Data Flow Map",
+                            "description": "Data objects and the apps/interfaces around them",
+                            "target": "/reports/data-flow",
+                        },
+                        {
+                            "icon": "hub",
+                            "label": "Dependencies",
+                            "description": "Landscape dependency graph",
+                            "target": "/reports/dependencies",
+                        },
+                        {
+                            "icon": "verified",
+                            "label": "Data Quality",
+                            "description": "Completeness across the repository",
+                            "target": "/reports/data-quality",
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            "name": "Enterprise Architecture",
+            "slug": "ea",
+            "description": "Cross-cutting views for general EA activities.",
+            "tiles": [
+                {
+                    "title": "Strategy & change",
+                    "tiles": [
+                        {
+                            "icon": "flag",
+                            "label": "Strategy Map",
+                            "description": "Objectives through to delivery",
+                            "target": "/reports/strategy-map",
+                        },
+                        {
+                            "icon": "electric_bolt",
+                            "label": "Change Impact",
+                            "description": "Blast radius of a proposed change",
+                            "target": "/reports/impact",
+                        },
+                        {
+                            "icon": "health_and_safety",
+                            "label": "Resilience",
+                            "description": "Critical services and single points of failure",
+                            "target": "/reports/resilience",
+                        },
+                        {
+                            "icon": "account_tree",
+                            "label": "Scenarios",
+                            "description": "Plan and compare target architectures",
+                            "target": "/scenarios",
+                        },
+                    ],
+                },
+            ],
+        },
+    ]
+
+    created = 0
+    for name, slug, card_type, desc in catalogues:
+        if slug in have:
+            continue
+        db.add(
+            WebPortal(
+                name=name,
+                slug=slug,
+                description=desc,
+                kind="catalogue",
+                card_type=card_type,
+                is_published=True,
+                created_by=admin_id,
+            )
+        )
+        created += 1
+    for hub in hubs:
+        if hub["slug"] in have:
+            continue
+        db.add(
+            WebPortal(
+                name=hub["name"],
+                slug=hub["slug"],
+                description=hub["description"],
+                kind="hub",
+                card_type=None,
+                tiles=hub["tiles"],
+                is_published=True,
+                created_by=admin_id,
+            )
+        )
+        created += 1
+    await db.flush()
+    return created
 
 
 async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
