@@ -133,12 +133,9 @@ export default function ApplicationRationalizationBoard() {
   };
 
   const searchApps = async (q: string) => {
-    if (q.trim().length < 2) {
-      setAppOptions([]);
-      return;
-    }
+    const query = q.trim();
     const res = await api.get<{ items: CardBrief[] }>(
-      `/cards?search=${encodeURIComponent(q)}&type=Application&page_size=20`,
+      `/cards?type=Application&page_size=20${query ? `&search=${encodeURIComponent(query)}` : ""}`,
     );
     setAppOptions(res.items ?? []);
   };
@@ -474,6 +471,7 @@ export default function ApplicationRationalizationBoard() {
             getOptionLabel={(o) => o.name}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             onChange={(_, v) => setDecisionCard(v)}
+            onOpen={() => searchApps("")}
             onInputChange={(_, v) => searchApps(v)}
             filterOptions={(x) => x}
             renderInput={(p) => (
@@ -563,6 +561,7 @@ export default function ApplicationRationalizationBoard() {
             getOptionLabel={(o) => o.name}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             onChange={(_, v) => setEdSuccessor(v)}
+            onOpen={() => searchApps("")}
             onInputChange={(_, v) => searchApps(v)}
             filterOptions={(x) => x}
             renderInput={(p) => <TextField {...p} label={t("rationalization.colSuccessor")} />}

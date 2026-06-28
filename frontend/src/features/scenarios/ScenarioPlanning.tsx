@@ -149,9 +149,9 @@ export default function ScenarioPlanning() {
   };
 
   const searchCards = async (q: string) => {
-    if (q.trim().length < 2) return setOptions([]);
+    const query = q.trim();
     const res = await api.get<{ items: CardBrief[] }>(
-      `/cards?search=${encodeURIComponent(q)}&page_size=20`,
+      `/cards?page_size=20${query ? `&search=${encodeURIComponent(query)}` : ""}`,
     );
     setOptions(res.items ?? []);
   };
@@ -471,6 +471,7 @@ export default function ScenarioPlanning() {
               getOptionLabel={(o) => o.name}
               isOptionEqualToValue={(a, b) => a.id === b.id}
               onChange={(_, v) => setTarget(v)}
+              onOpen={() => searchCards("")}
               onInputChange={(_, v) => searchCards(v)}
               filterOptions={(x) => x}
               renderInput={(p) => <TextField {...p} label={t("scenarios.targetCard")} />}
