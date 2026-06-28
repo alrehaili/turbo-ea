@@ -584,5 +584,18 @@
   "integration.colPending": "Pending",
   "integration.never": "Never",
   "integration.staleLabel": "Stale",
-  "integration.fresh": "Fresh"
+  "integration.fresh": "Fresh",
+  "scenarios.confirmDelete": "Delete scenario «{{name}}»? This cannot be undone.",
+  "scenarios.editScenario": "Edit scenario",
+  "arb.confirmDelete": "Delete review «{{name}}»?",
+  "arb.editReview": "Edit review",
+  "arb.summary": "Summary",
+  "rationalization.confirmDeleteCampaign": "Delete campaign «{{name}}»? This cannot be undone.",
+  "rationalization.confirmDeleteDecision": "Remove this application from the campaign?",
+  "rationalization.editCampaign": "Edit campaign",
+  "rationalization.editDecision": "Edit decision",
+  "rationalization.statusLabel": "Status",
+  "techStandards.confirmDeleteStandard": "Delete standard «{{name}}»? This cannot be undone.",
+  "techStandards.confirmDeleteException": "Delete this exception?",
+  "techStandards.editStandard": "Edit standard"
 }

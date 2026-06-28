@@ -14,6 +14,7 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
+import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -84,6 +85,9 @@ export default function ScenarioPlanning() {
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
   const [changeOpen, setChangeOpen] = useState(false);
   const [op, setOp] = useState<Op>("add");
   const [cardType, setCardType] = useState("Application");
@@ -117,6 +121,21 @@ export default function ScenarioPlanning() {
 
   const refresh = async () => {
     if (detail) await openScenario(detail.id);
+    await loadList();
+  };
+
+  const saveEdit = async () => {
+    if (!detail || !editName.trim()) return;
+    await api.patch(`/scenarios/${detail.id}`, { name: editName, description: editDesc || null });
+    setEditOpen(false);
+    await refresh();
+  };
+
+  const deleteScenario = async () => {
+    if (!detail) return;
+    if (!window.confirm(t("scenarios.confirmDelete", { name: detail.name }))) return;
+    await api.delete(`/scenarios/${detail.id}`);
+    setDetail(null);
     await loadList();
   };
 
@@ -258,15 +277,61 @@ export default function ScenarioPlanning() {
         </Typography>
         <Chip size="small" label={t(`scenarios.status.${detail.status}`)} sx={{ mr: 1 }} />
         {!merged && (
-          <Button
-            variant="outlined"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setChangeOpen(true)}
-          >
-            {t("scenarios.addChange")}
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="add" size={18} />}
+              onClick={() => setChangeOpen(true)}
+            >
+              {t("scenarios.addChange")}
+            </Button>
+            <Tooltip title={t("common:actions.edit")}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setEditName(detail.name);
+                  setEditDesc(detail.description || "");
+                  setEditOpen(true);
+                }}
+              >
+                <MaterialSymbol icon="edit" size={20} />
+              </IconButton>
+            </Tooltip>
+          </>
         )}
+        <Tooltip title={t("common:actions.delete")}>
+          <IconButton size="small" color="error" onClick={deleteScenario}>
+            <MaterialSymbol icon="delete" size={20} />
+          </IconButton>
+        </Tooltip>
       </Box>
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t("scenarios.editScenario")}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField
+            autoFocus
+            label={t("scenarios.scenarioName")}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            fullWidth
+          />
+          <TextField
+            label={t("common:labels.description")}
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={saveEdit}>
+            {t("common:actions.save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {diff && (
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 3 }}>

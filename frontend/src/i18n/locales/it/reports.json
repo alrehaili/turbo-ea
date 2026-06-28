@@ -584,5 +584,18 @@
   "integration.colPending": "In sospeso",
   "integration.never": "Mai",
   "integration.staleLabel": "Obsoleta",
-  "integration.fresh": "Aggiornata"
+  "integration.fresh": "Aggiornata",
+  "scenarios.confirmDelete": "Eliminare lo scenario «{{name}}»? Operazione irreversibile.",
+  "scenarios.editScenario": "Modifica scenario",
+  "arb.confirmDelete": "Eliminare la revisione «{{name}}»?",
+  "arb.editReview": "Modifica revisione",
+  "arb.summary": "Riepilogo",
+  "rationalization.confirmDeleteCampaign": "Eliminare la campagna «{{name}}»? Operazione irreversibile.",
+  "rationalization.confirmDeleteDecision": "Rimuovere questa applicazione dalla campagna?",
+  "rationalization.editCampaign": "Modifica campagna",
+  "rationalization.editDecision": "Modifica decisione",
+  "rationalization.statusLabel": "Stato",
+  "techStandards.confirmDeleteStandard": "Eliminare lo standard «{{name}}»? Operazione irreversibile.",
+  "techStandards.confirmDeleteException": "Eliminare questa eccezione?",
+  "techStandards.editStandard": "Modifica standard"
 }

@@ -14,6 +14,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 
@@ -56,6 +57,9 @@ export default function ArchitectureReviewBoard() {
   const [title, setTitle] = useState("");
   const [card, setCard] = useState<CardBrief | null>(null);
   const [options, setOptions] = useState<CardBrief[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSummary, setEditSummary] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,6 +101,22 @@ export default function ArchitectureReviewBoard() {
     if (!detail) return;
     await api.patch(`/arb/${detail.id}`, { status });
     await open(detail.id);
+    await load();
+  };
+
+  const saveEdit = async () => {
+    if (!detail || !editTitle.trim()) return;
+    await api.patch(`/arb/${detail.id}`, { title: editTitle, summary: editSummary || null });
+    setEditOpen(false);
+    await open(detail.id);
+    await load();
+  };
+
+  const remove = async () => {
+    if (!detail) return;
+    if (!window.confirm(t("arb.confirmDelete", { name: detail.title }))) return;
+    await api.delete(`/arb/${detail.id}`);
+    setDetail(null);
     await load();
   };
 
@@ -230,7 +250,7 @@ export default function ArchitectureReviewBoard() {
                 label={t(`arb.status.${detail.status}`)}
                 color={STATUS_COLOR[detail.status]}
               />
-              <Box sx={{ display: "flex", gap: 1 }}>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                 <Button color="success" onClick={() => decide("approved")}>
                   {t("arb.approve")}
                 </Button>
@@ -238,6 +258,22 @@ export default function ArchitectureReviewBoard() {
                   {t("arb.reject")}
                 </Button>
                 <Button onClick={() => decide("deferred")}>{t("arb.defer")}</Button>
+                <Tooltip title={t("common:actions.edit")}>
+                  <IconButton
+                    onClick={() => {
+                      setEditTitle(detail.title);
+                      setEditSummary(detail.summary || "");
+                      setEditOpen(true);
+                    }}
+                  >
+                    <MaterialSymbol icon="edit" size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={t("common:actions.delete")}>
+                  <IconButton color="error" onClick={remove}>
+                    <MaterialSymbol icon="delete" size={20} />
+                  </IconButton>
+                </Tooltip>
                 <IconButton onClick={() => setDetail(null)}>
                   <MaterialSymbol icon="close" size={20} />
                 </IconButton>
@@ -273,6 +309,34 @@ export default function ArchitectureReviewBoard() {
           <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" onClick={create}>
             {t("common:actions.create")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm" disableRestoreFocus>
+        <DialogTitle>{t("arb.editReview")}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField
+            autoFocus
+            label={t("arb.reviewTitle")}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            fullWidth
+          />
+          <TextField
+            label={t("arb.summary")}
+            value={editSummary}
+            onChange={(e) => setEditSummary(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={saveEdit}>
+            {t("common:actions.save")}
           </Button>
         </DialogActions>
       </Dialog>

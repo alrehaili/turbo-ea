@@ -4,6 +4,8 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Chip from "@mui/material/Chip";
 import Badge from "@mui/material/Badge";
 import Tabs from "@mui/material/Tabs";
@@ -77,6 +79,8 @@ export default function TechnologyStandardsRadar() {
   const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // null = creating a new standard; otherwise the id being edited.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<{ name: string; category: Category; status: Status }>({
     name: "",
     category: "technology",
@@ -101,11 +105,42 @@ export default function TechnologyStandardsRadar() {
     load();
   }, [load]);
 
-  const createStandard = async () => {
-    if (!form.name.trim()) return;
-    await api.post("/tech-standards", form);
-    setDialogOpen(false);
+  const openCreate = () => {
+    setEditingId(null);
     setForm({ name: "", category: "technology", status: "allowed" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (s: StandardRow) => {
+    setEditingId(s.id);
+    setForm({ name: s.name, category: s.category, status: s.status });
+    setDialogOpen(true);
+  };
+
+  const saveStandard = async () => {
+    if (!form.name.trim()) return;
+    if (editingId) {
+      await api.patch(`/tech-standards/${editingId}`, form);
+    } else {
+      await api.post("/tech-standards", form);
+    }
+    setDialogOpen(false);
+    setEditingId(null);
+    setForm({ name: "", category: "technology", status: "allowed" });
+    await load();
+  };
+
+  const deleteStandard = async (s: StandardRow) => {
+    if (!window.confirm(t("techStandards.confirmDeleteStandard", { name: s.name }))) return;
+    await api.delete(`/tech-standards/${s.id}`);
+    setDialogOpen(false);
+    setEditingId(null);
+    await load();
+  };
+
+  const deleteException = async (id: string) => {
+    if (!window.confirm(t("techStandards.confirmDeleteException"))) return;
+    await api.delete(`/tech-standards/exceptions/${id}`);
     await load();
   };
 
@@ -132,7 +167,7 @@ export default function TechnologyStandardsRadar() {
         <Button
           variant="contained"
           startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => setDialogOpen(true)}
+          onClick={openCreate}
         >
           {t("techStandards.newStandard")}
         </Button>
@@ -208,7 +243,8 @@ export default function TechnologyStandardsRadar() {
                                 size="small"
                                 variant="outlined"
                                 label={std.name}
-                                sx={{ borderColor: STATUS_COLOR[s] }}
+                                onClick={() => openEdit(std)}
+                                sx={{ borderColor: STATUS_COLOR[s], cursor: "pointer" }}
                               />
                             </Badge>
                           ))}
@@ -271,16 +307,23 @@ export default function TechnologyStandardsRadar() {
                       />
                     </TableCell>
                     <TableCell align="right">
-                      {e.status === "requested" && (
-                        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
-                          <Button size="small" color="success" onClick={() => decide(e.id, "approve")}>
-                            {t("techStandards.approve")}
-                          </Button>
-                          <Button size="small" color="error" onClick={() => decide(e.id, "reject")}>
-                            {t("techStandards.reject")}
-                          </Button>
-                        </Box>
-                      )}
+                      <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end", alignItems: "center" }}>
+                        {e.status === "requested" && (
+                          <>
+                            <Button size="small" color="success" onClick={() => decide(e.id, "approve")}>
+                              {t("techStandards.approve")}
+                            </Button>
+                            <Button size="small" color="error" onClick={() => decide(e.id, "reject")}>
+                              {t("techStandards.reject")}
+                            </Button>
+                          </>
+                        )}
+                        <Tooltip title={t("common:actions.delete")}>
+                          <IconButton size="small" color="error" onClick={() => deleteException(e.id)}>
+                            <MaterialSymbol icon="delete" size={18} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -290,9 +333,11 @@ export default function TechnologyStandardsRadar() {
         </Paper>
       )}
 
-      {/* New standard dialog */}
+      {/* Create / edit standard dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{t("techStandards.newStandard")}</DialogTitle>
+        <DialogTitle>
+          {editingId ? t("techStandards.editStandard") : t("techStandards.newStandard")}
+        </DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <TextField
             autoFocus
@@ -326,11 +371,29 @@ export default function TechnologyStandardsRadar() {
             ))}
           </TextField>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={createStandard}>
-            {t("common:actions.create")}
-          </Button>
+        <DialogActions sx={{ justifyContent: editingId ? "space-between" : "flex-end" }}>
+          {editingId && (
+            <Button
+              color="error"
+              startIcon={<MaterialSymbol icon="delete" size={18} />}
+              onClick={() => {
+                const found = radar
+                  ? Object.values(radar.matrix)
+                      .flatMap((byStatus) => Object.values(byStatus).flat())
+                      .find((s) => s.id === editingId)
+                  : undefined;
+                if (found) deleteStandard(found);
+              }}
+            >
+              {t("common:actions.delete")}
+            </Button>
+          )}
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
+            <Button variant="contained" onClick={saveStandard}>
+              {editingId ? t("common:actions.save") : t("common:actions.create")}
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>

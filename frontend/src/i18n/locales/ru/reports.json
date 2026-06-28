@@ -584,5 +584,18 @@
   "integration.colPending": "Ожидает",
   "integration.never": "Никогда",
   "integration.staleLabel": "Устарело",
-  "integration.fresh": "Актуально"
+  "integration.fresh": "Актуально",
+  "scenarios.confirmDelete": "Удалить сценарий «{{name}}»? Действие необратимо.",
+  "scenarios.editScenario": "Редактировать сценарий",
+  "arb.confirmDelete": "Удалить рассмотрение «{{name}}»?",
+  "arb.editReview": "Редактировать рассмотрение",
+  "arb.summary": "Сводка",
+  "rationalization.confirmDeleteCampaign": "Удалить кампанию «{{name}}»? Действие необратимо.",
+  "rationalization.confirmDeleteDecision": "Убрать это приложение из кампании?",
+  "rationalization.editCampaign": "Редактировать кампанию",
+  "rationalization.editDecision": "Редактировать решение",
+  "rationalization.statusLabel": "Статус",
+  "techStandards.confirmDeleteStandard": "Удалить стандарт «{{name}}»? Действие необратимо.",
+  "techStandards.confirmDeleteException": "Удалить это исключение?",
+  "techStandards.editStandard": "Редактировать стандарт"
 }

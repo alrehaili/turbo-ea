@@ -584,5 +584,18 @@
   "integration.colPending": "Afventer",
   "integration.never": "Aldrig",
   "integration.staleLabel": "Forældet",
-  "integration.fresh": "Frisk"
+  "integration.fresh": "Frisk",
+  "scenarios.confirmDelete": "Slet scenariet «{{name}}»? Dette kan ikke fortrydes.",
+  "scenarios.editScenario": "Rediger scenarie",
+  "arb.confirmDelete": "Slet gennemgangen «{{name}}»?",
+  "arb.editReview": "Rediger gennemgang",
+  "arb.summary": "Resumé",
+  "rationalization.confirmDeleteCampaign": "Slet kampagnen «{{name}}»? Dette kan ikke fortrydes.",
+  "rationalization.confirmDeleteDecision": "Fjern denne applikation fra kampagnen?",
+  "rationalization.editCampaign": "Rediger kampagne",
+  "rationalization.editDecision": "Rediger beslutning",
+  "rationalization.statusLabel": "Status",
+  "techStandards.confirmDeleteStandard": "Slet standarden «{{name}}»? Dette kan ikke fortrydes.",
+  "techStandards.confirmDeleteException": "Slet denne undtagelse?",
+  "techStandards.editStandard": "Rediger standard"
 }

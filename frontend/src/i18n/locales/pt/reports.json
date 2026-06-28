@@ -584,5 +584,18 @@
   "integration.colPending": "Pendentes",
   "integration.never": "Nunca",
   "integration.staleLabel": "Obsoleta",
-  "integration.fresh": "Atual"
+  "integration.fresh": "Atual",
+  "scenarios.confirmDelete": "Excluir o cenário «{{name}}»? Esta ação não pode ser desfeita.",
+  "scenarios.editScenario": "Editar cenário",
+  "arb.confirmDelete": "Excluir a revisão «{{name}}»?",
+  "arb.editReview": "Editar revisão",
+  "arb.summary": "Resumo",
+  "rationalization.confirmDeleteCampaign": "Excluir a campanha «{{name}}»? Esta ação não pode ser desfeita.",
+  "rationalization.confirmDeleteDecision": "Remover esta aplicação da campanha?",
+  "rationalization.editCampaign": "Editar campanha",
+  "rationalization.editDecision": "Editar decisão",
+  "rationalization.statusLabel": "Status",
+  "techStandards.confirmDeleteStandard": "Excluir o padrão «{{name}}»? Esta ação não pode ser desfeita.",
+  "techStandards.confirmDeleteException": "Excluir esta exceção?",
+  "techStandards.editStandard": "Editar padrão"
 }

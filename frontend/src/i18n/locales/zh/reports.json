@@ -584,5 +584,18 @@
   "integration.colPending": "待处理",
   "integration.never": "从未",
   "integration.staleLabel": "过期",
-  "integration.fresh": "最新"
+  "integration.fresh": "最新",
+  "scenarios.confirmDelete": "删除场景「{{name}}」？此操作无法撤销。",
+  "scenarios.editScenario": "编辑场景",
+  "arb.confirmDelete": "删除评审「{{name}}」？",
+  "arb.editReview": "编辑评审",
+  "arb.summary": "摘要",
+  "rationalization.confirmDeleteCampaign": "删除计划「{{name}}」？此操作无法撤销。",
+  "rationalization.confirmDeleteDecision": "从计划中移除此应用？",
+  "rationalization.editCampaign": "编辑计划",
+  "rationalization.editDecision": "编辑决策",
+  "rationalization.statusLabel": "状态",
+  "techStandards.confirmDeleteStandard": "删除标准「{{name}}」？此操作无法撤销。",
+  "techStandards.confirmDeleteException": "删除此例外？",
+  "techStandards.editStandard": "编辑标准"
 }

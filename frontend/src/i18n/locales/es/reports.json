@@ -584,5 +584,18 @@
   "integration.colPending": "Pendientes",
   "integration.never": "Nunca",
   "integration.staleLabel": "Obsoleta",
-  "integration.fresh": "Actual"
+  "integration.fresh": "Actual",
+  "scenarios.confirmDelete": "¿Eliminar el escenario «{{name}}»? Esta acción no se puede deshacer.",
+  "scenarios.editScenario": "Editar escenario",
+  "arb.confirmDelete": "¿Eliminar la revisión «{{name}}»?",
+  "arb.editReview": "Editar revisión",
+  "arb.summary": "Resumen",
+  "rationalization.confirmDeleteCampaign": "¿Eliminar la campaña «{{name}}»? Esta acción no se puede deshacer.",
+  "rationalization.confirmDeleteDecision": "¿Quitar esta aplicación de la campaña?",
+  "rationalization.editCampaign": "Editar campaña",
+  "rationalization.editDecision": "Editar decisión",
+  "rationalization.statusLabel": "Estado",
+  "techStandards.confirmDeleteStandard": "¿Eliminar el estándar «{{name}}»? Esta acción no se puede deshacer.",
+  "techStandards.confirmDeleteException": "¿Eliminar esta excepción?",
+  "techStandards.editStandard": "Editar estándar"
 }

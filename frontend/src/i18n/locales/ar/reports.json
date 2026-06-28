@@ -584,5 +584,18 @@
   "integration.colPending": "معلّقة",
   "integration.never": "أبدًا",
   "integration.staleLabel": "متقادم",
-  "integration.fresh": "حديث"
+  "integration.fresh": "حديث",
+  "scenarios.confirmDelete": "حذف السيناريو «{{name}}»؟ لا يمكن التراجع عن هذا الإجراء.",
+  "scenarios.editScenario": "تعديل السيناريو",
+  "arb.confirmDelete": "حذف المراجعة «{{name}}»؟",
+  "arb.editReview": "تعديل المراجعة",
+  "arb.summary": "الملخّص",
+  "rationalization.confirmDeleteCampaign": "حذف الحملة «{{name}}»؟ لا يمكن التراجع عن هذا الإجراء.",
+  "rationalization.confirmDeleteDecision": "إزالة هذا التطبيق من الحملة؟",
+  "rationalization.editCampaign": "تعديل الحملة",
+  "rationalization.editDecision": "تعديل القرار",
+  "rationalization.statusLabel": "الحالة",
+  "techStandards.confirmDeleteStandard": "حذف المعيار «{{name}}»؟ لا يمكن التراجع عن هذا الإجراء.",
+  "techStandards.confirmDeleteException": "حذف هذا الاستثناء؟",
+  "techStandards.editStandard": "تعديل المعيار"
 }

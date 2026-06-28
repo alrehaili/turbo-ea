@@ -584,5 +584,18 @@
   "integration.colPending": "Ausstehend",
   "integration.never": "Nie",
   "integration.staleLabel": "Veraltet",
-  "integration.fresh": "Aktuell"
+  "integration.fresh": "Aktuell",
+  "scenarios.confirmDelete": "Szenario «{{name}}» löschen? Dies kann nicht rückgängig gemacht werden.",
+  "scenarios.editScenario": "Szenario bearbeiten",
+  "arb.confirmDelete": "Prüfung «{{name}}» löschen?",
+  "arb.editReview": "Prüfung bearbeiten",
+  "arb.summary": "Zusammenfassung",
+  "rationalization.confirmDeleteCampaign": "Kampagne «{{name}}» löschen? Dies kann nicht rückgängig gemacht werden.",
+  "rationalization.confirmDeleteDecision": "Diese Anwendung aus der Kampagne entfernen?",
+  "rationalization.editCampaign": "Kampagne bearbeiten",
+  "rationalization.editDecision": "Entscheidung bearbeiten",
+  "rationalization.statusLabel": "Status",
+  "techStandards.confirmDeleteStandard": "Standard «{{name}}» löschen? Dies kann nicht rückgängig gemacht werden.",
+  "techStandards.confirmDeleteException": "Diese Ausnahme löschen?",
+  "techStandards.editStandard": "Standard bearbeiten"
 }

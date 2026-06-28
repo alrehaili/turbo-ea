@@ -20,6 +20,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Autocomplete from "@mui/material/Autocomplete";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -88,6 +89,18 @@ export default function ApplicationRationalizationBoard() {
   const [appOptions, setAppOptions] = useState<CardBrief[]>([]);
   const [decisionCard, setDecisionCard] = useState<CardBrief | null>(null);
   const [decisionType, setDecisionType] = useState<TimeDecision>("undecided");
+  // Campaign edit
+  const [editCampaignOpen, setEditCampaignOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editTarget, setEditTarget] = useState("");
+  const [editStatus, setEditStatus] = useState("draft");
+  // Decision edit
+  const [editDecision, setEditDecision] = useState<Decision | null>(null);
+  const [edSuccessor, setEdSuccessor] = useState<CardBrief | null>(null);
+  const [edCost, setEdCost] = useState("");
+  const [edSavings, setEdSavings] = useState("");
+  const [edProgress, setEdProgress] = useState("0");
+  const [edNotes, setEdNotes] = useState("");
 
   const loadCampaigns = useCallback(async () => {
     setLoading(true);
@@ -152,7 +165,50 @@ export default function ApplicationRationalizationBoard() {
 
   const deleteDecision = async (id: string) => {
     if (!active) return;
+    if (!window.confirm(t("rationalization.confirmDeleteDecision"))) return;
     await api.delete(`/rationalization/decisions/${id}`);
+    await openCampaign(active.id);
+    await loadCampaigns();
+  };
+
+  const saveCampaignEdit = async () => {
+    if (!active || !editName.trim()) return;
+    await api.patch(`/rationalization/campaigns/${active.id}`, {
+      name: editName,
+      target_savings: editTarget ? Number(editTarget) : null,
+      status: editStatus,
+    });
+    setEditCampaignOpen(false);
+    await openCampaign(active.id);
+    await loadCampaigns();
+  };
+
+  const deleteCampaign = async (id: string, name: string) => {
+    if (!window.confirm(t("rationalization.confirmDeleteCampaign", { name }))) return;
+    await api.delete(`/rationalization/campaigns/${id}`);
+    if (active?.id === id) setActive(null);
+    await loadCampaigns();
+  };
+
+  const openDecisionEdit = (d: Decision) => {
+    setEditDecision(d);
+    setEdSuccessor(d.successor);
+    setEdCost(d.annual_cost != null ? String(d.annual_cost) : "");
+    setEdSavings(d.planned_savings != null ? String(d.planned_savings) : "");
+    setEdProgress(String(d.progress ?? 0));
+    setEdNotes(d.notes || "");
+  };
+
+  const saveDecisionEdit = async () => {
+    if (!active || !editDecision) return;
+    await api.patch(`/rationalization/decisions/${editDecision.id}`, {
+      successor_id: edSuccessor?.id ?? null,
+      annual_cost: edCost ? Number(edCost) : null,
+      planned_savings: edSavings ? Number(edSavings) : null,
+      progress: Number(edProgress) || 0,
+      notes: edNotes || null,
+    });
+    setEditDecision(null);
     await openCampaign(active.id);
     await loadCampaigns();
   };
@@ -206,6 +262,18 @@ export default function ApplicationRationalizationBoard() {
                 </Typography>
               </Box>
               <Chip size="small" label={t(`rationalization.status.${c.status}`)} />
+              <Tooltip title={t("common:actions.delete")}>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteCampaign(c.id, c.name);
+                  }}
+                >
+                  <MaterialSymbol icon="delete" size={18} />
+                </IconButton>
+              </Tooltip>
               <MaterialSymbol icon="chevron_right" size={20} />
             </Paper>
           ))
@@ -261,6 +329,24 @@ export default function ApplicationRationalizationBoard() {
         >
           {t("rationalization.addApp")}
         </Button>
+        <Tooltip title={t("common:actions.edit")}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setEditName(active.name);
+              setEditTarget(active.target_savings != null ? String(active.target_savings) : "");
+              setEditStatus(active.status);
+              setEditCampaignOpen(true);
+            }}
+          >
+            <MaterialSymbol icon="edit" size={20} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t("common:actions.delete")}>
+          <IconButton size="small" color="error" onClick={() => deleteCampaign(active.id, active.name)}>
+            <MaterialSymbol icon="delete" size={20} />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 3 }}>
@@ -355,10 +441,17 @@ export default function ApplicationRationalizationBoard() {
                     <Typography variant="caption">{d.progress}%</Typography>
                   </Box>
                 </TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => deleteDecision(d.id)}>
-                    <MaterialSymbol icon="delete" size={18} />
-                  </IconButton>
+                <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                  <Tooltip title={t("common:actions.edit")}>
+                    <IconButton size="small" onClick={() => openDecisionEdit(d)}>
+                      <MaterialSymbol icon="edit" size={18} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t("common:actions.delete")}>
+                    <IconButton size="small" color="error" onClick={() => deleteDecision(d.id)}>
+                      <MaterialSymbol icon="delete" size={18} />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
@@ -404,6 +497,107 @@ export default function ApplicationRationalizationBoard() {
           <Button onClick={() => setDecisionDialog(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" onClick={addDecision} disabled={!decisionCard}>
             {t("common:actions.add")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit campaign dialog */}
+      <Dialog open={editCampaignOpen} onClose={() => setEditCampaignOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t("rationalization.editCampaign")}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField
+            autoFocus
+            label={t("rationalization.campaignName")}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            fullWidth
+          />
+          <TextField
+            label={t("rationalization.targetSavings")}
+            type="number"
+            value={editTarget}
+            onChange={(e) => setEditTarget(e.target.value)}
+            fullWidth
+          />
+          <TextField
+            select
+            label={t("rationalization.statusLabel")}
+            value={editStatus}
+            onChange={(e) => setEditStatus(e.target.value)}
+          >
+            {["draft", "active", "completed", "archived"].map((s) => (
+              <MenuItem key={s} value={s}>
+                {t(`rationalization.status.${s}`)}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditCampaignOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={saveCampaignEdit}>
+            {t("common:actions.save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit decision dialog */}
+      <Dialog
+        open={!!editDecision}
+        onClose={() => setEditDecision(null)}
+        fullWidth
+        maxWidth="sm"
+        disableRestoreFocus
+      >
+        <DialogTitle>
+          {t("rationalization.editDecision")}
+          {editDecision?.card && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              {editDecision.card.name}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <Autocomplete
+            options={appOptions}
+            value={edSuccessor}
+            getOptionLabel={(o) => o.name}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            onChange={(_, v) => setEdSuccessor(v)}
+            onInputChange={(_, v) => searchApps(v)}
+            filterOptions={(x) => x}
+            renderInput={(p) => <TextField {...p} label={t("rationalization.colSuccessor")} />}
+          />
+          <TextField
+            label={t("rationalization.colAnnualCost")}
+            type="number"
+            value={edCost}
+            onChange={(e) => setEdCost(e.target.value)}
+          />
+          <TextField
+            label={t("rationalization.colSavings")}
+            type="number"
+            value={edSavings}
+            onChange={(e) => setEdSavings(e.target.value)}
+          />
+          <TextField
+            label={t("rationalization.colProgress")}
+            type="number"
+            inputProps={{ min: 0, max: 100 }}
+            value={edProgress}
+            onChange={(e) => setEdProgress(e.target.value)}
+          />
+          <TextField
+            label={t("common:labels.description")}
+            value={edNotes}
+            onChange={(e) => setEdNotes(e.target.value)}
+            multiline
+            minRows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDecision(null)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={saveDecisionEdit}>
+            {t("common:actions.save")}
           </Button>
         </DialogActions>
       </Dialog>
