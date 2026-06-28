@@ -654,6 +654,100 @@
         "title": "ArchiveRetentionPayload",
         "type": "object"
       },
+      "AssessmentCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "draft",
+            "title": "Status",
+            "type": "string"
+          },
+          "target_savings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Savings"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AssessmentCreate",
+        "type": "object"
+      },
+      "AssessmentUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "target_savings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Savings"
+          }
+        },
+        "title": "AssessmentUpdate",
+        "type": "object"
+      },
       "AutoMappedColumn": {
         "description": "One source-platform column that the parser auto-routes to a TEA slot.\n\nSourced from the adapter's ``auto_mapped_columns`` table. Surfaced\nverbatim in the admin's \"Map imported fields\" tab so the admin can\nsee at a glance which native columns are already handled and don't\nneed an entry in the per-field list.",
         "properties": {
@@ -1262,100 +1356,6 @@
           }
         },
         "title": "CalculationUpdate",
-        "type": "object"
-      },
-      "CampaignCreate": {
-        "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "name": {
-            "maxLength": 300,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "status": {
-            "default": "draft",
-            "title": "Status",
-            "type": "string"
-          },
-          "target_savings": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Savings"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "CampaignCreate",
-        "type": "object"
-      },
-      "CampaignUpdate": {
-        "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Description"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 300,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "target_savings": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Savings"
-          }
-        },
-        "title": "CampaignUpdate",
         "type": "object"
       },
       "CardArchiveRequest": {
@@ -26216,9 +26216,9 @@
         ]
       }
     },
-    "/api/v1/rationalization/campaigns": {
+    "/api/v1/rationalization/assessments": {
       "get": {
-        "operationId": "list_campaigns_api_v1_rationalization_campaigns_get",
+        "operationId": "list_assessments_api_v1_rationalization_assessments_get",
         "responses": {
           "200": {
             "content": {
@@ -26229,18 +26229,18 @@
             "description": "Successful Response"
           }
         },
-        "summary": "List Campaigns",
+        "summary": "List Assessments",
         "tags": [
           "rationalization"
         ]
       },
       "post": {
-        "operationId": "create_campaign_api_v1_rationalization_campaigns_post",
+        "operationId": "create_assessment_api_v1_rationalization_assessments_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CampaignCreate"
+                "$ref": "#/components/schemas/AssessmentCreate"
               }
             }
           },
@@ -26266,23 +26266,23 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Campaign",
+        "summary": "Create Assessment",
         "tags": [
           "rationalization"
         ]
       }
     },
-    "/api/v1/rationalization/campaigns/{campaign_id}": {
+    "/api/v1/rationalization/assessments/{assessment_id}": {
       "delete": {
-        "operationId": "delete_campaign_api_v1_rationalization_campaigns__campaign_id__delete",
+        "operationId": "delete_assessment_api_v1_rationalization_assessments__assessment_id__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "campaign_id",
+            "name": "assessment_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Campaign Id",
+              "title": "Assessment Id",
               "type": "string"
             }
           }
@@ -26302,21 +26302,21 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete Campaign",
+        "summary": "Delete Assessment",
         "tags": [
           "rationalization"
         ]
       },
       "get": {
-        "operationId": "get_campaign_api_v1_rationalization_campaigns__campaign_id__get",
+        "operationId": "get_assessment_api_v1_rationalization_assessments__assessment_id__get",
         "parameters": [
           {
             "in": "path",
-            "name": "campaign_id",
+            "name": "assessment_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Campaign Id",
+              "title": "Assessment Id",
               "type": "string"
             }
           }
@@ -26341,21 +26341,21 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Campaign",
+        "summary": "Get Assessment",
         "tags": [
           "rationalization"
         ]
       },
       "patch": {
-        "operationId": "update_campaign_api_v1_rationalization_campaigns__campaign_id__patch",
+        "operationId": "update_assessment_api_v1_rationalization_assessments__assessment_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "campaign_id",
+            "name": "assessment_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Campaign Id",
+              "title": "Assessment Id",
               "type": "string"
             }
           }
@@ -26364,7 +26364,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CampaignUpdate"
+                "$ref": "#/components/schemas/AssessmentUpdate"
               }
             }
           },
@@ -26390,23 +26390,23 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Update Campaign",
+        "summary": "Update Assessment",
         "tags": [
           "rationalization"
         ]
       }
     },
-    "/api/v1/rationalization/campaigns/{campaign_id}/decisions": {
+    "/api/v1/rationalization/assessments/{assessment_id}/decisions": {
       "post": {
-        "operationId": "create_decision_api_v1_rationalization_campaigns__campaign_id__decisions_post",
+        "operationId": "create_decision_api_v1_rationalization_assessments__assessment_id__decisions_post",
         "parameters": [
           {
             "in": "path",
-            "name": "campaign_id",
+            "name": "assessment_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Campaign Id",
+              "title": "Assessment Id",
               "type": "string"
             }
           }

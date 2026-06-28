@@ -29,7 +29,7 @@ from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
-from app.models.rationalization import CampaignDecision, RationalizationCampaign
+from app.models.rationalization import AssessmentDecision, RationalizationAssessment
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.risk import Risk, RiskCard
@@ -135,8 +135,8 @@ __all__ = [
     "RiskMitigationTaskOccurrence",
     "Roadmap",
     "RoadmapMilestone",
-    "RationalizationCampaign",
-    "CampaignDecision",
+    "RationalizationAssessment",
+    "AssessmentDecision",
     "Survey",
     "SurveyResponse",
     "ProcessDiagram",

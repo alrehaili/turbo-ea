@@ -1,15 +1,15 @@
-"""Application Rationalization Campaign models.
+"""Application Rationalization Assessment models.
 
-A rationalization campaign packages the portfolio-decision workflow that turns
+A rationalization assessment packages the portfolio-decision workflow that turns
 inventory into action: assess applications with the **TIME** framework
 (Tolerate / Invest / Migrate / Eliminate), nominate a successor, estimate the
 annual cost and planned savings, link the delivering initiative, and track
 progress.
 
-A :class:`RationalizationCampaign` owns many :class:`CampaignDecision` rows —
+A :class:`RationalizationAssessment` owns many :class:`AssessmentDecision` rows —
 one per application under review. The successor and the delivering initiative are
 captured as nullable card FKs on the decision itself (not as landscape
-relations), so the campaign is self-contained; promoting a successor choice into
+relations), so the assessment is self-contained; promoting a successor choice into
 a first-class landscape relation is a future enhancement (see plan.md item 1.3).
 
 [FORK FEATURE]
@@ -27,13 +27,13 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 # TIME-framework decision values + workflow statuses (validated in the schema).
 TIME_DECISIONS = ("undecided", "tolerate", "invest", "migrate", "eliminate")
-CAMPAIGN_STATUSES = ("draft", "active", "completed", "archived")
+ASSESSMENT_STATUSES = ("draft", "active", "completed", "archived")
 
 
-class RationalizationCampaign(UUIDMixin, TimestampMixin, Base):
-    """A repeatable application-rationalization campaign over a portfolio."""
+class RationalizationAssessment(UUIDMixin, TimestampMixin, Base):
+    """A repeatable application-rationalization assessment over a portfolio."""
 
-    __tablename__ = "rationalization_campaigns"
+    __tablename__ = "rationalization_assessments"
 
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -44,22 +44,22 @@ class RationalizationCampaign(UUIDMixin, TimestampMixin, Base):
     )
 
     decisions = relationship(
-        "CampaignDecision",
+        "AssessmentDecision",
         cascade="all, delete-orphan",
         lazy="raise",
     )
 
-    __table_args__ = (Index("ix_rationalization_campaigns_status", "status"),)
+    __table_args__ = (Index("ix_rationalization_assessments_status", "status"),)
 
 
-class CampaignDecision(UUIDMixin, TimestampMixin, Base):
-    """One application's TIME decision within a campaign."""
+class AssessmentDecision(UUIDMixin, TimestampMixin, Base):
+    """One application's TIME decision within an assessment."""
 
-    __tablename__ = "campaign_decisions"
+    __tablename__ = "assessment_decisions"
 
-    campaign_id: Mapped[uuid.UUID] = mapped_column(
+    assessment_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("rationalization_campaigns.id", ondelete="CASCADE"),
+        ForeignKey("rationalization_assessments.id", ondelete="CASCADE"),
         nullable=False,
     )
     card_id: Mapped[uuid.UUID] = mapped_column(
@@ -79,6 +79,6 @@ class CampaignDecision(UUIDMixin, TimestampMixin, Base):
     progress: Mapped[int] = mapped_column(Integer, default=0)
 
     __table_args__ = (
-        Index("ix_campaign_decisions_campaign_id", "campaign_id"),
-        Index("ix_campaign_decisions_card_id", "card_id"),
+        Index("ix_assessment_decisions_assessment_id", "assessment_id"),
+        Index("ix_assessment_decisions_card_id", "card_id"),
     )

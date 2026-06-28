@@ -1,6 +1,6 @@
-"""Create the ``rationalization_campaigns`` and ``campaign_decisions`` tables.
+"""Create the ``rationalization_assessments`` and ``assessment_decisions`` tables.
 
-Application Rationalization Campaigns package the TIME-framework portfolio
+Application Rationalization Assessments package the TIME-framework portfolio
 decision workflow (Tolerate / Invest / Migrate / Eliminate) over a set of
 applications, tracking successor, annual cost, planned savings, the delivering
 initiative, and progress per application.
@@ -27,7 +27,7 @@ depends_on: Union[str, None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "rationalization_campaigns",
+        "rationalization_assessments",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(length=300), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
@@ -46,15 +46,17 @@ def upgrade() -> None:
             "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
     )
-    op.create_index("ix_rationalization_campaigns_status", "rationalization_campaigns", ["status"])
+    op.create_index(
+        "ix_rationalization_assessments_status", "rationalization_assessments", ["status"]
+    )
 
     op.create_table(
-        "campaign_decisions",
+        "assessment_decisions",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column(
-            "campaign_id",
+            "assessment_id",
             postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("rationalization_campaigns.id", ondelete="CASCADE"),
+            sa.ForeignKey("rationalization_assessments.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column(
@@ -90,13 +92,15 @@ def upgrade() -> None:
             "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
     )
-    op.create_index("ix_campaign_decisions_campaign_id", "campaign_decisions", ["campaign_id"])
-    op.create_index("ix_campaign_decisions_card_id", "campaign_decisions", ["card_id"])
+    op.create_index(
+        "ix_assessment_decisions_assessment_id", "assessment_decisions", ["assessment_id"]
+    )
+    op.create_index("ix_assessment_decisions_card_id", "assessment_decisions", ["card_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_campaign_decisions_card_id", table_name="campaign_decisions")
-    op.drop_index("ix_campaign_decisions_campaign_id", table_name="campaign_decisions")
-    op.drop_table("campaign_decisions")
-    op.drop_index("ix_rationalization_campaigns_status", table_name="rationalization_campaigns")
-    op.drop_table("rationalization_campaigns")
+    op.drop_index("ix_assessment_decisions_card_id", table_name="assessment_decisions")
+    op.drop_index("ix_assessment_decisions_assessment_id", table_name="assessment_decisions")
+    op.drop_table("assessment_decisions")
+    op.drop_index("ix_rationalization_assessments_status", table_name="rationalization_assessments")
+    op.drop_table("rationalization_assessments")

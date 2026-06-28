@@ -1,6 +1,6 @@
 """Integration tests for the /rationalization endpoints.
 
-Application Rationalization Campaigns — TIME-framework portfolio decisions.
+Application Rationalization Assessments — TIME-framework portfolio decisions.
 
 [FORK FEATURE]
 """
@@ -40,23 +40,23 @@ async def rat_env(db):
     }
 
 
-async def _create_campaign(client, user, **kwargs):
+async def _create_assessment(client, user, **kwargs):
     payload = {"name": "Q3 Rationalization", **kwargs}
     resp = await client.post(
-        "/api/v1/rationalization/campaigns", json=payload, headers=auth_headers(user)
+        "/api/v1/rationalization/assessments", json=payload, headers=auth_headers(user)
     )
     return resp
 
 
-class TestCampaignCrud:
-    async def test_create_and_get_campaign(self, client, db, rat_env):
+class TestAssessmentCrud:
+    async def test_create_and_get_assessment(self, client, db, rat_env):
         admin = rat_env["admin"]
-        resp = await _create_campaign(client, admin, target_savings=500000)
+        resp = await _create_assessment(client, admin, target_savings=500000)
         assert resp.status_code == 201
         cid = resp.json()["id"]
 
         resp = await client.get(
-            f"/api/v1/rationalization/campaigns/{cid}", headers=auth_headers(admin)
+            f"/api/v1/rationalization/assessments/{cid}", headers=auth_headers(admin)
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -64,11 +64,11 @@ class TestCampaignCrud:
         assert data["summary"]["target_savings"] == 500000
         assert data["decisions"] == []
 
-    async def test_list_campaigns_rollup(self, client, db, rat_env):
+    async def test_list_assessments_rollup(self, client, db, rat_env):
         admin = rat_env["admin"]
-        cid = (await _create_campaign(client, admin)).json()["id"]
+        cid = (await _create_assessment(client, admin)).json()["id"]
         await client.post(
-            f"/api/v1/rationalization/campaigns/{cid}/decisions",
+            f"/api/v1/rationalization/assessments/{cid}/decisions",
             json={
                 "card_id": str(rat_env["app"].id),
                 "time_decision": "eliminate",
@@ -76,35 +76,35 @@ class TestCampaignCrud:
             },
             headers=auth_headers(admin),
         )
-        resp = await client.get("/api/v1/rationalization/campaigns", headers=auth_headers(admin))
+        resp = await client.get("/api/v1/rationalization/assessments", headers=auth_headers(admin))
         assert resp.status_code == 200
         row = next(c for c in resp.json() if c["id"] == cid)
         assert row["decision_count"] == 1
         assert row["planned_savings_total"] == 120000
 
     async def test_viewer_cannot_create(self, client, db, rat_env):
-        resp = await _create_campaign(client, rat_env["viewer"])
+        resp = await _create_assessment(client, rat_env["viewer"])
         assert resp.status_code == 403
 
     async def test_viewer_can_view(self, client, db, rat_env):
-        cid = (await _create_campaign(client, rat_env["admin"])).json()["id"]
+        cid = (await _create_assessment(client, rat_env["admin"])).json()["id"]
         resp = await client.get(
-            f"/api/v1/rationalization/campaigns/{cid}", headers=auth_headers(rat_env["viewer"])
+            f"/api/v1/rationalization/assessments/{cid}", headers=auth_headers(rat_env["viewer"])
         )
         assert resp.status_code == 200
 
     async def test_invalid_status_rejected(self, client, db, rat_env):
-        resp = await _create_campaign(client, rat_env["admin"], status="bogus")
+        resp = await _create_assessment(client, rat_env["admin"], status="bogus")
         assert resp.status_code == 400
 
 
 class TestDecisions:
     async def test_decision_lifecycle_and_summary(self, client, db, rat_env):
         admin = rat_env["admin"]
-        cid = (await _create_campaign(client, admin)).json()["id"]
+        cid = (await _create_assessment(client, admin)).json()["id"]
 
         resp = await client.post(
-            f"/api/v1/rationalization/campaigns/{cid}/decisions",
+            f"/api/v1/rationalization/assessments/{cid}/decisions",
             json={
                 "card_id": str(rat_env["app"].id),
                 "time_decision": "migrate",
@@ -130,9 +130,9 @@ class TestDecisions:
         assert resp.status_code == 200
         assert resp.json()["time_decision"] == "eliminate"
 
-        # Campaign summary reflects the decision mix.
+        # Assessment summary reflects the decision mix.
         resp = await client.get(
-            f"/api/v1/rationalization/campaigns/{cid}", headers=auth_headers(admin)
+            f"/api/v1/rationalization/assessments/{cid}", headers=auth_headers(admin)
         )
         summary = resp.json()["summary"]
         assert summary["decision_count"] == 1
@@ -147,17 +147,17 @@ class TestDecisions:
 
     async def test_invalid_time_decision_rejected(self, client, db, rat_env):
         admin = rat_env["admin"]
-        cid = (await _create_campaign(client, admin)).json()["id"]
+        cid = (await _create_assessment(client, admin)).json()["id"]
         resp = await client.post(
-            f"/api/v1/rationalization/campaigns/{cid}/decisions",
+            f"/api/v1/rationalization/assessments/{cid}/decisions",
             json={"card_id": str(rat_env["app"].id), "time_decision": "nuke"},
             headers=auth_headers(admin),
         )
         assert resp.status_code == 400
 
-    async def test_decision_on_missing_campaign_404(self, client, db, rat_env):
+    async def test_decision_on_missing_assessment_404(self, client, db, rat_env):
         resp = await client.post(
-            "/api/v1/rationalization/campaigns/00000000-0000-0000-0000-000000000000/decisions",
+            "/api/v1/rationalization/assessments/00000000-0000-0000-0000-000000000000/decisions",
             json={"card_id": str(rat_env["app"].id)},
             headers=auth_headers(rat_env["admin"]),
         )

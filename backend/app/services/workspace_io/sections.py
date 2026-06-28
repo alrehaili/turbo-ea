@@ -29,7 +29,7 @@ from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
-from app.models.rationalization import CampaignDecision, RationalizationCampaign
+from app.models.rationalization import AssessmentDecision, RationalizationAssessment
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
 from app.models.roadmap import Roadmap, RoadmapMilestone
@@ -164,15 +164,15 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # --- Transformation roadmaps (roadmap before its milestones) ---------
     EntitySection("Roadmaps", Roadmap, user_fk_columns=("owner_id",)),
     EntitySection("RoadmapMilestones", RoadmapMilestone, card_fk_columns=("initiative_id",)),
-    # --- Rationalization (campaign before its decisions) -----------------
+    # --- Rationalization (assessment before its decisions) -----------------
     EntitySection(
-        "RationalizationCampaigns",
-        RationalizationCampaign,
+        "RationalizationAssessments",
+        RationalizationAssessment,
         user_fk_columns=("created_by",),
     ),
     EntitySection(
-        "CampaignDecisions",
-        CampaignDecision,
+        "AssessmentDecisions",
+        AssessmentDecision,
         card_fk_columns=("card_id", "successor_id", "initiative_id"),
     ),
     # --- Technology standards (standard before its exceptions) -----------
@@ -193,12 +193,8 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         user_fk_columns=("reviewer_id", "created_by"),
     ),
     # --- Scenario planning (scenario before its changes) -----------------
-    EntitySection(
-        "Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")
-    ),
-    EntitySection(
-        "ScenarioChanges", ScenarioChange, card_fk_columns=("target_card_id",)
-    ),
+    EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),
+    EntitySection("ScenarioChanges", ScenarioChange, card_fk_columns=("target_card_id",)),
     # --- Saved views + surveys -------------------------------------------
     EntitySection("SavedReports", SavedReport, user_fk_columns=("owner_id",)),
     EntitySection("Bookmarks", Bookmark, user_fk_columns=("user_id",)),

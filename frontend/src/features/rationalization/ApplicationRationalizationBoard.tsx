@@ -56,7 +56,7 @@ interface Decision {
   progress: number;
 }
 
-interface CampaignSummary {
+interface AssessmentSummary {
   id: string;
   name: string;
   description: string | null;
@@ -66,7 +66,7 @@ interface CampaignSummary {
   planned_savings_total: number;
 }
 
-interface CampaignDetail extends Omit<CampaignSummary, "decision_count" | "planned_savings_total"> {
+interface AssessmentDetail extends Omit<AssessmentSummary, "decision_count" | "planned_savings_total"> {
   decisions: Decision[];
   summary: {
     decision_count: number;
@@ -79,18 +79,18 @@ interface CampaignDetail extends Omit<CampaignSummary, "decision_count" | "plann
 export default function ApplicationRationalizationBoard() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
-  const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
-  const [active, setActive] = useState<CampaignDetail | null>(null);
+  const [assessments, setAssessments] = useState<AssessmentSummary[]>([]);
+  const [active, setActive] = useState<AssessmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newCampaignOpen, setNewCampaignOpen] = useState(false);
+  const [newAssessmentOpen, setNewAssessmentOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTarget, setNewTarget] = useState("");
   const [decisionDialog, setDecisionDialog] = useState(false);
   const [appOptions, setAppOptions] = useState<CardBrief[]>([]);
   const [decisionCard, setDecisionCard] = useState<CardBrief | null>(null);
   const [decisionType, setDecisionType] = useState<TimeDecision>("undecided");
-  // Campaign edit
-  const [editCampaignOpen, setEditCampaignOpen] = useState(false);
+  // Assessment edit
+  const [editAssessmentOpen, setEditAssessmentOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editTarget, setEditTarget] = useState("");
   const [editStatus, setEditStatus] = useState("draft");
@@ -102,34 +102,34 @@ export default function ApplicationRationalizationBoard() {
   const [edProgress, setEdProgress] = useState("0");
   const [edNotes, setEdNotes] = useState("");
 
-  const loadCampaigns = useCallback(async () => {
+  const loadAssessments = useCallback(async () => {
     setLoading(true);
     try {
-      setCampaigns(await api.get<CampaignSummary[]>("/rationalization/campaigns"));
+      setAssessments(await api.get<AssessmentSummary[]>("/rationalization/assessments"));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadCampaigns();
-  }, [loadCampaigns]);
+    loadAssessments();
+  }, [loadAssessments]);
 
-  const openCampaign = useCallback(async (id: string) => {
-    setActive(await api.get<CampaignDetail>(`/rationalization/campaigns/${id}`));
+  const openAssessment = useCallback(async (id: string) => {
+    setActive(await api.get<AssessmentDetail>(`/rationalization/assessments/${id}`));
   }, []);
 
-  const createCampaign = async () => {
+  const createAssessment = async () => {
     if (!newName.trim()) return;
-    const created = await api.post<CampaignSummary>("/rationalization/campaigns", {
+    const created = await api.post<AssessmentSummary>("/rationalization/assessments", {
       name: newName,
       target_savings: newTarget ? Number(newTarget) : null,
     });
-    setNewCampaignOpen(false);
+    setNewAssessmentOpen(false);
     setNewName("");
     setNewTarget("");
-    await loadCampaigns();
-    await openCampaign(created.id);
+    await loadAssessments();
+    await openAssessment(created.id);
   };
 
   const searchApps = async (q: string) => {
@@ -145,49 +145,49 @@ export default function ApplicationRationalizationBoard() {
 
   const addDecision = async () => {
     if (!active || !decisionCard) return;
-    await api.post(`/rationalization/campaigns/${active.id}/decisions`, {
+    await api.post(`/rationalization/assessments/${active.id}/decisions`, {
       card_id: decisionCard.id,
       time_decision: decisionType,
     });
     setDecisionDialog(false);
     setDecisionCard(null);
     setDecisionType("undecided");
-    await openCampaign(active.id);
-    await loadCampaigns();
+    await openAssessment(active.id);
+    await loadAssessments();
   };
 
   const updateDecision = async (id: string, patch: Partial<Decision>) => {
     if (!active) return;
     await api.patch(`/rationalization/decisions/${id}`, patch);
-    await openCampaign(active.id);
-    await loadCampaigns();
+    await openAssessment(active.id);
+    await loadAssessments();
   };
 
   const deleteDecision = async (id: string) => {
     if (!active) return;
     if (!window.confirm(t("rationalization.confirmDeleteDecision"))) return;
     await api.delete(`/rationalization/decisions/${id}`);
-    await openCampaign(active.id);
-    await loadCampaigns();
+    await openAssessment(active.id);
+    await loadAssessments();
   };
 
-  const saveCampaignEdit = async () => {
+  const saveAssessmentEdit = async () => {
     if (!active || !editName.trim()) return;
-    await api.patch(`/rationalization/campaigns/${active.id}`, {
+    await api.patch(`/rationalization/assessments/${active.id}`, {
       name: editName,
       target_savings: editTarget ? Number(editTarget) : null,
       status: editStatus,
     });
-    setEditCampaignOpen(false);
-    await openCampaign(active.id);
-    await loadCampaigns();
+    setEditAssessmentOpen(false);
+    await openAssessment(active.id);
+    await loadAssessments();
   };
 
-  const deleteCampaign = async (id: string, name: string) => {
-    if (!window.confirm(t("rationalization.confirmDeleteCampaign", { name }))) return;
-    await api.delete(`/rationalization/campaigns/${id}`);
+  const deleteAssessment = async (id: string, name: string) => {
+    if (!window.confirm(t("rationalization.confirmDeleteAssessment", { name }))) return;
+    await api.delete(`/rationalization/assessments/${id}`);
     if (active?.id === id) setActive(null);
-    await loadCampaigns();
+    await loadAssessments();
   };
 
   const openDecisionEdit = (d: Decision) => {
@@ -209,8 +209,8 @@ export default function ApplicationRationalizationBoard() {
       notes: edNotes || null,
     });
     setEditDecision(null);
-    await openCampaign(active.id);
-    await loadCampaigns();
+    await openAssessment(active.id);
+    await loadAssessments();
   };
 
   if (loading) {
@@ -221,7 +221,7 @@ export default function ApplicationRationalizationBoard() {
     );
   }
 
-  // Campaign list view.
+  // Assessment list view.
   if (!active) {
     return (
       <Box sx={{ maxWidth: 1200, mx: "auto", p: 2 }}>
@@ -233,24 +233,24 @@ export default function ApplicationRationalizationBoard() {
           <Button
             variant="contained"
             startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setNewCampaignOpen(true)}
+            onClick={() => setNewAssessmentOpen(true)}
           >
-            {t("rationalization.newCampaign")}
+            {t("rationalization.newAssessment")}
           </Button>
         </Box>
 
-        {campaigns.length === 0 ? (
+        {assessments.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
             <MaterialSymbol icon="recycling" size={48} />
             <Typography sx={{ mt: 2 }}>{t("rationalization.emptyState")}</Typography>
           </Box>
         ) : (
-          campaigns.map((c) => (
+          assessments.map((c) => (
             <Paper
               key={c.id}
               variant="outlined"
               sx={{ p: 2, mb: 1.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}
-              onClick={() => openCampaign(c.id)}
+              onClick={() => openAssessment(c.id)}
             >
               <Box sx={{ flex: 1 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
@@ -268,7 +268,7 @@ export default function ApplicationRationalizationBoard() {
                   color="error"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteCampaign(c.id, c.name);
+                    deleteAssessment(c.id, c.name);
                   }}
                 >
                   <MaterialSymbol icon="delete" size={18} />
@@ -279,12 +279,12 @@ export default function ApplicationRationalizationBoard() {
           ))
         )}
 
-        <Dialog open={newCampaignOpen} onClose={() => setNewCampaignOpen(false)} fullWidth maxWidth="sm">
-          <DialogTitle>{t("rationalization.newCampaign")}</DialogTitle>
+        <Dialog open={newAssessmentOpen} onClose={() => setNewAssessmentOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>{t("rationalization.newAssessment")}</DialogTitle>
           <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
             <TextField
               autoFocus
-              label={t("rationalization.campaignName")}
+              label={t("rationalization.assessmentName")}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               fullWidth
@@ -298,8 +298,8 @@ export default function ApplicationRationalizationBoard() {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setNewCampaignOpen(false)}>{t("common:actions.cancel")}</Button>
-            <Button variant="contained" onClick={createCampaign}>
+            <Button onClick={() => setNewAssessmentOpen(false)}>{t("common:actions.cancel")}</Button>
+            <Button variant="contained" onClick={createAssessment}>
               {t("common:actions.create")}
             </Button>
           </DialogActions>
@@ -308,7 +308,7 @@ export default function ApplicationRationalizationBoard() {
     );
   }
 
-  // Campaign detail / board view.
+  // Assessment detail / board view.
   const savingsPct = active.summary.target_savings
     ? Math.min(100, (active.summary.planned_savings_total / active.summary.target_savings) * 100)
     : null;
@@ -336,14 +336,14 @@ export default function ApplicationRationalizationBoard() {
               setEditName(active.name);
               setEditTarget(active.target_savings != null ? String(active.target_savings) : "");
               setEditStatus(active.status);
-              setEditCampaignOpen(true);
+              setEditAssessmentOpen(true);
             }}
           >
             <MaterialSymbol icon="edit" size={20} />
           </IconButton>
         </Tooltip>
         <Tooltip title={t("common:actions.delete")}>
-          <IconButton size="small" color="error" onClick={() => deleteCampaign(active.id, active.name)}>
+          <IconButton size="small" color="error" onClick={() => deleteAssessment(active.id, active.name)}>
             <MaterialSymbol icon="delete" size={20} />
           </IconButton>
         </Tooltip>
@@ -501,13 +501,13 @@ export default function ApplicationRationalizationBoard() {
         </DialogActions>
       </Dialog>
 
-      {/* Edit campaign dialog */}
-      <Dialog open={editCampaignOpen} onClose={() => setEditCampaignOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{t("rationalization.editCampaign")}</DialogTitle>
+      {/* Edit assessment dialog */}
+      <Dialog open={editAssessmentOpen} onClose={() => setEditAssessmentOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t("rationalization.editAssessment")}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <TextField
             autoFocus
-            label={t("rationalization.campaignName")}
+            label={t("rationalization.assessmentName")}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             fullWidth
@@ -533,8 +533,8 @@ export default function ApplicationRationalizationBoard() {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditCampaignOpen(false)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={saveCampaignEdit}>
+          <Button onClick={() => setEditAssessmentOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={saveAssessmentEdit}>
             {t("common:actions.save")}
           </Button>
         </DialogActions>
