@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -35,6 +35,7 @@ import { api } from "@/api/client";
 import type {
   CardType,
   Bookmark,
+  ColumnLayoutItem,
   FieldDef,
   RelationType,
   TranslationMap,
@@ -84,6 +85,10 @@ interface Props {
   onSelectedColumnsChange: (cols: Set<string>) => void;
   defaultColumns?: Set<string>;
   onResetColumns?: () => void;
+  // Current grid column layout (order/width/pinning), captured by InventoryPage.
+  // Saved into a view's `column_state`; applied back via `onApplyColumnState`.
+  columnState?: ColumnLayoutItem[];
+  onApplyColumnState?: (state: ColumnLayoutItem[] | null) => void;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -123,6 +128,16 @@ export const EMPTY_VALUE = "__empty__";
 /** Group-scoped empty token for tag filters. */
 export const tagEmptyToken = (groupId: string) => `${EMPTY_VALUE}:${groupId}`;
 
+/**
+ * Flatten a card's tags to a plain searchable string (tag names joined).
+ * Used as the AG Grid `filterValueGetter` for the Tags column: the cell value
+ * is a `TagRef[]`, and AG Grid's default text filter would otherwise stringify
+ * it to "[object Object]" and never match a typed tag name (issue #728).
+ */
+export function tagsToFilterText(tags?: { name: string }[]): string {
+  return (tags || []).map((t) => t.name).join(", ");
+}
+
 /** True when a card value should count as "empty" for filtering purposes. */
 export function valueIsEmpty(actual: unknown): boolean {
   return (
@@ -150,6 +165,38 @@ export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Sidebar UI persistence (active tab + applied view)                 */
+/* ------------------------------------------------------------------ */
+
+// Persisted separately from the grid config (InventoryPage's localStorage):
+// this is purely sidebar UI state — which tab is open and which saved view is
+// currently applied — so a page refresh restores the same view, shown active,
+// on the same tab.
+const SIDEBAR_LS_KEY = "turboea_inventory_sidebar";
+
+interface SidebarPrefs {
+  tab?: number;
+  activeViewId?: string | null;
+}
+
+function loadSidebarPrefs(): SidebarPrefs {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_LS_KEY);
+    return raw ? (JSON.parse(raw) as SidebarPrefs) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSidebarPrefs(prefs: SidebarPrefs) {
+  try {
+    localStorage.setItem(SIDEBAR_LS_KEY, JSON.stringify(prefs));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -172,11 +219,24 @@ export default function InventoryFilterSidebar({
   onSelectedColumnsChange,
   defaultColumns,
   onResetColumns,
+  columnState,
+  onApplyColumnState,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
-  const [tab, setTab] = useState(0);
+  const sidebarPrefsRef = useRef(loadSidebarPrefs());
+  const [tab, setTab] = useState(() => sidebarPrefsRef.current.tab ?? 0);
+  // Which saved view is currently applied (highlighted in the list). Persisted
+  // so a refresh keeps showing the same view as active.
+  const [activeViewId, setActiveViewId] = useState<string | null>(
+    () => sidebarPrefsRef.current.activeViewId ?? null,
+  );
+
+  // Persist active tab + applied view across refreshes.
+  useEffect(() => {
+    saveSidebarPrefs({ tab, activeViewId });
+  }, [tab, activeViewId]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     types: true,
     search: true,
@@ -371,6 +431,7 @@ export default function InventoryFilterSidebar({
         mineScope: filters.mineScope,
       },
       columns: Array.from(selectedColumns),
+      column_state: columnState ?? null,
       visibility: dialogVisibility,
       odata_enabled: dialogOdata,
       shared_with: sharedWithPayload,
@@ -408,11 +469,20 @@ export default function InventoryFilterSidebar({
     if (bmColumns && Array.isArray(bmColumns)) {
       onSelectedColumnsChange(new Set(bmColumns));
     }
+    // Restore the saved column layout (order/width/pinning). Applied after the
+    // visibility set above so the grid's columnDefs have rebuilt first.
+    if (onApplyColumnState) {
+      const layout = (bm.column_state as ColumnLayoutItem[] | undefined) ?? null;
+      onApplyColumnState(layout && layout.length > 0 ? layout : null);
+    }
+    // Mark this view active so it stays highlighted (and survives a refresh).
+    setActiveViewId(bm.id);
     // Stay on the Views tab so the user can switch between views quickly.
   };
 
   const handleDeleteView = async (bm: Bookmark) => {
     await api.delete(`/bookmarks/${bm.id}`);
+    if (activeViewId === bm.id) setActiveViewId(null);
     loadBookmarks();
   };
 
@@ -1329,6 +1399,7 @@ export default function InventoryFilterSidebar({
                             key={bm.id}
                             bm={bm}
                             types={types}
+                            active={bm.id === activeViewId}
                             onApply={handleApplyView}
                             onEdit={handleEditView}
                             onDelete={handleDeleteView}
@@ -1350,6 +1421,7 @@ export default function InventoryFilterSidebar({
                             key={bm.id}
                             bm={bm}
                             types={types}
+                            active={bm.id === activeViewId}
                             onApply={handleApplyView}
                             onEdit={bm.can_edit ? handleEditView : undefined}
                           />
@@ -1370,6 +1442,7 @@ export default function InventoryFilterSidebar({
                             key={bm.id}
                             bm={bm}
                             types={types}
+                            active={bm.id === activeViewId}
                             onApply={handleApplyView}
                           />
                         ))}
@@ -1664,12 +1737,14 @@ function BookmarkListItem({
   onApply,
   onEdit,
   onDelete,
+  active = false,
 }: {
   bm: Bookmark;
   types: CardType[];
   onApply: (bm: Bookmark) => void;
   onEdit?: (bm: Bookmark) => void;
   onDelete?: (bm: Bookmark) => void;
+  active?: boolean;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
   const rml = useResolveMetaLabel();
@@ -1681,6 +1756,7 @@ function BookmarkListItem({
 
   return (
     <ListItemButton
+      selected={active}
       sx={{ py: 0.5, px: 1, borderRadius: 1 }}
       onClick={() => onApply(bm)}
     >

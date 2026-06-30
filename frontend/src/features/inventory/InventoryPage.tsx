@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } fro
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent, SortChangedEvent } from "ag-grid-community";
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent, SortChangedEvent, GridReadyEvent, ColumnState } from "ag-grid-community";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -11,6 +11,9 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Menu from "@mui/material/Menu";
+import ListItemText from "@mui/material/ListItemText";
+import Divider from "@mui/material/Divider";
 import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -38,10 +41,11 @@ import InventoryFilterSidebar, {
   LOCKED_COLUMN_KEYS,
   EMPTY_VALUE,
   valueIsEmpty,
+  tagsToFilterText,
   type Filters,
 } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
-import { exportToExcel } from "./excelExport";
+import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -53,7 +57,7 @@ import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
-import type { Card, CardListResponse, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -146,6 +150,9 @@ const LS_KEY = "turboea_inventory";
 interface InventoryPrefs {
   filters?: Filters;
   columns?: string[];
+  // AG Grid column layout (order/width/pinning), captured via getColumnState().
+  // Visibility still flows from `columns` → `selectedColumns` → colDef `hide`.
+  columnState?: ColumnLayoutItem[];
   sortModel?: { colId: string; sort: string }[];
   // Set to true after the one-time migration that surfaces the previously
   // always-on Tags column in users' saved column selection. Without this
@@ -329,6 +336,40 @@ export default function InventoryPage() {
     () => !!(savedPrefsRef.current?.columns && savedPrefsRef.current.columns.length > 0),
   );
 
+  // --- Column layout (order / width / pinning) -------------------------------
+  // Visibility flows from `selectedColumns` (the sidebar picker) into colDef
+  // `hide`; this state carries the *positional* layout captured from AG Grid via
+  // getColumnState(). It is persisted to localStorage and to saved views
+  // (bookmark.column_state) so reopening a view restores how the grid looked.
+  const [columnState, setColumnState] = useState<ColumnLayoutItem[] | undefined>(
+    () => savedPrefsRef.current?.columnState,
+  );
+  // Mirror of the latest columnState for the apply effect (which keys on
+  // columnDefs, not columnState, to avoid re-applying on every capture).
+  const columnStateRef = useRef(columnState);
+  columnStateRef.current = columnState;
+  // While true, the saved layout is (re)applied to the grid as columns arrive.
+  // Attribute/relation columns appear only after the metamodel loads — *after*
+  // the grid is ready — so a one-shot restore would miss them. We keep
+  // re-applying on every columnDefs change until the user manually rearranges.
+  const restorePendingRef = useRef(true);
+  // Guards against the apply firing column events that we'd otherwise capture
+  // back (feedback) or mistake for a user rearrange.
+  const applyingLayoutRef = useRef(false);
+  // Bumped to force a re-apply (e.g. when a saved view is applied and the
+  // column *set* doesn't change, so columnDefs alone wouldn't retrigger).
+  const [layoutNonce, setLayoutNonce] = useState(0);
+  const [gridReady, setGridReady] = useState(false);
+
+  // Set the saved layout to restore (initial load handled by restorePendingRef
+  // default; this is the entry point for applying a bookmark's layout).
+  const applyColumnLayout = useCallback((layout: ColumnLayoutItem[] | null) => {
+    restorePendingRef.current = true;
+    setColumnState(layout ?? undefined);
+    setLayoutNonce((n) => n + 1);
+  }, []);
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
+
   // Mass edit state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [massEditOpen, setMassEditOpen] = useState(false);
@@ -495,10 +536,11 @@ export default function InventoryPage() {
     savePrefs({
       filters,
       columns: Array.from(selectedColumns),
+      columnState,
       sortModel,
       coreTagsMerged: true,
     });
-  }, [filters, selectedColumns, sortModel]);
+  }, [filters, selectedColumns, sortModel, columnState]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -765,12 +807,76 @@ export default function InventoryPage() {
   }, [defaultColumns]);
 
   const handleSortChanged = useCallback((event: SortChangedEvent) => {
+    // Ignore sort events fired by our own applyColumnState() restore.
+    if (applyingLayoutRef.current) return;
     const colState = event.api.getColumnState();
     const sorted = colState
       .filter((c) => c.sort)
       .map((c) => ({ colId: c.colId!, sort: c.sort! }));
     setSortModel(sorted);
+    // getColumnState() carries each column's sort/sortIndex, and column_state is
+    // what saved views persist + restore — so fold the new sort into it here.
+    // Without this, a sort-only change (no drag/pin) never reaches the saved
+    // view and sorting wouldn't survive reopening it.
+    setColumnState(colState as unknown as ColumnLayoutItem[]);
   }, []);
+
+  // Capture order/width/pinning whenever the user drags or pins a column.
+  // onDragStopped covers both column moves and resizes (one event at drag end).
+  // A genuine user rearrange also ends the initial-restore window.
+  const captureColumnState = useCallback(() => {
+    if (applyingLayoutRef.current) return;
+    const api = gridRef.current?.api;
+    if (!api) return;
+    restorePendingRef.current = false;
+    setColumnState(api.getColumnState() as unknown as ColumnLayoutItem[]);
+  }, []);
+
+  const handleGridReady = useCallback((_event: GridReadyEvent) => {
+    setGridReady(true);
+  }, []);
+
+  // Export only what's on screen: the displayed columns, in their current
+  // left-to-right order, with their displayed headers, and only the rows left
+  // after filtering — in sort order. WYSIWYG, not importable. Values are read
+  // straight from the grid (via valueGetters/valueFormatters) so relation,
+  // lifecycle, path and date columns come out exactly as displayed.
+  const handleExportCurrentView = useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    // Exclude AG Grid's auto-generated columns (the row-selection / controls
+    // column, colId `ag-Grid-ControlsColumn` / `ag-Grid-SelectionColumn`) — they
+    // carry no data and would otherwise surface as an empty leading column.
+    const displayed = api
+      .getAllDisplayedColumns()
+      .filter((c) => !c.getColId().startsWith("ag-Grid-"));
+    const columns = displayed.map((c) => ({
+      colId: c.getColId(),
+      headerName: api.getDisplayNameForColumn(c, null) || c.getColId(),
+    }));
+    const rows: Record<string, unknown>[] = [];
+    // forEachNodeAfterFilterAndSort walks EVERY row that passes the active
+    // filters, in display (sort) order — it ignores pagination and row
+    // virtualization. So the export always covers the full filtered result,
+    // not just the rows currently scrolled/paged into view. (Do not switch to
+    // getRenderedNodes(), which is viewport-bound.)
+    api.forEachNodeAfterFilterAndSort((node) => {
+      if (!node.data) return;
+      const row: Record<string, unknown> = {};
+      for (const col of displayed) {
+        row[col.getColId()] = api.getCellValue({
+          rowNode: node,
+          colKey: col,
+          useFormatter: true,
+        });
+      }
+      rows.push(row);
+    });
+    const sheetLabel = typeConfig
+      ? rml(typeConfig.key, typeConfig.translations, "label")
+      : t("export.viewSheetName", { defaultValue: "View" });
+    exportCurrentViewToExcel(rows, columns, { sheetLabel });
+  }, [typeConfig, rml, t]);
 
   // Stable AG Grid config objects — prevents unnecessary grid re-renders
   const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true }), []);
@@ -1203,6 +1309,7 @@ export default function InventoryPage() {
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols: ColDef[] = [
       {
+        colId: "core_type",
         field: "type",
         headerName: t("common:labels.type"),
         width: 140,
@@ -1221,6 +1328,7 @@ export default function InventoryPage() {
         },
       },
       {
+        colId: "core_name",
         field: "name",
         headerName: t("common:labels.name"),
         flex: 1,
@@ -1306,6 +1414,7 @@ export default function InventoryPage() {
         cellStyle: { color: "var(--mui-palette-text-secondary)" },
       },
       {
+        colId: "core_description",
         field: "description",
         headerName: t("common:labels.description"),
         flex: 1,
@@ -1318,6 +1427,7 @@ export default function InventoryPage() {
     // Add subtype column when a type with subtypes is selected
     if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
       cols.push({
+        colId: "core_subtype",
         field: "subtype",
         headerName: t("common:labels.subtype"),
         width: 140,
@@ -1347,6 +1457,7 @@ export default function InventoryPage() {
 
     cols.push(
       {
+        colId: "core_lifecycle",
         headerName: t("columns.lifecycle"),
         width: 150,
         hide: !selectedColumns.has("core_lifecycle"),
@@ -1373,6 +1484,7 @@ export default function InventoryPage() {
         },
       },
       {
+        colId: "core_approval_status",
         field: "approval_status",
         headerName: t("columns.approvalStatus"),
         width: 110,
@@ -1397,6 +1509,7 @@ export default function InventoryPage() {
         },
       },
       {
+        colId: "core_data_quality",
         field: "data_quality",
         headerName: t("columns.dataQuality"),
         width: 130,
@@ -1434,6 +1547,7 @@ export default function InventoryPage() {
         },
       },
       {
+        colId: "core_tags",
         field: "tags",
         headerName: t("columns.tags"),
         width: 200,
@@ -1447,6 +1561,10 @@ export default function InventoryPage() {
           p.data.tags = p.newValue || [];
           return true;
         },
+        // The cell value is a TagRef[]; without this, AG Grid's column-header
+        // text filter stringifies it to "[object Object]" and never matches a
+        // typed tag name (issue #728). Filter on the joined tag names instead.
+        filterValueGetter: (p: { data?: Card }) => tagsToFilterText(p.data?.tags),
         cellRenderer: (p: { value: TagRef[] }) => {
           const tags = p.value || [];
           if (tags.length === 0) return "";
@@ -1493,6 +1611,7 @@ export default function InventoryPage() {
     // Show status column when archived items are included
     if (filters.showArchived) {
       cols.push({
+        colId: "core_status",
         field: "status",
         headerName: t("common:labels.status"),
         width: 110,
@@ -1738,6 +1857,7 @@ export default function InventoryPage() {
     // Metadata columns (always defined, shown/hidden via selectedColumns)
     cols.push(
       {
+        colId: "meta_created_at",
         field: "created_at",
         headerName: t("columns.createdAt"),
         width: 160,
@@ -1745,6 +1865,7 @@ export default function InventoryPage() {
         valueFormatter: (p) => (p.value ? formatDateTime(p.value) : ""),
       },
       {
+        colId: "meta_updated_at",
         field: "updated_at",
         headerName: t("columns.updatedAt"),
         width: 160,
@@ -1752,6 +1873,7 @@ export default function InventoryPage() {
         valueFormatter: (p) => (p.value ? formatDateTime(p.value) : ""),
       },
       {
+        colId: "meta_created_by",
         field: "created_by",
         headerName: t("columns.createdBy"),
         width: 150,
@@ -1760,6 +1882,7 @@ export default function InventoryPage() {
           p.value ? userNameMap[p.value] ?? p.value : "",
       },
       {
+        colId: "meta_updated_by",
         field: "updated_by",
         headerName: t("columns.updatedBy"),
         width: 150,
@@ -1771,6 +1894,26 @@ export default function InventoryPage() {
 
     return cols;
   }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, tagGroups]);
+
+  // Restore the saved column layout (order/width/pinning/sort) onto the grid.
+  // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
+  // crucially when attribute/relation columns arrive after the metamodel loads,
+  // which happens *after* the grid is ready. We strip `hide` so visibility keeps
+  // flowing from `selectedColumns`. `restorePendingRef` stops the restore once
+  // the user manually rearranges; `applyingLayoutRef` guards against capturing
+  // the events this apply fires. Without re-applying on columnDefs changes, a
+  // one-shot restore at grid-ready loses the late-arriving columns' positions.
+  useEffect(() => {
+    if (!gridReady || !restorePendingRef.current) return;
+    const layout = columnStateRef.current;
+    if (!layout || layout.length === 0) return;
+    const api = gridRef.current?.api;
+    if (!api) return;
+    const state: ColumnState[] = layout.map(({ hide: _hide, ...rest }) => rest);
+    applyingLayoutRef.current = true;
+    api.applyColumnState({ state, applyOrder: true });
+    applyingLayoutRef.current = false;
+  }, [gridReady, columnDefs, layoutNonce]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -1993,6 +2136,8 @@ export default function InventoryPage() {
             onSelectedColumnsChange={setSelectedColumns}
             defaultColumns={defaultColumns}
             onResetColumns={handleResetColumns}
+            columnState={columnState}
+            onApplyColumnState={applyColumnLayout}
           />
         </Drawer>
       ) : (
@@ -2015,6 +2160,8 @@ export default function InventoryPage() {
           onSelectedColumnsChange={setSelectedColumns}
           defaultColumns={defaultColumns}
           onResetColumns={handleResetColumns}
+          columnState={columnState}
+          onApplyColumnState={applyColumnLayout}
         />
       )}
 
@@ -2048,7 +2195,7 @@ export default function InventoryPage() {
               <Tooltip title={t("common:actions.export")}>
                 <span>
                   <IconButton
-                    onClick={() => exportToExcel(filteredData, typeConfig, types, relationTypes, { canViewCosts: canViewCostsGlobally })}
+                    onClick={(e) => setExportMenuAnchor(e.currentTarget)}
                     disabled={filteredData.length === 0}
                     size="small"
                   >
@@ -2082,7 +2229,8 @@ export default function InventoryPage() {
                 variant="outlined"
                 color="inherit"
                 startIcon={<MaterialSymbol icon="download" size={18} />}
-                onClick={() => exportToExcel(filteredData, typeConfig, types, relationTypes, { canViewCosts: canViewCostsGlobally })}
+                endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
+                onClick={(e) => setExportMenuAnchor(e.currentTarget)}
                 disabled={filteredData.length === 0}
                 sx={{ textTransform: "none" }}
               >
@@ -2108,6 +2256,39 @@ export default function InventoryPage() {
             </>
           )}
         </Box>
+
+        {/* Export menu — full importable workbook vs. WYSIWYG current view */}
+        <Menu
+          anchorEl={exportMenuAnchor}
+          open={Boolean(exportMenuAnchor)}
+          onClose={() => setExportMenuAnchor(null)}
+        >
+          <MenuItem
+            onClick={() => {
+              exportToExcel(filteredData, typeConfig, types, relationTypes, {
+                canViewCosts: canViewCostsGlobally,
+              });
+              setExportMenuAnchor(null);
+            }}
+          >
+            <ListItemText
+              primary={t("export.allFields")}
+              secondary={t("export.allFieldsHint")}
+            />
+          </MenuItem>
+          <Divider />
+          <MenuItem
+            onClick={() => {
+              handleExportCurrentView();
+              setExportMenuAnchor(null);
+            }}
+          >
+            <ListItemText
+              primary={t("export.currentView")}
+              secondary={t("export.currentViewHint")}
+            />
+          </MenuItem>
+        </Menu>
 
         {/* Mass edit toolbar */}
         {selectedIds.length > 0 && (
@@ -2248,6 +2429,10 @@ export default function InventoryPage() {
             onCellValueChanged={handleCellEdit}
             onRowClicked={onRowClicked}
             onSortChanged={handleSortChanged}
+            onGridReady={handleGridReady}
+            onDragStopped={captureColumnState}
+            onColumnPinned={captureColumnState}
+            maintainColumnOrder
             getRowId={getRowId}
             getRowStyle={getRowStyle}
             animateRows

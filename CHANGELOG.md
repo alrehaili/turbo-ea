@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.62.0] - 2026-06-30
+
+### Added
+- **Saved views now remember column layout and sorting.** A saved Inventory view restores not just which columns are shown and your filters, but also the columns' left-to-right order, widths, pinning, and the sort order — so a view shared with stakeholders reopens exactly as it was arranged. Your personal grid arrangement is also remembered between visits.
+- **The Inventory remembers the active view and side-panel tab across refreshes.** After applying a saved view, reloading the page re-renders that same view (still highlighted as active) and keeps the same filter/columns/views tab open.
+- **"Export current view" from the Inventory.** The Export button is now a menu with two choices: **Export all fields** (the existing full, re-importable workbook) and **Export current view** — a flat, single-sheet snapshot that mirrors what's on screen (only the visible columns, in their current order, for the filtered rows). The current-view export is meant for sharing and is not suitable for re-import.
+
+### Fixed
+- **Inventory column filter on the Tags column now works** (#728). Typing a tag name in the Tags column's header filter returned no rows because the column holds a list of tag objects; it now matches against the tag names as shown.
+
 ## [1.61.0] - 2026-06-30
 
 ### Added
