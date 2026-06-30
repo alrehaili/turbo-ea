@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.59.0] - 2026-06-30
+
+### Added
+- **Edit a compliance finding.** Open any finding and use the new **Edit** button to change its compliance status (e.g. Compliant → Partial), severity, requirement, gap, evidence, remediation, article, or linked card after it was created — previously these could only be set at creation time.
+
+### Fixed
+- **Accepting a compliance finding from a card now asks for a rationale.** On a card's Compliance tab, choosing **Accepted** in the lifecycle opens the review-note dialog (the same as in the GRC Compliance module) instead of failing with "review_note is required".
+- **The bulk "Update decision" dropdown shows readable labels** (e.g. "In Review") instead of raw keys like `compliance.lifecycle.in_review`.
+- **Risk detail page on mobile.** The status-workflow stepper now scrolls within its card instead of stretching the page, so every section renders at the same width; the risk matrix and header also adapt to narrow screens.
+- **Card subtype now shows its label, not its key.** The card side panel header displayed the raw subtype key (e.g. `aiModel`) instead of the translated label (e.g. "AI Model").
+- **Compliance tab is readable on mobile.** A card's Compliance tab now renders findings as a stacked, tappable list on small screens instead of a cramped six-column table.
+
 ## [1.58.0] - 2026-06-29
 
 ### Added
