@@ -196,10 +196,9 @@ export default function TransformationRoadmap() {
     try {
       const d = currentId
         ? await api.get<RoadmapData>(`/roadmaps/${currentId}/data`)
-        : await api.get<RoadmapData>("/roadmaps/data", {
-            type: cardTypeKey,
-            group_by: groupByKey,
-          });
+        : await api.get<RoadmapData>(
+            `/roadmaps/data?${new URLSearchParams({ type: cardTypeKey, group_by: groupByKey })}`,
+          );
       setData(d);
     } catch (err) {
       setError(
@@ -301,11 +300,6 @@ export default function TransformationRoadmap() {
     setMsOpen(false);
     setMsLabel("");
     setMsDate("");
-    await fetchData();
-  };
-
-  const handleDeleteMilestone = async (id: string) => {
-    await api.delete(`/roadmaps/milestones/${id}`);
     await fetchData();
   };
 
@@ -421,6 +415,7 @@ export default function TransformationRoadmap() {
   return (
     <ReportShell
       title={t("reports:transformationRoadmap.title")}
+      icon="conversion_path"
       printParams={[
         { label: t("transformationRoadmap.cardType"), value: typeLabel },
         { label: t("transformationRoadmap.groupBy"), value: groupLabel },

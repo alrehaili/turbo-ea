@@ -33,8 +33,6 @@ import {
   useRelationLabel,
   useFieldLabel,
   useSubtypeLabel,
-  useResolveMetaLabel,
-  useResolveLabel,
 } from "@/hooks/useResolveLabel";
 import type { WebPortal, TagGroup, PortalTileSection } from "@/types";
 
