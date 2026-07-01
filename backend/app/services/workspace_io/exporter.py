@@ -32,6 +32,7 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import diagram_cards
+from app.models.diagram_group import diagram_group_members
 from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -41,7 +42,11 @@ from app.models.user import User
 from app.services.workspace_io import bundle as bundle_io
 from app.services.workspace_io import entities, schema
 from app.services.workspace_io.secrets import strip_secrets
-from app.services.workspace_io.sections import ENTITY_SECTIONS, SHEET_DIAGRAM_CARDS
+from app.services.workspace_io.sections import (
+    ENTITY_SECTIONS,
+    SHEET_DIAGRAM_CARDS,
+    SHEET_DIAGRAM_GROUP_MEMBERS,
+)
 
 # Column orders for the bespoke sheets.
 CARD_TYPE_COLUMNS = (
@@ -350,6 +355,16 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows, assets
     )
     section_counts[SHEET_DIAGRAM_CARDS] = len(dc_rows)
+
+    # Diagram↔group membership (bespoke association; both PKs preserved on import).
+    gm_rows = [
+        {"diagram_id": str(row.diagram_id), "group_id": str(row.group_id)}
+        for row in (await db.execute(select(diagram_group_members))).all()
+    ]
+    bundle_io.write_sheet(
+        wb, SHEET_DIAGRAM_GROUP_MEMBERS, ["diagram_id", "group_id"], gm_rows, assets
+    )
+    section_counts[SHEET_DIAGRAM_GROUP_MEMBERS] = len(gm_rows)
 
     # Standard↔Principle links (bespoke association by title — both endpoints are
     # title-matched config rows whose PKs are reassigned on import, so raw UUIDs

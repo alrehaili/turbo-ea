@@ -336,7 +336,6 @@ async def test_diagram_with_card_link_roundtrips(db):
     card = await create_card(db, card_type="Application", name="Linked App", user_id=user.id)
     diagram = Diagram(
         name="My Diagram",
-        type="free_draw",
         data={"xml": "<mxGraphModel>hi</mxGraphModel>", "thumbnail": "data:image/png;base64,AA"},
         created_by=user.id,
     )
@@ -363,6 +362,131 @@ async def test_diagram_with_card_link_roundtrips(db):
     assert restored.data["thumbnail"] == "data:image/png;base64,AA"  # meta preserved
     links = (await db.execute(select(diagram_cards))).all()
     assert any(row.diagram_id == diag_id and row.card_id == card.id for row in links)
+
+
+async def test_diagram_groups_and_favorites_roundtrip(db):
+    """Diagram groups, their membership, and per-user favorites survive
+    export → delete → re-import."""
+    from app.models.diagram import Diagram
+    from app.models.diagram_favorite import DiagramFavorite
+    from app.models.diagram_group import DiagramGroup, diagram_group_members
+
+    user = await create_user(db, email="grp@test.com", role="admin")
+    diagram = Diagram(name="Grouped Diagram", data={"xml": "<x/>"}, created_by=user.id)
+    group = DiagramGroup(name="Domain A", color="#60a5fa", sort_order=0, created_by=user.id)
+    db.add_all([diagram, group])
+    await db.flush()
+    diag_id, group_id = diagram.id, group.id
+    await db.execute(diagram_group_members.insert().values(diagram_id=diag_id, group_id=group_id))
+    db.add(DiagramFavorite(user_id=user.id, diagram_id=diag_id))
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(diagram_group_members))
+    await db.execute(delete(DiagramFavorite))
+    await db.execute(delete(DiagramGroup).where(DiagramGroup.id == group_id))
+    await db.execute(delete(Diagram).where(Diagram.id == diag_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored_group = (
+        await db.execute(select(DiagramGroup).where(DiagramGroup.id == group_id))
+    ).scalar_one()
+    assert restored_group.name == "Domain A"
+    assert restored_group.color == "#60a5fa"
+
+    members = (await db.execute(select(diagram_group_members))).all()
+    assert any(m.diagram_id == diag_id and m.group_id == group_id for m in members)
+
+    favs = (await db.execute(select(DiagramFavorite))).scalars().all()
+    assert any(f.user_id == user.id and f.diagram_id == diag_id for f in favs)
+
+
+async def test_bookmark_column_state_roundtrips(db):
+    """A saved view's AG Grid column layout (order/width/pinning) survives an
+    export → delete → import round-trip via the generic entity engine."""
+    from app.models.bookmark import Bookmark
+
+    user = await create_user(db, email="bm-ws@test.com", role="admin")
+    column_state = [
+        {"colId": "core_name", "width": 240, "pinned": "left"},
+        {"colId": "core_type", "width": 140},
+        {"colId": "attr_costTotalAnnual", "width": 160, "hide": True},
+    ]
+    bm = Bookmark(
+        user_id=user.id,
+        name="Layout View",
+        card_type="Application",
+        filters={"types": ["Application"]},
+        columns=["core_name", "core_type"],
+        column_state=column_state,
+    )
+    db.add(bm)
+    await db.flush()
+    bm_id = bm.id
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
+    assert restored.column_state == column_state
+    assert restored.columns == ["core_name", "core_type"]
+
+
+async def test_resource_types_roundtrip(db):
+    """A custom link type / file category survives an export → delete →
+    import round-trip, keyed by (kind, key)."""
+    from app.models.resource_type import ResourceType
+
+    user = await create_user(db, email="rt-ws@test.com", role="admin")
+    db.add(
+        ResourceType(
+            kind="link_type",
+            key="runbook",
+            label="Runbook",
+            icon="menu_book",
+            is_enabled=True,
+            built_in=False,
+            sort_order=150,
+            translations={"fr": "Runbook"},
+        )
+    )
+    db.add(
+        ResourceType(
+            kind="file_category",
+            key="invoices",
+            label="Invoices",
+            icon=None,
+            is_enabled=False,
+            built_in=False,
+            sort_order=200,
+            translations={},
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(ResourceType).where(ResourceType.built_in.is_(False)))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    rows = {(r.kind, r.key): r for r in (await db.execute(select(ResourceType))).scalars().all()}
+    assert ("link_type", "runbook") in rows
+    assert rows[("link_type", "runbook")].icon == "menu_book"
+    assert rows[("link_type", "runbook")].translations.get("fr") == "Runbook"
+    assert ("file_category", "invoices") in rows
+    assert rows[("file_category", "invoices")].is_enabled is False
 
 
 async def test_standards_and_principle_links_roundtrip(db):

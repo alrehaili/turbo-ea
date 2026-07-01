@@ -78,7 +78,7 @@ Alterne para a **Layered Dependency View** usando os botões de modo de visualiz
 
 - **Faixas por camada** — Os cartões são agrupados por camada arquitetural (Estratégia e Transformação, Arquitetura de Negócio, Aplicação e Dados, Arquitetura Técnica) dentro de retângulos de contorno tracejados, em ordem fixa.
 - **Nós coloridos por tipo com ícones** — Cada nó é colorido segundo o seu tipo de cartão e mostra o ícone do tipo de cartão no canto superior esquerdo, de modo que os tipos são reconhecíveis de relance mesmo sem cor.
-- **Arestas dirigidas e rotuladas** — As arestas seguem a direção da relação do metamodelo (origem → destino) e carregam o rótulo direto da relação (por ex. *usa*, *suporta*, *executa em*).
+- **Arestas dirigidas e rotuladas** — As arestas seguem a direção da relação do metamodelo (origem → destino) e carregam o rótulo direto da relação (por ex. *usa*, *suporta*, *executa em*). Quando uma relação é qualificada com um valor (como um Tipo de suporte *Principal*), ele aparece entre colchetes após o rótulo — por exemplo *suporta [Principal]*.
 - **Cartões propostos** — No assistente TurboLens Architect, os cartões ainda não confirmados têm uma borda tracejada e um selo verde **NOVO**.
 
 **Explorando e navegando**
@@ -88,15 +88,18 @@ Alterne para a **Layered Dependency View** usando os botões de modo de visualiz
 - **Recentralizar** — Shift+clique ou pressão longa num cartão para centrar o diagrama nele; os botões **Voltar ao seletor de cartões**, **Cartão anterior** e **Próximo cartão** da barra de ferramentas percorrem o seu histórico de navegação.
 - **Modo destaque** — Passe o mouse sobre um cartão para destacar suas conexões; em dispositivos touch, ative o **Modo destaque** no painel de controles para destacar ao tocar.
 - **Modo expansão** — Ative o **Modo expansão** no painel de controles e, em seguida, clique num cartão para revelar todas as suas relações sob demanda.
+- **Mostrar elemento-pai / Mostrar filhos** — Duas alternativas específicas ao modo expansão. Ative **Mostrar elemento-pai** (seta para cima) ou **Mostrar filhos** (seta para baixo) no painel de controles e, em seguida, clique num cartão para adicionar ao diagrama apenas o seu elemento-pai da hierarquia ou os seus filhos diretos. Os cartões mostrados permanecem no diagrama — para que possa combinar elementos-pai e filhos — e são removidos ao recentrar ou repor a vista.
 - **Sem cartão central necessário** — No relatório de Dependências, a Layered Dependency View mostra todos os cartões que correspondem ao filtro de tipo atual, de modo que você não precisa escolher um cartão de partida primeiro.
 
 **Personalizando a vista** (a partir da barra de ferramentas)
 
-- **Menu de exibição do cartão** — Ative o rótulo de **tipo** e um **ponto de status do ciclo de vida**, ative a **hierarquia superior** (adiciona o cartão superior de cada cartão e desenha o vínculo de contenção *contém / parte de*) e escolha **campos de atributo adicionais** para mostrar em cada cartão — os dois primeiros aparecem no cartão e o conjunto completo aparece na dica de ferramenta ao passar o mouse. As escolhas são lembradas entre visitas.
+- **Menu de exibição de cartão** — Ative a etiqueta de **tipo** e um **ponto de estado do ciclo de vida**, ative os **marcadores de hierarquia** (um pequeno chevron em cada cartão que tem um elemento-pai acima ou filhos abaixo não presentes no diagrama — uma dica para usar as ferramentas Mostrar) e escolha **campos de atributo adicionais** para mostrar em cada cartão — os dois primeiros aparecem no cartão e o conjunto completo aparece na dica ao passar o cursor. As escolhas são lembradas entre visitas.
 - **Mostrar cartões em fim de vida** — Os cartões relacionados cujo ciclo de vida atingiu o fim de vida são ocultados por padrão para manter o gráfico focado; ative esta opção (no menu **Exibição de cartões**) para trazê-los de volta. O cartão no qual você está centrado é sempre mostrado, mesmo que ele próprio esteja em fim de vida.
-- **Reorganizar** — Arraste um cartão para movê-lo dentro da sua camada, ou arraste uma **caixa de camada** inteira para movê-la com todos os seus cartões. **Redefinir disposição** restaura a disposição automática.
+- **Mostrar valores de relação** — Muitas relações podem ser qualificadas com um valor (por ex. uma aplicação *suporta* uma capacidade como *Principal*, *Secundário* ou *Sem suporte*). Quando ativado (padrão), esses valores aparecem entre colchetes ao lado do rótulo da relação (*suporta [Principal]*) e são incluídos nas exportações de imagem. Desative-o no menu **Exibição de cartões** para uma vista mais limpa; relações sem valor permanecem inalteradas de qualquer forma.
+- **Reorganizar** — Arraste um cartão para movê-lo dentro da sua camada, ou arraste uma **caixa de camada** inteira para movê-la com todos os seus cartões. **Repor vista** (na barra de ferramentas à esquerda) restaura a disposição automática e limpa qualquer exploração.
 - **Plano de fundo** — Alterne o plano de fundo do canvas entre grade, pontos e nenhum.
 - **Exportação e tela cheia** — Exporte o diagrama para **PNG** ou **SVG**, ou abra-o em **tela cheia**.
+- **Criar diagrama** — Transforme a visualização atual em um novo diagrama editável no [módulo de Diagramas](diagrams.md). Recria os cartões, os relacionamentos e as quatro faixas de camadas de arquitetura, e cada forma permanece vinculada ao seu cartão de inventário. É solicitado um nome e, em seguida, você é levado diretamente ao novo diagrama. Disponível para usuários que podem criar diagramas.
 
 ## Relatório de Custos
 

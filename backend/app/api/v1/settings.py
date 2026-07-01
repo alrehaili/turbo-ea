@@ -16,6 +16,7 @@ from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
+from app.models.resource_type import ResourceType
 from app.models.user import User
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.permission_service import PermissionService
@@ -165,6 +166,33 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         for r in reg_rows
     ]
 
+    rt_rows = (
+        (
+            await db.execute(
+                select(ResourceType).order_by(
+                    ResourceType.kind, ResourceType.sort_order, ResourceType.label
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    resource_types = [
+        {
+            "id": str(r.id),
+            "kind": r.kind,
+            "key": r.key,
+            "label": r.label,
+            "description": r.description,
+            "icon": r.icon,
+            "is_enabled": r.is_enabled,
+            "built_in": r.built_in,
+            "sort_order": r.sort_order,
+            "translations": r.translations or {},
+        }
+        for r in rt_rows
+    ]
+
     email_settings = (row.email_settings if row else None) or {}
     smtp_configured = bool(email_settings.get("smtp_host") or app_config.SMTP_HOST)
 
@@ -176,6 +204,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "ppm_enabled": general.get("ppmEnabled", False),
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
+        "sponsor_button_enabled": general.get("sponsorButtonEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
@@ -185,6 +214,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
         "compliance_regulations": compliance_regulations,
+        "resource_types": resource_types,
         "login_tagline": (general.get("loginTagline") or "").strip(),
         "login_tagline_hidden": bool(general.get("loginTaglineHidden", False)),
         "login_help_text": (general.get("loginHelpText") or "").strip(),
@@ -598,6 +628,42 @@ async def update_grc_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["grcEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class SponsorButtonEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/sponsor-button-enabled")
+async def get_sponsor_button_enabled(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the Sponsor button is shown in the user menu.
+
+    Defaults to True so existing installations keep showing it; administrators can
+    hide it from the avatar menu via the admin UI. It always remains reachable from
+    Admin → Settings regardless of this flag.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("sponsorButtonEnabled", True)}
+
+
+@router.patch("/sponsor-button-enabled")
+async def update_sponsor_button_enabled(
+    body: SponsorButtonEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — show or hide the Sponsor button in the user (avatar) menu."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["sponsorButtonEnabled"] = body.enabled
     row.general_settings = general
 
     await db.commit()

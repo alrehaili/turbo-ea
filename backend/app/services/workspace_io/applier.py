@@ -34,6 +34,7 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import Diagram, diagram_cards
+from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -47,7 +48,11 @@ from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
 from app.services.workspace_io.entities import apply_entity_section
 from app.services.workspace_io.secrets import GENERAL_SECRET_PATHS
-from app.services.workspace_io.sections import ENTITY_SECTIONS, SHEET_DIAGRAM_CARDS
+from app.services.workspace_io.sections import (
+    ENTITY_SECTIONS,
+    SHEET_DIAGRAM_CARDS,
+    SHEET_DIAGRAM_GROUP_MEMBERS,
+)
 
 # Roles a synthetic (auto-created) user may take. Anything else falls back to
 # ``member`` so an export from a customised role set can't grant elevated
@@ -191,6 +196,10 @@ async def _run(
         result.sections.append(sr)
         await _apply_diagram_cards(db, bundle, sr, ent_resolver)
 
+        sr = SectionResult(sheet=SHEET_DIAGRAM_GROUP_MEMBERS)
+        result.sections.append(sr)
+        await _apply_diagram_group_members(db, bundle, sr)
+
         sr = SectionResult(sheet=schema.SHEET_STANDARD_PRINCIPLES)
         result.sections.append(sr)
         await _apply_standard_principles(db, bundle, sr)
@@ -228,6 +237,38 @@ async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, r
             sr.skipped += 1
             continue
         await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=res.card_id))
+        existing.add(pair)
+        sr.created += 1
+
+
+async def _apply_diagram_group_members(db, bundle: WorkspaceBundle, sr: SectionResult) -> None:
+    """Bespoke Diagram↔Group membership — both PKs are preserved on import."""
+    rows = bundle.rows(SHEET_DIAGRAM_GROUP_MEMBERS)
+    if not rows:
+        return
+    existing = {
+        (r.diagram_id, r.group_id) for r in (await db.execute(select(diagram_group_members))).all()
+    }
+    existing_diagrams = set((await db.execute(select(Diagram.id))).scalars().all())
+    existing_groups = set((await db.execute(select(DiagramGroup.id))).scalars().all())
+    for row in rows:
+        diagram_id = row.get("diagram_id")
+        group_id = row.get("group_id")
+        if not diagram_id or not group_id:
+            sr.failed += 1
+            continue
+        diag_uuid = uuid.UUID(str(diagram_id))
+        grp_uuid = uuid.UUID(str(group_id))
+        if diag_uuid not in existing_diagrams or grp_uuid not in existing_groups:
+            sr.conflict += 1
+            continue
+        pair = (diag_uuid, grp_uuid)
+        if pair in existing:
+            sr.skipped += 1
+            continue
+        await db.execute(
+            diagram_group_members.insert().values(diagram_id=diag_uuid, group_id=grp_uuid)
+        )
         existing.add(pair)
         sr.created += 1
 
@@ -291,7 +332,13 @@ async def _apply_relation_types(
 ) -> None:
     existing = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
     # One relation type per ordered (source, target) pair — enforced here too.
-    pair_owner = {(rt.source_type_key, rt.target_type_key): rt.key for rt in existing.values()}
+    # Successor (lineage) relation types are exempt (see below), so they never claim
+    # a pair.
+    pair_owner = {
+        (rt.source_type_key, rt.target_type_key): rt.key
+        for rt in existing.values()
+        if not rt.key.endswith("Successor")
+    }
     for row in bundle.rows(schema.SHEET_RELATION_TYPES):
         data = _coerce(row, exp.RELATION_TYPE_COLUMNS, exp.RELATION_TYPE_JSON)
         key = data.get("key")
@@ -300,9 +347,14 @@ async def _apply_relation_types(
             continue
         current = existing.get(key)
         pair = (data.get("source_type_key"), data.get("target_type_key"))
+        # Successor (lineage) relation types are a separate, UI-isolated category and
+        # are exempt from the one-relation-type-per-pair rule (mirrors the API in
+        # metamodel.py) — a self-referential rel{Key}Successor must be able to coexist
+        # with a custom self-relation on the same pair.
+        is_successor = bool(key) and key.endswith("Successor")
         if current is None:
             owner = pair_owner.get(pair)
-            if owner is not None and owner != key:
+            if not is_successor and owner is not None and owner != key:
                 sr.conflict += 1
                 sr.errors.append(
                     f"relation_type {key!r}: pair {pair} already used by {owner!r} — skipped"
@@ -311,7 +363,8 @@ async def _apply_relation_types(
             rt = RelationType(**{k: v for k, v in data.items()})
             db.add(rt)
             existing[key] = rt
-            pair_owner[pair] = key
+            if not is_successor:
+                pair_owner[pair] = key
             sr.created += 1
         else:
             cols = [c for c in exp.RELATION_TYPE_COLUMNS if c not in ("key", "built_in")]

@@ -96,7 +96,7 @@ import type { ColorEntry, ViewSource } from "./ViewSelector";
 import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { relationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
@@ -154,6 +154,7 @@ interface DrawIOMessage {
   xml?: string;
   data?: string;
   modified?: boolean;
+  exit?: boolean;
   x?: number;
   y?: number;
   cardId?: string;
@@ -437,7 +438,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
 /* ------------------------------------------------------------------ */
 
 export default function DiagramEditor() {
-  const { t } = useTranslation(["diagrams", "common"]);
+  const { t, i18n } = useTranslation(["diagrams", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthContext();
@@ -455,7 +456,7 @@ export default function DiagramEditor() {
 
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const fsTypesRef = useRef(fsTypes);
   fsTypesRef.current = fsTypes;
   const relTypesRef = useRef(relationTypes);
@@ -463,6 +464,10 @@ export default function DiagramEditor() {
 
   // Refs
   const pendingSaveXmlRef = useRef<string | null>(null);
+  // DrawIO's "Save & Exit" button fires a `save` event with `exit: true` (not an
+  // `exit` event). Remember the request across the async save → export chain so we
+  // can navigate away once the diagram is persisted.
+  const exitAfterSaveRef = useRef(false);
   const contextInsertPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Expand/collapse caches — survive collapse/expand cycles so locally
@@ -841,9 +846,9 @@ export default function DiagramEditor() {
     (relationTypeKey: string): string => {
       if (!relationTypeKey) return "";
       const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
-      return rt?.label || relationTypeKey;
+      return rt ? relationLabel(rt, i18n.language) : relationTypeKey;
     },
-    [],
+    [i18n.language],
   );
 
   /** Handle a commit from the ExpandMenu. Three branches:
@@ -1719,7 +1724,7 @@ export default function DiagramEditor() {
         return {
           cellId: p.cellId,
           type: p.type,
-          typeLabel: rml(typeInfo?.key ?? "", typeInfo?.translations, "label") || p.type,
+          typeLabel: typeLabel(typeInfo) || p.type,
           typeColor: typeInfo?.color || "#999",
           name: p.name,
         };
@@ -1744,7 +1749,7 @@ export default function DiagramEditor() {
         };
       }),
     );
-  }, []);
+  }, [typeLabel]);
 
   /* ---------- Create new (pending) card ---------- */
   const handleCreateCard = useCallback(
@@ -2215,6 +2220,8 @@ export default function DiagramEditor() {
         case "save":
           if (msg.xml) {
             pendingSaveXmlRef.current = msg.xml;
+            // "Save & Exit" arrives as a `save` event carrying `exit: true`.
+            exitAfterSaveRef.current = !!msg.exit;
             postToDrawIO({ action: "export", format: "svg", spinKey: "saving" });
             postToDrawIO({ action: "status", messageKey: "allChangesSaved", modified: false });
           }
@@ -2224,7 +2231,11 @@ export default function DiagramEditor() {
           if (pendingSaveXmlRef.current) {
             const xml = pendingSaveXmlRef.current;
             pendingSaveXmlRef.current = null;
-            saveDiagram(xml, msg.data);
+            const shouldExit = exitAfterSaveRef.current;
+            exitAfterSaveRef.current = false;
+            saveDiagram(xml, msg.data).then(() => {
+              if (shouldExit) navigate(`/diagrams/${id}`);
+            });
           }
           break;
 
