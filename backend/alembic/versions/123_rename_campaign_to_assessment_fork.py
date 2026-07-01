@@ -18,8 +18,8 @@ from typing import Union
 
 from alembic import op
 
-revision: str = "117"
-down_revision: Union[str, None] = "116"
+revision: str = "123"
+down_revision: Union[str, None] = "122"
 branch_labels: Union[str, None] = None
 depends_on: Union[str, None] = None
 
