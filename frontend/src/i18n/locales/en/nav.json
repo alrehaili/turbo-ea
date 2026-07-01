@@ -62,5 +62,17 @@
   "sponsorship.howHeading": "How to sponsor",
   "sponsorship.howBody": "Via GitHub Sponsors for now. Choose a one-time gift or a regular monthly contribution:",
   "sponsorship.oneTime": "One-time",
-  "sponsorship.monthly": "Monthly"
+  "sponsorship.monthly": "Monthly",
+  "reports.transformationRoadmap": "Transformation Roadmap",
+  "reports.changeImpact": "Change Impact",
+  "reports.strategyMap": "Strategy Map",
+  "reports.freshness": "Repository Freshness",
+  "reports.resilience": "Resilience",
+  "reports.dataFlow": "Data Flow",
+  "reports.integration": "Integrations",
+  "governance": "Governance",
+  "governance.scenarios": "Scenarios",
+  "governance.rationalization": "App Rationalization",
+  "governance.techStandards": "Technology Radar",
+  "governance.arb": "Review Board"
 }

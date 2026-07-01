@@ -33,8 +33,10 @@ import {
   useRelationLabel,
   useFieldLabel,
   useSubtypeLabel,
+  useResolveMetaLabel,
+  useResolveLabel,
 } from "@/hooks/useResolveLabel";
-import type { WebPortal, TagGroup } from "@/types";
+import type { WebPortal, TagGroup, PortalTileSection } from "@/types";
 
 interface ToggleEntry {
   card: boolean;
@@ -99,6 +101,8 @@ export default function WebPortalsAdmin() {
   const [slug, setSlug] = useState("");
   const [slugManual, setSlugManual] = useState(false);
   const [description, setDescription] = useState("");
+  const [kind, setKind] = useState<"catalogue" | "hub">("catalogue");
+  const [tiles, setTiles] = useState<PortalTileSection[]>([]);
   const [cardType, setCardType] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [toggles, setToggles] = useState<Toggles>({});
@@ -131,6 +135,8 @@ export default function WebPortalsAdmin() {
     setSlug("");
     setSlugManual(false);
     setDescription("");
+    setKind("catalogue");
+    setTiles([]);
     setCardType("");
     setIsPublished(false);
     setToggles({});
@@ -152,7 +158,9 @@ export default function WebPortalsAdmin() {
     setSlug(portal.slug);
     setSlugManual(true);
     setDescription(portal.description || "");
-    setCardType(portal.card_type);
+    setKind(portal.kind === "hub" ? "hub" : "catalogue");
+    setTiles(portal.tiles || []);
+    setCardType(portal.card_type || "");
     setIsPublished(portal.is_published);
     setToggles(
       (portal.card_config as Record<string, unknown>)?.toggles as Toggles || {}
@@ -209,12 +217,38 @@ export default function WebPortalsAdmin() {
 
   const handleSave = async () => {
     setError("");
+    // Hub portals are a curated tile landing page — no card type / filters.
+    if (kind === "hub") {
+      const body = {
+        name,
+        slug,
+        description: description || null,
+        kind: "hub",
+        card_type: null,
+        is_published: isPublished,
+        tiles,
+      };
+      try {
+        if (editingPortal) {
+          await api.patch(`/web-portals/${editingPortal.id}`, body);
+        } else {
+          await api.post("/web-portals", body);
+        }
+        setDialogOpen(false);
+        resetForm();
+        load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("webPortals.saveError"));
+      }
+      return;
+    }
     const hasToggles = Object.keys(toggles).length > 0;
     const hasCardConfig = hasToggles || !showLogo;
     const body = {
       name,
       slug,
       description: description || null,
+      kind: "catalogue",
       card_type: cardType,
       is_published: isPublished,
       display_fields: null,
@@ -324,7 +358,7 @@ export default function WebPortalsAdmin() {
             <MaterialSymbol
               icon="language"
               size={24}
-              color={getTypeColor(portal.card_type)}
+              color={getTypeColor(portal.card_type || "")}
             />
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -342,13 +376,13 @@ export default function WebPortalsAdmin() {
                 sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}
               >
                 <Chip
-                  label={getTypeLabel(portal.card_type)}
+                  label={portal.kind === "hub" ? t("webPortals.kindHub") : getTypeLabel(portal.card_type || "")}
                   size="small"
                   sx={{
                     height: 20,
                     fontSize: "0.65rem",
-                    bgcolor: `${getTypeColor(portal.card_type)}18`,
-                    color: getTypeColor(portal.card_type),
+                    bgcolor: `${getTypeColor(portal.card_type || "")}18`,
+                    color: getTypeColor(portal.card_type || ""),
                     fontWeight: 600,
                   }}
                 />
@@ -488,9 +522,165 @@ export default function WebPortalsAdmin() {
             placeholder={t("webPortals.descriptionPlaceholder")}
           />
 
-          <Divider sx={{ my: 3 }} />
+          <TextField
+            fullWidth
+            select
+            label={t("webPortals.kind")}
+            value={kind}
+            onChange={(e) => setKind(e.target.value as "catalogue" | "hub")}
+            sx={{ mt: 2 }}
+            helperText={t("webPortals.kindHelper")}
+          >
+            <MenuItem value="catalogue">{t("webPortals.kindCatalogue")}</MenuItem>
+            <MenuItem value="hub">{t("webPortals.kindHub")}</MenuItem>
+          </TextField>
 
-          {/* ── Section: Data Source ── */}
+          {/* ── Section: Hub tiles ── */}
+          {kind === "hub" && (
+            <Box sx={{ mt: 3 }}>
+              <Typography
+                variant="overline"
+                sx={{ display: "block", mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
+              >
+                {t("webPortals.section.hub")}
+              </Typography>
+              {tiles.map((section, si) => (
+                <Box key={si} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, mb: 2 }}>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 1 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={t("webPortals.sectionTitle")}
+                      value={section.title || ""}
+                      onChange={(e) =>
+                        setTiles((prev) =>
+                          prev.map((s, i) => (i === si ? { ...s, title: e.target.value } : s)),
+                        )
+                      }
+                    />
+                    <Tooltip title={t("common:actions.delete")}>
+                      <IconButton
+                        color="error"
+                        onClick={() => setTiles((prev) => prev.filter((_, i) => i !== si))}
+                      >
+                        <MaterialSymbol icon="delete" size={20} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  {(section.tiles || []).map((tile, ti) => (
+                    <Box
+                      key={ti}
+                      sx={{ display: "flex", gap: 1, alignItems: "center", mb: 1, pl: 2 }}
+                    >
+                      <TextField
+                        size="small"
+                        label={t("webPortals.tileIcon")}
+                        value={tile.icon || ""}
+                        onChange={(e) =>
+                          setTiles((prev) =>
+                            prev.map((s, i) =>
+                              i === si
+                                ? {
+                                    ...s,
+                                    tiles: s.tiles.map((tl, j) =>
+                                      j === ti ? { ...tl, icon: e.target.value } : tl,
+                                    ),
+                                  }
+                                : s,
+                            ),
+                          )
+                        }
+                        sx={{ width: 120 }}
+                      />
+                      <TextField
+                        size="small"
+                        label={t("webPortals.tileLabel")}
+                        value={tile.label}
+                        onChange={(e) =>
+                          setTiles((prev) =>
+                            prev.map((s, i) =>
+                              i === si
+                                ? {
+                                    ...s,
+                                    tiles: s.tiles.map((tl, j) =>
+                                      j === ti ? { ...tl, label: e.target.value } : tl,
+                                    ),
+                                  }
+                                : s,
+                            ),
+                          )
+                        }
+                        sx={{ width: 160 }}
+                      />
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label={t("webPortals.tileTarget")}
+                        placeholder="/reports/portfolio"
+                        value={tile.target}
+                        onChange={(e) =>
+                          setTiles((prev) =>
+                            prev.map((s, i) =>
+                              i === si
+                                ? {
+                                    ...s,
+                                    tiles: s.tiles.map((tl, j) =>
+                                      j === ti ? { ...tl, target: e.target.value } : tl,
+                                    ),
+                                  }
+                                : s,
+                            ),
+                          )
+                        }
+                      />
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() =>
+                          setTiles((prev) =>
+                            prev.map((s, i) =>
+                              i === si ? { ...s, tiles: s.tiles.filter((_, j) => j !== ti) } : s,
+                            ),
+                          )
+                        }
+                      >
+                        <MaterialSymbol icon="close" size={18} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                  <Button
+                    size="small"
+                    startIcon={<MaterialSymbol icon="add" size={16} />}
+                    onClick={() =>
+                      setTiles((prev) =>
+                        prev.map((s, i) =>
+                          i === si
+                            ? { ...s, tiles: [...(s.tiles || []), { label: "", target: "" }] }
+                            : s,
+                        ),
+                      )
+                    }
+                    sx={{ ml: 2 }}
+                  >
+                    {t("webPortals.addTile")}
+                  </Button>
+                </Box>
+              ))}
+              <Button
+                variant="outlined"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => setTiles((prev) => [...prev, { title: "", tiles: [] }])}
+              >
+                {t("webPortals.addSection")}
+              </Button>
+            </Box>
+          )}
+
+          {kind === "catalogue" && (
+            <>
+              <Divider sx={{ my: 3 }} />
+
+              {/* ── Section: Data Source ── */}
           <Typography
             variant="overline"
             sx={{ display: "block", mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
@@ -776,6 +966,9 @@ export default function WebPortalsAdmin() {
             </>
           )}
 
+            </>
+          )}
+
           <Divider sx={{ my: 3 }} />
 
           {/* ── Section: Publishing ── */}
@@ -822,7 +1015,7 @@ export default function WebPortalsAdmin() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!name.trim() || !slug.trim() || !cardType}
+            disabled={!name.trim() || !slug.trim() || (kind === "catalogue" && !cardType)}
           >
             {editingPortal ? t("webPortals.saveChanges") : t("common:actions.create")}
           </Button>

@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "Støt-knappen er skjult i brugermenuen",
   "settings.sponsorButton.enabledSuccess": "Støt-knappen vises i brugermenuen",
   "settings.sponsorButton.disabledSuccess": "Støt-knappen er skjult i brugermenuen",
-  "settings.sponsorButton.companyLogoNote": "Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt os på"
+  "settings.sponsorButton.companyLogoNote": "Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt os på",
+  "webPortals.kind": "Portaltype",
+  "webPortals.kindHelper": "Katalog = filtreret udforsker for én korttype. Hub = landingsside med fliser, der linker til andre visninger.",
+  "webPortals.kindCatalogue": "Katalog (én korttype)",
+  "webPortals.kindHub": "Hub (flise-landingsside)",
+  "webPortals.section.hub": "Fliser",
+  "webPortals.addSection": "Tilføj sektion",
+  "webPortals.sectionTitle": "Sektionstitel",
+  "webPortals.addTile": "Tilføj flise",
+  "webPortals.tileLabel": "Etiket",
+  "webPortals.tileIcon": "Ikon",
+  "webPortals.tileTarget": "Link (f.eks. /reports/portfolio)"
 }

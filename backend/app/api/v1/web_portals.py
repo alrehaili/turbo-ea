@@ -34,10 +34,12 @@ def _portal_to_dict(p: WebPortal) -> dict:
         "name": p.name,
         "slug": p.slug,
         "description": p.description,
+        "kind": p.kind,
         "card_type": p.card_type,
         "filters": p.filters,
         "display_fields": p.display_fields,
         "card_config": p.card_config,
+        "tiles": p.tiles or [],
         "is_published": p.is_published,
         "created_by": str(p.created_by) if p.created_by else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
@@ -74,19 +76,27 @@ async def create_portal(
     existing = await db.execute(select(WebPortal).where(WebPortal.slug == body.slug))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "A portal with this slug already exists")
-    # Validate card type exists
-    fst = await db.execute(select(CardType).where(CardType.key == body.card_type))
-    if not fst.scalar_one_or_none():
-        raise HTTPException(400, f"Card type '{body.card_type}' not found")
+    kind = body.kind or "catalogue"
+    if kind not in ("catalogue", "hub"):
+        raise HTTPException(400, f"Invalid portal kind: {kind}")
+    # Catalogue portals are bound to a card type; hub portals are not.
+    if kind == "catalogue":
+        if not body.card_type:
+            raise HTTPException(400, "card_type is required for catalogue portals")
+        fst = await db.execute(select(CardType).where(CardType.key == body.card_type))
+        if not fst.scalar_one_or_none():
+            raise HTTPException(400, f"Card type '{body.card_type}' not found")
 
     portal = WebPortal(
         name=body.name,
         slug=body.slug,
         description=body.description,
-        card_type=body.card_type,
+        kind=kind,
+        card_type=body.card_type if kind == "catalogue" else None,
         filters=body.filters,
         display_fields=body.display_fields,
         card_config=body.card_config,
+        tiles=body.tiles or [],
         is_published=body.is_published,
         created_by=user.id,
     )
@@ -177,6 +187,17 @@ async def get_public_portal(
     portal = result.scalar_one_or_none()
     if not portal:
         raise HTTPException(404, "Portal not found")
+
+    # Hub portals are a curated landing page of tiles — no card-type payload.
+    if portal.kind == "hub":
+        return {
+            "id": str(portal.id),
+            "name": portal.name,
+            "slug": portal.slug,
+            "description": portal.description,
+            "kind": "hub",
+            "tiles": portal.tiles or [],
+        }
 
     # Also return the type metadata so frontend can render properly
     fst_result = await db.execute(select(CardType).where(CardType.key == portal.card_type))
@@ -290,6 +311,7 @@ async def get_public_portal(
         "name": portal.name,
         "slug": portal.slug,
         "description": portal.description,
+        "kind": "catalogue",
         "card_type": portal.card_type,
         "filters": portal.filters,
         "display_fields": portal.display_fields,

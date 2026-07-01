@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "Sponsor-Schaltfläche ist im Benutzermenü ausgeblendet",
   "settings.sponsorButton.enabledSuccess": "Sponsor-Schaltfläche im Benutzermenü angezeigt",
   "settings.sponsorButton.disabledSuccess": "Sponsor-Schaltfläche im Benutzermenü ausgeblendet",
-  "settings.sponsorButton.companyLogoNote": "Wenn Ihr Unternehmen Turbo EA sponsert und sein Logo auf turbo-ea.org präsentieren möchte, wenden Sie sich bitte an"
+  "settings.sponsorButton.companyLogoNote": "Wenn Ihr Unternehmen Turbo EA sponsert und sein Logo auf turbo-ea.org präsentieren möchte, wenden Sie sich bitte an",
+  "webPortals.kind": "Portaltyp",
+  "webPortals.kindHelper": "Katalog = gefilterter Explorer für einen Kartentyp. Hub = Startseite mit Kacheln zu anderen Ansichten.",
+  "webPortals.kindCatalogue": "Katalog (ein Kartentyp)",
+  "webPortals.kindHub": "Hub (Kachel-Startseite)",
+  "webPortals.section.hub": "Kacheln",
+  "webPortals.addSection": "Abschnitt hinzufügen",
+  "webPortals.sectionTitle": "Abschnittstitel",
+  "webPortals.addTile": "Kachel hinzufügen",
+  "webPortals.tileLabel": "Bezeichnung",
+  "webPortals.tileIcon": "Symbol",
+  "webPortals.tileTarget": "Link (z. B. /reports/portfolio)"
 }

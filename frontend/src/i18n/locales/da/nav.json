@@ -62,5 +62,17 @@
   "sponsorship.howHeading": "Sådan støtter du",
   "sponsorship.howBody": "Via GitHub Sponsors indtil videre. Vælg en engangsdonation eller et fast månedligt bidrag:",
   "sponsorship.oneTime": "Engangs",
-  "sponsorship.monthly": "Månedligt"
+  "sponsorship.monthly": "Månedligt",
+  "reports.transformationRoadmap": "Transformationsplan",
+  "reports.changeImpact": "Ændringspåvirkning",
+  "reports.strategyMap": "Strategikort",
+  "reports.freshness": "Repository-friskhed",
+  "reports.resilience": "Modstandsdygtighed",
+  "reports.dataFlow": "Dataflow",
+  "reports.integration": "Integrationer",
+  "governance": "Governance",
+  "governance.scenarios": "Scenarier",
+  "governance.rationalization": "App-rationalisering",
+  "governance.techStandards": "Teknologiradar",
+  "governance.arb": "Reviewudvalg"
 }

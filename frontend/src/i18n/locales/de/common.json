@@ -350,5 +350,6 @@
   "dashboard.workspace.andMore_one": "und {{count}} weitere",
   "dashboard.workspace.andMore_other": "und {{count}} weitere",
   "actions.undo": "Rückgängig",
-  "dashboard.workspace.favoriteRemoved": "«{{name}}» aus Favoriten entfernt"
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» aus Favoriten entfernt",
+  "portal.hubEmpty": "Dieses Portal hat noch keine Kacheln."
 }

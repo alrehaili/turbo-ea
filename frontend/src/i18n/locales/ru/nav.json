@@ -62,5 +62,17 @@
   "sponsorship.howHeading": "Как поддержать",
   "sponsorship.howBody": "Пока через GitHub Sponsors. Выберите разовый взнос или регулярный ежемесячный вклад:",
   "sponsorship.oneTime": "Разово",
-  "sponsorship.monthly": "Ежемесячно"
+  "sponsorship.monthly": "Ежемесячно",
+  "reports.transformationRoadmap": "Дорожная карта трансформации",
+  "reports.changeImpact": "Влияние изменений",
+  "reports.strategyMap": "Стратегическая карта",
+  "reports.freshness": "Актуальность репозитория",
+  "reports.resilience": "Отказоустойчивость",
+  "reports.dataFlow": "Поток данных",
+  "reports.integration": "Интеграции",
+  "governance": "Руководство",
+  "governance.scenarios": "Сценарии",
+  "governance.rationalization": "Рационализация приложений",
+  "governance.techStandards": "Технологический радар",
+  "governance.arb": "Архитектурный совет"
 }

@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "Il pulsante Sostieni è nascosto dal menu utente",
   "settings.sponsorButton.enabledSuccess": "Pulsante Sostieni mostrato nel menu utente",
   "settings.sponsorButton.disabledSuccess": "Pulsante Sostieni nascosto dal menu utente",
-  "settings.sponsorButton.companyLogoNote": "Se la tua azienda sostiene Turbo EA e desidera che il suo logo venga mostrato su turbo-ea.org, contattaci all'indirizzo"
+  "settings.sponsorButton.companyLogoNote": "Se la tua azienda sostiene Turbo EA e desidera che il suo logo venga mostrato su turbo-ea.org, contattaci all'indirizzo",
+  "webPortals.kind": "Tipo di portale",
+  "webPortals.kindHelper": "Catalogo = esploratore filtrato per un tipo di scheda. Hub = pagina di riquadri che rimandano ad altre viste.",
+  "webPortals.kindCatalogue": "Catalogo (un tipo di scheda)",
+  "webPortals.kindHub": "Hub (pagina di riquadri)",
+  "webPortals.section.hub": "Riquadri",
+  "webPortals.addSection": "Aggiungi sezione",
+  "webPortals.sectionTitle": "Titolo della sezione",
+  "webPortals.addTile": "Aggiungi riquadro",
+  "webPortals.tileLabel": "Etichetta",
+  "webPortals.tileIcon": "Icona",
+  "webPortals.tileTarget": "Link (es. /reports/portfolio)"
 }

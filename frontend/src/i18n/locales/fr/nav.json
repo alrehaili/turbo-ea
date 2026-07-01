@@ -62,5 +62,17 @@
   "sponsorship.howHeading": "Comment soutenir",
   "sponsorship.howBody": "Via GitHub Sponsors pour l'instant. Choisissez un don unique ou une contribution mensuelle régulière :",
   "sponsorship.oneTime": "Ponctuel",
-  "sponsorship.monthly": "Mensuel"
+  "sponsorship.monthly": "Mensuel",
+  "reports.transformationRoadmap": "Feuille de route de transformation",
+  "reports.changeImpact": "Impact des changements",
+  "reports.strategyMap": "Carte stratégique",
+  "reports.freshness": "Fraîcheur du référentiel",
+  "reports.resilience": "Résilience",
+  "reports.dataFlow": "Flux de données",
+  "reports.integration": "Intégrations",
+  "governance": "Gouvernance",
+  "governance.scenarios": "Scénarios",
+  "governance.rationalization": "Rationalisation des applications",
+  "governance.techStandards": "Radar technologique",
+  "governance.arb": "Comité d’architecture"
 }

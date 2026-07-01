@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "زر الدعم مخفي من قائمة المستخدم",
   "settings.sponsorButton.enabledSuccess": "تم إظهار زر الدعم في قائمة المستخدم",
   "settings.sponsorButton.disabledSuccess": "تم إخفاء زر الدعم من قائمة المستخدم",
-  "settings.sponsorButton.companyLogoNote": "إذا كانت شركتك ترعى Turbo EA وترغب في عرض شعارها على turbo-ea.org، يرجى التواصل عبر"
+  "settings.sponsorButton.companyLogoNote": "إذا كانت شركتك ترعى Turbo EA وترغب في عرض شعارها على turbo-ea.org، يرجى التواصل عبر",
+  "webPortals.kind": "نوع البوابة",
+  "webPortals.kindHelper": "الكتالوج = مستكشف مُصفّى لنوع بطاقة واحد. المحور = صفحة بطاقات تربط بعروض أخرى.",
+  "webPortals.kindCatalogue": "كتالوج (نوع بطاقة واحد)",
+  "webPortals.kindHub": "محور (صفحة بطاقات)",
+  "webPortals.section.hub": "البطاقات",
+  "webPortals.addSection": "إضافة قسم",
+  "webPortals.sectionTitle": "عنوان القسم",
+  "webPortals.addTile": "إضافة بطاقة",
+  "webPortals.tileLabel": "التسمية",
+  "webPortals.tileIcon": "الأيقونة",
+  "webPortals.tileTarget": "الرابط (مثل /reports/portfolio)"
 }

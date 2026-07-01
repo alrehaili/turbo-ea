@@ -69,15 +69,55 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
       { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
       { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
+      { labelKey: "reports.transformationRoadmap", icon: "route", path: "/reports/transformation-roadmap" },
       { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
+      { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
+      { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },
       { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
       { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
       { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
+      { labelKey: "reports.freshness", icon: "fact_check", path: "/reports/freshness" },
+      { labelKey: "reports.resilience", icon: "health_and_safety", path: "/reports/resilience" },
+      { labelKey: "reports.dataFlow", icon: "schema", path: "/reports/data-flow" },
+      { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
       // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
       // is disabled the nav memo below promotes EA Delivery to a top-level
       // nav item (in PPM's old slot) so the surface stays reachable.
       { labelKey: "reports.saved", icon: "bookmarks", path: "/reports/saved" },
+    ],
+  },
+  {
+    // Change-governance workflow tools (full CRUD), kept distinct from the
+    // read-only analytics under Reports.
+    labelKey: "governance",
+    icon: "account_balance",
+    permission: [
+      "scenarios.view",
+      "rationalization.view",
+      "tech_standards.view",
+      "arb.view",
+    ],
+    children: [
+      {
+        labelKey: "governance.scenarios",
+        icon: "account_tree",
+        path: "/scenarios",
+        permission: "scenarios.view",
+      },
+      {
+        labelKey: "governance.rationalization",
+        icon: "recycling",
+        path: "/rationalization",
+        permission: "rationalization.view",
+      },
+      {
+        labelKey: "governance.techStandards",
+        icon: "radar",
+        path: "/tech-standards",
+        permission: "tech_standards.view",
+      },
+      { labelKey: "governance.arb", icon: "gavel", path: "/arb", permission: "arb.view" },
     ],
   },
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
@@ -199,6 +239,20 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
+  // Which group's children the dropdown is currently showing (supports multiple
+  // grouped nav items, e.g. Reports and Governance).
+  const [menuChildren, setMenuChildren] = useState<NavItem["children"] | null>(null);
+  const openGroupMenu = useCallback(
+    (anchor: HTMLElement, children: NavItem["children"]) => {
+      setReportsMenu(anchor);
+      setMenuChildren(children ?? null);
+    },
+    [],
+  );
+  const closeGroupMenu = useCallback(() => {
+    setReportsMenu(null);
+    setMenuChildren(null);
+  }, []);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [impersonateDialogOpen, setImpersonateDialogOpen] = useState(false);
   const [stopImpersonatingBusy, setStopImpersonatingBusy] = useState(false);
@@ -585,7 +639,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       <IconButton
                         size="small"
                         sx={{ color: isGroupActive(item.children) ? "#fff" : "rgba(255,255,255,0.7)" }}
-                        onClick={(e) => setReportsMenu(e.currentTarget)}
+                        onClick={(e) => openGroupMenu(e.currentTarget, item.children)}
                       >
                         <MaterialSymbol icon={item.icon} size={20} />
                       </IconButton>
@@ -597,7 +651,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       startIcon={<MaterialSymbol icon={item.icon} size={18} />}
                       endIcon={<MaterialSymbol icon="expand_more" size={16} />}
                       sx={navBtnSx(isGroupActive(item.children))}
-                      onClick={(e) => setReportsMenu(e.currentTarget)}
+                      onClick={(e) => openGroupMenu(e.currentTarget, item.children)}
                     >
                       {item.label}
                     </Button>
@@ -643,9 +697,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           <Menu
             anchorEl={reportsMenu}
             open={!!reportsMenu}
-            onClose={() => setReportsMenu(null)}
+            onClose={closeGroupMenu}
           >
-            {navItems.find((n) => n.children)?.children?.map((child, idx) => {
+            {menuChildren?.map((child, idx) => {
               const needsDivider =
                 child.path === "/reports/saved" || child.path === "/turbolens";
               return (
@@ -655,7 +709,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     component={RouterLink}
                     to={child.path}
                     selected={isActive(child.path)}
-                    onClick={() => setReportsMenu(null)}
+                    onClick={closeGroupMenu}
                   >
                     <ListItemIcon>
                       <MaterialSymbol icon={child.icon} size={18} />

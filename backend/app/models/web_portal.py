@@ -15,10 +15,16 @@ class WebPortal(Base, UUIDMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(200), nullable=False, unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text)
-    card_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    # "catalogue" = single card-type filtered explorer (the original behaviour);
+    # "hub" = a curated landing page of grouped tiles linking to other views.
+    kind: Mapped[str] = mapped_column(String(20), default="catalogue", nullable=False)
+    # Required for catalogue portals; unused (nullable) for hub portals.
+    card_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     filters: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     display_fields: Mapped[list | None] = mapped_column(JSONB, default=list)
     card_config: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    # Hub layout: [{ "title": str, "tiles": [{icon,label,description,target}] }]
+    tiles: Mapped[list | None] = mapped_column(JSONB, default=list)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

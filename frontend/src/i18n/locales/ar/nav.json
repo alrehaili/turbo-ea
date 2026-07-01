@@ -62,5 +62,17 @@
   "sponsorship.howHeading": "كيفية الدعم",
   "sponsorship.howBody": "عبر GitHub Sponsors في الوقت الحالي. اختر تبرعًا لمرة واحدة أو مساهمة شهرية منتظمة:",
   "sponsorship.oneTime": "مرة واحدة",
-  "sponsorship.monthly": "شهري"
+  "sponsorship.monthly": "شهري",
+  "reports.transformationRoadmap": "خريطة طريق التحول",
+  "reports.changeImpact": "تأثير التغيير",
+  "reports.strategyMap": "خريطة الاستراتيجية",
+  "reports.freshness": "حداثة المستودع",
+  "reports.resilience": "المرونة",
+  "reports.dataFlow": "تدفق البيانات",
+  "reports.integration": "التكاملات",
+  "governance": "الحوكمة",
+  "governance.scenarios": "السيناريوهات",
+  "governance.rationalization": "ترشيد التطبيقات",
+  "governance.techStandards": "رادار التقنيات",
+  "governance.arb": "مجلس المراجعة"
 }

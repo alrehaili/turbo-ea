@@ -350,5 +350,6 @@
   "dashboard.workspace.andMore_one": "e mais {{count}}",
   "dashboard.workspace.andMore_other": "e mais {{count}}",
   "actions.undo": "Desfazer",
-  "dashboard.workspace.favoriteRemoved": "«{{name}}» removido dos favoritos"
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» removido dos favoritos",
+  "portal.hubEmpty": "Este portal ainda não tem blocos."
 }

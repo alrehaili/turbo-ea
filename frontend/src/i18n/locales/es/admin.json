@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "El botón Patrocinar está oculto en el menú de usuario",
   "settings.sponsorButton.enabledSuccess": "Botón Patrocinar mostrado en el menú de usuario",
   "settings.sponsorButton.disabledSuccess": "Botón Patrocinar oculto en el menú de usuario",
-  "settings.sponsorButton.companyLogoNote": "Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, ponte en contacto en"
+  "settings.sponsorButton.companyLogoNote": "Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, ponte en contacto en",
+  "webPortals.kind": "Tipo de portal",
+  "webPortals.kindHelper": "Catálogo = explorador filtrado para un tipo de tarjeta. Hub = página de mosaicos que enlaza a otras vistas.",
+  "webPortals.kindCatalogue": "Catálogo (un tipo de tarjeta)",
+  "webPortals.kindHub": "Hub (página de mosaicos)",
+  "webPortals.section.hub": "Mosaicos",
+  "webPortals.addSection": "Añadir sección",
+  "webPortals.sectionTitle": "Título de la sección",
+  "webPortals.addTile": "Añadir mosaico",
+  "webPortals.tileLabel": "Etiqueta",
+  "webPortals.tileIcon": "Icono",
+  "webPortals.tileTarget": "Enlace (p. ej. /reports/portfolio)"
 }

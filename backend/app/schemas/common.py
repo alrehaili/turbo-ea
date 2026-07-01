@@ -221,10 +221,12 @@ class WebPortalCreate(BaseModel):
     name: str
     slug: str
     description: str | None = None
-    card_type: str
+    kind: str = "catalogue"
+    card_type: str | None = None
     filters: dict | None = None
     display_fields: list | None = None
     card_config: dict | None = None
+    tiles: list | None = None
     is_published: bool = False
 
 
@@ -232,10 +234,12 @@ class WebPortalUpdate(BaseModel):
     name: str | None = None
     slug: str | None = None
     description: str | None = None
+    kind: str | None = None
     card_type: str | None = None
     filters: dict | None = None
     display_fields: list | None = None
     card_config: dict | None = None
+    tiles: list | None = None
     is_published: bool | None = None
 
 

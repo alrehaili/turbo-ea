@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "Sponsor button is hidden from the user menu",
   "settings.sponsorButton.enabledSuccess": "Sponsor button shown in the user menu",
   "settings.sponsorButton.disabledSuccess": "Sponsor button hidden from the user menu",
-  "settings.sponsorButton.companyLogoNote": "If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, please reach out at"
+  "settings.sponsorButton.companyLogoNote": "If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, please reach out at",
+  "webPortals.kind": "Portal type",
+  "webPortals.kindHelper": "Catalogue = a filtered explorer for one card type. Hub = a landing page of tiles linking to other views.",
+  "webPortals.kindCatalogue": "Catalogue (single card type)",
+  "webPortals.kindHub": "Hub (tile landing page)",
+  "webPortals.section.hub": "Tiles",
+  "webPortals.addSection": "Add section",
+  "webPortals.sectionTitle": "Section title",
+  "webPortals.addTile": "Add tile",
+  "webPortals.tileLabel": "Label",
+  "webPortals.tileIcon": "Icon",
+  "webPortals.tileTarget": "Link (e.g. /reports/portfolio)"
 }

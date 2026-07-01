@@ -63,7 +63,11 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-addopts = "-q"
+# Block the third-party "openmetadata" pytest plugin: some environments have a
+# half-installed `openmetadata-ingestion` whose entry-point plugin crashes on
+# import (`ModuleNotFoundError: metadata.generated`), aborting all collection.
+# `-p no:<name>` is a no-op when the plugin is absent (e.g. CI), so this is safe.
+addopts = "-q -p no:pytest_openmetadata"
 
 [tool.coverage.run]
 source = ["app"]

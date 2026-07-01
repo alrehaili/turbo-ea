@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "Le bouton Soutenir est masqué du menu utilisateur",
   "settings.sponsorButton.enabledSuccess": "Bouton Soutenir affiché dans le menu utilisateur",
   "settings.sponsorButton.disabledSuccess": "Bouton Soutenir masqué du menu utilisateur",
-  "settings.sponsorButton.companyLogoNote": "Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en avant sur turbo-ea.org, veuillez nous contacter à"
+  "settings.sponsorButton.companyLogoNote": "Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en avant sur turbo-ea.org, veuillez nous contacter à",
+  "webPortals.kind": "Type de portail",
+  "webPortals.kindHelper": "Catalogue = explorateur filtré pour un type de carte. Hub = page d’accueil de tuiles vers d’autres vues.",
+  "webPortals.kindCatalogue": "Catalogue (un type de carte)",
+  "webPortals.kindHub": "Hub (page de tuiles)",
+  "webPortals.section.hub": "Tuiles",
+  "webPortals.addSection": "Ajouter une section",
+  "webPortals.sectionTitle": "Titre de la section",
+  "webPortals.addTile": "Ajouter une tuile",
+  "webPortals.tileLabel": "Libellé",
+  "webPortals.tileIcon": "Icône",
+  "webPortals.tileTarget": "Lien (ex. /reports/portfolio)"
 }

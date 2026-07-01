@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "赞助按钮已从用户菜单中隐藏",
   "settings.sponsorButton.enabledSuccess": "赞助按钮已显示在用户菜单中",
   "settings.sponsorButton.disabledSuccess": "赞助按钮已从用户菜单中隐藏",
-  "settings.sponsorButton.companyLogoNote": "如果贵公司赞助 Turbo EA 并希望在 turbo-ea.org 上展示公司徽标，请通过以下邮箱联系："
+  "settings.sponsorButton.companyLogoNote": "如果贵公司赞助 Turbo EA 并希望在 turbo-ea.org 上展示公司徽标，请通过以下邮箱联系：",
+  "webPortals.kind": "门户类型",
+  "webPortals.kindHelper": "目录 = 针对单一卡片类型的筛选浏览器。中心 = 链接到其他视图的磁贴落地页。",
+  "webPortals.kindCatalogue": "目录（单一卡片类型）",
+  "webPortals.kindHub": "中心（磁贴落地页）",
+  "webPortals.section.hub": "磁贴",
+  "webPortals.addSection": "添加分区",
+  "webPortals.sectionTitle": "分区标题",
+  "webPortals.addTile": "添加磁贴",
+  "webPortals.tileLabel": "标签",
+  "webPortals.tileIcon": "图标",
+  "webPortals.tileTarget": "链接（如 /reports/portfolio）"
 }

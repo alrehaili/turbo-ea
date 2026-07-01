@@ -1581,5 +1581,16 @@
   "settings.sponsorButton.hidden": "Кнопка «Поддержать» скрыта из меню пользователя",
   "settings.sponsorButton.enabledSuccess": "Кнопка «Поддержать» показана в меню пользователя",
   "settings.sponsorButton.disabledSuccess": "Кнопка «Поддержать» скрыта из меню пользователя",
-  "settings.sponsorButton.companyLogoNote": "Если ваша компания спонсирует Turbo EA и хотела бы разместить свой логотип на turbo-ea.org, напишите нам на"
+  "settings.sponsorButton.companyLogoNote": "Если ваша компания спонсирует Turbo EA и хотела бы разместить свой логотип на turbo-ea.org, напишите нам на",
+  "webPortals.kind": "Тип портала",
+  "webPortals.kindHelper": "Каталог = фильтруемый обозреватель одного типа карточек. Хаб = страница плиток со ссылками на другие представления.",
+  "webPortals.kindCatalogue": "Каталог (один тип карточек)",
+  "webPortals.kindHub": "Хаб (страница плиток)",
+  "webPortals.section.hub": "Плитки",
+  "webPortals.addSection": "Добавить раздел",
+  "webPortals.sectionTitle": "Заголовок раздела",
+  "webPortals.addTile": "Добавить плитку",
+  "webPortals.tileLabel": "Подпись",
+  "webPortals.tileIcon": "Значок",
+  "webPortals.tileTarget": "Ссылка (напр. /reports/portfolio)"
 }

@@ -28,11 +28,17 @@ from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.data_flow_service import gather_data_flow
+from app.services.freshness_service import gather_freshness
+from app.services.impact_service import gather_impact
+from app.services.integration_status_service import gather_integration_status
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
 )
 from app.services.permission_service import PermissionService
+from app.services.resilience_service import gather_resilience
+from app.services.strategy_map_service import gather_strategy_map
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -1780,6 +1786,91 @@ async def dependencies(
                 )
 
     return {"nodes": nodes, "edges": edges}
+
+
+@router.get("/impact")
+async def change_impact(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    card_id: str = Query(..., description="Center card whose change is being assessed"),
+    change_type: str = Query("modify", pattern="^(modify|replace|retire)$"),
+    depth: int = Query(2, ge=1, le=3),
+):
+    """Change Impact Workbench: blast radius of a change to ``card_id``.
+
+    Returns the affected cards grouped by EA layer (with hop distance, shortest
+    name-path, and criticality), plus the risks and initiatives that hang off the
+    affected set. Shares the traversal engine with the Resilience view and
+    Scenario Planning (``app.services.impact_service``).
+    """
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    try:
+        center_uuid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid card_id") from exc
+    try:
+        return await gather_impact(db, center_uuid, depth=depth, change_type=change_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/strategy-map")
+async def strategy_map(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Executive Strategy Map: objective → capability → initiative → application.
+
+    Returns one traceable chain per strategic Objective, with PPM budget/actual
+    and lifecycle status read opportunistically off each Initiative card.
+    """
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    return await gather_strategy_map(db)
+
+
+@router.get("/freshness")
+async def freshness(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    stale_days: int = Query(90, ge=1, le=3650),
+):
+    """Repository Freshness View: ownership, last-confirmed, source, confidence,
+    and a stale-record worklist."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    return await gather_freshness(db, stale_days=stale_days)
+
+
+@router.get("/resilience")
+async def resilience(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    depth: int = Query(4, ge=1, le=6),
+):
+    """Resilience / Critical Service View: critical-service dependency chains,
+    single points of failure / concentration risk, and RTO/RPO coverage gaps."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    return await gather_resilience(db, depth=depth)
+
+
+@router.get("/data-flow")
+async def data_flow(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Data Domain & Flow Map: data objects with the apps/interfaces/components
+    around them, grouped by data domain."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    return await gather_data_flow(db)
+
+
+@router.get("/integration-status")
+async def integration_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Integration Hub: per-source last sync, coverage, pending changes, staleness."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    return await gather_integration_status(db)
 
 
 @router.get("/data-quality")

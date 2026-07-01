@@ -8,6 +8,7 @@ reference fidelity on import, idempotent re-import, and secret exclusion.
 from __future__ import annotations
 
 import io
+from datetime import date
 
 import pytest
 from sqlalchemy import delete, select
@@ -541,3 +542,60 @@ async def test_standards_and_principle_links_roundtrip(db):
         .all()
     )
     assert link_count == 2
+
+
+async def test_roadmaps_and_milestones_roundtrip(db):
+    """A roadmap and its milestone (with a card FK on the milestone) survive
+    export → delete → re-import. Module rows keep their PKs, so the milestone's
+    ``roadmap_id`` resolves verbatim; the ``initiative_id`` card FK is resolved
+    by reference. [FORK FEATURE]"""
+    from app.models.roadmap import Roadmap, RoadmapMilestone
+
+    user = await create_user(db, email="rm@test.com", role="admin")
+    await create_card_type(db, key="Initiative", label="Initiative")
+    initiative = await create_card(
+        db, card_type="Initiative", name="ERP Programme", user_id=user.id
+    )
+
+    roadmap = Roadmap(
+        name="App lifecycle",
+        config={"type": "Application", "group_by": "BusinessCapability"},
+        owner_id=user.id,
+    )
+    db.add(roadmap)
+    await db.flush()
+    roadmap_id = roadmap.id
+    milestone = RoadmapMilestone(
+        roadmap_id=roadmap_id,
+        label="Go-live",
+        target_date=date(2026, 9, 1),
+        initiative_id=initiative.id,
+    )
+    db.add(milestone)
+    await db.flush()
+    milestone_id = milestone.id
+
+    raw = await build_bundle(db)
+
+    # Re-import onto the same data is a no-op (PKs already exist).
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    # Wipe and re-apply: roadmap + milestone come back with the same ids, the
+    # owner remapped by email and the milestone's card FK re-resolved.
+    await db.execute(delete(RoadmapMilestone))
+    await db.execute(delete(Roadmap).where(Roadmap.id == roadmap_id))
+    await db.flush()
+
+    result2 = await apply_bundle(db, parse_bundle(raw), user)
+    assert result2.total_failed == 0, result2.as_dict()
+
+    restored = (await db.execute(select(Roadmap).where(Roadmap.id == roadmap_id))).scalar_one()
+    assert restored.name == "App lifecycle"
+    assert restored.owner_id == user.id  # remapped by email
+    assert restored.config["group_by"] == "BusinessCapability"
+    restored_ms = (
+        await db.execute(select(RoadmapMilestone).where(RoadmapMilestone.id == milestone_id))
+    ).scalar_one()
+    assert restored_ms.label == "Go-live"
+    assert restored_ms.initiative_id == initiative.id  # card FK resolved by ref
