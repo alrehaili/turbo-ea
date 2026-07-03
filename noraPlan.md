@@ -415,7 +415,7 @@ Every user-facing surface the plan delivers, in one place — each view lives in
 | 17 | Standards & Waivers dashboard (compliance %, expiring waivers) | GRC → Compliance new tab (gap-review against the fork's existing TechStandard UI first) | WP4.3 | ☐ |
 | 18 | Saudi policy-pack findings (NCA ECC / NDMO / PDPL / DGA) | GRC → Compliance scanner (existing UI, new packs) | WP4.4 | ☐ |
 | 19 | Integration & interoperability view (external exchanges, protocols, GSB posture) | Reports | WP4.5 | ☐ |
-| 20 | Reference-model coverage report (% mapped to NEA codes, unmapped cards, agency extensions) | Reports | WP5.1 | ⊘ blocked on NEA models |
+| 20 | Reference-model coverage report (BRM/ARM/DRM/TRM distribution + coverage %) | `/reports/reference-models` | WP1.1 companion | ☑ (BRM/ARM/DRM/TRM shipped; NEA-code alignment tracking still WP5.1 ⊘) |
 | 21 | EA maturity radar + trend | Maturity module (Surveys-based) | WP5.2 | ☐ |
 | 22 | NEA alignment / evidence pack export | Reports → export | WP5.3 | ☐ |
 | 23 | Plateau/time-slice landscape views + segment scope filter | TimelineSlider on major reports; segment chip | WP5.4 | ☐ |

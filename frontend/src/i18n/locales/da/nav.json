@@ -147,5 +147,6 @@
   "noraProgram.dashNoFindings": "Ingen åbne fund",
   "noraProgram.gapModify": "ændre",
   "noraProgram.gapRetire": "udfase",
-  "noraProgram.dashEnrichmentUnavailable": "Berigelsesdata utilgængelige — genstart backend"
+  "noraProgram.dashEnrichmentUnavailable": "Berigelsesdata utilgængelige — genstart backend",
+  "reports.referenceModels": "Referencemodeller"
 }

@@ -40,6 +40,9 @@ const ServiceTraceabilityReport = lazy(
   () => import("@/features/reports/ServiceTraceabilityReport"),
 );
 const KpiScorecardReport = lazy(() => import("@/features/reports/KpiScorecardReport"));
+const ReferenceModelsReport = lazy(
+  () => import("@/features/reports/ReferenceModelsReport"),
+);
 const InteroperabilityReport = lazy(() => import("@/features/reports/InteroperabilityReport"));
 const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
 const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStrategyMap"));
@@ -187,6 +190,10 @@ function AppRoutes() {
                 <Route path="/reports/org-chart" element={<OrgChartReport />} />
                 <Route path="/reports/service-traceability" element={<ServiceTraceabilityReport />} />
                 <Route path="/reports/kpi-scorecard" element={<KpiScorecardReport />} />
+                <Route
+                  path="/reports/reference-models"
+                  element={<ReferenceModelsReport />}
+                />
                 <Route path="/reports/interoperability" element={<InteroperabilityReport />} />
                 <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
                 <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />

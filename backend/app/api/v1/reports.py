@@ -2529,3 +2529,101 @@ async def interoperability_report(
         },
         "sensitive_off_gsb": flagged,
     }
+
+
+# NORA reference-model explorer ([FORK] noraPlan.md WP1.1 companion feature).
+# Reads live counts of cards per classification bucket for each of the four
+# NORA reference models (BRM / ARM / DRM / TRM). Options come from the card
+# type's ``fields_schema`` so admin-added options auto-appear here.
+_REFERENCE_MODELS: list[dict] = [
+    {"key": "brm", "card_type": "BusinessCapability", "field_key": "brmLevel"},
+    {"key": "arm", "card_type": "Application", "field_key": "armCategory"},
+    {"key": "drm", "card_type": "DataObject", "field_key": "dataClassification"},
+    {"key": "trm", "card_type": "ITComponent", "field_key": "hostingModel"},
+]
+
+
+def _find_field(fields_schema: list | None, field_key: str) -> dict | None:
+    for section in fields_schema or []:
+        for f in section.get("fields") or []:
+            if f.get("key") == field_key:
+                return f
+    return None
+
+
+@router.get("/reference-models")
+async def reference_models_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Coverage + distribution across the four NORA reference models.
+
+    Returns, per model: the target card type, the classification field, the
+    total non-archived cards of that type, how many are classified vs left
+    empty, and a per-option count. The classification options themselves are
+    pulled from the type's live ``fields_schema`` so admin-added options are
+    picked up automatically. [FORK FEATURE]
+    """
+    await PermissionService.require_permission(db, user, "nora.view")
+
+    ct_rows = await db.execute(select(CardType))
+    ct_by_key = {ct.key: ct for ct in ct_rows.scalars().all()}
+
+    models: list[dict] = []
+    for entry in _REFERENCE_MODELS:
+        ct = ct_by_key.get(entry["card_type"])
+        model_out: dict = {
+            "key": entry["key"],
+            "card_type": entry["card_type"],
+            "field_key": entry["field_key"],
+            "available": False,
+            "total": 0,
+            "classified": 0,
+            "uncategorised": 0,
+            "options": [],
+            "distribution": {},
+        }
+        if ct is None:
+            models.append(model_out)
+            continue
+        field_def = _find_field(ct.fields_schema, entry["field_key"])
+        if field_def is None:
+            models.append(model_out)
+            continue
+
+        options = field_def.get("options") or []
+        distribution: dict[str, int] = {opt["key"]: 0 for opt in options}
+        total = 0
+        uncategorised = 0
+        cards_res = await db.execute(
+            select(Card.attributes).where(
+                Card.type == entry["card_type"], Card.status != "ARCHIVED"
+            )
+        )
+        for (attributes,) in cards_res.all():
+            total += 1
+            val = (attributes or {}).get(entry["field_key"])
+            if val and val in distribution:
+                distribution[val] += 1
+            else:
+                uncategorised += 1
+
+        model_out.update(
+            {
+                "available": True,
+                "card_type_label": ct.label,
+                "card_type_icon": ct.icon,
+                "card_type_color": ct.color,
+                "card_type_translations": ct.translations or {},
+                "field_label": field_def.get("label"),
+                "field_translations": field_def.get("translations") or {},
+                "total": total,
+                "classified": total - uncategorised,
+                "uncategorised": uncategorised,
+                "options": options,
+                "distribution": distribution,
+            }
+        )
+        models.append(model_out)
+
+    return {"models": models}

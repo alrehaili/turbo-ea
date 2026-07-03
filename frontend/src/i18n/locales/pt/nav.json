@@ -147,5 +147,6 @@
   "noraProgram.dashNoFindings": "Sem achados abertos",
   "noraProgram.gapModify": "modificar",
   "noraProgram.gapRetire": "retirar",
-  "noraProgram.dashEnrichmentUnavailable": "Dados de enriquecimento indisponíveis — reinicie o backend"
+  "noraProgram.dashEnrichmentUnavailable": "Dados de enriquecimento indisponíveis — reinicie o backend",
+  "reports.referenceModels": "Modelos de referência"
 }

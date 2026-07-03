@@ -147,5 +147,6 @@
   "noraProgram.dashNoFindings": "Открытых несоответствий нет",
   "noraProgram.gapModify": "изменение",
   "noraProgram.gapRetire": "вывод",
-  "noraProgram.dashEnrichmentUnavailable": "Данные обогащения недоступны — перезапустите бэкенд"
+  "noraProgram.dashEnrichmentUnavailable": "Данные обогащения недоступны — перезапустите бэкенд",
+  "reports.referenceModels": "Справочные модели"
 }
