@@ -84,6 +84,16 @@ const VIEWS: ViewCardDef[] = [
     depth: "summary",
   },
   {
+    key: "application-layer",
+    domain: "application",
+    titleKey: "viewLibrary.view.applicationLayer.title",
+    bodyKey: "viewLibrary.view.applicationLayer.body",
+    icon: "layers",
+    path: "/reports/application-layer",
+    permission: "inventory.view",
+    depth: "overview",
+  },
+  {
     key: "application-summary",
     domain: "application",
     titleKey: "viewLibrary.view.applicationSummary.title",
