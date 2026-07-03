@@ -6,6 +6,7 @@ as per-deliverable rows with evidence links and stage-gate approval.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -26,6 +27,8 @@ from app.models.turbolens import TurboLensComplianceFinding
 from app.models.user import User
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/nora-program", tags=["nora-program"])
 
@@ -147,126 +150,186 @@ async def get_dashboard(
     """
     await PermissionService.require_permission(db, user, "nora.view")
 
+    async def _safe(name: str, coro):
+        """Run a subsection; on failure log + rollback so later queries work."""
+        try:
+            return await coro
+        except Exception as e:  # noqa: BLE001
+            log.warning("nora dashboard subsection %s failed: %s", name, e)
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            return None
+
     # --- Approval coverage (non-archived cards, by approval_status) ---------
-    approval_rows = await db.execute(
-        select(Card.approval_status, func.count())
-        .where(Card.status != "ARCHIVED")
-        .group_by(Card.approval_status)
-    )
-    approvals = {status: count for status, count in approval_rows.all()}
+    async def _approvals():
+        rows = await db.execute(
+            select(Card.approval_status, func.count())
+            .where(Card.status != "ARCHIVED")
+            .group_by(Card.approval_status)
+        )
+        return {status: count for status, count in rows.all()}
+
+    approvals = await _safe("approvals", _approvals()) or {}
     total_cards = sum(approvals.values())
 
     # --- Landscape split by architecture state ------------------------------
-    state_rows = await db.execute(
-        select(func.coalesce(Card.architecture_state, "current"), func.count())
-        .where(Card.status != "ARCHIVED")
-        .group_by(func.coalesce(Card.architecture_state, "current"))
-    )
-    landscape = {state: count for state, count in state_rows.all()}
+    async def _landscape():
+        rows = await db.execute(
+            select(func.coalesce(Card.architecture_state, "current"), func.count())
+            .where(Card.status != "ARCHIVED")
+            .group_by(func.coalesce(Card.architecture_state, "current"))
+        )
+        return {state: count for state, count in rows.all()}
+
+    landscape = await _safe("landscape", _landscape()) or {}
 
     # --- Gap buckets (same classification as /reports/gap-analysis) --------
-    changed_rows = (
-        await db.execute(
-            select(Card.id, Card.architecture_state, Card.change_type, Card.successor_id).where(
-                Card.status != "ARCHIVED",
-                (Card.architecture_state.in_(("target", "transition")))
-                | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
+    async def _gaps():
+        changed_rows = (
+            await db.execute(
+                select(Card.id, Card.architecture_state, Card.change_type, Card.successor_id).where(
+                    Card.status != "ARCHIVED",
+                    (Card.architecture_state.in_(("target", "transition")))
+                    | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
+                )
             )
-        )
-    ).all()
-    changed_ids = {row.id for row in changed_rows}
-    traced_ids: set[uuid.UUID] = set()
-    if changed_ids:
-        rel_rows = await db.execute(
-            select(Relation.source_id, Relation.target_id)
-            .join(
-                Card,
-                ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
-                & (Card.type == "Initiative"),
+        ).all()
+        changed_ids = {row.id for row in changed_rows}
+        traced_ids: set[uuid.UUID] = set()
+        if changed_ids:
+            rel_rows = await db.execute(
+                select(Relation.source_id, Relation.target_id)
+                .join(
+                    Card,
+                    ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
+                    & (Card.type == "Initiative"),
+                )
+                .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
             )
-            .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
-        )
-        for source_id, target_id in rel_rows.all():
-            traced_ids.add(source_id)
-            traced_ids.add(target_id)
-    gaps = {"create": 0, "replace": 0, "modify": 0, "retire": 0}
-    for row in changed_rows:
-        if row.architecture_state == "current":
-            gaps["retire"] += 1
-        elif row.successor_id or row.change_type in ("replace", "consolidate"):
-            gaps["replace"] += 1
-        elif row.change_type == "modify":
-            gaps["modify"] += 1
-        else:
-            gaps["create"] += 1
-    gaps["total"] = len(changed_rows)
-    gaps["untraceable"] = len(changed_ids - traced_ids)
+            for source_id, target_id in rel_rows.all():
+                traced_ids.add(source_id)
+                traced_ids.add(target_id)
+        g = {"create": 0, "replace": 0, "modify": 0, "retire": 0}
+        for row in changed_rows:
+            if row.architecture_state == "current":
+                g["retire"] += 1
+            elif row.successor_id or row.change_type in ("replace", "consolidate"):
+                g["replace"] += 1
+            elif row.change_type == "modify":
+                g["modify"] += 1
+            else:
+                g["create"] += 1
+        g["total"] = len(changed_rows)
+        g["untraceable"] = len(changed_ids - traced_ids)
+        return g
+
+    gaps = await _safe("gaps", _gaps()) or {
+        "create": 0,
+        "replace": 0,
+        "modify": 0,
+        "retire": 0,
+        "total": 0,
+        "untraceable": 0,
+    }
 
     # --- Transition-initiative RAG (latest PPM status report each) ---------
-    latest_report = select(
-        PpmStatusReport.initiative_id,
-        PpmStatusReport.schedule_health,
-        PpmStatusReport.cost_health,
-        PpmStatusReport.scope_health,
-        func.row_number()
-        .over(
-            partition_by=PpmStatusReport.initiative_id,
-            order_by=(PpmStatusReport.report_date.desc(), PpmStatusReport.created_at.desc()),
-        )
-        .label("rn"),
-    ).subquery()
-    report_rows = (await db.execute(select(latest_report).where(latest_report.c.rn == 1))).all()
-    rag_rank = {"onTrack": 0, "atRisk": 1, "offTrack": 2}
-    initiatives = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
-    reported_ids = set()
-    for row in report_rows:
-        reported_ids.add(row.initiative_id)
-        worst = max(
-            (row.schedule_health, row.cost_health, row.scope_health),
-            key=lambda h: rag_rank.get(h, 0),
-        )
-        initiatives[worst] = initiatives.get(worst, 0) + 1
-    active_initiatives = (
-        await db.execute(
-            select(func.count()).where(Card.type == "Initiative", Card.status != "ARCHIVED")
-        )
-    ).scalar_one()
-    initiatives["noReport"] = max(0, active_initiatives - len(reported_ids))
+    async def _initiatives():
+        latest_report = select(
+            PpmStatusReport.initiative_id,
+            PpmStatusReport.schedule_health,
+            PpmStatusReport.cost_health,
+            PpmStatusReport.scope_health,
+            func.row_number()
+            .over(
+                partition_by=PpmStatusReport.initiative_id,
+                order_by=(
+                    PpmStatusReport.report_date.desc(),
+                    PpmStatusReport.created_at.desc(),
+                ),
+            )
+            .label("rn"),
+        ).subquery()
+        report_rows = (await db.execute(select(latest_report).where(latest_report.c.rn == 1))).all()
+        rag_rank = {"onTrack": 0, "atRisk": 1, "offTrack": 2}
+        counts = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
+        reported_ids = set()
+        for row in report_rows:
+            reported_ids.add(row.initiative_id)
+            worst = max(
+                (row.schedule_health, row.cost_health, row.scope_health),
+                key=lambda h: rag_rank.get(h, 0),
+            )
+            counts[worst] = counts.get(worst, 0) + 1
+        active_initiatives = (
+            await db.execute(
+                select(func.count()).where(Card.type == "Initiative", Card.status != "ARCHIVED")
+            )
+        ).scalar_one()
+        counts["noReport"] = max(0, active_initiatives - len(reported_ids))
+        return counts
+
+    initiatives = await _safe("initiatives", _initiatives()) or {
+        "onTrack": 0,
+        "atRisk": 0,
+        "offTrack": 0,
+        "noReport": 0,
+    }
 
     # --- Standards waivers (tech_standard_exceptions) -----------------------
-    today = date.today()
-    waiver_rows = (
-        await db.execute(select(StandardException.status, StandardException.expiry_date))
-    ).all()
-    waivers = {"active": 0, "pending": 0, "expiringSoon": 0, "expired": 0}
-    horizon = today + timedelta(days=30)
-    for status, expiry in waiver_rows:
-        if status == "requested":
-            waivers["pending"] += 1
-        elif status == "approved":
-            if expiry and expiry < today:
-                waivers["expired"] += 1
-            else:
-                waivers["active"] += 1
-                if expiry and expiry <= horizon:
-                    waivers["expiringSoon"] += 1
+    async def _waivers():
+        today = date.today()
+        rows = (
+            await db.execute(select(StandardException.status, StandardException.expiry_date))
+        ).all()
+        w = {"active": 0, "pending": 0, "expiringSoon": 0, "expired": 0}
+        horizon = today + timedelta(days=30)
+        for status, expiry in rows:
+            if status == "requested":
+                w["pending"] += 1
+            elif status == "approved":
+                if expiry and expiry < today:
+                    w["expired"] += 1
+                else:
+                    w["active"] += 1
+                    if expiry and expiry <= horizon:
+                        w["expiringSoon"] += 1
+        return w
+
+    waivers = await _safe("waivers", _waivers()) or {
+        "active": 0,
+        "pending": 0,
+        "expiringSoon": 0,
+        "expired": 0,
+    }
 
     # --- Improvement opportunities by status --------------------------------
-    opp_rows = await db.execute(
-        select(ImprovementOpportunity.status, func.count()).group_by(ImprovementOpportunity.status)
-    )
-    opportunities = {status: count for status, count in opp_rows.all()}
+    async def _opportunities():
+        rows = await db.execute(
+            select(ImprovementOpportunity.status, func.count()).group_by(
+                ImprovementOpportunity.status
+            )
+        )
+        return {status: count for status, count in rows.all()}
+
+    opportunities = await _safe("opportunities", _opportunities()) or {}
 
     # --- Open compliance findings by severity -------------------------------
-    finding_rows = await db.execute(
-        select(TurboLensComplianceFinding.severity, func.count())
-        .where(
-            TurboLensComplianceFinding.auto_resolved.is_(False),
-            TurboLensComplianceFinding.status.in_(("non_compliant", "partial", "review_needed")),
+    async def _compliance():
+        rows = await db.execute(
+            select(TurboLensComplianceFinding.severity, func.count())
+            .where(
+                TurboLensComplianceFinding.auto_resolved.is_(False),
+                TurboLensComplianceFinding.status.in_(
+                    ("non_compliant", "partial", "review_needed")
+                ),
+            )
+            .group_by(TurboLensComplianceFinding.severity)
         )
-        .group_by(TurboLensComplianceFinding.severity)
-    )
-    compliance = {severity: count for severity, count in finding_rows.all()}
+        return {severity: count for severity, count in rows.all()}
+
+    compliance = await _safe("compliance", _compliance()) or {}
 
     return {
         "approvals": {
