@@ -32,8 +32,53 @@ export interface TemplateSectionDef {
 
 const t = (key: string) => String(i18n.t(`delivery:${key}`));
 
-/** Returns the SOAW template sections with translated labels. */
-export function getTemplateSections(): TemplateSectionDef[] {
+// ─── NORA governed documents ([FORK] noraPlan.md WP3.2) ─────────────────────
+// The same editor/export machinery renders the NORA Stage 1/2/3/9 documents;
+// each doc type gets its own flat rich-text section template.
+
+export type SoawDocType =
+  | "soaw"
+  | "ea_project_strategy"
+  | "ea_project_plan"
+  | "environment_analysis"
+  | "ea_usage_plan"
+  | "ea_management_plan";
+
+export const NORA_DOC_TYPES: Exclude<SoawDocType, "soaw">[] = [
+  "ea_project_strategy",
+  "ea_project_plan",
+  "environment_analysis",
+  "ea_usage_plan",
+  "ea_management_plan",
+];
+
+const NORA_TEMPLATE_SECTION_IDS: Record<Exclude<SoawDocType, "soaw">, string[]> = {
+  ea_project_strategy: ["value", "goals", "scope", "approach", "cost"],
+  ea_project_plan: ["teams", "approach", "workplan", "schedule", "risks"],
+  environment_analysis: [
+    "requirements",
+    "internal",
+    "external",
+    "strengths",
+    "weaknesses",
+    "opportunities",
+    "threats",
+  ],
+  ea_usage_plan: ["purpose", "stakeholders", "value", "communication"],
+  ea_management_plan: ["purpose", "operating", "repository", "reviews", "compliance"],
+};
+
+/** Returns the template sections for a document type with translated labels. */
+export function getTemplateSections(docType: SoawDocType = "soaw"): TemplateSectionDef[] {
+  if (docType !== "soaw") {
+    return NORA_TEMPLATE_SECTION_IDS[docType].map((sid) => ({
+      id: `${docType}.${sid}`,
+      title: t(`noraTemplate.${docType}.${sid}.title`),
+      type: "rich_text" as const,
+      part: "I" as const,
+      level: 2 as const,
+    }));
+  }
   return [
     // -- Part I --
     {
@@ -208,7 +253,7 @@ export function getTogafPhases(): { key: string; label: string }[] {
 
 
 /** Build the default (empty) sections record from the template. */
-export function buildDefaultSections(): Record<
+export function buildDefaultSections(docType: SoawDocType = "soaw"): Record<
   string,
   {
     content: string;
@@ -217,7 +262,7 @@ export function buildDefaultSections(): Record<
     togaf_data?: Record<string, string>;
   }
 > {
-  const templateSections = getTemplateSections();
+  const templateSections = getTemplateSections(docType);
   const togafPhases = getTogafPhases();
   const sections: Record<string, {
     content: string;

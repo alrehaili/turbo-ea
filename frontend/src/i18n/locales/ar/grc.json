@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "المبادئ",
       "standards": "المعايير",
-      "decisions": "القرارات"
+      "decisions": "القرارات",
+      "opportunities": "فرص التحسين"
     },
     "principles": {
       "title": "مبادئ البنية المؤسسية",
@@ -33,6 +34,31 @@
       "status": "الحالة",
       "open": "فتح",
       "create": "قرار جديد"
+    },
+    "opportunities": {
+      "new": "فرصة تحسين جديدة",
+      "edit": "تعديل فرصة التحسين",
+      "empty": "لا توجد فرص تحسين بعد. سجّل هنا نتائج تحليل البنية الحالية.",
+      "colTitle": "العنوان",
+      "colDomain": "النطاق",
+      "colPriority": "الأولوية",
+      "colStatus": "الحالة",
+      "colInitiative": "المبادرة",
+      "assign": "إسناد مبادرة",
+      "description": "الوصف",
+      "confirmDelete": "هل تريد حذف فرصة التحسين «{{title}}»؟",
+      "priority": {
+        "low": "منخفضة",
+        "medium": "متوسطة",
+        "high": "عالية"
+      },
+      "status": {
+        "proposed": "مقترحة",
+        "approved": "معتمدة",
+        "inTransition": "قيد التحول",
+        "realized": "منجزة",
+        "rejected": "مرفوضة"
+      }
     }
   },
   "compliance": {

@@ -52,6 +52,12 @@ class CardCreate(BaseModel):
     attributes: dict | None = None
     external_id: str | None = None
     alias: str | None = None
+    # Architecture-state dimension (NORA current/target — WP2.1).
+    architecture_state: str | None = Field(default=None, pattern="^(current|transition|target)$")
+    change_type: str | None = Field(
+        default=None, pattern="^(create|modify|replace|retire|consolidate)$"
+    )
+    successor_id: str | None = None
     # When ``True``, the card-create handler validates ``attributes`` keys
     # against the card type's ``fields_schema`` and rejects unknown keys
     # with a 422 listing the valid keys for that type. Defaults to
@@ -81,6 +87,12 @@ class CardUpdate(BaseModel):
     status: str | None = None
     external_id: str | None = None
     alias: str | None = None
+    # Architecture-state dimension (NORA current/target — WP2.1).
+    architecture_state: str | None = Field(default=None, pattern="^(current|transition|target)$")
+    change_type: str | None = Field(
+        default=None, pattern="^(create|modify|replace|retire|consolidate)$"
+    )
+    successor_id: str | None = None
     # Same semantics as ``CardCreate.strict_attributes``.
     strict_attributes: bool = False
 
@@ -138,6 +150,9 @@ class CardResponse(BaseModel):
     data_quality: float
     external_id: str | None = None
     alias: str | None = None
+    architecture_state: str = "current"
+    change_type: str | None = None
+    successor_id: str | None = None
     archived_at: datetime | None = None
     created_by: str | None = None
     updated_by: str | None = None

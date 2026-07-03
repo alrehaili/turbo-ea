@@ -2265,3 +2265,267 @@ async def eol_report(
             "manual": manual_count,
         },
     }
+
+
+@router.get("/gap-analysis")
+async def gap_analysis_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Current vs target gap analysis (NORA Stage 8 input — noraPlan.md WP2.4).
+
+    Buckets every architecture-state delta and reports, per changed card, the
+    transition initiatives linked to it — plus the "untraceable" list of
+    target/transition cards no initiative delivers. [FORK FEATURE]
+    """
+    await PermissionService.require_permission(db, user, "reports.view")
+
+    # Every card participating in a change: target/transition cards, plus
+    # current cards flagged for planned retirement.
+    changed_q = select(Card).where(
+        Card.status != "ARCHIVED",
+        (Card.architecture_state.in_(("target", "transition")))
+        | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
+    )
+    changed = list((await db.execute(changed_q)).scalars().all())
+    changed_ids = {c.id for c in changed}
+
+    # Resolve successor targets (the current cards being replaced).
+    successor_ids = {c.successor_id for c in changed if c.successor_id}
+    successor_map: dict[uuid.UUID, Card] = {}
+    if successor_ids:
+        rows = await db.execute(select(Card).where(Card.id.in_(successor_ids)))
+        successor_map = {c.id: c for c in rows.scalars().all()}
+
+    # Initiative links: any relation between a changed card and an Initiative.
+    initiatives_by_card: dict[uuid.UUID, list[dict]] = {}
+    if changed_ids:
+        rel_rows = await db.execute(
+            select(Relation, Card)
+            .join(
+                Card,
+                ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
+                & (Card.type == "Initiative"),
+            )
+            .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
+        )
+        for rel, initiative in rel_rows.all():
+            changed_id = rel.source_id if rel.target_id == initiative.id else rel.target_id
+            if changed_id not in changed_ids:
+                continue
+            initiatives_by_card.setdefault(changed_id, []).append(
+                {
+                    "id": str(initiative.id),
+                    "name": initiative.name,
+                    "transition_role": (rel.attributes or {}).get("transitionRole"),
+                }
+            )
+
+    def brief(c: Card) -> dict:
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "architecture_state": c.architecture_state or "current",
+            "change_type": c.change_type,
+            "initiatives": initiatives_by_card.get(c.id, []),
+        }
+
+    buckets: dict[str, list[dict]] = {"create": [], "replace": [], "retire": [], "modify": []}
+    untraceable: list[dict] = []
+    for c in sorted(changed, key=lambda x: (x.type, x.name.lower())):
+        row = brief(c)
+        if c.architecture_state == "current":
+            # current + change_type=retire → planned retirement without successor
+            buckets["retire"].append(row)
+        elif c.successor_id or c.change_type in ("replace", "consolidate"):
+            replaced = successor_map.get(c.successor_id) if c.successor_id else None
+            row["replaces"] = (
+                {"id": str(replaced.id), "name": replaced.name, "type": replaced.type}
+                if replaced
+                else None
+            )
+            buckets["replace"].append(row)
+        elif c.change_type == "modify":
+            buckets["modify"].append(row)
+        else:
+            buckets["create"].append(row)
+        if not row["initiatives"]:
+            untraceable.append(row)
+
+    return {
+        "buckets": buckets,
+        "untraceable": untraceable,
+        "summary": {
+            "total_changes": len(changed),
+            "create": len(buckets["create"]),
+            "replace": len(buckets["replace"]),
+            "modify": len(buckets["modify"]),
+            "retire": len(buckets["retire"]),
+            "untraceable": len(untraceable),
+        },
+    }
+
+
+@router.get("/service-traceability")
+async def service_traceability_report(
+    card_id: str = Query(..., description="The GovService (or any) card to trace from"),
+    depth: int = Query(2, ge=1, le=3),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Service delivery chain (NORA — noraPlan.md WP3.4): everything reachable
+    from a service within ``depth`` relation hops, grouped by EA layer, so the
+    committee can answer "how is this service delivered" on one screen.
+    [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.view")
+
+    root_id = uuid.UUID(card_id)
+    root = (await db.execute(select(Card).where(Card.id == root_id))).scalar_one_or_none()
+    if root is None:
+        raise HTTPException(404, "Card not found")
+
+    # BFS over relations up to `depth` hops.
+    seen: dict[uuid.UUID, int] = {root_id: 0}
+    frontier = {root_id}
+    edges: list[dict] = []
+    for hop in range(1, depth + 1):
+        if not frontier:
+            break
+        rel_rows = (
+            await db.execute(
+                select(Relation).where(
+                    Relation.source_id.in_(frontier) | Relation.target_id.in_(frontier)
+                )
+            )
+        ).scalars()
+        next_frontier: set[uuid.UUID] = set()
+        for rel in rel_rows:
+            edges.append(
+                {
+                    "type": rel.type,
+                    "source_id": str(rel.source_id),
+                    "target_id": str(rel.target_id),
+                }
+            )
+            for nid in (rel.source_id, rel.target_id):
+                if nid not in seen:
+                    seen[nid] = hop
+                    next_frontier.add(nid)
+        frontier = next_frontier
+
+    cards = (
+        (await db.execute(select(Card).where(Card.id.in_(seen), Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    categories = dict((await db.execute(select(CardType.key, CardType.category))).all())
+
+    layer_order = [
+        "Strategy & Transformation",
+        "Business Architecture",
+        "Application & Data",
+        "Technical Architecture",
+    ]
+    layers: dict[str, list[dict]] = {layer: [] for layer in layer_order}
+    other: list[dict] = []
+    for c in cards:
+        if c.id == root_id:
+            continue
+        entry = {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "architecture_state": c.architecture_state or "current",
+            "hops": seen[c.id],
+        }
+        category = categories.get(c.type)
+        (layers[category] if category in layers else other).append(entry)
+    for layer in layers.values():
+        layer.sort(key=lambda e: (e["hops"], e["type"], e["name"].lower()))
+
+    kept_ids = {str(c.id) for c in cards}
+    return {
+        "root": {"id": str(root.id), "name": root.name, "type": root.type},
+        "layers": [{"category": layer, "cards": layers[layer]} for layer in layer_order],
+        "other": other,
+        "edges": [e for e in edges if e["source_id"] in kept_ids and e["target_id"] in kept_ids],
+    }
+
+
+@router.get("/interoperability")
+async def interoperability_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Integration & interoperability posture (NORA — noraPlan.md WP4.5):
+    every Interface and DataExchange with its NORA attributes (integration
+    type, GSB routing, classification carried, external party) and the
+    applications it connects. [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.view")
+
+    rows = (
+        (
+            await db.execute(
+                select(Card).where(
+                    Card.type.in_(("Interface", "DataExchange")),
+                    Card.status != "ARCHIVED",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    ids = {c.id for c in rows}
+    apps_by_conn: dict[uuid.UUID, list[dict]] = {}
+    if ids:
+        rel_rows = await db.execute(
+            select(Relation, Card)
+            .join(
+                Card,
+                ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
+                & (Card.type == "Application"),
+            )
+            .where(Relation.source_id.in_(ids) | Relation.target_id.in_(ids))
+        )
+        for rel, app_card in rel_rows.all():
+            conn_id = rel.source_id if rel.target_id == app_card.id else rel.target_id
+            if conn_id not in ids:
+                continue
+            apps_by_conn.setdefault(conn_id, []).append(
+                {
+                    "id": str(app_card.id),
+                    "name": app_card.name,
+                    "direction": (rel.attributes or {}).get("direction"),
+                }
+            )
+
+    def entry(c: Card) -> dict:
+        attrs = c.attributes or {}
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "kind": c.type,
+            "integration_type": attrs.get("integrationType") or attrs.get("exchangeMethod"),
+            "via_gsb": bool(attrs.get("viaGsb")),
+            "classification": attrs.get("dataClassificationCarried"),
+            "external_party": attrs.get("externalParty"),
+            "frequency": attrs.get("frequency"),
+            "applications": sorted(apps_by_conn.get(c.id, []), key=lambda a: a["name"].lower()),
+        }
+
+    entries = sorted((entry(c) for c in rows), key=lambda e: (e["kind"], e["name"].lower()))
+    external = [e for e in entries if e["external_party"]]
+    flagged = [
+        e for e in entries if e["classification"] in ("secret", "topSecret") and not e["via_gsb"]
+    ]
+    return {
+        "items": entries,
+        "summary": {
+            "total": len(entries),
+            "via_gsb": sum(1 for e in entries if e["via_gsb"]),
+            "external": len(external),
+            "sensitive_off_gsb": len(flagged),
+        },
+        "sensitive_off_gsb": flagged,
+    }

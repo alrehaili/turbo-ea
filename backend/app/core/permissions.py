@@ -218,6 +218,27 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
         },
     },
+    "governance": {
+        "label": "Governance workflow",
+        "permissions": {
+            "governance.approve_step": (
+                "Approve or reject a step of a card's multi-step review chain "
+                "(NORA stage gates). The user must also hold the chain role of "
+                "the step being decided."
+            ),
+        },
+    },
+    "nora": {
+        "label": "NORA EA Program",
+        "permissions": {
+            "nora.view": "View the NORA EA Program tracker (stages, deliverables, evidence)",
+            "nora.manage": (
+                "Update NORA program deliverables — status, owner, evidence, "
+                "custom deliverables. Marking a deliverable approved additionally "
+                "requires governance.approve_step."
+            ),
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -409,6 +430,9 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "grc.view": True,
     "grc.manage": True,
+    "governance.approve_step": False,
+    "nora.view": True,
+    "nora.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -496,6 +520,9 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "grc.view": True,
     "grc.manage": True,
+    "governance.approve_step": False,
+    "nora.view": True,
+    "nora.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -583,6 +610,9 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": False,
     "grc.view": True,
     "grc.manage": False,
+    "governance.approve_step": False,
+    "nora.view": True,
+    "nora.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,

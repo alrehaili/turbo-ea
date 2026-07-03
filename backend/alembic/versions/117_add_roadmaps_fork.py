@@ -77,9 +77,7 @@ def upgrade() -> None:
             "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
     )
-    op.create_index(
-        "ix_roadmap_milestones_roadmap_id", "roadmap_milestones", ["roadmap_id"]
-    )
+    op.create_index("ix_roadmap_milestones_roadmap_id", "roadmap_milestones", ["roadmap_id"])
 
 
 def downgrade() -> None:

@@ -34,6 +34,7 @@ import {
   getTemplateSections,
   getTogafPhases,
   buildDefaultSections,
+  type SoawDocType,
   type TemplateSectionDef,
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
@@ -50,6 +51,12 @@ export default function SoAWEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  // NORA governed-document support ([FORK] WP3.2): the doc type drives which
+  // section template renders. On create it comes from ?type=…, on edit from
+  // the loaded document.
+  const [docType, setDocType] = useState<SoawDocType>(
+    (searchParams.get("type") as SoawDocType) || "soaw",
+  );
   const { formatDate, formatDateTime } = useDateFormat();
 
   const STATUS_CHIP: Record<string, { label: string; color: "default" | "warning" | "success" | "info" }> = {
@@ -73,8 +80,8 @@ export default function SoAWEditor() {
   const [versionHistory, setVersionHistory] = useState<
     { version: string; date: string; revised_by: string; description: string }[]
   >([{ version: "", date: "", revised_by: "", description: "" }]);
-  const [sections, setSections] = useState<Record<string, SoAWSectionData>>(
-    buildDefaultSections,
+  const [sections, setSections] = useState<Record<string, SoAWSectionData>>(() =>
+    buildDefaultSections(docType),
   );
   const [customSections, setCustomSections] = useState<
     {
@@ -155,6 +162,7 @@ export default function SoAWEditor() {
       try {
         const data = await api.get<SoAW>(`/soaw/${id}`);
         setName(data.name);
+        setDocType((data.doc_type as SoawDocType) || "soaw");
         setInitiativeId(data.initiative_id ?? "");
         setStatus(data.status);
         if (data.document_info) setDocInfo(data.document_info);
@@ -165,7 +173,7 @@ export default function SoAWEditor() {
 
         // Merge persisted sections with template defaults so new template
         // sections added later still appear.
-        const defaults = buildDefaultSections();
+        const defaults = buildDefaultSections((data.doc_type as SoawDocType) || "soaw");
         const merged = { ...defaults };
         const persistedSections = data.sections ?? {};
 
@@ -286,6 +294,7 @@ export default function SoAWEditor() {
 
       const payload = {
         name: name.trim(),
+        doc_type: docType,
         initiative_id: initiativeId || null,
         document_info: docInfo,
         version_history: versionHistory,
@@ -443,7 +452,7 @@ export default function SoAWEditor() {
     const result: ReturnType<typeof orderedSections> = [];
     let currentPart: "I" | "II" | null = null;
 
-    for (const def of getTemplateSections()) {
+    for (const def of getTemplateSections(docType)) {
       // Insert part headers
       if (def.part !== currentPart) {
         currentPart = def.part;
@@ -471,7 +480,7 @@ export default function SoAWEditor() {
     for (const cs of customSections) {
       if (
         !cs.insertAfter ||
-        !getTemplateSections().some((d) => d.id === cs.insertAfter)
+        !getTemplateSections(docType).some((d) => d.id === cs.insertAfter)
       ) {
         if (!result.some((r) => r.kind === "custom" && r.cs.id === cs.id)) {
           result.push({ kind: "custom", cs });
@@ -530,7 +539,7 @@ export default function SoAWEditor() {
         {compact ? (
           <Tooltip title={t("editor.exportPdf")}>
             <IconButton
-              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
+              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, docType)}
             >
               <MaterialSymbol icon="picture_as_pdf" size={20} />
             </IconButton>
@@ -540,7 +549,7 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
+            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, docType)}
           >
             {t("editor.pdf")}
           </Button>
@@ -548,7 +557,7 @@ export default function SoAWEditor() {
         {!isSigned && (compact ? (
           <Tooltip title={t("editor.exportWord")}>
             <IconButton
-              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
+              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections, docType)}
             >
               <MaterialSymbol icon="article" size={20} />
             </IconButton>
@@ -558,7 +567,7 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="article" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
+            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections, docType)}
           >
             {t("editor.word")}
           </Button>
@@ -1079,7 +1088,7 @@ export default function SoAWEditor() {
             <MenuItem value="">
               <em>{t("editor.endOfDocument")}</em>
             </MenuItem>
-            {getTemplateSections().map((s) => (
+            {getTemplateSections(docType).map((s) => (
               <MenuItem key={s.id} value={s.id}>
                 {s.title}
               </MenuItem>

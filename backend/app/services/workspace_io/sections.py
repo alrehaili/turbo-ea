@@ -20,6 +20,11 @@ from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
 from app.models.file_attachment import FileAttachment
+from app.models.improvement_opportunity import (
+    ImprovementOpportunity,
+    ImprovementOpportunityCard,
+)
+from app.models.nora_program import EaProgramDeliverable
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
 from app.models.ppm_risk import PpmRisk
@@ -186,12 +191,37 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # --- Technology standards (standard before its exceptions) -----------
     # replacement_id is an intra-module self-FK; module rows keep their PKs on
     # import so it resolves verbatim (no remap needed).
-    EntitySection("TechStandards", TechStandard, user_fk_columns=("owner_id",)),
+    # tech_category_id points at a TechCategory card (NORA TRM link, WP1.3) —
+    # card PKs are reassigned on import, so it must go through the card remap.
+    EntitySection(
+        "TechStandards",
+        TechStandard,
+        card_fk_columns=("tech_category_id",),
+        user_fk_columns=("owner_id",),
+    ),
     EntitySection(
         "StandardExceptions",
         StandardException,
         card_fk_columns=("card_id", "initiative_id"),
         user_fk_columns=("approver_id", "created_by"),
+    ),
+    # --- NORA EA Program tracker (WP3.1) ----------------------------------
+    EntitySection(
+        "EaProgramDeliverables",
+        EaProgramDeliverable,
+        user_fk_columns=("owner_id", "approved_by"),
+    ),
+    # --- Improvement opportunities (WP3.3, opportunity before its links) ---
+    EntitySection(
+        "ImprovementOpportunities",
+        ImprovementOpportunity,
+        card_fk_columns=("initiative_id",),
+        user_fk_columns=("created_by",),
+    ),
+    EntitySection(
+        "ImprovementOpportunityCards",
+        ImprovementOpportunityCard,
+        card_fk_columns=("card_id",),
     ),
     # --- Architecture Review Board ---------------------------------------
     EntitySection(

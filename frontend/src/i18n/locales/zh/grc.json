@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "原则",
       "standards": "标准",
-      "decisions": "决策"
+      "decisions": "决策",
+      "opportunities": "改进机会"
     },
     "principles": {
       "title": "架构原则",
@@ -33,6 +34,31 @@
       "status": "状态",
       "open": "打开",
       "create": "新建决策"
+    },
+    "opportunities": {
+      "new": "新建改进机会",
+      "edit": "编辑改进机会",
+      "empty": "尚无改进机会。请在此记录现状架构分析的发现。",
+      "colTitle": "标题",
+      "colDomain": "领域",
+      "colPriority": "优先级",
+      "colStatus": "状态",
+      "colInitiative": "举措",
+      "assign": "分配举措",
+      "description": "描述",
+      "confirmDelete": "删除改进机会「{{title}}」?",
+      "priority": {
+        "low": "低",
+        "medium": "中",
+        "high": "高"
+      },
+      "status": {
+        "proposed": "已提出",
+        "approved": "已批准",
+        "inTransition": "转型中",
+        "realized": "已实现",
+        "rejected": "已拒绝"
+      }
     }
   },
   "compliance": {

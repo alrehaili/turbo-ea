@@ -27,6 +27,18 @@
             ],
             "title": "Alternatives Considered"
           },
+          "committee": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committee"
+          },
           "consequences": {
             "anyOf": [
               {
@@ -60,6 +72,18 @@
             ],
             "title": "Decision"
           },
+          "meeting_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Date"
+          },
           "related_decisions": {
             "default": [],
             "items": {
@@ -67,6 +91,19 @@
             },
             "title": "Related Decisions",
             "type": "array"
+          },
+          "stage_no": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage No"
           },
           "title": {
             "maxLength": 500,
@@ -135,6 +172,18 @@
             ],
             "title": "Alternatives Considered"
           },
+          "committee": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committee"
+          },
           "consequences": {
             "anyOf": [
               {
@@ -168,6 +217,18 @@
             ],
             "title": "Decision"
           },
+          "meeting_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Date"
+          },
           "related_decisions": {
             "anyOf": [
               {
@@ -181,6 +242,19 @@
               }
             ],
             "title": "Related Decisions"
+          },
+          "stage_no": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage No"
           },
           "status": {
             "anyOf": [
@@ -891,6 +965,18 @@
             ],
             "title": "Card Type"
           },
+          "column_state": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column State"
+          },
           "columns": {
             "anyOf": [
               {
@@ -997,6 +1083,18 @@
               }
             ],
             "title": "Card Type"
+          },
+          "column_state": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column State"
           },
           "columns": {
             "anyOf": [
@@ -1980,6 +2078,18 @@
             ],
             "title": "Alias"
           },
+          "architecture_state": {
+            "anyOf": [
+              {
+                "pattern": "^(current|transition|target)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Architecture State"
+          },
           "attributes": {
             "anyOf": [
               {
@@ -1991,6 +2101,18 @@
               }
             ],
             "title": "Attributes"
+          },
+          "change_type": {
+            "anyOf": [
+              {
+                "pattern": "^(create|modify|replace|retire|consolidate)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Type"
           },
           "description": {
             "anyOf": [
@@ -2056,6 +2178,17 @@
               }
             ],
             "title": "Subtype"
+          },
+          "successor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successor Id"
           },
           "type": {
             "title": "Type",
@@ -2447,6 +2580,11 @@
             "title": "Approval Status",
             "type": "string"
           },
+          "architecture_state": {
+            "default": "current",
+            "title": "Architecture State",
+            "type": "string"
+          },
           "archived_at": {
             "anyOf": [
               {
@@ -2470,6 +2608,17 @@
               }
             ],
             "title": "Attributes"
+          },
+          "change_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Type"
           },
           "created_at": {
             "anyOf": [
@@ -2573,6 +2722,17 @@
               }
             ],
             "title": "Subtype"
+          },
+          "successor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successor Id"
           },
           "tags": {
             "default": [],
@@ -2686,6 +2846,18 @@
             ],
             "title": "Alias"
           },
+          "architecture_state": {
+            "anyOf": [
+              {
+                "pattern": "^(current|transition|target)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Architecture State"
+          },
           "attributes": {
             "anyOf": [
               {
@@ -2697,6 +2869,18 @@
               }
             ],
             "title": "Attributes"
+          },
+          "change_type": {
+            "anyOf": [
+              {
+                "pattern": "^(create|modify|replace|retire|consolidate)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Type"
           },
           "description": {
             "anyOf": [
@@ -2780,6 +2964,17 @@
               }
             ],
             "title": "Subtype"
+          },
+          "successor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successor Id"
           }
         },
         "title": "CardUpdate",
@@ -3126,6 +3321,123 @@
           "decision"
         ],
         "title": "ComplianceFindingDecisionUpdate",
+        "type": "object"
+      },
+      "ComplianceFindingDetailUpdate": {
+        "description": "Body for ``PATCH /compliance-findings/{id}/details``.\n\nEdits the human-authored content of a finding \u2014 compliance\n``status``, ``severity``, ``requirement``, gap/evidence/remediation,\ncategory, article, regulation, and linked card \u2014 **without** touching\nthe lifecycle ``decision`` (that has its own endpoint). All fields are\noptional so callers can send a partial update.",
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "gap_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Description"
+          },
+          "regulation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulation"
+          },
+          "regulation_article": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulation Article"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "requirement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "ComplianceFindingDetailUpdate",
         "type": "object"
       },
       "ComplianceFindingOut": {
@@ -3936,6 +4248,129 @@
         "title": "DecisionUpdate",
         "type": "object"
       },
+      "DeliverableCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "stage_no": {
+            "title": "Stage No",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage_no",
+          "title"
+        ],
+        "title": "DeliverableCreate",
+        "type": "object"
+      },
+      "DeliverableUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EvidenceItem"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "DeliverableUpdate",
+        "type": "object"
+      },
       "DiagramCreate": {
         "properties": {
           "card_ids": {
@@ -3978,17 +4413,28 @@
           "name": {
             "title": "Name",
             "type": "string"
-          },
-          "type": {
-            "default": "free_draw",
-            "title": "Type",
-            "type": "string"
           }
         },
         "required": [
           "name"
         ],
         "title": "DiagramCreate",
+        "type": "object"
+      },
+      "DiagramGroupsUpdate": {
+        "properties": {
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "group_ids"
+        ],
+        "title": "DiagramGroupsUpdate",
         "type": "object"
       },
       "DiagramSave": {
@@ -4459,6 +4905,38 @@
         "title": "EolProductMatch",
         "type": "object"
       },
+      "EvidenceItem": {
+        "properties": {
+          "kind": {
+            "default": "link",
+            "maxLength": 32,
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "ref": {
+            "maxLength": 1000,
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "EvidenceItem",
+        "type": "object"
+      },
       "ExceptionCreate": {
         "properties": {
           "card_id": {
@@ -4817,6 +5295,63 @@
         "title": "ForgotPasswordRequest",
         "type": "object"
       },
+      "FrameworkProfilePayload": {
+        "properties": {
+          "profile": {
+            "pattern": "^(togaf|nora)$",
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "FrameworkProfilePayload",
+        "type": "object"
+      },
+      "GovernancePayload": {
+        "properties": {
+          "chain": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "sod_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sod Enabled"
+          }
+        },
+        "title": "GovernancePayload",
+        "type": "object"
+      },
       "GrcEnabledPayload": {
         "properties": {
           "enabled": {
@@ -4828,6 +5363,80 @@
           "enabled"
         ],
         "title": "GrcEnabledPayload",
+        "type": "object"
+      },
+      "GroupCreate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "GroupCreate",
+        "type": "object"
+      },
+      "GroupUpdate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "GroupUpdate",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -6430,6 +7039,147 @@
           }
         },
         "title": "OccurrenceCompleteRequest",
+        "type": "object"
+      },
+      "OpportunityCreate": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Card Ids",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domain": {
+            "default": "AA",
+            "title": "Domain",
+            "type": "string"
+          },
+          "priority": {
+            "default": "medium",
+            "title": "Priority",
+            "type": "string"
+          },
+          "source": {
+            "default": "manual",
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "OpportunityCreate",
+        "type": "object"
+      },
+      "OpportunityUpdate": {
+        "properties": {
+          "card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Ids"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "initiative_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiative Id"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "OpportunityUpdate",
         "type": "object"
       },
       "PortfolioInsightsRequest": {
@@ -9311,6 +10061,160 @@
         "title": "ResetPasswordRequest",
         "type": "object"
       },
+      "ResourceTypeCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "is_enabled": {
+            "default": true,
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "label"
+        ],
+        "title": "ResourceTypeCreate",
+        "type": "object"
+      },
+      "ResourceTypeUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "title": "ResourceTypeUpdate",
+        "type": "object"
+      },
       "RestoreImpactPassenger": {
         "properties": {
           "id": {
@@ -11109,6 +12013,12 @@
       },
       "SoAWCreate": {
         "properties": {
+          "doc_type": {
+            "default": "soaw",
+            "pattern": "^(soaw|ea_project_strategy|ea_project_plan|environment_analysis|ea_usage_plan|ea_management_plan)$",
+            "title": "Doc Type",
+            "type": "string"
+          },
           "document_info": {
             "anyOf": [
               {
@@ -11338,6 +12248,19 @@
           "accepted_extensions"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "SponsorButtonEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SponsorButtonEnabledPayload",
         "type": "object"
       },
       "SsoCallbackRequest": {
@@ -14075,6 +14998,11 @@
             ],
             "title": "Description"
           },
+          "mandate": {
+            "default": "recommended",
+            "title": "Mandate",
+            "type": "string"
+          },
           "name": {
             "maxLength": 300,
             "minLength": 1,
@@ -14116,15 +15044,75 @@
             ],
             "title": "Replacement Id"
           },
+          "review_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Date"
+          },
           "sort_order": {
             "default": 0,
             "title": "Sort Order",
             "type": "integer"
           },
+          "spec_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec Url"
+          },
+          "standard_body": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard Body"
+          },
           "status": {
             "default": "allowed",
             "title": "Status",
             "type": "string"
+          },
+          "tech_category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tech Category Id"
+          },
+          "trm_code": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trm Code"
           }
         },
         "required": [
@@ -14156,6 +15144,17 @@
               }
             ],
             "title": "Description"
+          },
+          "mandate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate"
           },
           "name": {
             "anyOf": [
@@ -14205,6 +15204,18 @@
             ],
             "title": "Replacement Id"
           },
+          "review_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Date"
+          },
           "sort_order": {
             "anyOf": [
               {
@@ -14216,6 +15227,30 @@
             ],
             "title": "Sort Order"
           },
+          "spec_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec Url"
+          },
+          "standard_body": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard Body"
+          },
           "status": {
             "anyOf": [
               {
@@ -14226,6 +15261,30 @@
               }
             ],
             "title": "Status"
+          },
+          "tech_category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tech Category Id"
+          },
+          "trm_code": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trm Code"
           }
         },
         "title": "StandardUpdate",
@@ -18225,6 +19284,25 @@
             }
           },
           {
+            "description": "Filter by architecture-state slice (NORA current/target \u2014 WP2.1).",
+            "in": "query",
+            "name": "architecture_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(current|transition|target)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by architecture-state slice (NORA current/target \u2014 WP2.1).",
+              "title": "Architecture State"
+            }
+          },
+          {
             "description": "Scope the result to cards related to the current user. `stakeholder` keeps only cards on which the user holds at least one stakeholder role.",
             "in": "query",
             "name": "mine",
@@ -19050,9 +20128,26 @@
             "name": "action",
             "required": true,
             "schema": {
-              "pattern": "^(approve|reject|reset)$",
+              "pattern": "^(submit|approve|reject|reset)$",
               "title": "Action",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "comment",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Comment"
             }
           }
         ],
@@ -19077,6 +20172,47 @@
           }
         },
         "summary": "Update Approval Status",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/approval-steps": {
+      "get": {
+        "description": "Return the card's current review chain (empty when governance mode is\noff or the card has never been submitted). [FORK \u2014 WP2.2]",
+        "operationId": "list_approval_steps_api_v1_cards__card_id__approval_steps_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Approval Steps",
         "tags": [
           "cards"
         ]
@@ -20751,6 +21887,59 @@
         ]
       }
     },
+    "/api/v1/compliance/compliance-findings/{finding_id}/details": {
+      "patch": {
+        "description": "Edit a finding's descriptive / assessment fields.\n\nDistinct from ``PATCH /compliance-findings/{id}`` which only\ntransitions the lifecycle ``decision``. This endpoint updates the\nhuman-authored content of a finding \u2014 compliance ``status``,\n``severity``, ``requirement``, gap/evidence/remediation, category,\narticle, regulation, and linked card \u2014 without touching the lifecycle\nstate. The ``finding_key`` is recomputed so a later re-scan still\nupserts cleanly. Requires ``compliance.manage``.",
+        "operationId": "update_compliance_finding_details_api_v1_compliance_compliance_findings__finding_id__details_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingDetailUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Compliance Finding Details",
+        "tags": [
+          "Compliance"
+        ]
+      }
+    },
     "/api/v1/compliance/compliance-scan": {
       "post": {
         "description": "Trigger the compliance (per-regulation AI gap analysis) pipeline only.",
@@ -20821,6 +22010,145 @@
         ]
       }
     },
+    "/api/v1/diagram-groups": {
+      "get": {
+        "operationId": "list_groups_api_v1_diagram_groups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Groups",
+        "tags": [
+          "diagrams"
+        ]
+      },
+      "post": {
+        "operationId": "create_group_api_v1_diagram_groups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Group",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagram-groups/{group_id}": {
+      "delete": {
+        "operationId": "delete_group_api_v1_diagram_groups__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Group",
+        "tags": [
+          "diagrams"
+        ]
+      },
+      "patch": {
+        "operationId": "update_group_api_v1_diagram_groups__group_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Group",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
     "/api/v1/diagrams": {
       "get": {
         "operationId": "list_diagrams_api_v1_diagrams_get",
@@ -20839,6 +22167,78 @@
                 }
               ],
               "title": "Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "favorites",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Favorites",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "default": "updated_at",
+              "title": "Sort By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_dir",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "title": "Sort Dir",
+              "type": "string"
             }
           }
         ],
@@ -20900,6 +22300,26 @@
           }
         },
         "summary": "Create Diagram",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/favorites": {
+      "get": {
+        "description": "Return the set of diagram ids the current user has favorited.",
+        "operationId": "list_favorite_diagrams_api_v1_diagrams_favorites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Favorite Diagrams",
         "tags": [
           "diagrams"
         ]
@@ -21119,6 +22539,132 @@
           }
         },
         "summary": "Unlink Card From Diagram",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/{diagram_id}/favorite": {
+      "delete": {
+        "description": "Remove a diagram from favorites.",
+        "operationId": "remove_diagram_favorite_api_v1_diagrams__diagram_id__favorite_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Diagram Favorite",
+        "tags": [
+          "diagrams"
+        ]
+      },
+      "post": {
+        "description": "Add a diagram to favorites. Idempotent.",
+        "operationId": "add_diagram_favorite_api_v1_diagrams__diagram_id__favorite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Diagram Favorite",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/{diagram_id}/groups": {
+      "put": {
+        "description": "Replace a diagram's group memberships (multi-group).",
+        "operationId": "set_diagram_groups_api_v1_diagrams__diagram_id__groups_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagramGroupsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Diagram Groups",
         "tags": [
           "diagrams"
         ]
@@ -21770,6 +23316,191 @@
         ]
       }
     },
+    "/api/v1/improvement-opportunities": {
+      "get": {
+        "operationId": "list_opportunities_api_v1_improvement_opportunities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Opportunities",
+        "tags": [
+          "improvement-opportunities"
+        ]
+      },
+      "post": {
+        "operationId": "create_opportunity_api_v1_improvement_opportunities_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpportunityCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Opportunity",
+        "tags": [
+          "improvement-opportunities"
+        ]
+      }
+    },
+    "/api/v1/improvement-opportunities/{opportunity_id}": {
+      "delete": {
+        "operationId": "delete_opportunity_api_v1_improvement_opportunities__opportunity_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "opportunity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opportunity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Opportunity",
+        "tags": [
+          "improvement-opportunities"
+        ]
+      },
+      "patch": {
+        "operationId": "update_opportunity_api_v1_improvement_opportunities__opportunity_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "opportunity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opportunity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpportunityUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Opportunity",
+        "tags": [
+          "improvement-opportunities"
+        ]
+      }
+    },
     "/api/v1/metamodel/compliance-regulations": {
       "get": {
         "description": "List compliance regulations, ordered by sort_order.\n\nAuthenticated read so the TurboLens Security tab can fetch the list\neven for users without admin rights. Write operations remain gated\nbehind ``admin.metamodel``.",
@@ -22393,6 +24124,187 @@
           }
         },
         "summary": "Restore Relation Type",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/resource-types": {
+      "get": {
+        "description": "List resource types (link types & file categories).\n\nAuthenticated read so the card Resources tab can fetch the lists for\nany user. Write operations remain gated behind ``admin.metamodel``.",
+        "operationId": "list_resource_types_api_v1_metamodel_resource_types_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "enabled_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Enabled Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Resource Types",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "post": {
+        "description": "Create a new resource type (admin only).",
+        "operationId": "create_resource_type_api_v1_metamodel_resource_types_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTypeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Resource Type",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/resource-types/{resource_type_id}": {
+      "delete": {
+        "description": "Delete a resource type (admin only).\n\nBuilt-in rows are protected \u2014 they can be disabled but not hard-deleted.",
+        "operationId": "delete_resource_type_api_v1_metamodel_resource_types__resource_type_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_type_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Resource Type",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "patch": {
+        "description": "Update a resource type (admin only).\n\n``kind`` and ``key`` are immutable. ``built_in`` rows can be edited and\ndisabled but never deleted.",
+        "operationId": "update_resource_type_api_v1_metamodel_resource_types__resource_type_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_type_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTypeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Resource Type",
         "tags": [
           "metamodel"
         ]
@@ -24423,6 +26335,151 @@
         "summary": "Rollback",
         "tags": [
           "mutation-batches"
+        ]
+      }
+    },
+    "/api/v1/nora-program": {
+      "get": {
+        "description": "The full program: deliverables grouped by stage + per-stage progress.",
+        "operationId": "get_program_api_v1_nora_program_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Program",
+        "tags": [
+          "nora-program"
+        ]
+      }
+    },
+    "/api/v1/nora-program/deliverables": {
+      "post": {
+        "operationId": "create_deliverable_api_v1_nora_program_deliverables_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliverableCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Deliverable",
+        "tags": [
+          "nora-program"
+        ]
+      }
+    },
+    "/api/v1/nora-program/deliverables/{deliverable_id}": {
+      "delete": {
+        "description": "Delete a custom deliverable. Built-in catalogue rows are descoped, not\ndeleted, so the NORA baseline stays auditable.",
+        "operationId": "delete_deliverable_api_v1_nora_program_deliverables__deliverable_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deliverable_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deliverable Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Deliverable",
+        "tags": [
+          "nora-program"
+        ]
+      },
+      "patch": {
+        "operationId": "update_deliverable_api_v1_nora_program_deliverables__deliverable_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deliverable_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deliverable Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliverableUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Deliverable",
+        "tags": [
+          "nora-program"
         ]
       }
     },
@@ -27446,6 +29503,26 @@
         ]
       }
     },
+    "/api/v1/reports/gap-analysis": {
+      "get": {
+        "description": "Current vs target gap analysis (NORA Stage 8 input \u2014 noraPlan.md WP2.4).\n\nBuckets every architecture-state delta and reports, per changed card, the\ntransition initiatives linked to it \u2014 plus the \"untraceable\" list of\ntarget/transition cards no initiative delivers. [FORK FEATURE]",
+        "operationId": "gap_analysis_report_api_v1_reports_gap_analysis_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Gap Analysis Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/impact": {
       "get": {
         "description": "Change Impact Workbench: blast radius of a change to ``card_id``.\n\nReturns the affected cards grouped by EA layer (with hop distance, shortest\nname-path, and criticality), plus the risks and initiatives that hang off the\naffected set. Shares the traversal engine with the Resilience view and\nScenario Planning (``app.services.impact_service``).",
@@ -27527,6 +29604,26 @@
           }
         },
         "summary": "Integration Status",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/interoperability": {
+      "get": {
+        "description": "Integration & interoperability posture (NORA \u2014 noraPlan.md WP4.5):\nevery Interface and DataExchange with its NORA attributes (integration\ntype, GSB routing, classification carried, external party) and the\napplications it connects. [FORK FEATURE]",
+        "operationId": "interoperability_report_api_v1_reports_interoperability_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Interoperability Report",
         "tags": [
           "reports"
         ]
@@ -27925,6 +30022,61 @@
           }
         },
         "summary": "Roadmap",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/service-traceability": {
+      "get": {
+        "description": "Service delivery chain (NORA \u2014 noraPlan.md WP3.4): everything reachable\nfrom a service within ``depth`` relation hops, grouped by EA layer, so the\ncommittee can answer \"how is this service delivered\" on one screen.\n[FORK FEATURE]",
+        "operationId": "service_traceability_report_api_v1_reports_service_traceability_get",
+        "parameters": [
+          {
+            "description": "The GovService (or any) card to trace from",
+            "in": "query",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "description": "The GovService (or any) card to trace from",
+              "title": "Card Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 3,
+              "minimum": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Service Traceability Report",
         "tags": [
           "reports"
         ]
@@ -31980,6 +34132,121 @@
         ]
       }
     },
+    "/api/v1/settings/framework-profile": {
+      "get": {
+        "description": "Public endpoint \u2014 returns the active EA framework profile.",
+        "operationId": "get_framework_profile_endpoint_api_v1_settings_framework_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Framework Profile Endpoint",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 switch the EA framework profile.\n\nSwitching to ``nora`` idempotently injects the NORA Alignment fields into\nthe built-in card types (existing customisations are preserved). Switching\nback to ``togaf`` only flips the flag \u2014 fields and captured data remain.",
+        "operationId": "update_framework_profile_api_v1_settings_framework_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrameworkProfilePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Framework Profile",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/governance": {
+      "get": {
+        "description": "Public endpoint \u2014 multi-step approval configuration (read by the\ncard-detail approval UI to decide which actions to offer).",
+        "operationId": "get_governance_settings_api_v1_settings_governance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Governance Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "operationId": "update_governance_settings_api_v1_settings_governance_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernancePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Governance Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/grc-enabled": {
       "get": {
         "description": "Public endpoint \u2014 returns whether the GRC module is enabled.",
@@ -32446,6 +34713,64 @@
         ]
       }
     },
+    "/api/v1/settings/sponsor-button-enabled": {
+      "get": {
+        "description": "Public endpoint \u2014 returns whether the Sponsor button is shown in the user menu.\n\nDefaults to True so existing installations keep showing it; administrators can\nhide it from the avatar menu via the admin UI. It always remains reachable from\nAdmin \u2192 Settings regardless of this flag.",
+        "operationId": "get_sponsor_button_enabled_api_v1_settings_sponsor_button_enabled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Sponsor Button Enabled",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 show or hide the Sponsor button in the user (avatar) menu.",
+        "operationId": "update_sponsor_button_enabled_api_v1_settings_sponsor_button_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorButtonEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Sponsor Button Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/sso": {
       "get": {
         "description": "Admin endpoint \u2014 get SSO configuration.",
@@ -32600,6 +34925,23 @@
                 }
               ],
               "title": "Initiative Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "doc_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Doc Type"
             }
           }
         ],

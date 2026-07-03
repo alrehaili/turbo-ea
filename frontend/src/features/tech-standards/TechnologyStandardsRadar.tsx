@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -39,13 +40,47 @@ const STATUS_COLOR: Record<Status, string> = {
   prohibited: "#b71c1c",
 };
 
+type Mandate = "mandatory" | "recommended" | "optional";
+const MANDATES: Mandate[] = ["mandatory", "recommended", "optional"];
+
 interface StandardRow {
   id: string;
   name: string;
   category: Category;
   status: Status;
   open_exceptions?: number;
+  // NORA TRM metadata (noraPlan.md WP1.3)
+  standard_body?: string | null;
+  mandate?: Mandate;
+  review_date?: string | null;
+  spec_url?: string | null;
+  trm_code?: string | null;
+  tech_category?: { id: string; name: string; type: string } | null;
 }
+
+interface StandardForm {
+  name: string;
+  category: Category;
+  status: Status;
+  standard_body: string;
+  mandate: Mandate;
+  review_date: string;
+  spec_url: string;
+  trm_code: string;
+  tech_category: CardOption | null;
+}
+
+const EMPTY_FORM: StandardForm = {
+  name: "",
+  category: "technology",
+  status: "allowed",
+  standard_body: "",
+  mandate: "recommended",
+  review_date: "",
+  spec_url: "",
+  trm_code: "",
+  tech_category: null,
+};
 
 interface RadarData {
   categories: Category[];
@@ -81,11 +116,7 @@ export default function TechnologyStandardsRadar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   // null = creating a new standard; otherwise the id being edited.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<{ name: string; category: Category; status: Status }>({
-    name: "",
-    category: "technology",
-    status: "allowed",
-  });
+  const [form, setForm] = useState<StandardForm>(EMPTY_FORM);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,26 +138,49 @@ export default function TechnologyStandardsRadar() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", category: "technology", status: "allowed" });
+    setForm(EMPTY_FORM);
     setDialogOpen(true);
   };
 
   const openEdit = (s: StandardRow) => {
     setEditingId(s.id);
-    setForm({ name: s.name, category: s.category, status: s.status });
+    setForm({
+      name: s.name,
+      category: s.category,
+      status: s.status,
+      standard_body: s.standard_body || "",
+      mandate: s.mandate || "recommended",
+      review_date: s.review_date || "",
+      spec_url: s.spec_url || "",
+      trm_code: s.trm_code || "",
+      tech_category: s.tech_category
+        ? { id: s.tech_category.id, name: s.tech_category.name, type: s.tech_category.type }
+        : null,
+    });
     setDialogOpen(true);
   };
 
   const saveStandard = async () => {
     if (!form.name.trim()) return;
+    const payload = {
+      name: form.name,
+      category: form.category,
+      status: form.status,
+      standard_body: form.standard_body.trim() || null,
+      mandate: form.mandate,
+      review_date: form.review_date || null,
+      spec_url: form.spec_url.trim() || null,
+      trm_code: form.trm_code.trim() || null,
+      tech_category_id: form.tech_category?.id ?? null,
+    };
     if (editingId) {
-      await api.patch(`/tech-standards/${editingId}`, form);
+      await api.patch(`/tech-standards/${editingId}`, payload);
     } else {
-      await api.post("/tech-standards", form);
+      await api.post("/tech-standards", payload);
     }
     setDialogOpen(false);
     setEditingId(null);
-    setForm({ name: "", category: "technology", status: "allowed" });
+    setForm(EMPTY_FORM);
     await load();
   };
 
@@ -370,6 +424,56 @@ export default function TechnologyStandardsRadar() {
               </MenuItem>
             ))}
           </TextField>
+          {/* NORA TRM metadata (noraPlan.md WP1.3) */}
+          <TextField
+            select
+            label={t("techStandards.mandate")}
+            value={form.mandate}
+            onChange={(e) => setForm({ ...form, mandate: e.target.value as Mandate })}
+          >
+            {MANDATES.map((m) => (
+              <MenuItem key={m} value={m}>
+                {t(`techStandards.mandateLevel.${m}`)}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              label={t("techStandards.trmCode")}
+              value={form.trm_code}
+              onChange={(e) => setForm({ ...form, trm_code: e.target.value })}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label={t("techStandards.standardBody")}
+              value={form.standard_body}
+              onChange={(e) => setForm({ ...form, standard_body: e.target.value })}
+              sx={{ flex: 2 }}
+            />
+          </Box>
+          <CardPicker
+            types="TechCategory"
+            value={form.tech_category}
+            onChange={(v) => setForm({ ...form, tech_category: v })}
+            label={t("techStandards.trmCategory")}
+            enabled={dialogOpen}
+          />
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              type="date"
+              label={t("techStandards.reviewDate")}
+              value={form.review_date}
+              onChange={(e) => setForm({ ...form, review_date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label={t("techStandards.specUrl")}
+              value={form.spec_url}
+              onChange={(e) => setForm({ ...form, spec_url: e.target.value })}
+              sx={{ flex: 2 }}
+            />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ justifyContent: editingId ? "space-between" : "flex-end" }}>
           {editingId && (

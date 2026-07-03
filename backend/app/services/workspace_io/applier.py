@@ -670,6 +670,8 @@ def _make_cards_applier(user: User):
                     approval_status=data.get("approval_status") or "DRAFT",
                     source_system=data.get("source_system"),
                     confidence=data.get("confidence"),
+                    architecture_state=data.get("architecture_state") or "current",
+                    change_type=data.get("change_type"),
                     created_by=user.id,
                     updated_by=user.id,
                 )

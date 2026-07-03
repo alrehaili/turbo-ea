@@ -17,6 +17,7 @@ import {
 import { saveAs } from "file-saver";
 import {
   getTemplateSections,
+  type SoawDocType,
   getTogafPhases,
   type TemplateSectionDef,
 } from "./soawTemplate";
@@ -269,6 +270,7 @@ export async function exportToDocx(
   versionHistory: SoAWVersionEntry[],
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
+  docType: SoawDocType = "soaw",
 ) {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const children: (Paragraph | Table)[] = [];
@@ -476,7 +478,7 @@ export async function exportToDocx(
     }
   };
 
-  for (const def of getTemplateSections()) {
+  for (const def of getTemplateSections(docType)) {
     const data = sections[def.id] ?? { content: "", hidden: false };
     addSectionContent(def, data);
   }
@@ -485,7 +487,7 @@ export async function exportToDocx(
   for (const cs of customSections) {
     if (
       !cs.insertAfter ||
-      !getTemplateSections().some((d) => d.id === cs.insertAfter)
+      !getTemplateSections(docType).some((d) => d.id === cs.insertAfter)
     ) {
       children.push(
         new Paragraph({
@@ -615,6 +617,7 @@ export function buildPreviewBody(
   revisionNumber?: number,
   signatories?: SoAWSignatory[],
   _signedAt?: string | null,
+  docType: SoawDocType = "soaw",
 ): string {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   let html = "";
@@ -707,14 +710,14 @@ export function buildPreviewBody(
     }
   };
 
-  for (const def of getTemplateSections()) {
+  for (const def of getTemplateSections(docType)) {
     renderSection(def, sections[def.id] ?? { content: "", hidden: false });
   }
 
   // Trailing custom sections
   const trailingCustomBadge = t("export.custom");
   for (const cs of customSections) {
-    if (!cs.insertAfter || !getTemplateSections().some((d) => d.id === cs.insertAfter)) {
+    if (!cs.insertAfter || !getTemplateSections(docType).some((d) => d.id === cs.insertAfter)) {
       html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${escapeHtml(cs.title)}</h3>`;
       html += cs.content || "";
     }
@@ -761,6 +764,7 @@ export function exportToPdf(
   revisionNumber?: number,
   signatories?: SoAWSignatory[],
   signedAt?: string | null,
+  docType: SoawDocType = "soaw",
 ) {
   const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const w = window.open("", "_blank");
@@ -769,7 +773,7 @@ export function exportToPdf(
     return;
   }
 
-  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt);
+  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, docType);
 
   // Build footer for signed documents
   let footerHtml = "";

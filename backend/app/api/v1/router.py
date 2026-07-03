@@ -21,9 +21,11 @@ from app.api.v1 import (
     events,
     favorites,
     file_attachments,
+    improvement_opportunities,
     metamodel,
     migration,
     mutation_batches,
+    nora_program,
     notifications,
     ppm,
     ppm_reports,
@@ -58,6 +60,8 @@ api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(metamodel.router)
 api_router.include_router(cards.router)
+api_router.include_router(nora_program.router)
+api_router.include_router(improvement_opportunities.router)
 api_router.include_router(relations.router)
 api_router.include_router(stakeholders.router)
 api_router.include_router(comments.router)

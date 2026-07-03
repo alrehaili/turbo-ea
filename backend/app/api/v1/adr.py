@@ -85,6 +85,9 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
         "decision": adr.decision,
         "consequences": adr.consequences,
         "alternatives_considered": adr.alternatives_considered,
+        "committee": adr.committee,
+        "meeting_date": adr.meeting_date.isoformat() if adr.meeting_date else None,
+        "stage_no": adr.stage_no,
         "related_decisions": adr.related_decisions or [],
         "created_by": str(adr.created_by) if adr.created_by else None,
         "creator_name": creator_name,
@@ -279,6 +282,9 @@ async def create_adr(
         decision=body.decision,
         consequences=body.consequences,
         alternatives_considered=body.alternatives_considered,
+        committee=body.committee,
+        meeting_date=body.meeting_date,
+        stage_no=body.stage_no,
         related_decisions=body.related_decisions or [],
         created_by=user.id,
     )
@@ -322,6 +328,12 @@ async def update_adr(
         adr.consequences = body.consequences
     if body.alternatives_considered is not None:
         adr.alternatives_considered = body.alternatives_considered
+    if body.committee is not None:
+        adr.committee = body.committee
+    if body.meeting_date is not None:
+        adr.meeting_date = body.meeting_date
+    if body.stage_no is not None:
+        adr.stage_no = body.stage_no
     if body.related_decisions is not None:
         adr.related_decisions = body.related_decisions
         flag_modified(adr, "related_decisions")
@@ -389,6 +401,9 @@ async def duplicate_adr(
         decision=original.decision,
         consequences=original.consequences,
         alternatives_considered=original.alternatives_considered,
+        committee=original.committee,
+        meeting_date=original.meeting_date,
+        stage_no=original.stage_no,
         related_decisions=original.related_decisions or [],
         created_by=user.id,
     )
@@ -774,6 +789,9 @@ async def revise_adr(
         consequences=adr.consequences,
         alternatives_considered=adr.alternatives_considered,
         related_decisions=adr.related_decisions or [],
+        committee=adr.committee,
+        meeting_date=adr.meeting_date,
+        stage_no=adr.stage_no,
         created_by=user.id,
         revision_number=adr.revision_number + 1,
         parent_id=adr.id,

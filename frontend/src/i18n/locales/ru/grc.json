@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "Принципы",
       "standards": "Стандарты",
-      "decisions": "Решения"
+      "decisions": "Решения",
+      "opportunities": "Возможности"
     },
     "principles": {
       "title": "Принципы архитектуры",
@@ -33,6 +34,31 @@
       "status": "Статус",
       "open": "Открыть",
       "create": "Новое решение"
+    },
+    "opportunities": {
+      "new": "Новая возможность",
+      "edit": "Изменить возможность",
+      "empty": "Возможностей улучшения пока нет. Фиксируйте здесь выводы анализа текущей архитектуры.",
+      "colTitle": "Название",
+      "colDomain": "Домен",
+      "colPriority": "Приоритет",
+      "colStatus": "Статус",
+      "colInitiative": "Инициатива",
+      "assign": "Назначить инициативу",
+      "description": "Описание",
+      "confirmDelete": "Удалить возможность «{{title}}»?",
+      "priority": {
+        "low": "Низкий",
+        "medium": "Средний",
+        "high": "Высокий"
+      },
+      "status": {
+        "proposed": "Предложена",
+        "approved": "Утверждена",
+        "inTransition": "В работе",
+        "realized": "Реализована",
+        "rejected": "Отклонена"
+      }
     }
   },
   "compliance": {

@@ -30,6 +30,7 @@ import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
+import { useFrameworkProfile } from "@/hooks/useFrameworkProfile";
 import { useSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
@@ -71,6 +72,11 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
       { labelKey: "reports.transformationRoadmap", icon: "route", path: "/reports/transformation-roadmap" },
       { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
+      { labelKey: "reports.gapAnalysis", icon: "compare_arrows", path: "/reports/gap-analysis" },
+      { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart" },
+      { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
+      { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
+      { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
       { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
       { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },
       { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
@@ -124,6 +130,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
+  { labelKey: "noraProgram", icon: "account_balance", path: "/nora-program", permission: "nora.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 
@@ -154,6 +161,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
   const { grcEnabled } = useGrcEnabled();
+  const { profile: frameworkProfile } = useFrameworkProfile();
   const { sponsorButtonEnabled } = useSponsorButtonEnabled();
   const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
@@ -177,6 +185,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
     if (!grcEnabled) items = items.filter((item) => item.labelKey !== "grc");
+    if (frameworkProfile !== "nora")
+      items = items.filter((item) => item.labelKey !== "noraProgram");
 
     // When PPM is disabled, EA Delivery has no parent tab to live under —
     // promote it to a top-level nav item, sitting in PPM's old slot (between
@@ -223,7 +233,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     });
 
     return items.filter((item) => hasPerm(item.permission)).map(resolve);
-  }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, can, t]);
+  }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {

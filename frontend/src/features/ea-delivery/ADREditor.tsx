@@ -50,6 +50,9 @@ export default function ADREditor() {
   const [decision, setDecision] = useState("");
   const [consequences, setConsequences] = useState("");
   const [alternatives, setAlternatives] = useState("");
+  // NORA committee decision register ([FORK] WP3.4)
+  const [committee, setCommittee] = useState("");
+  const [meetingDate, setMeetingDate] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [revisionNumber, setRevisionNumber] = useState(1);
   const [signatories, setSignatories] = useState<SoAWSignatory[]>([]);
@@ -117,6 +120,8 @@ export default function ADREditor() {
         setDecision(adr.decision || "");
         setConsequences(adr.consequences || "");
         setAlternatives(adr.alternatives_considered || "");
+        setCommittee(adr.committee || "");
+        setMeetingDate(adr.meeting_date || "");
         setReferenceNumber(adr.reference_number);
         setRevisionNumber(adr.revision_number);
         setSignatories(adr.signatories || []);
@@ -141,6 +146,8 @@ export default function ADREditor() {
         decision: decision || null,
         consequences: consequences || null,
         alternatives_considered: alternatives || null,
+        committee: committee || null,
+        meeting_date: meetingDate || null,
       };
       if (isNew) {
         const created = await api.post<ArchitectureDecision>("/adr", payload);
@@ -158,6 +165,8 @@ export default function ADREditor() {
   }, [
     title,
     context,
+    committee,
+    meetingDate,
     decision,
     consequences,
     alternatives,
@@ -546,6 +555,31 @@ export default function ADREditor() {
           readOnly={isSigned}
           placeholder={t("adr.decisionHint")}
         />
+      </Paper>
+
+      {/* ── Committee decision register (NORA — [FORK] WP3.4) ── */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          {t("adr.committeeSection")}
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          <TextField
+            label={t("adr.committee")}
+            value={committee}
+            onChange={(e) => setCommittee(e.target.value)}
+            disabled={isSigned}
+            sx={{ flex: 2, minWidth: 240 }}
+          />
+          <TextField
+            type="date"
+            label={t("adr.meetingDate")}
+            value={meetingDate}
+            onChange={(e) => setMeetingDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            disabled={isSigned}
+            sx={{ flex: 1, minWidth: 170 }}
+          />
+        </Box>
       </Paper>
 
       {/* ── Alternatives Considered ── */}

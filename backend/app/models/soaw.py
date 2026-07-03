@@ -15,6 +15,12 @@ class SoAW(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "statement_of_architecture_works"
 
     name: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Document kind ([FORK] WP3.2): "soaw" (TOGAF, default) or a NORA governed
+    # document — ea_project_strategy | ea_project_plan | environment_analysis |
+    # ea_usage_plan | ea_management_plan.
+    doc_type: Mapped[str] = mapped_column(
+        String(32), default="soaw", server_default="soaw", index=True
+    )
     initiative_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL")
     )

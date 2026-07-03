@@ -41,6 +41,8 @@ import {
 } from "@/hooks/useArchiveRetentionDays";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useFrameworkProfile, type FrameworkProfile } from "@/hooks/useFrameworkProfile";
+import { invalidateGovernanceMode } from "@/hooks/useGovernanceMode";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 
@@ -178,6 +180,46 @@ function GeneralTab() {
 
   // Metamodel cache (invalidated when BPM toggle changes type visibility)
   const { invalidateCache: invalidateMetamodel } = useMetamodel();
+  const { profile: frameworkProfile, invalidateProfile } = useFrameworkProfile();
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [governance, setGovernance] = useState<{
+    enabled: boolean;
+    chain: string[];
+    sod_enabled: boolean;
+  } | null>(null);
+  const [savingGovernance, setSavingGovernance] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ enabled: boolean; chain: string[]; sod_enabled: boolean }>("/settings/governance")
+      .then(setGovernance)
+      .catch(() => setGovernance({ enabled: false, chain: [], sod_enabled: true }));
+  }, []);
+
+  const handleGovernanceChange = async (patch: {
+    enabled?: boolean;
+    sod_enabled?: boolean;
+  }) => {
+    setSavingGovernance(true);
+    setError("");
+    try {
+      const res = await api.patch<{ enabled: boolean; chain: string[]; sod_enabled: boolean }>(
+        "/settings/governance",
+        patch,
+      );
+      setGovernance(res);
+      invalidateGovernanceMode(res.enabled);
+      setSnack(
+        res.enabled
+          ? t("settings.governance.enabledSuccess")
+          : t("settings.governance.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingGovernance(false);
+    }
+  };
 
   // Currency state
   const { currency: currentCurrency, invalidate: invalidateCurrency } = useCurrency();
@@ -428,6 +470,29 @@ function GeneralTab() {
       setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingFavicon(false);
+    }
+  };
+
+  const handleFrameworkProfileChange = async (next: FrameworkProfile) => {
+    setSavingProfile(true);
+    setError("");
+    try {
+      const res = await api.patch<{ fields_added?: number }>("/settings/framework-profile", {
+        profile: next,
+      });
+      invalidateProfile(next);
+      invalidateMetamodel();
+      setSnack(
+        next === "nora"
+          ? t("settings.frameworkProfile.noraApplied", {
+              count: res.fields_added ?? 0,
+            })
+          : t("settings.frameworkProfile.togafApplied"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -1241,6 +1306,105 @@ function GeneralTab() {
 
       {/* ── Modules ───────────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.modules")}</SectionHeader>
+
+      {/* Framework Profile (TOGAF / NORA) — [FORK] noraPlan.md WP1.1 */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="account_balance" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.frameworkProfile.title")}
+          </Typography>
+          <Chip
+            label={
+              frameworkProfile === "nora"
+                ? t("settings.frameworkProfile.noraChip")
+                : t("settings.frameworkProfile.togafChip")
+            }
+            size="small"
+            color={frameworkProfile === "nora" ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.frameworkProfile.description")}
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={frameworkProfile === "nora"}
+              onChange={(e) =>
+                handleFrameworkProfileChange(e.target.checked ? "nora" : "togaf")
+              }
+              disabled={savingProfile}
+            />
+          }
+          label={
+            frameworkProfile === "nora"
+              ? t("settings.frameworkProfile.noraActive")
+              : t("settings.frameworkProfile.togafActive")
+          }
+        />
+        {frameworkProfile === "nora" && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {t("settings.frameworkProfile.disableNote")}
+          </Typography>
+        )}
+      </Paper>
+
+      {/* Governance workflow (multi-step approval) — [FORK] noraPlan.md WP2.2 */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="approval_delegation" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.governance.title")}
+          </Typography>
+          <Chip
+            label={
+              governance?.enabled
+                ? t("settings.governance.enabled")
+                : t("settings.governance.disabled")
+            }
+            size="small"
+            color={governance?.enabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.governance.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={governance?.enabled ?? false}
+              onChange={(e) => handleGovernanceChange({ enabled: e.target.checked })}
+              disabled={savingGovernance || !governance}
+            />
+          }
+          label={t("settings.governance.toggleLabel")}
+        />
+        {governance?.enabled && (
+          <>
+            <FormControlLabel
+              sx={{ display: "flex" }}
+              control={
+                <Switch
+                  checked={governance.sod_enabled}
+                  onChange={(e) => handleGovernanceChange({ sod_enabled: e.target.checked })}
+                  disabled={savingGovernance}
+                />
+              }
+              label={t("settings.governance.sodLabel")}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {t("settings.governance.chainLabel")}:{" "}
+              {governance.chain.map((r) => (
+                <Chip key={r} size="small" label={r} sx={{ mr: 0.5 }} />
+              ))}
+            </Typography>
+          </>
+        )}
+      </Paper>
 
       {/* BPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

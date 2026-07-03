@@ -329,6 +329,9 @@ def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset
         data_quality=card.data_quality,
         external_id=card.external_id,
         alias=card.alias,
+        architecture_state=card.architecture_state or "current",
+        change_type=card.change_type,
+        successor_id=str(card.successor_id) if card.successor_id else None,
         archived_at=card.archived_at,
         created_by=str(card.created_by) if card.created_by else None,
         updated_by=str(card.updated_by) if card.updated_by else None,
@@ -400,6 +403,11 @@ async def list_cards(
     search: str | None = Query(None, max_length=200),
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
+    architecture_state: str | None = Query(
+        None,
+        pattern="^(current|transition|target)$",
+        description="Filter by architecture-state slice (NORA current/target — WP2.1).",
+    ),
     mine: str | None = Query(
         None,
         pattern="^(stakeholder)$",
@@ -478,6 +486,8 @@ async def list_cards(
     if approval_status:
         statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
         q = q.where(Card.approval_status.in_(statuses))
+    if architecture_state:
+        q = q.where(Card.architecture_state == architecture_state)
         count_q = count_q.where(Card.approval_status.in_(statuses))
     if mine == "stakeholder":
         mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
@@ -708,6 +718,9 @@ async def create_card(
         attributes=body.attributes or {},
         external_id=body.external_id,
         alias=body.alias,
+        architecture_state=body.architecture_state or "current",
+        change_type=body.change_type,
+        successor_id=uuid.UUID(body.successor_id) if body.successor_id else None,
         approval_status="DRAFT",
         created_by=user.id,
         updated_by=user.id,
@@ -1807,28 +1820,40 @@ async def update_card(
 
     changes = {}
     for field, value in updates.items():
-        if field == "parent_id" and value is not None:
+        if field in ("parent_id", "successor_id") and value is not None:
             value = uuid.UUID(value)
         old = getattr(card, field)
         if old != value:
             changes[field] = {"old": old, "new": value}
             setattr(card, field, value)
 
+    # A card cannot supersede itself.
+    if card.successor_id == card.id:
+        raise HTTPException(400, "A card cannot be its own successor")
+
     if changes:
         card.updated_by = user.id
         # Break approval status on edit (attribute/lifecycle changes break it)
+        status_breaking = {
+            "name",
+            "description",
+            "lifecycle",
+            "attributes",
+            "subtype",
+            "alias",
+            "parent_id",
+        }
         if card.approval_status == "APPROVED":
-            status_breaking = {
-                "name",
-                "description",
-                "lifecycle",
-                "attributes",
-                "subtype",
-                "alias",
-                "parent_id",
-            }
             if status_breaking & changes.keys():
                 card.approval_status = "BROKEN"
+        elif card.approval_status == "IN_REVIEW":
+            # A substantive edit mid-review invalidates the round: the chain
+            # must re-review what actually ships (NORA stage gates — WP2.2).
+            if status_breaking & changes.keys():
+                from app.services import governance_service as gov
+
+                await gov.clear_steps(db, card.id)
+                card.approval_status = "DRAFT"
 
         # Auto-sync capability level when parent changes or level is missing
         if "parent_id" in changes or (
@@ -1866,6 +1891,24 @@ async def update_card(
             card_id=card.id,
             user_id=user.id,
         )
+
+        # Promoting a target/transition card into the live current landscape is
+        # a governance event in its own right (NORA Stage 8 go-live — WP2.1).
+        state_change = changes.get("architecture_state")
+        if state_change and state_change["new"] == "current":
+            await event_bus.publish(
+                "card.state_promoted",
+                {
+                    "id": str(card.id),
+                    "name": card.name,
+                    "from": state_change["old"],
+                    "to": "current",
+                    "change_type": card.change_type,
+                },
+                db=db,
+                card_id=card.id,
+                user_id=user.id,
+            )
 
         # Notify subscribers about the update
         changed_fields = ", ".join(changes.keys())
@@ -2479,13 +2522,42 @@ async def get_history(
     ]
 
 
-@router.post("/{card_id}/approval-status")
-async def update_approval_status(
+@router.get("/{card_id}/approval-steps")
+async def list_approval_steps(
     card_id: str,
-    action: str = Query(..., pattern="^(approve|reject|reset)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Return the card's current review chain (empty when governance mode is
+    off or the card has never been submitted). [FORK — WP2.2]"""
+    await PermissionService.require_permission(db, user, "inventory.view")
+    from app.services import governance_service as gov
+
+    card_uuid = uuid.UUID(card_id)
+    steps = await gov.get_steps(db, card_uuid)
+    actor_ids = {s.actor_user_id for s in steps if s.actor_user_id}
+    names: dict[uuid.UUID, str] = {}
+    if actor_ids:
+        rows = await db.execute(select(User.id, User.display_name).where(User.id.in_(actor_ids)))
+        names = dict(rows.all())
+    config = await gov.get_governance_config(db)
+    return {
+        "governance_enabled": config["enabled"],
+        "chain": config["chain"],
+        "steps": [gov.step_dict(s, names.get(s.actor_user_id)) for s in steps],
+    }
+
+
+@router.post("/{card_id}/approval-status")
+async def update_approval_status(
+    card_id: str,
+    action: str = Query(..., pattern="^(submit|approve|reject|reset)$"),
+    comment: str | None = Query(None, max_length=2000),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.services import governance_service as gov
+
     card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(
         db, user, "inventory.approval_status", card_uuid, "card.approval_status"
@@ -2495,8 +2567,12 @@ async def update_approval_status(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
-    # Gate: block approve when any mandatory relation / tag group is missing.
-    if action == "approve":
+
+    config = await gov.get_governance_config(db)
+    governed = config["enabled"] and bool(config["chain"])
+
+    # Gate: block approve/submit when mandatory relations / tag groups are missing.
+    if action == "approve" or (action == "submit" and governed):
         missing = await missing_mandatory(db, card)
         if missing["relations"] or missing["tag_groups"]:
             raise HTTPException(
@@ -2507,8 +2583,63 @@ async def update_approval_status(
                     "missing_tag_groups": missing["tag_groups"],
                 },
             )
-    status_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
-    card.approval_status = status_map[action]
+
+    if governed:
+        # ── Multi-step governance flow (NORA stage gates — WP2.2) ──────────
+        if action == "submit":
+            if card.approval_status == "APPROVED":
+                raise HTTPException(400, "Card is already approved")
+            await gov.create_steps(db, card.id, config["chain"], submitted_by=user.id)
+            card.approval_status = "IN_REVIEW"
+            await gov.notify_role_members(
+                db,
+                config["chain"][0],
+                card_id=card.id,
+                card_name=card.name,
+                actor_display_name=user.display_name,
+            )
+        elif action in ("approve", "reject"):
+            if card.approval_status != "IN_REVIEW":
+                raise HTTPException(400, "Card is not in review — submit it first")
+            if not await PermissionService.check_permission(db, user, "governance.approve_step"):
+                raise HTTPException(403, "Missing governance.approve_step permission")
+            steps = await gov.get_steps(db, card.id)
+            step = gov.current_pending_step(steps)
+            if step is None:
+                raise HTTPException(409, "No pending review step")
+            from app.services.permission_service import _effective_role
+
+            effective_role = _effective_role(user)
+            if effective_role != step.required_role_key and effective_role != "admin":
+                raise HTTPException(403, f"This step requires the '{step.required_role_key}' role")
+            if config["sod_enabled"] and step.submitted_by == user.id:
+                raise HTTPException(
+                    403, "Segregation of duties: the submitter cannot decide this step"
+                )
+            if action == "reject":
+                gov.mark_step(step, "rejected", user, comment)
+                card.approval_status = "REJECTED"
+            else:
+                gov.mark_step(step, "approved", user, comment)
+                remaining = [s for s in steps if s.status == "pending" and s.id != step.id]
+                if remaining:
+                    await gov.notify_role_members(
+                        db,
+                        remaining[0].required_role_key,
+                        card_id=card.id,
+                        card_name=card.name,
+                        actor_display_name=user.display_name,
+                    )
+                else:
+                    card.approval_status = "APPROVED"
+        else:  # reset
+            await gov.clear_steps(db, card.id)
+            card.approval_status = "DRAFT"
+    else:
+        if action == "submit":
+            raise HTTPException(400, "Governance mode is not enabled")
+        status_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
+        card.approval_status = status_map[action]
     await event_bus.publish(
         f"card.approval_status.{action}",
         {"id": str(card.id), "approval_status": card.approval_status},
@@ -2518,7 +2649,12 @@ async def update_approval_status(
     )
 
     # Notify stakeholders about approval status change
-    action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
+    action_label = {
+        "submit": "submitted for review",
+        "approve": "approved",
+        "reject": "rejected",
+        "reset": "reset",
+    }
     await notification_service.create_notifications_for_subscribers(
         db,
         card_id=card.id,

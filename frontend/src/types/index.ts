@@ -273,6 +273,10 @@ export interface Card {
   data_quality: number;
   external_id?: string;
   alias?: string;
+  /** Architecture-state slice (NORA current/target — [FORK] WP2.1). */
+  architecture_state?: "current" | "transition" | "target";
+  change_type?: "create" | "modify" | "replace" | "retire" | "consolidate" | null;
+  successor_id?: string | null;
   archived_at?: string;
   created_by?: string;
   updated_by?: string;
@@ -613,6 +617,8 @@ export interface SoAWSignatory {
 export interface SoAW {
   id: string;
   name: string;
+  /** "soaw" (TOGAF, default) or a NORA governed document type ([FORK] WP3.2). */
+  doc_type?: string;
   initiative_id: string | null;
   status: "draft" | "in_review" | "approved" | "signed";
   document_info: SoAWDocumentInfo;
@@ -641,6 +647,10 @@ export interface ArchitectureDecision {
   consequences: string | null;
   alternatives_considered: string | null;
   related_decisions: string[];
+  /** NORA committee decision register ([FORK] WP3.4). */
+  committee?: string | null;
+  meeting_date?: string | null;
+  stage_no?: number | null;
   created_by: string | null;
   creator_name?: string | null;
   signatories: SoAWSignatory[];

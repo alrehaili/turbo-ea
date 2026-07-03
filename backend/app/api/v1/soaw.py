@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -28,6 +28,11 @@ router = APIRouter(prefix="/soaw", tags=["soaw"])
 
 class SoAWCreate(BaseModel):
     name: str
+    # "soaw" (TOGAF, default) or a NORA governed document type ([FORK] WP3.2).
+    doc_type: str = Field(
+        default="soaw",
+        pattern="^(soaw|ea_project_strategy|ea_project_plan|environment_analysis|ea_usage_plan|ea_management_plan)$",
+    )
     initiative_id: str | None = None
     status: str = "draft"
     document_info: dict | None = None
@@ -62,6 +67,7 @@ def _row_to_dict(s: SoAW) -> dict:
     return {
         "id": str(s.id),
         "name": s.name,
+        "doc_type": s.doc_type or "soaw",
         "initiative_id": str(s.initiative_id) if s.initiative_id else None,
         "status": s.status,
         "document_info": s.document_info or {},
@@ -93,6 +99,7 @@ async def _get_soaw(db: AsyncSession, soaw_id: str) -> SoAW:
 @router.get("")
 async def list_soaws(
     initiative_id: str | None = Query(None),
+    doc_type: str | None = Query(None, max_length=32),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -100,6 +107,8 @@ async def list_soaws(
     stmt = select(SoAW).order_by(SoAW.updated_at.desc())
     if initiative_id:
         stmt = stmt.where(SoAW.initiative_id == uuid.UUID(initiative_id))
+    if doc_type:
+        stmt = stmt.where(SoAW.doc_type == doc_type)
     result = await db.execute(stmt)
     rows = result.scalars().all()
     return [_row_to_dict(s) for s in rows]
@@ -114,6 +123,7 @@ async def create_soaw(
     await PermissionService.require_permission(db, user, "soaw.manage")
     s = SoAW(
         name=body.name,
+        doc_type=body.doc_type,
         initiative_id=uuid.UUID(body.initiative_id) if body.initiative_id else None,
         status=body.status,
         document_info=body.document_info or {},
@@ -524,6 +534,7 @@ async def revise_soaw(
 
     new_revision = SoAW(
         name=s.name,
+        doc_type=s.doc_type or "soaw",
         initiative_id=s.initiative_id,
         status="draft",
         document_info=s.document_info,

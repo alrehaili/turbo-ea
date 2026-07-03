@@ -33,6 +33,14 @@ const CapabilityMapReport = lazy(() => import("@/features/reports/CapabilityMapR
 const LifecycleReport = lazy(() => import("@/features/reports/LifecycleReport"));
 const TransformationRoadmap = lazy(() => import("@/features/reports/TransformationRoadmap"));
 const DependencyReport = lazy(() => import("@/features/reports/DependencyReport"));
+const GapAnalysisReport = lazy(() => import("@/features/reports/GapAnalysisReport"));
+const NoraProgramPage = lazy(() => import("@/features/nora/NoraProgramPage"));
+const OrgChartReport = lazy(() => import("@/features/reports/OrgChartReport"));
+const ServiceTraceabilityReport = lazy(
+  () => import("@/features/reports/ServiceTraceabilityReport"),
+);
+const KpiScorecardReport = lazy(() => import("@/features/reports/KpiScorecardReport"));
+const InteroperabilityReport = lazy(() => import("@/features/reports/InteroperabilityReport"));
 const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
 const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStrategyMap"));
 const ApplicationRationalizationBoard = lazy(
@@ -174,6 +182,12 @@ function AppRoutes() {
                 <Route path="/reports/lifecycle" element={<LifecycleReport />} />
                 <Route path="/reports/transformation-roadmap" element={<TransformationRoadmap />} />
                 <Route path="/reports/dependencies" element={<DependencyReport />} />
+                <Route path="/reports/gap-analysis" element={<GapAnalysisReport />} />
+                <Route path="/nora-program" element={<NoraProgramPage />} />
+                <Route path="/reports/org-chart" element={<OrgChartReport />} />
+                <Route path="/reports/service-traceability" element={<ServiceTraceabilityReport />} />
+                <Route path="/reports/kpi-scorecard" element={<KpiScorecardReport />} />
+                <Route path="/reports/interoperability" element={<InteroperabilityReport />} />
                 <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
                 <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />
                 <Route path="/rationalization" element={<ApplicationRationalizationBoard />} />

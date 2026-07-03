@@ -80,9 +80,7 @@ def upgrade() -> None:
         ),
     )
     op.create_index("ix_scenario_changes_scenario_id", "scenario_changes", ["scenario_id"])
-    op.create_index(
-        "ix_scenario_changes_target_card_id", "scenario_changes", ["target_card_id"]
-    )
+    op.create_index("ix_scenario_changes_target_card_id", "scenario_changes", ["target_card_id"])
 
 
 def downgrade() -> None:

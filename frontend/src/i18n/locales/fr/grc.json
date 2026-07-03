@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "Principes",
       "standards": "Standards",
-      "decisions": "Décisions"
+      "decisions": "Décisions",
+      "opportunities": "Opportunités"
     },
     "principles": {
       "title": "Principes d'architecture",
@@ -33,6 +34,31 @@
       "status": "Statut",
       "open": "Ouvrir",
       "create": "Nouvelle décision"
+    },
+    "opportunities": {
+      "new": "Nouvelle opportunité",
+      "edit": "Modifier l'opportunité",
+      "empty": "Aucune opportunité d'amélioration pour l'instant. Consignez ici les constats de l'analyse de l'architecture actuelle.",
+      "colTitle": "Titre",
+      "colDomain": "Domaine",
+      "colPriority": "Priorité",
+      "colStatus": "Statut",
+      "colInitiative": "Initiative",
+      "assign": "Affecter une initiative",
+      "description": "Description",
+      "confirmDelete": "Supprimer l'opportunité «{{title}}» ?",
+      "priority": {
+        "low": "Faible",
+        "medium": "Moyenne",
+        "high": "Élevée"
+      },
+      "status": {
+        "proposed": "Proposée",
+        "approved": "Approuvée",
+        "inTransition": "En transition",
+        "realized": "Réalisée",
+        "rejected": "Rejetée"
+      }
     }
   },
   "compliance": {

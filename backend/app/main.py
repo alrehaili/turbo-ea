@@ -538,6 +538,12 @@ async def lifespan(app: FastAPI):
         await seed_metamodel(db)
     logger.info("[startup] Metamodel seed complete")
 
+    # Apply/upgrade the NORA framework profile when requested ([FORK] WP1.1)
+    from app.services.nora_profile import ensure_framework_profile
+
+    async with async_session() as db:
+        await ensure_framework_profile(db)
+
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
         from app.services.seed_demo import seed_demo_data
@@ -658,19 +664,25 @@ async def lifespan(app: FastAPI):
             if not result.get("skipped"):
                 print("[seed_extended] Seeded comprehensive extended demo data:")
                 if "sample_users" in result and not result["sample_users"].get("skipped"):
-                    print(f"  - {result['sample_users'].get('users', 0)} users, "
-                          f"{result['sample_users'].get('stakeholder_assignments', 0)} stakeholder assignments")
+                    _users = result["sample_users"]
+                    print(
+                        f"  - {_users.get('users', 0)} users, "
+                        f"{_users.get('stakeholder_assignments', 0)} stakeholder assignments"
+                    )
                 if "calculations" in result and not result["calculations"].get("skipped"):
                     print(f"  - {result['calculations'].get('calculations', 0)} calculated fields")
                 if "application_rationalization" in result:
-                    print(f"  - {result['application_rationalization'].get('applications_rationalized', 0)} "
-                          "applications rationalized (BOLD model)")
+                    _rat = result["application_rationalization"]
+                    print(
+                        f"  - {_rat.get('applications_rationalized', 0)} "
+                        "applications rationalized (BOLD model)"
+                    )
                 if "roadmaps" in result and not result["roadmaps"].get("skipped"):
                     print(f"  - {result['roadmaps'].get('roadmaps', 0)} technology roadmaps")
                 if "scenarios" in result and not result["scenarios"].get("skipped"):
                     print(f"  - {result['scenarios'].get('scenarios', 0)} what-if scenarios")
             else:
-                print(f"[seed_extended] Skipped: already seeded")
+                print("[seed_extended] Skipped: already seeded")
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None

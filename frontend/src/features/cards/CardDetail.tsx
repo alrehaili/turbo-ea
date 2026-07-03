@@ -20,7 +20,13 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
+import ApprovalStatusBadge, { type ApprovalAction } from "@/components/ApprovalStatusBadge";
+import ApprovalStepsStrip from "@/components/ApprovalStepsStrip";
+import ArchitectureStateBadge, {
+  type ArchitectureState,
+  type ChangeType,
+} from "@/components/ArchitectureStateBadge";
+import { useGovernanceMode } from "@/hooks/useGovernanceMode";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
@@ -80,6 +86,8 @@ export default function CardDetail() {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [snack, setSnack] = useState("");
+  const { governanceMode } = useGovernanceMode();
+  const [stepsRefreshKey, setStepsRefreshKey] = useState(0);
 
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
@@ -259,16 +267,30 @@ export default function CardDetail() {
   const isArchived = card.status === "ARCHIVED";
   const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;
 
-  const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
+  const handleArchitectureStateChange = async (updates: {
+    architecture_state?: ArchitectureState;
+    change_type?: ChangeType | null;
+  }) => {
     try {
-      await api.post(`/cards/${card.id}/approval-status?action=${action}`);
-      const newStatus =
-        action === "approve"
-          ? "APPROVED"
-          : action === "reject"
-            ? "REJECTED"
-            : "DRAFT";
-      setCard({ ...card, approval_status: newStatus });
+      const res = await api.patch<Card>(`/cards/${card.id}`, updates);
+      setCard({
+        ...card,
+        architecture_state: res.architecture_state,
+        change_type: res.change_type,
+        approval_status: res.approval_status,
+      });
+    } catch (err) {
+      setSnack(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
+  };
+
+  const handleApprovalAction = async (action: ApprovalAction) => {
+    try {
+      const res = await api.post<{ approval_status: string }>(
+        `/cards/${card.id}/approval-status?action=${action}`,
+      );
+      setCard({ ...card, approval_status: res.approval_status });
+      setStepsRefreshKey((k) => k + 1);
       setApprovalBlock(null);
     } catch (err) {
       if (
@@ -598,12 +620,19 @@ export default function CardDetail() {
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+          <ArchitectureStateBadge
+            state={card.architecture_state ?? "current"}
+            changeType={card.change_type ?? null}
+            canChange={perms.can_edit && !isArchived}
+            onChange={handleArchitectureStateChange}
+          />
           <DataQualityPill value={card.data_quality} />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
             status={card.approval_status}
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
+            governanceEnabled={governanceMode}
           />
           <Tooltip title={t("detail.actions.moreActions")}>
             <IconButton
@@ -711,6 +740,11 @@ export default function CardDetail() {
           </Menu>
         </Box>
       </Box>
+
+      {/* ── Multi-step review chain (NORA stage gates — [FORK] WP2.2) ── */}
+      {governanceMode && (
+        <ApprovalStepsStrip cardId={card.id} refreshKey={stepsRefreshKey} />
+      )}
 
       {/* ── Archive dialog (with children + related strategies) ── */}
       <ArchiveDeleteDialog

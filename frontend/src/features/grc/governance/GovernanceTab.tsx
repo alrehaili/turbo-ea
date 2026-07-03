@@ -10,14 +10,16 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 const PrinciplesPanel = lazy(() => import("./PrinciplesPanel"));
 const StandardsPanel = lazy(() => import("./StandardsPanel"));
 const DecisionsPanel = lazy(() => import("./DecisionsPanel"));
+const OpportunitiesPanel = lazy(() => import("./OpportunitiesPanel"));
 
-const SUB_KEYS = ["principles", "standards", "decisions"] as const;
+const SUB_KEYS = ["principles", "standards", "decisions", "opportunities"] as const;
 type SubKey = (typeof SUB_KEYS)[number];
 
 const SUB_ICONS: Record<SubKey, string> = {
   principles: "bookmark_star",
   standards: "rule",
   decisions: "fact_check",
+  opportunities: "lightbulb",
 };
 
 function PanelFallback() {
@@ -57,6 +59,7 @@ export default function GovernanceTab() {
       principles: t("governance.subtabs.principles"),
       standards: t("governance.subtabs.standards"),
       decisions: t("governance.subtabs.decisions"),
+      opportunities: t("governance.subtabs.opportunities"),
     }),
     [t],
   );
@@ -85,6 +88,7 @@ export default function GovernanceTab() {
         {sub === "principles" && <PrinciplesPanel />}
         {sub === "standards" && <StandardsPanel />}
         {sub === "decisions" && <DecisionsPanel />}
+        {sub === "opportunities" && <OpportunitiesPanel />}
       </Suspense>
     </Box>
   );

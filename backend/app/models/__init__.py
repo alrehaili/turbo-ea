@@ -1,4 +1,5 @@
 from app.models.app_settings import AppSettings
+from app.models.approval_step import ApprovalStep
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
@@ -16,9 +17,14 @@ from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
+from app.models.improvement_opportunity import (
+    ImprovementOpportunity,
+    ImprovementOpportunityCard,
+)
 from app.models.kpi_snapshot import KpiSnapshot
 from app.models.migration import IdentityMap, Migration, StagedRecord
 from app.models.mutation_batch import MutationBatch
+from app.models.nora_program import EaProgramDeliverable
 from app.models.notification import Notification
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
@@ -99,7 +105,11 @@ __all__ = [
     "StandardPrinciple",
     "TechStandard",
     "StandardException",
+    "ApprovalStep",
     "ArbReview",
+    "EaProgramDeliverable",
+    "ImprovementOpportunity",
+    "ImprovementOpportunityCard",
     "Scenario",
     "ScenarioChange",
     "TagGroup",

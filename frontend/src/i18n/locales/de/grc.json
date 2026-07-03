@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "Prinzipien",
       "standards": "Standards",
-      "decisions": "Entscheidungen"
+      "decisions": "Entscheidungen",
+      "opportunities": "Verbesserungen"
     },
     "principles": {
       "title": "Architekturprinzipien",
@@ -33,6 +34,31 @@
       "status": "Status",
       "open": "Öffnen",
       "create": "Neue Entscheidung"
+    },
+    "opportunities": {
+      "new": "Neue Verbesserung",
+      "edit": "Verbesserung bearbeiten",
+      "empty": "Noch keine Verbesserungspotenziale. Erfassen Sie hier Erkenntnisse aus der Ist-Architektur-Analyse.",
+      "colTitle": "Titel",
+      "colDomain": "Domäne",
+      "colPriority": "Priorität",
+      "colStatus": "Status",
+      "colInitiative": "Vorhaben",
+      "assign": "Vorhaben zuweisen",
+      "description": "Beschreibung",
+      "confirmDelete": "Verbesserung «{{title}}» löschen?",
+      "priority": {
+        "low": "Niedrig",
+        "medium": "Mittel",
+        "high": "Hoch"
+      },
+      "status": {
+        "proposed": "Vorgeschlagen",
+        "approved": "Genehmigt",
+        "inTransition": "In Umsetzung",
+        "realized": "Realisiert",
+        "rejected": "Abgelehnt"
+      }
     }
   },
   "compliance": {

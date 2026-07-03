@@ -109,6 +109,8 @@ CARD_COLUMNS = (
     "status",
     "source_system",
     "confidence",
+    "architecture_state",
+    "change_type",
     "lifecycle",
     "attributes",
 )
@@ -284,6 +286,8 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
             "status": c.status,
             "source_system": c.source_system,
             "confidence": c.confidence,
+            "architecture_state": c.architecture_state or "current",
+            "change_type": c.change_type,
             "lifecycle": c.lifecycle or {},
             "attributes": c.attributes or {},
         }
