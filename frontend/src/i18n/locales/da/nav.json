@@ -146,5 +146,6 @@
   "noraProgram.dashHigh": "høj",
   "noraProgram.dashNoFindings": "Ingen åbne fund",
   "noraProgram.gapModify": "ændre",
-  "noraProgram.gapRetire": "udfase"
+  "noraProgram.gapRetire": "udfase",
+  "noraProgram.dashEnrichmentUnavailable": "Berigelsesdata utilgængelige — genstart backend"
 }

@@ -309,6 +309,27 @@ export default function NoraProgramPage() {
   // Tile link handler
   const handleTileClick = (path: string) => navigate(path);
 
+  // Placeholder used when the /nora-program/dashboard aggregation endpoint
+  // hasn't responded (backend not restarted, permission missing, etc.) so the
+  // dashboard still renders instead of vanishing.
+  const dash: DashboardData = dashboardData ?? {
+    approvals: {
+      total: 0,
+      approved: 0,
+      in_review: 0,
+      draft: 0,
+      broken: 0,
+      rejected: 0,
+      approved_pct: 0,
+    },
+    landscape: { current: 0, transition: 0, target: 0 },
+    gaps: { create: 0, replace: 0, modify: 0, retire: 0, total: 0, untraceable: 0 },
+    initiatives: { onTrack: 0, atRisk: 0, offTrack: 0, noReport: 0 },
+    waivers: { active: 0, pending: 0, expiringSoon: 0, expired: 0 },
+    opportunities: { proposed: 0, approved: 0, inTransition: 0, realized: 0 },
+    compliance: { open: 0, critical: 0, high: 0 },
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 0.5 }}>
@@ -359,21 +380,31 @@ export default function NoraProgramPage() {
         </Alert>
       )}
 
-      {/* Executive Dashboard */}
-      {dashboardData && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <MaterialSymbol icon="dashboard" size={22} color="#1976d2" />
-            <Typography variant="h6" fontWeight={700}>
-              {t("noraProgram.dashboard")}
-            </Typography>
+      {/* Executive Dashboard — always renders; enrichment tiles fill in when
+          the /nora-program/dashboard aggregation endpoint responds. */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <MaterialSymbol icon="dashboard" size={22} color="#1976d2" />
+          <Typography variant="h6" fontWeight={700}>
+            {t("noraProgram.dashboard")}
+          </Typography>
+          <Chip
+            size="small"
+            variant="outlined"
+            label={t("noraProgram.dashboardSubtitle")}
+            sx={{ ml: 1 }}
+          />
+          {!dashboardData && (
             <Chip
               size="small"
+              color="warning"
               variant="outlined"
-              label={t("noraProgram.dashboardSubtitle")}
+              icon={<MaterialSymbol icon="sync_problem" size={14} />}
+              label={t("noraProgram.dashEnrichmentUnavailable")}
               sx={{ ml: 1 }}
             />
-          </Box>
+          )}
+        </Box>
 
           {/* Row 1 — Program state (methodology + governance) */}
           <Typography
@@ -400,23 +431,23 @@ export default function NoraProgramPage() {
                 icon="verified"
                 iconColor="#1976d2"
                 label={t("noraProgram.tileApprovals")}
-                value={`${dashboardData.approvals.approved_pct}%`}
+                value={`${dash.approvals.approved_pct}%`}
                 detail={
                   <>
-                    {dashboardData.approvals.approved} {t("noraProgram.dashApproved")} ·{" "}
-                    {dashboardData.approvals.in_review} {t("noraProgram.dashInReview")}
-                    {dashboardData.approvals.broken > 0 && (
+                    {dash.approvals.approved} {t("noraProgram.dashApproved")} ·{" "}
+                    {dash.approvals.in_review} {t("noraProgram.dashInReview")}
+                    {dash.approvals.broken > 0 && (
                       <>
                         {" · "}
                         <Box component="span" sx={{ color: "#d32f2f", fontWeight: 600 }}>
-                          {dashboardData.approvals.broken} {t("noraProgram.dashBroken")}
+                          {dash.approvals.broken} {t("noraProgram.dashBroken")}
                         </Box>
                       </>
                     )}
                   </>
                 }
-                progress={dashboardData.approvals.approved_pct}
-                progressColor={dashboardData.approvals.broken > 0 ? "warning" : "success"}
+                progress={dash.approvals.approved_pct}
+                progressColor={dash.approvals.broken > 0 ? "warning" : "success"}
                 onClick={() =>
                   handleTileClick("/inventory?approval_status=IN_REVIEW,DRAFT,BROKEN")
                 }
@@ -427,17 +458,17 @@ export default function NoraProgramPage() {
                 icon="account_tree"
                 iconColor="#0288d1"
                 label={t("noraProgram.tileLandscape")}
-                value={dashboardData.landscape.current}
+                value={dash.landscape.current}
                 detail={
                   <>
                     {t("noraProgram.dashCurrentCards")}
                     <br />
                     <Box component="span" sx={{ fontWeight: 600 }}>
-                      +{dashboardData.landscape.transition + dashboardData.landscape.target}
+                      +{dash.landscape.transition + dash.landscape.target}
                     </Box>{" "}
                     {t("noraProgram.dashTargetChanges")} (
-                    {dashboardData.landscape.transition} T ·{" "}
-                    {dashboardData.landscape.target} F)
+                    {dash.landscape.transition} T ·{" "}
+                    {dash.landscape.target} F)
                   </>
                 }
                 onClick={() => handleTileClick("/inventory")}
@@ -448,25 +479,25 @@ export default function NoraProgramPage() {
                 icon="difference"
                 iconColor="#f57c00"
                 label={t("noraProgram.tileGaps")}
-                value={dashboardData.gaps.total}
+                value={dash.gaps.total}
                 detail={
                   <>
-                    {dashboardData.gaps.create} {t("noraProgram.gapNew")} ·{" "}
-                    {dashboardData.gaps.replace} {t("noraProgram.gapReplace")} ·{" "}
-                    {dashboardData.gaps.modify} {t("noraProgram.gapModify")} ·{" "}
-                    {dashboardData.gaps.retire} {t("noraProgram.gapRetire")}
-                    {dashboardData.gaps.untraceable > 0 && (
+                    {dash.gaps.create} {t("noraProgram.gapNew")} ·{" "}
+                    {dash.gaps.replace} {t("noraProgram.gapReplace")} ·{" "}
+                    {dash.gaps.modify} {t("noraProgram.gapModify")} ·{" "}
+                    {dash.gaps.retire} {t("noraProgram.gapRetire")}
+                    {dash.gaps.untraceable > 0 && (
                       <>
                         <br />
                         <Box component="span" sx={{ color: "#d32f2f", fontWeight: 600 }}>
-                          ⚠ {dashboardData.gaps.untraceable}{" "}
+                          ⚠ {dash.gaps.untraceable}{" "}
                           {t("noraProgram.dashUntraceable")}
                         </Box>
                       </>
                     )}
                   </>
                 }
-                alert={dashboardData.gaps.untraceable > 0}
+                alert={dash.gaps.untraceable > 0}
                 onClick={() => handleTileClick("/reports/gap-analysis")}
               />
             </Grid>
@@ -489,19 +520,19 @@ export default function NoraProgramPage() {
                 value={
                   <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
                     <Box component="span" sx={{ color: "#2e7d32" }}>
-                      {dashboardData.initiatives.onTrack}
+                      {dash.initiatives.onTrack}
                     </Box>
                     <Typography variant="body2" color="text.secondary">
                       /
                     </Typography>
                     <Box component="span" sx={{ color: "#f57c00", fontSize: "0.75em" }}>
-                      {dashboardData.initiatives.atRisk}
+                      {dash.initiatives.atRisk}
                     </Box>
                     <Typography variant="body2" color="text.secondary">
                       /
                     </Typography>
                     <Box component="span" sx={{ color: "#d32f2f", fontSize: "0.75em" }}>
-                      {dashboardData.initiatives.offTrack}
+                      {dash.initiatives.offTrack}
                     </Box>
                   </Box>
                 }
@@ -509,16 +540,16 @@ export default function NoraProgramPage() {
                   <>
                     {t("noraProgram.initOnTrack")} / {t("noraProgram.initAtRisk")} /{" "}
                     {t("noraProgram.initOffTrack")}
-                    {dashboardData.initiatives.noReport > 0 && (
+                    {dash.initiatives.noReport > 0 && (
                       <>
                         <br />
-                        {dashboardData.initiatives.noReport}{" "}
+                        {dash.initiatives.noReport}{" "}
                         {t("noraProgram.dashNoReport")}
                       </>
                     )}
                   </>
                 }
-                alert={dashboardData.initiatives.offTrack > 0}
+                alert={dash.initiatives.offTrack > 0}
                 onClick={() => handleTileClick("/ppm")}
               />
             </Grid>
@@ -527,30 +558,30 @@ export default function NoraProgramPage() {
                 icon="gavel"
                 iconColor="#7b1fa2"
                 label={t("noraProgram.tileWaivers")}
-                value={dashboardData.waivers.active}
+                value={dash.waivers.active}
                 detail={
                   <>
-                    {dashboardData.waivers.pending} {t("noraProgram.dashPending")}
-                    {dashboardData.waivers.expiringSoon > 0 && (
+                    {dash.waivers.pending} {t("noraProgram.dashPending")}
+                    {dash.waivers.expiringSoon > 0 && (
                       <>
                         {" · "}
                         <Box component="span" sx={{ color: "#f57c00", fontWeight: 600 }}>
-                          {dashboardData.waivers.expiringSoon}{" "}
+                          {dash.waivers.expiringSoon}{" "}
                           {t("noraProgram.dashExpiringSoon")}
                         </Box>
                       </>
                     )}
-                    {dashboardData.waivers.expired > 0 && (
+                    {dash.waivers.expired > 0 && (
                       <>
                         {" · "}
                         <Box component="span" sx={{ color: "#d32f2f", fontWeight: 600 }}>
-                          {dashboardData.waivers.expired} {t("noraProgram.dashExpired")}
+                          {dash.waivers.expired} {t("noraProgram.dashExpired")}
                         </Box>
                       </>
                     )}
                   </>
                 }
-                alert={dashboardData.waivers.expired > 0}
+                alert={dash.waivers.expired > 0}
                 onClick={() => handleTileClick("/tech-standards")}
               />
             </Grid>
@@ -559,13 +590,13 @@ export default function NoraProgramPage() {
                 icon="trending_up"
                 iconColor="#00897b"
                 label={t("noraProgram.tileOpportunities")}
-                value={dashboardData.opportunities.inTransition}
+                value={dash.opportunities.inTransition}
                 detail={
                   <>
-                    {dashboardData.opportunities.proposed} {t("noraProgram.oppProposed")} ·{" "}
-                    {dashboardData.opportunities.approved} {t("noraProgram.oppApproved")}
+                    {dash.opportunities.proposed} {t("noraProgram.oppProposed")} ·{" "}
+                    {dash.opportunities.approved} {t("noraProgram.oppApproved")}
                     <br />
-                    {dashboardData.opportunities.realized}{" "}
+                    {dash.opportunities.realized}{" "}
                     {t("noraProgram.dashRealized")}
                   </>
                 }
@@ -576,43 +607,42 @@ export default function NoraProgramPage() {
               <DashboardTile
                 icon="shield"
                 iconColor={
-                  dashboardData.compliance.critical > 0
+                  dash.compliance.critical > 0
                     ? "#d32f2f"
-                    : dashboardData.compliance.high > 0
+                    : dash.compliance.high > 0
                       ? "#f57c00"
                       : "#2e7d32"
                 }
                 label={t("noraProgram.tileCompliance")}
-                value={dashboardData.compliance.open}
+                value={dash.compliance.open}
                 detail={
-                  dashboardData.compliance.open === 0 ? (
+                  dash.compliance.open === 0 ? (
                     t("noraProgram.dashNoFindings")
                   ) : (
                     <>
-                      {dashboardData.compliance.critical > 0 && (
+                      {dash.compliance.critical > 0 && (
                         <Box component="span" sx={{ color: "#d32f2f", fontWeight: 600 }}>
-                          {dashboardData.compliance.critical}{" "}
+                          {dash.compliance.critical}{" "}
                           {t("noraProgram.dashCritical")}
                         </Box>
                       )}
-                      {dashboardData.compliance.critical > 0 &&
-                        dashboardData.compliance.high > 0 &&
+                      {dash.compliance.critical > 0 &&
+                        dash.compliance.high > 0 &&
                         " · "}
-                      {dashboardData.compliance.high > 0 && (
+                      {dash.compliance.high > 0 && (
                         <Box component="span" sx={{ color: "#f57c00", fontWeight: 600 }}>
-                          {dashboardData.compliance.high} {t("noraProgram.dashHigh")}
+                          {dash.compliance.high} {t("noraProgram.dashHigh")}
                         </Box>
                       )}
                     </>
                   )
                 }
-                alert={dashboardData.compliance.critical > 0}
+                alert={dash.compliance.critical > 0}
                 onClick={() => handleTileClick("/grc?tab=compliance")}
               />
             </Grid>
           </Grid>
-        </Paper>
-      )}
+      </Paper>
 
       {STAGE_DISPLAY_ORDER.map((stageNo) => {
         const stage = stageByNo.get(stageNo);

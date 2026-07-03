@@ -146,5 +146,6 @@
   "noraProgram.dashHigh": "высокая",
   "noraProgram.dashNoFindings": "Открытых несоответствий нет",
   "noraProgram.gapModify": "изменение",
-  "noraProgram.gapRetire": "вывод"
+  "noraProgram.gapRetire": "вывод",
+  "noraProgram.dashEnrichmentUnavailable": "Данные обогащения недоступны — перезапустите бэкенд"
 }

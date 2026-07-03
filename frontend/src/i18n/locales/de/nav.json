@@ -146,5 +146,6 @@
   "noraProgram.dashHigh": "hoch",
   "noraProgram.dashNoFindings": "Keine offenen Findings",
   "noraProgram.gapModify": "ändern",
-  "noraProgram.gapRetire": "stilllegen"
+  "noraProgram.gapRetire": "stilllegen",
+  "noraProgram.dashEnrichmentUnavailable": "Anreicherungsdaten nicht verfügbar — Backend neu starten"
 }

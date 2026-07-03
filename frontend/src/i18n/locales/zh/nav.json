@@ -146,5 +146,6 @@
   "noraProgram.dashHigh": "高",
   "noraProgram.dashNoFindings": "无未处理发现",
   "noraProgram.gapModify": "修改",
-  "noraProgram.gapRetire": "退役"
+  "noraProgram.gapRetire": "退役",
+  "noraProgram.dashEnrichmentUnavailable": "补充数据不可用 — 请重启后端"
 }

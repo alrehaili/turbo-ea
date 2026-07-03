@@ -146,5 +146,6 @@
   "noraProgram.dashHigh": "مرتفع",
   "noraProgram.dashNoFindings": "لا توجد نتائج مفتوحة",
   "noraProgram.gapModify": "تعديل",
-  "noraProgram.gapRetire": "إيقاف"
+  "noraProgram.gapRetire": "إيقاف",
+  "noraProgram.dashEnrichmentUnavailable": "بيانات الإثراء غير متوفرة — أعد تشغيل الخادم"
 }

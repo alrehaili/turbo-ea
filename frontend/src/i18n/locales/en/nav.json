@@ -17,6 +17,7 @@
   "noraProgram.subtitle": "The ten NORA methodology stages plus continuous governance — deliverables, evidence and stage-gate approval.",
   "noraProgram.dashboard": "Executive Dashboard",
   "noraProgram.dashboardSubtitle": "Real-time NORA program view",
+  "noraProgram.dashEnrichmentUnavailable": "Enrichment data unavailable — restart backend",
   "noraProgram.dashSectionProgram": "Program & Landscape",
   "noraProgram.dashSectionGovernance": "Governance & Risk",
   "noraProgram.tileProgram": "Program Progress",
