@@ -1,9 +1,10 @@
 /**
  * NoraProgramPage — the NORA EA Program tracker: ten methodology stages plus
  * continuous governance, each with its deliverables, evidence links and
- * stage-gate approval state.
+ * stage-gate approval state. Features an executive dashboard aggregating
+ * stage readiness, approval coverage, gaps, and improvement opportunities.
  *
- * [FORK FEATURE] — noraPlan.md WP3.1.
+ * [FORK FEATURE] — noraPlan.md WP3.1 + deferred executive dashboard.
  */
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,16 +14,21 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardActionArea from "@mui/material/CardActionArea";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -71,6 +77,25 @@ interface ProgramData {
   summary: { total: number; approved: number; progress: number };
 }
 
+interface GapData {
+  create: number;
+  replace: number;
+  modify: number;
+  retire: number;
+  untraceable: number;
+}
+
+interface OpportunitiesData {
+  proposed: number;
+  approved: number;
+  inTransition: number;
+}
+
+interface DashboardData {
+  gaps: GapData;
+  opportunities: OpportunitiesData;
+}
+
 const STATUSES = ["notStarted", "inProgress", "inReview", "approved", "descoped"] as const;
 
 const STATUS_COLOR: Record<string, "default" | "info" | "warning" | "success"> = {
@@ -85,10 +110,11 @@ const STATUS_COLOR: Record<string, "default" | "info" | "warning" | "success"> =
 const STAGE_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0];
 
 export default function NoraProgramPage() {
-  const { t } = useTranslation(["nav", "common"]);
+  const { t } = useTranslation(["nav", "common", "grc"]);
   const { user } = useAuthContext();
   const canManage = hasPermission(user?.permissions, "nora.manage");
   const [data, setData] = useState<ProgramData | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [evidenceFor, setEvidenceFor] = useState<Deliverable | null>(null);
   const [evidenceLabel, setEvidenceLabel] = useState("");
@@ -106,9 +132,44 @@ export default function NoraProgramPage() {
     }
   }, []);
 
+  const loadDashboard = useCallback(async () => {
+    try {
+      // Fetch gap analysis summary
+      const gapResponse = await api.get<{
+        summary: GapData;
+      }>("/reports/gap-analysis");
+
+      // Fetch improvement opportunities with status counts
+      const oppResponse = await api.get<{
+        items: Array<{ status: string }>;
+      }>("/improvement-opportunities");
+      const oppCounts = oppResponse.items.reduce(
+        (acc, item) => {
+          if (item.status === "proposed") acc.proposed += 1;
+          else if (item.status === "approved") acc.approved += 1;
+          else if (item.status === "inTransition") acc.inTransition += 1;
+          return acc;
+        },
+        { proposed: 0, approved: 0, inTransition: 0 },
+      );
+
+      setDashboardData({
+        gaps: gapResponse.summary,
+        opportunities: oppCounts,
+      });
+    } catch {
+      // Dashboard data is optional; silently fail with empty data
+      setDashboardData({
+        gaps: { create: 0, replace: 0, modify: 0, retire: 0, untraceable: 0 },
+        opportunities: { proposed: 0, approved: 0, inTransition: 0 },
+      });
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadDashboard();
+  }, [load, loadDashboard]);
 
   const patch = async (d: Deliverable, body: Record<string, unknown>) => {
     setError("");
@@ -160,6 +221,9 @@ export default function NoraProgramPage() {
 
   const stageByNo = new Map(data.stages.map((s) => [s.stage_no, s]));
 
+  // Tile link handler
+  const handleTileClick = (path: string) => navigate(path);
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 0.5 }}>
@@ -208,6 +272,114 @@ export default function NoraProgramPage() {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+
+      {/* Executive Dashboard */}
+      {dashboardData && (
+        <Paper sx={{ p: 3, mb: 3, bgcolor: "background.paper" }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+            {t("noraProgram.dashboard")}
+          </Typography>
+          <Grid container spacing={2}>
+            {/* Program Progress Tile */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                sx={{
+                  height: "100%",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": { boxShadow: 3, transform: "translateY(-2px)" },
+                }}
+              >
+                <CardActionArea
+                  onClick={() => handleTileClick("/nora-program")}
+                  sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <MaterialSymbol icon="checklist" color="#2e7d32" size={24} />
+                    <Typography variant="caption" color="text.secondary">
+                      {t("noraProgram.tileProgram")}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
+                    {data.summary.progress}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {data.summary.approved}/{data.summary.total} {t("common:approved")}
+                  </Typography>
+                  <LinearProgress
+                    variant="determinate"
+                    value={data.summary.progress}
+                    sx={{ height: 4, borderRadius: 2 }}
+                  />
+                </CardActionArea>
+              </Card>
+            </Grid>
+
+            {/* Gaps Tile */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                sx={{
+                  height: "100%",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": { boxShadow: 3, transform: "translateY(-2px)" },
+                }}
+              >
+                <CardActionArea
+                  onClick={() => handleTileClick("/reports/gap-analysis")}
+                  sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <MaterialSymbol icon="difference" color="#d32f2f" size={24} />
+                    <Typography variant="caption" color="text.secondary">
+                      {t("noraProgram.tileGaps")}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight={700}>
+                    {dashboardData.gaps.create + dashboardData.gaps.replace +
+                     dashboardData.gaps.modify + dashboardData.gaps.retire}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {dashboardData.gaps.create} {t("noraProgram.gapNew")},
+                    {dashboardData.gaps.replace} {t("noraProgram.gapReplace")}
+                  </Typography>
+                </CardActionArea>
+              </Card>
+            </Grid>
+
+            {/* Opportunities Tile */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                sx={{
+                  height: "100%",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  "&:hover": { boxShadow: 3, transform: "translateY(-2px)" },
+                }}
+              >
+                <CardActionArea
+                  onClick={() => handleTileClick("/grc?tab=governance")}
+                  sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column" }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <MaterialSymbol icon="trending_up" color="#f57c00" size={24} />
+                    <Typography variant="caption" color="text.secondary">
+                      {t("noraProgram.tileOpportunities")}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight={700}>
+                    {dashboardData.opportunities.inTransition}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {dashboardData.opportunities.proposed} {t("noraProgram.oppProposed")},
+                    {dashboardData.opportunities.approved} {t("noraProgram.oppApproved")}
+                  </Typography>
+                </CardActionArea>
+              </Card>
+            </Grid>
+          </Grid>
+        </Paper>
       )}
 
       {STAGE_DISPLAY_ORDER.map((stageNo) => {

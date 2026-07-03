@@ -544,6 +544,22 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await ensure_framework_profile(db)
 
+    # Seed the NORA demo landscape ([FORK]): SEED_NORA=true
+    if settings.SEED_NORA:
+        from app.services.seed_demo_nora import seed_nora_demo_data
+
+        async with async_session() as db:
+            result = await seed_nora_demo_data(db)
+            await db.commit()
+            if result.get("skipped"):
+                print(f"[seed_nora] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_nora] Seeded {result['cards']} cards, "
+                    f"{result['relations']} relations, {result['program_updates']} "
+                    f"program updates, {result['documents']} document(s)"
+                )
+
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
         from app.services.seed_demo import seed_demo_data

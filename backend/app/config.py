@@ -45,6 +45,8 @@ class Settings:
     # Framework profile applied on first startup when the install has no stored
     # choice yet: "" (keep TOGAF-neutral default) or "nora" ([FORK] noraPlan.md WP1.1).
     SEED_PROFILE: str = os.getenv("SEED_PROFILE", "")
+    # Seed the fictional NORA demo landscape (applies the NORA profile first).
+    SEED_NORA: bool = os.getenv("SEED_NORA", "").lower() in ("1", "true", "yes")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
