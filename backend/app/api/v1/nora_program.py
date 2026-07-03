@@ -7,16 +7,22 @@ as per-deliverable rows with evidence links and stage-gate approval.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card import Card
+from app.models.improvement_opportunity import ImprovementOpportunity
 from app.models.nora_program import DELIVERABLE_STATUSES, NORA_STAGE_NUMBERS, EaProgramDeliverable
+from app.models.ppm_status_report import PpmStatusReport
+from app.models.relation import Relation
+from app.models.tech_standard import StandardException
+from app.models.turbolens import TurboLensComplianceFinding
 from app.models.user import User
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -122,6 +128,176 @@ async def get_program(
             "total": len(in_scope_all),
             "approved": len(approved_all),
             "progress": round(100 * len(approved_all) / len(in_scope_all)) if in_scope_all else 0,
+        },
+    }
+
+
+@router.get("/dashboard")
+async def get_dashboard(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Executive dashboard aggregation (noraPlan.md WP3.1 — the committee view).
+
+    One round-trip returning count-level KPIs across the NORA-relevant modules:
+    approval coverage, landscape state split, gap buckets (+ untraceable),
+    transition-initiative RAG from the latest PPM status reports, standards
+    waivers, improvement opportunities, and open compliance findings. Counts
+    only — no card payloads — so the single ``nora.view`` gate is sufficient.
+    """
+    await PermissionService.require_permission(db, user, "nora.view")
+
+    # --- Approval coverage (non-archived cards, by approval_status) ---------
+    approval_rows = await db.execute(
+        select(Card.approval_status, func.count())
+        .where(Card.status != "ARCHIVED")
+        .group_by(Card.approval_status)
+    )
+    approvals = {status: count for status, count in approval_rows.all()}
+    total_cards = sum(approvals.values())
+
+    # --- Landscape split by architecture state ------------------------------
+    state_rows = await db.execute(
+        select(func.coalesce(Card.architecture_state, "current"), func.count())
+        .where(Card.status != "ARCHIVED")
+        .group_by(func.coalesce(Card.architecture_state, "current"))
+    )
+    landscape = {state: count for state, count in state_rows.all()}
+
+    # --- Gap buckets (same classification as /reports/gap-analysis) --------
+    changed_rows = (
+        await db.execute(
+            select(Card.id, Card.architecture_state, Card.change_type, Card.successor_id).where(
+                Card.status != "ARCHIVED",
+                (Card.architecture_state.in_(("target", "transition")))
+                | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
+            )
+        )
+    ).all()
+    changed_ids = {row.id for row in changed_rows}
+    traced_ids: set[uuid.UUID] = set()
+    if changed_ids:
+        rel_rows = await db.execute(
+            select(Relation.source_id, Relation.target_id)
+            .join(
+                Card,
+                ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
+                & (Card.type == "Initiative"),
+            )
+            .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
+        )
+        for source_id, target_id in rel_rows.all():
+            traced_ids.add(source_id)
+            traced_ids.add(target_id)
+    gaps = {"create": 0, "replace": 0, "modify": 0, "retire": 0}
+    for row in changed_rows:
+        if row.architecture_state == "current":
+            gaps["retire"] += 1
+        elif row.successor_id or row.change_type in ("replace", "consolidate"):
+            gaps["replace"] += 1
+        elif row.change_type == "modify":
+            gaps["modify"] += 1
+        else:
+            gaps["create"] += 1
+    gaps["total"] = len(changed_rows)
+    gaps["untraceable"] = len(changed_ids - traced_ids)
+
+    # --- Transition-initiative RAG (latest PPM status report each) ---------
+    latest_report = select(
+        PpmStatusReport.initiative_id,
+        PpmStatusReport.schedule_health,
+        PpmStatusReport.cost_health,
+        PpmStatusReport.scope_health,
+        func.row_number()
+        .over(
+            partition_by=PpmStatusReport.initiative_id,
+            order_by=(PpmStatusReport.report_date.desc(), PpmStatusReport.created_at.desc()),
+        )
+        .label("rn"),
+    ).subquery()
+    report_rows = (await db.execute(select(latest_report).where(latest_report.c.rn == 1))).all()
+    rag_rank = {"onTrack": 0, "atRisk": 1, "offTrack": 2}
+    initiatives = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
+    reported_ids = set()
+    for row in report_rows:
+        reported_ids.add(row.initiative_id)
+        worst = max(
+            (row.schedule_health, row.cost_health, row.scope_health),
+            key=lambda h: rag_rank.get(h, 0),
+        )
+        initiatives[worst] = initiatives.get(worst, 0) + 1
+    active_initiatives = (
+        await db.execute(
+            select(func.count()).where(Card.type == "Initiative", Card.status != "ARCHIVED")
+        )
+    ).scalar_one()
+    initiatives["noReport"] = max(0, active_initiatives - len(reported_ids))
+
+    # --- Standards waivers (tech_standard_exceptions) -----------------------
+    today = date.today()
+    waiver_rows = (
+        await db.execute(select(StandardException.status, StandardException.expiry_date))
+    ).all()
+    waivers = {"active": 0, "pending": 0, "expiringSoon": 0, "expired": 0}
+    horizon = today + timedelta(days=30)
+    for status, expiry in waiver_rows:
+        if status == "requested":
+            waivers["pending"] += 1
+        elif status == "approved":
+            if expiry and expiry < today:
+                waivers["expired"] += 1
+            else:
+                waivers["active"] += 1
+                if expiry and expiry <= horizon:
+                    waivers["expiringSoon"] += 1
+
+    # --- Improvement opportunities by status --------------------------------
+    opp_rows = await db.execute(
+        select(ImprovementOpportunity.status, func.count()).group_by(ImprovementOpportunity.status)
+    )
+    opportunities = {status: count for status, count in opp_rows.all()}
+
+    # --- Open compliance findings by severity -------------------------------
+    finding_rows = await db.execute(
+        select(TurboLensComplianceFinding.severity, func.count())
+        .where(
+            TurboLensComplianceFinding.auto_resolved.is_(False),
+            TurboLensComplianceFinding.status.in_(("non_compliant", "partial", "review_needed")),
+        )
+        .group_by(TurboLensComplianceFinding.severity)
+    )
+    compliance = {severity: count for severity, count in finding_rows.all()}
+
+    return {
+        "approvals": {
+            "total": total_cards,
+            "approved": approvals.get("APPROVED", 0),
+            "in_review": approvals.get("IN_REVIEW", 0),
+            "draft": approvals.get("DRAFT", 0),
+            "broken": approvals.get("BROKEN", 0),
+            "rejected": approvals.get("REJECTED", 0),
+            "approved_pct": round(100 * approvals.get("APPROVED", 0) / total_cards)
+            if total_cards
+            else 0,
+        },
+        "landscape": {
+            "current": landscape.get("current", 0),
+            "transition": landscape.get("transition", 0),
+            "target": landscape.get("target", 0),
+        },
+        "gaps": gaps,
+        "initiatives": initiatives,
+        "waivers": waivers,
+        "opportunities": {
+            "proposed": opportunities.get("proposed", 0),
+            "approved": opportunities.get("approved", 0),
+            "inTransition": opportunities.get("inTransition", 0),
+            "realized": opportunities.get("realized", 0),
+        },
+        "compliance": {
+            "open": sum(compliance.values()),
+            "critical": compliance.get("critical", 0),
+            "high": compliance.get("high", 0),
         },
     }
 
