@@ -77,6 +77,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
       { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
       { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
+      { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
       { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
       { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
       { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },

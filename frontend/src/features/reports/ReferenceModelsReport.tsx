@@ -290,9 +290,9 @@ function ModelCard({ model, onNavigate }: ModelCardProps) {
                 />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <RechartsTooltip
-                  formatter={(v: number) => [v, t("referenceModels.count")]}
+                  formatter={(v) => [Number(v ?? 0), t("referenceModels.count")]}
                 />
-                <Bar dataKey="count" cursor="pointer" onClick={(d) => goToOption(d.key)}>
+                <Bar dataKey="count" cursor="pointer" onClick={(d) => goToOption(String(d.key))}>
                   {chartData.map((entry) => (
                     <Cell key={entry.key} fill={entry.color} />
                   ))}

@@ -43,6 +43,7 @@ const KpiScorecardReport = lazy(() => import("@/features/reports/KpiScorecardRep
 const ReferenceModelsReport = lazy(
   () => import("@/features/reports/ReferenceModelsReport"),
 );
+const ProcessMapReport = lazy(() => import("@/features/reports/ProcessMapReport"));
 const InteroperabilityReport = lazy(() => import("@/features/reports/InteroperabilityReport"));
 const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
 const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStrategyMap"));
@@ -194,6 +195,7 @@ function AppRoutes() {
                   path="/reports/reference-models"
                   element={<ReferenceModelsReport />}
                 />
+                <Route path="/reports/process-map" element={<ModuleGate module="bpm"><ProcessMapReport /></ModuleGate>} />
                 <Route path="/reports/interoperability" element={<InteroperabilityReport />} />
                 <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
                 <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />
