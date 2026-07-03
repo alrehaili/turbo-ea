@@ -2705,12 +2705,21 @@ async def _get_or_create_settings_row(db: AsyncSession) -> AppSettings:
 
 
 async def get_framework_profile(db: AsyncSession) -> dict:
-    """Return the stored framework profile (defaults to ``togaf``)."""
+    """Return the stored framework profile.
+
+    Falls back to whatever ``SEED_PROFILE`` names when no explicit choice has
+    been persisted yet — this fork ships with ``SEED_PROFILE=nora`` by default
+    so a plain install reports ``nora`` even before the first startup hook
+    finishes applying it. ([FORK] noraPlan.md WP1.1)
+    """
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
+    default_profile = (app_config.settings.SEED_PROFILE or "togaf").strip().lower()
+    if default_profile not in FRAMEWORK_PROFILES:
+        default_profile = "togaf"
     return {
-        "profile": general.get("frameworkProfile", "togaf"),
+        "profile": general.get("frameworkProfile", default_profile),
         "nora_profile_version": general.get("noraProfileVersion"),
     }
 
@@ -2951,6 +2960,9 @@ async def ensure_framework_profile(db: AsyncSession) -> None:
     """Startup hook — apply/upgrade the NORA profile when appropriate.
 
     * Fresh install (no stored profile) + ``SEED_PROFILE=nora`` → apply.
+    * Existing ``togaf`` install + ``SEED_PROFILE=nora`` → apply (this fork
+      defaults to nora, so a plain-TOGAF fork install gets promoted to NORA
+      on next boot unless the operator explicitly set ``SEED_PROFILE=togaf``).
     * Stored ``nora`` profile at an older ``noraProfileVersion`` → re-apply
       (idempotent upgrade that only adds newly introduced fields).
     """
@@ -2960,11 +2972,12 @@ async def ensure_framework_profile(db: AsyncSession) -> None:
     profile = general.get("frameworkProfile")
 
     seed_profile = (app_config.settings.SEED_PROFILE or "").strip().lower()
-    if profile is None and seed_profile == "nora":
+    if profile in (None, "togaf") and seed_profile == "nora":
         summary = await apply_nora_profile(db)
+        origin = "fresh install" if profile is None else "TOGAF → NORA upgrade"
         print(
-            f"[nora_profile] Applied NORA profile from SEED_PROFILE env "
-            f"({summary['fields_added']} fields across {len(summary['types_updated'])} types)"
+            f"[nora_profile] Applied NORA profile ({origin}) — "
+            f"{summary['fields_added']} fields across {len(summary['types_updated'])} types"
         )
     elif profile == "nora" and (general.get("noraProfileVersion") or 0) < NORA_PROFILE_VERSION:
         summary = await apply_nora_profile(db)

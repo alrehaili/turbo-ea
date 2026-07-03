@@ -42,9 +42,12 @@ class Settings:
     SEED_BPM: bool = os.getenv("SEED_BPM", "").lower() in ("1", "true", "yes")
     SEED_PPM: bool = os.getenv("SEED_PPM", "").lower() in ("1", "true", "yes")
     SEED_SECURITY: bool = os.getenv("SEED_SECURITY", "").lower() in ("1", "true", "yes")
-    # Framework profile applied on first startup when the install has no stored
-    # choice yet: "" (keep TOGAF-neutral default) or "nora" ([FORK] noraPlan.md WP1.1).
-    SEED_PROFILE: str = os.getenv("SEED_PROFILE", "")
+    # Framework profile applied on first startup and on existing installs that
+    # haven't opted out. This fork defaults to "nora" so the NORA program view,
+    # extended fields, GovService type and governance chain are active by
+    # default. Set SEED_PROFILE="togaf" to keep the vanilla TOGAF metamodel.
+    # ([FORK] noraPlan.md WP1.1)
+    SEED_PROFILE: str = os.getenv("SEED_PROFILE", "nora")
     # Seed the fictional NORA demo landscape (applies the NORA profile first).
     SEED_NORA: bool = os.getenv("SEED_NORA", "").lower() in ("1", "true", "yes")
 
