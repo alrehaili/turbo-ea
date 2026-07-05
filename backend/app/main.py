@@ -544,9 +544,23 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await ensure_framework_profile(db)
 
-    # Seed the NORA demo landscape ([FORK]): SEED_NORA=true
+    # Seed the NORA demo landscape ([FORK]): SEED_NORA=true.
+    # RESET_NORA_DEMO=true clears the previously seeded rows first so the
+    # enriched dataset can replace an already-seeded install (the marker check
+    # in seed_nora_demo_data would otherwise skip it).
     if settings.SEED_NORA:
-        from app.services.seed_demo_nora import seed_nora_demo_data
+        from app.services.seed_demo_nora import reset_nora_demo_data, seed_nora_demo_data
+
+        if settings.RESET_NORA_DEMO:
+            async with async_session() as db:
+                counts = await reset_nora_demo_data(db)
+                await db.commit()
+                print(
+                    f"[seed_nora] Reset removed {counts['cards']} cards, "
+                    f"{counts['opportunities']} opportunities, "
+                    f"{counts['documents']} document(s); "
+                    f"reset {counts['program_updates']} program deliverable(s)"
+                )
 
         async with async_session() as db:
             result = await seed_nora_demo_data(db)

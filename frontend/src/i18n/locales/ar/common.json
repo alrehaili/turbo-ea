@@ -354,5 +354,14 @@
   "dashboard.workspace.andMore_other": "و{{count}} آخرون",
   "actions.undo": "تراجع",
   "dashboard.workspace.favoriteRemoved": "تمت إزالة «{{name}}» من المفضّلة",
-  "portal.hubEmpty": "لا تحتوي هذه البوابة على بطاقات بعد."
+  "portal.hubEmpty": "لا تحتوي هذه البوابة على بطاقات بعد.",
+  "dashboard.trend.aria": "حول مؤشرات الاتجاه",
+  "dashboard.section.kpis": "لمحة سريعة",
+  "dashboard.cardsByType.hint": "انقر شريطًا لفتح المخزون مصفّى حسب هذا النوع",
+  "dashboard.attention.title": "يستحق انتباهك",
+  "dashboard.attention.openLink": "افتح المخزون المصفّى",
+  "dashboard.attention.broken": "موافقات تحتاج إصلاحًا",
+  "dashboard.attention.lowQuality": "بطاقات جودة بياناتها منخفضة",
+  "dashboard.attention.eol": "بطاقات في نهاية العمر",
+  "dashboard.attention.draft": "بطاقات لا تزال في المسودة"
 }

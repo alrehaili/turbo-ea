@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -758,9 +759,27 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "priority": 2,
         "target_year": 2026,
         "successor": "Power BI",
-        "rationale": "Consolidate analytics onto the Power BI standard.",
-        "risk_note": "Re-author ~30 published workbooks; retrain analyst community.",
-        "notes": "Migrate dashboards, then decommission Tableau licences.",
+        "rationale": (
+            "Power BI Pro is already included in every NexaTech Microsoft 365 E5 "
+            "seat, while Tableau Server adds ~$70/analyst/month for a 200-analyst "
+            "pool ($168k/yr sticker; $140k net after unused subs). Analyst "
+            "adoption has already tilted that way — 140 published Power BI "
+            "reports vs 30 Tableau workbooks in the last 12 months — and "
+            "consolidating removes the parallel role model between Azure AD and "
+            "Tableau Server (2 IAM audits per quarter) plus aligns with the "
+            "Fabric roadmap owned by the Data & Analytics capability."
+        ),
+        "risk_note": (
+            "~30 published workbooks need re-authoring; 4 use Tableau Prep "
+            "flows that must move to Dataflows Gen2. Analyst community "
+            "retraining budgeted for Q2 (partner-delivered, 3 cohorts)."
+        ),
+        "notes": (
+            "Q1: freeze new Tableau content, migrate top-10 exec dashboards. "
+            "Q2: analyst training + long-tail workbook conversion. "
+            "Q3: decommission Tableau Server, cancel renewal (renewal date "
+            "2026-11-30 — must be flagged with Procurement by 2026-08-31)."
+        ),
     },
     {
         "app": "Jenkins",
@@ -773,9 +792,26 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "priority": 2,
         "target_year": 2026,
         "successor": "GitHub Actions",
-        "rationale": "Move CI/CD to managed GitHub Actions; cut self-hosted ops.",
-        "risk_note": "Port ~40 pipelines; secrets and runner migration.",
-        "notes": "Phased pipeline migration through Q3 2026.",
+        "rationale": (
+            "Every service repo already lives on GitHub Enterprise, so CI can "
+            "co-locate with the code, PR review and secrets store instead of "
+            "the current dual write to Jenkins Credentials. Retiring the two "
+            "Jenkins masters + ~50 self-managed agents frees an estimated 1.5 "
+            "Platform FTE currently on plugin patching and agent AMI baking, "
+            "and shifts compute from an always-on cost centre to per-minute "
+            "GitHub-hosted runners that our average pipeline (~7 min) "
+            "underuses today."
+        ),
+        "risk_note": (
+            "~40 Groovy pipelines to port to YAML; 6 use shared libraries "
+            "that need a reusable-workflow equivalent. Secrets rotation "
+            "planned as part of the cut-over to avoid parallel copies."
+        ),
+        "notes": (
+            "Phased by service tier: dev/test pipelines cut over in Q1, "
+            "prod-deploy pipelines follow after a 2-week shadow window on "
+            "GitHub Actions. Jenkins goes read-only in Q3 2026."
+        ),
     },
     {
         "app": "HubSpot Marketing",
@@ -788,9 +824,26 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "priority": 2,
         "target_year": 2026,
         "successor": "Salesforce Sales Cloud",
-        "rationale": "Consolidate marketing automation into the Salesforce stack.",
-        "risk_note": "Campaign data export and lead-scoring re-modelling.",
-        "notes": "Migrate campaigns and contacts; sunset HubSpot.",
+        "rationale": (
+            "Sales already runs on Salesforce, so every lead captured in "
+            "HubSpot round-trips through a nightly Zapier sync that costs "
+            "~4h/week of RevOps time to reconcile and produces duplicate "
+            "contact records (12% dup rate on the last audit). Moving to "
+            "Salesforce marketing add-ons collapses the two contact DBs, "
+            "keeps attribution attached to the Opportunity object instead "
+            "of stopping at the handoff, and lets the same Salesforce SSO/"
+            "SoD controls cover marketing (currently exempted)."
+        ),
+        "risk_note": (
+            "Campaign performance history must be exported before HubSpot "
+            "read-only; lead-scoring rules to be re-modelled in Salesforce "
+            "Einstein — expect 4–6 weeks of parallel scoring for validation."
+        ),
+        "notes": (
+            "Migrate active campaigns and contact segments, freeze new "
+            "campaigns in HubSpot after Q2. Contract renewal 2026-10-01 — "
+            "target sunset before then to avoid another 12-month commit."
+        ),
     },
     # ELIMINATE — decommission, function redundant
     {
@@ -803,9 +856,25 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "effort": "low",
         "priority": 2,
         "target_year": 2026,
-        "rationale": "Redundant source control; standardise on GitHub.",
-        "risk_note": "Migrate active repositories and update CI integrations.",
-        "notes": "Archive then decommission once repos are migrated.",
+        "rationale": (
+            "After last year's migration wave 85% of active repos are already "
+            "on GitHub Enterprise; the residual 15% on Bitbucket forces the "
+            "Platform team to maintain two SSO integrations, two "
+            "branch-protection policies and two CI runner pools. The "
+            "licence savings are real but the security win — one set of "
+            "guardrails to audit and one Copilot/CodeQL rollout — is what "
+            "the CISO has asked for."
+        ),
+        "risk_note": (
+            "Some legacy repos have external contractor accounts that need "
+            "GitHub Enterprise seats provisioned; a handful have "
+            "Bitbucket-specific PR templates that need porting."
+        ),
+        "notes": (
+            "Archive read-only inactive repos, migrate the residual 15% "
+            "on a rolling basis, then decommission Bitbucket at contract "
+            "renewal (2026-09-30)."
+        ),
     },
     {
         "app": "Siemens Opcenter APS",
@@ -817,11 +886,44 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "effort": "medium",
         "priority": 3,
         "target_year": 2027,
-        "rationale": "Scheduling overlaps with Siemens Opcenter; consolidate.",
-        "risk_note": "Validate planning coverage before retiring.",
-        "notes": "Decommission after capability is folded into Opcenter.",
+        "rationale": (
+            "Opcenter APS runs the same finite-capacity scheduler already "
+            "shipped in the Opcenter Execution module NexaTech is licensed "
+            "for. The two systems reading the same order book has produced "
+            "three shop-floor plan divergences in the last 12 months (last "
+            "one caused a half-day of unplanned downtime at the Coventry "
+            "line). Consolidating removes that class of incident, drops "
+            "the standalone APS licence, and cuts the twice-daily "
+            "reconciliation batch job the Ops team currently monitors."
+        ),
+        "risk_note": (
+            "Advanced sequencing rules used by 2 plants must be validated "
+            "in Opcenter Execution before the APS scheduler is turned off; "
+            "hold-out plan for 90 days after cut-over."
+        ),
+        "notes": (
+            "Confirm capability parity in Q1, run parallel schedulers in "
+            "Q2, then decommission APS. Coordinate with the Manufacturing "
+            "Excellence programme so plant change-control aligns."
+        ),
     },
 ]
+
+# Legacy rationale strings from earlier releases of this seed. When the seeded
+# assessment already exists, the backfill upgrades rows whose rationale still
+# matches one of these to the current text — so users see the improved
+# reasoning without losing any manual edits they may have made.
+_LEGACY_RATIONALES: dict[str, str] = {
+    # 1.63.1 → 1.63.2 upgrade: the initial rationales just restated the
+    # decision ("Consolidate analytics onto the Power BI standard") instead of
+    # explaining why. The strings below are the exact previous seed values,
+    # keyed to the app name so the backfill can find and upgrade them.
+    "Tableau": "Consolidate analytics onto the Power BI standard.",
+    "Jenkins": "Move CI/CD to managed GitHub Actions; cut self-hosted ops.",
+    "HubSpot Marketing": "Consolidate marketing automation into the Salesforce stack.",
+    "Bitbucket": "Redundant source control; standardise on GitHub.",
+    "Siemens Opcenter APS": "Scheduling overlaps with Siemens Opcenter; consolidate.",
+}
 
 
 async def _application_name_map(db: AsyncSession) -> dict[str, Card]:
@@ -883,7 +985,57 @@ async def seed_rationalization_assessment(db: AsyncSession) -> dict:
     existing = await db.execute(
         select(RationalizationAssessment).where(RationalizationAssessment.name == name).limit(1)
     )
-    if existing.scalar_one_or_none():
+    existing_assessment = existing.scalar_one_or_none()
+    if existing_assessment is not None:
+        # Existing seeded installs pre-date the ``rationale`` column. Backfill:
+        #   (a) fill rationale when the row still has NULL
+        #   (b) upgrade rationale when it exactly matches a known legacy string
+        #       from an earlier release (see ``_LEGACY_RATIONALES``)
+        # An admin-edited rationale that isn't NULL and isn't in the legacy
+        # set is preserved untouched.
+        by_name = await _application_name_map(db)
+        rationale_by_card_name = {
+            d["app"]: d.get("rationale") for d in RATIONALIZATION_DECISIONS if d.get("rationale")
+        }
+        legacy_by_card_id: dict[uuid.UUID, str] = {}
+        current_by_card_id: dict[uuid.UUID, str] = {}
+        for app_name, rationale in rationale_by_card_name.items():
+            card = by_name.get(app_name)
+            if card is None:
+                continue
+            current_by_card_id[card.id] = rationale
+            legacy = _LEGACY_RATIONALES.get(app_name)
+            if legacy:
+                legacy_by_card_id[card.id] = legacy
+        if not current_by_card_id:
+            return {"skipped": "rationalization_assessment"}
+
+        existing_decisions = await db.execute(
+            select(AssessmentDecision).where(
+                AssessmentDecision.assessment_id == existing_assessment.id,
+                AssessmentDecision.card_id.in_(current_by_card_id.keys()),
+            )
+        )
+        backfilled = 0
+        upgraded = 0
+        for decision in existing_decisions.scalars().all():
+            new_text = current_by_card_id.get(decision.card_id)
+            if new_text is None:
+                continue
+            legacy_text = legacy_by_card_id.get(decision.card_id)
+            if decision.rationale is None:
+                decision.rationale = new_text
+                backfilled += 1
+            elif legacy_text is not None and decision.rationale.strip() == legacy_text.strip():
+                decision.rationale = new_text
+                upgraded += 1
+        if backfilled or upgraded:
+            await db.commit()
+            return {
+                "skipped": "rationalization_assessment",
+                "backfilled_rationale": backfilled,
+                "upgraded_rationale": upgraded,
+            }
         return {"skipped": "rationalization_assessment"}
 
     by_name = await _application_name_map(db)
@@ -923,6 +1075,7 @@ async def seed_rationalization_assessment(db: AsyncSession) -> dict:
                 planned_savings=(
                     float(d["planned_savings"]) if d.get("planned_savings") is not None else None
                 ),
+                rationale=d.get("rationale"),
                 risk_note=d.get("risk_note"),
                 notes=d.get("notes"),
                 progress=int(d.get("progress") or 0),

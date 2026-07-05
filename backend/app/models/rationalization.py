@@ -74,6 +74,11 @@ class AssessmentDecision(UUIDMixin, TimestampMixin, Base):
     )
     annual_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
     planned_savings: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Strategic reasoning for the TIME decision. Distinct from ``notes`` (how
+    # to execute) and ``risk_note`` (what could go wrong) — this captures the
+    # "why" that a board is expected to have on record: e.g. "Consolidate
+    # analytics onto the Power BI standard" for a Tableau → Power BI migrate.
+    rationale: Mapped[str | None] = mapped_column(Text)
     risk_note: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
     progress: Mapped[int] = mapped_column(Integer, default=0)

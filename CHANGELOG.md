@@ -5,6 +5,35 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.0] - 2026-07-04
+
+### Added
+- **"Portfolio Decisions" section on the Application card detail.** Users landing on an Application card (say Tableau) now see every rationalization board verdict recorded against that card — with the strategic rationale front and centre, the successor as a clickable chip, risk + execution notes in a two-column split, cost / savings / progress footer, and a direct link back to the assessment on the board. The verdict is colour-accented by TIME decision (invest = green, migrate = amber, eliminate = red, tolerate = blue), so the answer to "what happened to this app and why" is visible without leaving the card. Rows without a recorded rationale surface a warning indicator so missing evidence is called out instead of silently absent. New `GET /rationalization/cards/{card_id}/decisions` endpoint powers the section — one query returns every assessment/decision pair for a card, most recent first.
+
+## [1.63.2] - 2026-07-04
+
+### Changed
+- **Rationalization decision rationales rewritten with concrete reasoning.** The initial NexaTech seed had every migrate/eliminate decision carry a rationale that essentially restated the verdict ("Consolidate analytics onto the Power BI standard" for Tableau → Power BI), rather than answering *why this app specifically*. The five migrate/eliminate rationales are now 4-6 sentence business cases citing licence economics (Tableau vs Power BI Pro through M365 E5), platform gravity (repos already on GitHub Enterprise), FTE cost (Jenkins masters + agents), incident history (Opcenter APS/Execution schedule divergence at the Coventry line) and contract-renewal dates that anchor the deadlines. Risk notes and execution notes were also expanded so each decision reads like an ARB-ready record. Idempotent upgrade path: existing seeded installs whose rationale still exactly matches the prior weak text is auto-upgraded on next boot; admin-edited rationales are left alone.
+
+## [1.63.1] - 2026-07-04
+
+### Fixed
+- **Application Portfolio Review decisions now show their rationale** — the seed authored a strategic "why" for every TIME decision (e.g. "Consolidate analytics onto the Power BI standard" for Tableau → Power BI migrate), but the field was silently dropped when the assessment was seeded and had no home in the schema, so users saw a `migrate` verdict with no supporting reasoning. Added a nullable `rationale` column to `assessment_decisions`, wired it through the API, exposed a `Rationale (why)` field in the decision edit dialog alongside a proper Risk-note / Execution-notes split (previously only "Description" was editable), and the board now renders the rationale directly under each application name — with an inline "Add rationale" affordance on rows that don't have one yet. Existing seeded installs get their rationale backfilled from the seed on next boot (only where the field is still `NULL`).
+
+## [1.63.0] - 2026-07-04
+
+### Added
+- **Application Layer Overview** (`/reports/application-layer`) — Essential Viewer–inspired landing view that stacks the four EA layers (Business Capabilities → Applications → Technology → Data) with metric tiles, portfolio and health donuts, a critical-apps watchlist, and shortcuts to the Portfolio and Dependencies reports. Rendered from existing cards, subtypes, stakeholders, lifecycle and data-quality signals — no additional data collection.
+- **EA View Library navigation** — New "View Library" landing page at `/reports/view-library` linking every EA view by domain and analysis depth, so users can find the right view without hunting the reports menu.
+- **NORA reference-models explorer** — Browse Business, Application, Data and Technology Reference Models (BRM / ARM / DRM / TRM) inline.
+
+### Changed
+- **NORA demo dataset now populates every band of the Application Layer view** — added 5 more Business Capabilities, 4 more Applications, 6 Interfaces (from zero, spanning REST/SOAP/event/SFTP/batch/GraphQL), 3 more Data Objects, 3 more IT Components, plus 33 relations wiring the layered flow (Apps → Interfaces → Data → Storage). Some new cards carry lifecycle dates so the health donut shows real variety (healthy / at-risk / retired) rather than all-unknown.
+- NORA is now the default framework profile on this fork.
+
+### Fork operations
+- **`RESET_NORA_DEMO=true` env flag** — one-shot upgrade path for installs whose NORA demo landscape was seeded by an older version of the seed. On boot, before re-seeding, clears every card, relation, improvement opportunity, draft SoAW and program-tracker progress row created by the previous seed run — matched by natural key, so customer-created data with unrelated names is untouched. Requires `SEED_NORA=true` to be meaningful; safe to leave on across restarts (the seed then skips on subsequent boots via its marker check).
+
 ## [1.62.4] - 2026-07-01
 
 ### Security

@@ -148,5 +148,7 @@
   "noraProgram.gapModify": "تعديل",
   "noraProgram.gapRetire": "إيقاف",
   "noraProgram.dashEnrichmentUnavailable": "بيانات الإثراء غير متوفرة — أعد تشغيل الخادم",
-  "reports.referenceModels": "النماذج المرجعية"
+  "reports.referenceModels": "النماذج المرجعية",
+  "reports.applicationLayer": "طبقة التطبيقات",
+  "reports.admWorkspaces": "حوكمة ADM"
 }

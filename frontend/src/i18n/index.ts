@@ -17,6 +17,8 @@ import deliveryEn from "./locales/en/delivery.json";
 import grcEn from "./locales/en/grc.json";
 import notificationsEn from "./locales/en/notifications.json";
 import validationEn from "./locales/en/validation.json";
+import admEn from "./locales/en/adm.json";
+import admAr from "./locales/ar/adm.json";
 
 // French
 import commonFr from "./locales/fr/common.json";
@@ -227,6 +229,7 @@ i18n
         grc: grcEn,
         notifications: notificationsEn,
         validation: validationEn,
+        adm: admEn,
       },
       fr: {
         common: commonFr,
@@ -371,6 +374,7 @@ i18n
         grc: grcAr,
         notifications: notificationsAr,
         validation: validationAr,
+        adm: admAr,
       },
     },
     fallbackLng: "en",

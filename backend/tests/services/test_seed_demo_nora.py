@@ -125,3 +125,105 @@ class TestDemoProgram:
         for key, status, _evidence in DEMO_PROGRAM_PROGRESS:
             assert key in catalogue_keys, f"unknown deliverable {key}"
             assert status in ("notStarted", "inProgress", "inReview", "approved", "descoped")
+
+
+# ---------------------------------------------------------------------------
+# Reset round-trip — proves RESET_NORA_DEMO=true can clear the previously
+# seeded landscape so a re-boot with a newer demo dataset lands fresh rows.
+# ---------------------------------------------------------------------------
+
+
+class TestResetRoundTrip:
+    @pytest.mark.asyncio
+    async def test_seed_reset_reseed(self, db):
+        from sqlalchemy import func, select
+
+        from app.models.card import Card
+        from app.models.improvement_opportunity import ImprovementOpportunity
+        from app.models.nora_program import EaProgramDeliverable
+        from app.models.relation import Relation
+        from app.models.soaw import SoAW
+        from app.services.seed_demo_nora import (
+            reset_nora_demo_data,
+            seed_nora_demo_data,
+        )
+
+        # ── Round 1: seed ─────────────────────────────────────────────
+        result = await seed_nora_demo_data(db)
+        await db.flush()
+        assert not result.get("skipped")
+        assert result["cards"] == len(DEMO_CARDS)
+
+        cards_after_seed = (await db.execute(select(func.count()).select_from(Card))).scalar()
+        relations_after_seed = (
+            await db.execute(select(func.count()).select_from(Relation))
+        ).scalar()
+        assert cards_after_seed == len(DEMO_CARDS)
+        assert relations_after_seed == len(DEMO_RELATIONS)
+
+        soaw_count = (await db.execute(select(func.count()).select_from(SoAW))).scalar()
+        opp_count = (
+            await db.execute(select(func.count()).select_from(ImprovementOpportunity))
+        ).scalar()
+        assert soaw_count == 1
+        assert opp_count == 1
+
+        advanced_deliverable_keys = {k for k, _s, _e in DEMO_PROGRAM_PROGRESS}
+        advanced = (
+            await db.execute(
+                select(func.count())
+                .select_from(EaProgramDeliverable)
+                .where(EaProgramDeliverable.key.in_(advanced_deliverable_keys))
+                .where(EaProgramDeliverable.status != "notStarted")
+            )
+        ).scalar()
+        assert advanced == len(DEMO_PROGRAM_PROGRESS)
+
+        # ── Round 2: reset ────────────────────────────────────────────
+        counts = await reset_nora_demo_data(db)
+        await db.flush()
+        assert counts["cards"] == len(DEMO_CARDS)
+        assert counts["opportunities"] == 1
+        assert counts["documents"] == 1
+        assert counts["program_updates"] == len(DEMO_PROGRAM_PROGRESS)
+
+        # Cards gone → relations cascade → SoAW + opportunity gone.
+        assert (await db.execute(select(func.count()).select_from(Card))).scalar() == 0
+        assert (await db.execute(select(func.count()).select_from(Relation))).scalar() == 0
+        assert (await db.execute(select(func.count()).select_from(SoAW))).scalar() == 0
+        assert (
+            await db.execute(select(func.count()).select_from(ImprovementOpportunity))
+        ).scalar() == 0
+
+        # Program deliverables the seed advanced are back to notStarted.
+        remaining_advanced = (
+            await db.execute(
+                select(func.count())
+                .select_from(EaProgramDeliverable)
+                .where(EaProgramDeliverable.key.in_(advanced_deliverable_keys))
+                .where(EaProgramDeliverable.status != "notStarted")
+            )
+        ).scalar()
+        assert remaining_advanced == 0
+
+        # ── Round 3: re-seed cleanly on top of an empty landscape ─────
+        result2 = await seed_nora_demo_data(db)
+        await db.flush()
+        assert not result2.get("skipped")
+        assert result2["cards"] == len(DEMO_CARDS)
+        assert (await db.execute(select(func.count()).select_from(Card))).scalar() == len(
+            DEMO_CARDS
+        )
+
+    @pytest.mark.asyncio
+    async def test_reset_is_idempotent_when_nothing_seeded(self, db):
+        """Calling reset on an empty database returns zeroes, not an error."""
+        from app.services.seed_demo_nora import reset_nora_demo_data
+
+        counts = await reset_nora_demo_data(db)
+        assert counts == {
+            "cards": 0,
+            "opportunities": 0,
+            "documents": 0,
+            "program_updates": 0,
+        }

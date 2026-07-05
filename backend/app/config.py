@@ -50,6 +50,12 @@ class Settings:
     SEED_PROFILE: str = os.getenv("SEED_PROFILE", "nora")
     # Seed the fictional NORA demo landscape (applies the NORA profile first).
     SEED_NORA: bool = os.getenv("SEED_NORA", "").lower() in ("1", "true", "yes")
+    # One-shot: clear the previously seeded NORA demo data (cards, relations,
+    # the linked improvement opportunity, the draft SoAW, program-tracker
+    # progress) before re-seeding. Requires SEED_NORA=true to be meaningful.
+    # Safe to leave on across restarts — the reset runs, then the seed runs
+    # once and skips on subsequent boots (marker check).
+    RESET_NORA_DEMO: bool = os.getenv("RESET_NORA_DEMO", "").lower() in ("1", "true", "yes")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))

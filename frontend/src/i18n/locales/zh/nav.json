@@ -148,5 +148,6 @@
   "noraProgram.gapModify": "修改",
   "noraProgram.gapRetire": "退役",
   "noraProgram.dashEnrichmentUnavailable": "补充数据不可用 — 请重启后端",
-  "reports.referenceModels": "参考模型"
+  "reports.referenceModels": "参考模型",
+  "reports.applicationLayer": "应用层"
 }

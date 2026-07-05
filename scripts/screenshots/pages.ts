@@ -1417,6 +1417,24 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── Reports: Application Layer Overview (fork) ─────────────────────────
+  {
+    id: "59_report_application_layer",
+    route: "/reports/application-layer",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 900 }],
+    filenames: {
+      en: "59_report_application_layer",
+      de: "59_bericht_anwendungsschicht",
+      fr: "59_rapport_couche_application",
+      es: "59_informe_capa_aplicacion",
+      it: "59_report_layer_applicativo",
+      pt: "59_relatorio_camada_aplicacao",
+      zh: "59_report_application_layer",
+      ru: "59_otchet_uroven_prilozheniy",
+    },
+  },
+
 ];
 
 // ---------------------------------------------------------------------------

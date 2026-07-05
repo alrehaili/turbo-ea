@@ -1,3 +1,4 @@
+from app.models.adm import AdmPhase, AdmPhaseArtefact, AdmWorkspace
 from app.models.app_settings import AppSettings
 from app.models.approval_step import ApprovalStep
 from app.models.arb_review import ArbReview
@@ -107,6 +108,9 @@ __all__ = [
     "StandardException",
     "ApprovalStep",
     "ArbReview",
+    "AdmWorkspace",
+    "AdmPhase",
+    "AdmPhaseArtefact",
     "EaProgramDeliverable",
     "ImprovementOpportunity",
     "ImprovementOpportunityCard",

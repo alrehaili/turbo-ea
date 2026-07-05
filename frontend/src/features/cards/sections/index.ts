@@ -24,3 +24,4 @@ export { default as HistoryTab } from "@/features/cards/sections/HistoryTab";
 export { default as RisksTab } from "@/features/cards/sections/RisksTab";
 export { default as ComplianceTab } from "@/features/cards/sections/ComplianceTab";
 export { default as TagsSection } from "@/features/cards/sections/TagsSection";
+export { default as PortfolioDecisionsSection } from "@/features/cards/sections/PortfolioDecisionsSection";

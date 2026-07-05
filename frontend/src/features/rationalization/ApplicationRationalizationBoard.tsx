@@ -51,6 +51,7 @@ interface Decision {
   initiative: CardBrief | null;
   annual_cost: number | null;
   planned_savings: number | null;
+  rationale: string | null;
   risk_note: string | null;
   notes: string | null;
   progress: number;
@@ -100,6 +101,8 @@ export default function ApplicationRationalizationBoard() {
   const [edCost, setEdCost] = useState("");
   const [edSavings, setEdSavings] = useState("");
   const [edProgress, setEdProgress] = useState("0");
+  const [edRationale, setEdRationale] = useState("");
+  const [edRiskNote, setEdRiskNote] = useState("");
   const [edNotes, setEdNotes] = useState("");
 
   const loadAssessments = useCallback(async () => {
@@ -193,6 +196,8 @@ export default function ApplicationRationalizationBoard() {
     setEdCost(d.annual_cost != null ? String(d.annual_cost) : "");
     setEdSavings(d.planned_savings != null ? String(d.planned_savings) : "");
     setEdProgress(String(d.progress ?? 0));
+    setEdRationale(d.rationale || "");
+    setEdRiskNote(d.risk_note || "");
     setEdNotes(d.notes || "");
   };
 
@@ -203,6 +208,8 @@ export default function ApplicationRationalizationBoard() {
       annual_cost: edCost ? Number(edCost) : null,
       planned_savings: edSavings ? Number(edSavings) : null,
       progress: Number(edProgress) || 0,
+      rationale: edRationale || null,
+      risk_note: edRiskNote || null,
       notes: edNotes || null,
     });
     setEditDecision(null);
@@ -391,11 +398,100 @@ export default function ApplicationRationalizationBoard() {
             {active.decisions.map((d) => (
               <TableRow key={d.id} hover>
                 <TableCell>
-                  {d.card && (
-                    <Box component="a" href={`/cards/${d.card.id}`} sx={{ color: "primary.main", textDecoration: "none" }}>
-                      {d.card.name}
+                  <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.75 }}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      {d.card && (
+                        <Box
+                          component="a"
+                          href={`/cards/${d.card.id}`}
+                          sx={{
+                            color: "primary.main",
+                            textDecoration: "none",
+                            fontWeight: 600,
+                            display: "block",
+                          }}
+                        >
+                          {d.card.name}
+                        </Box>
+                      )}
+                      {d.rationale ? (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            lineHeight: 1.35,
+                            mt: 0.25,
+                          }}
+                        >
+                          {d.rationale}
+                        </Typography>
+                      ) : (
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={() => openDecisionEdit(d)}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            mt: 0.25,
+                            p: 0,
+                            border: 0,
+                            background: "none",
+                            cursor: "pointer",
+                            color: "warning.main",
+                            "&:hover": { textDecoration: "underline" },
+                          }}
+                        >
+                          <MaterialSymbol icon="edit_note" size={14} color="inherit" />
+                          <Typography variant="caption" color="inherit">
+                            {t("rationalization.rationaleMissing")}
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
-                  )}
+                    {(d.risk_note || d.notes) && (
+                      <Tooltip
+                        arrow
+                        title={
+                          <Box>
+                            {d.risk_note && (
+                              <Box sx={{ mb: d.notes ? 0.75 : 0 }}>
+                                <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                                  {t("rationalization.riskNoteField")}
+                                </Typography>
+                                <Typography variant="caption" sx={{ display: "block" }}>
+                                  {d.risk_note}
+                                </Typography>
+                              </Box>
+                            )}
+                            {d.notes && (
+                              <Box>
+                                <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                                  {t("rationalization.notesField")}
+                                </Typography>
+                                <Typography variant="caption" sx={{ display: "block" }}>
+                                  {d.notes}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        }
+                      >
+                        <Box sx={{ display: "flex", color: "text.secondary", mt: 0.35 }}>
+                          <MaterialSymbol
+                            icon={d.risk_note ? "warning" : "sticky_note_2"}
+                            size={16}
+                            color="inherit"
+                          />
+                        </Box>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell>
                   <TextField
@@ -586,7 +682,24 @@ export default function ApplicationRationalizationBoard() {
             onChange={(e) => setEdProgress(e.target.value)}
           />
           <TextField
-            label={t("common:labels.description")}
+            label={t("rationalization.rationaleField")}
+            helperText={t("rationalization.rationaleHelper")}
+            value={edRationale}
+            onChange={(e) => setEdRationale(e.target.value)}
+            multiline
+            minRows={2}
+          />
+          <TextField
+            label={t("rationalization.riskNoteField")}
+            helperText={t("rationalization.riskNoteHelper")}
+            value={edRiskNote}
+            onChange={(e) => setEdRiskNote(e.target.value)}
+            multiline
+            minRows={2}
+          />
+          <TextField
+            label={t("rationalization.notesField")}
+            helperText={t("rationalization.notesHelper")}
             value={edNotes}
             onChange={(e) => setEdNotes(e.target.value)}
             multiline

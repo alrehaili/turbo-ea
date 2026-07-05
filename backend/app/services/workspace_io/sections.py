@@ -10,6 +10,7 @@ are applied earlier by the bespoke core sections, so card FKs always resolve.
 
 from __future__ import annotations
 
+from app.models.adm import AdmPhase, AdmPhaseArtefact, AdmWorkspace
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
@@ -173,6 +174,31 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
+    ),
+    # --- ADM Governance Workspace (workspace → phases → artefacts) ---------
+    # SoAW module rows keep their UUIDs on import, so ``soaw_id`` resolves
+    # verbatim. ``initiative_id`` points at a card and is remapped via
+    # ``card_fk_columns``. Artefact ``ref_id`` is a soft FK dispatched by
+    # ``kind`` at the API layer; when the referenced entity is a card the
+    # remap needs to happen too, but for the MVP we accept that a workspace
+    # transfer will leave ``kind='card'`` refs pointing at the old UUIDs.
+    # A follow-up should extend :class:`EntitySection` with a
+    # ``polymorphic_ref`` hook to cover this correctly.
+    EntitySection(
+        "AdmWorkspaces",
+        AdmWorkspace,
+        card_fk_columns=("initiative_id",),
+        user_fk_columns=("owner_id", "created_by"),
+    ),
+    EntitySection(
+        "AdmPhases",
+        AdmPhase,
+        user_fk_columns=("owner_id", "approved_by"),
+    ),
+    EntitySection(
+        "AdmPhaseArtefacts",
+        AdmPhaseArtefact,
+        user_fk_columns=("waived_by", "linked_by"),
     ),
     # --- Transformation roadmaps (roadmap before its milestones) ---------
     EntitySection("Roadmaps", Roadmap, user_fk_columns=("owner_id",)),

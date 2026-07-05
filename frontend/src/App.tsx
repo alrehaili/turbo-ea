@@ -80,6 +80,8 @@ const SoAWEditor = lazy(() => import("@/features/ea-delivery/SoAWEditor"));
 const SoAWPreview = lazy(() => import("@/features/ea-delivery/SoAWPreview"));
 const ADREditor = lazy(() => import("@/features/ea-delivery/ADREditor"));
 const ADRPreview = lazy(() => import("@/features/ea-delivery/ADRPreview"));
+const AdmWorkspaceListPage = lazy(() => import("@/features/adm/AdmWorkspaceListPage"));
+const AdmWorkspacePage = lazy(() => import("@/features/adm/AdmWorkspacePage"));
 const RiskDetailPage = lazy(
   () => import("@/features/grc/risk/RiskDetailPage"),
 );
@@ -241,6 +243,8 @@ function AppRoutes() {
                 <Route path="/ea-delivery/adr/new" element={<ADREditor />} />
                 <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
                 <Route path="/ea-delivery/adr/:id" element={<ADREditor />} />
+                <Route path="/ea-delivery/adm" element={<RequirePermission permission="adm.view"><AdmWorkspaceListPage /></RequirePermission>} />
+                <Route path="/ea-delivery/adm/:workspaceId" element={<RequirePermission permission="adm.view"><AdmWorkspacePage /></RequirePermission>} />
                 <Route path="/ea-delivery/risks" element={<Navigate to="/grc?tab=risk" replace />} />
                 <Route path="/ea-delivery/risks/:id" element={<LegacyRiskDetailRedirect />} />
                 <Route path="/grc" element={<ModuleGate module="grc"><GrcPage /></ModuleGate>} />

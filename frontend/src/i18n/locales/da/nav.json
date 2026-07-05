@@ -148,5 +148,6 @@
   "noraProgram.gapModify": "ændre",
   "noraProgram.gapRetire": "udfase",
   "noraProgram.dashEnrichmentUnavailable": "Berigelsesdata utilgængelige — genstart backend",
-  "reports.referenceModels": "Referencemodeller"
+  "reports.referenceModels": "Referencemodeller",
+  "reports.applicationLayer": "Applikationslag"
 }

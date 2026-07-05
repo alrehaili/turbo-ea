@@ -1,18 +1,24 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { CARD_TYPE_COLORS, LAYER_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 type DomainKey = "enterprise" | "business" | "application" | "data" | "technology" | "governance";
+type DomainFilter = DomainKey | "all";
 
 interface ViewCardDef {
   key: string;
@@ -26,13 +32,19 @@ interface ViewCardDef {
   depth?: "overview" | "analysis" | "summary";
 }
 
+/**
+ * Design tokens for each EA domain. Colors map to the app's LAYER_COLORS /
+ * CARD_TYPE_COLORS so the View Library visually reinforces the same layered
+ * mental model users see on the Application Layer report and the Layered
+ * Dependency View.
+ */
 const DOMAINS: Array<{ key: DomainKey; icon: string; color: string }> = [
-  { key: "enterprise", icon: "account_balance", color: "#5d4037" },
-  { key: "business", icon: "domain", color: "#00695c" },
-  { key: "application", icon: "apps", color: "#1565c0" },
-  { key: "data", icon: "database", color: "#6a1b9a" },
-  { key: "technology", icon: "memory", color: "#455a64" },
-  { key: "governance", icon: "gavel", color: "#8d6e00" },
+  { key: "enterprise", icon: "account_balance", color: CARD_TYPE_COLORS.Objective },
+  { key: "business", icon: "domain", color: LAYER_COLORS["Business Architecture"] },
+  { key: "application", icon: "apps", color: LAYER_COLORS["Application & Data"] },
+  { key: "data", icon: "database", color: CARD_TYPE_COLORS.DataObject },
+  { key: "technology", icon: "memory", color: LAYER_COLORS["Technical Architecture"] },
+  { key: "governance", icon: "gavel", color: CARD_TYPE_COLORS.Provider },
 ];
 
 const VIEWS: ViewCardDef[] = [
@@ -215,14 +227,24 @@ function depthIcon(depth: ViewCardDef["depth"]) {
   return "travel_explore";
 }
 
+function depthColor(depth: ViewCardDef["depth"]) {
+  if (depth === "summary") return STATUS_COLORS.neutral;
+  if (depth === "analysis") return SEVERITY_COLORS.medium;
+  return STATUS_COLORS.info;
+}
+
+function withAlpha(hex: string, alpha: string) {
+  return `${hex}${alpha}`;
+}
+
 export default function EaViewLibraryPage() {
   const { t } = useTranslation(["reports", "nav"]);
-  const navigate = useNavigate();
   const { user } = useAuthContext();
   const { bpmEnabled } = useBpmEnabled();
   const { grcEnabled } = useGrcEnabled();
   const { ppmEnabled } = usePpmEnabled();
-  const [selectedDomain, setSelectedDomain] = useState<DomainKey>("business");
+  const [selectedDomain, setSelectedDomain] = useState<DomainFilter>("all");
+  const [search, setSearch] = useState("");
 
   const can = (permission?: string | string[]) => {
     if (!permission) return true;
@@ -245,11 +267,50 @@ export default function EaViewLibraryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [user?.permissions, bpmEnabled, grcEnabled, ppmEnabled],
   );
-  const selectedViews = visibleViews.filter((view) => view.domain === selectedDomain);
+
+  const domainColorFor = useMemo(() => {
+    const map = new Map<DomainKey, string>();
+    for (const d of DOMAINS) map.set(d.key, d.color);
+    return (k: DomainKey) => map.get(k) ?? STATUS_COLORS.info;
+  }, []);
+
+  // Filter by domain + search. Search matches title and body against the
+  // resolved translation strings so users searching in their own language hit.
+  const filteredViews = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return visibleViews.filter((view) => {
+      if (selectedDomain !== "all" && view.domain !== selectedDomain) return false;
+      if (!q) return true;
+      const title = t(view.titleKey).toLowerCase();
+      const body = t(view.bodyKey).toLowerCase();
+      return title.includes(q) || body.includes(q);
+    });
+  }, [visibleViews, selectedDomain, search, t]);
+
+  const totalVisible = visibleViews.length;
 
   return (
     <Box sx={{ maxWidth: 1320, mx: "auto" }}>
-      <Box sx={{ mb: 3 }}>
+      <Breadcrumbs
+        aria-label={t("viewLibrary.breadcrumbs")}
+        separator="›"
+        sx={{ mb: 1 }}
+      >
+        <Link
+          component={RouterLink}
+          to="/"
+          underline="hover"
+          color="inherit"
+          variant="body2"
+        >
+          {t("dashboard", { ns: "nav" })}
+        </Link>
+        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
+          {t("viewLibrary.title")}
+        </Typography>
+      </Breadcrumbs>
+
+      <Box sx={{ mb: 2.5 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: 0 }}>
           {t("viewLibrary.title")}
         </Typography>
@@ -258,81 +319,159 @@ export default function EaViewLibraryPage() {
         </Typography>
       </Box>
 
+      {/* Search + domain filter row */}
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" },
+          gridTemplateColumns: { xs: "1fr", md: "360px 1fr" },
           gap: 1.5,
-          mb: 3,
+          alignItems: "center",
+          mb: 2,
         }}
       >
-        {DOMAINS.map((domain) => {
-          const count = visibleViews.filter((view) => view.domain === domain.key).length;
-          const active = domain.key === selectedDomain;
-          return (
-            <Paper
-              key={domain.key}
-              component="button"
-              type="button"
-              onClick={() => setSelectedDomain(domain.key)}
-              variant="outlined"
-              sx={{
-                p: 2,
-                textAlign: "left",
-                borderColor: active ? domain.color : "divider",
-                borderWidth: active ? 2 : 1,
-                bgcolor: active ? "rgba(25, 118, 210, 0.04)" : "background.paper",
-                cursor: "pointer",
-                minHeight: 126,
-                borderRadius: 1,
-                "&:hover": { borderColor: domain.color, boxShadow: 2 },
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 1,
-                    bgcolor: domain.color,
-                    color: "#fff",
-                    display: "grid",
-                    placeItems: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <MaterialSymbol icon={domain.icon} size={24} color="inherit" />
-                </Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 750 }}>
-                    {t(`viewLibrary.domain.${domain.key}.title`)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t("viewLibrary.viewsCount", { count })}
-                  </Typography>
-                </Box>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                {t(`viewLibrary.domain.${domain.key}.body`)}
-              </Typography>
-            </Paper>
-          );
-        })}
+        <TextField
+          size="small"
+          fullWidth
+          placeholder={t("viewLibrary.search.placeholder")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <MaterialSymbol icon="search" size={18} color="disabled" />
+                </InputAdornment>
+              ),
+              endAdornment: search ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearch("")}
+                    aria-label={t("viewLibrary.search.clear")}
+                  >
+                    <MaterialSymbol icon="close" size={16} />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            },
+          }}
+        />
+        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+          <Chip
+            label={t("viewLibrary.all", { count: totalVisible })}
+            onClick={() => setSelectedDomain("all")}
+            variant={selectedDomain === "all" ? "filled" : "outlined"}
+            color={selectedDomain === "all" ? "primary" : "default"}
+            size="small"
+          />
+          {DOMAINS.map((domain) => {
+            const count = visibleViews.filter((v) => v.domain === domain.key).length;
+            if (count === 0) return null;
+            const active = selectedDomain === domain.key;
+            return (
+              <Chip
+                key={domain.key}
+                icon={
+                  <Box sx={{ display: "flex", color: active ? "#fff" : domain.color }}>
+                    <MaterialSymbol icon={domain.icon} size={15} color="inherit" />
+                  </Box>
+                }
+                label={`${t(`viewLibrary.domain.${domain.key}.title`)} · ${count}`}
+                onClick={() => setSelectedDomain(domain.key)}
+                variant={active ? "filled" : "outlined"}
+                size="small"
+                sx={{
+                  borderColor: active ? domain.color : withAlpha(domain.color, "55"),
+                  bgcolor: active ? domain.color : "transparent",
+                  color: active ? "#fff" : "text.primary",
+                  "&:hover": {
+                    bgcolor: active ? domain.color : withAlpha(domain.color, "0d"),
+                  },
+                }}
+              />
+            );
+          })}
+        </Box>
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, flexWrap: "wrap" }}>
-          <Typography variant="h5" sx={{ fontWeight: 750, flex: 1 }}>
-            {t(`viewLibrary.domain.${selectedDomain}.title`)}
-          </Typography>
-          <Chip
-            size="small"
-            icon={<MaterialSymbol icon="touch_app" size={16} />}
-            label={t("viewLibrary.drillHint")}
-            variant="outlined"
-          />
-        </Box>
+      {/* Domain description strip — only when a single domain is selected */}
+      {selectedDomain !== "all" && (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.5,
+            mb: 2,
+            borderLeft: `3px solid ${domainColorFor(selectedDomain)}`,
+            borderRadius: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 1,
+              bgcolor: domainColorFor(selectedDomain),
+              color: "#fff",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            <MaterialSymbol
+              icon={DOMAINS.find((d) => d.key === selectedDomain)?.icon ?? "category"}
+              size={22}
+              color="inherit"
+            />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {t(`viewLibrary.domain.${selectedDomain}.title`)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t(`viewLibrary.domain.${selectedDomain}.body`)}
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
+      {/* Views grid */}
+      {filteredViews.length === 0 ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 4,
+            borderRadius: 1,
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <MaterialSymbol icon="search_off" size={32} color="disabled" />
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            {t("viewLibrary.search.emptyTitle")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("viewLibrary.search.emptyBody")}
+          </Typography>
+          {(search || selectedDomain !== "all") && (
+            <Chip
+              size="small"
+              onClick={() => {
+                setSearch("");
+                setSelectedDomain("all");
+              }}
+              icon={<MaterialSymbol icon="restart_alt" size={14} />}
+              label={t("viewLibrary.search.reset")}
+              sx={{ mt: 1 }}
+            />
+          )}
+        </Paper>
+      ) : (
         <Box
           sx={{
             display: "grid",
@@ -340,52 +479,121 @@ export default function EaViewLibraryPage() {
             gap: 1.5,
           }}
         >
-          {selectedViews.map((view) => (
-            <Paper
-              key={view.key}
-              variant="outlined"
-              sx={{
-                p: 1.75,
-                display: "flex",
-                flexDirection: "column",
-                gap: 1.25,
-                borderRadius: 1,
-                minHeight: 208,
-                "&:hover": { boxShadow: 2 },
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon={view.icon} size={24} color="#1565c0" />
-                <Typography variant="h6" sx={{ fontWeight: 750, flex: 1 }}>
-                  {t(view.titleKey)}
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                {t(view.bodyKey)}
-              </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                <Chip
-                  size="small"
-                  icon={<MaterialSymbol icon={depthIcon(view.depth)} size={15} />}
-                  label={t(`viewLibrary.depth.${view.depth ?? "overview"}`)}
-                  variant="outlined"
-                />
-                {view.module && (
-                  <Chip size="small" label={view.module.toUpperCase()} color="primary" variant="outlined" />
-                )}
-              </Box>
-              <Button
-                variant="contained"
-                endIcon={<MaterialSymbol icon="arrow_forward" size={18} />}
-                onClick={() => navigate(view.path)}
-                sx={{ alignSelf: "flex-start", textTransform: "none" }}
+          {filteredViews.map((view) => {
+            const domainColor = domainColorFor(view.domain);
+            const dColor = depthColor(view.depth);
+            return (
+              <Paper
+                key={view.key}
+                variant="outlined"
+                component={RouterLink}
+                to={view.path}
+                aria-label={`${t(view.titleKey)} — ${t(view.bodyKey)}`}
+                sx={{
+                  p: 1.75,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  borderRadius: 1,
+                  borderLeft: `3px solid ${domainColor}`,
+                  textDecoration: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  transition: "transform 120ms, box-shadow 120ms, border-color 120ms",
+                  "&:hover": {
+                    boxShadow: 3,
+                    transform: "translateY(-1px)",
+                    borderColor: domainColor,
+                  },
+                  "&:focus-visible": {
+                    outline: `2px solid ${domainColor}`,
+                    outlineOffset: 2,
+                  },
+                }}
               >
-                {t("viewLibrary.openView")}
-              </Button>
-            </Paper>
-          ))}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 1,
+                      bgcolor: withAlpha(domainColor, "1a"),
+                      color: domainColor,
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <MaterialSymbol icon={view.icon} size={22} color="inherit" />
+                  </Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, flex: 1, minWidth: 0 }}>
+                    {t(view.titleKey)}
+                  </Typography>
+                  <MaterialSymbol icon="arrow_forward" size={18} color="disabled" />
+                </Box>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    flex: 1,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {t(view.bodyKey)}
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+                  <Chip
+                    size="small"
+                    icon={
+                      <Box sx={{ display: "flex", color: dColor }}>
+                        <MaterialSymbol icon={depthIcon(view.depth)} size={13} color="inherit" />
+                      </Box>
+                    }
+                    label={t(`viewLibrary.depth.${view.depth ?? "overview"}`)}
+                    variant="outlined"
+                    sx={{
+                      borderColor: withAlpha(dColor, "55"),
+                      color: dColor,
+                      fontWeight: 700,
+                    }}
+                    // The card itself is the click target — swallow chip clicks
+                    // so they don't feel like a separate action.
+                    onClick={(e) => e.preventDefault()}
+                  />
+                  {view.module && (
+                    <Chip
+                      size="small"
+                      label={view.module.toUpperCase()}
+                      variant="outlined"
+                      onClick={(e) => e.preventDefault()}
+                      sx={{ fontWeight: 700 }}
+                    />
+                  )}
+                  <Box sx={{ flex: 1 }} />
+                  <Chip
+                    size="small"
+                    label={t(`viewLibrary.domain.${view.domain}.title`)}
+                    variant="outlined"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedDomain(view.domain);
+                    }}
+                    sx={{
+                      borderColor: withAlpha(domainColor, "55"),
+                      color: domainColor,
+                      fontWeight: 700,
+                    }}
+                  />
+                </Box>
+              </Paper>
+            );
+          })}
         </Box>
-      </Paper>
+      )}
+
     </Box>
   );
 }

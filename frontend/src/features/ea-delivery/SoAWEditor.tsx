@@ -27,6 +27,7 @@ import TableRow from "@mui/material/TableRow";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import AdmSoAWSection from "@/features/adm/AdmSoAWSection";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
 import SignatureRequestDialog from "./SignatureRequestDialog";
@@ -648,6 +649,15 @@ export default function SoAWEditor() {
           {t("editor.signedBanner", { date: signedAt ? formatDate(signedAt) : "N/A" })}
           {revisionNumber > 1 && t("editor.signedBannerRevision", { number: revisionNumber })}
         </Alert>
+      )}
+
+      {/* ADM Governance Workspace section — renders empty-state + create CTA
+          when no workspace exists, or a compact summary + timeline when one
+          does. Silent no-op for users without adm.view. */}
+      {!isNew && soawIdRef.current && docType === "soaw" && (
+        <Box sx={{ mb: 2, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+          <AdmSoAWSection soawId={soawIdRef.current} soawName={name} />
+        </Box>
       )}
 
       {/* Signatories progress */}

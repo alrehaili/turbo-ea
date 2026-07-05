@@ -148,5 +148,6 @@
   "noraProgram.gapModify": "ändern",
   "noraProgram.gapRetire": "stilllegen",
   "noraProgram.dashEnrichmentUnavailable": "Anreicherungsdaten nicht verfügbar — Backend neu starten",
-  "reports.referenceModels": "Referenzmodelle"
+  "reports.referenceModels": "Referenzmodelle",
+  "reports.applicationLayer": "Anwendungsschicht"
 }

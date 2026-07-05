@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    adm,
     adr,
     ai_suggest,
     arb,
@@ -100,6 +101,7 @@ api_router.include_router(ai_suggest.router)
 api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
+api_router.include_router(adm.router)
 api_router.include_router(risks.router)
 api_router.include_router(risks.cards_risks_router)
 api_router.include_router(risk_mitigation_tasks.risks_router)
