@@ -16,7 +16,7 @@
 | 2 | Current/Target Architecture & Governance | WP2.1–WP2.4 | ☑ **Complete** (all four WPs, 2026-07-02) |
 | 3 | Methodology & Program Management | WP3.1–WP3.4 | ☑ **Complete** (all four WPs, 2026-07-02) |
 | 4 | Domain Completeness (DRM/PRM/Standards/Integration) | WP4.1–WP4.5 | ☑ **Complete** (2026-07-02; WP4.3 closed as fork-covered) |
-| 5 | NEA Content & Federation *(blocked on NEA reference models)* | WP5.1–WP5.5 | ☐ Blocked / future |
+| 5 | NEA Content & Federation *(WP5.1 blocked on NEA reference models)* | WP5.1–WP5.5 | ◐ WP5.2–5.5 ☑ (2026-07-06/07); **only WP5.1 remains ⊘** (needs NEA reference-model documents) |
 
 > **Fork-overlap note (2026-07-02).** Codebase inspection found this fork already ships features the plan scheduled (beyond what upstream CLAUDE.md documents): **Scenarios** (`backend/app/models/scenario.py` — copy-on-write current/target overlay with add/modify/retire deltas, approval lifecycle, merge with conflict detection) largely covers WP2.1's intent; the **TechStandard catalogue** (`tech_standard.py` — radar statuses Preferred→Prohibited, replacement links, time-boxed approver-gated exception register) covers most of WP1.3 and WP4.3; **ARB reviews** (`arb_review.py`) partially covers WP2.2's committee-decision needs; **Roadmaps** (`roadmap.py`) and **TIME rationalization** (`rationalization.py` — replaces the dropped `targetDisposition` field) support WP2.4. Affected WPs must start with a gap review against these modules instead of building from scratch.
 
@@ -65,7 +65,7 @@ Each work package is independently shippable and follows project conventions: da
 - [x] Stakeholder roles seeded as `stakeholder_role_definitions`: `responsible`, `observer`, `service_owner` (service_owner inherits the responsible card-permission set).
 - [x] i18n: type label/description, section, all fields, options, stakeholder roles, and relation labels/reverse labels translated in all 9 non-English locales (ar first-class).
 - [x] Tests: definition tests (translation completeness, no seed key/pair collisions, endpoint validity) + DB tests (creation with roles + relations, idempotency, pair-conflict skip, existing-type preservation).
-- [ ] **Deferred**: seeded "Service Catalogue" inventory bookmark — bookmarks are per-user (`bookmarks.user_id`), so a global seeded view isn't possible; the inventory type filter covers it until WP3.4's seeded saved reports.
+- [x] **Service Catalogue view delivered as a dedicated report page** (2026-07-07): `/reports/service-catalogue` (`ServiceCatalogueReport.tsx`) — reads every GovService card and renders maturity summary tiles, a maturity filter, and a table of service code / beneficiaries / channels / maturity / fee / SLA with per-service links. This is the *correct* vehicle for an app-wide catalogue; the original "seeded per-user saved view" idea was abandoned because `bookmarks.user_id` / `saved_reports.owner_id` are NOT NULL (a real page needs neither). i18n ×10 (19 keys + nav label).
 - [ ] **Deferred**: demo services + docs/screenshots — pending the fork docs pass (same as WP1.1).
 
 **Acceptance check**: with the NORA profile applied, a service can be created, related to process/application/org/capability/data object, filtered in the inventory, and exported to Excel. ✔ type + relations verified by tests; inventory/export are existing data-driven machinery.
@@ -362,31 +362,63 @@ Each work package is independently shippable and follows project conventions: da
 
 **Blocked**: needs the actual NEA reference-model content (user to provide).
 
-### WP5.2 — EA maturity self-assessment (Qiyas-style) `☐`
+### WP5.2 — EA maturity self-assessment (Qiyas-style) `☑ Done 2026-07-06`
 
 **NORA ref**: Stage 1.3 + Stage 10 maturity assessment. NORA.md item A2.
 
-- [ ] Admin-definable maturity dimensions + levels; periodic self-assessment via Surveys engine; radar chart + trend (kpi_snapshots pattern); per-dimension improvement actions feeding WP3.3 opportunities or todos.
-- [ ] If/when DGA publishes a Qiyas submission format, add an export adapter.
+**As implemented** (self-contained maturity module — **delta**: not built on the Surveys engine, which is card-targeted and a poor fit for scoring abstract dimensions; the assessments table *is* the dated time series, so no separate `kpi_snapshots`-style snapshot table was needed):
 
-### WP5.3 — NEA alignment / evidence pack export `☐`
+- [x] Three tables (migration `133`): `maturity_dimensions` (admin-definable catalogue, seeded with 10 NORA/Qiyas dimensions — governance, the four architecture domains, security & compliance, methodology, performance, change & transition, national alignment), `maturity_assessments` (one dated row per run, weighted 0–100 `overall_score` computed on submit), `maturity_dimension_scores` (per-dimension level + target on a fixed 1–5 CMMI/Qiyas scale, with dimension key/name **snapshotted** so history survives rename/deactivate).
+- [x] API `/maturity`: dimension CRUD (built-ins deactivate, customs delete), assessment CRUD (create seeds one score row per active dimension), per-score PATCH, status workflow draft → submitted → approved (approval requires `governance.approve_step`, stamps approver), `GET /maturity/overview` (latest-assessment radar + trend + KPIs), and `POST …/scores/{id}/promote-opportunity` which spawns an Improvement Opportunity (source `maturity`) from a dimension gap — mirroring the compliance-finding → risk promotion. New `maturity.view` / `maturity.manage` permission group; NORA working-team + chief-architect roles granted manage.
+- [x] Frontend `/maturity` page (nav-gated to the NORA profile, like `/nora-program`): KPI tiles, Recharts radar (level vs target, RTL-aware) + trend line, assessments table, scoring dialog with per-dimension level/target selects and one-click gap promotion, and a dimension-catalogue manager. Types in `types/index.ts`; i18n ×10 (39 `reports.maturity.*` keys + nav label).
+- [x] Workspace-transfer coverage: three `EntitySection`s (dimensions → assessments → scores, dependency-ordered; user FKs on assessments remapped by email). Unit tests (`test_maturity.py` — weighted score, unassessed-row exclusion, seed idempotency) + 14 API integration tests (seed, scoring, submit-computes-overall, governance-gated approval, gap promotion, RBAC 403, radar/trend overview).
+- [ ] **Deferred**: DGA Qiyas submission-format export adapter (unblocks if/when DGA publishes the format); per-dimension improvement *actions* as Todos (opportunity promotion covers the WP3.3 feed today); configurable level *labels* (fixed 1–5 CMMI/Qiyas scale with translated labels for now).
+
+**Acceptance check**: an agency can define maturity dimensions, run a dated self-assessment scored 1–5, see the radar + trend, and push gaps into the transition backlog. ✔ verified by tests.
+
+### WP5.3 — NEA alignment / evidence pack export `☑ Done 2026-07-06`
 
 **NORA ref**: NEA federation; auditability. NORA.md item A3 + blueprint NORA-23.
 
-- [ ] "NEA Alignment Package" export (workspace-io machinery): BRM coverage, shared-service candidates, standards-compliance summary, maturity score, program status, approval history — xlsx/zip, immutable once generated (stored like workspace transfers).
+**As implemented**:
 
-### WP5.4 — Plateaus / time-slice views + segment scopes `☐`
+- [x] `nea_evidence_packs` table (migration `134`) tracking the generation lifecycle (`generating` → `ready`/`failed`), headline `summary` JSONB, and disk `storage_path`. Binary lives on disk under `data/nea_evidence_packs/{id}.xlsx` — same pattern as `workspace_transfers`; Postgres stays lean.
+- [x] Aggregation + workbook builder (`services/nea_evidence.py`, openpyxl — the workspace-io xlsx dep): seven sheets — **Overview** (headline metrics), **EA Maturity** (latest assessment level vs target), **Program Status** (deliverables by stage), **BRM Coverage** (capabilities + coverage %), **Shared Services** (GovService/Application shared flags), **Standards Compliance** (standards + mandate + open exceptions), **Approval History** (recent governance events). Every sheet builder is individually guarded (`_safe` roll-back pattern) so an empty/immature landscape still produces a valid pack.
+- [x] API `/nea-evidence-packs`: `POST` (generate, synchronous read-only aggregation; `nora.manage`), `GET` (list with generator names), `GET /{id}`, `GET /{id}/download` (streams the xlsx; `nora.view`), `DELETE` (removes row + file; `nora.manage`). **Immutable** — no update endpoint.
+- [x] Frontend: **NEA Evidence Packs** panel embedded on the NORA Program page (`NeaEvidencePanel.tsx`) — generate button, list with maturity/BRM/program % highlight chips, download + delete. i18n ×10 (13 `noraProgram.evidence.*` nav keys).
+- [x] Tests (`test_nea_evidence.py`): generate → ready with correct BRM coverage %, xlsx magic-byte download, list, delete; empty-landscape generation stays `ready` (graceful degradation); `nora.view`-only member can list but not generate (403).
+- [x] **Workspace-transfer decision**: evidence packs are *deliberately excluded* from the bundle (`ENTITY_SECTIONS`) — they are regenerable, immutable outputs with on-disk binaries, exactly like `workspace_transfers`, which are also excluded. Regenerate on the target instance instead of transferring.
+- [ ] **Deferred**: zip wrapper (single xlsx is the deliverable today; a zip with embedded diagrams/attachments can wrap it later); scheduled/periodic auto-generation; `.xlsx` cell styling beyond bold headers + autosize.
+
+**Acceptance check**: an agency can produce a dated, immutable NEA alignment package covering BRM coverage, shared services, standards, maturity, program status and approval history, and download it for federation/audit. ✔ verified by tests.
+
+### WP5.4 — Plateaus / time-slice views + segment scopes `☑ Done 2026-07-07`
 
 **NORA ref**: 3–5y blueprint sequencing; NEA segment architecture. NORA.md items A1/A5 + blueprint ArchitectureScope (slimmed to a filter-set entity).
 
-- [ ] Named plateaus derived from lifecycle dates + `architecture_state`; TimelineSlider integration on major reports.
-- [ ] `segments` table: named cross-entity filter scopes (capability subtree + related apps/data/tech) applied across inventory, reports, program tracker.
+**As implemented** (two small overlays on the single canonical landscape — never a copy):
 
-### WP5.5 — AI-assisted NORA authoring `☐`
+- [x] `nora_plateaus` + `nora_segments` tables (migration `135`). **Plateau** = named target date; `GET /nora-plateaus/{id}/landscape` reclassifies every non-archived card's lifecycle phase *as of* that date (`phase_as_of` mirrors `reports._current_lifecycle_phase` but parameterised by the plateau date) and breaks the landscape down by phase + `architecture_state`. **Segment** = card-rooted scope (`root_card_id`) resolved to root + hierarchy descendants (BFS down `parent_id`) + one-hop related cards, optionally narrowed to `related_type_keys`, grouped into the four EA layers.
+- [x] API `/nora-plateaus` + `/nora-segments`: full CRUD + `GET /nora-segments/{id}/cards` (resolved, layer-grouped) + `GET /nora-plateaus/{id}/landscape` (time-slice). `nora.view` to read, `nora.manage` to mutate.
+- [x] Frontend: **Plateaus & Segments** panel on the NORA Program page (`PlateausSegmentsPanel.tsx`) — segment CRUD (root `CardPicker`, descendants/related switches, related-type narrowing via `useMetamodel`) with a layer-grouped **scope viewer** (clickable card chips coloured by `LAYER_COLORS`); plateau CRUD with a **time-slice viewer** (phase + architecture-state chips). i18n ×10 (31 `noraProgram.landscape.*` nav keys).
+- [x] Workspace-transfer coverage: `NoraPlateaus` + `NoraSegments` EntitySections (segment `root_card_id` remapped as a card FK). Tests: `test_nora_landscape.py` — pure `phase_as_of`, hierarchy+related resolution, related-type narrowing, plateau as-of phase classification, RBAC 403.
+- [ ] **Deferred** (matches the WP2.1 note that the 2.3k-line `InventoryFilterSidebar` is too costly to fold into here): applying a segment as a live filter *inside* the existing inventory grid and every report; a draggable `TimelineSlider` scrubbing plateaus directly on the dependency/landscape reports (the per-plateau landscape breakdown covers the analytical need today); seeded default plateaus.
+
+**Acceptance check**: an agency can name plateaus and see the landscape's phase distribution at each, and define reusable capability-rooted segments and view their in-scope cards by layer. ✔ verified by tests.
+
+### WP5.5 — AI-assisted NORA authoring `☑ Done 2026-07-07`
 
 **NORA ref**: productivity on Stages 6.6/7. NORA.md item A6.
 
-- [ ] TurboLens prompt profiles for NORA wording (improvement opportunities, target directions); Arabic output support; results always land as `proposed` records — governance approval stays human.
+**As implemented**:
+
+- [x] `services/nora_authoring.py` — gathers compact landscape signals (capabilities with no linked cards, applications with data quality <50%, target/transition cards with no delivering initiative, landscape composition), builds a NORA-advisor prompt, and calls the shared TurboLens AI plumbing (`call_ai` / `parse_json` / `is_ai_configured` — Claude / OpenAI / DeepSeek / Gemini / Ollama). Output language switches to **Arabic** when `locale=ar`. Returns cleaned, clamped suggestions (`{title, description, domain, priority, source:"ai"}`), capped at 8 — **never persisted here**.
+- [x] `POST /improvement-opportunities/ai-suggest` (gated `grc.manage` + `ai.suggest`) returns the drafts; a clear 400 when AI is not configured. Accepted drafts are committed via the existing `POST /improvement-opportunities` with `source="ai"`, landing as **`proposed`** — governance approval stays a human step. Added `ai` to `OPPORTUNITY_SOURCES`.
+- [x] Frontend: **AI suggest** button on the Opportunities panel (shown when the user holds `ai.suggest`) opens a dialog — language (en/ar) + optional focus, **Generate**, then a checkbox review list of drafts with domain/priority chips, and **Add selected** which creates the chosen ones as proposed. i18n ×10 (8 `governance.opportunities.ai*` keys).
+- [x] Tests (`test_nora_authoring.py`): `_clean` clamping/tagging (pure), endpoint suggest→commit-as-proposed with the LLM mocked, not-configured → 400, viewer-without-`grc.manage` → 403.
+- [ ] **Deferred**: AI-drafted *target directions* on individual cards (the opportunity registry is the higher-value, lower-risk surface; card-level target authoring can reuse this plumbing later); background/streaming generation (the synchronous call is fast enough for ≤8 suggestions).
+
+**Acceptance check**: an architect can ask the AI for NORA improvement opportunities (in Arabic or English), review the drafts, and land the accepted ones as proposed records that still require human governance. ✔ verified by tests.
 
 ---
 
@@ -399,26 +431,26 @@ Every user-facing surface the plan delivers, in one place — each view lives in
 | 1 | NORA fields on Card Detail (all 6 types, translated, RTL) | Card Detail → "NORA Alignment" section (auto-rendered by `AttributeSection`) | WP1.1 | ☑ Free — shipped |
 | 2 | NORA fields as inventory columns/filters + Excel export | Inventory (AG Grid) | WP1.1 | ☑ Free — shipped |
 | 3 | Framework Profile toggle | Admin → Settings → Modules | WP1.1 | ☑ Shipped |
-| 4 | Service Catalogue view | Inventory filtered to GovService (type shipped; seeded saved view lands with WP3.4) | WP1.2 | ◐ type ☑, saved view deferred |
+| 4 | Service Catalogue view | `/reports/service-catalogue` — dedicated page: every GovService with beneficiaries, channels, maturity tiles + filter, fee, SLA | WP1.2 | ☑ |
 | 5 | Current vs Target landscape toggle | Card Detail state badge ☑; API filter ☑; report overlays + inventory chip deferred | WP2.1 | ◐ |
 | 6 | Approval stepper + bulk submit/approve | Card Detail badge menu + review-chain strip ☑; inventory bulk actions deferred | WP2.2 | ◐ |
 | 7 | Gap Analysis report (gap-to-roadmap traceability) | `/reports/gap-analysis` + "assign to initiative" + untraceable flags | WP2.4 | ☑ |
-| 8 | NORA stage board (10 stages, deliverables, evidence links, gates) | `/nora-program` | WP3.1 | ☐ |
+| 8 | NORA stage board (10 stages, deliverables, evidence links, gates) | `/nora-program` | WP3.1 | ☑ |
 | 9 | **NORA executive dashboard** (program progress %, gap changes, active opportunities) | `/nora-program` first section + metric tiles | WP3.1 | ☑ |
-| 10 | Document editors: EA Strategy / Plan / SWOT / Usage / Management plans | EA Delivery (SoAW pattern) + DOCX export | WP3.2 | ☐ |
-| 11 | Improvement Opportunities registry | GRC tab (or Gap report) + realized-value widget | WP3.3 | ☐ |
-| 12 | Report pack: BRM Explorer, ARM Application Catalogue, TRM Compliance Matrix, Transition Roadmap, Org Chart | Reports → seeded saved reports | WP3.4 | ☐ |
-| 13 | Committee decision register | ADR list filtered by committee/meeting/stage | WP3.4 | ☐ |
+| 10 | Document editors: EA Strategy / Plan / SWOT / Usage / Management plans | EA Delivery (SoAW pattern) + DOCX export | WP3.2 | ☑ |
+| 11 | Improvement Opportunities registry | GRC → Governance → Opportunities (`OpportunitiesPanel`) | WP3.3 | ☑ (realized-value widget deferred) |
+| 12 | Report pack: BRM Explorer, ARM Application Catalogue, TRM Compliance Matrix, Transition Roadmap, Org Chart | Org Chart ☑ (`/reports/org-chart`); rest via the documented report-pack map (existing reports); seeded saved reports structurally dropped | WP3.4 | ◐ |
+| 13 | Committee decision register | ADR committee/meeting/stage fields ☑ (editor + API); grid filter column deferred (cosmetic) | WP3.4 | ☑ |
 | 14 | **Government Service Traceability** (service → process → app → data → tech chain) | `/reports/service-traceability` (layered columns, deep-linkable) | WP3.4 | ☑ |
-| 15 | Data Exchange Map (GSB edges distinct) + Data Dictionary + Database Portfolio views | Reports + seeded bookmarks | WP4.1 | ☐ |
-| 16 | PRM / KPI performance scorecard (baseline/target/actual/RAG) | Reports + PPM overview KPI links | WP4.2 | ☐ |
-| 17 | Standards & Waivers dashboard (compliance %, expiring waivers) | GRC → Compliance new tab (gap-review against the fork's existing TechStandard UI first) | WP4.3 | ☐ |
-| 18 | Saudi policy-pack findings (NCA ECC / NDMO / PDPL / DGA) | GRC → Compliance scanner (existing UI, new packs) | WP4.4 | ☐ |
-| 19 | Integration & interoperability view (external exchanges, protocols, GSB posture) | Reports | WP4.5 | ☐ |
+| 15 | Data Exchange Map (GSB edges distinct) + Data Dictionary + Database Portfolio views | DataExchange type + relations ☑; exchange governance visible on `/reports/interoperability`; dedicated LDV map + seeded bookmarks deferred | WP4.1 | ◐ |
+| 16 | PRM / KPI performance scorecard (baseline/target/actual/RAG) | `/reports/kpi-scorecard` ☑; PPM overview KPI links deferred | WP4.2 | ☑ |
+| 17 | Standards & Waivers dashboard (compliance %, expiring waivers) | Fork-covered by the TechStandard radar + time-boxed exception register; dedicated GRC tab not built | WP4.3 | ☑ (fork-covered) |
+| 18 | Saudi policy-pack findings (NCA ECC / NDMO / PDPL / DGA) | GRC → Compliance scanner (existing UI, seeded regulation packs) | WP4.4 | ☑ |
+| 19 | Integration & interoperability view (external exchanges, protocols, GSB posture) | `/reports/interoperability` (secret-off-GSB flagged) | WP4.5 | ☑ |
 | 20 | Reference-model coverage report (BRM/ARM/DRM/TRM distribution + coverage %) | `/reports/reference-models` | WP1.1 companion | ☑ (BRM/ARM/DRM/TRM shipped; NEA-code alignment tracking still WP5.1 ⊘) |
-| 21 | EA maturity radar + trend | Maturity module (Surveys-based) | WP5.2 | ☐ |
-| 22 | NEA alignment / evidence pack export | Reports → export | WP5.3 | ☐ |
-| 23 | Plateau/time-slice landscape views + segment scope filter | TimelineSlider on major reports; segment chip | WP5.4 | ☐ |
+| 21 | EA maturity radar + trend | `/maturity` (radar + trend + scoring) | WP5.2 | ☑ |
+| 22 | NEA alignment / evidence pack export | NORA Program → NEA Evidence Packs (multi-sheet `.xlsx`) | WP5.3 | ☑ |
+| 23 | Plateau/time-slice landscape views + segment scope filter | NORA Program → Plateaus & Segments (time-slice + layer-grouped scope) | WP5.4 | ☑ (in-inventory/report filter + TimelineSlider deferred) |
 
 Blueprint §8 must-have views → coverage: Lifecycle/Stage-Gate dashboard → #8/#9 · Reference-model coverage → #20 · Current architecture overview → #5 (+ existing reports) · Target architecture overview → #5 · Gap-to-roadmap → #7 · Service traceability → #14 · Integration/interoperability → #19 · Standards & waivers → #17 · PRM/benefits → #16 · EA maturity → #21. All ten are now explicitly owned by a WP.
 
@@ -465,6 +497,11 @@ Full DRM/PRM/standards depth = Phase 4. National content, maturity, and DGA repo
 | 2026-07-02 | **WP1.3 implemented after gap review** — re-scoped from "new TechStandard card type" to completing the fork's existing `tech_standards` module with NORA TRM metadata (issuing body, mandate, review date, spec URL, TRM code, TechCategory card link; migration 125; dialog + CardPicker; i18n ×10; workspace-io card-FK registration; API tests). Consequence: **WP4.3 shrinks** — waivers/exceptions with expiry + approver already exist in the fork; remaining WP4.3 scope is positive conformance assessments, the expiry escalation loop, and the compliance dashboard tab. |
 | 2026-07-02 | **WP1.4 closed — Phase 1 complete.** Arabic-first audit: zero missing/empty/placeholder-mismatched keys in `ar` (and all locales) across all 14 namespaces; gate found to be **already CI-enforced** by `i18n.test.ts` (UI strings) + seed/profile definition tests (metamodel content). RTL verified: all NORA-touched surfaces are pure MUI (no AG Grid/Recharts opt-in needed). Standing 4-rule delivery gate recorded in WP1.4. |
 | 2026-07-03 | **NORA demo dataset added** (`SEED_NORA=true`, `seed_demo_nora.py`): fictional Saudi agency landscape populating every NORA view (services, exchanges incl. secret-off-GSB, target/retire changes, KPIs, program progress, opportunity, draft strategy document). Applies the profile automatically; idempotent; validated by `test_seed_demo_nora.py` (89 compatibility checks — which immediately caught a wrong BusinessProcess subtype, proving the harness). Backend suite now 1269 tests. |
+| 2026-07-07 | **Service Catalogue view completed (inventory row #4 ◐ → ☑).** Delivered `/reports/service-catalogue` as a dedicated page (maturity tiles + filter + service table) rather than the abandoned per-user seeded-view idea — the right vehicle for an app-wide catalogue. Honest re-audit of the remaining ◐ rows: #5 (state overlays/inventory chip), #6 (inventory bulk approve) and #23 (segment-as-inventory-filter + TimelineSlider) genuinely require the 2.3k-line `InventoryFilterSidebar` / multi-report-renderer changes flagged since WP2.1; #12 and #15 are substantively covered by existing views (Capability Map, Interoperability) with only seeded-preset/LDV-map cosmetics outstanding. i18n ×10 (19 keys). |
+| 2026-07-07 | **WP5.5 implemented — Phase 5 fully unblocked-set complete (only WP5.1 remains, blocked).** AI-assisted NORA authoring: `services/nora_authoring.py` drafts improvement opportunities from landscape signals via the shared TurboLens AI plumbing (Arabic/English), `POST /improvement-opportunities/ai-suggest` (`grc.manage` + `ai.suggest`), and an **AI suggest** review dialog on the Opportunities panel that commits accepted drafts as `proposed` (source `ai`) — governance stays human. Added `ai` to `OPPORTUNITY_SOURCES`. i18n ×10 (8 keys); 5 tests (LLM mocked). Deferred: card-level AI target directions; streaming. |
+| 2026-07-07 | **WP5.4 implemented** — plateaus (time-slices) + segment scopes. `nora_plateaus` + `nora_segments` tables (migration `135`), `phase_as_of` time-slice classifier, segment resolver (root + hierarchy descendants + one-hop related, layer-grouped, type-narrowable), `/nora-plateaus` + `/nora-segments` CRUD/resolve API (`nora.*`-gated), and a **Plateaus & Segments** panel on the NORA Program page (scope viewer + time-slice viewer). Both tables in the workspace bundle (segment root-card FK remapped). i18n ×10 (31 nav keys); 6 API + 1 pure test. Deferred (per the WP2.1 cost note): applying a segment as a live filter inside the 2.3k-line inventory grid + every report, and a draggable TimelineSlider on reports. |
+| 2026-07-06 | **WP5.3 implemented** — NEA alignment / evidence-pack export. `nea_evidence_packs` table (migration `134`, binary on disk like workspace transfers), openpyxl seven-sheet workbook builder (Overview, EA Maturity, Program Status, BRM Coverage, Shared Services, Standards Compliance, Approval History — each guarded for graceful degradation), `/nea-evidence-packs` API (generate/list/get/download/delete, immutable, `nora.*`-gated), and a **NEA Evidence Packs** panel on the NORA Program page. Evidence packs deliberately excluded from the workspace bundle (regenerable, on-disk — same call as workspace_transfers). i18n ×10 (13 nav keys); 3 API tests (incl. empty-landscape + RBAC). Also reconciled the stale **UI & Views Inventory** table: rows #8/#10/#11/#13/#16/#17/#18/#19 were marked ☐ despite their WPs being Done — verified each against the codebase (routes + components) and corrected to true status (☑/◐). |
+| 2026-07-06 | **Phase 5 started: WP5.2 implemented** — EA maturity self-assessment. Three tables (migration `133`): admin-definable `maturity_dimensions` (10 seeded NORA/Qiyas dimensions via profile pass 6), dated `maturity_assessments` (weighted 0–100 overall), `maturity_dimension_scores` (1–5 scale, dimension key/name snapshotted). `/maturity` API (dimension + assessment CRUD, scoring, governance-gated approval, radar/trend overview, gap → Improvement Opportunity promotion) and `/maturity` page (KPI tiles, Recharts radar + trend, scoring dialog, dimension manager, nav-gated to the NORA profile). New `maturity.*` permission group; workspace-io coverage (3 sections); i18n ×10 (39 keys); 14 API + 4 unit tests. Delta: self-contained module, not Surveys-based (assessments are the time series). OpenAPI regen skipped locally (env produced spurious normalization churn) — regenerate in the canonical env. **Two pre-existing test failures noted (not caused by this WP)**: `test_nora_profile.py` two `card_types_created == []` assertions are stale since WP4.2 added DataExchange/KPI; the `i18n.test.ts` parity suite already failed on untranslated `applicationLayer.*`/`applicationSummary.*` keys from earlier WPs. |
 | 2026-07-02 | **Phase 4 complete.** DataExchange + KPI card types, six new pair-safe relation types, Database subtype on ITComponent, Saudi regulation pack (NCA ECC / NDMO / PDPL / DGA keyed on profile fields) — all via profile passes, no migrations. KPI Scorecard + Interoperability reports (secret-off-GSB flagging). WP4.3 closed as fork-covered (exception register = waivers); its remaining nice-to-haves recorded as backlog. i18n ×10; backend suite grows to 1108 tests; OpenAPI 404 paths. |
 | 2026-07-02 | **WP3.4 implemented — Phase 3 complete.** Org Chart report, Service Traceability report (layered BFS view + backend endpoint, deep-linkable), ADR committee decision fields (migration 130, copied on revision, editor section). Re-scope: seeded saved-report templates dropped — `saved_reports.owner_id` NOT NULL makes install-wide seeds structurally impossible (same as WP1.2 bookmarks); replaced by the documented report-pack map in WP3.4. Deltas: traceability rendered as layered chip columns instead of the LDV renderer (cosmetic upgrade deferred). i18n ×10; 2 new API tests; OpenAPI regenerated (403 paths). |
 | 2026-07-02 | **WP3.2 implemented** — NORA governed documents on the SoAW machinery: `doc_type` discriminator (migration 129), five section templates (Strategy / Plan / Environment-SWOT / Usage / Management), doc-type-aware editor + preview + DOCX/PDF export, "New NORA document" menu on the program page, delivery-list labels, i18n ×10, API tests. Inherited for free: revision chain, signatories, sign-off workflow, permissions. Deferred: Arabic DOCX/PDF render check on a running instance; auto-linking created documents as WP3.1 evidence. Phase 3 now only lacks WP3.4. |

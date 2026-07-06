@@ -763,5 +763,140 @@
   "applicationLayer.filters.critical": "Forretningskritiske applikationer",
   "applicationLayer.filters.atRisk": "Applikationer i risiko (udfasning eller lav kvalitet)",
   "applicationLayer.filters.noOwner": "Applikationer uden interessent",
-  "applicationLayer.filters.lowQuality": "Applikationer med datakvalitet under 50 %"
+  "applicationLayer.filters.lowQuality": "Applikationer med datakvalitet under 50 %",
+  "maturity": {
+    "title": "EA-modenhed selvevaluering",
+    "subtitle": "Bedøm EA-funktionen på tværs af modenhedsdimensioner og følg tendensen over tid.",
+    "manageDimensions": "Administrer dimensioner",
+    "newAssessment": "Ny vurdering",
+    "overallScore": "Samlet score",
+    "dimensionsCount": "Dimensioner",
+    "belowTarget": "Under mål",
+    "assessmentsCount": "Vurderinger",
+    "radarTitle": "Seneste vurdering — niveau vs mål",
+    "trendTitle": "Tendens for samlet score",
+    "current": "Nuværende",
+    "target": "Mål",
+    "noData": "Ingen vurdering scoret endnu",
+    "noTrend": "Indsend en vurdering for at se tendensen",
+    "assessments": "Vurderinger",
+    "colTitle": "Titel",
+    "colDate": "Dato",
+    "colStatus": "Status",
+    "colScore": "Score",
+    "noAssessments": "Ingen vurderinger endnu",
+    "dimension": "Dimension",
+    "submit": "Indsend",
+    "reopen": "Genåbn",
+    "approve": "Godkend",
+    "promote": "Opret mulighed",
+    "promoted": "Oprettet",
+    "promoteHint": "Forfrem dette modenhedsgab til en forbedringsmulighed",
+    "custom": "Tilpasset",
+    "active": "Aktiv",
+    "newDimension": "Navn på ny dimension",
+    "status": {
+      "draft": "Kladde",
+      "submitted": "Indsendt",
+      "approved": "Godkendt"
+    },
+    "level": {
+      "0": "Ikke vurderet",
+      "1": "Initial",
+      "2": "Styret",
+      "3": "Defineret",
+      "4": "Målt",
+      "5": "Optimerende"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "Servicekatalog",
+    "subtitle": "Hver offentlig tjeneste med modtagere, kanaler, modenhed, gebyrmodel og SLA.",
+    "empty": "Ingen offentlige tjenester endnu. Aktivér NORA-profilen og opret Offentlig tjeneste-kort.",
+    "filterMaturity": "Modenhed",
+    "allMaturities": "Alle modenheder",
+    "colService": "Tjeneste",
+    "colCode": "Kode",
+    "colBeneficiaries": "Modtagere",
+    "colChannels": "Kanaler",
+    "colMaturity": "Modenhed",
+    "colFee": "Gebyr",
+    "colSla": "SLA",
+    "slaDays": "{{n}} dage",
+    "maturity": {
+      "informational": "Informativ",
+      "interactive": "Interaktiv",
+      "transactional": "Transaktionel",
+      "proactive": "Proaktiv"
+    },
+    "fee": {
+      "free": "Gratis",
+      "paid": "Betalt"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — Lagoversigt",
+    "subtitle": "Sundhed, sammensætning og datakvalitet på tværs af dette arkitekturlag.",
+    "error": "Kunne ikke indlæse lagdata.",
+    "empty": "Ingen kort i dette lag endnu.",
+    "metric": {
+      "total": "Kort",
+      "avgQuality": "Gns. datakvalitet",
+      "approved": "Godkendt",
+      "atRisk": "I risiko"
+    },
+    "byType": "Efter korttype",
+    "lifecycle": "Livscyklusfordeling",
+    "dataQuality": "Datakvalitet",
+    "phase": {
+      "plan": "Plan",
+      "phaseIn": "Indfasning",
+      "active": "Aktiv",
+      "phaseOut": "Udfasning",
+      "endOfLife": "Slut på levetid",
+      "notSet": "Ikke sat"
+    },
+    "attention": "Kræver opmærksomhed",
+    "attentionEmpty": "Alt ser sundt ud.",
+    "colCard": "Kort",
+    "colType": "Type",
+    "colQuality": "Kvalitet",
+    "colApproval": "Godkendelse",
+    "actions": {
+      "inventory": "Åbn i oversigt",
+      "dependencies": "Afhængigheder",
+      "portfolio": "Portefølje"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — Kortoversigt",
+    "subtitle": "Vælg et kort for at se dets relationer på tværs af hvert arkitekturlag.",
+    "pickCard": "Vælg et kort",
+    "empty": "Vælg et kort for at se dets relationer på tværs af lag.",
+    "dataQuality": "datakvalitet",
+    "openCard": "Åbn kort",
+    "impact": "Ændringspåvirkning",
+    "noRelations": "Dette kort har endnu ingen relationer."
+  },
+  "securityLayer": {
+    "title": "Sikkerhedslag",
+    "subtitle": "Sikkerheds- og compliance-status på tværs af landskabet — risici og reguleringscompliance.",
+    "noAccess": "Du har ikke adgang til risiko- eller compliance-data.",
+    "openRisks": "Åbne risici",
+    "critHigh": "Kritisk + høj",
+    "overdue": "Forfaldne",
+    "avgCompliance": "Gns. compliance",
+    "risksByLevel": "Risici efter niveau",
+    "noRisks": "Ingen risici registreret.",
+    "level": {
+      "critical": "Kritisk",
+      "high": "Høj",
+      "medium": "Mellem",
+      "low": "Lav"
+    },
+    "openRegister": "Åbn risikoregister",
+    "compliance": "Compliance efter regulering",
+    "noCompliance": "Ingen compliance-data.",
+    "openCompliance": "Åbn compliance"
+  }
 }

@@ -11,6 +11,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -19,6 +20,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -65,6 +67,14 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { title: "", description: "", domain: "AA", priority: "medium" };
 
+interface AiSuggestion {
+  title: string;
+  description: string;
+  domain: (typeof DOMAINS)[number];
+  priority: (typeof PRIORITIES)[number];
+  source: string;
+}
+
 export default function OpportunitiesPanel() {
   const { t } = useTranslation(["grc", "common"]);
   const { user } = useAuthContext();
@@ -76,6 +86,16 @@ export default function OpportunitiesPanel() {
   const [initiativeFor, setInitiativeFor] = useState<Opportunity | null>(null);
   const [initiative, setInitiative] = useState<CardOption | null>(null);
   const [error, setError] = useState("");
+
+  // AI-assisted authoring (WP5.5)
+  const canAi = hasPermission(user?.permissions, "ai.suggest");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLocale, setAiLocale] = useState("en");
+  const [aiFocus, setAiFocus] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiSelected, setAiSelected] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -112,6 +132,46 @@ export default function OpportunitiesPanel() {
     await load();
   };
 
+  const openAi = () => {
+    setAiSuggestions([]);
+    setAiSelected(new Set());
+    setAiError("");
+    setAiFocus("");
+    setAiOpen(true);
+  };
+
+  const runAiSuggest = async () => {
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await api.post<{ suggestions: AiSuggestion[] }>(
+        "/improvement-opportunities/ai-suggest",
+        { locale: aiLocale, focus: aiFocus || undefined },
+      );
+      setAiSuggestions(res.suggestions);
+      setAiSelected(new Set(res.suggestions.map((_, i) => i)));
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const commitAiSelected = async () => {
+    const chosen = aiSuggestions.filter((_, i) => aiSelected.has(i));
+    for (const s of chosen) {
+      await api.post("/improvement-opportunities", {
+        title: s.title,
+        description: s.description,
+        domain: s.domain,
+        priority: s.priority,
+        source: "ai",
+      });
+    }
+    setAiOpen(false);
+    await load();
+  };
+
   const assignInitiative = async () => {
     if (!initiativeFor || !initiative) return;
     await api.patch(`/improvement-opportunities/${initiativeFor.id}`, {
@@ -138,7 +198,16 @@ export default function OpportunitiesPanel() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mb: 2 }}>
+        {canManage && canAi && (
+          <Button
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="auto_awesome" size={18} />}
+            onClick={openAi}
+          >
+            {t("governance.opportunities.aiSuggest")}
+          </Button>
+        )}
         {canManage && (
           <Button
             variant="contained"
@@ -354,6 +423,89 @@ export default function OpportunitiesPanel() {
           <Button onClick={() => setInitiativeFor(null)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" onClick={assignInitiative} disabled={!initiative}>
             {t("common:actions.save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* AI-assisted authoring (WP5.5) */}
+      <Dialog open={aiOpen} onClose={() => setAiOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{t("governance.opportunities.aiTitle")}</DialogTitle>
+        <DialogContent dividers>
+          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+            <TextField
+              select
+              size="small"
+              label={t("governance.opportunities.aiLanguage")}
+              value={aiLocale}
+              onChange={(e) => setAiLocale(e.target.value)}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="en">English</MenuItem>
+              <MenuItem value="ar">العربية</MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              size="small"
+              label={t("governance.opportunities.aiFocus")}
+              placeholder={t("governance.opportunities.aiFocusHint")}
+              value={aiFocus}
+              onChange={(e) => setAiFocus(e.target.value)}
+            />
+            <Button variant="contained" disabled={aiLoading} onClick={() => void runAiSuggest()}>
+              {aiLoading ? (
+                <CircularProgress size={20} />
+              ) : (
+                t("governance.opportunities.aiGenerate")
+              )}
+            </Button>
+          </Stack>
+
+          {aiError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {aiError}
+            </Alert>
+          )}
+
+          {aiSuggestions.length > 0 && (
+            <>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                {t("governance.opportunities.aiReviewHint")}
+              </Alert>
+              {aiSuggestions.map((s, i) => (
+                <Box
+                  key={i}
+                  sx={{ display: "flex", gap: 1, py: 0.5, borderBottom: "1px solid", borderColor: "divider" }}
+                >
+                  <Checkbox
+                    checked={aiSelected.has(i)}
+                    onChange={(e) => {
+                      const next = new Set(aiSelected);
+                      if (e.target.checked) next.add(i);
+                      else next.delete(i);
+                      setAiSelected(next);
+                    }}
+                  />
+                  <Box>
+                    <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                      <strong>{s.title}</strong>
+                      <Chip size="small" variant="outlined" label={s.domain} />
+                      <Chip size="small" variant="outlined" label={s.priority} />
+                    </Box>
+                    <Box sx={{ fontSize: "0.85rem", color: "text.secondary" }}>{s.description}</Box>
+                  </Box>
+                </Box>
+              ))}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAiOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button
+            variant="contained"
+            disabled={aiSelected.size === 0}
+            onClick={() => void commitAiSelected()}
+          >
+            {t("governance.opportunities.aiAddSelected", { n: aiSelected.size })}
           </Button>
         </DialogActions>
       </Dialog>

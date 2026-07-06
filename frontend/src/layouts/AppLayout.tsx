@@ -61,15 +61,22 @@ interface NavItem {
 const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "dashboard", icon: "dashboard", path: "/" },
   { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
+  { labelKey: "viewLibrary", icon: "travel_explore", path: "/view-library" },
   {
     labelKey: "reports",
     icon: "analytics",
     permission: "reports.ea_dashboard",
     children: [
-      { labelKey: "reports.viewLibrary", icon: "travel_explore", path: "/reports/view-library" },
       { labelKey: "reports.admWorkspaces", icon: "account_tree", path: "/ea-delivery/adm", permission: "adm.view" },
       { labelKey: "reports.applicationLayer", icon: "layers", path: "/reports/application-layer", permission: "inventory.view" },
       { labelKey: "reports.applicationSummary", icon: "article", path: "/reports/application-summary", permission: "inventory.view" },
+      { labelKey: "reports.businessLayer", icon: "domain", path: "/reports/business-layer", permission: "inventory.view" },
+      { labelKey: "reports.businessSummary", icon: "article", path: "/reports/business-summary", permission: "inventory.view" },
+      { labelKey: "reports.strategyLayer", icon: "flag", path: "/reports/strategy-layer", permission: "inventory.view" },
+      { labelKey: "reports.strategySummary", icon: "article", path: "/reports/strategy-summary", permission: "inventory.view" },
+      { labelKey: "reports.technologyLayer", icon: "memory", path: "/reports/technology-layer", permission: "inventory.view" },
+      { labelKey: "reports.technologySummary", icon: "article", path: "/reports/technology-summary", permission: "inventory.view" },
+      { labelKey: "reports.securityLayer", icon: "security", path: "/reports/security-layer", permission: "risks.view" },
       { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio" },
       { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
       { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
@@ -80,6 +87,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart" },
       { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
       { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
+      { labelKey: "reports.serviceCatalogue", icon: "assured_workload", path: "/reports/service-catalogue", permission: "inventory.view" },
       { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
       { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
       { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
@@ -137,6 +145,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
   { labelKey: "noraProgram", icon: "account_balance", path: "/nora-program", permission: "nora.view" },
+  { labelKey: "maturity", icon: "radar", path: "/maturity", permission: "maturity.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 
@@ -192,7 +201,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
     if (!grcEnabled) items = items.filter((item) => item.labelKey !== "grc");
     if (frameworkProfile !== "nora")
-      items = items.filter((item) => item.labelKey !== "noraProgram");
+      items = items.filter(
+        (item) => item.labelKey !== "noraProgram" && item.labelKey !== "maturity",
+      );
 
     // When PPM is disabled, EA Delivery has no parent tab to live under —
     // promote it to a top-level nav item, sitting in PPM's old slot (between

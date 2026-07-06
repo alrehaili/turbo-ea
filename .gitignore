@@ -66,6 +66,10 @@ docker-compose.override.yml
 pgdata/
 backups/
 
+# Runtime file storage (workspace transfers, NEA evidence packs, etc.)
+backend/data/
+data/
+
 # Logs
 logs/
 *.log

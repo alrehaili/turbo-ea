@@ -58,7 +58,15 @@
         "inTransition": "In transizione",
         "realized": "Realizzata",
         "rejected": "Rifiutata"
-      }
+      },
+      "aiSuggest": "Suggerisci con IA",
+      "aiTitle": "Opportunità di miglioramento suggerite dall’IA",
+      "aiLanguage": "Lingua",
+      "aiFocus": "Focus (facoltativo)",
+      "aiFocusHint": "es. governance dei dati, servizi condivisi…",
+      "aiGenerate": "Genera",
+      "aiReviewHint": "Esamina le bozze dell’IA e aggiungi quelle che vuoi — entrano come proposte per la governance.",
+      "aiAddSelected": "Aggiungi {{n}} selezionate"
     }
   },
   "compliance": {

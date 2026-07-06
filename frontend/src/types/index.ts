@@ -2044,3 +2044,73 @@ export interface CardRestoreResponse {
   primary: Card;
   restored_passenger_ids: string[];
 }
+
+// --- EA maturity self-assessment (NORA WP5.2) ---
+export interface MaturityDimension {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  weight: number;
+  sort_order: number;
+  is_active: boolean;
+  built_in: boolean;
+}
+
+export interface MaturityDimensionScore {
+  id: string;
+  assessment_id: string;
+  dimension_id: string | null;
+  dimension_key: string;
+  dimension_name: string;
+  weight: number;
+  sort_order: number;
+  level: number;
+  target_level: number;
+  notes: string | null;
+}
+
+export type MaturityAssessmentStatus = "draft" | "submitted" | "approved";
+
+export interface MaturityAssessment {
+  id: string;
+  title: string;
+  assessment_date: string | null;
+  status: MaturityAssessmentStatus;
+  notes: string | null;
+  overall_score: number | null;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_by_display_name: string | null;
+  approved_at: string | null;
+  scores?: MaturityDimensionScore[];
+}
+
+export interface MaturityRadarEntry {
+  dimension_key: string;
+  dimension_name: string;
+  level: number;
+  target_level: number;
+  max_level: number;
+}
+
+export interface MaturityTrendEntry {
+  id: string;
+  title: string;
+  date: string | null;
+  overall_score: number | null;
+  status: MaturityAssessmentStatus;
+}
+
+export interface MaturityOverview {
+  latest: MaturityAssessment | null;
+  radar: MaturityRadarEntry[];
+  trend: MaturityTrendEntry[];
+  summary: {
+    overall_score: number | null;
+    dimensions: number;
+    below_target: number;
+    assessments: number;
+    max_level: number;
+  };
+}

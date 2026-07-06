@@ -27,9 +27,15 @@ from app.models.improvement_opportunity import (
     ImprovementOpportunityCard,
 )
 from app.models.user import User
+from app.services.nora_authoring import suggest_opportunities
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/improvement-opportunities", tags=["improvement-opportunities"])
+
+
+class AiSuggestRequest(BaseModel):
+    locale: str = Field(default="en", max_length=8)
+    focus: str | None = Field(default=None, max_length=500)
 
 
 class OpportunityCreate(BaseModel):
@@ -149,6 +155,27 @@ async def create_opportunity(
     links = await _links_for(db, [o.id])
     briefs = await _card_briefs(db, set(links.get(o.id, [])))
     return _opp_dict(o, links.get(o.id, []), briefs)
+
+
+@router.post("/ai-suggest")
+async def ai_suggest_opportunities(
+    body: AiSuggestRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """AI-draft NORA improvement opportunities from live landscape signals
+    ([FORK] — WP5.5). Advisory only: nothing is persisted here. The frontend
+    commits accepted suggestions via ``POST ""`` with ``source="ai"`` so they
+    land as ``proposed`` records for human governance."""
+    await PermissionService.require_permission(db, user, "grc.manage")
+    await PermissionService.require_permission(db, user, "ai.suggest")
+    try:
+        suggestions = await suggest_opportunities(db, locale=body.locale, focus=body.focus)
+    except ValueError as e:
+        if str(e) == "AI_NOT_CONFIGURED":
+            raise HTTPException(400, "AI is not configured") from e
+        raise HTTPException(400, str(e)) from e
+    return {"suggestions": suggestions}
 
 
 @router.patch("/{opportunity_id}")

@@ -58,7 +58,15 @@
         "inTransition": "转型中",
         "realized": "已实现",
         "rejected": "已拒绝"
-      }
+      },
+      "aiSuggest": "AI 建议",
+      "aiTitle": "AI 建议的改进机会",
+      "aiLanguage": "语言",
+      "aiFocus": "重点（可选）",
+      "aiFocusHint": "例如 数据治理、共享服务……",
+      "aiGenerate": "生成",
+      "aiReviewHint": "审阅 AI 草稿并添加所需项 — 它们将以“已提议”状态进入治理流程。",
+      "aiAddSelected": "添加所选 {{n}} 项"
     }
   },
   "compliance": {

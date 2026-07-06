@@ -2644,12 +2644,16 @@ def _nora_governance_roles() -> list[dict]:
     working_team = {
         k: v for k, v in MEMBER_PERMISSIONS.items() if k not in ("inventory.approval_status",)
     }
-    working_team.update({"nora.view": True, "nora.manage": True})
+    working_team.update(
+        {"nora.view": True, "nora.manage": True, "maturity.view": True, "maturity.manage": True}
+    )
     chief_architect = {
         **MEMBER_PERMISSIONS,
         "governance.approve_step": True,
         "nora.view": True,
         "nora.manage": True,
+        "maturity.view": True,
+        "maturity.manage": True,
     }
     committee = {
         **VIEWER_PERMISSIONS,
@@ -2932,6 +2936,11 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     from app.services.nora_program import seed_nora_program
 
     summary["program_deliverables_created"] = await seed_nora_program(db)
+
+    # ── Pass 6: seed the EA maturity dimension catalogue (WP5.2) ───────────
+    from app.services.maturity import seed_maturity_dimensions
+
+    summary["maturity_dimensions_created"] = await seed_maturity_dimensions(db)
 
     row = await _get_or_create_settings_row(db)
     general = dict(row.general_settings or {})

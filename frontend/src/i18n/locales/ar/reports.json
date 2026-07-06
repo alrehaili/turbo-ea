@@ -782,5 +782,140 @@
   "rationalization.riskNoteField": "ملاحظة المخاطر",
   "rationalization.riskNoteHelper": "المخاطر المعروفة أو تبعيات الانتقال لهذا القرار.",
   "rationalization.notesField": "ملاحظات التنفيذ",
-  "rationalization.notesHelper": "كيف سيُنفَّذ القرار (المراحل، الجدولة، خطة التوقف)."
+  "rationalization.notesHelper": "كيف سيُنفَّذ القرار (المراحل، الجدولة، خطة التوقف).",
+  "maturity": {
+    "title": "التقييم الذاتي لنضج الهندسة المؤسسية",
+    "subtitle": "قيّم وظيفة الهندسة المؤسسية عبر أبعاد النضج وتتبّع الاتجاه عبر الزمن.",
+    "manageDimensions": "إدارة الأبعاد",
+    "newAssessment": "تقييم جديد",
+    "overallScore": "الدرجة الإجمالية",
+    "dimensionsCount": "الأبعاد",
+    "belowTarget": "دون الهدف",
+    "assessmentsCount": "التقييمات",
+    "radarTitle": "أحدث تقييم — المستوى مقابل الهدف",
+    "trendTitle": "اتجاه الدرجة الإجمالية",
+    "current": "الحالي",
+    "target": "الهدف",
+    "noData": "لا يوجد تقييم مُسجّل بعد",
+    "noTrend": "أرسِل تقييمًا لعرض الاتجاه",
+    "assessments": "التقييمات",
+    "colTitle": "العنوان",
+    "colDate": "التاريخ",
+    "colStatus": "الحالة",
+    "colScore": "الدرجة",
+    "noAssessments": "لا توجد تقييمات بعد",
+    "dimension": "البُعد",
+    "submit": "إرسال",
+    "reopen": "إعادة فتح",
+    "approve": "اعتماد",
+    "promote": "إنشاء فرصة",
+    "promoted": "تم الإنشاء",
+    "promoteHint": "ترقية فجوة النضج هذه إلى فرصة تحسين",
+    "custom": "مخصص",
+    "active": "نشط",
+    "newDimension": "اسم البُعد الجديد",
+    "status": {
+      "draft": "مسودة",
+      "submitted": "مُرسَل",
+      "approved": "معتمد"
+    },
+    "level": {
+      "0": "غير مُقيّم",
+      "1": "أولي",
+      "2": "مُدار",
+      "3": "مُعرّف",
+      "4": "مقيس",
+      "5": "مُحسّن"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "كتالوج الخدمات",
+    "subtitle": "كل خدمة حكومية مع المستفيدين وقنوات التقديم والنضج ونموذج الرسوم واتفاقية مستوى الخدمة.",
+    "empty": "لا توجد خدمات حكومية بعد. فعّل ملف NORA وأنشئ بطاقات خدمة حكومية.",
+    "filterMaturity": "النضج",
+    "allMaturities": "كل مستويات النضج",
+    "colService": "الخدمة",
+    "colCode": "الرمز",
+    "colBeneficiaries": "المستفيدون",
+    "colChannels": "القنوات",
+    "colMaturity": "النضج",
+    "colFee": "الرسوم",
+    "colSla": "اتفاقية الخدمة",
+    "slaDays": "{{n}} يوم",
+    "maturity": {
+      "informational": "معلوماتية",
+      "interactive": "تفاعلية",
+      "transactional": "معاملاتية",
+      "proactive": "استباقية"
+    },
+    "fee": {
+      "free": "مجانية",
+      "paid": "مدفوعة"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — نظرة عامة على الطبقة",
+    "subtitle": "الصحة والتكوين وجودة البيانات عبر طبقة البنية هذه.",
+    "error": "تعذّر تحميل بيانات الطبقة.",
+    "empty": "لا توجد بطاقات في هذه الطبقة بعد.",
+    "metric": {
+      "total": "البطاقات",
+      "avgQuality": "متوسط جودة البيانات",
+      "approved": "معتمدة",
+      "atRisk": "معرّضة للخطر"
+    },
+    "byType": "حسب نوع البطاقة",
+    "lifecycle": "توزيع دورة الحياة",
+    "dataQuality": "جودة البيانات",
+    "phase": {
+      "plan": "تخطيط",
+      "phaseIn": "إدخال",
+      "active": "نشط",
+      "phaseOut": "إخراج",
+      "endOfLife": "نهاية العمر",
+      "notSet": "غير محدد"
+    },
+    "attention": "بحاجة إلى انتباه",
+    "attentionEmpty": "كل شيء يبدو سليمًا.",
+    "colCard": "البطاقة",
+    "colType": "النوع",
+    "colQuality": "الجودة",
+    "colApproval": "الاعتماد",
+    "actions": {
+      "inventory": "فتح في المخزون",
+      "dependencies": "التبعيات",
+      "portfolio": "المحفظة"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — ملخص البطاقة",
+    "subtitle": "اختر بطاقة لعرض علاقاتها عبر كل طبقة من طبقات البنية.",
+    "pickCard": "اختر بطاقة",
+    "empty": "اختر بطاقة لعرض علاقاتها عبر الطبقات.",
+    "dataQuality": "جودة البيانات",
+    "openCard": "فتح البطاقة",
+    "impact": "أثر التغيير",
+    "noRelations": "لا توجد علاقات لهذه البطاقة بعد."
+  },
+  "securityLayer": {
+    "title": "طبقة الأمن",
+    "subtitle": "وضع الأمن والامتثال عبر المشهد — المخاطر والامتثال التنظيمي.",
+    "noAccess": "ليس لديك وصول إلى بيانات المخاطر أو الامتثال.",
+    "openRisks": "المخاطر المفتوحة",
+    "critHigh": "حرجة + عالية",
+    "overdue": "متأخرة",
+    "avgCompliance": "متوسط الامتثال",
+    "risksByLevel": "المخاطر حسب المستوى",
+    "noRisks": "لا مخاطر مسجّلة.",
+    "level": {
+      "critical": "حرجة",
+      "high": "عالية",
+      "medium": "متوسطة",
+      "low": "منخفضة"
+    },
+    "openRegister": "فتح سجل المخاطر",
+    "compliance": "الامتثال حسب اللوائح",
+    "noCompliance": "لا بيانات امتثال.",
+    "openCompliance": "فتح الامتثال"
+  }
 }

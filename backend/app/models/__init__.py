@@ -23,8 +23,15 @@ from app.models.improvement_opportunity import (
     ImprovementOpportunityCard,
 )
 from app.models.kpi_snapshot import KpiSnapshot
+from app.models.maturity import (
+    MaturityAssessment,
+    MaturityDimension,
+    MaturityDimensionScore,
+)
 from app.models.migration import IdentityMap, Migration, StagedRecord
 from app.models.mutation_batch import MutationBatch
+from app.models.nea_evidence import NeaEvidencePack
+from app.models.nora_landscape import NoraPlateau, NoraSegment
 from app.models.nora_program import EaProgramDeliverable
 from app.models.notification import Notification
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
@@ -114,6 +121,12 @@ __all__ = [
     "EaProgramDeliverable",
     "ImprovementOpportunity",
     "ImprovementOpportunityCard",
+    "MaturityDimension",
+    "MaturityAssessment",
+    "MaturityDimensionScore",
+    "NeaEvidencePack",
+    "NoraPlateau",
+    "NoraSegment",
     "Scenario",
     "ScenarioChange",
     "TagGroup",

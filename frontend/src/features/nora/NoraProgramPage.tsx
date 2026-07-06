@@ -44,6 +44,8 @@ import { api, ApiError } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { hasPermission } from "@/components/RequirePermission";
 import { NORA_DOC_TYPES } from "@/features/ea-delivery/soawTemplate";
+import NeaEvidencePanel from "@/features/nora/NeaEvidencePanel";
+import PlateausSegmentsPanel from "@/features/nora/PlateausSegmentsPanel";
 
 interface Evidence {
   kind: string;
@@ -792,6 +794,12 @@ export default function NoraProgramPage() {
           </Accordion>
         );
       })}
+
+      {/* NEA alignment / evidence-pack export (WP5.3) */}
+      <NeaEvidencePanel canManage={canManage} />
+
+      {/* Plateaus (time-slices) + segment scopes (WP5.4) */}
+      <PlateausSegmentsPanel canManage={canManage} />
 
       {/* Add evidence dialog */}
       <Dialog open={!!evidenceFor} onClose={() => setEvidenceFor(null)} fullWidth maxWidth="sm">

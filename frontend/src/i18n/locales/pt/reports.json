@@ -763,5 +763,140 @@
   "applicationLayer.filters.critical": "Aplicações críticas para o negócio",
   "applicationLayer.filters.atRisk": "Aplicações em risco (retirada ou qualidade baixa)",
   "applicationLayer.filters.noOwner": "Aplicações sem responsável",
-  "applicationLayer.filters.lowQuality": "Aplicações com qualidade de dados abaixo de 50 %"
+  "applicationLayer.filters.lowQuality": "Aplicações com qualidade de dados abaixo de 50 %",
+  "maturity": {
+    "title": "Autoavaliação de maturidade EA",
+    "subtitle": "Pontue a função EA em dimensões de maturidade e acompanhe a tendência ao longo do tempo.",
+    "manageDimensions": "Gerir dimensões",
+    "newAssessment": "Nova avaliação",
+    "overallScore": "Pontuação global",
+    "dimensionsCount": "Dimensões",
+    "belowTarget": "Abaixo da meta",
+    "assessmentsCount": "Avaliações",
+    "radarTitle": "Última avaliação — nível vs meta",
+    "trendTitle": "Tendência da pontuação global",
+    "current": "Atual",
+    "target": "Meta",
+    "noData": "Nenhuma avaliação pontuada ainda",
+    "noTrend": "Submeta uma avaliação para ver a tendência",
+    "assessments": "Avaliações",
+    "colTitle": "Título",
+    "colDate": "Data",
+    "colStatus": "Estado",
+    "colScore": "Pontuação",
+    "noAssessments": "Ainda sem avaliações",
+    "dimension": "Dimensão",
+    "submit": "Submeter",
+    "reopen": "Reabrir",
+    "approve": "Aprovar",
+    "promote": "Criar oportunidade",
+    "promoted": "Criada",
+    "promoteHint": "Promover esta lacuna de maturidade a uma oportunidade de melhoria",
+    "custom": "Personalizada",
+    "active": "Ativa",
+    "newDimension": "Nome da nova dimensão",
+    "status": {
+      "draft": "Rascunho",
+      "submitted": "Submetida",
+      "approved": "Aprovada"
+    },
+    "level": {
+      "0": "Não avaliado",
+      "1": "Inicial",
+      "2": "Gerido",
+      "3": "Definido",
+      "4": "Medido",
+      "5": "Otimizado"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "Catálogo de serviços",
+    "subtitle": "Cada serviço público com beneficiários, canais, maturidade, modelo de tarifação e SLA.",
+    "empty": "Ainda sem serviços públicos. Ative o perfil NORA e crie cartões de Serviço público.",
+    "filterMaturity": "Maturidade",
+    "allMaturities": "Todas as maturidades",
+    "colService": "Serviço",
+    "colCode": "Código",
+    "colBeneficiaries": "Beneficiários",
+    "colChannels": "Canais",
+    "colMaturity": "Maturidade",
+    "colFee": "Tarifa",
+    "colSla": "SLA",
+    "slaDays": "{{n}} dias",
+    "maturity": {
+      "informational": "Informativo",
+      "interactive": "Interativo",
+      "transactional": "Transacional",
+      "proactive": "Proativo"
+    },
+    "fee": {
+      "free": "Gratuito",
+      "paid": "Pago"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — Visão da camada",
+    "subtitle": "Saúde, composição e qualidade de dados desta camada de arquitetura.",
+    "error": "Falha ao carregar os dados da camada.",
+    "empty": "Ainda sem cartões nesta camada.",
+    "metric": {
+      "total": "Cartões",
+      "avgQuality": "Qualidade média",
+      "approved": "Aprovados",
+      "atRisk": "Em risco"
+    },
+    "byType": "Por tipo de cartão",
+    "lifecycle": "Distribuição do ciclo de vida",
+    "dataQuality": "Qualidade de dados",
+    "phase": {
+      "plan": "Plano",
+      "phaseIn": "Introdução",
+      "active": "Ativo",
+      "phaseOut": "Descontinuação",
+      "endOfLife": "Fim de vida",
+      "notSet": "Não definido"
+    },
+    "attention": "Requer atenção",
+    "attentionEmpty": "Tudo parece saudável.",
+    "colCard": "Cartão",
+    "colType": "Tipo",
+    "colQuality": "Qualidade",
+    "colApproval": "Aprovação",
+    "actions": {
+      "inventory": "Abrir no inventário",
+      "dependencies": "Dependências",
+      "portfolio": "Portefólio"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — Resumo do cartão",
+    "subtitle": "Escolha um cartão para ver as suas relações em cada camada de arquitetura.",
+    "pickCard": "Selecionar um cartão",
+    "empty": "Selecione um cartão para ver as suas relações entre camadas.",
+    "dataQuality": "qualidade de dados",
+    "openCard": "Abrir cartão",
+    "impact": "Impacto da mudança",
+    "noRelations": "Este cartão ainda não tem relações."
+  },
+  "securityLayer": {
+    "title": "Camada de segurança",
+    "subtitle": "Postura de segurança e conformidade do panorama — riscos e conformidade regulatória.",
+    "noAccess": "Não tem acesso a dados de risco ou conformidade.",
+    "openRisks": "Riscos abertos",
+    "critHigh": "Crítico + alto",
+    "overdue": "Em atraso",
+    "avgCompliance": "Conformidade média",
+    "risksByLevel": "Riscos por nível",
+    "noRisks": "Nenhum risco registado.",
+    "level": {
+      "critical": "Crítico",
+      "high": "Alto",
+      "medium": "Médio",
+      "low": "Baixo"
+    },
+    "openRegister": "Abrir registo de riscos",
+    "compliance": "Conformidade por regulação",
+    "noCompliance": "Sem dados de conformidade.",
+    "openCompliance": "Abrir conformidade"
+  }
 }

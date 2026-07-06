@@ -23,9 +23,12 @@ from app.api.v1 import (
     favorites,
     file_attachments,
     improvement_opportunities,
+    maturity,
     metamodel,
     migration,
     mutation_batches,
+    nea_evidence,
+    nora_landscape,
     nora_program,
     notifications,
     ppm,
@@ -63,6 +66,9 @@ api_router.include_router(metamodel.router)
 api_router.include_router(cards.router)
 api_router.include_router(nora_program.router)
 api_router.include_router(improvement_opportunities.router)
+api_router.include_router(maturity.router)
+api_router.include_router(nea_evidence.router)
+api_router.include_router(nora_landscape.router)
 api_router.include_router(relations.router)
 api_router.include_router(stakeholders.router)
 api_router.include_router(comments.router)

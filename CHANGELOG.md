@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Application Layer Overview** (`/reports/application-layer`) — Essential Viewer–inspired landing view that stacks the four EA layers (Business Capabilities → Applications → Technology → Data) with metric tiles, portfolio and health donuts, a critical-apps watchlist, and shortcuts to the Portfolio and Dependencies reports. Rendered from existing cards, subtypes, stakeholders, lifecycle and data-quality signals — no additional data collection.
-- **EA View Library navigation** — New "View Library" landing page at `/reports/view-library` linking every EA view by domain and analysis depth, so users can find the right view without hunting the reports menu.
+- **EA View Library navigation** — New top-level "View Library" landing page at `/view-library` linking every EA view by domain and analysis depth, so users can find the right view without hunting the reports menu.
 - **NORA reference-models explorer** — Browse Business, Application, Data and Technology Reference Models (BRM / ARM / DRM / TRM) inline.
 
 ### Changed

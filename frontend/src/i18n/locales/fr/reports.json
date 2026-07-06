@@ -763,5 +763,140 @@
   "applicationLayer.filters.critical": "Applications critiques pour le métier",
   "applicationLayer.filters.atRisk": "Applications à risque (retrait ou faible qualité)",
   "applicationLayer.filters.noOwner": "Applications sans partie prenante",
-  "applicationLayer.filters.lowQuality": "Applications dont la qualité de données est inférieure à 50 %"
+  "applicationLayer.filters.lowQuality": "Applications dont la qualité de données est inférieure à 50 %",
+  "maturity": {
+    "title": "Auto-évaluation de la maturité EA",
+    "subtitle": "Évaluez la fonction EA selon des dimensions de maturité et suivez la tendance.",
+    "manageDimensions": "Gérer les dimensions",
+    "newAssessment": "Nouvelle évaluation",
+    "overallScore": "Score global",
+    "dimensionsCount": "Dimensions",
+    "belowTarget": "Sous la cible",
+    "assessmentsCount": "Évaluations",
+    "radarTitle": "Dernière évaluation — niveau vs cible",
+    "trendTitle": "Tendance du score global",
+    "current": "Actuel",
+    "target": "Cible",
+    "noData": "Aucune évaluation notée",
+    "noTrend": "Soumettez une évaluation pour voir la tendance",
+    "assessments": "Évaluations",
+    "colTitle": "Titre",
+    "colDate": "Date",
+    "colStatus": "Statut",
+    "colScore": "Score",
+    "noAssessments": "Aucune évaluation",
+    "dimension": "Dimension",
+    "submit": "Soumettre",
+    "reopen": "Rouvrir",
+    "approve": "Approuver",
+    "promote": "Créer une opportunité",
+    "promoted": "Créée",
+    "promoteHint": "Promouvoir cet écart de maturité en opportunité d’amélioration",
+    "custom": "Personnalisée",
+    "active": "Active",
+    "newDimension": "Nom de la nouvelle dimension",
+    "status": {
+      "draft": "Brouillon",
+      "submitted": "Soumise",
+      "approved": "Approuvée"
+    },
+    "level": {
+      "0": "Non évalué",
+      "1": "Initial",
+      "2": "Géré",
+      "3": "Défini",
+      "4": "Mesuré",
+      "5": "Optimisé"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "Catalogue de services",
+    "subtitle": "Chaque service public avec ses bénéficiaires, canaux, maturité, modèle de tarification et SLA.",
+    "empty": "Aucun service public. Activez le profil NORA et créez des cartes Service public.",
+    "filterMaturity": "Maturité",
+    "allMaturities": "Toutes les maturités",
+    "colService": "Service",
+    "colCode": "Code",
+    "colBeneficiaries": "Bénéficiaires",
+    "colChannels": "Canaux",
+    "colMaturity": "Maturité",
+    "colFee": "Tarif",
+    "colSla": "SLA",
+    "slaDays": "{{n}} jours",
+    "maturity": {
+      "informational": "Informationnel",
+      "interactive": "Interactif",
+      "transactional": "Transactionnel",
+      "proactive": "Proactif"
+    },
+    "fee": {
+      "free": "Gratuit",
+      "paid": "Payant"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — Vue de la couche",
+    "subtitle": "Santé, composition et qualité des données de cette couche d’architecture.",
+    "error": "Échec du chargement des données de la couche.",
+    "empty": "Aucune carte dans cette couche.",
+    "metric": {
+      "total": "Cartes",
+      "avgQuality": "Qualité moyenne",
+      "approved": "Approuvées",
+      "atRisk": "À risque"
+    },
+    "byType": "Par type de carte",
+    "lifecycle": "Répartition du cycle de vie",
+    "dataQuality": "Qualité des données",
+    "phase": {
+      "plan": "Planifié",
+      "phaseIn": "Mise en place",
+      "active": "Actif",
+      "phaseOut": "Retrait",
+      "endOfLife": "Fin de vie",
+      "notSet": "Non défini"
+    },
+    "attention": "À surveiller",
+    "attentionEmpty": "Tout semble sain.",
+    "colCard": "Carte",
+    "colType": "Type",
+    "colQuality": "Qualité",
+    "colApproval": "Approbation",
+    "actions": {
+      "inventory": "Ouvrir dans l’inventaire",
+      "dependencies": "Dépendances",
+      "portfolio": "Portefeuille"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — Résumé de la carte",
+    "subtitle": "Choisissez une carte pour voir ses relations dans chaque couche d’architecture.",
+    "pickCard": "Sélectionner une carte",
+    "empty": "Sélectionnez une carte pour voir ses relations inter-couches.",
+    "dataQuality": "qualité des données",
+    "openCard": "Ouvrir la carte",
+    "impact": "Impact du changement",
+    "noRelations": "Cette carte n’a pas encore de relations."
+  },
+  "securityLayer": {
+    "title": "Couche sécurité",
+    "subtitle": "Posture de sécurité et de conformité du paysage — risques et conformité réglementaire.",
+    "noAccess": "Vous n’avez pas accès aux données de risque ou de conformité.",
+    "openRisks": "Risques ouverts",
+    "critHigh": "Critique + élevé",
+    "overdue": "En retard",
+    "avgCompliance": "Conformité moy.",
+    "risksByLevel": "Risques par niveau",
+    "noRisks": "Aucun risque enregistré.",
+    "level": {
+      "critical": "Critique",
+      "high": "Élevé",
+      "medium": "Moyen",
+      "low": "Faible"
+    },
+    "openRegister": "Ouvrir le registre des risques",
+    "compliance": "Conformité par réglementation",
+    "noCompliance": "Aucune donnée de conformité.",
+    "openCompliance": "Ouvrir la conformité"
+  }
 }

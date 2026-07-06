@@ -849,5 +849,140 @@
   "rationalization.newAssessment": "New assessment",
   "rationalization.assessmentName": "Assessment name",
   "rationalization.editAssessment": "Edit assessment",
-  "rationalization.confirmDeleteAssessment": "Delete assessment «{{name}}»? This cannot be undone."
+  "rationalization.confirmDeleteAssessment": "Delete assessment «{{name}}»? This cannot be undone.",
+  "maturity": {
+    "title": "EA Maturity Self-Assessment",
+    "subtitle": "Score the EA function across maturity dimensions and track the trend over time.",
+    "manageDimensions": "Manage dimensions",
+    "newAssessment": "New assessment",
+    "overallScore": "Overall score",
+    "dimensionsCount": "Dimensions",
+    "belowTarget": "Below target",
+    "assessmentsCount": "Assessments",
+    "radarTitle": "Latest assessment — level vs target",
+    "trendTitle": "Overall score trend",
+    "current": "Current",
+    "target": "Target",
+    "noData": "No assessment scored yet",
+    "noTrend": "Submit an assessment to see the trend",
+    "assessments": "Assessments",
+    "colTitle": "Title",
+    "colDate": "Date",
+    "colStatus": "Status",
+    "colScore": "Score",
+    "noAssessments": "No assessments yet",
+    "dimension": "Dimension",
+    "submit": "Submit",
+    "reopen": "Reopen",
+    "approve": "Approve",
+    "promote": "Create opportunity",
+    "promoted": "Created",
+    "promoteHint": "Promote this maturity gap to an improvement opportunity",
+    "custom": "Custom",
+    "active": "Active",
+    "newDimension": "New dimension name",
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "approved": "Approved"
+    },
+    "level": {
+      "0": "Not assessed",
+      "1": "Initial",
+      "2": "Managed",
+      "3": "Defined",
+      "4": "Measured",
+      "5": "Optimizing"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "Service Catalogue",
+    "subtitle": "Every government service with its beneficiaries, delivery channels, maturity, fee model and SLA.",
+    "empty": "No government services yet. Enable the NORA profile and create Government Service cards.",
+    "filterMaturity": "Maturity",
+    "allMaturities": "All maturities",
+    "colService": "Service",
+    "colCode": "Code",
+    "colBeneficiaries": "Beneficiaries",
+    "colChannels": "Channels",
+    "colMaturity": "Maturity",
+    "colFee": "Fee",
+    "colSla": "SLA",
+    "slaDays": "{{n}} days",
+    "maturity": {
+      "informational": "Informational",
+      "interactive": "Interactive",
+      "transactional": "Transactional",
+      "proactive": "Proactive"
+    },
+    "fee": {
+      "free": "Free",
+      "paid": "Paid"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — Layer Overview",
+    "subtitle": "Health, composition and data quality across this architecture layer.",
+    "error": "Failed to load layer data.",
+    "empty": "No cards in this layer yet.",
+    "metric": {
+      "total": "Cards",
+      "avgQuality": "Avg data quality",
+      "approved": "Approved",
+      "atRisk": "At risk"
+    },
+    "byType": "By card type",
+    "lifecycle": "Lifecycle distribution",
+    "dataQuality": "Data quality",
+    "phase": {
+      "plan": "Plan",
+      "phaseIn": "Phase-in",
+      "active": "Active",
+      "phaseOut": "Phase-out",
+      "endOfLife": "End of life",
+      "notSet": "Not set"
+    },
+    "attention": "Needs attention",
+    "attentionEmpty": "Everything looks healthy.",
+    "colCard": "Card",
+    "colType": "Type",
+    "colQuality": "Quality",
+    "colApproval": "Approval",
+    "actions": {
+      "inventory": "Open in inventory",
+      "dependencies": "Dependencies",
+      "portfolio": "Portfolio"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — Card Summary",
+    "subtitle": "Pick a card to see its relationships across every architecture layer.",
+    "pickCard": "Select a card",
+    "empty": "Select a card to see its cross-layer relationships.",
+    "dataQuality": "data quality",
+    "openCard": "Open card",
+    "impact": "Change impact",
+    "noRelations": "This card has no relationships yet."
+  },
+  "securityLayer": {
+    "title": "Security Layer",
+    "subtitle": "Security & compliance posture across the landscape — risks and regulation compliance.",
+    "noAccess": "You don’t have access to risk or compliance data.",
+    "openRisks": "Open risks",
+    "critHigh": "Critical + high",
+    "overdue": "Overdue",
+    "avgCompliance": "Avg compliance",
+    "risksByLevel": "Risks by level",
+    "noRisks": "No risks recorded.",
+    "level": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "openRegister": "Open Risk Register",
+    "compliance": "Compliance by regulation",
+    "noCompliance": "No compliance data.",
+    "openCompliance": "Open Compliance"
+  }
 }

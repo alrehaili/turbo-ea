@@ -752,7 +752,7 @@ export default function ApplicationLayerOverviewReport() {
       >
         <Link
           component={RouterLink}
-          to="/reports/view-library"
+          to="/view-library"
           underline="hover"
           color="inherit"
           variant="body2"

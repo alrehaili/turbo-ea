@@ -58,7 +58,15 @@
         "inTransition": "In Umsetzung",
         "realized": "Realisiert",
         "rejected": "Abgelehnt"
-      }
+      },
+      "aiSuggest": "KI-Vorschlag",
+      "aiTitle": "KI-vorgeschlagene Verbesserungschancen",
+      "aiLanguage": "Sprache",
+      "aiFocus": "Fokus (optional)",
+      "aiFocusHint": "z. B. Datengovernance, gemeinsame Dienste…",
+      "aiGenerate": "Erzeugen",
+      "aiReviewHint": "Prüfen Sie die KI-Entwürfe und fügen Sie die gewünschten hinzu — sie landen als „vorgeschlagen“ zur Governance.",
+      "aiAddSelected": "{{n}} ausgewählte hinzufügen"
     }
   },
   "compliance": {

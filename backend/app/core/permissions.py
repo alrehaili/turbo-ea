@@ -247,6 +247,17 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
         },
     },
+    "maturity": {
+        "label": "EA Maturity",
+        "permissions": {
+            "maturity.view": "View EA maturity assessments, dimensions and the radar/trend",
+            "maturity.manage": (
+                "Create and score maturity assessments, manage dimensions, and promote "
+                "dimension gaps to improvement opportunities. Approving an assessment "
+                "additionally requires governance.approve_step."
+            ),
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -444,6 +455,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "nora.view": True,
     "nora.manage": False,
+    "maturity.view": True,
+    "maturity.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -537,6 +550,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "nora.view": True,
     "nora.manage": False,
+    "maturity.view": True,
+    "maturity.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -630,6 +645,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "nora.view": True,
     "nora.manage": False,
+    "maturity.view": True,
+    "maturity.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,

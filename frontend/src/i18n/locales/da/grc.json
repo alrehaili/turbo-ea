@@ -58,7 +58,15 @@
         "inTransition": "Under omstilling",
         "realized": "Realiseret",
         "rejected": "Afvist"
-      }
+      },
+      "aiSuggest": "AI-forslag",
+      "aiTitle": "AI-foreslåede forbedringsmuligheder",
+      "aiLanguage": "Sprog",
+      "aiFocus": "Fokus (valgfrit)",
+      "aiFocusHint": "f.eks. datastyring, delte tjenester…",
+      "aiGenerate": "Generer",
+      "aiReviewHint": "Gennemgå AI-udkastene og tilføj dem, du vil have — de lander som foreslået til governance.",
+      "aiAddSelected": "Tilføj {{n}} valgte"
     }
   },
   "compliance": {

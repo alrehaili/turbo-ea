@@ -763,5 +763,140 @@
   "applicationLayer.filters.critical": "业务关键应用",
   "applicationLayer.filters.atRisk": "存在风险的应用(退役或质量低)",
   "applicationLayer.filters.noOwner": "无干系人的应用",
-  "applicationLayer.filters.lowQuality": "数据质量低于 50% 的应用"
+  "applicationLayer.filters.lowQuality": "数据质量低于 50% 的应用",
+  "maturity": {
+    "title": "EA 成熟度自评",
+    "subtitle": "按成熟度维度为 EA 职能打分，并跟踪其随时间的趋势。",
+    "manageDimensions": "管理维度",
+    "newAssessment": "新建评估",
+    "overallScore": "总体得分",
+    "dimensionsCount": "维度",
+    "belowTarget": "低于目标",
+    "assessmentsCount": "评估数",
+    "radarTitle": "最新评估 — 当前与目标",
+    "trendTitle": "总体得分趋势",
+    "current": "当前",
+    "target": "目标",
+    "noData": "尚无评分",
+    "noTrend": "提交评估以查看趋势",
+    "assessments": "评估",
+    "colTitle": "标题",
+    "colDate": "日期",
+    "colStatus": "状态",
+    "colScore": "得分",
+    "noAssessments": "暂无评估",
+    "dimension": "维度",
+    "submit": "提交",
+    "reopen": "重新打开",
+    "approve": "批准",
+    "promote": "创建改进机会",
+    "promoted": "已创建",
+    "promoteHint": "将此成熟度差距提升为改进机会",
+    "custom": "自定义",
+    "active": "启用",
+    "newDimension": "新维度名称",
+    "status": {
+      "draft": "草稿",
+      "submitted": "已提交",
+      "approved": "已批准"
+    },
+    "level": {
+      "0": "未评估",
+      "1": "初始",
+      "2": "受管理",
+      "3": "已定义",
+      "4": "已量化",
+      "5": "持续优化"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "服务目录",
+    "subtitle": "每项政务服务及其受益人、交付渠道、成熟度、收费模式和 SLA。",
+    "empty": "暂无政务服务。启用 NORA 配置并创建政务服务卡片。",
+    "filterMaturity": "成熟度",
+    "allMaturities": "全部成熟度",
+    "colService": "服务",
+    "colCode": "编码",
+    "colBeneficiaries": "受益人",
+    "colChannels": "渠道",
+    "colMaturity": "成熟度",
+    "colFee": "收费",
+    "colSla": "SLA",
+    "slaDays": "{{n}} 天",
+    "maturity": {
+      "informational": "信息型",
+      "interactive": "交互型",
+      "transactional": "事务型",
+      "proactive": "主动型"
+    },
+    "fee": {
+      "free": "免费",
+      "paid": "收费"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — 层级概览",
+    "subtitle": "该架构层的健康度、组成与数据质量。",
+    "error": "加载层级数据失败。",
+    "empty": "该层暂无卡片。",
+    "metric": {
+      "total": "卡片",
+      "avgQuality": "平均数据质量",
+      "approved": "已批准",
+      "atRisk": "有风险"
+    },
+    "byType": "按卡片类型",
+    "lifecycle": "生命周期分布",
+    "dataQuality": "数据质量",
+    "phase": {
+      "plan": "规划",
+      "phaseIn": "引入",
+      "active": "活跃",
+      "phaseOut": "退役",
+      "endOfLife": "生命终止",
+      "notSet": "未设置"
+    },
+    "attention": "需要关注",
+    "attentionEmpty": "一切看起来健康。",
+    "colCard": "卡片",
+    "colType": "类型",
+    "colQuality": "质量",
+    "colApproval": "审批",
+    "actions": {
+      "inventory": "在清单中打开",
+      "dependencies": "依赖",
+      "portfolio": "组合"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — 卡片摘要",
+    "subtitle": "选择一张卡片以查看其在各架构层的关系。",
+    "pickCard": "选择卡片",
+    "empty": "选择一张卡片以查看其跨层关系。",
+    "dataQuality": "数据质量",
+    "openCard": "打开卡片",
+    "impact": "变更影响",
+    "noRelations": "该卡片暂无关系。"
+  },
+  "securityLayer": {
+    "title": "安全层",
+    "subtitle": "全景的安全与合规态势 — 风险与法规合规。",
+    "noAccess": "您无权访问风险或合规数据。",
+    "openRisks": "未处理风险",
+    "critHigh": "严重 + 高",
+    "overdue": "逾期",
+    "avgCompliance": "平均合规",
+    "risksByLevel": "按级别的风险",
+    "noRisks": "暂无风险记录。",
+    "level": {
+      "critical": "严重",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "openRegister": "打开风险登记册",
+    "compliance": "按法规的合规",
+    "noCompliance": "暂无合规数据。",
+    "openCompliance": "打开合规"
+  }
 }

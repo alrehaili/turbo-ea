@@ -763,5 +763,140 @@
   "applicationLayer.filters.critical": "Geschäftskritische Anwendungen",
   "applicationLayer.filters.atRisk": "Gefährdete Anwendungen (Ausphasung oder niedrige Qualität)",
   "applicationLayer.filters.noOwner": "Anwendungen ohne Stakeholder",
-  "applicationLayer.filters.lowQuality": "Anwendungen mit Datenqualität unter 50 %"
+  "applicationLayer.filters.lowQuality": "Anwendungen mit Datenqualität unter 50 %",
+  "maturity": {
+    "title": "EA-Reifegrad-Selbstbewertung",
+    "subtitle": "Bewerten Sie die EA-Funktion über Reifegraddimensionen und verfolgen Sie den Trend.",
+    "manageDimensions": "Dimensionen verwalten",
+    "newAssessment": "Neue Bewertung",
+    "overallScore": "Gesamtwertung",
+    "dimensionsCount": "Dimensionen",
+    "belowTarget": "Unter Ziel",
+    "assessmentsCount": "Bewertungen",
+    "radarTitle": "Letzte Bewertung — Stufe vs. Ziel",
+    "trendTitle": "Trend der Gesamtwertung",
+    "current": "Aktuell",
+    "target": "Ziel",
+    "noData": "Noch keine Bewertung erfasst",
+    "noTrend": "Reichen Sie eine Bewertung ein, um den Trend zu sehen",
+    "assessments": "Bewertungen",
+    "colTitle": "Titel",
+    "colDate": "Datum",
+    "colStatus": "Status",
+    "colScore": "Wertung",
+    "noAssessments": "Noch keine Bewertungen",
+    "dimension": "Dimension",
+    "submit": "Einreichen",
+    "reopen": "Wieder öffnen",
+    "approve": "Genehmigen",
+    "promote": "Chance erstellen",
+    "promoted": "Erstellt",
+    "promoteHint": "Diese Reifegradlücke zu einer Verbesserungschance befördern",
+    "custom": "Benutzerdefiniert",
+    "active": "Aktiv",
+    "newDimension": "Name der neuen Dimension",
+    "status": {
+      "draft": "Entwurf",
+      "submitted": "Eingereicht",
+      "approved": "Genehmigt"
+    },
+    "level": {
+      "0": "Nicht bewertet",
+      "1": "Initial",
+      "2": "Gesteuert",
+      "3": "Definiert",
+      "4": "Gemessen",
+      "5": "Optimierend"
+    }
+  },
+  "serviceCatalogue": {
+    "title": "Servicekatalog",
+    "subtitle": "Jeder Verwaltungsservice mit Begünstigten, Kanälen, Reifegrad, Gebührenmodell und SLA.",
+    "empty": "Noch keine Verwaltungsservices. Aktivieren Sie das NORA-Profil und erstellen Sie Verwaltungsservice-Karten.",
+    "filterMaturity": "Reifegrad",
+    "allMaturities": "Alle Reifegrade",
+    "colService": "Service",
+    "colCode": "Code",
+    "colBeneficiaries": "Begünstigte",
+    "colChannels": "Kanäle",
+    "colMaturity": "Reifegrad",
+    "colFee": "Gebühr",
+    "colSla": "SLA",
+    "slaDays": "{{n}} Tage",
+    "maturity": {
+      "informational": "Informativ",
+      "interactive": "Interaktiv",
+      "transactional": "Transaktional",
+      "proactive": "Proaktiv"
+    },
+    "fee": {
+      "free": "Kostenlos",
+      "paid": "Kostenpflichtig"
+    }
+  },
+  "layerOverview": {
+    "title": "{{layer}} — Ebenenübersicht",
+    "subtitle": "Zustand, Zusammensetzung und Datenqualität dieser Architekturebene.",
+    "error": "Ebenendaten konnten nicht geladen werden.",
+    "empty": "Noch keine Karten in dieser Ebene.",
+    "metric": {
+      "total": "Karten",
+      "avgQuality": "Ø Datenqualität",
+      "approved": "Genehmigt",
+      "atRisk": "Gefährdet"
+    },
+    "byType": "Nach Kartentyp",
+    "lifecycle": "Lebenszyklusverteilung",
+    "dataQuality": "Datenqualität",
+    "phase": {
+      "plan": "Planung",
+      "phaseIn": "Einführung",
+      "active": "Aktiv",
+      "phaseOut": "Auslauf",
+      "endOfLife": "Lebensende",
+      "notSet": "Nicht gesetzt"
+    },
+    "attention": "Aufmerksamkeit nötig",
+    "attentionEmpty": "Alles sieht gesund aus.",
+    "colCard": "Karte",
+    "colType": "Typ",
+    "colQuality": "Qualität",
+    "colApproval": "Genehmigung",
+    "actions": {
+      "inventory": "Im Inventar öffnen",
+      "dependencies": "Abhängigkeiten",
+      "portfolio": "Portfolio"
+    }
+  },
+  "layerSummary": {
+    "title": "{{layer}} — Kartenübersicht",
+    "subtitle": "Wählen Sie eine Karte, um ihre Beziehungen über alle Architekturebenen zu sehen.",
+    "pickCard": "Karte auswählen",
+    "empty": "Wählen Sie eine Karte, um ihre ebenenübergreifenden Beziehungen zu sehen.",
+    "dataQuality": "Datenqualität",
+    "openCard": "Karte öffnen",
+    "impact": "Änderungsauswirkung",
+    "noRelations": "Diese Karte hat noch keine Beziehungen."
+  },
+  "securityLayer": {
+    "title": "Sicherheitsebene",
+    "subtitle": "Sicherheits- und Compliance-Lage der Landschaft — Risiken und Regulierungs-Compliance.",
+    "noAccess": "Sie haben keinen Zugriff auf Risiko- oder Compliance-Daten.",
+    "openRisks": "Offene Risiken",
+    "critHigh": "Kritisch + hoch",
+    "overdue": "Überfällig",
+    "avgCompliance": "Ø Compliance",
+    "risksByLevel": "Risiken nach Stufe",
+    "noRisks": "Keine Risiken erfasst.",
+    "level": {
+      "critical": "Kritisch",
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig"
+    },
+    "openRegister": "Risikoregister öffnen",
+    "compliance": "Compliance nach Regulierung",
+    "noCompliance": "Keine Compliance-Daten.",
+    "openCompliance": "Compliance öffnen"
+  }
 }

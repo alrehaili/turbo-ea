@@ -42,11 +42,16 @@ const TransformationRoadmap = lazy(() => import("@/features/reports/Transformati
 const DependencyReport = lazy(() => import("@/features/reports/DependencyReport"));
 const GapAnalysisReport = lazy(() => import("@/features/reports/GapAnalysisReport"));
 const NoraProgramPage = lazy(() => import("@/features/nora/NoraProgramPage"));
+const MaturityPage = lazy(() => import("@/features/maturity/MaturityPage"));
 const OrgChartReport = lazy(() => import("@/features/reports/OrgChartReport"));
 const ServiceTraceabilityReport = lazy(
   () => import("@/features/reports/ServiceTraceabilityReport"),
 );
 const KpiScorecardReport = lazy(() => import("@/features/reports/KpiScorecardReport"));
+const ServiceCatalogueReport = lazy(() => import("@/features/reports/ServiceCatalogueReport"));
+const LayerOverviewReport = lazy(() => import("@/features/reports/LayerOverviewReport"));
+const LayerSummaryReport = lazy(() => import("@/features/reports/LayerSummaryReport"));
+const SecurityOverviewReport = lazy(() => import("@/features/reports/SecurityOverviewReport"));
 const ReferenceModelsReport = lazy(
   () => import("@/features/reports/ReferenceModelsReport"),
 );
@@ -189,7 +194,8 @@ function AppRoutes() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/inventory" element={<InventoryPage />} />
                 <Route path="/cards/:id" element={<ErrorBoundary label="Card Detail"><CardDetail /></ErrorBoundary>} />
-                <Route path="/reports/view-library" element={<EaViewLibraryPage />} />
+                <Route path="/view-library" element={<EaViewLibraryPage />} />
+                <Route path="/reports/view-library" element={<Navigate to="/view-library" replace />} />
                 <Route path="/reports/application-layer" element={<ApplicationLayerOverviewReport />} />
                 <Route path="/reports/application-summary" element={<ApplicationSummaryReport />} />
                 <Route path="/reports/portfolio" element={<PortfolioReport />} />
@@ -200,9 +206,18 @@ function AppRoutes() {
                 <Route path="/reports/dependencies" element={<DependencyReport />} />
                 <Route path="/reports/gap-analysis" element={<GapAnalysisReport />} />
                 <Route path="/nora-program" element={<NoraProgramPage />} />
+                <Route path="/maturity" element={<MaturityPage />} />
                 <Route path="/reports/org-chart" element={<OrgChartReport />} />
                 <Route path="/reports/service-traceability" element={<ServiceTraceabilityReport />} />
                 <Route path="/reports/kpi-scorecard" element={<KpiScorecardReport />} />
+                <Route path="/reports/service-catalogue" element={<ServiceCatalogueReport />} />
+                <Route path="/reports/strategy-layer" element={<LayerOverviewReport layer="Strategy & Transformation" />} />
+                <Route path="/reports/business-layer" element={<LayerOverviewReport layer="Business Architecture" />} />
+                <Route path="/reports/technology-layer" element={<LayerOverviewReport layer="Technical Architecture" />} />
+                <Route path="/reports/security-layer" element={<SecurityOverviewReport />} />
+                <Route path="/reports/strategy-summary" element={<LayerSummaryReport layer="Strategy & Transformation" />} />
+                <Route path="/reports/business-summary" element={<LayerSummaryReport layer="Business Architecture" />} />
+                <Route path="/reports/technology-summary" element={<LayerSummaryReport layer="Technical Architecture" />} />
                 <Route
                   path="/reports/reference-models"
                   element={<ReferenceModelsReport />}

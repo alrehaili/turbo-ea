@@ -58,7 +58,15 @@
         "inTransition": "En transición",
         "realized": "Realizada",
         "rejected": "Rechazada"
-      }
+      },
+      "aiSuggest": "Sugerir con IA",
+      "aiTitle": "Oportunidades de mejora sugeridas por IA",
+      "aiLanguage": "Idioma",
+      "aiFocus": "Enfoque (opcional)",
+      "aiFocusHint": "p. ej. gobierno de datos, servicios compartidos…",
+      "aiGenerate": "Generar",
+      "aiReviewHint": "Revise los borradores de la IA y añada los que quiera — entran como propuestos para gobernanza.",
+      "aiAddSelected": "Añadir {{n}} seleccionados"
     }
   },
   "compliance": {

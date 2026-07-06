@@ -20,7 +20,14 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 OPPORTUNITY_DOMAINS = ("BA", "AA", "DA", "TA")
-OPPORTUNITY_SOURCES = ("manual", "turbolens_duplicate", "turbolens_modernization", "swot")
+OPPORTUNITY_SOURCES = (
+    "manual",
+    "turbolens_duplicate",
+    "turbolens_modernization",
+    "swot",
+    "maturity",
+    "ai",
+)
 OPPORTUNITY_PRIORITIES = ("low", "medium", "high")
 OPPORTUNITY_STATUSES = ("proposed", "approved", "inTransition", "realized", "rejected")
 

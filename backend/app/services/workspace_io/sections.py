@@ -25,6 +25,12 @@ from app.models.improvement_opportunity import (
     ImprovementOpportunity,
     ImprovementOpportunityCard,
 )
+from app.models.maturity import (
+    MaturityAssessment,
+    MaturityDimension,
+    MaturityDimensionScore,
+)
+from app.models.nora_landscape import NoraPlateau, NoraSegment
 from app.models.nora_program import EaProgramDeliverable
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
@@ -249,6 +255,17 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         ImprovementOpportunityCard,
         card_fk_columns=("card_id",),
     ),
+    # --- EA maturity self-assessment (WP5.2, dimension → assessment → score) ---
+    EntitySection("MaturityDimensions", MaturityDimension),
+    EntitySection(
+        "MaturityAssessments",
+        MaturityAssessment,
+        user_fk_columns=("created_by", "approved_by"),
+    ),
+    EntitySection("MaturityDimensionScores", MaturityDimensionScore),
+    # --- NORA plateaus + segment scopes (WP5.4) ---------------------------
+    EntitySection("NoraPlateaus", NoraPlateau),
+    EntitySection("NoraSegments", NoraSegment, card_fk_columns=("root_card_id",)),
     # --- Architecture Review Board ---------------------------------------
     EntitySection(
         "ArbReviews",
