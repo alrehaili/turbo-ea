@@ -898,5 +898,19 @@
     "compliance": "Compliance efter regulering",
     "noCompliance": "Ingen compliance-data.",
     "openCompliance": "Åbn compliance"
+  },
+  "layerSwimlane": {
+    "swimlane": "Arkitekturlag",
+    "thisLayer": "Dette lag",
+    "more": "+{{count}} mere",
+    "emptyBand": "Ingen korttyper",
+    "print": "Udskriv",
+    "cards": "{{count}} kort",
+    "layerName": {
+      "strategy": "Strategi & transformation",
+      "business": "Forretningsarkitektur",
+      "application": "Applikationer & data",
+      "technical": "Teknisk arkitektur"
+    }
   }
 }

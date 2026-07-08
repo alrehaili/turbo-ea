@@ -29,9 +29,7 @@ const CardDetail = lazy(() => import("@/features/cards/CardDetail"));
 const ErrorBoundary = lazy(() => import("@/components/ErrorBoundary"));
 const PortfolioReport = lazy(() => import("@/features/reports/PortfolioReport"));
 const EaViewLibraryPage = lazy(() => import("@/features/reports/EaViewLibraryPage"));
-const ApplicationLayerOverviewReport = lazy(
-  () => import("@/features/reports/ApplicationLayerOverviewReport"),
-);
+const LayerSwimlaneOverview = lazy(() => import("@/features/layers/LayerSwimlaneOverview"));
 const ApplicationSummaryReport = lazy(
   () => import("@/features/reports/ApplicationSummaryReport"),
 );
@@ -49,7 +47,6 @@ const ServiceTraceabilityReport = lazy(
 );
 const KpiScorecardReport = lazy(() => import("@/features/reports/KpiScorecardReport"));
 const ServiceCatalogueReport = lazy(() => import("@/features/reports/ServiceCatalogueReport"));
-const LayerOverviewReport = lazy(() => import("@/features/reports/LayerOverviewReport"));
 const LayerSummaryReport = lazy(() => import("@/features/reports/LayerSummaryReport"));
 const SecurityOverviewReport = lazy(() => import("@/features/reports/SecurityOverviewReport"));
 const ReferenceModelsReport = lazy(
@@ -196,8 +193,26 @@ function AppRoutes() {
                 <Route path="/cards/:id" element={<ErrorBoundary label="Card Detail"><CardDetail /></ErrorBoundary>} />
                 <Route path="/view-library" element={<EaViewLibraryPage />} />
                 <Route path="/reports/view-library" element={<Navigate to="/view-library" replace />} />
-                <Route path="/reports/application-layer" element={<ApplicationLayerOverviewReport />} />
-                <Route path="/reports/application-summary" element={<ApplicationSummaryReport />} />
+                {/* Layers tab — rich per-layer swim-lane overviews (moved off /reports/). */}
+                <Route path="/layers/strategy" element={<LayerSwimlaneOverview layer="Strategy & Transformation" />} />
+                <Route path="/layers/business" element={<LayerSwimlaneOverview layer="Business Architecture" />} />
+                <Route path="/layers/application" element={<LayerSwimlaneOverview layer="Application & Data" />} />
+                <Route path="/layers/technical" element={<LayerSwimlaneOverview layer="Technical Architecture" />} />
+                <Route path="/layers/security" element={<SecurityOverviewReport />} />
+                <Route path="/layers/strategy-summary" element={<LayerSummaryReport layer="Strategy & Transformation" />} />
+                <Route path="/layers/business-summary" element={<LayerSummaryReport layer="Business Architecture" />} />
+                <Route path="/layers/application-summary" element={<ApplicationSummaryReport />} />
+                <Route path="/layers/technical-summary" element={<LayerSummaryReport layer="Technical Architecture" />} />
+                {/* Back-compat redirects from the old /reports/*-layer paths. */}
+                <Route path="/reports/application-layer" element={<Navigate to="/layers/application" replace />} />
+                <Route path="/reports/strategy-layer" element={<Navigate to="/layers/strategy" replace />} />
+                <Route path="/reports/business-layer" element={<Navigate to="/layers/business" replace />} />
+                <Route path="/reports/technology-layer" element={<Navigate to="/layers/technical" replace />} />
+                <Route path="/reports/security-layer" element={<Navigate to="/layers/security" replace />} />
+                <Route path="/reports/application-summary" element={<Navigate to="/layers/application-summary" replace />} />
+                <Route path="/reports/strategy-summary" element={<Navigate to="/layers/strategy-summary" replace />} />
+                <Route path="/reports/business-summary" element={<Navigate to="/layers/business-summary" replace />} />
+                <Route path="/reports/technology-summary" element={<Navigate to="/layers/technical-summary" replace />} />
                 <Route path="/reports/portfolio" element={<PortfolioReport />} />
                 <Route path="/reports/flexible-portfolio" element={<FlexiblePortfolioReport />} />
                 <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
@@ -211,13 +226,6 @@ function AppRoutes() {
                 <Route path="/reports/service-traceability" element={<ServiceTraceabilityReport />} />
                 <Route path="/reports/kpi-scorecard" element={<KpiScorecardReport />} />
                 <Route path="/reports/service-catalogue" element={<ServiceCatalogueReport />} />
-                <Route path="/reports/strategy-layer" element={<LayerOverviewReport layer="Strategy & Transformation" />} />
-                <Route path="/reports/business-layer" element={<LayerOverviewReport layer="Business Architecture" />} />
-                <Route path="/reports/technology-layer" element={<LayerOverviewReport layer="Technical Architecture" />} />
-                <Route path="/reports/security-layer" element={<SecurityOverviewReport />} />
-                <Route path="/reports/strategy-summary" element={<LayerSummaryReport layer="Strategy & Transformation" />} />
-                <Route path="/reports/business-summary" element={<LayerSummaryReport layer="Business Architecture" />} />
-                <Route path="/reports/technology-summary" element={<LayerSummaryReport layer="Technical Architecture" />} />
                 <Route
                   path="/reports/reference-models"
                   element={<ReferenceModelsReport />}

@@ -203,5 +203,6 @@
   "reports.strategySummary": "Strategie-Zusammenfassung",
   "reports.technologyLayer": "Technologie-Ebene",
   "reports.technologySummary": "Technologie-Zusammenfassung",
-  "reports.securityLayer": "Sicherheitsebene"
+  "reports.securityLayer": "Sicherheitsebene",
+  "layers": "Ebenen"
 }

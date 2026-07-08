@@ -203,5 +203,6 @@
   "reports.strategySummary": "Resumo de estratégia",
   "reports.technologyLayer": "Camada de tecnologia",
   "reports.technologySummary": "Resumo de tecnologia",
-  "reports.securityLayer": "Camada de segurança"
+  "reports.securityLayer": "Camada de segurança",
+  "layers": "Camadas"
 }

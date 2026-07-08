@@ -206,5 +206,6 @@
   "reports.strategySummary": "Strategy Summary",
   "reports.technologyLayer": "Technology Layer",
   "reports.technologySummary": "Technology Summary",
-  "reports.securityLayer": "Security Layer"
+  "reports.securityLayer": "Security Layer",
+  "layers": "Layers"
 }

@@ -917,5 +917,19 @@
     "compliance": "الامتثال حسب اللوائح",
     "noCompliance": "لا بيانات امتثال.",
     "openCompliance": "فتح الامتثال"
+  },
+  "layerSwimlane": {
+    "swimlane": "طبقات البنية",
+    "thisLayer": "هذه الطبقة",
+    "more": "+{{count}} أخرى",
+    "emptyBand": "لا توجد أنواع بطاقات",
+    "print": "طباعة",
+    "cards": "{{count}} بطاقة",
+    "layerName": {
+      "strategy": "الاستراتيجية والتحول",
+      "business": "بنية الأعمال",
+      "application": "التطبيقات والبيانات",
+      "technical": "البنية التقنية"
+    }
   }
 }

@@ -203,5 +203,6 @@
   "reports.strategySummary": "Riepilogo strategia",
   "reports.technologyLayer": "Livello tecnologia",
   "reports.technologySummary": "Riepilogo tecnologia",
-  "reports.securityLayer": "Livello sicurezza"
+  "reports.securityLayer": "Livello sicurezza",
+  "layers": "Livelli"
 }

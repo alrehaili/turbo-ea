@@ -203,5 +203,6 @@
   "reports.strategySummary": "Résumé stratégie",
   "reports.technologyLayer": "Couche technologie",
   "reports.technologySummary": "Résumé technologie",
-  "reports.securityLayer": "Couche sécurité"
+  "reports.securityLayer": "Couche sécurité",
+  "layers": "Couches"
 }

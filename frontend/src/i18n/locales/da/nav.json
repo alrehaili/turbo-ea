@@ -203,5 +203,6 @@
   "reports.strategySummary": "Strategioversigt",
   "reports.technologyLayer": "Teknologilag",
   "reports.technologySummary": "Teknologioversigt",
-  "reports.securityLayer": "Sikkerhedslag"
+  "reports.securityLayer": "Sikkerhedslag",
+  "layers": "Lag"
 }

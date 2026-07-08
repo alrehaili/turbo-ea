@@ -204,5 +204,6 @@
   "reports.strategySummary": "ملخص الاستراتيجية",
   "reports.technologyLayer": "طبقة التقنية",
   "reports.technologySummary": "ملخص التقنية",
-  "reports.securityLayer": "طبقة الأمن"
+  "reports.securityLayer": "طبقة الأمن",
+  "layers": "الطبقات"
 }

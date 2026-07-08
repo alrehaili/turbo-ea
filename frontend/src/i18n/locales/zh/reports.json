@@ -898,5 +898,19 @@
     "compliance": "按法规的合规",
     "noCompliance": "暂无合规数据。",
     "openCompliance": "打开合规"
+  },
+  "layerSwimlane": {
+    "swimlane": "架构层",
+    "thisLayer": "当前层",
+    "more": "+{{count}} 更多",
+    "emptyBand": "无卡片类型",
+    "print": "打印",
+    "cards": "{{count}} 张卡片",
+    "layerName": {
+      "strategy": "战略与转型",
+      "business": "业务架构",
+      "application": "应用与数据",
+      "technical": "技术架构"
+    }
   }
 }

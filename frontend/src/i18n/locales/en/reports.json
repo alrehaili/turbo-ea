@@ -984,5 +984,19 @@
     "compliance": "Compliance by regulation",
     "noCompliance": "No compliance data.",
     "openCompliance": "Open Compliance"
+  },
+  "layerSwimlane": {
+    "swimlane": "Architecture layers",
+    "thisLayer": "This layer",
+    "more": "+{{count}} more",
+    "emptyBand": "No card types",
+    "print": "Print",
+    "cards": "{{count}} cards",
+    "layerName": {
+      "strategy": "Strategy & Transformation",
+      "business": "Business Architecture",
+      "application": "Application & Data",
+      "technical": "Technical Architecture"
+    }
   }
 }

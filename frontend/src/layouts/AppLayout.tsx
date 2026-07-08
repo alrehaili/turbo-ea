@@ -63,20 +63,30 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
   { labelKey: "viewLibrary", icon: "travel_explore", path: "/view-library" },
   {
+    // EA layers — one rich swim-lane overview per architecture layer. Kept
+    // as its own top-level tab (not under Reports) so the layered mental
+    // model is a first-class navigation concept.
+    labelKey: "layers",
+    icon: "layers",
+    permission: "inventory.view",
+    children: [
+      { labelKey: "reports.strategyLayer", icon: "flag", path: "/layers/strategy", permission: "inventory.view" },
+      { labelKey: "reports.strategySummary", icon: "article", path: "/layers/strategy-summary", permission: "inventory.view" },
+      { labelKey: "reports.businessLayer", icon: "domain", path: "/layers/business", permission: "inventory.view" },
+      { labelKey: "reports.businessSummary", icon: "article", path: "/layers/business-summary", permission: "inventory.view" },
+      { labelKey: "reports.applicationLayer", icon: "apps", path: "/layers/application", permission: "inventory.view" },
+      { labelKey: "reports.applicationSummary", icon: "article", path: "/layers/application-summary", permission: "inventory.view" },
+      { labelKey: "reports.technologyLayer", icon: "memory", path: "/layers/technical", permission: "inventory.view" },
+      { labelKey: "reports.technologySummary", icon: "article", path: "/layers/technical-summary", permission: "inventory.view" },
+      { labelKey: "reports.securityLayer", icon: "security", path: "/layers/security", permission: "risks.view" },
+    ],
+  },
+  {
     labelKey: "reports",
     icon: "analytics",
     permission: "reports.ea_dashboard",
     children: [
       { labelKey: "reports.admWorkspaces", icon: "account_tree", path: "/ea-delivery/adm", permission: "adm.view" },
-      { labelKey: "reports.applicationLayer", icon: "layers", path: "/reports/application-layer", permission: "inventory.view" },
-      { labelKey: "reports.applicationSummary", icon: "article", path: "/reports/application-summary", permission: "inventory.view" },
-      { labelKey: "reports.businessLayer", icon: "domain", path: "/reports/business-layer", permission: "inventory.view" },
-      { labelKey: "reports.businessSummary", icon: "article", path: "/reports/business-summary", permission: "inventory.view" },
-      { labelKey: "reports.strategyLayer", icon: "flag", path: "/reports/strategy-layer", permission: "inventory.view" },
-      { labelKey: "reports.strategySummary", icon: "article", path: "/reports/strategy-summary", permission: "inventory.view" },
-      { labelKey: "reports.technologyLayer", icon: "memory", path: "/reports/technology-layer", permission: "inventory.view" },
-      { labelKey: "reports.technologySummary", icon: "article", path: "/reports/technology-summary", permission: "inventory.view" },
-      { labelKey: "reports.securityLayer", icon: "security", path: "/reports/security-layer", permission: "risks.view" },
       { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio" },
       { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
       { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },

@@ -203,5 +203,6 @@
   "reports.strategySummary": "Сводка стратегии",
   "reports.technologyLayer": "Технологический слой",
   "reports.technologySummary": "Технологическая сводка",
-  "reports.securityLayer": "Слой безопасности"
+  "reports.securityLayer": "Слой безопасности",
+  "layers": "Слои"
 }

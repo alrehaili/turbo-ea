@@ -203,5 +203,6 @@
   "reports.strategySummary": "战略摘要",
   "reports.technologyLayer": "技术层",
   "reports.technologySummary": "技术摘要",
-  "reports.securityLayer": "安全层"
+  "reports.securityLayer": "安全层",
+  "layers": "架构层"
 }

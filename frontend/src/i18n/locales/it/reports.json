@@ -898,5 +898,19 @@
     "compliance": "Conformità per normativa",
     "noCompliance": "Nessun dato di conformità.",
     "openCompliance": "Apri conformità"
+  },
+  "layerSwimlane": {
+    "swimlane": "Livelli di architettura",
+    "thisLayer": "Questo livello",
+    "more": "+{{count}} altri",
+    "emptyBand": "Nessun tipo di scheda",
+    "print": "Stampa",
+    "cards": "{{count}} schede",
+    "layerName": {
+      "strategy": "Strategia e trasformazione",
+      "business": "Architettura di business",
+      "application": "Applicazioni e dati",
+      "technical": "Architettura tecnica"
+    }
   }
 }

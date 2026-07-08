@@ -203,5 +203,6 @@
   "reports.strategySummary": "Resumen de estrategia",
   "reports.technologyLayer": "Capa de tecnología",
   "reports.technologySummary": "Resumen de tecnología",
-  "reports.securityLayer": "Capa de seguridad"
+  "reports.securityLayer": "Capa de seguridad",
+  "layers": "Capas"
 }

@@ -898,5 +898,19 @@
     "compliance": "Cumplimiento por regulación",
     "noCompliance": "Sin datos de cumplimiento.",
     "openCompliance": "Abrir cumplimiento"
+  },
+  "layerSwimlane": {
+    "swimlane": "Capas de arquitectura",
+    "thisLayer": "Esta capa",
+    "more": "+{{count}} más",
+    "emptyBand": "Sin tipos de tarjeta",
+    "print": "Imprimir",
+    "cards": "{{count}} tarjetas",
+    "layerName": {
+      "strategy": "Estrategia y transformación",
+      "business": "Arquitectura de negocio",
+      "application": "Aplicaciones y datos",
+      "technical": "Arquitectura técnica"
+    }
   }
 }

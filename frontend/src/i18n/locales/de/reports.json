@@ -898,5 +898,19 @@
     "compliance": "Compliance nach Regulierung",
     "noCompliance": "Keine Compliance-Daten.",
     "openCompliance": "Compliance öffnen"
+  },
+  "layerSwimlane": {
+    "swimlane": "Architekturebenen",
+    "thisLayer": "Diese Ebene",
+    "more": "+{{count}} weitere",
+    "emptyBand": "Keine Kartentypen",
+    "print": "Drucken",
+    "cards": "{{count}} Karten",
+    "layerName": {
+      "strategy": "Strategie & Transformation",
+      "business": "Geschäftsarchitektur",
+      "application": "Anwendungen & Daten",
+      "technical": "Technische Architektur"
+    }
   }
 }

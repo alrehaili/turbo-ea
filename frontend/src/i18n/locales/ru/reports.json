@@ -898,5 +898,19 @@
     "compliance": "Соответствие по регуляциям",
     "noCompliance": "Нет данных о соответствии.",
     "openCompliance": "Открыть соответствие"
+  },
+  "layerSwimlane": {
+    "swimlane": "Слои архитектуры",
+    "thisLayer": "Этот слой",
+    "more": "+ ещё {{count}}",
+    "emptyBand": "Нет типов карточек",
+    "print": "Печать",
+    "cards": "{{count}} карточек",
+    "layerName": {
+      "strategy": "Стратегия и трансформация",
+      "business": "Бизнес-архитектура",
+      "application": "Приложения и данные",
+      "technical": "Техническая архитектура"
+    }
   }
 }
