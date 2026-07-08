@@ -40,7 +40,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -110,6 +110,11 @@ class MaturityDimensionScore(UUIDMixin, TimestampMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     level: Mapped[int] = mapped_column(Integer, default=0)
     target_level: Mapped[int] = mapped_column(Integer, default=0)
+    # Advisory repository-derived suggestion (0 = no automated evidence) and
+    # the indicator snapshot it was banded from. The assessor always confirms
+    # the actual ``level`` — the suggestion is never binding.
+    suggested_level: Mapped[int] = mapped_column(Integer, default=0)
+    evidence: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (

@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.0] - 2026-07-08
+
+### Added
+- **Automated EA maturity assessment (advisory).** Each maturity dimension now gets repository-derived evidence indicators — coverage ratios (approved cards, apps mapped to capabilities, processes with flows, data ownership, lifecycle coverage, compliance posture, risk hygiene, initiative planning, catalogue alignment, …), adoption counts (principles, ADRs, ADM workspaces, NEA evidence packs) and layer data-quality averages — banded into a **suggested level** per dimension. New assessments pre-fill the suggestion and evidence snapshot, and opening a draft auto-refreshes them from the live repository; the assessor always confirms (accept per dimension, accept all, or override). Live view via `GET /maturity/indicators`.
+- **Layers → Overview dashboard** (`/layers/overview`) — an executive view across all six EA layers: hero banner, KPI tiles (total cards, per-layer counts, risks/gaps), six layer cards with health pills and meta grids, the strategy-to-controls layer stack, a health-by-layer bar chart, a priority-attention list, and an inventory preview table. Clicking any card opens the component-details drawer.
+- **Layers → Traceability view** (`/layers/traceability`) — pick any card and see its connections across all six EA layers: a selected-component summary, a direct-traceability diagram (one band per layer with relation verbs), direct connections grouped by layer, and the two-hop extended-impact grid. Every node opens the component-details drawer.
+
+### Changed
+- **Layers section themed with the EA visual-explorer palette** — light blue-grey canvas, white panels with soft shadows and large radii, blue eyebrow accents, a gradient hero, and pastel healthy/warning/risk surfaces and badges (with dark-mode-aware equivalents). Palette added as the `EXPLORER_COLORS` design-token group.
+- **Layer overview pages revamped in the EA visual-explorer style.** Each layer page now opens with a per-layer description and a layer health score card, followed by a mini-KPI strip (cards, types, avg quality, healthy / warning / risk), a **portfolio** grid of status-coloured cards, a lifecycle view with per-phase lanes, per-target-layer **mapping panels** ("Application to Business", "Application to Data", …) with relation verbs on hover, an **integration map** of relations within the layer, a clickable architecture-layer stack showing live cross-layer link counts, a priority-attention list of at-risk cards, and a full catalog table with status, lifecycle, and data-quality health pills. Clicking any card opens a **component-details side drawer** (badges, health, metamodel-driven fields, stakeholders, connected components) with a jump-through to the full card page.
+
 ## [1.65.0] - 2026-07-08
 
 ### Changed

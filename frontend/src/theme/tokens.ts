@@ -188,6 +188,23 @@ export const typography = {
   h3: { fontSize: "1.25rem", fontWeight: 600 },
 } as const;
 
+// ── EA visual-explorer palette ──────────────────────────────────────────
+// [FORK] The ea-ui-mvp look used by the Layers section (overview pages,
+// EA dashboard, traceability view, component drawer): a light blue-grey
+// canvas, white panels with soft shadows, blue accents, and pastel
+// healthy/warning/risk surfaces with darker companion text.
+
+export const EXPLORER_COLORS = {
+  bg: "#f5f7fb",
+  line: "#dbe3ef",
+  primary: "#1d4ed8",
+  primarySoft: "#dbeafe",
+  shadow: "0 8px 28px rgba(15, 23, 42, 0.06)",
+  healthy: { main: "#16a34a", soft: "#dcfce7", border: "#86efac", text: "#166534" },
+  warning: { main: "#d97706", soft: "#fef3c7", border: "#fcd34d", text: "#92400e" },
+  risk: { main: "#dc2626", soft: "#fee2e2", border: "#fca5a5", text: "#991b1b" },
+} as const;
+
 // ── Type exports ────────────────────────────────────────────────────────
 
 export type StatusKey = keyof typeof STATUS_COLORS;

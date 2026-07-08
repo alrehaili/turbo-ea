@@ -58,6 +58,7 @@ import type {
   MaturityAssessment,
   MaturityDimension,
   MaturityDimensionScore,
+  MaturityIndicator,
   MaturityOverview,
 } from "@/types";
 
@@ -444,9 +445,33 @@ function AssessmentDialog({
     setAssessment(await api.get<MaturityAssessment>(`/maturity/assessments/${assessmentId}`));
   }, [assessmentId]);
 
+  // [FORK] Auto-refresh: opening a draft recomputes the suggestions + evidence
+  // from the live repository, so the assessor always confirms against current
+  // data (never the snapshot from when the draft was created). Confirmed
+  // levels are untouched. Falls back to a plain load for non-drafts / viewers.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      const a = await api.get<MaturityAssessment>(`/maturity/assessments/${assessmentId}`);
+      if (cancelled) return;
+      if (a.status === "draft" && canManage) {
+        try {
+          const refreshed = await api.post<MaturityAssessment>(
+            `/maturity/assessments/${assessmentId}/refresh-suggestions`,
+            {},
+          );
+          if (!cancelled) setAssessment(refreshed);
+          return;
+        } catch {
+          // fall through to the unrefreshed assessment
+        }
+      }
+      if (!cancelled) setAssessment(a);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assessmentId, canManage]);
 
   const patchScore = async (score: MaturityDimensionScore, patch: Partial<MaturityDimensionScore>) => {
     await api.patch(`/maturity/assessments/${assessmentId}/scores/${score.id}`, patch);
@@ -471,7 +496,39 @@ function AssessmentDialog({
     setPromoted((p) => ({ ...p, [score.id]: true }));
   };
 
+  // [FORK] Automated suggestions — advisory only, the assessor confirms.
+  const refreshSuggestions = async () => {
+    setBusy(true);
+    try {
+      setAssessment(
+        await api.post<MaturityAssessment>(
+          `/maturity/assessments/${assessmentId}/refresh-suggestions`,
+          {},
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const acceptAllSuggestions = async () => {
+    setBusy(true);
+    try {
+      for (const s of assessment?.scores ?? []) {
+        if ((s.suggested_level ?? 0) > 0 && s.level !== s.suggested_level) {
+          await api.patch(`/maturity/assessments/${assessmentId}/scores/${s.id}`, {
+            level: s.suggested_level,
+          });
+        }
+      }
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const editable = canManage && assessment?.status !== "approved";
+  const hasSuggestions = (assessment?.scores ?? []).some((s) => (s.suggested_level ?? 0) > 0);
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
@@ -497,6 +554,11 @@ function AssessmentDialog({
             <TableHead>
               <TableRow>
                 <TableCell>{t("maturity.dimension")}</TableCell>
+                <TableCell sx={{ width: 170 }}>
+                  <Tooltip title={t("maturity.suggestedHint")}>
+                    <span>{t("maturity.suggested")}</span>
+                  </Tooltip>
+                </TableCell>
                 <TableCell sx={{ width: 160 }}>{t("maturity.current")}</TableCell>
                 <TableCell sx={{ width: 120 }}>{t("maturity.target")}</TableCell>
                 <TableCell align="right" />
@@ -509,6 +571,35 @@ function AssessmentDialog({
                   <TableRow key={s.id}>
                     <TableCell>
                       <Typography variant="body2">{s.dimension_name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      {(s.suggested_level ?? 0) > 0 ? (
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Tooltip title={<EvidenceTooltip indicators={s.evidence ?? []} />}>
+                            <Chip
+                              size="small"
+                              icon={<MaterialSymbol icon="auto_awesome" size={14} />}
+                              label={`${s.suggested_level} · ${levelLabel(s.suggested_level)}`}
+                              variant={s.level === s.suggested_level ? "filled" : "outlined"}
+                              color={s.level === s.suggested_level ? "success" : "default"}
+                            />
+                          </Tooltip>
+                          {editable && s.level !== s.suggested_level && (
+                            <Tooltip title={t("maturity.acceptSuggestion")}>
+                              <IconButton
+                                size="small"
+                                onClick={() => void patchScore(s, { level: s.suggested_level })}
+                              >
+                                <MaterialSymbol icon="check" size={16} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          {t("maturity.noEvidence")}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <TextField
@@ -572,6 +663,26 @@ function AssessmentDialog({
       <DialogActions>
         <Button onClick={onClose}>{t("common:actions.close")}</Button>
         {assessment && canManage && assessment.status === "draft" && (
+          <>
+            <Button
+              disabled={busy}
+              startIcon={<MaterialSymbol icon="refresh" />}
+              onClick={() => void refreshSuggestions()}
+            >
+              {t("maturity.refreshSuggestions")}
+            </Button>
+            {hasSuggestions && (
+              <Button
+                disabled={busy}
+                startIcon={<MaterialSymbol icon="auto_awesome" />}
+                onClick={() => void acceptAllSuggestions()}
+              >
+                {t("maturity.acceptAll")}
+              </Button>
+            )}
+          </>
+        )}
+        {assessment && canManage && assessment.status === "draft" && (
           <Button variant="contained" disabled={busy} onClick={() => void setStatus("submitted")}>
             {t("maturity.submit")}
           </Button>
@@ -593,6 +704,28 @@ function AssessmentDialog({
         )}
       </DialogActions>
     </Dialog>
+  );
+}
+
+/**
+ * [FORK] Evidence breakdown behind an automated suggestion — one line per
+ * indicator: localized label, value %, and the n/d counts where applicable.
+ */
+function EvidenceTooltip({ indicators }: { indicators: MaturityIndicator[] }) {
+  const { t } = useTranslation("reports");
+  if (!indicators.length) return <span>{t("maturity.noEvidence")}</span>;
+  return (
+    <Box sx={{ py: 0.5 }}>
+      <Typography variant="caption" fontWeight={700} display="block" mb={0.5}>
+        {t("maturity.evidenceTitle")}
+      </Typography>
+      {indicators.map((i) => (
+        <Typography key={i.key} variant="caption" display="block">
+          {t(`maturity.indicator.${i.key}`, { defaultValue: i.key })}: <b>{i.value}%</b>
+          {i.numerator != null && i.denominator != null && ` (${i.numerator}/${i.denominator})`}
+        </Typography>
+      ))}
+    </Box>
   );
 }
 

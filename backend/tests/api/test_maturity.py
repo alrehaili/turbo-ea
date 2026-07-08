@@ -207,3 +207,71 @@ class TestMaturityOverview:
         assert data["trend"][0]["overall_score"] is not None
         # Three dimensions scored below their target of 5.
         assert data["summary"]["below_target"] == 3
+
+
+class TestAutomatedSuggestions:
+    """[FORK] Automated maturity assessment — advisory suggestions + evidence."""
+
+    async def test_create_prefills_suggestions_and_evidence(self, client, db, maturity_env):
+        resp = await client.post(
+            "/api/v1/maturity/assessments",
+            json={"title": "Auto Baseline"},
+            headers=auth_headers(maturity_env["worker"]),
+        )
+        assert resp.status_code == 201
+        for s in resp.json()["scores"]:
+            # Advisory: the confirmed level stays unassessed.
+            assert s["level"] == 0
+            assert "suggested_level" in s and "evidence" in s
+            assert 0 <= s["suggested_level"] <= 5
+
+    async def test_indicators_endpoint_covers_builtin_dimensions(self, client, db, maturity_env):
+        resp = await client.get(
+            "/api/v1/maturity/indicators", headers=auth_headers(maturity_env["worker"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        for key, _, _ in DEFAULT_MATURITY_DIMENSIONS:
+            assert key in body
+            assert "indicators" in body[key] and "suggested_level" in body[key]
+
+    async def test_refresh_suggestions_draft_only(self, client, db, maturity_env):
+        worker = maturity_env["worker"]
+        a = (
+            await client.post(
+                "/api/v1/maturity/assessments",
+                json={"title": "Refresh"},
+                headers=auth_headers(worker),
+            )
+        ).json()
+        aid = a["id"]
+
+        # Confirm one level, then refresh — the confirmed level must survive.
+        sid = a["scores"][0]["id"]
+        r = await client.patch(
+            f"/api/v1/maturity/assessments/{aid}/scores/{sid}",
+            json={"level": 3},
+            headers=auth_headers(worker),
+        )
+        assert r.status_code == 200
+
+        r = await client.post(
+            f"/api/v1/maturity/assessments/{aid}/refresh-suggestions",
+            headers=auth_headers(worker),
+        )
+        assert r.status_code == 200
+        refreshed = {s["id"]: s for s in r.json()["scores"]}
+        assert refreshed[sid]["level"] == 3
+
+        # Not allowed once submitted.
+        r = await client.patch(
+            f"/api/v1/maturity/assessments/{aid}",
+            json={"status": "submitted"},
+            headers=auth_headers(worker),
+        )
+        assert r.status_code == 200
+        r = await client.post(
+            f"/api/v1/maturity/assessments/{aid}/refresh-suggestions",
+            headers=auth_headers(worker),
+        )
+        assert r.status_code == 400

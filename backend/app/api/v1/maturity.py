@@ -33,6 +33,7 @@ from app.services.maturity import (
     dimension_dict,
     score_dict,
 )
+from app.services.maturity_indicators import compute_indicators
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/maturity", tags=["maturity"])
@@ -253,7 +254,11 @@ async def create_assessment(
         .scalars()
         .all()
     )
+    # Pre-fill each score with the repository-derived suggestion + evidence.
+    # Advisory only: `level` stays 0 until the assessor confirms it.
+    indicators = await compute_indicators(db)
     for dim in dims:
+        auto = indicators.get(dim.key)
         db.add(
             MaturityDimensionScore(
                 assessment_id=a.id,
@@ -264,6 +269,8 @@ async def create_assessment(
                 sort_order=dim.sort_order,
                 level=0,
                 target_level=0,
+                suggested_level=(auto or {}).get("suggested_level") or 0,
+                evidence=(auto or {}).get("indicators"),
             )
         )
     await db.commit()
@@ -322,6 +329,42 @@ async def update_assessment(
     )
     await db.commit()
     await db.refresh(a)
+    scores = await _scores_for(db, a.id)
+    names = await _user_names(db, {a.approved_by})
+    return assessment_dict(a, scores=scores, names=names)
+
+
+@router.get("/indicators")
+async def get_indicators(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Live repository-derived indicators + suggested level per dimension."""
+    await PermissionService.require_permission(db, user, "maturity.view")
+    return await compute_indicators(db)
+
+
+@router.post("/assessments/{assessment_id}/refresh-suggestions")
+async def refresh_suggestions(
+    assessment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Recompute the advisory suggestions + evidence on a draft assessment.
+
+    Confirmed levels are untouched — the assessor always decides `level`.
+    """
+    await PermissionService.require_permission(db, user, "maturity.manage")
+    a = await _get_assessment(db, assessment_id)
+    if a.status != "draft":
+        raise HTTPException(400, "Suggestions can only be refreshed on a draft assessment")
+    indicators = await compute_indicators(db)
+    scores = await _scores_for(db, a.id)
+    for s in scores:
+        auto = indicators.get(s.dimension_key)
+        s.suggested_level = (auto or {}).get("suggested_level") or 0
+        s.evidence = (auto or {}).get("indicators")
+    await db.commit()
     scores = await _scores_for(db, a.id)
     names = await _user_names(db, {a.approved_by})
     return assessment_dict(a, scores=scores, names=names)

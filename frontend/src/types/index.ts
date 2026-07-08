@@ -2067,7 +2067,20 @@ export interface MaturityDimensionScore {
   sort_order: number;
   level: number;
   target_level: number;
+  /** Advisory repository-derived suggestion (0 = no automated evidence). */
+  suggested_level: number;
+  /** Indicator snapshot the suggestion was banded from. */
+  evidence: MaturityIndicator[] | null;
   notes: string | null;
+}
+
+/** One automated evidence indicator ([FORK] — automated maturity assessment). */
+export interface MaturityIndicator {
+  key: string;
+  kind: "ratio" | "adoption" | "quality";
+  value: number;
+  numerator: number | null;
+  denominator: number | null;
 }
 
 export type MaturityAssessmentStatus = "draft" | "submitted" | "approved";

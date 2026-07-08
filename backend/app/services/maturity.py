@@ -142,6 +142,8 @@ def score_dict(s: MaturityDimensionScore) -> dict:
         "sort_order": s.sort_order,
         "level": s.level,
         "target_level": s.target_level,
+        "suggested_level": s.suggested_level,
+        "evidence": s.evidence,
         "notes": s.notes,
     }
 

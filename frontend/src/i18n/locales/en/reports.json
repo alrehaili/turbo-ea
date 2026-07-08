@@ -893,6 +893,39 @@
       "3": "Defined",
       "4": "Measured",
       "5": "Optimizing"
+    },
+    "suggested": "Suggested",
+    "suggestedHint": "Suggested from live repository evidence — the assessor confirms or overrides.",
+    "acceptSuggestion": "Accept suggestion",
+    "acceptAll": "Accept all suggestions",
+    "refreshSuggestions": "Refresh suggestions",
+    "noEvidence": "No automated evidence",
+    "evidenceTitle": "Repository evidence",
+    "indicator": {
+      "approval_coverage": "Cards approved",
+      "principles_defined": "EA principles defined",
+      "adr_practice": "Architecture decisions recorded",
+      "capability_app_mapping": "Applications mapped to capabilities",
+      "process_documentation": "Processes with documented flows",
+      "layer_quality": "Layer data quality",
+      "lifecycle_coverage": "Lifecycle coverage",
+      "integration_documentation": "Applications with documented interfaces",
+      "data_ownership": "Data objects with owners",
+      "data_usage_mapping": "Data objects mapped to applications",
+      "tech_category_mapping": "IT components categorised",
+      "compliance_posture": "Compliance findings compliant",
+      "risk_hygiene": "Open risks within target dates",
+      "risk_practice": "Risk register adoption",
+      "adm_adoption": "ADM workspaces in use",
+      "soaw_coverage": "Initiatives with a Statement of Architecture Work",
+      "status_reporting": "Initiatives with status reports",
+      "budget_tracking": "Initiatives with budget or cost tracking",
+      "kpi_trend_tracking": "KPI snapshot cadence (30 days)",
+      "initiative_planning": "Initiatives with a work breakdown",
+      "target_state_modeling": "Target-state modelling",
+      "lifecycle_planning": "Cards with lifecycle plans",
+      "catalogue_alignment": "Capabilities aligned to the national catalogue",
+      "nea_evidence": "NEA evidence packs generated"
     }
   },
   "serviceCatalogue": {
@@ -929,7 +962,8 @@
       "total": "Cards",
       "avgQuality": "Avg data quality",
       "approved": "Approved",
-      "atRisk": "At risk"
+      "atRisk": "At risk",
+      "types": "Card types"
     },
     "byType": "By card type",
     "lifecycle": "Lifecycle distribution",
@@ -952,6 +986,58 @@
       "inventory": "Open in inventory",
       "dependencies": "Dependencies",
       "portfolio": "Portfolio"
+    },
+    "health": "Layer health",
+    "status": {
+      "healthy": "Healthy",
+      "warning": "Warning",
+      "risk": "Risk / Gap"
+    },
+    "laneEmpty": "No cards",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "colSubtype": "Subtype",
+    "colLifecycle": "Lifecycle",
+    "viewAllInventory": "View all {{count}} remaining cards in the inventory",
+    "panel": {
+      "typeMapEyebrow": "Visual view",
+      "typeMap": "Type map",
+      "lifecycleEyebrow": "Lifecycle",
+      "lifecycleLanes": "Lifecycle view",
+      "stackEyebrow": "Layered architecture",
+      "stack": "Architecture layers",
+      "attentionEyebrow": "Risks and gaps",
+      "catalogEyebrow": "Catalog",
+      "catalog": "{{layer}} cards",
+      "mappingEyebrow": "Traceability",
+      "mapping": "Cross-layer mapping",
+      "integrationEyebrow": "Integration",
+      "integration": "Relations within this layer",
+      "portfolioEyebrow": "Portfolio",
+      "portfolio": "{{layer}} portfolio"
+    },
+    "links_one": "{{count}} link",
+    "links_other": "{{count}} links",
+    "mappingEmpty": "No cross-layer relations captured yet. Link cards from this layer to other layers to build traceability.",
+    "integrationEmpty": "No relations between cards within this layer.",
+    "about": {
+      "business": "Capabilities, services, processes, objectives, and the operating model of the organization.",
+      "beneficiary": "Beneficiary groups, journeys, channels, touchpoints, pain points, and accessibility needs.",
+      "application": "Applications, modules, integrations, APIs, vendors, lifecycle, and modernization needs.",
+      "data": "Data domains, entities, ownership, classification, quality, sharing, and analytics.",
+      "technology": "Infrastructure, hosting, cloud, network, middleware, capacity, backup, and disaster recovery.",
+      "security": "Controls, identity and access, data protection, network security, compliance, risks, and standards."
+    },
+    "colArea": "Area",
+    "colStatus": "Status",
+    "mappingTo": "{{anchor}} to {{other}}",
+    "drawer": {
+      "title": "Component details",
+      "details": "Details",
+      "stakeholders": "Stakeholders",
+      "connected": "Connected components",
+      "noConnections": "No direct relationships captured.",
+      "openCard": "Open full card"
     }
   },
   "layerSummary": {
@@ -1002,5 +1088,46 @@
       "technology": "Technology",
       "security": "Security"
     }
+  },
+  "layersDashboard": {
+    "eyebrow": "Executive view",
+    "heroTitle": "Understand the full enterprise architecture from beneficiaries to security controls.",
+    "heroText": "One connected picture across the six EA layers: business capabilities and services, beneficiary journeys, applications, data, technology, and security controls.",
+    "exploreTraceability": "Explore traceability",
+    "metric": {
+      "total": "Total cards",
+      "risks": "Risks / gaps"
+    },
+    "domainsEyebrow": "Six critical layers",
+    "domainsTitle": "Enterprise architecture overview",
+    "stackTitle": "From strategy to controls",
+    "stackMeta": "{{count}} cards • {{health}}% health",
+    "healthEyebrow": "Status",
+    "healthTitle": "Health by layer",
+    "previewEyebrow": "Inventory preview",
+    "previewTitle": "Cards across all layers",
+    "colLayer": "Layer"
+  },
+  "traceability": {
+    "eyebrow": "Traceability",
+    "title": "Relationships / Traceability view",
+    "subtitle": "Select one card and see connected components across all EA layers — journeys, services, applications, data, infrastructure, and controls.",
+    "pickerLabel": "Card",
+    "pickerPlaceholder": "Select a card to trace…",
+    "empty": "Pick a card above to explore its connections across the six EA layers.",
+    "selectedEyebrow": "Selected component",
+    "openDetails": "Open details",
+    "directCount_one": "{{count}} direct relationship",
+    "directCount_other": "{{count}} direct relationships",
+    "diagramEyebrow": "Relationship graph",
+    "diagramTitle": "Direct traceability diagram",
+    "noDirectLink": "No direct link",
+    "connectedEyebrow": "Connected layers",
+    "connectedTitle": "Direct connections by layer",
+    "noConnections": "No direct relationships captured for this card.",
+    "impactEyebrow": "Extended impact",
+    "impactTitle": "Two-hop connected components",
+    "noImpact": "No extended impacts found.",
+    "via": "via {{name}}"
   }
 }

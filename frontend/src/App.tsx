@@ -30,6 +30,8 @@ const ErrorBoundary = lazy(() => import("@/components/ErrorBoundary"));
 const PortfolioReport = lazy(() => import("@/features/reports/PortfolioReport"));
 const EaViewLibraryPage = lazy(() => import("@/features/reports/EaViewLibraryPage"));
 const LayerSwimlaneOverview = lazy(() => import("@/features/layers/LayerSwimlaneOverview"));
+const LayersDashboard = lazy(() => import("@/features/layers/LayersDashboard"));
+const TraceabilityView = lazy(() => import("@/features/layers/TraceabilityView"));
 const ApplicationSummaryReport = lazy(
   () => import("@/features/reports/ApplicationSummaryReport"),
 );
@@ -194,6 +196,8 @@ function AppRoutes() {
                 <Route path="/view-library" element={<EaViewLibraryPage />} />
                 <Route path="/reports/view-library" element={<Navigate to="/view-library" replace />} />
                 {/* Layers tab — rich per-layer swim-lane overviews (moved off /reports/). */}
+                <Route path="/layers/overview" element={<LayersDashboard />} />
+                <Route path="/layers/traceability" element={<TraceabilityView />} />
                 <Route path="/layers/business" element={<LayerSwimlaneOverview layer="Business" />} />
                 <Route path="/layers/beneficiary" element={<LayerSwimlaneOverview layer="Beneficiary Experience" />} />
                 <Route path="/layers/application" element={<LayerSwimlaneOverview layer="Application" />} />

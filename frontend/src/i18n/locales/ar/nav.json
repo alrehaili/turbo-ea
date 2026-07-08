@@ -213,5 +213,7 @@
   "userMenu.noraActivated": "تم تفعيل ملف نورا — أنواع البطاقات والحقول وأدوات البرنامج الخاصة بنورا متاحة الآن.",
   "userMenu.noraActivationFailed": "تعذر تفعيل ملف نورا. تحقق من صلاحياتك وحاول مرة أخرى.",
   "reports.applicationSummary": "ملخص التطبيق",
-  "reports.viewLibrary": "مكتبة العروض"
+  "reports.viewLibrary": "مكتبة العروض",
+  "reports.layersOverview": "نظرة عامة",
+  "reports.traceability": "إمكانية التتبع"
 }

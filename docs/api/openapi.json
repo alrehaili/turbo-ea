@@ -412,52 +412,6 @@
         "title": "AiSourceRef",
         "type": "object"
       },
-      "AiSuggestRequest": {
-        "properties": {
-          "context": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context"
-          },
-          "name": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "subtype": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtype"
-          },
-          "type_key": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Type Key",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type_key",
-          "name"
-        ],
-        "title": "AiSuggestRequest",
-        "type": "object"
-      },
       "AiSuggestResponse": {
         "properties": {
           "model": {
@@ -528,6 +482,23 @@
           "response_ids"
         ],
         "title": "ApplyBody",
+        "type": "object"
+      },
+      "ApproveRequest": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "title": "ApproveRequest",
         "type": "object"
       },
       "ArchiveImpactCardRef": {
@@ -728,9 +699,18 @@
         "title": "ArchiveRetentionPayload",
         "type": "object"
       },
-      "AssessmentCreate": {
+      "ArtefactCreate": {
         "properties": {
-          "description": {
+          "is_required": {
+            "default": false,
+            "title": "Is Required",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "notes": {
             "anyOf": [
               {
                 "type": "string"
@@ -739,40 +719,59 @@
                 "type": "null"
               }
             ],
-            "title": "Description"
+            "title": "Notes"
           },
-          "name": {
-            "maxLength": 300,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "status": {
-            "default": "draft",
-            "title": "Status",
-            "type": "string"
-          },
-          "target_savings": {
+          "ref_id": {
             "anyOf": [
               {
-                "type": "number"
+                "format": "uuid",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Target Savings"
+            "title": "Ref Id"
+          },
+          "ref_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Url"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
           }
         },
         "required": [
-          "name"
+          "kind",
+          "title"
         ],
-        "title": "AssessmentCreate",
+        "title": "ArtefactCreate",
         "type": "object"
       },
-      "AssessmentUpdate": {
+      "ArtefactUpdate": {
         "properties": {
-          "description": {
+          "is_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Required"
+          },
+          "notes": {
             "anyOf": [
               {
                 "type": "string"
@@ -781,9 +780,20 @@
                 "type": "null"
               }
             ],
-            "title": "Description"
+            "title": "Notes"
           },
-          "name": {
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "title": {
             "anyOf": [
               {
                 "maxLength": 300,
@@ -794,9 +804,19 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
+            "title": "Title"
+          }
+        },
+        "title": "ArtefactUpdate",
+        "type": "object"
+      },
+      "ArtefactWaive": {
+        "properties": {
+          "is_waived": {
+            "title": "Is Waived",
+            "type": "boolean"
           },
-          "status": {
+          "reason": {
             "anyOf": [
               {
                 "type": "string"
@@ -805,21 +825,13 @@
                 "type": "null"
               }
             ],
-            "title": "Status"
-          },
-          "target_savings": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Savings"
+            "title": "Reason"
           }
         },
-        "title": "AssessmentUpdate",
+        "required": [
+          "is_waived"
+        ],
+        "title": "ArtefactWaive",
         "type": "object"
       },
       "AutoMappedColumn": {
@@ -4115,6 +4127,17 @@
             "title": "Progress",
             "type": "integer"
           },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
           "risk_note": {
             "anyOf": [
               {
@@ -4209,6 +4232,17 @@
               }
             ],
             "title": "Progress"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
           },
           "risk_note": {
             "anyOf": [
@@ -4518,6 +4552,104 @@
           }
         },
         "title": "DiagramUpdate",
+        "type": "object"
+      },
+      "DimensionCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "weight": {
+            "default": 1,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DimensionCreate",
+        "type": "object"
+      },
+      "DimensionUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          }
+        },
+        "title": "DimensionUpdate",
         "type": "object"
       },
       "DocumentCreate": {
@@ -5828,6 +5960,39 @@
           }
         },
         "title": "MappingUpdate",
+        "type": "object"
+      },
+      "MarkReadyRequest": {
+        "properties": {
+          "gate_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Notes"
+          },
+          "override": {
+            "default": false,
+            "title": "Override",
+            "type": "boolean"
+          },
+          "override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Reason"
+          }
+        },
+        "title": "MarkReadyRequest",
         "type": "object"
       },
       "MassEolCandidate": {
@@ -7180,6 +7345,172 @@
           }
         },
         "title": "OpportunityUpdate",
+        "type": "object"
+      },
+      "PackCreate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "PackCreate",
+        "type": "object"
+      },
+      "PhaseUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "gate_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Notes"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "PhaseUpdate",
+        "type": "object"
+      },
+      "PlateauIn": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PlateauIn",
         "type": "object"
       },
       "PortfolioInsightsRequest": {
@@ -9597,6 +9928,49 @@
         "title": "ProcessFlowVersionUpdate",
         "type": "object"
       },
+      "PromoteOpportunity": {
+        "properties": {
+          "domain": {
+            "default": "BA",
+            "maxLength": 4,
+            "title": "Domain",
+            "type": "string"
+          },
+          "priority": {
+            "default": "medium",
+            "maxLength": 8,
+            "title": "Priority",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "PromoteOpportunity",
+        "type": "object"
+      },
+      "ReasonRequest": {
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonRequest",
+        "type": "object"
+      },
       "RegisterRequest": {
         "properties": {
           "display_name": {
@@ -11831,6 +12205,49 @@
         "title": "ScenarioUpdate",
         "type": "object"
       },
+      "ScoreUpdate": {
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "target_level": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Level"
+          }
+        },
+        "title": "ScoreUpdate",
+        "type": "object"
+      },
       "SecurityOverviewOut": {
         "properties": {
           "compliance_by_status": {
@@ -11964,6 +12381,84 @@
           }
         },
         "title": "SecurityScanRunOut",
+        "type": "object"
+      },
+      "SegmentIn": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "include_descendants": {
+            "default": true,
+            "title": "Include Descendants",
+            "type": "boolean"
+          },
+          "include_related": {
+            "default": true,
+            "title": "Include Related",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "related_type_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Related Type Keys",
+            "type": "array"
+          },
+          "root_card_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Card Id"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SegmentIn",
         "type": "object"
       },
       "SetPasswordRequest": {
@@ -14530,6 +15025,85 @@
         "title": "WebPortalUpdate",
         "type": "object"
       },
+      "WorkspaceCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "initiative_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiative Id"
+          },
+          "name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "soaw_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Soaw Id"
+          },
+          "target_completion": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Completion"
+          },
+          "template": {
+            "default": "togaf",
+            "title": "Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "WorkspaceCreate",
+        "type": "object"
+      },
       "WorkspaceTransferOut": {
         "properties": {
           "applied_at": {
@@ -14644,6 +15218,175 @@
           "status"
         ],
         "title": "WorkspaceTransferOut",
+        "type": "object"
+      },
+      "WorkspaceUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "target_completion": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Completion"
+          }
+        },
+        "title": "WorkspaceUpdate",
+        "type": "object"
+      },
+      "app__api__v1__improvement_opportunities__AiSuggestRequest": {
+        "properties": {
+          "focus": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "locale": {
+            "default": "en",
+            "maxLength": 8,
+            "title": "Locale",
+            "type": "string"
+          }
+        },
+        "title": "AiSuggestRequest",
+        "type": "object"
+      },
+      "app__api__v1__maturity__AssessmentCreate": {
+        "properties": {
+          "assessment_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Date"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "AssessmentCreate",
+        "type": "object"
+      },
+      "app__api__v1__maturity__AssessmentUpdate": {
+        "properties": {
+          "assessment_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Date"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "AssessmentUpdate",
         "type": "object"
       },
       "app__api__v1__metamodel__StandardCreate": {
@@ -14893,6 +15636,100 @@
           "target_id"
         ],
         "title": "StagedRecordOut",
+        "type": "object"
+      },
+      "app__api__v1__rationalization__AssessmentCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "draft",
+            "title": "Status",
+            "type": "string"
+          },
+          "target_savings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Savings"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AssessmentCreate",
+        "type": "object"
+      },
+      "app__api__v1__rationalization__AssessmentUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "target_savings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Savings"
+          }
+        },
+        "title": "AssessmentUpdate",
         "type": "object"
       },
       "app__api__v1__servicenow__StagedRecordOut": {
@@ -15289,6 +16126,52 @@
         },
         "title": "StandardUpdate",
         "type": "object"
+      },
+      "app__schemas__ai_suggest__AiSuggestRequest": {
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type_key": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Type Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type_key",
+          "name"
+        ],
+        "title": "AiSuggestRequest",
+        "type": "object"
       }
     }
   },
@@ -15312,6 +16195,833 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/v1/adm/artefacts/{artefact_id}": {
+      "delete": {
+        "operationId": "delete_artefact_api_v1_adm_artefacts__artefact_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artefact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artefact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Artefact",
+        "tags": [
+          "adm"
+        ]
+      },
+      "patch": {
+        "operationId": "update_artefact_api_v1_adm_artefacts__artefact_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artefact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artefact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtefactUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Artefact",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/artefacts/{artefact_id}/waive": {
+      "post": {
+        "operationId": "waive_artefact_api_v1_adm_artefacts__artefact_id__waive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artefact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artefact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtefactWaive"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Waive Artefact",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/my-actions": {
+      "get": {
+        "description": "Rows for the \"My ADM actions\" dashboard widget.\n\nReturns three groups:\n\n* ``pending_gate``   \u2014 phases marked ready_for_gate (for approvers)\n* ``blocked``        \u2014 phases the user owns that are blocked\n* ``overdue``        \u2014 phases the user owns whose due_date has passed\n                        and status is not approved/skipped",
+        "operationId": "my_actions_api_v1_adm_my_actions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Actions",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/phases/{phase_id}": {
+      "get": {
+        "operationId": "get_phase_api_v1_adm_phases__phase_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Phase",
+        "tags": [
+          "adm"
+        ]
+      },
+      "patch": {
+        "operationId": "update_phase_api_v1_adm_phases__phase_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhaseUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Phase",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/phases/{phase_id}/approve": {
+      "post": {
+        "operationId": "approve_phase_api_v1_adm_phases__phase_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Phase",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/phases/{phase_id}/artefacts": {
+      "post": {
+        "operationId": "create_artefact_api_v1_adm_phases__phase_id__artefacts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtefactCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Artefact",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/phases/{phase_id}/mark-ready": {
+      "post": {
+        "operationId": "mark_ready_api_v1_adm_phases__phase_id__mark_ready_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Ready",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/phases/{phase_id}/reopen": {
+      "post": {
+        "operationId": "reopen_phase_api_v1_adm_phases__phase_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reopen Phase",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/phases/{phase_id}/skip": {
+      "post": {
+        "operationId": "skip_phase_api_v1_adm_phases__phase_id__skip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "phase_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Phase Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skip Phase",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/workspaces": {
+      "get": {
+        "operationId": "list_workspaces_api_v1_adm_workspaces_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "soaw_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Soaw Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "initiative_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Initiative Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspaces",
+        "tags": [
+          "adm"
+        ]
+      },
+      "post": {
+        "operationId": "create_workspace_api_v1_adm_workspaces_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Workspace",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/workspaces/by-soaw/{soaw_id}": {
+      "get": {
+        "description": "Convenience for the SoAW editor: returns the workspace or 404.",
+        "operationId": "workspace_by_soaw_api_v1_adm_workspaces_by_soaw__soaw_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workspace By Soaw",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/workspaces/{workspace_id}": {
+      "delete": {
+        "operationId": "delete_workspace_api_v1_adm_workspaces__workspace_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Workspace",
+        "tags": [
+          "adm"
+        ]
+      },
+      "get": {
+        "operationId": "get_workspace_api_v1_adm_workspaces__workspace_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Workspace",
+        "tags": [
+          "adm"
+        ]
+      },
+      "patch": {
+        "operationId": "update_workspace_api_v1_adm_workspaces__workspace_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Workspace",
+        "tags": [
+          "adm"
+        ]
+      }
+    },
+    "/api/v1/adm/workspaces/{workspace_id}/requirements": {
+      "get": {
+        "description": "Return every ``kind='requirement'`` artefact across all phases of\nthis workspace, so the Requirements Management panel can render a\nsingle continuous list.",
+        "operationId": "list_workspace_requirements_api_v1_adm_workspaces__workspace_id__requirements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspace Requirements",
+        "tags": [
+          "adm"
+        ]
       }
     },
     "/api/v1/admin/workspace/export": {
@@ -16395,7 +18105,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AiSuggestRequest"
+                "$ref": "#/components/schemas/app__schemas__ai_suggest__AiSuggestRequest"
               }
             }
           },
@@ -23416,6 +25126,46 @@
         ]
       }
     },
+    "/api/v1/improvement-opportunities/ai-suggest": {
+      "post": {
+        "description": "AI-draft NORA improvement opportunities from live landscape signals\n([FORK] \u2014 WP5.5). Advisory only: nothing is persisted here. The frontend\ncommits accepted suggestions via ``POST \"\"`` with ``source=\"ai\"`` so they\nland as ``proposed`` records for human governance.",
+        "operationId": "ai_suggest_opportunities_api_v1_improvement_opportunities_ai_suggest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__improvement_opportunities__AiSuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ai Suggest Opportunities",
+        "tags": [
+          "improvement-opportunities"
+        ]
+      }
+    },
     "/api/v1/improvement-opportunities/{opportunity_id}": {
       "delete": {
         "operationId": "delete_opportunity_api_v1_improvement_opportunities__opportunity_id__delete",
@@ -23498,6 +25248,556 @@
         "summary": "Update Opportunity",
         "tags": [
           "improvement-opportunities"
+        ]
+      }
+    },
+    "/api/v1/maturity/assessments": {
+      "get": {
+        "operationId": "list_assessments_api_v1_maturity_assessments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Assessments",
+        "tags": [
+          "maturity"
+        ]
+      },
+      "post": {
+        "description": "Create a draft assessment with one score row per active dimension.",
+        "operationId": "create_assessment_api_v1_maturity_assessments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__maturity__AssessmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Assessment",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/assessments/{assessment_id}": {
+      "delete": {
+        "operationId": "delete_assessment_api_v1_maturity_assessments__assessment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Assessment",
+        "tags": [
+          "maturity"
+        ]
+      },
+      "get": {
+        "operationId": "get_assessment_api_v1_maturity_assessments__assessment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Assessment",
+        "tags": [
+          "maturity"
+        ]
+      },
+      "patch": {
+        "operationId": "update_assessment_api_v1_maturity_assessments__assessment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__maturity__AssessmentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Assessment",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/assessments/{assessment_id}/refresh-suggestions": {
+      "post": {
+        "description": "Recompute the advisory suggestions + evidence on a draft assessment.\n\nConfirmed levels are untouched \u2014 the assessor always decides `level`.",
+        "operationId": "refresh_suggestions_api_v1_maturity_assessments__assessment_id__refresh_suggestions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Suggestions",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/assessments/{assessment_id}/scores/{score_id}": {
+      "patch": {
+        "operationId": "update_score_api_v1_maturity_assessments__assessment_id__scores__score_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "score_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Score Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Score",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/assessments/{assessment_id}/scores/{score_id}/promote-opportunity": {
+      "post": {
+        "description": "Spawn an Improvement Opportunity from a dimension gap (WP3.3 feed).",
+        "operationId": "promote_score_to_opportunity_api_v1_maturity_assessments__assessment_id__scores__score_id__promote_opportunity_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "score_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Score Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteOpportunity"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Score To Opportunity",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/dimensions": {
+      "get": {
+        "operationId": "list_dimensions_api_v1_maturity_dimensions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_inactive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Inactive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Dimensions",
+        "tags": [
+          "maturity"
+        ]
+      },
+      "post": {
+        "operationId": "create_dimension_api_v1_maturity_dimensions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DimensionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Dimension",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/dimensions/{dimension_id}": {
+      "delete": {
+        "description": "Delete a custom dimension. Built-in dimensions are deactivated instead\n(so seeded assessments stay auditable).",
+        "operationId": "delete_dimension_api_v1_maturity_dimensions__dimension_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dimension_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dimension Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Dimension",
+        "tags": [
+          "maturity"
+        ]
+      },
+      "patch": {
+        "operationId": "update_dimension_api_v1_maturity_dimensions__dimension_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dimension_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dimension Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DimensionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Dimension",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/indicators": {
+      "get": {
+        "description": "Live repository-derived indicators + suggested level per dimension.",
+        "operationId": "get_indicators_api_v1_maturity_indicators_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Indicators",
+        "tags": [
+          "maturity"
+        ]
+      }
+    },
+    "/api/v1/maturity/overview": {
+      "get": {
+        "description": "Latest-assessment radar + trend across dated assessments.",
+        "operationId": "get_overview_api_v1_maturity_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Overview",
+        "tags": [
+          "maturity"
         ]
       }
     },
@@ -26338,6 +28638,366 @@
         ]
       }
     },
+    "/api/v1/nea-evidence-packs": {
+      "get": {
+        "operationId": "list_packs_api_v1_nea_evidence_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Packs",
+        "tags": [
+          "nea-evidence"
+        ]
+      },
+      "post": {
+        "operationId": "generate_pack_api_v1_nea_evidence_packs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Pack",
+        "tags": [
+          "nea-evidence"
+        ]
+      }
+    },
+    "/api/v1/nea-evidence-packs/{pack_id}": {
+      "delete": {
+        "operationId": "delete_pack_api_v1_nea_evidence_packs__pack_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Pack",
+        "tags": [
+          "nea-evidence"
+        ]
+      },
+      "get": {
+        "operationId": "get_pack_api_v1_nea_evidence_packs__pack_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pack",
+        "tags": [
+          "nea-evidence"
+        ]
+      }
+    },
+    "/api/v1/nea-evidence-packs/{pack_id}/download": {
+      "get": {
+        "operationId": "download_pack_api_v1_nea_evidence_packs__pack_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Pack",
+        "tags": [
+          "nea-evidence"
+        ]
+      }
+    },
+    "/api/v1/nora-plateaus": {
+      "get": {
+        "operationId": "list_plateaus_api_v1_nora_plateaus_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Plateaus",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      },
+      "post": {
+        "operationId": "create_plateau_api_v1_nora_plateaus_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlateauIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Plateau",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      }
+    },
+    "/api/v1/nora-plateaus/{plateau_id}": {
+      "delete": {
+        "operationId": "delete_plateau_api_v1_nora_plateaus__plateau_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plateau_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plateau Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Plateau",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      },
+      "patch": {
+        "operationId": "update_plateau_api_v1_nora_plateaus__plateau_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plateau_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plateau Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlateauIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Plateau",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      }
+    },
+    "/api/v1/nora-plateaus/{plateau_id}/landscape": {
+      "get": {
+        "description": "Lifecycle-phase + architecture-state breakdown of the landscape as of the\nplateau's target date.",
+        "operationId": "plateau_landscape_view_api_v1_nora_plateaus__plateau_id__landscape_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plateau_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plateau Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plateau Landscape View",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      }
+    },
     "/api/v1/nora-program": {
       "get": {
         "description": "The full program: deliverables grouped by stage + per-stage progress.",
@@ -26500,6 +29160,194 @@
         "summary": "Update Deliverable",
         "tags": [
           "nora-program"
+        ]
+      }
+    },
+    "/api/v1/nora-segments": {
+      "get": {
+        "operationId": "list_segments_api_v1_nora_segments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Segments",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      },
+      "post": {
+        "operationId": "create_segment_api_v1_nora_segments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Segment",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      }
+    },
+    "/api/v1/nora-segments/{segment_id}": {
+      "delete": {
+        "operationId": "delete_segment_api_v1_nora_segments__segment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "segment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Segment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Segment",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      },
+      "patch": {
+        "operationId": "update_segment_api_v1_nora_segments__segment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "segment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Segment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Segment",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
+        ]
+      }
+    },
+    "/api/v1/nora-segments/{segment_id}/cards": {
+      "get": {
+        "description": "Resolve the segment scope to its in-scope cards grouped by EA layer.",
+        "operationId": "resolve_segment_cards_api_v1_nora_segments__segment_id__cards_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "segment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Segment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Segment Cards",
+        "tags": [
+          "nora-landscape",
+          "nora-landscape"
         ]
       }
     },
@@ -28363,7 +31211,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssessmentCreate"
+                "$ref": "#/components/schemas/app__api__v1__rationalization__AssessmentCreate"
               }
             }
           },
@@ -28487,7 +31335,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssessmentUpdate"
+                "$ref": "#/components/schemas/app__api__v1__rationalization__AssessmentUpdate"
               }
             }
           },
@@ -28565,6 +31413,48 @@
           }
         },
         "summary": "Create Decision",
+        "tags": [
+          "rationalization"
+        ]
+      }
+    },
+    "/api/v1/rationalization/cards/{card_id}/decisions": {
+      "get": {
+        "description": "List every rationalization decision recorded against a specific card.\n\nPowers the Portfolio Decisions section on the card detail page so users\nwho visit an Application card see the board's verdict \u2014 including the\nstrategic rationale \u2014 without having to remember which assessment it\nlives in. Returns rows across every assessment, most recent first.",
+        "operationId": "list_decisions_for_card_api_v1_rationalization_cards__card_id__decisions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decisions For Card",
         "tags": [
           "rationalization"
         ]

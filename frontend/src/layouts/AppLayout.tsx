@@ -74,6 +74,8 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
     icon: "layers",
     permission: "inventory.view",
     children: [
+      { labelKey: "reports.layersOverview", icon: "space_dashboard", path: "/layers/overview", permission: "inventory.view" },
+      { labelKey: "reports.traceability", icon: "hub", path: "/layers/traceability", permission: "inventory.view" },
       { labelKey: "reports.businessLayer", icon: "domain", path: "/layers/business", permission: "inventory.view" },
       { labelKey: "reports.businessSummary", icon: "article", path: "/layers/business-summary", permission: "inventory.view" },
       { labelKey: "reports.beneficiaryLayer", icon: "diversity_3", path: "/layers/beneficiary", permission: "inventory.view" },
