@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.0] - 2026-07-08
+
+### Changed
+- **EA Maturity moved under the Governance menu** — it sits with the other governance workflow tools instead of occupying its own top-level tab (still NORA-profile-gated).
+- **EA layers restructured to the NORA 2.0 six-layer model.** Card-type categories move from the four legacy layers to **Business, Beneficiary Experience, Application, Data, Technology, Security**: Strategy & Transformation folds into Business, Application & Data splits into Application and a standalone Data layer, and Technical Architecture becomes Technology. Every layer gets its own swim-lane overview and summary under the Layers tab (old links redirect). A guarded migration moves only categories still at their old defaults — admin-customised categories are preserved.
+
+### Added
+- **Beneficiary Experience layer** with new Beneficiary Journey and Channel card types (via the NORA profile), joining Government Service.
+- **Security layer** as a real metamodel layer with a new Security Control card type; the Security layer page now shows the layer's cards alongside the GRC risk & compliance posture.
+
 ## [1.64.0] - 2026-07-04
 
 ### Added

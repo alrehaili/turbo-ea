@@ -143,10 +143,12 @@ export const LDV_NODE_W = 200;
 export const LDV_NODE_H = 72;
 
 const CATEGORY_ORDER = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
+  "Business",
+  "Beneficiary Experience",
+  "Application",
+  "Data",
+  "Technology",
+  "Security",
 ];
 
 const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;

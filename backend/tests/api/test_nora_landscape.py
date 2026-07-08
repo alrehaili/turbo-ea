@@ -43,11 +43,9 @@ class TestSegments:
     async def test_resolve_hierarchy_and_related(self, client, db, landscape_env):
         admin = landscape_env["admin"]
         await create_card_type(
-            db, key="BusinessCapability", label="Capability", category="Business Architecture"
+            db, key="BusinessCapability", label="Capability", category="Business"
         )
-        await create_card_type(
-            db, key="Application", label="Application", category="Application & Data"
-        )
+        await create_card_type(db, key="Application", label="Application", category="Application")
         await create_relation_type(
             db,
             key="relCapToApp",
@@ -80,8 +78,8 @@ class TestSegments:
         assert names == {"Payments", "Card Payments", "Payment Gateway"}
         # Grouped into two EA layers.
         by_cat = {layer["category"]: [c["name"] for c in layer["cards"]] for layer in res["layers"]}
-        assert by_cat["Business Architecture"] == ["Card Payments", "Payments"]
-        assert by_cat["Application & Data"] == ["Payment Gateway"]
+        assert by_cat["Business"] == ["Card Payments", "Payments"]
+        assert by_cat["Application"] == ["Payment Gateway"]
 
     async def test_related_type_narrowing(self, client, db, landscape_env):
         admin = landscape_env["admin"]

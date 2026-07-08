@@ -897,7 +897,9 @@
     "openRegister": "Apri registro dei rischi",
     "compliance": "Conformità per normativa",
     "noCompliance": "Nessun dato di conformità.",
-    "openCompliance": "Apri conformità"
+    "openCompliance": "Apri conformità",
+    "cardsTitle": "Card del livello sicurezza",
+    "cardsEmpty": "Nessun tipo di card Sicurezza — applica il profilo NORA per aggiungere i controlli di sicurezza."
   },
   "layerSwimlane": {
     "swimlane": "Livelli di architettura",
@@ -907,10 +909,12 @@
     "print": "Stampa",
     "cards": "{{count}} schede",
     "layerName": {
-      "strategy": "Strategia e trasformazione",
-      "business": "Architettura di business",
-      "application": "Applicazioni e dati",
-      "technical": "Architettura tecnica"
+      "business": "Business",
+      "beneficiary": "Esperienza del beneficiario",
+      "application": "Applicazioni",
+      "data": "Dati",
+      "technology": "Tecnologia",
+      "security": "Sicurezza"
     }
   }
 }

@@ -40,10 +40,10 @@ interface ViewCardDef {
  */
 const DOMAINS: Array<{ key: DomainKey; icon: string; color: string }> = [
   { key: "enterprise", icon: "account_balance", color: CARD_TYPE_COLORS.Objective },
-  { key: "business", icon: "domain", color: LAYER_COLORS["Business Architecture"] },
-  { key: "application", icon: "apps", color: LAYER_COLORS["Application & Data"] },
-  { key: "data", icon: "database", color: CARD_TYPE_COLORS.DataObject },
-  { key: "technology", icon: "memory", color: LAYER_COLORS["Technical Architecture"] },
+  { key: "business", icon: "domain", color: LAYER_COLORS.Business },
+  { key: "application", icon: "apps", color: LAYER_COLORS.Application },
+  { key: "data", icon: "database", color: LAYER_COLORS.Data },
+  { key: "technology", icon: "memory", color: LAYER_COLORS.Technology },
   { key: "governance", icon: "gavel", color: CARD_TYPE_COLORS.Provider },
 ];
 

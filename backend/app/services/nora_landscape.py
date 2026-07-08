@@ -122,10 +122,12 @@ async def resolve_segment(db: AsyncSession, segment: NoraSegment) -> dict:
 
     # Group into layers preserving a stable EA order.
     layer_order = [
-        "Strategy & Transformation",
-        "Business Architecture",
-        "Application & Data",
-        "Technical Architecture",
+        "Business",
+        "Beneficiary Experience",
+        "Application",
+        "Data",
+        "Technology",
+        "Security",
     ]
     by_cat: dict[str, list] = {}
     for b in briefs:

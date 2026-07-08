@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "类型属性",
   "metamodel.typeDrawer.label": "标签",
   "metamodel.typeDrawer.category": "分类",
-  "metamodel.typeDrawer.categoryHelper": "例如 业务架构",
+  "metamodel.typeDrawer.categoryHelper": "例如:业务",
   "metamodel.typeDrawer.icon": "图标",
   "metamodel.typeDrawer.description": "描述",
   "metamodel.typeDrawer.colorBuiltIn": "颜色（内置）",

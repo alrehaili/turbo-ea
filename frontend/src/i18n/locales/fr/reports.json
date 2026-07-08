@@ -897,7 +897,9 @@
     "openRegister": "Ouvrir le registre des risques",
     "compliance": "Conformité par réglementation",
     "noCompliance": "Aucune donnée de conformité.",
-    "openCompliance": "Ouvrir la conformité"
+    "openCompliance": "Ouvrir la conformité",
+    "cardsTitle": "Cartes de la couche sécurité",
+    "cardsEmpty": "Aucun type de carte Sécurité pour l'instant — appliquez le profil NORA pour ajouter des contrôles de sécurité."
   },
   "layerSwimlane": {
     "swimlane": "Couches d'architecture",
@@ -907,10 +909,12 @@
     "print": "Imprimer",
     "cards": "{{count}} cartes",
     "layerName": {
-      "strategy": "Stratégie et transformation",
-      "business": "Architecture métier",
-      "application": "Applications et données",
-      "technical": "Architecture technique"
+      "business": "Métier",
+      "beneficiary": "Expérience bénéficiaire",
+      "application": "Applications",
+      "data": "Données",
+      "technology": "Technologie",
+      "security": "Sécurité"
     }
   }
 }

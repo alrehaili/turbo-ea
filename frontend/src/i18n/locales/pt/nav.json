@@ -8,7 +8,6 @@
   "reports.capabilityMap": "Mapa de capacidades",
   "reports.lifecycle": "Ciclo de vida",
   "noraProgram": "Programa NORA",
-  "maturity": "Maturidade EA",
   "noraProgram.newDocument": "Novo documento NORA",
   "noraProgram.docType.ea_project_strategy": "Estratégia do projeto EA",
   "noraProgram.docType.ea_project_plan": "Plano do projeto EA",
@@ -199,10 +198,17 @@
   "reports.serviceCatalogue": "Catálogo de serviços",
   "reports.businessLayer": "Camada de negócio",
   "reports.businessSummary": "Resumo de negócio",
-  "reports.strategyLayer": "Camada de estratégia",
-  "reports.strategySummary": "Resumo de estratégia",
   "reports.technologyLayer": "Camada de tecnologia",
   "reports.technologySummary": "Resumo de tecnologia",
   "reports.securityLayer": "Camada de segurança",
-  "layers": "Camadas"
+  "layers": "Camadas",
+  "reports.beneficiaryLayer": "Camada de experiência do beneficiário",
+  "reports.beneficiarySummary": "Resumo da experiência do beneficiário",
+  "reports.dataLayer": "Camada de dados",
+  "reports.dataSummary": "Resumo de dados",
+  "reports.securitySummary": "Resumo de segurança",
+  "governance.maturity": "Maturidade EA",
+  "userMenu.activateNora": "Ativar o perfil NORA",
+  "userMenu.noraActivated": "Perfil NORA ativado — os tipos de cartão, campos e ferramentas de programa do NORA já estão disponíveis.",
+  "userMenu.noraActivationFailed": "Não foi possível ativar o perfil NORA. Verifique as suas permissões e tente novamente."
 }

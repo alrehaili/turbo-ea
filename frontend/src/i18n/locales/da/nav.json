@@ -8,7 +8,6 @@
   "reports.capabilityMap": "Kompetencekort",
   "reports.lifecycle": "Livscyklus",
   "noraProgram": "NORA-program",
-  "maturity": "EA-modenhed",
   "noraProgram.newDocument": "Nyt NORA-dokument",
   "noraProgram.docType.ea_project_strategy": "EA-projektstrategi",
   "noraProgram.docType.ea_project_plan": "EA-projektplan",
@@ -199,10 +198,17 @@
   "reports.serviceCatalogue": "Servicekatalog",
   "reports.businessLayer": "Forretningslag",
   "reports.businessSummary": "Forretningsoversigt",
-  "reports.strategyLayer": "Strategilag",
-  "reports.strategySummary": "Strategioversigt",
   "reports.technologyLayer": "Teknologilag",
   "reports.technologySummary": "Teknologioversigt",
   "reports.securityLayer": "Sikkerhedslag",
-  "layers": "Lag"
+  "layers": "Lag",
+  "reports.beneficiaryLayer": "Modtageroplevelseslag",
+  "reports.beneficiarySummary": "Modtageroplevelsesresumé",
+  "reports.dataLayer": "Datalag",
+  "reports.dataSummary": "Dataresumé",
+  "reports.securitySummary": "Sikkerhedsresumé",
+  "governance.maturity": "EA-modenhed",
+  "userMenu.activateNora": "Aktivér NORA-profilen",
+  "userMenu.noraActivated": "NORA-profilen er aktiveret — NORA-korttyper, felter og programværktøjer er nu tilgængelige.",
+  "userMenu.noraActivationFailed": "NORA-profilen kunne ikke aktiveres. Tjek dine rettigheder og prøv igen."
 }

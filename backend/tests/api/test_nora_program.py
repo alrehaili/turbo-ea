@@ -194,14 +194,10 @@ class TestServiceTraceability:
     async def test_layers_grouped_by_category(self, client, db, program_env):
         admin = program_env["admin"]
         await create_card_type(
-            db, key="GovService", label="Government Service", category="Business Architecture"
+            db, key="GovService", label="Government Service", category="Beneficiary Experience"
         )
-        await create_card_type(
-            db, key="Application", label="Application", category="Application & Data"
-        )
-        await create_card_type(
-            db, key="ITComponent", label="IT Component", category="Technical Architecture"
-        )
+        await create_card_type(db, key="Application", label="Application", category="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component", category="Technology")
         from tests.conftest import create_relation, create_relation_type
 
         await create_relation_type(
@@ -235,9 +231,9 @@ class TestServiceTraceability:
         data = resp.json()
         assert data["root"]["name"] == "Issue Licence"
         by_cat = {layer["category"]: layer["cards"] for layer in data["layers"]}
-        assert [c["name"] for c in by_cat["Application & Data"]] == ["Licensing System"]
+        assert [c["name"] for c in by_cat["Application"]] == ["Licensing System"]
         # The IT component is two hops away.
-        tech = by_cat["Technical Architecture"][0]
+        tech = by_cat["Technology"][0]
         assert tech["name"] == "PostgreSQL"
         assert tech["hops"] == 2
 

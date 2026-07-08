@@ -1,17 +1,19 @@
 /**
- * SecurityOverviewReport — a synthetic "Security layer" overview. Security is
- * not a card-type category; this view aggregates the GRC signals that make up
- * an agency's security & compliance posture: the EA Risk Register (levels,
- * overdue) and the regulation-driven compliance scanner (per-regulation
- * scores). Reads existing GRC endpoints; the compliance half is best-effort so
- * the page still renders for users without compliance access.
+ * SecurityOverviewReport — the Security layer overview. Since the NORA 2.0
+ * six-layer model, Security is a real card-type category (SecurityControl
+ * etc. from the NORA profile); this view lists the layer's cards and layers
+ * the GRC posture on top: the EA Risk Register (levels, overdue) and the
+ * regulation-driven compliance scanner (per-regulation scores). All halves
+ * are best-effort so the page still renders for users without GRC access
+ * or before the NORA profile is applied.
  * [FORK FEATURE] — noraPlan.md (security layer).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
@@ -20,7 +22,10 @@ import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import type { Card } from "@/types";
 
 interface RiskMetrics {
   total: number;
@@ -51,9 +56,17 @@ function scoreColor(score: number): string {
 
 export default function SecurityOverviewReport() {
   const { t } = useTranslation(["reports", "common"]);
+  const { types } = useMetamodel();
+  const typeLabel = useTypeLabel();
   const [risk, setRisk] = useState<RiskMetrics | null>(null);
   const [compliance, setCompliance] = useState<ComplianceOverview | null>(null);
+  const [layerCards, setLayerCards] = useState<Record<string, Card[]>>({});
   const [loading, setLoading] = useState(true);
+
+  const securityTypes = useMemo(
+    () => types.filter((ty) => ty.category === "Security" && !ty.is_hidden),
+    [types],
+  );
 
   useEffect(() => {
     let active = true;
@@ -70,6 +83,28 @@ export default function SecurityOverviewReport() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (securityTypes.length === 0) return undefined;
+    Promise.allSettled(
+      securityTypes.map((ty) =>
+        api
+          .get<{ items: Card[] }>(`/cards?type=${encodeURIComponent(ty.key)}&page_size=500`)
+          .then((r) => [ty.key, r.items] as const),
+      ),
+    ).then((results) => {
+      if (!active) return;
+      const byType: Record<string, Card[]> = {};
+      for (const res of results) {
+        if (res.status === "fulfilled") byType[res.value[0]] = res.value[1];
+      }
+      setLayerCards(byType);
+    });
+    return () => {
+      active = false;
+    };
+  }, [securityTypes]);
 
   if (loading) {
     return (
@@ -133,6 +168,58 @@ export default function SecurityOverviewReport() {
           color={avgCompliance === null ? STATUS_COLORS.neutral : scoreColor(avgCompliance)}
         />
       </Box>
+
+      {/* Security-layer cards (SecurityControl etc. — NORA profile v3) */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700} mb={1}>
+          {t("securityLayer.cardsTitle")}
+        </Typography>
+        {securityTypes.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("securityLayer.cardsEmpty")}
+          </Typography>
+        ) : (
+          <Stack spacing={1.5}>
+            {securityTypes.map((ty) => {
+              const cards = layerCards[ty.key] ?? [];
+              return (
+                <Box key={ty.key}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                    <MaterialSymbol icon={ty.icon || "shield"} size={18} color={ty.color || undefined} />
+                    <Typography variant="body2" fontWeight={700}>
+                      {typeLabel(ty)}
+                    </Typography>
+                    <Chip size="small" label={cards.length} sx={{ height: 20 }} />
+                  </Box>
+                  {cards.length === 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {t("common:none", { defaultValue: "—" })}
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                      {cards.slice(0, 24).map((c) => (
+                        <Chip
+                          key={c.id}
+                          size="small"
+                          label={c.name}
+                          component={RouterLink}
+                          to={`/cards/${c.id}`}
+                          clickable
+                          sx={{ borderColor: ty.color || undefined }}
+                          variant="outlined"
+                        />
+                      ))}
+                      {cards.length > 24 && (
+                        <Chip size="small" label={`+${cards.length - 24}`} variant="outlined" />
+                      )}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Stack>
+        )}
+      </Paper>
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
         {/* Risk by level */}

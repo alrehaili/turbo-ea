@@ -1164,14 +1164,14 @@ PROCESS_FREQUENCY_OPTIONS = [
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
 TYPES = [
-    # -- Strategy & Transformation layer --
+    # -- Business layer (strategy & transformation types) --
     {
         "key": "Objective",
         "label": "Objective",
         "description": "Strategic objectives and goals that drive the enterprise architecture.",
         "icon": "flag",
         "color": "#c7527d",
-        "category": "Strategy & Transformation",
+        "category": "Business",
         "has_hierarchy": False,
         "subtypes": [],
         "sort_order": 0,
@@ -1322,7 +1322,7 @@ TYPES = [
         "description": "Technology or business platforms that group applications and components.",
         "icon": "layers",
         "color": "#027446",
-        "category": "Strategy & Transformation",
+        "category": "Business",
         "has_hierarchy": False,
         "has_successors": True,
         "subtypes": [
@@ -1460,7 +1460,7 @@ TYPES = [
         "description": "Projects, programs, and epics that transform the enterprise architecture.",
         "icon": "rocket_launch",
         "color": "#33cc58",
-        "category": "Strategy & Transformation",
+        "category": "Business",
         "has_hierarchy": True,
         "has_successors": True,
         "subtypes": [
@@ -1869,7 +1869,7 @@ TYPES = [
         "description": "Organizational units, regions, legal entities, teams, and customers.",
         "icon": "corporate_fare",
         "color": "#2889ff",
-        "category": "Business Architecture",
+        "category": "Business",
         "has_hierarchy": True,
         "subtypes": [
             {
@@ -2037,7 +2037,7 @@ TYPES = [
         "description": "Stable decomposition of what the business does, independent of how it is done.",
         "icon": "account_tree",
         "color": "#003399",
-        "category": "Business Architecture",
+        "category": "Business",
         "has_hierarchy": True,
         "subtypes": [],
         "sort_order": 4,
@@ -2340,7 +2340,7 @@ TYPES = [
         "description": "Business processes, value streams, customer journeys, and products.",
         "icon": "swap_horiz",
         "color": "#fe6690",
-        "category": "Business Architecture",
+        "category": "Business",
         "has_hierarchy": True,
         "subtypes": [
             {
@@ -2558,7 +2558,7 @@ TYPES = [
         "description": "Business processes with BPMN 2.0 flow modeling, lifecycle, and maturity tracking.",
         "icon": "route",
         "color": "#028f00",
-        "category": "Business Architecture",
+        "category": "Business",
         "has_hierarchy": True,
         "has_successors": True,
         "subtypes": [
@@ -2865,14 +2865,14 @@ TYPES = [
             },
         },
     },
-    # -- Application & Data Architecture layer --
+    # -- Application layer (+ Data layer: DataObject) --
     {
         "key": "Application",
         "label": "Application",
         "description": "Software applications, microservices, and deployments in the IT landscape.",
         "icon": "apps",
         "color": "#0f7eb5",
-        "category": "Application & Data",
+        "category": "Application",
         "has_hierarchy": True,
         "has_successors": True,
         "subtypes": [
@@ -3200,7 +3200,7 @@ TYPES = [
         "description": "Data flows and integrations between applications.",
         "icon": "sync_alt",
         "color": "#02afa4",
-        "category": "Application & Data",
+        "category": "Application",
         "has_hierarchy": False,
         "has_successors": True,
         "subtypes": [
@@ -3355,7 +3355,7 @@ TYPES = [
         "description": "Business data objects and their classifications.",
         "icon": "database",
         "color": "#774fcc",
-        "category": "Application & Data",
+        "category": "Data",
         "has_hierarchy": True,
         "has_successors": True,
         "subtypes": [],
@@ -3455,14 +3455,14 @@ TYPES = [
             },
         },
     },
-    # -- Technical Architecture layer --
+    # -- Technology layer --
     {
         "key": "ITComponent",
         "label": "IT Component",
         "description": "Technology components: software, hardware, SaaS, PaaS, IaaS, services.",
         "icon": "memory",
         "color": "#d29270",
-        "category": "Technical Architecture",
+        "category": "Technology",
         "has_hierarchy": True,
         "has_successors": True,
         "subtypes": [
@@ -3749,7 +3749,7 @@ TYPES = [
         "description": "Technology categories for classifying IT components (e.g., Databases, Middleware).",
         "icon": "category",
         "color": "#a6566d",
-        "category": "Technical Architecture",
+        "category": "Technology",
         "has_hierarchy": True,
         "subtypes": [],
         "sort_order": 11,
@@ -3785,7 +3785,7 @@ TYPES = [
         "description": "External technology providers and vendors.",
         "icon": "storefront",
         "color": "#ffa31f",
-        "category": "Technical Architecture",
+        "category": "Technology",
         "has_hierarchy": False,
         "subtypes": [],
         "sort_order": 12,

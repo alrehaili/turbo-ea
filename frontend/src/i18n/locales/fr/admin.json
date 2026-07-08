@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "Propriétés du type",
   "metamodel.typeDrawer.label": "Libellé",
   "metamodel.typeDrawer.category": "Catégorie",
-  "metamodel.typeDrawer.categoryHelper": "ex. Architecture métier",
+  "metamodel.typeDrawer.categoryHelper": "p. ex. Métier",
   "metamodel.typeDrawer.icon": "Icône",
   "metamodel.typeDrawer.description": "Description",
   "metamodel.typeDrawer.colorBuiltIn": "Couleur (intégré)",

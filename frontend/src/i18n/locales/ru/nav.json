@@ -8,7 +8,6 @@
   "reports.capabilityMap": "Карта возможностей",
   "reports.lifecycle": "Жизненный цикл",
   "noraProgram": "Программа NORA",
-  "maturity": "Зрелость EA",
   "noraProgram.newDocument": "Новый документ NORA",
   "noraProgram.docType.ea_project_strategy": "Стратегия проекта EA",
   "noraProgram.docType.ea_project_plan": "План проекта EA",
@@ -199,10 +198,17 @@
   "reports.serviceCatalogue": "Каталог услуг",
   "reports.businessLayer": "Бизнес-слой",
   "reports.businessSummary": "Бизнес-сводка",
-  "reports.strategyLayer": "Слой стратегии",
-  "reports.strategySummary": "Сводка стратегии",
   "reports.technologyLayer": "Технологический слой",
   "reports.technologySummary": "Технологическая сводка",
   "reports.securityLayer": "Слой безопасности",
-  "layers": "Слои"
+  "layers": "Слои",
+  "reports.beneficiaryLayer": "Слой опыта получателя",
+  "reports.beneficiarySummary": "Сводка по опыту получателя",
+  "reports.dataLayer": "Слой данных",
+  "reports.dataSummary": "Сводка по данным",
+  "reports.securitySummary": "Сводка по безопасности",
+  "governance.maturity": "Зрелость EA",
+  "userMenu.activateNora": "Активировать профиль NORA",
+  "userMenu.noraActivated": "Профиль NORA активирован — типы карточек, поля и инструменты программы NORA теперь доступны.",
+  "userMenu.noraActivationFailed": "Не удалось активировать профиль NORA. Проверьте свои права и повторите попытку."
 }

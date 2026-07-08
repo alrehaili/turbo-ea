@@ -897,7 +897,9 @@
     "openRegister": "Abrir registo de riscos",
     "compliance": "Conformidade por regulação",
     "noCompliance": "Sem dados de conformidade.",
-    "openCompliance": "Abrir conformidade"
+    "openCompliance": "Abrir conformidade",
+    "cardsTitle": "Cartões da camada de segurança",
+    "cardsEmpty": "Ainda não há tipos de cartão de Segurança — aplique o perfil NORA para adicionar controles de segurança."
   },
   "layerSwimlane": {
     "swimlane": "Camadas de arquitetura",
@@ -907,10 +909,12 @@
     "print": "Imprimir",
     "cards": "{{count}} cartões",
     "layerName": {
-      "strategy": "Estratégia e transformação",
-      "business": "Arquitetura de negócio",
-      "application": "Aplicações e dados",
-      "technical": "Arquitetura técnica"
+      "business": "Negócio",
+      "beneficiary": "Experiência do beneficiário",
+      "application": "Aplicações",
+      "data": "Dados",
+      "technology": "Tecnologia",
+      "security": "Segurança"
     }
   }
 }

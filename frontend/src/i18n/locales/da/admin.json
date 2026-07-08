@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "Typeegenskaber",
   "metamodel.typeDrawer.label": "Etiket",
   "metamodel.typeDrawer.category": "Kategori",
-  "metamodel.typeDrawer.categoryHelper": "f.eks. Forretningsarkitektur",
+  "metamodel.typeDrawer.categoryHelper": "f.eks. Forretning",
   "metamodel.typeDrawer.icon": "Ikon",
   "metamodel.typeDrawer.description": "Beskrivelse",
   "metamodel.typeDrawer.colorBuiltIn": "Farve (indbygget)",

@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "Propriedades do tipo",
   "metamodel.typeDrawer.label": "Rótulo",
   "metamodel.typeDrawer.category": "Categoria",
-  "metamodel.typeDrawer.categoryHelper": "ex: Arquitetura de negócio",
+  "metamodel.typeDrawer.categoryHelper": "p. ex. Negócio",
   "metamodel.typeDrawer.icon": "Ícone",
   "metamodel.typeDrawer.description": "Descrição",
   "metamodel.typeDrawer.colorBuiltIn": "Cor (nativo)",

@@ -179,7 +179,7 @@ describe("buildLdvDiagramXml", () => {
     },
   ];
   const layers: DiagramLayerInput[] = [
-    { label: "Application & Data", color: "#0f7eb5", x: 0, y: 0, w: 800, h: 200 },
+    { label: "Application", color: "#0f7eb5", x: 0, y: 0, w: 800, h: 200 },
   ];
 
   it("wraps cards in <object> with cardId/cardType so they stay linked to inventory", () => {
@@ -214,7 +214,7 @@ describe("buildLdvDiagramXml", () => {
   it("renders layer boxes that carry no cardId (ignored by ref extraction)", () => {
     const xml = buildLdvDiagramXml(cards, rels, layers);
     expect(xml).toContain('id="layer-0"');
-    expect(xml).toContain("Application &amp; Data"); // label escaped
+    expect(xml).toContain('value="Application"'); // layer label rendered
     // exactly two cardId occurrences — layers must not add any
     expect(xml.match(/cardId=/g)?.length).toBe(2);
   });

@@ -51,7 +51,33 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
 # v2 (WP6.2): field alignment to the Dec-2024 EA Content Meta Model + the six
 # official حصر البيانات data-collection templates (see noraPlan.md Phase 6).
-NORA_PROFILE_VERSION = 2
+# v3: NORA 2.0 six-layer model — Business / Beneficiary Experience /
+# Application / Data / Technology / Security categories + the
+# BeneficiaryJourney, Channel and SecurityControl card types.
+NORA_PROFILE_VERSION = 3
+
+# Old→new category rewrites for the v3 six-layer model, keyed by card-type
+# key. Guarded: a type is only moved while its category still equals the old
+# default, so admin-customised categories are never overwritten. Mirrors
+# Alembic migration 137 — both are idempotent, whichever runs first wins.
+SIX_LAYER_CATEGORY_MOVES: dict[str, tuple[str, str]] = {
+    "Objective": ("Strategy & Transformation", "Business"),
+    "Platform": ("Strategy & Transformation", "Business"),
+    "Initiative": ("Strategy & Transformation", "Business"),
+    "KPI": ("Strategy & Transformation", "Business"),
+    "Organization": ("Business Architecture", "Business"),
+    "BusinessCapability": ("Business Architecture", "Business"),
+    "BusinessContext": ("Business Architecture", "Business"),
+    "BusinessProcess": ("Business Architecture", "Business"),
+    "GovService": ("Business Architecture", "Beneficiary Experience"),
+    "Application": ("Application & Data", "Application"),
+    "Interface": ("Application & Data", "Application"),
+    "DataObject": ("Application & Data", "Data"),
+    "DataExchange": ("Application & Data", "Data"),
+    "ITComponent": ("Technical Architecture", "Technology"),
+    "TechCategory": ("Technical Architecture", "Technology"),
+    "Provider": ("Technical Architecture", "Technology"),
+}
 
 FRAMEWORK_PROFILES = ("togaf", "nora")
 
@@ -2547,7 +2573,7 @@ NORA_CARD_TYPES: list[dict] = [
         ),
         "icon": "assured_workload",
         "color": "#00838f",
-        "category": "Business Architecture",
+        "category": "Beneficiary Experience",
         # v2 (WP6.2): hierarchy enabled — sub-services (خدمة فرعية) attach to
         # their main service via parent_id.
         "has_hierarchy": True,
@@ -3056,7 +3082,7 @@ NORA_CARD_TYPES: list[dict] = [
         ),
         "icon": "swap_horizontal_circle",
         "color": "#5c6bc0",
-        "category": "Application & Data",
+        "category": "Data",
         "has_hierarchy": False,
         "subtypes": [],
         "sort_order": 21,
@@ -3453,7 +3479,7 @@ NORA_CARD_TYPES: list[dict] = [
         ),
         "icon": "speed",
         "color": "#c2185b",
-        "category": "Strategy & Transformation",
+        "category": "Business",
         "has_hierarchy": False,
         "subtypes": [],
         "sort_order": 22,
@@ -3706,6 +3732,775 @@ NORA_CARD_TYPES: list[dict] = [
                                 ),
                             },
                         ],
+                    },
+                ],
+            },
+        ],
+    },
+    # ── v3 (six-layer model): Beneficiary Experience + Security layer types ──
+    {
+        "key": "BeneficiaryJourney",
+        "label": "Beneficiary Journey",
+        "description": (
+            "An end-to-end journey a citizen, resident or business follows when "
+            "consuming government services — the NORA Beneficiary Experience "
+            "layer artifact."
+        ),
+        "icon": "route",
+        "color": "#00a3a3",
+        "category": "Beneficiary Experience",
+        "has_hierarchy": True,
+        "subtypes": [],
+        "sort_order": 23,
+        "translations": {
+            "label": _tr(
+                "Nutzerreise",
+                "Parcours bénéficiaire",
+                "Recorrido del beneficiario",
+                "Percorso del beneficiario",
+                "Jornada do beneficiário",
+                "受益人旅程",
+                "Путь получателя услуг",
+                "Modtagerrejse",
+                "رحلة المستفيد",
+            ),
+            "description": _tr(
+                "Eine End-to-End-Reise, die Bürger, Einwohner oder Unternehmen bei der Nutzung von Verwaltungsdienstleistungen durchlaufen — das Artefakt der NORA-Schicht Nutzererlebnis.",  # noqa: E501
+                "Un parcours de bout en bout suivi par un citoyen, un résident ou une entreprise lors de la consommation de services publics — l'artefact de la couche Expérience bénéficiaire de NORA.",  # noqa: E501
+                "Un recorrido de extremo a extremo que sigue un ciudadano, residente o empresa al consumir servicios gubernamentales — el artefacto de la capa Experiencia del beneficiario de NORA.",  # noqa: E501
+                "Un percorso end-to-end che un cittadino, residente o azienda segue nell'utilizzo dei servizi governativi — l'artefatto del livello Esperienza del beneficiario di NORA.",  # noqa: E501
+                "Uma jornada de ponta a ponta que um cidadão, residente ou empresa percorre ao consumir serviços governamentais — o artefato da camada Experiência do beneficiário do NORA.",  # noqa: E501
+                "公民、居民或企业在使用政府服务时经历的端到端旅程——NORA 受益人体验层的工件。",
+                "Сквозной путь гражданина, резидента или бизнеса при получении государственных услуг — артефакт слоя «Опыт получателя» NORA.",  # noqa: E501
+                "En end-to-end-rejse, som en borger, bosiddende eller virksomhed følger ved brug af offentlige services — NORA-lagets artefakt for modtageroplevelse.",  # noqa: E501
+                "رحلة شاملة يتبعها المواطن أو المقيم أو منشأة الأعمال عند الاستفادة من الخدمات الحكومية — أحد مخرجات طبقة تجربة المستفيد في نورا.",  # noqa: E501
+            ),
+        },
+        "stakeholder_roles": [
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": _tr(
+                        "Verantwortlicher",
+                        "Responsable",
+                        "Responsable",
+                        "Responsabile",
+                        "Responsável",
+                        "负责人",
+                        "Ответственный",
+                        "Ansvarlig",
+                        "المسؤول",
+                    ),
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": _tr(
+                        "Beobachter",
+                        "Observateur",
+                        "Observador",
+                        "Osservatore",
+                        "Observador",
+                        "观察者",
+                        "Наблюдатель",
+                        "Observatør",
+                        "مراقب",
+                    ),
+                },
+            },
+        ],
+        "fields_schema": [
+            {
+                "section": "Journey Information",
+                "translations": _tr(
+                    "Reiseinformationen",
+                    "Informations sur le parcours",
+                    "Información del recorrido",
+                    "Informazioni sul percorso",
+                    "Informações da jornada",
+                    "旅程信息",
+                    "Информация о пути",
+                    "Rejseinformation",
+                    "معلومات الرحلة",
+                ),
+                "fields": [
+                    {
+                        "key": "journeyStage",
+                        "label": "Journey Stage",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Reisephase",
+                            "Étape du parcours",
+                            "Etapa del recorrido",
+                            "Fase del percorso",
+                            "Etapa da jornada",
+                            "旅程阶段",
+                            "Этап пути",
+                            "Rejsefase",
+                            "مرحلة الرحلة",
+                        ),
+                        "options": [
+                            {
+                                "key": "awareness",
+                                "label": "Awareness",
+                                "translations": _tr(
+                                    "Aufmerksamkeit",
+                                    "Sensibilisation",
+                                    "Conocimiento",
+                                    "Consapevolezza",
+                                    "Conscientização",
+                                    "认知",
+                                    "Осведомлённость",
+                                    "Opmærksomhed",
+                                    "الوعي",
+                                ),
+                            },
+                            {
+                                "key": "access",
+                                "label": "Access",
+                                "translations": _tr(
+                                    "Zugang",
+                                    "Accès",
+                                    "Acceso",
+                                    "Accesso",
+                                    "Acesso",
+                                    "访问",
+                                    "Доступ",
+                                    "Adgang",
+                                    "الوصول",
+                                ),
+                            },
+                            {
+                                "key": "service",
+                                "label": "Service Delivery",
+                                "translations": _tr(
+                                    "Leistungserbringung",
+                                    "Prestation du service",
+                                    "Prestación del servicio",
+                                    "Erogazione del servizio",
+                                    "Prestação do serviço",
+                                    "服务交付",
+                                    "Оказание услуги",
+                                    "Servicelevering",
+                                    "تقديم الخدمة",
+                                ),
+                            },
+                            {
+                                "key": "followup",
+                                "label": "Follow-up",
+                                "translations": _tr(
+                                    "Nachverfolgung",
+                                    "Suivi",
+                                    "Seguimiento",
+                                    "Follow-up",
+                                    "Acompanhamento",
+                                    "跟进",
+                                    "Сопровождение",
+                                    "Opfølgning",
+                                    "المتابعة",
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "key": "persona",
+                        "label": "Persona",
+                        "type": "text",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Persona",
+                            "Persona",
+                            "Persona",
+                            "Persona",
+                            "Persona",
+                            "用户画像",
+                            "Персона",
+                            "Persona",
+                            "الشخصية النموذجية",
+                        ),
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        "key": "Channel",
+        "label": "Channel",
+        "description": (
+            "A delivery channel through which beneficiaries access government "
+            "services — web portal, mobile app, branch, call centre, partner or "
+            "API."
+        ),
+        "icon": "devices",
+        "color": "#26b5a8",
+        "category": "Beneficiary Experience",
+        "has_hierarchy": False,
+        "subtypes": [],
+        "sort_order": 24,
+        "translations": {
+            "label": _tr(
+                "Kanal",
+                "Canal",
+                "Canal",
+                "Canale",
+                "Canal",
+                "渠道",
+                "Канал",
+                "Kanal",
+                "القناة",
+            ),
+            "description": _tr(
+                "Ein Bereitstellungskanal, über den Begünstigte auf Verwaltungsdienstleistungen zugreifen — Webportal, Mobile App, Filiale, Callcenter, Partner oder API.",  # noqa: E501
+                "Un canal de prestation par lequel les bénéficiaires accèdent aux services publics — portail web, application mobile, agence, centre d'appels, partenaire ou API.",  # noqa: E501
+                "Un canal de prestación a través del cual los beneficiarios acceden a los servicios gubernamentales — portal web, aplicación móvil, sucursal, centro de llamadas, socio o API.",  # noqa: E501
+                "Un canale di erogazione attraverso cui i beneficiari accedono ai servizi governativi — portale web, app mobile, filiale, call center, partner o API.",  # noqa: E501
+                "Um canal de entrega pelo qual os beneficiários acessam os serviços governamentais — portal web, aplicativo móvel, agência, central de atendimento, parceiro ou API.",  # noqa: E501
+                "受益人访问政府服务的交付渠道——门户网站、移动应用、网点、呼叫中心、合作伙伴或 API。",  # noqa: E501
+                "Канал предоставления, через который получатели пользуются государственными услугами — веб-портал, мобильное приложение, офис, кол-центр, партнёр или API.",  # noqa: E501
+                "En leveringskanal, hvorigennem modtagere får adgang til offentlige services — webportal, mobilapp, filial, callcenter, partner eller API.",  # noqa: E501
+                "قناة تقديم يصل من خلالها المستفيدون إلى الخدمات الحكومية — بوابة إلكترونية أو تطبيق جوال أو فرع أو مركز اتصال أو شريك أو واجهة برمجية.",  # noqa: E501
+            ),
+        },
+        "stakeholder_roles": [
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": _tr(
+                        "Verantwortlicher",
+                        "Responsable",
+                        "Responsable",
+                        "Responsabile",
+                        "Responsável",
+                        "负责人",
+                        "Ответственный",
+                        "Ansvarlig",
+                        "المسؤول",
+                    ),
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": _tr(
+                        "Beobachter",
+                        "Observateur",
+                        "Observador",
+                        "Osservatore",
+                        "Observador",
+                        "观察者",
+                        "Наблюдатель",
+                        "Observatør",
+                        "مراقب",
+                    ),
+                },
+            },
+        ],
+        "fields_schema": [
+            {
+                "section": "Channel Information",
+                "translations": _tr(
+                    "Kanalinformationen",
+                    "Informations sur le canal",
+                    "Información del canal",
+                    "Informazioni sul canale",
+                    "Informações do canal",
+                    "渠道信息",
+                    "Информация о канале",
+                    "Kanalinformation",
+                    "معلومات القناة",
+                ),
+                "fields": [
+                    {
+                        "key": "channelType",
+                        "label": "Channel Type",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Kanaltyp",
+                            "Type de canal",
+                            "Tipo de canal",
+                            "Tipo di canale",
+                            "Tipo de canal",
+                            "渠道类型",
+                            "Тип канала",
+                            "Kanaltype",
+                            "نوع القناة",
+                        ),
+                        "options": [
+                            {
+                                "key": "web",
+                                "label": "Web Portal",
+                                "translations": _tr(
+                                    "Webportal",
+                                    "Portail web",
+                                    "Portal web",
+                                    "Portale web",
+                                    "Portal web",
+                                    "门户网站",
+                                    "Веб-портал",
+                                    "Webportal",
+                                    "البوابة الإلكترونية",
+                                ),
+                            },
+                            {
+                                "key": "mobile",
+                                "label": "Mobile App",
+                                "translations": _tr(
+                                    "Mobile App",
+                                    "Application mobile",
+                                    "Aplicación móvil",
+                                    "App mobile",
+                                    "Aplicativo móvel",
+                                    "移动应用",
+                                    "Мобильное приложение",
+                                    "Mobilapp",
+                                    "تطبيق الجوال",
+                                ),
+                            },
+                            {
+                                "key": "branch",
+                                "label": "Branch / Office",
+                                "translations": _tr(
+                                    "Filiale / Büro",
+                                    "Agence / Bureau",
+                                    "Sucursal / Oficina",
+                                    "Filiale / Ufficio",
+                                    "Agência / Escritório",
+                                    "网点/办事处",
+                                    "Офис / Отделение",
+                                    "Filial / Kontor",
+                                    "الفرع / المكتب",
+                                ),
+                            },
+                            {
+                                "key": "callCenter",
+                                "label": "Call Centre",
+                                "translations": _tr(
+                                    "Callcenter",
+                                    "Centre d'appels",
+                                    "Centro de llamadas",
+                                    "Call center",
+                                    "Central de atendimento",
+                                    "呼叫中心",
+                                    "Кол-центр",
+                                    "Callcenter",
+                                    "مركز الاتصال",
+                                ),
+                            },
+                            {
+                                "key": "partner",
+                                "label": "Partner",
+                                "translations": _tr(
+                                    "Partner",
+                                    "Partenaire",
+                                    "Socio",
+                                    "Partner",
+                                    "Parceiro",
+                                    "合作伙伴",
+                                    "Партнёр",
+                                    "Partner",
+                                    "الشريك",
+                                ),
+                            },
+                            {
+                                "key": "api",
+                                "label": "API",
+                                "translations": _tr(
+                                    "API",
+                                    "API",
+                                    "API",
+                                    "API",
+                                    "API",
+                                    "应用程序接口",
+                                    "API",
+                                    "API",
+                                    "واجهة برمجة التطبيقات",
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "key": "channelMaturity",
+                        "label": "Maturity",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Reifegrad",
+                            "Maturité",
+                            "Madurez",
+                            "Maturità",
+                            "Maturidade",
+                            "成熟度",
+                            "Зрелость",
+                            "Modenhed",
+                            "النضج",
+                        ),
+                        "options": [
+                            {
+                                "key": "basic",
+                                "label": "Basic",
+                                "translations": _tr(
+                                    "Grundlegend",
+                                    "Basique",
+                                    "Básico",
+                                    "Base",
+                                    "Básico",
+                                    "基础",
+                                    "Базовый",
+                                    "Grundlæggende",
+                                    "أساسي",
+                                ),
+                            },
+                            {
+                                "key": "enhanced",
+                                "label": "Enhanced",
+                                "translations": _tr(
+                                    "Erweitert",
+                                    "Amélioré",
+                                    "Mejorado",
+                                    "Avanzato",
+                                    "Aprimorado",
+                                    "增强",
+                                    "Расширенный",
+                                    "Udvidet",
+                                    "محسّن",
+                                ),
+                            },
+                            {
+                                "key": "transactional",
+                                "label": "Transactional",
+                                "translations": _tr(
+                                    "Transaktional",
+                                    "Transactionnel",
+                                    "Transaccional",
+                                    "Transazionale",
+                                    "Transacional",
+                                    "交易型",
+                                    "Транзакционный",
+                                    "Transaktionel",
+                                    "تعاملي",
+                                ),
+                            },
+                            {
+                                "key": "proactive",
+                                "label": "Proactive",
+                                "translations": _tr(
+                                    "Proaktiv",
+                                    "Proactif",
+                                    "Proactivo",
+                                    "Proattivo",
+                                    "Proativo",
+                                    "主动型",
+                                    "Проактивный",
+                                    "Proaktiv",
+                                    "استباقي",
+                                ),
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        "key": "SecurityControl",
+        "label": "Security Control",
+        "description": (
+            "A security or data-protection control safeguarding the "
+            "architecture — the NORA Security Architecture layer artifact "
+            "(e.g. an NCA ECC control implementation)."
+        ),
+        "icon": "shield",
+        "color": "#c62828",
+        "category": "Security",
+        "has_hierarchy": True,
+        "subtypes": [],
+        "sort_order": 25,
+        "translations": {
+            "label": _tr(
+                "Sicherheitskontrolle",
+                "Contrôle de sécurité",
+                "Control de seguridad",
+                "Controllo di sicurezza",
+                "Controle de segurança",
+                "安全控制",
+                "Мера безопасности",
+                "Sikkerhedskontrol",
+                "ضابط أمني",
+            ),
+            "description": _tr(
+                "Eine Sicherheits- oder Datenschutzkontrolle zum Schutz der Architektur — das Artefakt der NORA-Schicht Sicherheitsarchitektur (z. B. eine NCA-ECC-Kontrollumsetzung).",  # noqa: E501
+                "Un contrôle de sécurité ou de protection des données protégeant l'architecture — l'artefact de la couche Architecture de sécurité de NORA (p. ex. la mise en œuvre d'un contrôle NCA ECC).",  # noqa: E501
+                "Un control de seguridad o de protección de datos que salvaguarda la arquitectura — el artefacto de la capa Arquitectura de seguridad de NORA (p. ej., la implementación de un control NCA ECC).",  # noqa: E501
+                "Un controllo di sicurezza o di protezione dei dati che salvaguarda l'architettura — l'artefatto del livello Architettura di sicurezza di NORA (ad es. l'implementazione di un controllo NCA ECC).",  # noqa: E501
+                "Um controle de segurança ou de proteção de dados que protege a arquitetura — o artefato da camada Arquitetura de segurança do NORA (por exemplo, a implementação de um controle NCA ECC).",  # noqa: E501
+                "保护架构的安全或数据保护控制——NORA 安全架构层的工件(例如 NCA ECC 控制的实施)。",
+                "Мера безопасности или защиты данных, охраняющая архитектуру — артефакт слоя «Архитектура безопасности» NORA (например, реализация контроля NCA ECC).",  # noqa: E501
+                "En sikkerheds- eller databeskyttelseskontrol, der beskytter arkitekturen — NORA-lagets artefakt for sikkerhedsarkitektur (f.eks. en NCA ECC-kontrolimplementering).",  # noqa: E501
+                "ضابط أمني أو ضابط لحماية البيانات يحمي البنية المؤسسية — أحد مخرجات طبقة البنية الأمنية في نورا (مثل تطبيق أحد ضوابط الأمن السيبراني الأساسية من الهيئة الوطنية للأمن السيبراني).",  # noqa: E501
+            ),
+        },
+        "stakeholder_roles": [
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": _tr(
+                        "Verantwortlicher",
+                        "Responsable",
+                        "Responsable",
+                        "Responsabile",
+                        "Responsável",
+                        "负责人",
+                        "Ответственный",
+                        "Ansvarlig",
+                        "المسؤول",
+                    ),
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": _tr(
+                        "Beobachter",
+                        "Observateur",
+                        "Observador",
+                        "Osservatore",
+                        "Observador",
+                        "观察者",
+                        "Наблюдатель",
+                        "Observatør",
+                        "مراقب",
+                    ),
+                },
+            },
+        ],
+        "fields_schema": [
+            {
+                "section": "Control Information",
+                "translations": _tr(
+                    "Kontrollinformationen",
+                    "Informations sur le contrôle",
+                    "Información del control",
+                    "Informazioni sul controllo",
+                    "Informações do controle",
+                    "控制信息",
+                    "Информация о мере",
+                    "Kontrolinformation",
+                    "معلومات الضابط",
+                ),
+                "fields": [
+                    {
+                        "key": "controlDomain",
+                        "label": "Control Domain",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Kontrollbereich",
+                            "Domaine de contrôle",
+                            "Dominio de control",
+                            "Dominio di controllo",
+                            "Domínio de controle",
+                            "控制领域",
+                            "Домен контроля",
+                            "Kontroldomæne",
+                            "مجال الضابط",
+                        ),
+                        "options": [
+                            {
+                                "key": "governance",
+                                "label": "Governance",
+                                "translations": _tr(
+                                    "Governance",
+                                    "Gouvernance",
+                                    "Gobernanza",
+                                    "Governance",
+                                    "Governança",
+                                    "治理",
+                                    "Управление",
+                                    "Governance",
+                                    "الحوكمة",
+                                ),
+                            },
+                            {
+                                "key": "dataProtection",
+                                "label": "Data Protection",
+                                "translations": _tr(
+                                    "Datenschutz",
+                                    "Protection des données",
+                                    "Protección de datos",
+                                    "Protezione dei dati",
+                                    "Proteção de dados",
+                                    "数据保护",
+                                    "Защита данных",
+                                    "Databeskyttelse",
+                                    "حماية البيانات",
+                                ),
+                            },
+                            {
+                                "key": "iam",
+                                "label": "Identity & Access",
+                                "translations": _tr(
+                                    "Identität & Zugriff",
+                                    "Identité et accès",
+                                    "Identidad y acceso",
+                                    "Identità e accesso",
+                                    "Identidade e acesso",
+                                    "身份与访问",
+                                    "Идентификация и доступ",
+                                    "Identitet & adgang",
+                                    "الهوية والوصول",
+                                ),
+                            },
+                            {
+                                "key": "network",
+                                "label": "Network Security",
+                                "translations": _tr(
+                                    "Netzwerksicherheit",
+                                    "Sécurité réseau",
+                                    "Seguridad de red",
+                                    "Sicurezza di rete",
+                                    "Segurança de rede",
+                                    "网络安全",
+                                    "Сетевая безопасность",
+                                    "Netværkssikkerhed",
+                                    "أمن الشبكات",
+                                ),
+                            },
+                            {
+                                "key": "appSec",
+                                "label": "Application Security",
+                                "translations": _tr(
+                                    "Anwendungssicherheit",
+                                    "Sécurité applicative",
+                                    "Seguridad de aplicaciones",
+                                    "Sicurezza applicativa",
+                                    "Segurança de aplicações",
+                                    "应用安全",
+                                    "Безопасность приложений",
+                                    "Applikationssikkerhed",
+                                    "أمن التطبيقات",
+                                ),
+                            },
+                            {
+                                "key": "ops",
+                                "label": "Security Operations",
+                                "translations": _tr(
+                                    "Sicherheitsbetrieb",
+                                    "Opérations de sécurité",
+                                    "Operaciones de seguridad",
+                                    "Operazioni di sicurezza",
+                                    "Operações de segurança",
+                                    "安全运营",
+                                    "Операционная безопасность",
+                                    "Sikkerhedsdrift",
+                                    "العمليات الأمنية",
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "key": "implementationStatus",
+                        "label": "Implementation Status",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Umsetzungsstatus",
+                            "État de mise en œuvre",
+                            "Estado de implementación",
+                            "Stato di implementazione",
+                            "Status de implementação",
+                            "实施状态",
+                            "Статус внедрения",
+                            "Implementeringsstatus",
+                            "حالة التطبيق",
+                        ),
+                        "options": [
+                            {
+                                "key": "planned",
+                                "label": "Planned",
+                                "translations": _tr(
+                                    "Geplant",
+                                    "Planifié",
+                                    "Planificado",
+                                    "Pianificato",
+                                    "Planejado",
+                                    "已规划",
+                                    "Запланировано",
+                                    "Planlagt",
+                                    "مخطط",
+                                ),
+                            },
+                            {
+                                "key": "partial",
+                                "label": "Partially Implemented",
+                                "translations": _tr(
+                                    "Teilweise umgesetzt",
+                                    "Partiellement mis en œuvre",
+                                    "Parcialmente implementado",
+                                    "Parzialmente implementato",
+                                    "Parcialmente implementado",
+                                    "部分实施",
+                                    "Частично внедрено",
+                                    "Delvist implementeret",
+                                    "مطبق جزئياً",
+                                ),
+                            },
+                            {
+                                "key": "implemented",
+                                "label": "Implemented",
+                                "translations": _tr(
+                                    "Umgesetzt",
+                                    "Mis en œuvre",
+                                    "Implementado",
+                                    "Implementato",
+                                    "Implementado",
+                                    "已实施",
+                                    "Внедрено",
+                                    "Implementeret",
+                                    "مطبق",
+                                ),
+                            },
+                            {
+                                "key": "verified",
+                                "label": "Verified",
+                                "translations": _tr(
+                                    "Verifiziert",
+                                    "Vérifié",
+                                    "Verificado",
+                                    "Verificato",
+                                    "Verificado",
+                                    "已验证",
+                                    "Проверено",
+                                    "Verificeret",
+                                    "متحقق منه",
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "key": "controlFramework",
+                        "label": "Framework Reference",
+                        "type": "text",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Framework-Referenz",
+                            "Référence du référentiel",
+                            "Referencia del marco",
+                            "Riferimento del framework",
+                            "Referência do framework",
+                            "框架引用",
+                            "Ссылка на фреймворк",
+                            "Rammeværksreference",
+                            "مرجع الإطار",
+                        ),
                     },
                 ],
             },
@@ -4598,6 +5393,18 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
             continue
         db.add(ComplianceRegulation(**reg, built_in=False, is_enabled=True))
         summary.setdefault("regulations_created", []).append(reg["key"])
+
+    # ── Pass 4e (profile v3): six-layer category moves. Guarded per type —
+    # only rewrites while the category still equals the old default, so an
+    # admin who re-categorised a type keeps their choice. Belt-and-braces
+    # with Alembic migration 137 (idempotent in either order).
+    for type_key, (old_cat, new_cat) in SIX_LAYER_CATEGORY_MOVES.items():
+        ct = (
+            await db.execute(select(CardType).where(CardType.key == type_key))
+        ).scalar_one_or_none()
+        if ct is not None and ct.category == old_cat:
+            ct.category = new_cat
+            summary.setdefault("categories_moved", []).append(f"{type_key} → {new_cat}")
 
     # ── Pass 5: seed the EA Program deliverable catalogue (WP3.1) ──────────
     from app.services.nora_program import seed_nora_program

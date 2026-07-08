@@ -8,14 +8,16 @@ Navigate to **Admin > Metamodel** to access the metamodel editor. It has nine ta
 
 ## Card Types
 
-The Card Types tab lists all types in the system. Turbo EA ships with 14 built-in types across four architecture layers:
+The Card Types tab lists all types in the system. Turbo EA ships with 14 built-in types across the six NORA 2.0 architecture layers:
 
 | Layer | Types |
 |-------|-------|
-| **Strategy & Transformation** | Objective, Platform, Initiative |
-| **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
-| **Application & Data** | Application, Interface, Data Object |
-| **Technical Architecture** | IT Component, Tech Category, Provider, System |
+| **Business** | Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process |
+| **Beneficiary Experience** | Government Service, Beneficiary Journey, Channel *(via the NORA profile)* |
+| **Application** | Application, Interface |
+| **Data** | Data Object *(+ Data Exchange via the NORA profile)* |
+| **Technology** | IT Component, Tech Category, Provider, System |
+| **Security** | Security Control *(via the NORA profile)* |
 
 ### Creating a Custom Type
 

@@ -8,14 +8,16 @@ Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodè
 
 ## Types de fiches
 
-L'onglet Types de fiches liste tous les types du système. Turbo EA est livré avec 14 types intégrés répartis sur quatre couches d'architecture :
+L'onglet Types de fiches liste tous les types du système. Turbo EA est livré avec 14 types intégrés répartis sur les six couches d'architecture NORA 2.0 :
 
 | Couche | Types |
 |--------|-------|
-| **Stratégie et transformation** | Objectif, Plateforme, Initiative |
-| **Architecture métier** | Organisation, Capacité Métier, Contexte Métier, Processus Métier |
-| **Application et données** | Application, Interface, Objet de Données |
-| **Architecture technique** | Composant IT, Catégorie Technique, Fournisseur, Système |
+| **Métier** | Objectif, Plateforme, Initiative, Organisation, Capacité Métier, Contexte Métier, Processus Métier |
+| **Expérience bénéficiaire** | Service public, Parcours bénéficiaire, Canal *(via le profil NORA)* |
+| **Applications** | Application, Interface |
+| **Données** | Objet de Données *(+ Échange de données via le profil NORA)* |
+| **Technologie** | Composant IT, Catégorie Technique, Fournisseur, Système |
+| **Sécurité** | Contrôle de sécurité *(via le profil NORA)* |
 
 ### Création d'un type personnalisé
 

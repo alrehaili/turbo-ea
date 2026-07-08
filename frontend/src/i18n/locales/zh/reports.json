@@ -897,7 +897,9 @@
     "openRegister": "打开风险登记册",
     "compliance": "按法规的合规",
     "noCompliance": "暂无合规数据。",
-    "openCompliance": "打开合规"
+    "openCompliance": "打开合规",
+    "cardsTitle": "安全层卡片",
+    "cardsEmpty": "尚无「安全」卡片类型——请应用 NORA 配置以添加安全控制。"
   },
   "layerSwimlane": {
     "swimlane": "架构层",
@@ -907,10 +909,12 @@
     "print": "打印",
     "cards": "{{count}} 张卡片",
     "layerName": {
-      "strategy": "战略与转型",
-      "business": "业务架构",
-      "application": "应用与数据",
-      "technical": "技术架构"
+      "business": "业务",
+      "beneficiary": "受益人体验",
+      "application": "应用",
+      "data": "数据",
+      "technology": "技术",
+      "security": "安全"
     }
   }
 }

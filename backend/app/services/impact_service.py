@@ -36,10 +36,12 @@ from app.models.risk import Risk, RiskCard
 # Canonical EA-layer ordering used to sort grouped output. Layers not in this
 # list (custom card-type categories) sort last, alphabetically.
 LAYER_ORDER = [
-    "Strategy & Transformation",
-    "Business Architecture",
-    "Application & Data",
-    "Technical Architecture",
+    "Business",
+    "Beneficiary Experience",
+    "Application",
+    "Data",
+    "Technology",
+    "Security",
 ]
 
 # Card-type keys treated as "initiatives / delivery" for the dedicated rollup.

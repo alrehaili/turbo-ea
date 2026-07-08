@@ -18,7 +18,7 @@
 | 3 | Methodology & Program Management | WP3.1–WP3.4 | ☑ **Complete** (all four WPs, 2026-07-02) |
 | 4 | Domain Completeness (DRM/PRM/Standards/Integration) | WP4.1–WP4.5 | ☑ **Complete** (2026-07-02; WP4.3 closed as fork-covered) |
 | 5 | NEA Content & Federation *(WP5.1 blocked on NEA reference models)* | WP5.1–WP5.5 | ◐ WP5.2–5.5 ☑ (2026-07-06/07); **only WP5.1 remains ⊘** — *partially unblocked 2026-07-07*: the General Model (building blocks + attributes) is now in hand via the awareness kit; the BRM/ARM/DRM/TRM **taxonomy code lists** are still missing, so the catalogue importers stay blocked. The building-block/attribute alignment work moved to Phase 6. |
-| 6 | Updated-Framework Alignment (Dec-2024 NEA: 7-phase methodology, 6 domains, Meta Model, viewpoints, templates) | WP6.1–WP6.8 | ◐ **WP6.2 ☑** (2026-07-07, profile v2 + 3 drive-by bug fixes) · **WP6.6 ☑** (2026-07-08, template importer; exporter deferred) · WP6.3/6.4 metamodel halves pulled forward into profile v2; WP6.1/6.5/6.7/6.8 + WP6.3/6.4 report halves ☐ |
+| 6 | Updated-Framework Alignment (Dec-2024 NEA: 7-phase methodology, 6 domains, Meta Model, viewpoints, templates) | WP6.1–WP6.9 | ◐ **WP6.2 ☑** (2026-07-07, profile v2 + 3 drive-by bug fixes) · **WP6.6 ☑** (2026-07-08, template importer; exporter deferred) · **WP6.9 ☑** (2026-07-08, NORA 2.0 six-layer model, profile v3) · WP6.3/6.4 metamodel halves pulled forward into profile v2; WP6.1/6.5/6.7/6.8 + WP6.3/6.4 report halves ☐ |
 
 > **Fork-overlap note (2026-07-02).** Codebase inspection found this fork already ships features the plan scheduled (beyond what upstream CLAUDE.md documents): **Scenarios** (`backend/app/models/scenario.py` — copy-on-write current/target overlay with add/modify/retire deltas, approval lifecycle, merge with conflict detection) largely covers WP2.1's intent; the **TechStandard catalogue** (`tech_standard.py` — radar statuses Preferred→Prohibited, replacement links, time-boxed approver-gated exception register) covers most of WP1.3 and WP4.3; **ARB reviews** (`arb_review.py`) partially covers WP2.2's committee-decision needs; **Roadmaps** (`roadmap.py`) and **TIME rationalization** (`rationalization.py` — replaces the dropped `targetDisposition` field) support WP2.4. Affected WPs must start with a gap review against these modules instead of building from scratch.
 
@@ -581,6 +581,16 @@ The NEA wants Data Center / Physical Host / Server / Network Device / Storage / 
 - [ ] Program tracker: the practice-establishment deliverables are *pre-methodology* (you establish the practice, then run cycles) — surface them as a separate "Practice establishment" checklist section on `/nora-program` (10 rows, doc-linked), not as methodology phases.
 
 **Acceptance**: all 10 operating-model artifacts are authorable/governed in-app; policies from the BA template import as first-class governable cards.
+
+### WP6.9 — NORA 2.0 six-layer model `☑ Done 2026-07-08`
+
+**NORA ref**: NORA 2.0 layer structure — Business, Beneficiary Experience, Application, Data, Technology, Security.
+
+- [x] `card_types.category` restructured from the four TOGAF-ish layers to the six NORA 2.0 layers: Strategy & Transformation folded into **Business**; **Application & Data split** into Application and a standalone **Data** layer (DataObject, DataExchange); Technical Architecture renamed **Technology**; new **Beneficiary Experience** (GovService moves here + new profile-delivered `BeneficiaryJourney` and `Channel` card types) and **Security** (new profile-delivered `SecurityControl` card type) layers.
+- [x] Guarded Alembic migration 137 (only rewrites categories still at the old default) + NORA profile v3 with an equivalent guarded pass — idempotent in either order; admin-customised categories preserved.
+- [x] Layers nav, swim-lane overviews, per-layer summaries, LDV layout, admin category picker, backend layer_order lists, i18n ×10 all moved to the six-layer set; old slugs (`/layers/strategy`, `/layers/technical`) redirect.
+- [x] `/layers/security` now combines the Security-layer cards with the GRC posture (risks + compliance).
+- Note for WP6.5: journeys get a first-class `BeneficiaryJourney` type in the Beneficiary Experience layer (supersedes the earlier "keep journeys as a BusinessContext subtype" note); Persona should land in the Beneficiary Experience layer, not Business Architecture.
 
 ### Phase 6 sequencing & effort notes
 

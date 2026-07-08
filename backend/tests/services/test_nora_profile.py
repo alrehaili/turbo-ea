@@ -109,10 +109,10 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_2(self):
+    def test_profile_version_is_3(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 2
+        assert NORA_PROFILE_VERSION == 3
 
     def test_v2_template_fields_present(self):
         """Every حصر البيانات template column has a landing field (or a documented
@@ -388,7 +388,7 @@ class TestApplyNoraProfile:
         from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
         gov = (await db.execute(select(CardType).where(CardType.key == "GovService"))).scalar_one()
-        assert gov.category == "Business Architecture"
+        assert gov.category == "Beneficiary Experience"
         assert gov.built_in is True
         field_keys = {f["key"] for s in gov.fields_schema for f in s["fields"]}
         assert {
@@ -694,3 +694,76 @@ class TestProfileV2Passes:
         iface = (await db.execute(select(CardType).where(CardType.key == "Interface"))).scalar_one()
         iface_keys = {f["key"] for s in iface.fields_schema for f in s.get("fields", [])}
         assert {"integrationScope", "linkType", "interfaceOutputs"} <= iface_keys
+
+
+class TestProfileV3SixLayers:
+    """Profile v3 — six-layer categories + Beneficiary Experience / Security types."""
+
+    async def test_new_types_created_with_six_layer_categories(self, db):
+        summary = await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        for key, category in (
+            ("BeneficiaryJourney", "Beneficiary Experience"),
+            ("Channel", "Beneficiary Experience"),
+            ("SecurityControl", "Security"),
+            ("GovService", "Beneficiary Experience"),
+            ("KPI", "Business"),
+            ("DataExchange", "Data"),
+        ):
+            ct = (await db.execute(select(CardType).where(CardType.key == key))).scalar_one()
+            assert ct.category == category, key
+            assert ct.built_in is True
+        assert {"BeneficiaryJourney", "Channel", "SecurityControl"} <= set(
+            summary.get("types_created", [])
+        )
+
+    async def test_category_moves_are_guarded(self, db):
+        # A v2-era install: built-ins still carry the legacy four-layer names,
+        # except one the admin re-categorised (must be preserved).
+        await create_card_type(
+            db,
+            key="Objective",
+            label="Objective",
+            fields_schema=[],
+            built_in=True,
+            category="Strategy & Transformation",
+        )
+        await create_card_type(
+            db,
+            key="DataObject",
+            label="Data Object",
+            fields_schema=[],
+            built_in=True,
+            category="Application & Data",
+        )
+        await create_card_type(
+            db,
+            key="ITComponent",
+            label="IT Component",
+            fields_schema=[],
+            built_in=True,
+            category="My Custom Layer",
+        )
+
+        summary = await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        cats = dict((await db.execute(select(CardType.key, CardType.category))).all())
+        assert cats["Objective"] == "Business"
+        assert cats["DataObject"] == "Data"
+        # Admin-customised category untouched.
+        assert cats["ITComponent"] == "My Custom Layer"
+        moved = summary.get("categories_moved", [])
+        assert any(m.startswith("Objective") for m in moved)
+        assert not any(m.startswith("ITComponent") for m in moved)
+
+        # Re-apply is a no-op for categories.
+        second = await apply_nora_profile(db)
+        assert "categories_moved" not in second

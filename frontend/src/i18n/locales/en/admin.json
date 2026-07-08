@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "Type Properties",
   "metamodel.typeDrawer.label": "Label",
   "metamodel.typeDrawer.category": "Category",
-  "metamodel.typeDrawer.categoryHelper": "e.g. Business Architecture",
+  "metamodel.typeDrawer.categoryHelper": "e.g. Business",
   "metamodel.typeDrawer.icon": "Icon",
   "metamodel.typeDrawer.description": "Description",
   "metamodel.typeDrawer.colorBuiltIn": "Color (built-in)",

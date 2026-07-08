@@ -68,7 +68,7 @@ const MOCK_TYPES = [
     label: "Application",
     icon: "apps",
     color: "#0f7eb5",
-    category: "Application & Data",
+    category: "Application",
     has_hierarchy: true,
     subtypes: [{ key: "business_app", label: "Business Application" }],
     fields_schema: [],

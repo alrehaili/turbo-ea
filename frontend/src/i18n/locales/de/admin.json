@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "Typ-Eigenschaften",
   "metamodel.typeDrawer.label": "Bezeichnung",
   "metamodel.typeDrawer.category": "Kategorie",
-  "metamodel.typeDrawer.categoryHelper": "z. B. Business Architecture",
+  "metamodel.typeDrawer.categoryHelper": "z. B. Geschäft",
   "metamodel.typeDrawer.icon": "Symbol",
   "metamodel.typeDrawer.description": "Beschreibung",
   "metamodel.typeDrawer.colorBuiltIn": "Farbe (vordefiniert)",

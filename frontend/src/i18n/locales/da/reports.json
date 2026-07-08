@@ -897,7 +897,9 @@
     "openRegister": "Åbn risikoregister",
     "compliance": "Compliance efter regulering",
     "noCompliance": "Ingen compliance-data.",
-    "openCompliance": "Åbn compliance"
+    "openCompliance": "Åbn compliance",
+    "cardsTitle": "Kort i sikkerhedslaget",
+    "cardsEmpty": "Ingen sikkerhedskorttyper endnu — anvend NORA-profilen for at tilføje sikkerhedskontroller."
   },
   "layerSwimlane": {
     "swimlane": "Arkitekturlag",
@@ -907,10 +909,12 @@
     "print": "Udskriv",
     "cards": "{{count}} kort",
     "layerName": {
-      "strategy": "Strategi & transformation",
-      "business": "Forretningsarkitektur",
-      "application": "Applikationer & data",
-      "technical": "Teknisk arkitektur"
+      "business": "Forretning",
+      "beneficiary": "Modtageroplevelse",
+      "application": "Applikationer",
+      "data": "Data",
+      "technology": "Teknologi",
+      "security": "Sikkerhed"
     }
   }
 }

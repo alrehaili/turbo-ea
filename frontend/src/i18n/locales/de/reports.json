@@ -897,7 +897,9 @@
     "openRegister": "Risikoregister öffnen",
     "compliance": "Compliance nach Regulierung",
     "noCompliance": "Keine Compliance-Daten.",
-    "openCompliance": "Compliance öffnen"
+    "openCompliance": "Compliance öffnen",
+    "cardsTitle": "Karten der Sicherheitsschicht",
+    "cardsEmpty": "Noch keine Sicherheits-Kartentypen — wenden Sie das NORA-Profil an, um Sicherheitskontrollen hinzuzufügen."
   },
   "layerSwimlane": {
     "swimlane": "Architekturebenen",
@@ -907,10 +909,12 @@
     "print": "Drucken",
     "cards": "{{count}} Karten",
     "layerName": {
-      "strategy": "Strategie & Transformation",
-      "business": "Geschäftsarchitektur",
-      "application": "Anwendungen & Daten",
-      "technical": "Technische Architektur"
+      "business": "Geschäft",
+      "beneficiary": "Nutzererlebnis",
+      "application": "Anwendungen",
+      "data": "Daten",
+      "technology": "Technologie",
+      "security": "Sicherheit"
     }
   }
 }

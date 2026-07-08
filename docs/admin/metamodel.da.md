@@ -8,14 +8,16 @@ Naviger til **Admin > Metamodel** for at få adgang til metamodel-editoren. Den 
 
 ## Korttyper
 
-Fanebladet Korttyper viser alle typer i systemet. Turbo EA leveres med 14 indbyggede typer på tværs af fire arkitekturlag:
+Fanebladet Korttyper viser alle typer i systemet. Turbo EA leveres med 14 indbyggede typer på tværs af de seks NORA 2.0-arkitekturlag:
 
 | Lag | Typer |
 |-------|-------|
-| **Strategy & Transformation** | Objective, Platform, Initiative |
-| **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
-| **Application & Data** | Application, Interface, Data Object |
-| **Technical Architecture** | IT Component, Tech Category, Provider, System |
+| **Forretning** | Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process |
+| **Modtageroplevelse** | Government Service, Beneficiary Journey, Channel *(via NORA-profilen)* |
+| **Applikationer** | Application, Interface |
+| **Data** | Data Object *(+ Data Exchange via NORA-profilen)* |
+| **Teknologi** | IT Component, Tech Category, Provider, System |
+| **Sikkerhed** | Security Control *(via NORA-profilen)* |
 
 ### Oprettelse af en brugerdefineret type
 

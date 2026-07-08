@@ -279,21 +279,15 @@ class TestChangeImpact:
     @pytest.fixture
     async def impact_env(self, db, reports_env):
         """Center Application -> Interface -> ITComponent chain across layers."""
-        await create_card_type(
-            db, key="Interface", label="Interface", category="Application & Data"
-        )
-        await create_card_type(
-            db, key="ITComponent", label="IT Component", category="Technical Architecture"
-        )
+        await create_card_type(db, key="Interface", label="Interface", category="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component", category="Technology")
         # Application type from reports_env has no category; give it one.
         from sqlalchemy import update
 
         from app.models.card_type import CardType
 
         await db.execute(
-            update(CardType)
-            .where(CardType.key == "Application")
-            .values(category="Application & Data")
+            update(CardType).where(CardType.key == "Application").values(category="Application")
         )
         await create_relation_type(
             db,
@@ -346,7 +340,7 @@ class TestChangeImpact:
         assert names["Postgres"]["depth"] == 2
         # ITComponent path runs back through the interface.
         assert names["Postgres"]["path"] == ["Sync API", "Postgres"]
-        assert "Technical Architecture" in data["summary"]["by_layer"]
+        assert "Technology" in data["summary"]["by_layer"]
 
     async def test_impact_depth_limits_walk(self, client, db, impact_env):
         admin = impact_env["admin"]

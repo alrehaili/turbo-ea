@@ -145,11 +145,14 @@ export const CARD_TYPE_COLORS = {
 
 // ── EA layers (Layered Dependency View, capability map, dependency report) ─
 
+// NORA 2.0 six-layer model (categories on card_types.category).
 export const LAYER_COLORS = {
-  "Strategy & Transformation": "#33cc58",
-  "Business Architecture": "#2889ff",
-  "Application & Data": "#0f7eb5",
-  "Technical Architecture": "#d29270",
+  Business: "#2889ff",
+  "Beneficiary Experience": "#00a3a3",
+  Application: "#0f7eb5",
+  Data: "#774fcc",
+  Technology: "#d29270",
+  Security: "#c62828",
 } as const;
 
 // ── Vendor accent (VendorField, Provider chips) ─────────────────────────

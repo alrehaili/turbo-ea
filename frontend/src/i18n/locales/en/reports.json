@@ -983,7 +983,9 @@
     "openRegister": "Open Risk Register",
     "compliance": "Compliance by regulation",
     "noCompliance": "No compliance data.",
-    "openCompliance": "Open Compliance"
+    "openCompliance": "Open Compliance",
+    "cardsTitle": "Security layer cards",
+    "cardsEmpty": "No Security card types yet — apply the NORA profile to add Security Controls."
   },
   "layerSwimlane": {
     "swimlane": "Architecture layers",
@@ -993,10 +995,12 @@
     "print": "Print",
     "cards": "{{count}} cards",
     "layerName": {
-      "strategy": "Strategy & Transformation",
-      "business": "Business Architecture",
-      "application": "Application & Data",
-      "technical": "Technical Architecture"
+      "business": "Business",
+      "beneficiary": "Beneficiary Experience",
+      "application": "Application",
+      "data": "Data",
+      "technology": "Technology",
+      "security": "Security"
     }
   }
 }

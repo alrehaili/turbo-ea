@@ -40,7 +40,7 @@ const APP_TYPE = makeType({
   key: "Application",
   label: "Application",
   color: "#0f7eb5",
-  category: "Application & Data",
+  category: "Application",
   sort_order: 1,
 });
 
@@ -48,7 +48,7 @@ const IT_TYPE = makeType({
   key: "ITComponent",
   label: "IT Component",
   color: "#d29270",
-  category: "Technical Architecture",
+  category: "Technology",
   sort_order: 2,
 });
 
@@ -56,7 +56,7 @@ const BIZ_TYPE = makeType({
   key: "Organization",
   label: "Organization",
   color: "#2889ff",
-  category: "Business Architecture",
+  category: "Business",
   sort_order: 3,
 });
 
@@ -84,8 +84,8 @@ describe("buildLdvFlow", () => {
     expect(groups).toHaveLength(2);
 
     const groupLabels = groups.map((g) => (g.data as { label: string }).label);
-    expect(groupLabels).toContain("Application & Data");
-    expect(groupLabels).toContain("Technical Architecture");
+    expect(groupLabels).toContain("Application");
+    expect(groupLabels).toContain("Technology");
   });
 
   it("creates ldvNode nodes as children of groups", () => {
@@ -172,10 +172,10 @@ describe("buildLdvFlow", () => {
     // The wider group (4 apps) should start at x=0 or close to 0
     // The narrower group (1 IT) should be offset to center
     const appGroup = groups.find(
-      (g) => (g.data as { label: string }).label === "Application & Data",
+      (g) => (g.data as { label: string }).label === "Application",
     )!;
     const itGroup = groups.find(
-      (g) => (g.data as { label: string }).label === "Technical Architecture",
+      (g) => (g.data as { label: string }).label === "Technology",
     )!;
 
     const appW = (appGroup.style as { width: number }).width;
@@ -302,11 +302,10 @@ describe("buildLdvFlow", () => {
     const groups = result.nodes.filter((n) => n.type === "ldvGroup");
     const labels = groups.map((g) => (g.data as { label: string }).label);
 
-    // Business Architecture should come before Application & Data,
-    // which should come before Technical Architecture
-    const bizIdx = labels.indexOf("Business Architecture");
-    const appIdx = labels.indexOf("Application & Data");
-    const techIdx = labels.indexOf("Technical Architecture");
+    // Business should come before Application, which should come before Technology
+    const bizIdx = labels.indexOf("Business");
+    const appIdx = labels.indexOf("Application");
+    const techIdx = labels.indexOf("Technology");
     expect(bizIdx).toBeLessThan(appIdx);
     expect(appIdx).toBeLessThan(techIdx);
   });

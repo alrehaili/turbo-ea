@@ -30,10 +30,12 @@ interface RelatedEntry {
 }
 
 const LAYER_ORDER = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
+  "Business",
+  "Beneficiary Experience",
+  "Application",
+  "Data",
+  "Technology",
+  "Security",
   "Other",
 ];
 

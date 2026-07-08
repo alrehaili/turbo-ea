@@ -108,7 +108,7 @@
   "metamodel.typeDrawer.typeProperties": "Свойства типа",
   "metamodel.typeDrawer.label": "Метка",
   "metamodel.typeDrawer.category": "Категория",
-  "metamodel.typeDrawer.categoryHelper": "напр. Business Architecture",
+  "metamodel.typeDrawer.categoryHelper": "напр. Бизнес",
   "metamodel.typeDrawer.icon": "Иконка",
   "metamodel.typeDrawer.description": "Описание",
   "metamodel.typeDrawer.colorBuiltIn": "Цвет (встроенный)",

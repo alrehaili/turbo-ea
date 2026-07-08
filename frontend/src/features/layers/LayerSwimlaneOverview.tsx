@@ -2,10 +2,9 @@
  * LayerSwimlaneOverview — a rich, layer-parameterised architecture overview.
  *
  * Generalises the former bespoke Application Layer Overview so **every** EA
- * layer gets the same swim-lane treatment: the four EA layers render as
- * stacked bands (Strategy & Transformation → Business Architecture →
- * Application & Data → Technical Architecture), with the *anchor* layer
- * emphasised. Metric tiles, lifecycle + data-quality distributions and the
+ * layer gets the same swim-lane treatment: the six NORA 2.0 layers render as
+ * stacked bands (Business → Beneficiary Experience → Application → Data →
+ * Technology → Security), with the *anchor* layer emphasised. Metric tiles, lifecycle + data-quality distributions and the
  * attention list are computed on the anchor layer's cards. Everything is
  * metamodel-driven, so new card types in a layer appear automatically.
  *
@@ -39,20 +38,24 @@ import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { CARD_TYPE_COLORS, DATA_QUALITY_COLORS, LAYER_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { Card, CardType } from "@/types";
 
-/** The four EA layers, top-to-bottom — the swim-lane band order. */
+/** The six NORA 2.0 EA layers, top-to-bottom — the swim-lane band order. */
 const EA_LAYERS = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
+  "Business",
+  "Beneficiary Experience",
+  "Application",
+  "Data",
+  "Technology",
+  "Security",
 ] as const;
 
 /** Layer `category` → url slug / i18n key. */
 export const LAYER_SLUG: Record<string, string> = {
-  "Strategy & Transformation": "strategy",
-  "Business Architecture": "business",
-  "Application & Data": "application",
-  "Technical Architecture": "technical",
+  Business: "business",
+  "Beneficiary Experience": "beneficiary",
+  Application: "application",
+  Data: "data",
+  Technology: "technology",
+  Security: "security",
 };
 
 const LIFECYCLE_PHASE_COLORS: Record<string, string> = {

@@ -23,10 +23,12 @@ interface RelatedEntry {
 }
 
 const LAYER_ORDER = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
+  "Business",
+  "Beneficiary Experience",
+  "Application",
+  "Data",
+  "Technology",
+  "Security",
   "Other",
 ];
 
@@ -122,9 +124,11 @@ export default function ApplicationSummaryReport() {
       if (!peer) continue;
       uniqueRelated.add(peer.id);
       const category = getType(peer.type)?.category;
-      if (category === "Business Architecture") business.add(peer.id);
-      if (category === "Application & Data") data.add(peer.id);
-      if (category === "Technical Architecture") technology.add(peer.id);
+      // Beneficiary Experience counts toward business reach — journeys and
+      // channels are business-facing consumers of the application.
+      if (category === "Business" || category === "Beneficiary Experience") business.add(peer.id);
+      if (category === "Data") data.add(peer.id);
+      if (category === "Technology" || category === "Security") technology.add(peer.id);
     }
     return {
       related: uniqueRelated.size,

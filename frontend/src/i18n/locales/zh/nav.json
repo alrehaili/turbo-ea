@@ -8,7 +8,6 @@
   "reports.capabilityMap": "能力地图",
   "reports.lifecycle": "生命周期",
   "noraProgram": "NORA 计划",
-  "maturity": "EA 成熟度",
   "noraProgram.newDocument": "新建 NORA 文档",
   "noraProgram.docType.ea_project_strategy": "EA 项目战略",
   "noraProgram.docType.ea_project_plan": "EA 项目计划",
@@ -199,10 +198,17 @@
   "reports.serviceCatalogue": "服务目录",
   "reports.businessLayer": "业务层",
   "reports.businessSummary": "业务摘要",
-  "reports.strategyLayer": "战略层",
-  "reports.strategySummary": "战略摘要",
   "reports.technologyLayer": "技术层",
   "reports.technologySummary": "技术摘要",
   "reports.securityLayer": "安全层",
-  "layers": "架构层"
+  "layers": "架构层",
+  "reports.beneficiaryLayer": "受益人体验层",
+  "reports.beneficiarySummary": "受益人体验摘要",
+  "reports.dataLayer": "数据层",
+  "reports.dataSummary": "数据摘要",
+  "reports.securitySummary": "安全摘要",
+  "governance.maturity": "EA 成熟度",
+  "userMenu.activateNora": "启用 NORA 配置",
+  "userMenu.noraActivated": "NORA 配置已启用——NORA 卡片类型、字段和计划工具现已可用。",
+  "userMenu.noraActivationFailed": "无法启用 NORA 配置。请检查您的权限后重试。"
 }
