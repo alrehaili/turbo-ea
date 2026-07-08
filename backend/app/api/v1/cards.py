@@ -486,9 +486,10 @@ async def list_cards(
     if approval_status:
         statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
         q = q.where(Card.approval_status.in_(statuses))
+        count_q = count_q.where(Card.approval_status.in_(statuses))
     if architecture_state:
         q = q.where(Card.architecture_state == architecture_state)
-        count_q = count_q.where(Card.approval_status.in_(statuses))
+        count_q = count_q.where(Card.architecture_state == architecture_state)
     if mine == "stakeholder":
         mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
         q = q.where(Card.id.in_(mine_cards_sq))

@@ -2278,7 +2278,7 @@ async def gap_analysis_report(
     transition initiatives linked to it — plus the "untraceable" list of
     target/transition cards no initiative delivers. [FORK FEATURE]
     """
-    await PermissionService.require_permission(db, user, "reports.view")
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
     # Every card participating in a change: target/transition cards, plus
     # current cards flagged for planned retirement.
@@ -2378,7 +2378,7 @@ async def service_traceability_report(
     from a service within ``depth`` relation hops, grouped by EA layer, so the
     committee can answer "how is this service delivered" on one screen.
     [FORK FEATURE]"""
-    await PermissionService.require_permission(db, user, "reports.view")
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
     root_id = uuid.UUID(card_id)
     root = (await db.execute(select(Card).where(Card.id == root_id))).scalar_one_or_none()
@@ -2462,7 +2462,7 @@ async def interoperability_report(
     every Interface and DataExchange with its NORA attributes (integration
     type, GSB routing, classification carried, external party) and the
     applications it connects. [FORK FEATURE]"""
-    await PermissionService.require_permission(db, user, "reports.view")
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
     rows = (
         (

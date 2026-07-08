@@ -1,6 +1,6 @@
 # Migrazione di piattaforma
 
-> Piattaforme sorgente supportate oggi: **SAP LeanIX**. Adattatori aggiuntivi (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) si collegano alla stessa pipeline di staging e applicazione e compaiono automaticamente nella finestra di dialogo di caricamento quando vengono rilasciati.
+> Piattaforme sorgente supportate oggi: **SAP LeanIX** e i **modelli di raccolta dati NORA (DGA)**. Adattatori aggiuntivi (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) si collegano alla stessa pipeline di staging e applicazione e compaiono automaticamente nella finestra di dialogo di caricamento quando vengono rilasciati.
 
 L'importatore di migrazione di piattaforma (**Amministrazione → Impostazioni → Migrazione**) acquisisce un workspace LeanIX completo e lo deposita come carte, relazioni, tag, stakeholder, documenti, commenti e un metamodello completamente costruito di Turbo EA in un'unica operazione a fasi, revisionabile.
 
@@ -93,3 +93,9 @@ Questa pagina è protetta dal permesso `admin.migrate`. Per default solo il ruol
 ## Pulizia
 
 Eliminare un record di migrazione (Impostazioni → Migrazione → icona cestino) rimuove sia le righe DB per quella migrazione (gli staged record cascadeano) che il file snapshot su disco. Le migrazioni negli stati `uploaded`, `parsed`, `previewed`, `failed`, `aborted` e `applied` sono tutte eliminabili; una migrazione `applying` deve prima terminare (o fallire) prima di poter essere rimossa.
+
+### Modelli di raccolta dati NORA (DGA)
+
+L'importatore acquisisce anche le cartelle di lavoro ufficiali di raccolta dati del framework EA nazionale saudita — una cartella per dominio EA (business, applicazioni, tecnologia, sicurezza, dati). I fogli atterrano sui tipi di scheda corrispondenti e le colonne a scelta vengono tradotte dai valori di lookup dei modelli ai campi del profilo NORA — attivare quindi il profilo framework NORA prima dell'importazione.
+
+I riferimenti per nome tra le righe diventano relazioni e collegamenti gerarchici; i nomi referenziati senza una propria riga vengono creati come schede minime che si collegano alle schede esistenti con lo stesso nome. Le cartelle possono essere caricate in qualsiasi ordine e reimportate in sicurezza. I fogli esperienza del beneficiario, moduli, policy e stakeholder non vengono ancora importati.

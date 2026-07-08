@@ -7,6 +7,7 @@ The platform-migration importer (**Admin → Settings → Migration**) ingests a
 | Source | Format |
 |---|---|
 | **SAP LeanIX** | Full Snapshot xlsx workbook (Administration → Export → Full Snapshot) |
+| **NORA data-collection templates (DGA)** | حصر البيانات xlsx workbook — one per EA domain (Business / Applications / Technology / Security / Data) |
 
 Additional source platforms (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) plug into the same staging + apply pipeline via per-source adapters. When a new adapter ships, it appears automatically in the **Source platform** picker on the upload dialog with no admin configuration required.
 
@@ -103,3 +104,11 @@ This page is gated by the `admin.migrate` permission. Only the **admin** role ho
 ## Cleanup
 
 Deleting a migration record (Settings → Migration → trash icon) removes both the database rows for that migration (staged records cascade) and the snapshot file on disk. `uploaded`, `parsed`, `previewed`, `failed`, `aborted`, and `applied` migrations are all deletable; an `applying` migration must finish (or fail) before it can be removed.
+
+### NORA data-collection templates (DGA)
+
+The importer also ingests the official Saudi National EA Framework data-collection workbooks (نماذج حصر البيانات) — one workbook per EA domain (Business, Applications, Technology, Security, Data). Sheets land on the matching card types: services, business processes, applications, technical integration points, data entities, and the technology/security components as IT Component subtypes (physical hosts, virtual servers, network devices, storage, infrastructure tools/services, security hardware/software/services). Option columns are translated from the templates' own lookup values into the NORA profile fields, so apply the NORA framework profile before importing.
+
+Name references between rows (services → applications, procedures → services, integration points → consumer/producer applications, sub-service → main service) become relations and hierarchy links. A referenced name that has no row of its own is created as a minimal placeholder card — or bound to an existing card with the same name — so relations always land and inventory gaps stay visible. Workbooks can be uploaded in any order and re-imported safely.
+
+Not yet imported: the Beneficiary-Experience journey-improvements sheet and the Business workbook's forms (النماذج), policies (السياسات) and stakeholders (أصحاب المصلحة) sheets, and the Data workbook's attribute-level registries (فهرس الأعمال / سمات البيانات).

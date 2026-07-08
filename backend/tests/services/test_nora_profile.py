@@ -72,16 +72,21 @@ class TestNoraProfileDefinitions:
             assert field.get("options"), f"{field['key']} has no options"
 
     def test_target_types_exist_in_seed(self):
-        seed_keys = {t["key"] for t in TYPES}
-        assert set(NORA_TYPE_FIELDS) <= seed_keys
+        # v2: NORA_TYPE_FIELDS may also target NORA-created types (GovService)
+        # — those are created by pass 1 before pass 4 runs.
+        known_keys = {t["key"] for t in TYPES} | {t["key"] for t in NORA_CARD_TYPES}
+        assert set(NORA_TYPE_FIELDS) <= known_keys
 
     def test_no_key_collisions_with_seed_fields(self):
-        """NORA field keys must not shadow fields the seed metamodel already has."""
+        """NORA field keys must not shadow fields the target type already has."""
         for type_key, fields in NORA_TYPE_FIELDS.items():
-            seed_type = next(t for t in TYPES if t["key"] == type_key)
+            base_type = next(
+                (t for t in TYPES if t["key"] == type_key),
+                None,
+            ) or next(t for t in NORA_CARD_TYPES if t["key"] == type_key)
             existing = {
                 f["key"]
-                for section in seed_type.get("fields_schema", [])
+                for section in base_type.get("fields_schema", [])
                 for f in section.get("fields", [])
             }
             clashes = [f["key"] for f in fields if f["key"] in existing]
@@ -101,6 +106,117 @@ class TestNoraProfileDefinitions:
             "restricted",
             "public",
         ]
+
+    # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
+
+    def test_profile_version_is_2(self):
+        from app.services.nora_profile import NORA_PROFILE_VERSION
+
+        assert NORA_PROFILE_VERSION == 2
+
+    def test_v2_template_fields_present(self):
+        """Every حصر البيانات template column has a landing field (or a documented
+        mapping to a seed field — those are deliberately absent here)."""
+        by_type = {tk: {f["key"] for f in fields} for tk, fields in NORA_TYPE_FIELDS.items()}
+        assert {
+            "serviceClassification",
+            "serviceType",
+            "automationLevel",
+            "geoCoverage",
+            "serviceRequirements",
+            "serviceInputs",
+            "serviceOutputs",
+            "participatingEntities",
+            "executionSteps",
+        } <= by_type["GovService"]
+        assert {
+            "processClassification",
+            "triggerEvent",
+            "businessRules",
+            "durationDays",
+            "processInputs",
+            "processOutputs",
+        } <= by_type["BusinessProcess"]
+        assert {
+            "appLayer",
+            "developmentType",
+            "sourceType",
+            "contractor",
+            "appUrl",
+            "authenticationMethod",
+            "launchDate",
+            "architecturePattern",
+            "costCapex",
+        } <= by_type["Application"]
+        assert {
+            "integrationScope",
+            "integrationPlatform",
+            "linkType",
+            "interfaceInputs",
+            "interfaceOutputs",
+        } <= by_type["Interface"]
+        assert {
+            "supportEndDate",
+            "supportContractStatus",
+            "operationType",
+            "initialCost",
+            "environment",
+            "clusterId",
+            "firmwareVersion",
+            "inBackupPolicy",
+            "inDrPolicy",
+        } <= by_type["ITComponent"]
+        assert "dataType" in by_type["DataObject"]
+
+    def test_v2_app_layer_matches_template_lookup(self):
+        """appLayer options mirror the template's five-layer classification."""
+        field = next(f for f in NORA_TYPE_FIELDS["Application"] if f["key"] == "appLayer")
+        assert [o["key"] for o in field["options"]] == [
+            "access",
+            "core",
+            "support",
+            "data",
+            "infrastructure",
+        ]
+
+    def test_v2_subtypes_translated(self):
+        from app.services.nora_profile import NORA_V2_SUBTYPES
+
+        assert {t["key"] for t in NORA_V2_SUBTYPES["Objective"]} == {"pillar"}
+        # NEA TA (§5.3.6) + Security (§5.3.7) building blocks + DRM data vault.
+        assert {t["key"] for t in NORA_V2_SUBTYPES["ITComponent"]} == {
+            "dataVault",
+            "dataCenter",
+            "physicalHost",
+            "virtualServer",
+            "networkDevice",
+            "storage",
+            "infraTool",
+            "infraService",
+            "license",
+            "containerEngine",
+            "peripheral",
+            "securityHardware",
+            "securitySoftware",
+            "securityService",
+        }
+        for subtype_defs in NORA_V2_SUBTYPES.values():
+            for sub in subtype_defs:
+                for locale in SUPPORTED_LOCALES:
+                    assert sub["translations"].get(locale), f"{sub['key']} missing {locale}"
+
+    def test_v2_subtype_keys_do_not_collide_with_seed(self):
+        from app.services.nora_profile import NORA_V2_SUBTYPES
+
+        for type_key, subtype_defs in NORA_V2_SUBTYPES.items():
+            seed_type = next(t for t in TYPES if t["key"] == type_key)
+            existing = {s["key"] for s in seed_type.get("subtypes", [])}
+            clashes = [s["key"] for s in subtype_defs if s["key"] in existing]
+            assert not clashes, f"{type_key}: {clashes} already in seed subtypes"
+
+    def test_govservice_definition_has_hierarchy(self):
+        gov = next(t for t in NORA_CARD_TYPES if t["key"] == "GovService")
+        assert gov["has_hierarchy"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +357,9 @@ class TestApplyNoraProfile:
     async def test_missing_types_are_skipped(self, db):
         """Applying against an empty metamodel still records the profile flag."""
         summary = await apply_nora_profile(db)
-        assert summary["types_updated"] == []
+        # v2: GovService is created by pass 1 and receives its v2 fields via
+        # pass 4 even on an otherwise empty metamodel; no seed type is touched.
+        assert summary["types_updated"] == ["GovService"]
         assert (await get_framework_profile(db))["profile"] == "nora"
 
     async def test_apply_creates_govservice_with_roles_and_relations(self, db):
@@ -253,7 +371,9 @@ class TestApplyNoraProfile:
         summary = await apply_nora_profile(db)
 
         assert "GovService" in summary["card_types_created"]
-        assert set(summary["relation_types_created"]) == {
+        # Superset: WP4.1/4.2 create further relation types (DataExchange, KPI)
+        # in the same apply when their endpoints exist.
+        assert set(summary["relation_types_created"]) >= {
             "relGovServiceToProcess",
             "relGovServiceToApp",
             "relOrgToGovService",
@@ -326,7 +446,9 @@ class TestApplyNoraProfile:
 
         summary = await apply_nora_profile(db)
 
-        assert summary["card_types_created"] == []
+        # Other NORA types (DataExchange, KPI) are still created; the existing
+        # GovService row is never recreated or overwritten.
+        assert "GovService" not in summary["card_types_created"]
         from sqlalchemy import select
 
         from app.models.card_type import CardType
@@ -430,7 +552,11 @@ class TestPhase4Passes:
 
         summary = await apply_nora_profile(db)
 
-        assert summary.get("subtypes_added") == ["ITComponent.database"]
+        # v2: pass 4d appends the NEA subtype set after pass 4b's database.
+        from app.services.nora_profile import NORA_V2_SUBTYPES
+
+        expected_v2 = [f"ITComponent.{s['key']}" for s in NORA_V2_SUBTYPES["ITComponent"]]
+        assert summary.get("subtypes_added") == ["ITComponent.database", *expected_v2]
         assert set(summary.get("regulations_created", [])) == {
             "nca_ecc",
             "ndmo_dm",
@@ -445,7 +571,8 @@ class TestPhase4Passes:
 
         itc = (await db.execute(select(CardType).where(CardType.key == "ITComponent"))).scalar_one()
         keys = [s["key"] for s in itc.subtypes]
-        assert keys == ["software", "database"]
+        assert keys[:2] == ["software", "database"]
+        assert set(keys) >= {s["key"] for s in NORA_V2_SUBTYPES["ITComponent"]}
 
         regs = (await db.execute(select(ComplianceRegulation))).scalars().all()
         assert {r.key for r in regs} >= {"nca_ecc", "ndmo_dm", "pdpl", "dga_policy"}
@@ -479,3 +606,91 @@ class TestPhase4Passes:
             "relKPIToGovService",
             "relInitiativeToKPI",
         } <= set(summary["relation_types_created"])
+
+
+class TestProfileV2Passes:
+    """WP6.2 — pass 4d subtypes, GovService hierarchy, v2 field injection."""
+
+    async def test_pillar_subtype_and_govservice_hierarchy(self, db):
+        await create_card_type(
+            db,
+            key="Objective",
+            label="Objective",
+            fields_schema=[],
+            built_in=True,
+            subtypes=[],
+        )
+        # Simulate a v1 install: the profile-created GovService predates the
+        # hierarchy upgrade.
+        await create_card_type(
+            db,
+            key="GovService",
+            label="Government Service",
+            fields_schema=[],
+            built_in=True,
+            has_hierarchy=False,
+        )
+
+        summary = await apply_nora_profile(db)
+
+        assert "Objective.pillar" in summary.get("subtypes_added", [])
+        assert summary.get("gov_service_hierarchy_enabled") is True
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        obj = (await db.execute(select(CardType).where(CardType.key == "Objective"))).scalar_one()
+        assert "pillar" in [s["key"] for s in obj.subtypes]
+        gov = (await db.execute(select(CardType).where(CardType.key == "GovService"))).scalar_one()
+        assert gov.has_hierarchy is True
+
+        # Second apply: nothing new, hierarchy stays on.
+        second = await apply_nora_profile(db)
+        assert "subtypes_added" not in second
+        assert "gov_service_hierarchy_enabled" not in second
+
+    async def test_admin_created_govservice_hierarchy_untouched(self, db):
+        await create_card_type(
+            db,
+            key="GovService",
+            label="My Services",
+            fields_schema=[],
+            built_in=False,
+        )
+
+        summary = await apply_nora_profile(db)
+
+        assert "gov_service_hierarchy_enabled" not in summary
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        gov = (await db.execute(select(CardType).where(CardType.key == "GovService"))).scalar_one()
+        assert gov.has_hierarchy is False
+
+    async def test_v2_fields_injected_into_existing_and_nora_types(self, db):
+        await create_card_type(db, key="BusinessProcess", fields_schema=[], built_in=True)
+        await create_card_type(db, key="Interface", fields_schema=[], built_in=True)
+
+        summary = await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        bp = (
+            await db.execute(select(CardType).where(CardType.key == "BusinessProcess"))
+        ).scalar_one()
+        bp_keys = {f["key"] for s in bp.fields_schema for f in s.get("fields", [])}
+        assert {"processClassification", "triggerEvent", "durationDays"} <= bp_keys
+
+        # GovService is created by pass 1, then pass 4 adds the v2 fields.
+        gov = (await db.execute(select(CardType).where(CardType.key == "GovService"))).scalar_one()
+        gov_keys = {f["key"] for s in gov.fields_schema for f in s.get("fields", [])}
+        assert {"serviceClassification", "serviceType", "executionSteps"} <= gov_keys
+        assert "GovService" in summary["types_updated"]
+
+        iface = (await db.execute(select(CardType).where(CardType.key == "Interface"))).scalar_one()
+        iface_keys = {f["key"] for s in iface.fields_schema for f in s.get("fields", [])}
+        assert {"integrationScope", "linkType", "interfaceOutputs"} <= iface_keys

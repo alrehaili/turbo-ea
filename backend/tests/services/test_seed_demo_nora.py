@@ -14,6 +14,7 @@ from app.services.nora_profile import (
     NORA_CARD_TYPES,
     NORA_RELATION_TYPES,
     NORA_TYPE_FIELDS,
+    NORA_V2_SUBTYPES,
 )
 from app.services.nora_program import NORA_DELIVERABLE_CATALOGUE
 from app.services.seed import RELATIONS, TYPES
@@ -34,17 +35,23 @@ def _types_by_key() -> dict[str, dict]:
             "fields": {f["key"]: f for f in fields},
             "subtypes": {s["key"] for s in t.get("subtypes", [])},
         }
-    for key, extra in NORA_TYPE_FIELDS.items():
-        for f in extra:
-            result[key]["fields"][f["key"]] = f
+    # NORA-created types must be registered before the field merge — v2 injects
+    # profile fields into GovService too (NORA_TYPE_FIELDS["GovService"]).
     for t in NORA_CARD_TYPES:
         fields = [f for s in t.get("fields_schema", []) for f in s.get("fields", [])]
         result[t["key"]] = {
             "fields": {f["key"]: f for f in fields},
             "subtypes": {s["key"] for s in t.get("subtypes", [])},
         }
-    # The profile adds the `database` subtype to ITComponent (pass 4b).
+    for key, extra in NORA_TYPE_FIELDS.items():
+        for f in extra:
+            result[key]["fields"][f["key"]] = f
+    # The profile adds the `database` subtype to ITComponent (pass 4b) and the
+    # v2 subtypes (pass 4d).
     result["ITComponent"]["subtypes"].add("database")
+    for type_key, subtype_defs in NORA_V2_SUBTYPES.items():
+        for sub in subtype_defs:
+            result[type_key]["subtypes"].add(sub["key"])
     return result
 
 

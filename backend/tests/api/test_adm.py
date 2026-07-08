@@ -142,9 +142,30 @@ class TestGateFlow:
         )
         return r.json()
 
+    async def _start_phase(self, client, adm_env, phase_id):
+        """Fresh phases are ``not_started``; the gate only opens from ``in_progress``."""
+        r = await client.patch(
+            f"/api/v1/adm/phases/{phase_id}",
+            json={"status": "in_progress"},
+            headers=auth_headers(adm_env["admin"]),
+        )
+        assert r.status_code == 200, r.text
+
+    async def test_mark_ready_blocks_from_not_started(self, client, adm_env):
+        ws = await self._make_ws(client, adm_env)
+        phase_a = next(p for p in ws["phases"] if p["phase_key"] == "phase_a")
+        resp = await client.post(
+            f"/api/v1/adm/phases/{phase_a['id']}/mark-ready",
+            json={"override": True, "override_reason": "Board approved deferral"},
+            headers=auth_headers(adm_env["admin"]),
+        )
+        assert resp.status_code == 422
+        assert "not_started" in resp.json()["detail"]
+
     async def test_mark_ready_blocks_without_artefacts(self, client, adm_env):
         ws = await self._make_ws(client, adm_env)
         phase_a = next(p for p in ws["phases"] if p["phase_key"] == "phase_a")
+        await self._start_phase(client, adm_env, phase_a["id"])
         # Phase A ships two required artefacts un-linked → mark-ready must
         # fail without override.
         resp = await client.post(
@@ -157,6 +178,7 @@ class TestGateFlow:
     async def test_mark_ready_override_ok(self, client, adm_env):
         ws = await self._make_ws(client, adm_env)
         phase_a = next(p for p in ws["phases"] if p["phase_key"] == "phase_a")
+        await self._start_phase(client, adm_env, phase_a["id"])
         resp = await client.post(
             f"/api/v1/adm/phases/{phase_a['id']}/mark-ready",
             json={"override": True, "override_reason": "Board approved deferral"},
@@ -169,6 +191,7 @@ class TestGateFlow:
     async def test_member_cannot_approve(self, client, adm_env):
         ws = await self._make_ws(client, adm_env)
         phase_a = next(p for p in ws["phases"] if p["phase_key"] == "phase_a")
+        await self._start_phase(client, adm_env, phase_a["id"])
         await client.post(
             f"/api/v1/adm/phases/{phase_a['id']}/mark-ready",
             json={"override": True, "override_reason": "Board approved deferral"},
@@ -184,6 +207,7 @@ class TestGateFlow:
     async def test_admin_can_approve(self, client, adm_env):
         ws = await self._make_ws(client, adm_env)
         phase_a = next(p for p in ws["phases"] if p["phase_key"] == "phase_a")
+        await self._start_phase(client, adm_env, phase_a["id"])
         await client.post(
             f"/api/v1/adm/phases/{phase_a['id']}/mark-ready",
             json={"override": True, "override_reason": "Board approved deferral"},
@@ -202,6 +226,7 @@ class TestGateFlow:
         ws = await self._make_ws(client, adm_env)
         phase_a = next(p for p in ws["phases"] if p["phase_key"] == "phase_a")
         # move to approved
+        await self._start_phase(client, adm_env, phase_a["id"])
         await client.post(
             f"/api/v1/adm/phases/{phase_a['id']}/mark-ready",
             json={"override": True, "override_reason": "Board approved deferral"},
