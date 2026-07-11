@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "添加磁贴",
   "webPortals.tileLabel": "标签",
   "webPortals.tileIcon": "图标",
-  "webPortals.tileTarget": "链接（如 /reports/portfolio）"
+  "webPortals.tileTarget": "链接（如 /reports/portfolio）",
+  "turbolens_action_promote": "提升为改进机会",
+  "turbolens_promoted": "已提升"
 }

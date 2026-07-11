@@ -42,7 +42,16 @@ export type SoawDocType =
   | "ea_project_plan"
   | "environment_analysis"
   | "ea_usage_plan"
-  | "ea_management_plan";
+  | "ea_management_plan"
+  | "ea_mandates"
+  | "ea_services"
+  | "ea_org_structure"
+  | "ea_governance_model"
+  | "ea_processes"
+  | "ea_interaction_model"
+  | "ea_kpis"
+  | "ea_vocabulary"
+  | "ea_operating_model";
 
 export const NORA_DOC_TYPES: Exclude<SoawDocType, "soaw">[] = [
   "ea_project_strategy",
@@ -50,6 +59,22 @@ export const NORA_DOC_TYPES: Exclude<SoawDocType, "soaw">[] = [
   "environment_analysis",
   "ea_usage_plan",
   "ea_management_plan",
+];
+
+// The Establishing EA Practice Guideline's operating-model artifacts
+// ([FORK] noraPlan.md WP6.8). EA Strategy + SWOT already exist above; the
+// measured KPI values live as KPI cards — the ea_kpis document is the
+// *documented* KPI framework. ea_operating_model is the umbrella document.
+export const PRACTICE_DOC_TYPES: Exclude<SoawDocType, "soaw">[] = [
+  "ea_mandates",
+  "ea_services",
+  "ea_org_structure",
+  "ea_governance_model",
+  "ea_processes",
+  "ea_interaction_model",
+  "ea_kpis",
+  "ea_vocabulary",
+  "ea_operating_model",
 ];
 
 const NORA_TEMPLATE_SECTION_IDS: Record<Exclude<SoawDocType, "soaw">, string[]> = {
@@ -66,6 +91,27 @@ const NORA_TEMPLATE_SECTION_IDS: Record<Exclude<SoawDocType, "soaw">, string[]> 
   ],
   ea_usage_plan: ["purpose", "stakeholders", "value", "communication"],
   ea_management_plan: ["purpose", "operating", "repository", "reviews", "compliance"],
+  // Practice operating-model artifacts (WP6.8)
+  ea_mandates: ["context", "mandates", "compliance", "review"],
+  ea_services: ["purpose", "services", "consumers", "delivery"],
+  ea_org_structure: ["model", "roles", "responsibilities", "staffing"],
+  ea_governance_model: ["committees", "authorities", "processes", "escalation"],
+  ea_processes: ["overview", "processes", "raci", "tooling"],
+  ea_interaction_model: ["stakeholders", "interfaces", "cadence", "channels"],
+  ea_kpis: ["objectives", "kpis", "measurement", "reporting"],
+  ea_vocabulary: ["scope", "terms"],
+  ea_operating_model: [
+    "summary",
+    "strategy",
+    "services",
+    "structure",
+    "governance",
+    "processes",
+    "interaction",
+    "kpis",
+    "vocabulary",
+    "tools",
+  ],
 };
 
 /** Returns the template sections for a document type with translated labels. */

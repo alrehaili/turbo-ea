@@ -20,6 +20,7 @@ from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
+from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.file_attachment import FileAttachment
 from app.models.improvement_opportunity import (
     ImprovementOpportunity,
@@ -243,11 +244,23 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         EaProgramDeliverable,
         user_fk_columns=("owner_id", "approved_by"),
     ),
+    # --- EA requirements register (WP6.1, requirement before its links) ---
+    EntitySection(
+        "EaRequirements",
+        EaRequirement,
+        card_fk_columns=("initiative_id",),
+        user_fk_columns=("created_by", "approved_by"),
+    ),
+    EntitySection(
+        "EaRequirementCards",
+        EaRequirementCard,
+        card_fk_columns=("card_id",),
+    ),
     # --- Improvement opportunities (WP3.3, opportunity before its links) ---
     EntitySection(
         "ImprovementOpportunities",
         ImprovementOpportunity,
-        card_fk_columns=("initiative_id",),
+        card_fk_columns=("initiative_id", "journey_card_id"),
         user_fk_columns=("created_by",),
     ),
     EntitySection(

@@ -109,10 +109,42 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_3(self):
+    def test_profile_version_is_6(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 3
+        assert NORA_PROFILE_VERSION == 6
+
+    def test_pillar_card_type_defined(self):
+        """Profile v6 — Pillar is a first-class card type with the
+        Objective → Pillar supports relation, fully translated."""
+        pillar = next(t for t in NORA_CARD_TYPES if t["key"] == "Pillar")
+        locales = {"de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"}
+        assert set(pillar["translations"]["label"]) == locales
+        field_keys = {f["key"] for s in pillar["fields_schema"] for f in s.get("fields", [])}
+        assert {"pillarCode", "pillarOrder"} <= field_keys
+
+        rel = next(r for r in NORA_RELATION_TYPES if r["key"] == "relObjectiveToPillar")
+        assert (rel["source_type_key"], rel["target_type_key"]) == ("Objective", "Pillar")
+        assert set(rel["translations"]["label"]) == locales
+
+    def test_usage_role_attribute_translations(self):
+        """WP6.4 — the usageRole attribute + options carry all 9 locales."""
+        from app.services.nora_profile import USAGE_ROLE_ATTRIBUTE
+
+        locales = {"de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"}
+        assert set(USAGE_ROLE_ATTRIBUTE["translations"]) == locales
+        assert {o["key"] for o in USAGE_ROLE_ATTRIBUTE["options"]} == {"uses", "protects"}
+        for opt in USAGE_ROLE_ATTRIBUTE["options"]:
+            assert set(opt["translations"]) == locales
+
+    def test_nca_ecc_scope_mentions_security_components(self):
+        """WP6.4 — the NCA ECC scanner scope carries the missing-security-
+        component rule (and the guarded-upgrade constant matches its prefix)."""
+        from app.services.nora_profile import _NCA_ECC_DESCRIPTION_V4, SAUDI_REGULATION_PACK
+
+        nca = next(r for r in SAUDI_REGULATION_PACK if r["key"] == "nca_ecc")
+        assert nca["description"].startswith(_NCA_ECC_DESCRIPTION_V4)
+        assert "security component" in nca["description"]
 
     def test_v2_template_fields_present(self):
         """Every حصر البيانات template column has a landing field (or a documented
@@ -209,14 +241,107 @@ class TestNoraProfileDefinitions:
         from app.services.nora_profile import NORA_V2_SUBTYPES
 
         for type_key, subtype_defs in NORA_V2_SUBTYPES.items():
-            seed_type = next(t for t in TYPES if t["key"] == type_key)
-            existing = {s["key"] for s in seed_type.get("subtypes", [])}
+            # v4: subtypes may also target profile-created types
+            # (BeneficiaryJourney) — those are created by pass 1 before 4d.
+            base_type = next((t for t in TYPES if t["key"] == type_key), None) or next(
+                t for t in NORA_CARD_TYPES if t["key"] == type_key
+            )
+            existing = {s["key"] for s in base_type.get("subtypes", [])}
             clashes = [s["key"] for s in subtype_defs if s["key"] in existing]
             assert not clashes, f"{type_key}: {clashes} already in seed subtypes"
 
     def test_govservice_definition_has_hierarchy(self):
         gov = next(t for t in NORA_CARD_TYPES if t["key"] == "GovService")
         assert gov["has_hierarchy"] is True
+
+    # ── Profile v4 (GFSA EA Metamodel v3) ──────────────────────────────────
+
+    def test_v4_persona_and_policy_defined(self):
+        by_key = {t["key"]: t for t in NORA_CARD_TYPES}
+        assert by_key["Persona"]["category"] == "Beneficiary Experience"
+        assert by_key["Policy"]["category"] == "Business"
+
+    def test_v4_journey_subtypes(self):
+        from app.services.nora_profile import NORA_V2_SUBTYPES
+
+        assert {t["key"] for t in NORA_V2_SUBTYPES["BeneficiaryJourney"]} == {
+            "journeyPhase",
+            "journeyStep",
+        }
+
+    def test_v4_attribute_gap_fields_present(self):
+        by_type = {tk: {f["key"] for f in fields} for tk, fields in NORA_TYPE_FIELDS.items()}
+        assert "capabilityType" in by_type["BusinessCapability"]
+        assert {"orgUnitType", "mandates"} <= by_type["Organization"]
+        assert {
+            "fieldOfActivity",
+            "servicesProvided",
+            "providerStatus",
+            "geoLocation",
+        } <= by_type["Provider"]
+        assert {"productType", "productOwner", "productBeneficiary"} <= by_type["BusinessContext"]
+        assert {
+            "projectSponsor",
+            "projectManager",
+            "executionEntity",
+            "priorityLevel",
+            "projectDeliverables",
+            "scopeOfWork",
+        } <= by_type["Initiative"]
+        assert {"beneficiaryType", "participatingEntities"} <= by_type["BusinessProcess"]
+        assert {
+            "structureClassification",
+            "dataBusinessRules",
+            "securityControls",
+        } <= by_type["DataObject"]
+        assert {"accessChannel", "developmentTechnology"} <= by_type["Application"]
+        assert "serviceFee" in by_type["GovService"]
+        assert {
+            "indicatorLevel",
+            "calculationFormula",
+            "dataSource",
+            "lastMeasuredDate",
+            "baselineDate",
+            "targetValueDate",
+        } <= by_type["KPI"]
+
+    def test_v4_sectioned_fields_translated_and_zero_weight(self):
+        from app.services.nora_profile import NORA_SECTIONED_FIELDS
+
+        for type_key, section_defs in NORA_SECTIONED_FIELDS.items():
+            for section_def in section_defs:
+                for locale in SUPPORTED_LOCALES:
+                    assert section_def["translations"].get(locale), (
+                        f"{type_key}.{section_def['section']} missing {locale}"
+                    )
+                for field in section_def["fields"]:
+                    assert field.get("weight") == 0, f"{field['key']} must be weight 0"
+                    for locale in SUPPORTED_LOCALES:
+                        assert field["translations"].get(locale), f"{field['key']} missing {locale}"
+                    if field["type"] in ("single_select", "multiple_select"):
+                        assert field.get("options"), f"{field['key']} has no options"
+                        for option in field["options"]:
+                            for locale in SUPPORTED_LOCALES:
+                                assert option["translations"].get(locale), (
+                                    f"{field['key']}.{option['key']} missing {locale}"
+                                )
+
+    def test_v4_sectioned_field_keys_do_not_collide(self):
+        from app.services.nora_profile import NORA_SECTIONED_FIELDS
+
+        for type_key, section_defs in NORA_SECTIONED_FIELDS.items():
+            base_type = next((t for t in TYPES if t["key"] == type_key), None) or next(
+                t for t in NORA_CARD_TYPES if t["key"] == type_key
+            )
+            existing = {
+                f["key"]
+                for section in base_type.get("fields_schema", [])
+                for f in section.get("fields", [])
+            } | {f["key"] for f in NORA_TYPE_FIELDS.get(type_key, [])}
+            sectioned = [f["key"] for s in section_defs for f in s["fields"]]
+            clashes = [k for k in sectioned if k in existing]
+            assert not clashes, f"{type_key}: {clashes} already defined elsewhere"
+            assert len(sectioned) == len(set(sectioned)), f"duplicate keys on {type_key}"
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +484,9 @@ class TestApplyNoraProfile:
         summary = await apply_nora_profile(db)
         # v2: GovService is created by pass 1 and receives its v2 fields via
         # pass 4 even on an otherwise empty metamodel; no seed type is touched.
-        assert summary["types_updated"] == ["GovService"]
+        # v4: KPI likewise receives its v4 fields via pass 4, and the
+        # profile-created BeneficiaryJourney gets Journey Mapping via pass 4f.
+        assert set(summary["types_updated"]) == {"GovService", "KPI", "BeneficiaryJourney"}
         assert (await get_framework_profile(db))["profile"] == "nora"
 
     async def test_apply_creates_govservice_with_roles_and_relations(self, db):
@@ -538,6 +665,86 @@ class TestGovernancePack:
         second = await apply_nora_profile(db)
         assert "relInitiativeToApp" not in second.get("relation_types_updated", [])
 
+    async def test_apply_v5_security_and_governance_additions(self, db):
+        """Profile v5 (WP6.4 + WP2.3 remainder + Strategic House): usageRole
+        on relAppToITC, data-governance stakeholder roles, Objective
+        hierarchy, and the guarded NCA ECC scope upgrade."""
+        from sqlalchemy import select
+
+        from tests.conftest import create_card_type, create_relation_type
+
+        await create_card_type(db, key="BusinessCapability", built_in=True, fields_schema=[])
+        await create_card_type(db, key="DataObject", built_in=True, fields_schema=[])
+        await create_card_type(
+            db, key="Objective", built_in=True, fields_schema=[], has_hierarchy=False
+        )
+        await create_relation_type(
+            db,
+            key="relAppToITC",
+            label="uses",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+
+        summary = await apply_nora_profile(db)
+
+        # (a) usageRole on the Application → ITComponent relation.
+        from app.models.relation_type import RelationType
+
+        rt = (
+            await db.execute(select(RelationType).where(RelationType.key == "relAppToITC"))
+        ).scalar_one()
+        attr = next(a for a in rt.attributes_schema if a["key"] == "usageRole")
+        assert {o["key"] for o in attr["options"]} == {"uses", "protects"}
+
+        # (b) domain_owner / data_steward stakeholder roles seeded.
+        from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+        created = summary.get("stakeholder_roles_created", [])
+        assert "BusinessCapability.domain_owner" in created
+        assert "DataObject.data_steward" in created
+        srd = (
+            await db.execute(
+                select(StakeholderRoleDefinition).where(
+                    StakeholderRoleDefinition.key == "data_steward"
+                )
+            )
+        ).scalar_one()
+        assert srd.card_type_key == "DataObject"
+        assert set(srd.translations) >= {"ar", "de", "fr"}
+
+        # (c) Objective hierarchy enabled (Strategic House pillar tree).
+        from app.models.card_type import CardType
+
+        obj = (await db.execute(select(CardType).where(CardType.key == "Objective"))).scalar_one()
+        assert obj.has_hierarchy is True
+        assert summary.get("objective_hierarchy_enabled") is True
+
+        # (d) An untouched pre-v5 NCA ECC description is upgraded in place.
+        from app.models.compliance_regulation import ComplianceRegulation
+        from app.services.nora_profile import _NCA_ECC_DESCRIPTION_V4
+
+        nca = (
+            await db.execute(
+                select(ComplianceRegulation).where(ComplianceRegulation.key == "nca_ecc")
+            )
+        ).scalar_one()
+        nca.description = _NCA_ECC_DESCRIPTION_V4
+        await db.flush()
+        second = await apply_nora_profile(db)
+        assert "nca_ecc" in second.get("regulations_updated", [])
+        await db.refresh(nca)
+        assert "security component" in nca.description
+
+        # An admin-edited description is never overwritten.
+        nca.description = "Custom scope"
+        await db.flush()
+        third = await apply_nora_profile(db)
+        assert "nca_ecc" not in third.get("regulations_updated", [])
+
+        # All idempotent.
+        assert third.get("stakeholder_roles_created", []) == []
+
 
 class TestPhase4Passes:
     async def test_database_subtype_and_regulations_seeded(self, db):
@@ -553,10 +760,12 @@ class TestPhase4Passes:
         summary = await apply_nora_profile(db)
 
         # v2: pass 4d appends the NEA subtype set after pass 4b's database.
+        # v4: pass 4d also adds the BeneficiaryJourney phase/step subtypes, so
+        # compare as a superset rather than an exact ordered list.
         from app.services.nora_profile import NORA_V2_SUBTYPES
 
-        expected_v2 = [f"ITComponent.{s['key']}" for s in NORA_V2_SUBTYPES["ITComponent"]]
-        assert summary.get("subtypes_added") == ["ITComponent.database", *expected_v2]
+        expected_v2 = {f"ITComponent.{s['key']}" for s in NORA_V2_SUBTYPES["ITComponent"]}
+        assert {"ITComponent.database", *expected_v2} <= set(summary.get("subtypes_added", []))
         assert set(summary.get("regulations_created", [])) == {
             "nca_ecc",
             "ndmo_dm",
@@ -717,8 +926,10 @@ class TestProfileV3SixLayers:
             ct = (await db.execute(select(CardType).where(CardType.key == key))).scalar_one()
             assert ct.category == category, key
             assert ct.built_in is True
+        # (pre-existing bug fixed with v4: the summary key is
+        # card_types_created — "types_created" never existed.)
         assert {"BeneficiaryJourney", "Channel", "SecurityControl"} <= set(
-            summary.get("types_created", [])
+            summary.get("card_types_created", [])
         )
 
     async def test_category_moves_are_guarded(self, db):
@@ -767,3 +978,97 @@ class TestProfileV3SixLayers:
         # Re-apply is a no-op for categories.
         second = await apply_nora_profile(db)
         assert "categories_moved" not in second
+
+
+class TestProfileV4GfsaMetamodel:
+    """Profile v4 — GFSA EA Metamodel v3 alignment (Persona, Policy, journey
+    structure, Technical Specification section, attribute gaps)."""
+
+    async def test_persona_and_policy_created_with_relations(self, db):
+        summary = await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.models.relation_type import RelationType
+
+        for key, category in (("Persona", "Beneficiary Experience"), ("Policy", "Business")):
+            ct = (await db.execute(select(CardType).where(CardType.key == key))).scalar_one()
+            assert ct.category == category
+            assert ct.built_in is True
+        assert {"Persona", "Policy"} <= set(summary["card_types_created"])
+
+        rel_keys = {r for (r,) in (await db.execute(select(RelationType.key))).all()}
+        assert {
+            "relPersonaToGovService",
+            "relPersonaToJourney",
+            "relJourneyToGovService",
+            "relJourneyToChannel",
+            "relPolicyToBC",
+            "relPolicyToGovService",
+            "relPolicyToProcess",
+        } <= rel_keys
+
+    async def test_journey_subtypes_and_mapping_section(self, db):
+        await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        journey = (
+            await db.execute(select(CardType).where(CardType.key == "BeneficiaryJourney"))
+        ).scalar_one()
+        assert {"journeyPhase", "journeyStep"} <= {s["key"] for s in journey.subtypes}
+        mapping = next(s for s in journey.fields_schema if s["section"] == "Journey Mapping")
+        assert {"journeyCode", "associatedGaps", "improvementPriority"} <= {
+            f["key"] for f in mapping["fields"]
+        }
+
+    async def test_technical_specification_injected_and_idempotent(self, db):
+        await create_card_type(
+            db,
+            key="ITComponent",
+            fields_schema=[{"section": "General", "fields": [{"key": "version"}]}],
+            built_in=True,
+        )
+
+        first = await apply_nora_profile(db)
+        assert "ITComponent" in first["types_updated"]
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        itc = (await db.execute(select(CardType).where(CardType.key == "ITComponent"))).scalar_one()
+        spec = next(s for s in itc.fields_schema if s["section"] == "Technical Specification")
+        spec_keys = {f["key"] for f in spec["fields"]}
+        assert {"networkSegment", "cpuCores", "ramGb", "osType", "dcRole"} <= spec_keys
+        assert all(f.get("weight") == 0 for f in spec["fields"])
+
+        second = await apply_nora_profile(db)
+        assert second["fields_added"] == 0
+        assert second["types_updated"] == []
+
+    async def test_sectioned_fields_respect_admin_moved_field(self, db):
+        """A spec-keyed field an admin already has (anywhere) is never duplicated."""
+        custom = {"key": "cpuCores", "label": "My Cores", "type": "number"}
+        await create_card_type(
+            db,
+            key="ITComponent",
+            fields_schema=[{"section": "Custom", "fields": [custom]}],
+            built_in=True,
+        )
+
+        await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        itc = (await db.execute(select(CardType).where(CardType.key == "ITComponent"))).scalar_one()
+        cores = [
+            f for s in itc.fields_schema for f in s.get("fields", []) if f["key"] == "cpuCores"
+        ]
+        assert len(cores) == 1
+        assert cores[0]["label"] == "My Cores"

@@ -43,7 +43,9 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { hasPermission } from "@/components/RequirePermission";
-import { NORA_DOC_TYPES } from "@/features/ea-delivery/soawTemplate";
+import Divider from "@mui/material/Divider";
+import { NORA_DOC_TYPES, PRACTICE_DOC_TYPES } from "@/features/ea-delivery/soawTemplate";
+import EaRequirementsPanel from "@/features/nora/EaRequirementsPanel";
 import NeaEvidencePanel from "@/features/nora/NeaEvidencePanel";
 import PlateausSegmentsPanel from "@/features/nora/PlateausSegmentsPanel";
 
@@ -57,6 +59,7 @@ interface Deliverable {
   id: string;
   stage_no: number;
   key: string;
+  domain: string | null;
   title: string;
   description: string | null;
   status: "notStarted" | "inProgress" | "inReview" | "approved" | "descoped";
@@ -75,7 +78,9 @@ interface StageBlock {
 }
 
 interface ProgramData {
+  methodology: "v1" | "v2";
   stages: StageBlock[];
+  practice: StageBlock;
   summary: { total: number; approved: number; progress: number };
 }
 
@@ -139,6 +144,42 @@ const STATUS_COLOR: Record<string, "default" | "info" | "warning" | "success"> =
 
 // Stage order for display: 1..10 then the cross-cutting governance track.
 const STAGE_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0];
+// Updated methodology (WP6.1): phases 1–7, phase 7 is the continuous element.
+const V2_PHASE_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 7];
+// Practice-establishment checklist (WP6.8) — sentinel stage, rendered last.
+const PRACTICE_STAGE_NO = -1;
+
+// Practice checklist rows → the governed-document template that authors them.
+const PRACTICE_DOC_LINK: Record<string, string> = {
+  practice_ea_strategy: "ea_project_strategy",
+  practice_mandates: "ea_mandates",
+  practice_services: "ea_services",
+  practice_org_structure: "ea_org_structure",
+  practice_governance_model: "ea_governance_model",
+  practice_processes: "ea_processes",
+  practice_interaction_model: "ea_interaction_model",
+  practice_kpis: "ea_kpis",
+  practice_vocabulary: "ea_vocabulary",
+};
+
+function practiceDocSuggestion(key: string): { path: string; labelKey: string } | null {
+  const docType = PRACTICE_DOC_LINK[key];
+  return docType
+    ? { path: `/ea-delivery/soaw/new?type=${docType}`, labelKey: "noraProgram.createDocument" }
+    : null;
+}
+
+// Deep-link suggestions for v2 deliverables: phase-2 data collection lands
+// via the DGA template importer; phases 5/6 read the gap and roadmap views.
+function v2SuggestedLink(key: string): { path: string; labelKey: string } | null {
+  if (key.endsWith("_data_collection"))
+    return { path: "/admin/settings?tab=migration", labelKey: "noraProgram.suggestImport" };
+  if (key.startsWith("p5_"))
+    return { path: "/reports/gap-analysis", labelKey: "noraProgram.suggestGapReport" };
+  if (key.startsWith("p6_"))
+    return { path: "/ppm", labelKey: "noraProgram.suggestRoadmap" };
+  return null;
+}
 
 // --- Dashboard tile primitives --------------------------------------------
 interface TileProps {
@@ -224,6 +265,7 @@ export default function NoraProgramPage() {
   const { t } = useTranslation(["nav", "common", "grc"]);
   const { user } = useAuthContext();
   const canManage = hasPermission(user?.permissions, "nora.manage");
+  const canAdmin = hasPermission(user?.permissions, "admin.settings");
   const [data, setData] = useState<ProgramData | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
@@ -233,6 +275,8 @@ export default function NoraProgramPage() {
   const [addFor, setAddFor] = useState<number | null>(null);
   const [addTitle, setAddTitle] = useState("");
   const [docMenuAnchor, setDocMenuAnchor] = useState<HTMLElement | null>(null);
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
@@ -298,6 +342,26 @@ export default function NoraProgramPage() {
     await load();
   };
 
+  const switchMethodology = async () => {
+    setSwitching(true);
+    setError("");
+    try {
+      await api.post("/nora-program/methodology", { version: "v2" });
+      setSwitchOpen(false);
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof ApiError && typeof e.detail === "string"
+          ? e.detail
+          : e instanceof Error
+            ? e.message
+            : "error",
+      );
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   if (!data) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -307,6 +371,7 @@ export default function NoraProgramPage() {
   }
 
   const stageByNo = new Map(data.stages.map((s) => [s.stage_no, s]));
+  if (data.practice) stageByNo.set(PRACTICE_STAGE_NO, data.practice);
 
   // Tile link handler
   const handleTileClick = (path: string) => navigate(path);
@@ -343,7 +408,23 @@ export default function NoraProgramPage() {
           color={data.summary.progress === 100 ? "success" : "default"}
           label={`${data.summary.approved}/${data.summary.total} · ${data.summary.progress}%`}
         />
+        <Chip
+          size="small"
+          variant="outlined"
+          icon={<MaterialSymbol icon="route" size={14} />}
+          label={t(`noraProgram.methodology.${data.methodology}`)}
+        />
         <Box sx={{ flex: 1 }} />
+        {canAdmin && data.methodology === "v1" && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<MaterialSymbol icon="upgrade" size={18} />}
+            onClick={() => setSwitchOpen(true)}
+          >
+            {t("noraProgram.switchToV2")}
+          </Button>
+        )}
         {canManage && (
           <>
             <Button
@@ -369,12 +450,24 @@ export default function NoraProgramPage() {
                   {t(`noraProgram.docType.${dt}`)}
                 </MenuItem>
               ))}
+              <Divider />
+              {PRACTICE_DOC_TYPES.map((dt) => (
+                <MenuItem
+                  key={dt}
+                  onClick={() => {
+                    setDocMenuAnchor(null);
+                    navigate(`/ea-delivery/soaw/new?type=${dt}`);
+                  }}
+                >
+                  {t(`noraProgram.docType.${dt}`)}
+                </MenuItem>
+              ))}
             </Menu>
           </>
         )}
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("noraProgram.subtitle")}
+        {t(data.methodology === "v2" ? "noraProgram.subtitleV2" : "noraProgram.subtitle")}
       </Typography>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -646,7 +739,10 @@ export default function NoraProgramPage() {
           </Grid>
       </Paper>
 
-      {STAGE_DISPLAY_ORDER.map((stageNo) => {
+      {[
+        ...(data.methodology === "v2" ? V2_PHASE_DISPLAY_ORDER : STAGE_DISPLAY_ORDER),
+        PRACTICE_STAGE_NO,
+      ].map((stageNo) => {
         const stage = stageByNo.get(stageNo);
         if (!stage || stage.deliverables.length === 0) return null;
         return (
@@ -659,7 +755,13 @@ export default function NoraProgramPage() {
                   color={stage.complete ? "#2e7d32" : "#607d8b"}
                 />
                 <Typography sx={{ fontWeight: 600, flexShrink: 0 }}>
-                  {t(`noraProgram.stage.${stageNo}`)}
+                  {stageNo === PRACTICE_STAGE_NO
+                    ? t("noraProgram.practiceChecklist")
+                    : t(
+                        data.methodology === "v2"
+                          ? `noraProgram.phase.${stageNo}`
+                          : `noraProgram.stage.${stageNo}`,
+                      )}
                 </Typography>
                 <Box sx={{ flex: 1, mx: 2 }}>
                   <LinearProgress
@@ -697,15 +799,25 @@ export default function NoraProgramPage() {
                           color: d.status === "descoped" ? "text.disabled" : undefined,
                         }}
                       >
-                        <Tooltip
-                          title={
-                            d.approved_at
-                              ? `${d.approved_by_display_name ?? ""} — ${new Date(d.approved_at).toLocaleString()}`
-                              : d.description || ""
-                          }
-                        >
-                          <span>{d.title}</span>
-                        </Tooltip>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          {d.domain && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={t(`noraProgram.domain.${d.domain}`)}
+                              sx={{ flexShrink: 0 }}
+                            />
+                          )}
+                          <Tooltip
+                            title={
+                              d.approved_at
+                                ? `${d.approved_by_display_name ?? ""} — ${new Date(d.approved_at).toLocaleString()}`
+                                : d.description || ""
+                            }
+                          >
+                            <span>{d.title}</span>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                       <TableCell>
                         {canManage ? (
@@ -752,6 +864,24 @@ export default function NoraProgramPage() {
                               onDelete={canManage ? () => removeEvidence(d, i) : undefined}
                             />
                           ))}
+                          {d.evidence.length === 0 &&
+                            (() => {
+                              const suggestion = d.key.startsWith("practice_")
+                                ? practiceDocSuggestion(d.key)
+                                : data.methodology === "v2"
+                                  ? v2SuggestedLink(d.key)
+                                  : null;
+                              return suggestion ? (
+                                <Chip
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  icon={<MaterialSymbol icon="arrow_forward" size={14} />}
+                                  label={t(suggestion.labelKey)}
+                                  onClick={() => navigate(suggestion.path)}
+                                />
+                              ) : null;
+                            })()}
                           {canManage && (
                             <Tooltip title={t("noraProgram.addEvidence")}>
                               <IconButton size="small" onClick={() => setEvidenceFor(d)}>
@@ -776,7 +906,7 @@ export default function NoraProgramPage() {
                   ))}
                 </TableBody>
               </Table>
-              {canManage && (
+              {canManage && stageNo !== PRACTICE_STAGE_NO && (
                 <Box sx={{ p: 1 }}>
                   <Button
                     size="small"
@@ -794,6 +924,9 @@ export default function NoraProgramPage() {
           </Accordion>
         );
       })}
+
+      {/* EA Requirements register — methodology phase 7 (WP6.1) */}
+      <EaRequirementsPanel canManage={canManage} />
 
       {/* NEA alignment / evidence-pack export (WP5.3) */}
       <NeaEvidencePanel canManage={canManage} />
@@ -822,6 +955,25 @@ export default function NoraProgramPage() {
           <Button onClick={() => setEvidenceFor(null)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" onClick={addEvidence} disabled={!evidenceRef.trim()}>
             {t("common:actions.save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Switch to the updated 7-phase methodology (WP6.1) */}
+      <Dialog open={switchOpen} onClose={() => setSwitchOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t("noraProgram.switchToV2")}</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t("noraProgram.switchExplain")}
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            {t("noraProgram.switchKeepsHistory")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSwitchOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={switchMethodology} disabled={switching}>
+            {t("noraProgram.switchConfirm")}
           </Button>
         </DialogActions>
       </Dialog>

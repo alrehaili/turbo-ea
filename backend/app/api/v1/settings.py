@@ -349,6 +349,50 @@ async def update_framework_profile(
 
 
 # ---------------------------------------------------------------------------
+# Strategy House endpoint ([FORK] NORA — noraPlan.md WP6.7 Strategic House;
+# delivers WP6.2's deferred vision/mission fields)
+# ---------------------------------------------------------------------------
+
+
+class StrategyHousePayload(BaseModel):
+    vision: str | None = Field(default=None, max_length=1000)
+    mission: str | None = Field(default=None, max_length=1000)
+
+
+@router.get("/strategy-house")
+async def get_strategy_house(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — the agency vision/mission read by the Strategic
+    House viewpoint."""
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    return {
+        "vision": general.get("noraVision") or "",
+        "mission": general.get("noraMission") or "",
+    }
+
+
+@router.patch("/strategy-house")
+async def update_strategy_house(
+    body: StrategyHousePayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    if body.vision is not None:
+        general["noraVision"] = body.vision.strip()
+    if body.mission is not None:
+        general["noraMission"] = body.mission.strip()
+    row.general_settings = general
+    await db.commit()
+    return {
+        "vision": general.get("noraVision") or "",
+        "mission": general.get("noraMission") or "",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Governance workflow endpoint ([FORK] NORA — noraPlan.md WP2.2)
 # ---------------------------------------------------------------------------
 

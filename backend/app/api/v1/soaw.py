@@ -28,10 +28,17 @@ router = APIRouter(prefix="/soaw", tags=["soaw"])
 
 class SoAWCreate(BaseModel):
     name: str
-    # "soaw" (TOGAF, default) or a NORA governed document type ([FORK] WP3.2).
+    # "soaw" (TOGAF, default), a NORA governed document type ([FORK] WP3.2),
+    # or one of the practice operating-model artifacts ([FORK] WP6.8 — the
+    # Establishing EA Practice Guideline's ten artifacts).
     doc_type: str = Field(
         default="soaw",
-        pattern="^(soaw|ea_project_strategy|ea_project_plan|environment_analysis|ea_usage_plan|ea_management_plan)$",
+        pattern=(
+            "^(soaw|ea_project_strategy|ea_project_plan|environment_analysis"
+            "|ea_usage_plan|ea_management_plan|ea_mandates|ea_services"
+            "|ea_org_structure|ea_governance_model|ea_processes"
+            "|ea_interaction_model|ea_kpis|ea_vocabulary|ea_operating_model)$"
+        ),
     )
     initiative_id: str | None = None
     status: str = "draft"

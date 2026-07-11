@@ -56,6 +56,13 @@ const ReferenceModelsReport = lazy(
 );
 const ProcessMapReport = lazy(() => import("@/features/reports/ProcessMapReport"));
 const InteroperabilityReport = lazy(() => import("@/features/reports/InteroperabilityReport"));
+const TechnologyLandscapeReport = lazy(
+  () => import("@/features/reports/TechnologyLandscapeReport"),
+);
+const StrategicHouseReport = lazy(() => import("@/features/reports/StrategicHouseReport"));
+const StrategyCascadeReport = lazy(() => import("@/features/reports/StrategyCascadeReport"));
+const ValueChainReport = lazy(() => import("@/features/reports/ValueChainReport"));
+const AppModulesReport = lazy(() => import("@/features/reports/AppModulesReport"));
 const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
 const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStrategyMap"));
 const ApplicationRationalizationBoard = lazy(
@@ -243,6 +250,14 @@ function AppRoutes() {
                 />
                 <Route path="/reports/process-map" element={<ModuleGate module="bpm"><ProcessMapReport /></ModuleGate>} />
                 <Route path="/reports/interoperability" element={<InteroperabilityReport />} />
+                <Route
+                  path="/reports/technology-landscape"
+                  element={<TechnologyLandscapeReport />}
+                />
+                <Route path="/reports/strategic-house" element={<StrategicHouseReport />} />
+                <Route path="/reports/strategy-cascade" element={<StrategyCascadeReport />} />
+                <Route path="/reports/value-chain" element={<ValueChainReport />} />
+                <Route path="/reports/application-modules" element={<AppModulesReport />} />
                 <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
                 <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />
                 <Route path="/rationalization" element={<ApplicationRationalizationBoard />} />

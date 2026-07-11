@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Adicionar bloco",
   "webPortals.tileLabel": "Rótulo",
   "webPortals.tileIcon": "Ícone",
-  "webPortals.tileTarget": "Link (ex.: /reports/portfolio)"
+  "webPortals.tileTarget": "Link (ex.: /reports/portfolio)",
+  "turbolens_action_promote": "Promover a oportunidade de melhoria",
+  "turbolens_promoted": "Promovida"
 }

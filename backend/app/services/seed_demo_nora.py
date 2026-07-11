@@ -58,6 +58,19 @@ DEMO_CARDS: list[dict] = [
         "parent": "org_root",
         "attributes": {},
     },
+    # ── Strategic pillars (strategy cascade roots — profile v6) ──────
+    {
+        "ref": "pil_digital",
+        "type": "Pillar",
+        "name": "Digital Excellence",
+        "attributes": {"pillarCode": "P1", "pillarOrder": 1},
+    },
+    {
+        "ref": "pil_efficiency",
+        "type": "Pillar",
+        "name": "Operational Efficiency",
+        "attributes": {"pillarCode": "P2", "pillarOrder": 2},
+    },
     # ── Objectives (PRM anchors) ─────────────────────────────────────
     {
         "ref": "obj_digital",
@@ -551,6 +564,38 @@ DEMO_CARDS: list[dict] = [
         "subtype": "program",
         "attributes": {},
     },
+    # ── Strategy-cascade delivery chain: program ⊃ initiative ⊃ projects ──
+    {
+        "ref": "ini_licensing_wave1",
+        "type": "Initiative",
+        "name": "Licensing Wave 1",
+        "parent": "ini_modernization",
+        "attributes": {},
+    },
+    {
+        "ref": "prj_portal_relaunch",
+        "type": "Initiative",
+        "name": "Licensing Portal Relaunch",
+        "subtype": "project",
+        "parent": "ini_licensing_wave1",
+        "attributes": {},
+    },
+    {
+        "ref": "prj_fax_retirement",
+        "type": "Initiative",
+        "name": "Fax Intake Retirement",
+        "subtype": "project",
+        "parent": "ini_licensing_wave1",
+        "attributes": {},
+    },
+    # Deliberately unaligned — demonstrates the Strategy Cascade warning.
+    {
+        "ref": "prj_shadow",
+        "type": "Initiative",
+        "name": "Departmental Reporting Tool",
+        "subtype": "project",
+        "attributes": {},
+    },
 ]
 
 # (relation_type_key, source_ref, target_ref, attributes)
@@ -659,22 +704,26 @@ DEMO_RELATIONS: list[tuple[str, str, str, dict]] = [
     ),
     ("relInitiativeToApp", "ini_modernization", "app_fax_intake", {"transitionRole": "retires"}),
     ("relInitiativeToObjective", "ini_modernization", "obj_consolidate", {}),
+    # Strategy cascade: objectives support pillars (profile v6).
+    ("relObjectiveToPillar", "obj_digital", "pil_digital", {}),
+    ("relObjectiveToPillar", "obj_consolidate", "pil_efficiency", {}),
     ("relInitiativeToKPI", "ini_modernization", "kpi_retired_systems", {}),
 ]
 
-# Program-tracker progress: (deliverable_key, status, evidence)
+# Program-tracker progress: (deliverable_key, status, evidence). Keys target
+# the updated 7-phase methodology (WP6.1) — a fresh profile apply seeds v2.
 DEMO_PROGRAM_PROGRESS: list[tuple[str, str, list[dict]]] = [
-    ("s1_maturity_assessment", "approved", []),
+    ("p1_study_requirements", "approved", []),
     (
-        "s1_ea_project_strategy",
+        "p1_frame_scope",
         "approved",
         [{"kind": "link", "ref": "/ea-delivery", "label": "EA Project Strategy 1447H"}],
     ),
-    ("s2_committees_teams", "approved", []),
-    ("s2_development_approach", "inReview", []),
-    ("s3_ea_requirements", "inProgress", []),
+    ("p1_approve_scope", "approved", []),
+    ("p2_business_scope", "inReview", []),
+    ("p2_business_data_collection", "inProgress", []),
     (
-        "s3_swot",
+        "p2_business_analysis",
         "inProgress",
         [{"kind": "link", "ref": "/reports/gap-analysis", "label": "Gap analysis input"}],
     ),
@@ -793,6 +842,26 @@ async def seed_nora_demo_data(db: AsyncSession) -> dict:
         )
     )
 
+    # Vision/mission for the Strategic House — only when the install hasn't
+    # set its own (never overwrite real strategy text).
+    from app.models.app_settings import AppSettings
+
+    settings_row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if settings_row is not None:
+        general = dict(settings_row.general_settings or {})
+        if not general.get("noraVision") and not general.get("noraMission"):
+            general["noraVision"] = (
+                "A digital-first agency where every service is proactive, "
+                "paperless and beneficiary-centred by 2030."
+            )
+            general["noraMission"] = (
+                "Deliver trusted, efficient government services on a single, "
+                "well-governed digital foundation."
+            )
+            settings_row.general_settings = general
+
     await db.flush()
     return {
         "skipped": False,
@@ -875,6 +944,20 @@ async def reset_nora_demo_data(db: AsyncSession) -> dict:
             .values(status="notStarted", evidence=[])
         )
         counts["program_updates"] = result.rowcount or 0
+
+    # 5. Demo vision/mission — cleared only while still carrying the demo
+    #    text (an admin's real strategy statement is never touched).
+    from app.models.app_settings import AppSettings
+
+    settings_row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if settings_row is not None:
+        general = dict(settings_row.general_settings or {})
+        if (general.get("noraVision") or "").startswith("A digital-first agency"):
+            general["noraVision"] = ""
+            general["noraMission"] = ""
+            settings_row.general_settings = general
 
     await db.flush()
     return counts

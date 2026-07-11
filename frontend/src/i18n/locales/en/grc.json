@@ -66,7 +66,15 @@
       "aiFocusHint": "e.g. data governance, shared services…",
       "aiGenerate": "Generate",
       "aiReviewHint": "Review the AI drafts and add the ones you want — they land as proposed for governance.",
-      "aiAddSelected": "Add {{n}} selected"
+      "aiAddSelected": "Add {{n}} selected",
+      "journey": "Beneficiary journey",
+      "journeyPhase": "Journey phase",
+      "feasibility": {
+        "label": "Feasibility",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
     }
   },
   "compliance": {

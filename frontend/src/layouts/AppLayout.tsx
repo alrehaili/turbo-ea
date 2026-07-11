@@ -10,6 +10,7 @@ import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
+import Switch from "@mui/material/Switch";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Drawer from "@mui/material/Drawer";
@@ -110,6 +111,11 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
       { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
       { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
+      { labelKey: "reports.technologyLandscape", icon: "apartment", path: "/reports/technology-landscape" },
+      { labelKey: "reports.strategicHouse", icon: "home_work", path: "/reports/strategic-house" },
+      { labelKey: "reports.strategyCascade", icon: "account_tree", path: "/reports/strategy-cascade" },
+      { labelKey: "reports.valueChain", icon: "linear_scale", path: "/reports/value-chain" },
+      { labelKey: "reports.appModules", icon: "widgets", path: "/reports/application-modules" },
       { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
       { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },
       { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
@@ -204,22 +210,25 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { grcEnabled } = useGrcEnabled();
   const { profile: frameworkProfile, invalidateProfile } = useFrameworkProfile();
   const { invalidateCache: invalidateMetamodel } = useMetamodel();
-  const [activatingNora, setActivatingNora] = useState(false);
-  const [noraSnack, setNoraSnack] = useState<"success" | "error" | null>(null);
+  const [togglingNora, setTogglingNora] = useState(false);
+  const [noraSnack, setNoraSnack] = useState<
+    "activated" | "deactivated" | "activationFailed" | "deactivationFailed" | null
+  >(null);
 
-  const activateNoraProfile = useCallback(async () => {
-    setActivatingNora(true);
+  const toggleNoraProfile = useCallback(async () => {
+    const target = frameworkProfile === "nora" ? "togaf" : "nora";
+    setTogglingNora(true);
     try {
-      await api.patch("/settings/framework-profile", { profile: "nora" });
-      invalidateProfile("nora");
+      await api.patch("/settings/framework-profile", { profile: target });
+      invalidateProfile(target);
       invalidateMetamodel();
-      setNoraSnack("success");
+      setNoraSnack(target === "nora" ? "activated" : "deactivated");
     } catch {
-      setNoraSnack("error");
+      setNoraSnack(target === "nora" ? "activationFailed" : "deactivationFailed");
     } finally {
-      setActivatingNora(false);
+      setTogglingNora(false);
     }
-  }, [invalidateProfile, invalidateMetamodel]);
+  }, [frameworkProfile, invalidateProfile, invalidateMetamodel]);
   const { sponsorButtonEnabled } = useSponsorButtonEnabled();
   const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
@@ -1043,6 +1052,30 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <ListItemText>{item.label}</ListItemText>
               </MenuItem>
             ))}
+            {can("admin.settings") && (
+              <MenuItem
+                disabled={togglingNora}
+                onClick={() => toggleNoraProfile()}
+                sx={{ pl: 3 }}
+              >
+                <ListItemIcon>
+                  {togglingNora ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <MaterialSymbol icon="account_balance" size={18} />
+                  )}
+                </ListItemIcon>
+                <ListItemText>{t("userMenu.noraProfile")}</ListItemText>
+                <Switch
+                  edge="end"
+                  size="small"
+                  checked={frameworkProfile === "nora"}
+                  disabled={togglingNora}
+                  tabIndex={-1}
+                  sx={{ ml: 2 }}
+                />
+              </MenuItem>
+            )}
             {can("admin.impersonate") && !user.impersonated_role && <Divider />}
             {can("admin.impersonate") && !user.impersonated_role && (
               <MenuItem
@@ -1055,25 +1088,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <MaterialSymbol icon="switch_account" size={18} />
                 </ListItemIcon>
                 <ListItemText>{t("userMenu.viewAsRole")}</ListItemText>
-              </MenuItem>
-            )}
-            {can("admin.settings") && frameworkProfile !== "nora" && <Divider />}
-            {can("admin.settings") && frameworkProfile !== "nora" && (
-              <MenuItem
-                disabled={activatingNora}
-                onClick={async () => {
-                  await activateNoraProfile();
-                  setUserMenu(null);
-                }}
-              >
-                <ListItemIcon>
-                  {activatingNora ? (
-                    <CircularProgress size={18} />
-                  ) : (
-                    <MaterialSymbol icon="account_balance" size={18} />
-                  )}
-                </ListItemIcon>
-                <ListItemText>{t("userMenu.activateNora")}</ListItemText>
               </MenuItem>
             )}
             <Divider />
@@ -1118,7 +1132,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       {/* Sponsorship dialog */}
       <SponsorshipDialog open={sponsorshipOpen} onClose={() => setSponsorshipOpen(false)} />
 
-      {/* NORA-profile activation feedback (user-menu quick action) */}
+      {/* NORA-profile toggle feedback (user-menu Admin section switch) */}
       <Snackbar
         open={noraSnack !== null}
         autoHideDuration={5000}
@@ -1126,10 +1140,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
-          severity={noraSnack === "success" ? "success" : "error"}
+          severity={
+            noraSnack === "activated" || noraSnack === "deactivated" ? "success" : "error"
+          }
           onClose={() => setNoraSnack(null)}
         >
-          {noraSnack === "success" ? t("userMenu.noraActivated") : t("userMenu.noraActivationFailed")}
+          {noraSnack === "activated" && t("userMenu.noraActivated")}
+          {noraSnack === "deactivated" && t("userMenu.noraDeactivated")}
+          {noraSnack === "activationFailed" && t("userMenu.noraActivationFailed")}
+          {noraSnack === "deactivationFailed" && t("userMenu.noraDeactivationFailed")}
         </Alert>
       </Snackbar>
 

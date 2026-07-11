@@ -19,7 +19,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
-OPPORTUNITY_DOMAINS = ("BA", "AA", "DA", "TA")
+# BX (Beneficiary Experience) + SEC (Security) joined with the 6-domain model
+# of the updated National EA Framework (noraPlan.md WP6.5).
+OPPORTUNITY_DOMAINS = ("BA", "BX", "AA", "DA", "TA", "SEC")
+OPPORTUNITY_FEASIBILITIES = ("high", "medium", "low")
 OPPORTUNITY_SOURCES = (
     "manual",
     "turbolens_duplicate",
@@ -45,6 +48,14 @@ class ImprovementOpportunity(UUIDMixin, TimestampMixin, Base):
     initiative_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL"), nullable=True
     )
+    # Journey-improvement traceability (WP6.5): the BX template's improvement
+    # rows are (journey, phase, gap, opportunity, impact, feasibility,
+    # priority) — journey + phase land here, feasibility below.
+    journey_card_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL"), nullable=True
+    )
+    journey_phase: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    feasibility: Mapped[str | None] = mapped_column(String(8), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

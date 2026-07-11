@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Aggiungi riquadro",
   "webPortals.tileLabel": "Etichetta",
   "webPortals.tileIcon": "Icona",
-  "webPortals.tileTarget": "Link (es. /reports/portfolio)"
+  "webPortals.tileTarget": "Link (es. /reports/portfolio)",
+  "turbolens_action_promote": "Promuovi a opportunità di miglioramento",
+  "turbolens_promoted": "Promossa"
 }

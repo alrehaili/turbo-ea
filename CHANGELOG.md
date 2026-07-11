@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.67.0] - 2026-07-11
+
+### Added
+- **Updated 7-phase NORA methodology tracker.** The NORA Program page can now track the updated Dec-2024 National EA Framework: seven phases with per-domain deliverables in the diagnosis and target-design phases (Business, Beneficiary Experience, Applications, Data, Technology, Security). Fresh NORA installs start on the new methodology; existing 10-stage programs keep running until an admin opts in via a one-click switch that preserves all history.
+- **EA Requirements register.** The methodology's continuous element: register architecture requirements, approve them through governance, track them through development cycles via an assigned initiative, and assess change impact through their linked cards. New panel on the NORA Program page.
+- **Technology Landscape report** (`/reports/technology-landscape`): IT components grouped by data-center containment (data center ⊃ host ⊃ VM ⊃ container engine) and by network segment, with a security-components-only toggle.
+- **NEA viewpoint registry** in the View Library: all ~47 core viewpoints of the National EA Viewpoints Document (bilingual ar/en names, type, level, methodology linkage) mapped to the Turbo EA view that produces each one.
+- **Practice operating-model pack**: nine new governed-document templates (EA Mandates, EA Services, Organizational Structure, Governance Model, EA Processes, Interaction Model, EA KPIs, EA Vocabulary, and an umbrella Operating Model) plus a ten-item practice-establishment checklist on the NORA Program page with one-click document creation.
+- **Journey-improvement traceability** on Improvement Opportunities: link an opportunity to a beneficiary journey and phase, record feasibility, and use the new BX (Beneficiary Experience) and SEC (Security) domains.
+- **Security-protection semantics**: the Application → IT Component relation gains a "usage role" attribute (uses / is protected by), the Security layer overview lists the security hardware/software/service components, and the NCA ECC compliance scan flags applications with no linked security component.
+- **Strategic Pillar card type** (NORA profile v6): pillars are now first-class cards (code + display order) with an Objective → Pillar "supports" relation; the Strategic House and Strategy Cascade read them (the earlier Objective pillar-subtype keeps working).
+- **Strategy demo data**: `SEED_NORA=true` now seeds a test strategy cascade — two pillars, linked objectives, a program ⊃ initiative ⊃ projects chain, one deliberately unaligned project (to demo the warning), and a demo vision/mission (never overwriting real ones).
+- **Strategy Cascade report** (`/reports/strategy-cascade`): the full strategy chain on one screen — Strategic Pillars ⊃ Strategic Objectives → Programs ⊃ Initiatives ⊃ Projects — with summary tiles per level and a warning list of initiatives that aren't traceable to any strategic objective.
+- **Three new NEA viewpoint renderers**: **Strategic House** (`/reports/strategic-house` — editable vision/mission, pillar columns with their objectives), **Business Value Chain** (`/reports/value-chain` — top-tier capabilities as a chevron ribbon with strategic/supporting bands), and **Application Modules** (`/reports/application-modules` — the application ⊃ modules hierarchy tree).
+- **Promote TurboLens findings to improvement opportunities**: duplicate clusters and modernization assessments gain one-click promotion into the Improvement Opportunity registry (landing as proposed, with the affected cards linked).
+- **Domain Owner and Data Steward stakeholder roles** seeded on Business Capability and Data Object when the NORA profile is active.
+
 ## [1.66.0] - 2026-07-08
 
 ### Added

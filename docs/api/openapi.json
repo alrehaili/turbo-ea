@@ -6094,6 +6094,20 @@
         "title": "McpSettingsPayload",
         "type": "object"
       },
+      "MethodologyPayload": {
+        "properties": {
+          "version": {
+            "pattern": "^(v1|v2)$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "MethodologyPayload",
+        "type": "object"
+      },
       "MigrationOut": {
         "properties": {
           "applied_at": {
@@ -7233,6 +7247,41 @@
             "title": "Domain",
             "type": "string"
           },
+          "feasibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feasibility"
+          },
+          "journey_card_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journey Card Id"
+          },
+          "journey_phase": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journey Phase"
+          },
           "priority": {
             "default": "medium",
             "title": "Priority",
@@ -7296,6 +7345,17 @@
             ],
             "title": "Domain"
           },
+          "feasibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feasibility"
+          },
           "initiative_id": {
             "anyOf": [
               {
@@ -7307,6 +7367,30 @@
               }
             ],
             "title": "Initiative Id"
+          },
+          "journey_card_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journey Card Id"
+          },
+          "journey_phase": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journey Phase"
           },
           "priority": {
             "anyOf": [
@@ -10417,6 +10501,156 @@
         "title": "ReporterOut",
         "type": "object"
       },
+      "RequirementCreate": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Card Ids",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "RequirementCreate",
+        "type": "object"
+      },
+      "RequirementUpdate": {
+        "properties": {
+          "card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Ids"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "initiative_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiative Id"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "RequirementUpdate",
+        "type": "object"
+      },
       "ResetPasswordRequest": {
         "properties": {
           "password": {
@@ -12510,7 +12744,7 @@
         "properties": {
           "doc_type": {
             "default": "soaw",
-            "pattern": "^(soaw|ea_project_strategy|ea_project_plan|environment_analysis|ea_usage_plan|ea_management_plan)$",
+            "pattern": "^(soaw|ea_project_strategy|ea_project_plan|environment_analysis|ea_usage_plan|ea_management_plan|ea_mandates|ea_services|ea_org_structure|ea_governance_model|ea_processes|ea_interaction_model|ea_kpis|ea_vocabulary|ea_operating_model)$",
             "title": "Doc Type",
             "type": "string"
           },
@@ -13021,6 +13255,36 @@
           }
         },
         "title": "StakeholderRoleUpdate",
+        "type": "object"
+      },
+      "StrategyHousePayload": {
+        "properties": {
+          "mission": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission"
+          },
+          "vision": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vision"
+          }
+        },
+        "title": "StrategyHousePayload",
         "type": "object"
       },
       "StructuredInsight": {
@@ -24415,6 +24679,191 @@
         ]
       }
     },
+    "/api/v1/ea-requirements": {
+      "get": {
+        "operationId": "list_requirements_api_v1_ea_requirements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Requirements",
+        "tags": [
+          "ea-requirements"
+        ]
+      },
+      "post": {
+        "operationId": "create_requirement_api_v1_ea_requirements_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequirementCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Requirement",
+        "tags": [
+          "ea-requirements"
+        ]
+      }
+    },
+    "/api/v1/ea-requirements/{requirement_id}": {
+      "delete": {
+        "operationId": "delete_requirement_api_v1_ea_requirements__requirement_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requirement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Requirement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Requirement",
+        "tags": [
+          "ea-requirements"
+        ]
+      },
+      "patch": {
+        "operationId": "update_requirement_api_v1_ea_requirements__requirement_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requirement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Requirement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequirementUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Requirement",
+        "tags": [
+          "ea-requirements"
+        ]
+      }
+    },
     "/api/v1/eol/mass-link": {
       "post": {
         "description": "Bulk-link cards to EOL products/cycles.\n\nExpects a list of: [{card_id, eol_product, eol_cycle}].\nFor ITComponent type, lifecycle dates are synced from EOL data.",
@@ -29000,7 +29449,7 @@
     },
     "/api/v1/nora-program": {
       "get": {
-        "description": "The full program: deliverables grouped by stage + per-stage progress.",
+        "description": "The full program: deliverables grouped by stage/phase + progress.\n\nOnly rows belonging to the active methodology (v1 = 10 stages, v2 = the\nupdated 7-phase framework) are returned; the inactive catalogue's rows\nstay in the table as history.",
         "operationId": "get_program_api_v1_nora_program_get",
         "responses": {
           "200": {
@@ -29158,6 +29607,46 @@
           }
         },
         "summary": "Update Deliverable",
+        "tags": [
+          "nora-program"
+        ]
+      }
+    },
+    "/api/v1/nora-program/methodology": {
+      "post": {
+        "description": "Switch the tracked NORA methodology version ([FORK] \u2014 WP6.1).\n\n``v1`` = classic 10-stage guideline, ``v2`` = the updated Dec-2024\n7-phase framework. Switching seeds the target catalogue (idempotent) and\nflips the stored setting; the other methodology's deliverable rows are\n**retained** as history \u2014 a live program is never destroyed.",
+        "operationId": "switch_methodology_api_v1_nora_program_methodology_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MethodologyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Switch Methodology",
         "tags": [
           "nora-program"
         ]
@@ -33032,6 +33521,26 @@
         ]
       }
     },
+    "/api/v1/reports/strategy-cascade": {
+      "get": {
+        "description": "Pillars \u2192 objectives \u2192 programs \u2192 initiatives \u2192 projects. [FORK FEATURE]",
+        "operationId": "strategy_cascade_report_api_v1_reports_strategy_cascade_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Strategy Cascade Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/strategy-map": {
       "get": {
         "description": "Executive Strategy Map: objective \u2192 capability \u2192 initiative \u2192 application.\n\nReturns one traceable chain per strategic Objective, with PPM budget/actual\nand lifecycle status read opportunistically off each Initiative card.",
@@ -33047,6 +33556,26 @@
           }
         },
         "summary": "Strategy Map",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/technology-landscape": {
+      "get": {
+        "description": "ITComponents grouped by data-center containment and network segment.\n[FORK FEATURE]",
+        "operationId": "technology_landscape_report_api_v1_reports_technology_landscape_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Technology Landscape Report",
         "tags": [
           "reports"
         ]
@@ -37779,6 +38308,63 @@
         ]
       }
     },
+    "/api/v1/settings/strategy-house": {
+      "get": {
+        "description": "Public endpoint \u2014 the agency vision/mission read by the Strategic\nHouse viewpoint.",
+        "operationId": "get_strategy_house_api_v1_settings_strategy_house_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Strategy House",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "operationId": "update_strategy_house_api_v1_settings_strategy_house_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StrategyHousePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Strategy House",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/turbolens-enabled": {
       "get": {
         "description": "Public endpoint \u2014 returns whether the TurboLens module is enabled.\n\nDefaults to True so existing installations keep their previous behaviour;\nadministrators can opt out via the admin UI.",
@@ -40738,6 +41324,47 @@
         ]
       }
     },
+    "/api/v1/turbolens/duplicates/modernizations/{assessment_id}/promote-opportunity": {
+      "post": {
+        "description": "Spawn an Improvement Opportunity from a modernization assessment\n([FORK] \u2014 noraPlan.md WP3.3 promotion action).",
+        "operationId": "promote_modernization_to_opportunity_api_v1_turbolens_duplicates_modernizations__assessment_id__promote_opportunity_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assessment_id",
+            "required": true,
+            "schema": {
+              "title": "Assessment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Modernization To Opportunity",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
     "/api/v1/turbolens/duplicates/modernize": {
       "post": {
         "description": "Trigger modernization assessment for a card type.",
@@ -40773,6 +41400,47 @@
           }
         },
         "summary": "Trigger Modernization",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/duplicates/{cluster_id}/promote-opportunity": {
+      "post": {
+        "description": "Spawn an Improvement Opportunity from a duplicate cluster ([FORK] \u2014\nnoraPlan.md WP3.3 promotion action). Mirrors the maturity-gap promotion:\nlands as ``proposed`` with the cluster's cards linked, so governance\napproval stays a human step.",
+        "operationId": "promote_cluster_to_opportunity_api_v1_turbolens_duplicates__cluster_id__promote_opportunity_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cluster_id",
+            "required": true,
+            "schema": {
+              "title": "Cluster Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Cluster To Opportunity",
         "tags": [
           "TurboLens"
         ]

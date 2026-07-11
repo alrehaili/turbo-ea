@@ -16,6 +16,7 @@ from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
+from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
 from app.models.improvement_opportunity import (
@@ -119,6 +120,8 @@ __all__ = [
     "AdmPhase",
     "AdmPhaseArtefact",
     "EaProgramDeliverable",
+    "EaRequirement",
+    "EaRequirementCard",
     "ImprovementOpportunity",
     "ImprovementOpportunityCard",
     "MaturityDimension",

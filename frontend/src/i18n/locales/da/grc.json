@@ -66,7 +66,15 @@
       "aiFocusHint": "f.eks. datastyring, delte tjenester…",
       "aiGenerate": "Generer",
       "aiReviewHint": "Gennemgå AI-udkastene og tilføj dem, du vil have — de lander som foreslået til governance.",
-      "aiAddSelected": "Tilføj {{n}} valgte"
+      "aiAddSelected": "Tilføj {{n}} valgte",
+      "journey": "Modtagerrejse",
+      "journeyPhase": "Rejsefase",
+      "feasibility": {
+        "label": "Gennemførlighed",
+        "high": "Høj",
+        "medium": "Mellem",
+        "low": "Lav"
+      }
     }
   },
   "compliance": {

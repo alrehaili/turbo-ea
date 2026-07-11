@@ -26,6 +26,16 @@ from app.models.tech_standard import StandardException
 from app.models.turbolens import TurboLensComplianceFinding
 from app.models.user import User
 from app.services.event_bus import event_bus
+from app.services.nora_program import (
+    NORA_METHODOLOGY_VERSIONS,
+    NORA_V2_PHASE_NUMBERS,
+    PRACTICE_STAGE_NO,
+    deliverable_domain,
+    get_active_methodology,
+    is_practice_key,
+    is_v2_deliverable_key,
+    seed_nora_program,
+)
 from app.services.permission_service import PermissionService
 
 log = logging.getLogger(__name__)
@@ -55,12 +65,17 @@ class DeliverableUpdate(BaseModel):
     evidence: list[EvidenceItem] | None = Field(default=None, max_length=50)
 
 
+class MethodologyPayload(BaseModel):
+    version: str = Field(pattern="^(v1|v2)$")
+
+
 def _deliverable_dict(d: EaProgramDeliverable, names: dict | None = None) -> dict:
     names = names or {}
     return {
         "id": str(d.id),
         "stage_no": d.stage_no,
         "key": d.key,
+        "domain": deliverable_domain(d.key),
         "title": d.title,
         "description": d.description,
         "status": d.status,
@@ -90,8 +105,14 @@ async def get_program(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The full program: deliverables grouped by stage + per-stage progress."""
+    """The full program: deliverables grouped by stage/phase + progress.
+
+    Only rows belonging to the active methodology (v1 = 10 stages, v2 = the
+    updated 7-phase framework) are returned; the inactive catalogue's rows
+    stay in the table as history.
+    """
     await PermissionService.require_permission(db, user, "nora.view")
+    methodology = await get_active_methodology(db)
     rows = list(
         (
             await db.execute(
@@ -103,15 +124,26 @@ async def get_program(
         .scalars()
         .all()
     )
-    user_ids = {d.owner_id for d in rows} | {d.approved_by for d in rows}
+    # The practice-establishment checklist (WP6.8) lives outside the
+    # methodology numbering and is shown under both methodologies.
+    practice_rows = [d for d in rows if is_practice_key(d.key)]
+    rows = [
+        d
+        for d in rows
+        if not is_practice_key(d.key) and is_v2_deliverable_key(d.key) == (methodology == "v2")
+    ]
+    user_ids = {d.owner_id for d in rows + practice_rows} | {
+        d.approved_by for d in rows + practice_rows
+    }
     user_ids.discard(None)
     names: dict = {}
     if user_ids:
         res = await db.execute(select(User.id, User.display_name).where(User.id.in_(user_ids)))
         names = dict(res.all())
 
+    stage_numbers = NORA_V2_PHASE_NUMBERS if methodology == "v2" else NORA_STAGE_NUMBERS
     stages = []
-    for stage_no in NORA_STAGE_NUMBERS:
+    for stage_no in stage_numbers:
         stage_rows = [d for d in rows if d.stage_no == stage_no]
         in_scope = [d for d in stage_rows if d.status != "descoped"]
         approved = [d for d in in_scope if d.status == "approved"]
@@ -125,8 +157,22 @@ async def get_program(
         )
     in_scope_all = [d for d in rows if d.status != "descoped"]
     approved_all = [d for d in in_scope_all if d.status == "approved"]
+
+    practice_in_scope = [d for d in practice_rows if d.status != "descoped"]
+    practice_approved = [d for d in practice_in_scope if d.status == "approved"]
+    practice = {
+        "stage_no": PRACTICE_STAGE_NO,
+        "deliverables": [_deliverable_dict(d, names) for d in practice_rows],
+        "progress": round(100 * len(practice_approved) / len(practice_in_scope))
+        if practice_in_scope
+        else 0,
+        "complete": bool(practice_in_scope) and len(practice_approved) == len(practice_in_scope),
+    }
+
     return {
+        "methodology": methodology,
         "stages": stages,
+        "practice": practice,
         "summary": {
             "total": len(in_scope_all),
             "approved": len(approved_all),
@@ -365,6 +411,46 @@ async def get_dashboard(
     }
 
 
+@router.post("/methodology")
+async def switch_methodology(
+    body: MethodologyPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Switch the tracked NORA methodology version ([FORK] — WP6.1).
+
+    ``v1`` = classic 10-stage guideline, ``v2`` = the updated Dec-2024
+    7-phase framework. Switching seeds the target catalogue (idempotent) and
+    flips the stored setting; the other methodology's deliverable rows are
+    **retained** as history — a live program is never destroyed.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+    if body.version not in NORA_METHODOLOGY_VERSIONS:
+        raise HTTPException(400, "Invalid methodology version")
+
+    from app.models.app_settings import AppSettings
+
+    row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if row is None:
+        row = AppSettings(id="default")
+        db.add(row)
+    general = dict(row.general_settings or {})
+    general["noraMethodologyVersion"] = body.version
+    row.general_settings = general
+
+    created = await seed_nora_program(db, methodology=body.version)
+    await event_bus.publish(
+        "nora_program.methodology_switched",
+        {"version": body.version, "deliverables_seeded": created},
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    return {"methodology": body.version, "deliverables_seeded": created}
+
+
 @router.post("/deliverables", status_code=201)
 async def create_deliverable(
     body: DeliverableCreate,
@@ -372,11 +458,14 @@ async def create_deliverable(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.manage")
-    if body.stage_no not in NORA_STAGE_NUMBERS:
+    methodology = await get_active_methodology(db)
+    valid_stages = NORA_V2_PHASE_NUMBERS if methodology == "v2" else NORA_STAGE_NUMBERS
+    if body.stage_no not in valid_stages:
         raise HTTPException(400, "Invalid stage number")
+    key_prefix = "custom_v2_" if methodology == "v2" else "custom_"
     d = EaProgramDeliverable(
         stage_no=body.stage_no,
-        key=f"custom_{uuid.uuid4().hex[:12]}",
+        key=f"{key_prefix}{uuid.uuid4().hex[:12]}",
         title=body.title,
         description=body.description,
         due_date=body.due_date,

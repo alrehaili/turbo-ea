@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Añadir mosaico",
   "webPortals.tileLabel": "Etiqueta",
   "webPortals.tileIcon": "Icono",
-  "webPortals.tileTarget": "Enlace (p. ej. /reports/portfolio)"
+  "webPortals.tileTarget": "Enlace (p. ej. /reports/portfolio)",
+  "turbolens_action_promote": "Promover a oportunidad de mejora",
+  "turbolens_promoted": "Promovida"
 }

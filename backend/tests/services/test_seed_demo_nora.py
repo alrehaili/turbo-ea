@@ -16,7 +16,6 @@ from app.services.nora_profile import (
     NORA_TYPE_FIELDS,
     NORA_V2_SUBTYPES,
 )
-from app.services.nora_program import NORA_DELIVERABLE_CATALOGUE
 from app.services.seed import RELATIONS, TYPES
 from app.services.seed_demo_nora import (
     DEMO_CARDS,
@@ -128,7 +127,11 @@ class TestDemoRelations:
 
 class TestDemoProgram:
     def test_deliverable_keys_exist(self):
-        catalogue_keys = {key for (_stage, key, _title) in NORA_DELIVERABLE_CATALOGUE}
+        # A fresh profile apply seeds the updated 7-phase methodology (WP6.1),
+        # so the demo advances v2 catalogue keys.
+        from app.services.nora_program import NORA_V2_DELIVERABLE_CATALOGUE
+
+        catalogue_keys = {key for (_stage, key, _title) in NORA_V2_DELIVERABLE_CATALOGUE}
         for key, status, _evidence in DEMO_PROGRAM_PROGRESS:
             assert key in catalogue_keys, f"unknown deliverable {key}"
             assert status in ("notStarted", "inProgress", "inReview", "approved", "descoped")

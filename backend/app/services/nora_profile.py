@@ -54,7 +54,17 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v3: NORA 2.0 six-layer model — Business / Beneficiary Experience /
 # Application / Data / Technology / Security categories + the
 # BeneficiaryJourney, Channel and SecurityControl card types.
-NORA_PROFILE_VERSION = 3
+# v4: GFSA EA Metamodel v3 alignment (agency deck, 2026-07) — Persona + Policy
+# card types, journey Phase/Step subtypes + Journey Mapping fields, the
+# ITComponent "Technical Specification" section (WP6.3's field half), and the
+# remaining building-block attribute gaps on existing types.
+# v5: WP6.4 security-domain completion — `usageRole` attribute (protects) on
+# the Application → ITComponent relation type and the NCA ECC scanner scope
+# extended to flag applications without a linked security component.
+# v6: Pillar as a first-class card type (user decision — supersedes the v4
+# Objective `pillar` subtype, which stays for backwards compatibility) + the
+# Objective → Pillar "supports" relation.
+NORA_PROFILE_VERSION = 6
 
 # Old→new category rewrites for the v3 six-layer model, keyed by card-type
 # key. Guarded: a type is only moved while its category still equals the old
@@ -2316,8 +2326,1098 @@ for _type_key, _v2_fields in NORA_V2_TYPE_FIELDS.items():
     NORA_TYPE_FIELDS.setdefault(_type_key, []).extend(_v2_fields)
 
 
-# Subtypes appended by the v2 profile apply (pass 4d). Idempotent by key.
+# ---------------------------------------------------------------------------
+# v4 (GFSA EA Metamodel v3): remaining building-block attribute gaps.
+#
+# Deck attributes that already have a seed/profile home are deliberately NOT
+# duplicated here — e.g. capability maturity → seed `maturity`, org location →
+# seed `location`, provider compliance → seed `compliance`, objective type →
+# seed `objectiveType`, project budget/dates → seed cost/date fields, KPI
+# unit/polarity → v1 `unit`/`direction`. All weight 0.
+# ---------------------------------------------------------------------------
+
+_PRIORITY_OPTIONS = [
+    {
+        "key": "high",
+        "label": "High",
+        "color": "#c62828",
+        "translations": _tr(
+            "Hoch", "Élevée", "Alta", "Alta", "Alta", "高", "Высокий", "Høj", "عالية"
+        ),
+    },
+    {
+        "key": "medium",
+        "label": "Medium",
+        "color": "#f9a825",
+        "translations": _tr(
+            "Mittel",
+            "Moyenne",
+            "Media",
+            "Media",
+            "Média",
+            "中",
+            "Средний",
+            "Mellem",
+            "متوسطة",
+        ),
+    },
+    {
+        "key": "low",
+        "label": "Low",
+        "color": "#2e7d32",
+        "translations": _tr(
+            "Niedrig", "Faible", "Baja", "Bassa", "Baixa", "低", "Низкий", "Lav", "منخفضة"
+        ),
+    },
+]
+
+NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
+    "BusinessCapability": [
+        {
+            "key": "capabilityType",
+            "label": "Capability Type",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Fähigkeitstyp",
+                "Type de capacité",
+                "Tipo de capacidad",
+                "Tipo di capacità",
+                "Tipo de capacidade",
+                "能力类型",
+                "Тип способности",
+                "Kapabilitetstype",
+                "نوع القدرة",
+            ),
+            "options": [
+                {
+                    "key": "strategic",
+                    "label": "Strategic",
+                    "translations": _tr(
+                        "Strategisch",
+                        "Stratégique",
+                        "Estratégica",
+                        "Strategica",
+                        "Estratégica",
+                        "战略",
+                        "Стратегическая",
+                        "Strategisk",
+                        "استراتيجية",
+                    ),
+                },
+                {
+                    "key": "operational",
+                    "label": "Operational",
+                    "translations": _tr(
+                        "Operativ",
+                        "Opérationnelle",
+                        "Operativa",
+                        "Operativa",
+                        "Operacional",
+                        "运营",
+                        "Операционная",
+                        "Operationel",
+                        "تشغيلية",
+                    ),
+                },
+                {
+                    "key": "supporting",
+                    "label": "Supporting",
+                    "translations": _tr(
+                        "Unterstützend",
+                        "De soutien",
+                        "De apoyo",
+                        "Di supporto",
+                        "De apoio",
+                        "支持",
+                        "Поддерживающая",
+                        "Understøttende",
+                        "مساندة",
+                    ),
+                },
+            ],
+        },
+    ],
+    "Organization": [
+        {
+            "key": "orgUnitType",
+            "label": "Administrative Type",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Verwaltungstyp",
+                "Type administratif",
+                "Tipo administrativo",
+                "Tipo amministrativo",
+                "Tipo administrativo",
+                "行政类型",
+                "Административный тип",
+                "Administrativ type",
+                "النوع الإداري",
+            ),
+            "options": [
+                {
+                    "key": "ministry",
+                    "label": "Ministry",
+                    "translations": _tr(
+                        "Ministerium",
+                        "Ministère",
+                        "Ministerio",
+                        "Ministero",
+                        "Ministério",
+                        "部",
+                        "Министерство",
+                        "Ministerium",
+                        "وزارة",
+                    ),
+                },
+                {
+                    "key": "authority",
+                    "label": "Authority",
+                    "translations": _tr(
+                        "Behörde",
+                        "Autorité",
+                        "Autoridad",
+                        "Autorità",
+                        "Autoridade",
+                        "管理局",
+                        "Управление",
+                        "Myndighed",
+                        "هيئة",
+                    ),
+                },
+                {
+                    "key": "agency",
+                    "label": "Agency",
+                    "translations": _tr(
+                        "Agentur",
+                        "Agence",
+                        "Agencia",
+                        "Agenzia",
+                        "Agência",
+                        "机构",
+                        "Агентство",
+                        "Styrelse",
+                        "وكالة",
+                    ),
+                },
+                {
+                    "key": "sector",
+                    "label": "Sector",
+                    "translations": _tr(
+                        "Sektor",
+                        "Secteur",
+                        "Sector",
+                        "Settore",
+                        "Setor",
+                        "板块",
+                        "Сектор",
+                        "Sektor",
+                        "قطاع",
+                    ),
+                },
+                {
+                    "key": "publicAdministration",
+                    "label": "Public Administration",
+                    "translations": _tr(
+                        "Öffentliche Verwaltung",
+                        "Administration publique",
+                        "Administración pública",
+                        "Amministrazione pubblica",
+                        "Administração pública",
+                        "公共管理部门",
+                        "Государственная администрация",
+                        "Offentlig forvaltning",
+                        "إدارة عامة",
+                    ),
+                },
+                {
+                    "key": "department",
+                    "label": "Department",
+                    "translations": _tr(
+                        "Abteilung",
+                        "Département",
+                        "Departamento",
+                        "Dipartimento",
+                        "Departamento",
+                        "部门",
+                        "Отдел",
+                        "Afdeling",
+                        "إدارة",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "mandates",
+            "label": "Mandates",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Aufgaben und Zuständigkeiten",
+                "Mandats",
+                "Mandatos",
+                "Mandati",
+                "Mandatos",
+                "职责范围",
+                "Полномочия",
+                "Mandater",
+                "المهام والاختصاصات",
+            ),
+        },
+    ],
+    "Provider": [
+        {
+            "key": "fieldOfActivity",
+            "label": "Field of Activity",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Tätigkeitsfeld",
+                "Domaine d'activité",
+                "Campo de actividad",
+                "Campo di attività",
+                "Área de atividade",
+                "活动领域",
+                "Сфера деятельности",
+                "Aktivitetsområde",
+                "مجال النشاط",
+            ),
+            "options": [
+                {
+                    "key": "technologySolutions",
+                    "label": "Technology Solutions",
+                    "translations": _tr(
+                        "Technologielösungen",
+                        "Solutions technologiques",
+                        "Soluciones tecnológicas",
+                        "Soluzioni tecnologiche",
+                        "Soluções tecnológicas",
+                        "技术解决方案",
+                        "Технологические решения",
+                        "Teknologiløsninger",
+                        "حلول تقنية",
+                    ),
+                },
+                {
+                    "key": "securitySolutions",
+                    "label": "Security Solutions",
+                    "translations": _tr(
+                        "Sicherheitslösungen",
+                        "Solutions de sécurité",
+                        "Soluciones de seguridad",
+                        "Soluzioni di sicurezza",
+                        "Soluções de segurança",
+                        "安全解决方案",
+                        "Решения безопасности",
+                        "Sikkerhedsløsninger",
+                        "حلول أمنية",
+                    ),
+                },
+                {
+                    "key": "hardwareProvider",
+                    "label": "Hardware Provider",
+                    "translations": _tr(
+                        "Hardwareanbieter",
+                        "Fournisseur de matériel",
+                        "Proveedor de hardware",
+                        "Fornitore di hardware",
+                        "Fornecedor de hardware",
+                        "硬件供应商",
+                        "Поставщик оборудования",
+                        "Hardwareleverandør",
+                        "مزود أجهزة",
+                    ),
+                },
+                {
+                    "key": "serviceProvider",
+                    "label": "Service Provider",
+                    "translations": _tr(
+                        "Dienstleister",
+                        "Prestataire de services",
+                        "Proveedor de servicios",
+                        "Fornitore di servizi",
+                        "Provedor de serviços",
+                        "服务提供商",
+                        "Поставщик услуг",
+                        "Serviceleverandør",
+                        "مزود خدمات",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "servicesProvided",
+            "label": "Services Provided",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Erbrachte Leistungen",
+                "Services fournis",
+                "Servicios prestados",
+                "Servizi forniti",
+                "Serviços prestados",
+                "提供的服务",
+                "Предоставляемые услуги",
+                "Leverede services",
+                "الخدمات المقدمة",
+            ),
+        },
+        {
+            "key": "providerStatus",
+            "label": "Provider Status",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Anbieterstatus",
+                "Statut du fournisseur",
+                "Estado del proveedor",
+                "Stato del fornitore",
+                "Status do fornecedor",
+                "供应商状态",
+                "Статус поставщика",
+                "Leverandørstatus",
+                "حالة مزود الخدمة",
+            ),
+            "options": [
+                {
+                    "key": "active",
+                    "label": "Active",
+                    "color": "#2e7d32",
+                    "translations": _tr(
+                        "Aktiv",
+                        "Actif",
+                        "Activo",
+                        "Attivo",
+                        "Ativo",
+                        "活跃",
+                        "Активный",
+                        "Aktiv",
+                        "نشط",
+                    ),
+                },
+                {
+                    "key": "inactive",
+                    "label": "Inactive",
+                    "color": "#9e9e9e",
+                    "translations": _tr(
+                        "Inaktiv",
+                        "Inactif",
+                        "Inactivo",
+                        "Inattivo",
+                        "Inativo",
+                        "不活跃",
+                        "Неактивный",
+                        "Inaktiv",
+                        "غير نشط",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "geoLocation",
+            "label": "Geographic Location",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Geografischer Standort",
+                "Localisation géographique",
+                "Ubicación geográfica",
+                "Posizione geografica",
+                "Localização geográfica",
+                "地理位置",
+                "Географическое расположение",
+                "Geografisk placering",
+                "الموقع الجغرافي",
+            ),
+        },
+    ],
+    "BusinessContext": [
+        {
+            "key": "productType",
+            "label": "Product Type",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Produkttyp",
+                "Type de produit",
+                "Tipo de producto",
+                "Tipo di prodotto",
+                "Tipo de produto",
+                "产品类型",
+                "Тип продукта",
+                "Produkttype",
+                "نوع المنتج",
+            ),
+            "options": [
+                {
+                    "key": "physicalProduct",
+                    "label": "Physical Product",
+                    "translations": _tr(
+                        "Physisches Produkt",
+                        "Produit physique",
+                        "Producto físico",
+                        "Prodotto fisico",
+                        "Produto físico",
+                        "实体产品",
+                        "Физический продукт",
+                        "Fysisk produkt",
+                        "منتج مادي",
+                    ),
+                },
+                {
+                    "key": "technicalProduct",
+                    "label": "Technical Product",
+                    "translations": _tr(
+                        "Technisches Produkt",
+                        "Produit technique",
+                        "Producto técnico",
+                        "Prodotto tecnico",
+                        "Produto técnico",
+                        "技术产品",
+                        "Технический продукт",
+                        "Teknisk produkt",
+                        "منتج تقني",
+                    ),
+                },
+                {
+                    "key": "document",
+                    "label": "Document",
+                    "translations": _tr(
+                        "Dokument",
+                        "Document",
+                        "Documento",
+                        "Documento",
+                        "Documento",
+                        "文档",
+                        "Документ",
+                        "Dokument",
+                        "وثيقة",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "productOwner",
+            "label": "Product Owner",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Produktverantwortlicher",
+                "Propriétaire du produit",
+                "Propietario del producto",
+                "Proprietario del prodotto",
+                "Proprietário do produto",
+                "产品负责人",
+                "Владелец продукта",
+                "Produktejer",
+                "مالك المنتج",
+            ),
+        },
+        {
+            "key": "productBeneficiary",
+            "label": "Targeted Beneficiary",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Zielgruppe",
+                "Bénéficiaire cible",
+                "Beneficiario objetivo",
+                "Beneficiario target",
+                "Beneficiário-alvo",
+                "目标受益人",
+                "Целевой получатель",
+                "Målgruppe",
+                "الفئة المستهدفة",
+            ),
+        },
+    ],
+    "Initiative": [
+        {
+            "key": "projectSponsor",
+            "label": "Sponsor",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Sponsor",
+                "Sponsor",
+                "Patrocinador",
+                "Sponsor",
+                "Patrocinador",
+                "项目发起人",
+                "Спонсор",
+                "Sponsor",
+                "راعي المشروع",
+            ),
+        },
+        {
+            "key": "projectManager",
+            "label": "Project Manager",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Projektleiter",
+                "Chef de projet",
+                "Gerente de proyecto",
+                "Project manager",
+                "Gerente de projeto",
+                "项目经理",
+                "Руководитель проекта",
+                "Projektleder",
+                "مدير المشروع",
+            ),
+        },
+        {
+            "key": "executionEntity",
+            "label": "Execution Entity",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Ausführende Stelle",
+                "Entité d'exécution",
+                "Entidad ejecutora",
+                "Entità esecutrice",
+                "Entidade executora",
+                "执行主体",
+                "Исполнитель",
+                "Udførende enhed",
+                "جهة التنفيذ",
+            ),
+            "options": [
+                {
+                    "key": "inHouse",
+                    "label": "In-house",
+                    "translations": _tr(
+                        "Intern",
+                        "En interne",
+                        "Interna",
+                        "Interna",
+                        "Interna",
+                        "内部执行",
+                        "Собственными силами",
+                        "Internt",
+                        "تنفيذ داخلي",
+                    ),
+                },
+                {
+                    "key": "outsourced",
+                    "label": "Outsourced",
+                    "translations": _tr(
+                        "Extern vergeben",
+                        "Externalisée",
+                        "Externalizada",
+                        "Esternalizzata",
+                        "Terceirizada",
+                        "外包执行",
+                        "На аутсорсинге",
+                        "Outsourcet",
+                        "تنفيذ خارجي",
+                    ),
+                },
+                {
+                    "key": "mixed",
+                    "label": "Mixed",
+                    "translations": _tr(
+                        "Gemischt",
+                        "Mixte",
+                        "Mixta",
+                        "Mista",
+                        "Mista",
+                        "混合执行",
+                        "Смешанный",
+                        "Blandet",
+                        "تنفيذ مشترك",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "priorityLevel",
+            "label": "Priority",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Priorität",
+                "Priorité",
+                "Prioridad",
+                "Priorità",
+                "Prioridade",
+                "优先级",
+                "Приоритет",
+                "Prioritet",
+                "الأولوية",
+            ),
+            "options": deepcopy(_PRIORITY_OPTIONS),
+        },
+        {
+            "key": "projectDeliverables",
+            "label": "Deliverables",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Liefergegenstände",
+                "Livrables",
+                "Entregables",
+                "Deliverable",
+                "Entregáveis",
+                "交付物",
+                "Результаты",
+                "Leverancer",
+                "المخرجات",
+            ),
+        },
+        {
+            "key": "scopeOfWork",
+            "label": "Scope of Work",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Arbeitsumfang",
+                "Périmètre des travaux",
+                "Alcance del trabajo",
+                "Ambito di lavoro",
+                "Escopo do trabalho",
+                "工作范围",
+                "Объём работ",
+                "Arbejdsomfang",
+                "نطاق العمل",
+            ),
+        },
+    ],
+    "BusinessProcess": [
+        {
+            "key": "beneficiaryType",
+            "label": "Beneficiary Type",
+            "type": "multiple_select",
+            "weight": 0,
+            "translations": _tr(
+                "Begünstigtentyp",
+                "Type de bénéficiaire",
+                "Tipo de beneficiario",
+                "Tipo di beneficiario",
+                "Tipo de beneficiário",
+                "受益人类型",
+                "Тип получателя",
+                "Modtagertype",
+                "نوع المستفيد",
+            ),
+            "options": [
+                {
+                    "key": "government",
+                    "label": "Government Entity",
+                    "translations": _tr(
+                        "Behörde",
+                        "Entité gouvernementale",
+                        "Entidad gubernamental",
+                        "Ente governativo",
+                        "Órgão governamental",
+                        "政府实体",
+                        "Государственный орган",
+                        "Offentlig myndighed",
+                        "جهة حكومية",
+                    ),
+                },
+                {
+                    "key": "privateSector",
+                    "label": "Private Sector",
+                    "translations": _tr(
+                        "Privatwirtschaft",
+                        "Secteur privé",
+                        "Sector privado",
+                        "Settore privato",
+                        "Setor privado",
+                        "私营部门",
+                        "Частный сектор",
+                        "Privat sektor",
+                        "القطاع الخاص",
+                    ),
+                },
+                {
+                    "key": "individual",
+                    "label": "Individuals",
+                    "translations": _tr(
+                        "Privatpersonen",
+                        "Particuliers",
+                        "Personas físicas",
+                        "Privati",
+                        "Pessoas físicas",
+                        "个人",
+                        "Физические лица",
+                        "Privatpersoner",
+                        "أفراد",
+                    ),
+                },
+                {
+                    "key": "internal",
+                    "label": "Internal Beneficiary",
+                    "translations": _tr(
+                        "Interner Begünstigter",
+                        "Bénéficiaire interne",
+                        "Beneficiario interno",
+                        "Beneficiario interno",
+                        "Beneficiário interno",
+                        "内部受益人",
+                        "Внутренний получатель",
+                        "Intern modtager",
+                        "مستفيد داخلي",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "participatingEntities",
+            "label": "Participating Entities",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Beteiligte Stellen",
+                "Entités participantes",
+                "Entidades participantes",
+                "Entità partecipanti",
+                "Entidades participantes",
+                "参与实体",
+                "Участвующие организации",
+                "Deltagende enheder",
+                "الجهات المشاركة",
+            ),
+        },
+    ],
+    "DataObject": [
+        {
+            "key": "structureClassification",
+            "label": "Structure Classification",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Strukturklassifizierung",
+                "Classification structurelle",
+                "Clasificación estructural",
+                "Classificazione strutturale",
+                "Classificação estrutural",
+                "结构分类",
+                "Классификация структуры",
+                "Strukturklassifikation",
+                "تصنيف الهيكلة",
+            ),
+            "options": [
+                {
+                    "key": "structured",
+                    "label": "Structured",
+                    "translations": _tr(
+                        "Strukturiert",
+                        "Structurées",
+                        "Estructurados",
+                        "Strutturati",
+                        "Estruturados",
+                        "结构化",
+                        "Структурированные",
+                        "Struktureret",
+                        "بيانات مهيكلة",
+                    ),
+                },
+                {
+                    "key": "semiStructured",
+                    "label": "Semi-structured",
+                    "translations": _tr(
+                        "Halbstrukturiert",
+                        "Semi-structurées",
+                        "Semiestructurados",
+                        "Semi-strutturati",
+                        "Semiestruturados",
+                        "半结构化",
+                        "Полуструктурированные",
+                        "Semistruktureret",
+                        "بيانات شبه مهيكلة",
+                    ),
+                },
+                {
+                    "key": "unstructured",
+                    "label": "Unstructured",
+                    "translations": _tr(
+                        "Unstrukturiert",
+                        "Non structurées",
+                        "No estructurados",
+                        "Non strutturati",
+                        "Não estruturados",
+                        "非结构化",
+                        "Неструктурированные",
+                        "Ustruktureret",
+                        "بيانات غير مهيكلة",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "dataBusinessRules",
+            "label": "Data Business Rules",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Daten-Geschäftsregeln",
+                "Règles métier des données",
+                "Reglas de negocio de los datos",
+                "Regole di business dei dati",
+                "Regras de negócio dos dados",
+                "数据业务规则",
+                "Бизнес-правила данных",
+                "Forretningsregler for data",
+                "قواعد أعمال البيانات",
+            ),
+        },
+        {
+            "key": "securityControls",
+            "label": "Security Controls",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Sicherheitskontrollen",
+                "Contrôles de sécurité",
+                "Controles de seguridad",
+                "Controlli di sicurezza",
+                "Controles de segurança",
+                "安全控制措施",
+                "Меры безопасности",
+                "Sikkerhedskontroller",
+                "الضوابط الأمنية",
+            ),
+        },
+    ],
+    "Application": [
+        {
+            "key": "accessChannel",
+            "label": "Access Channel",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Zugangskanal",
+                "Canal d'accès",
+                "Canal de acceso",
+                "Canale di accesso",
+                "Canal de acesso",
+                "访问渠道",
+                "Канал доступа",
+                "Adgangskanal",
+                "قناة الوصول",
+            ),
+        },
+        {
+            "key": "developmentTechnology",
+            "label": "Development Technology",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Entwicklungstechnologie",
+                "Technologie de développement",
+                "Tecnología de desarrollo",
+                "Tecnologia di sviluppo",
+                "Tecnologia de desenvolvimento",
+                "开发技术",
+                "Технология разработки",
+                "Udviklingsteknologi",
+                "تقنية التطوير",
+            ),
+        },
+    ],
+    "GovService": [
+        {
+            "key": "serviceFee",
+            "label": "Service Fee",
+            "type": "cost",
+            "weight": 0,
+            "translations": _tr(
+                "Servicegebühr",
+                "Frais de service",
+                "Tarifa del servicio",
+                "Tariffa del servizio",
+                "Taxa do serviço",
+                "服务费用",
+                "Плата за услугу",
+                "Servicegebyr",
+                "رسوم الخدمة",
+            ),
+        },
+    ],
+    "KPI": [
+        {
+            "key": "indicatorLevel",
+            "label": "Indicator Level",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Indikatorebene",
+                "Niveau de l'indicateur",
+                "Nivel del indicador",
+                "Livello dell'indicatore",
+                "Nível do indicador",
+                "指标层级",
+                "Уровень показателя",
+                "Indikatorniveau",
+                "مستوى المؤشر",
+            ),
+            "options": [
+                {
+                    "key": "strategic",
+                    "label": "Strategic",
+                    "translations": _tr(
+                        "Strategisch",
+                        "Stratégique",
+                        "Estratégico",
+                        "Strategico",
+                        "Estratégico",
+                        "战略",
+                        "Стратегический",
+                        "Strategisk",
+                        "استراتيجي",
+                    ),
+                },
+                {
+                    "key": "operational",
+                    "label": "Operational",
+                    "translations": _tr(
+                        "Operativ",
+                        "Opérationnel",
+                        "Operativo",
+                        "Operativo",
+                        "Operacional",
+                        "运营",
+                        "Операционный",
+                        "Operationel",
+                        "تشغيلي",
+                    ),
+                },
+            ],
+        },
+        {
+            "key": "calculationFormula",
+            "label": "Calculation Formula",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Berechnungsformel",
+                "Formule de calcul",
+                "Fórmula de cálculo",
+                "Formula di calcolo",
+                "Fórmula de cálculo",
+                "计算公式",
+                "Формула расчёта",
+                "Beregningsformel",
+                "معادلة الاحتساب",
+            ),
+        },
+        {
+            "key": "dataSource",
+            "label": "Data Source",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "Datenquelle",
+                "Source de données",
+                "Fuente de datos",
+                "Fonte dati",
+                "Fonte de dados",
+                "数据来源",
+                "Источник данных",
+                "Datakilde",
+                "مصدر البيانات",
+            ),
+        },
+        {
+            "key": "lastMeasuredDate",
+            "label": "Last Measurement Date",
+            "type": "date",
+            "weight": 0,
+            "translations": _tr(
+                "Datum der letzten Messung",
+                "Date de la dernière mesure",
+                "Fecha de la última medición",
+                "Data dell'ultima misurazione",
+                "Data da última medição",
+                "最近测量日期",
+                "Дата последнего измерения",
+                "Seneste målingsdato",
+                "تاريخ آخر قياس",
+            ),
+        },
+        {
+            "key": "baselineDate",
+            "label": "Baseline Date",
+            "type": "date",
+            "weight": 0,
+            "translations": _tr(
+                "Basisdatum",
+                "Date de référence",
+                "Fecha de línea base",
+                "Data di riferimento",
+                "Data da linha de base",
+                "基线日期",
+                "Дата базового значения",
+                "Basisdato",
+                "تاريخ احتساب قيمة الأساس",
+            ),
+        },
+        {
+            "key": "targetValueDate",
+            "label": "Target Value Date",
+            "type": "date",
+            "weight": 0,
+            "translations": _tr(
+                "Zielwertdatum",
+                "Date de la valeur cible",
+                "Fecha del valor objetivo",
+                "Data del valore obiettivo",
+                "Data do valor-alvo",
+                "目标值日期",
+                "Дата целевого значения",
+                "Målværdidato",
+                "تاريخ تحديد القيمة المستهدفة",
+            ),
+        },
+    ],
+}
+
+# Merge the v4 additions into the canonical field map.
+for _type_key, _v4_fields in NORA_V4_TYPE_FIELDS.items():
+    NORA_TYPE_FIELDS.setdefault(_type_key, []).extend(_v4_fields)
+
+
+# Subtypes appended by the profile apply (pass 4d). Idempotent by key.
+# (v2 originally; v4 adds the BeneficiaryJourney phase/step structure.)
 NORA_V2_SUBTYPES: dict[str, list[dict]] = {
+    # v4 (GFSA Metamodel): journey Phase/Step are journey-internal structure —
+    # modelled as subtypes on the (hierarchical) BeneficiaryJourney type, so a
+    # journey ⊃ phase ⊃ step chain rides parent_id with zero custom UI.
+    "BeneficiaryJourney": [
+        {
+            "key": "journeyPhase",
+            "label": "Journey Phase",
+            "translations": _tr(
+                "Reisephase",
+                "Phase du parcours",
+                "Fase del recorrido",
+                "Fase del percorso",
+                "Fase da jornada",
+                "旅程阶段",
+                "Фаза пути",
+                "Rejsefase",
+                "مرحلة الرحلة",
+            ),
+        },
+        {
+            "key": "journeyStep",
+            "label": "Journey Step",
+            "translations": _tr(
+                "Reiseschritt",
+                "Étape du parcours",
+                "Paso del recorrido",
+                "Passo del percorso",
+                "Etapa da jornada",
+                "旅程步骤",
+                "Шаг пути",
+                "Rejsetrin",
+                "خطوة الرحلة",
+            ),
+        },
+    ],
     "Objective": [
         {
             "key": "pillar",
@@ -2550,6 +3650,624 @@ NORA_V2_SUBTYPES: dict[str, list[dict]] = {
                 "Sikkerhedstjeneste",
                 "خدمة أمن",
             ),
+        },
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# v4: fields that live in their own named section rather than "NORA Alignment"
+# — injected by pass 4f with the same idempotency rule as pass 4 (a field key
+# that exists anywhere in the type's schema is never duplicated).
+# ---------------------------------------------------------------------------
+
+NORA_SECTIONED_FIELDS: dict[str, list[dict]] = {
+    # WP6.3's field half: subtype-specific TA specs in one flat, optional
+    # section (the metamodel has no subtype-scoped fields — by design).
+    "ITComponent": [
+        {
+            "section": "Technical Specification",
+            "translations": _tr(
+                "Technische Spezifikation",
+                "Spécification technique",
+                "Especificación técnica",
+                "Specifica tecnica",
+                "Especificação técnica",
+                "技术规格",
+                "Технические характеристики",
+                "Teknisk specifikation",
+                "المواصفات الفنية",
+            ),
+            "fields": [
+                {
+                    "key": "networkSegment",
+                    "label": "Network Segment",
+                    "type": "single_select",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Netzwerksegment",
+                        "Segment réseau",
+                        "Segmento de red",
+                        "Segmento di rete",
+                        "Segmento de rede",
+                        "网络分段",
+                        "Сегмент сети",
+                        "Netværkssegment",
+                        "النطاق الشبكي",
+                    ),
+                    "options": [
+                        {
+                            "key": "dmz",
+                            "label": "DMZ",
+                            "translations": _tr(
+                                "DMZ", "DMZ", "DMZ", "DMZ", "DMZ", "DMZ", "DMZ", "DMZ", "DMZ"
+                            ),
+                        },
+                        {
+                            "key": "extranet",
+                            "label": "Extranet",
+                            "translations": _tr(
+                                "Extranet",
+                                "Extranet",
+                                "Extranet",
+                                "Extranet",
+                                "Extranet",
+                                "外联网",
+                                "Экстранет",
+                                "Ekstranet",
+                                "الشبكة الخارجية",
+                            ),
+                        },
+                        {
+                            "key": "internet",
+                            "label": "Internet",
+                            "translations": _tr(
+                                "Internet",
+                                "Internet",
+                                "Internet",
+                                "Internet",
+                                "Internet",
+                                "互联网",
+                                "Интернет",
+                                "Internet",
+                                "الإنترنت",
+                            ),
+                        },
+                        {
+                            "key": "wan",
+                            "label": "WAN",
+                            "translations": _tr(
+                                "WAN", "WAN", "WAN", "WAN", "WAN", "广域网", "WAN", "WAN", "WAN"
+                            ),
+                        },
+                        {
+                            "key": "lan",
+                            "label": "LAN",
+                            "translations": _tr(
+                                "LAN", "LAN", "LAN", "LAN", "LAN", "局域网", "LAN", "LAN", "LAN"
+                            ),
+                        },
+                        {
+                            "key": "airGapped",
+                            "label": "Air-gapped",
+                            "translations": _tr(
+                                "Air-gapped",
+                                "Isolé (air gap)",
+                                "Aislado (air gap)",
+                                "Isolato (air gap)",
+                                "Isolado (air gap)",
+                                "物理隔离",
+                                "Физически изолированный",
+                                "Air-gapped",
+                                "معزول فيزيائياً",
+                            ),
+                        },
+                        {
+                            "key": "dataCenterSegment",
+                            "label": "Data Center",
+                            "translations": _tr(
+                                "Rechenzentrum",
+                                "Centre de données",
+                                "Centro de datos",
+                                "Data center",
+                                "Data center",
+                                "数据中心",
+                                "ЦОД",
+                                "Datacenter",
+                                "مركز البيانات",
+                            ),
+                        },
+                    ],
+                },
+                {
+                    "key": "serverRole",
+                    "label": "Server Role",
+                    "type": "single_select",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Serverrolle",
+                        "Rôle du serveur",
+                        "Rol del servidor",
+                        "Ruolo del server",
+                        "Papel do servidor",
+                        "服务器角色",
+                        "Роль сервера",
+                        "Serverrolle",
+                        "دور الخادم",
+                    ),
+                    "options": [
+                        {
+                            "key": "webServer",
+                            "label": "Web Server",
+                            "translations": _tr(
+                                "Webserver",
+                                "Serveur web",
+                                "Servidor web",
+                                "Server web",
+                                "Servidor web",
+                                "Web 服务器",
+                                "Веб-сервер",
+                                "Webserver",
+                                "خادم ويب",
+                            ),
+                        },
+                        {
+                            "key": "applicationServer",
+                            "label": "Application Server",
+                            "translations": _tr(
+                                "Anwendungsserver",
+                                "Serveur d'applications",
+                                "Servidor de aplicaciones",
+                                "Server applicativo",
+                                "Servidor de aplicações",
+                                "应用服务器",
+                                "Сервер приложений",
+                                "Applikationsserver",
+                                "خادم تطبيقات",
+                            ),
+                        },
+                        {
+                            "key": "databaseServer",
+                            "label": "Database Server",
+                            "translations": _tr(
+                                "Datenbankserver",
+                                "Serveur de base de données",
+                                "Servidor de base de datos",
+                                "Server di database",
+                                "Servidor de banco de dados",
+                                "数据库服务器",
+                                "Сервер баз данных",
+                                "Databaseserver",
+                                "خادم قواعد بيانات",
+                            ),
+                        },
+                        {
+                            "key": "integrationServer",
+                            "label": "Integration Server",
+                            "translations": _tr(
+                                "Integrationsserver",
+                                "Serveur d'intégration",
+                                "Servidor de integración",
+                                "Server di integrazione",
+                                "Servidor de integração",
+                                "集成服务器",
+                                "Интеграционный сервер",
+                                "Integrationsserver",
+                                "خادم تكامل",
+                            ),
+                        },
+                        {
+                            "key": "infrastructureServer",
+                            "label": "Infrastructure Server",
+                            "translations": _tr(
+                                "Infrastrukturserver",
+                                "Serveur d'infrastructure",
+                                "Servidor de infraestructura",
+                                "Server infrastrutturale",
+                                "Servidor de infraestrutura",
+                                "基础设施服务器",
+                                "Инфраструктурный сервер",
+                                "Infrastrukturserver",
+                                "خادم بنية تحتية",
+                            ),
+                        },
+                        {
+                            "key": "securityServer",
+                            "label": "Security Server",
+                            "translations": _tr(
+                                "Sicherheitsserver",
+                                "Serveur de sécurité",
+                                "Servidor de seguridad",
+                                "Server di sicurezza",
+                                "Servidor de segurança",
+                                "安全服务器",
+                                "Сервер безопасности",
+                                "Sikkerhedsserver",
+                                "خادم أمني",
+                            ),
+                        },
+                    ],
+                },
+                {
+                    "key": "cpuSpec",
+                    "label": "CPU Specification",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "CPU-Spezifikation",
+                        "Spécification CPU",
+                        "Especificación de CPU",
+                        "Specifica CPU",
+                        "Especificação de CPU",
+                        "CPU 规格",
+                        "Характеристики ЦП",
+                        "CPU-specifikation",
+                        "مواصفات المعالج",
+                    ),
+                },
+                {
+                    "key": "cpuCores",
+                    "label": "CPU Cores",
+                    "type": "number",
+                    "weight": 0,
+                    "translations": _tr(
+                        "CPU-Kerne",
+                        "Cœurs CPU",
+                        "Núcleos de CPU",
+                        "Core CPU",
+                        "Núcleos de CPU",
+                        "CPU 核心数",
+                        "Ядра ЦП",
+                        "CPU-kerner",
+                        "عدد أنوية المعالج",
+                    ),
+                },
+                {
+                    "key": "ramGb",
+                    "label": "RAM (GB)",
+                    "type": "number",
+                    "weight": 0,
+                    "translations": _tr(
+                        "RAM (GB)",
+                        "RAM (Go)",
+                        "RAM (GB)",
+                        "RAM (GB)",
+                        "RAM (GB)",
+                        "内存 (GB)",
+                        "ОЗУ (ГБ)",
+                        "RAM (GB)",
+                        "الذاكرة العشوائية (جيجابايت)",
+                    ),
+                },
+                {
+                    "key": "storageCapacityGb",
+                    "label": "Storage Capacity (GB)",
+                    "type": "number",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Speicherkapazität (GB)",
+                        "Capacité de stockage (Go)",
+                        "Capacidad de almacenamiento (GB)",
+                        "Capacità di storage (GB)",
+                        "Capacidade de armazenamento (GB)",
+                        "存储容量 (GB)",
+                        "Ёмкость хранилища (ГБ)",
+                        "Lagerkapacitet (GB)",
+                        "سعة التخزين (جيجابايت)",
+                    ),
+                },
+                {
+                    "key": "osType",
+                    "label": "Operating System",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Betriebssystem",
+                        "Système d'exploitation",
+                        "Sistema operativo",
+                        "Sistema operativo",
+                        "Sistema operacional",
+                        "操作系统",
+                        "Операционная система",
+                        "Styresystem",
+                        "نظام التشغيل",
+                    ),
+                },
+                {
+                    "key": "osVersion",
+                    "label": "OS Version",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Betriebssystemversion",
+                        "Version du SE",
+                        "Versión del SO",
+                        "Versione del SO",
+                        "Versão do SO",
+                        "操作系统版本",
+                        "Версия ОС",
+                        "OS-version",
+                        "إصدار نظام التشغيل",
+                    ),
+                },
+                {
+                    "key": "hypervisorType",
+                    "label": "Hypervisor",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Hypervisor",
+                        "Hyperviseur",
+                        "Hipervisor",
+                        "Hypervisor",
+                        "Hipervisor",
+                        "虚拟机监控器",
+                        "Гипервизор",
+                        "Hypervisor",
+                        "مراقب الأجهزة الافتراضية",
+                    ),
+                },
+                {
+                    "key": "hypervisorVersion",
+                    "label": "Hypervisor Version",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Hypervisor-Version",
+                        "Version de l'hyperviseur",
+                        "Versión del hipervisor",
+                        "Versione dell'hypervisor",
+                        "Versão do hipervisor",
+                        "虚拟机监控器版本",
+                        "Версия гипервизора",
+                        "Hypervisor-version",
+                        "إصدار مراقب الأجهزة الافتراضية",
+                    ),
+                },
+                {
+                    "key": "dcRole",
+                    "label": "Data Center Role",
+                    "type": "single_select",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Rechenzentrumsrolle",
+                        "Rôle du centre de données",
+                        "Rol del centro de datos",
+                        "Ruolo del data center",
+                        "Papel do data center",
+                        "数据中心角色",
+                        "Роль ЦОД",
+                        "Datacenterrolle",
+                        "دور مركز البيانات",
+                    ),
+                    "options": [
+                        {
+                            "key": "primary",
+                            "label": "Primary",
+                            "color": "#1565c0",
+                            "translations": _tr(
+                                "Primär",
+                                "Principal",
+                                "Principal",
+                                "Primario",
+                                "Primário",
+                                "主中心",
+                                "Основной",
+                                "Primær",
+                                "مركز رئيسي",
+                            ),
+                        },
+                        {
+                            "key": "disasterRecovery",
+                            "label": "Disaster Recovery",
+                            "color": "#ef6c00",
+                            "translations": _tr(
+                                "Notfallwiederherstellung",
+                                "Reprise après sinistre",
+                                "Recuperación ante desastres",
+                                "Disaster recovery",
+                                "Recuperação de desastres",
+                                "灾难恢复中心",
+                                "Аварийное восстановление",
+                                "Disaster recovery",
+                                "مركز التعافي من الكوارث",
+                            ),
+                        },
+                    ],
+                },
+                {
+                    "key": "dcTier",
+                    "label": "Data Center Tier",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Rechenzentrums-Tier",
+                        "Niveau du centre de données",
+                        "Nivel del centro de datos",
+                        "Tier del data center",
+                        "Tier do data center",
+                        "数据中心等级",
+                        "Уровень ЦОД",
+                        "Datacenter-tier",
+                        "مستوى تصنيف مركز البيانات",
+                    ),
+                },
+                {
+                    "key": "licenseQuantity",
+                    "label": "License Quantity",
+                    "type": "number",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Lizenzanzahl",
+                        "Nombre de licences",
+                        "Cantidad de licencias",
+                        "Quantità di licenze",
+                        "Quantidade de licenças",
+                        "许可证数量",
+                        "Количество лицензий",
+                        "Licensantal",
+                        "عدد الرخص",
+                    ),
+                },
+                {
+                    "key": "licenseObtainedDate",
+                    "label": "License Obtained",
+                    "type": "date",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Lizenz erworben am",
+                        "Licence obtenue le",
+                        "Licencia obtenida",
+                        "Licenza ottenuta il",
+                        "Licença obtida em",
+                        "许可证获取日期",
+                        "Дата получения лицензии",
+                        "Licens erhvervet",
+                        "تاريخ الحصول على الرخصة",
+                    ),
+                },
+                {
+                    "key": "licenseExpiryDate",
+                    "label": "License Expiry",
+                    "type": "date",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Lizenzablauf",
+                        "Expiration de la licence",
+                        "Vencimiento de la licencia",
+                        "Scadenza della licenza",
+                        "Expiração da licença",
+                        "许可证到期日期",
+                        "Срок действия лицензии",
+                        "Licensudløb",
+                        "تاريخ انتهاء الرخصة",
+                    ),
+                },
+            ],
+        },
+    ],
+    # v4 journey structure (GFSA Metamodel): code/objective at journey level,
+    # gap/opportunity/impact/priority/at step level — flat optional fields, the
+    # phase/step subtypes + hierarchy carry the structure.
+    "BeneficiaryJourney": [
+        {
+            "section": "Journey Mapping",
+            "translations": _tr(
+                "Reise-Mapping",
+                "Cartographie du parcours",
+                "Mapeo del recorrido",
+                "Mappatura del percorso",
+                "Mapeamento da jornada",
+                "旅程映射",
+                "Карта пути",
+                "Rejsekortlægning",
+                "خريطة الرحلة",
+            ),
+            "fields": [
+                {
+                    "key": "journeyCode",
+                    "label": "Code",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Code",
+                        "Code",
+                        "Código",
+                        "Codice",
+                        "Código",
+                        "编码",
+                        "Код",
+                        "Kode",
+                        "الرمز",
+                    ),
+                },
+                {
+                    "key": "journeyObjective",
+                    "label": "Objective",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Ziel",
+                        "Objectif",
+                        "Objetivo",
+                        "Obiettivo",
+                        "Objetivo",
+                        "目标",
+                        "Цель",
+                        "Mål",
+                        "الهدف",
+                    ),
+                },
+                {
+                    "key": "associatedGaps",
+                    "label": "Associated Gaps",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Zugehörige Lücken",
+                        "Lacunes associées",
+                        "Brechas asociadas",
+                        "Gap associati",
+                        "Lacunas associadas",
+                        "相关差距",
+                        "Связанные разрывы",
+                        "Tilknyttede huller",
+                        "الفجوات المرتبطة",
+                    ),
+                },
+                {
+                    "key": "improvementOpportunity",
+                    "label": "Improvement Opportunity",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Verbesserungspotenzial",
+                        "Opportunité d'amélioration",
+                        "Oportunidad de mejora",
+                        "Opportunità di miglioramento",
+                        "Oportunidade de melhoria",
+                        "改进机会",
+                        "Возможность улучшения",
+                        "Forbedringsmulighed",
+                        "فرصة التحسين",
+                    ),
+                },
+                {
+                    "key": "expectedImpact",
+                    "label": "Expected Impact",
+                    "type": "text",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Erwartete Wirkung",
+                        "Impact attendu",
+                        "Impacto esperado",
+                        "Impatto atteso",
+                        "Impacto esperado",
+                        "预期影响",
+                        "Ожидаемый эффект",
+                        "Forventet effekt",
+                        "الأثر المتوقع",
+                    ),
+                },
+                {
+                    "key": "improvementPriority",
+                    "label": "Improvement Priority",
+                    "type": "single_select",
+                    "weight": 0,
+                    "translations": _tr(
+                        "Verbesserungspriorität",
+                        "Priorité d'amélioration",
+                        "Prioridad de mejora",
+                        "Priorità di miglioramento",
+                        "Prioridade de melhoria",
+                        "改进优先级",
+                        "Приоритет улучшения",
+                        "Forbedringsprioritet",
+                        "أولوية التحسين",
+                    ),
+                    "options": deepcopy(_PRIORITY_OPTIONS),
+                },
+            ],
         },
     ],
 }
@@ -4506,6 +6224,560 @@ NORA_CARD_TYPES: list[dict] = [
             },
         ],
     },
+    # v4 (GFSA Metamodel §5.3.3): Persona — representative beneficiary segment.
+    {
+        "key": "Persona",
+        "label": "Persona",
+        "description": (
+            "A representative sample of a beneficiary group or segment sharing "
+            "common objectives, needs, experiences and behaviors — the NORA "
+            "Beneficiary Experience persona building block."
+        ),
+        "icon": "person_pin",
+        "color": "#00897b",
+        "category": "Beneficiary Experience",
+        "has_hierarchy": False,
+        "subtypes": [],
+        "sort_order": 24,
+        "translations": {
+            "label": _tr(
+                "Persona",
+                "Persona",
+                "Persona",
+                "Persona",
+                "Persona",
+                "用户画像",
+                "Персона",
+                "Persona",
+                "الشخصية النموذجية",
+            ),
+            "description": _tr(
+                "Eine repräsentative Stichprobe einer Begünstigtengruppe mit gemeinsamen Zielen, Bedürfnissen, Erfahrungen und Verhaltensweisen — der Persona-Baustein der NORA-Schicht Nutzererlebnis.",  # noqa: E501
+                "Un échantillon représentatif d'un groupe ou segment de bénéficiaires partageant des objectifs, besoins, expériences et comportements communs — le bloc Persona de la couche Expérience bénéficiaire de NORA.",  # noqa: E501
+                "Una muestra representativa de un grupo o segmento de beneficiarios que comparten objetivos, necesidades, experiencias y comportamientos comunes — el bloque Persona de la capa Experiencia del beneficiario de NORA.",  # noqa: E501
+                "Un campione rappresentativo di un gruppo o segmento di beneficiari che condividono obiettivi, bisogni, esperienze e comportamenti comuni — il blocco Persona del livello Esperienza del beneficiario di NORA.",  # noqa: E501
+                "Uma amostra representativa de um grupo ou segmento de beneficiários que compartilham objetivos, necessidades, experiências e comportamentos comuns — o bloco Persona da camada Experiência do beneficiário do NORA.",  # noqa: E501
+                "代表具有共同目标、需求、经验和行为的受益人群体或细分的样本——NORA 受益人体验层的用户画像构建块。",  # noqa: E501
+                "Репрезентативный образ группы или сегмента получателей услуг с общими целями, потребностями, опытом и поведением — строительный блок «Персона» слоя «Опыт получателя» NORA.",  # noqa: E501
+                "En repræsentativ stikprøve af en modtagergruppe eller et segment med fælles mål, behov, erfaringer og adfærd — persona-byggeblokken i NORA-laget for modtageroplevelse.",  # noqa: E501
+                "عينة تمثيلية لمجموعة أو شريحة من المستفيدين يتشاركون أهدافاً واحتياجات وتجارب وسلوكيات مشتركة — وحدة بناء الشخصية النموذجية في طبقة تجربة المستفيد في نورا.",  # noqa: E501
+            ),
+        },
+        "stakeholder_roles": [
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": _tr(
+                        "Verantwortlicher",
+                        "Responsable",
+                        "Responsable",
+                        "Responsabile",
+                        "Responsável",
+                        "负责人",
+                        "Ответственный",
+                        "Ansvarlig",
+                        "المسؤول",
+                    ),
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": _tr(
+                        "Beobachter",
+                        "Observateur",
+                        "Observador",
+                        "Osservatore",
+                        "Observador",
+                        "观察者",
+                        "Наблюдатель",
+                        "Observatør",
+                        "مراقب",
+                    ),
+                },
+            },
+        ],
+        "fields_schema": [
+            {
+                "section": "Persona Profile",
+                "translations": _tr(
+                    "Persona-Profil",
+                    "Profil de la persona",
+                    "Perfil de la persona",
+                    "Profilo della persona",
+                    "Perfil da persona",
+                    "画像档案",
+                    "Профиль персоны",
+                    "Personaprofil",
+                    "ملف الشخصية النموذجية",
+                ),
+                "fields": [
+                    {
+                        "key": "personaCode",
+                        "label": "Code",
+                        "type": "text",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Code",
+                            "Code",
+                            "Código",
+                            "Codice",
+                            "Código",
+                            "编码",
+                            "Код",
+                            "Kode",
+                            "الرمز",
+                        ),
+                    },
+                    {
+                        "key": "personaGoals",
+                        "label": "Objectives",
+                        "type": "text",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Ziele",
+                            "Objectifs",
+                            "Objetivos",
+                            "Obiettivi",
+                            "Objetivos",
+                            "目标",
+                            "Цели",
+                            "Mål",
+                            "الأهداف",
+                        ),
+                    },
+                    {
+                        "key": "demographicInfo",
+                        "label": "Demographic Information",
+                        "type": "text",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Demografische Informationen",
+                            "Informations démographiques",
+                            "Información demográfica",
+                            "Informazioni demografiche",
+                            "Informações demográficas",
+                            "人口统计信息",
+                            "Демографические сведения",
+                            "Demografisk information",
+                            "المعلومات الديموغرافية",
+                        ),
+                    },
+                    {
+                        "key": "painPoints",
+                        "label": "Pain Points",
+                        "type": "text",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Schmerzpunkte",
+                            "Points de douleur",
+                            "Puntos de dolor",
+                            "Punti critici",
+                            "Pontos de dor",
+                            "痛点",
+                            "Болевые точки",
+                            "Smertepunkter",
+                            "نقاط الضعف والتحديات",
+                        ),
+                    },
+                ],
+            },
+        ],
+    },
+    # v4 (GFSA Metamodel §5.3.2): Policy — governable rules and regulations.
+    {
+        "key": "Policy",
+        "label": "Policy",
+        "description": (
+            "Principles, guidelines, rules or regulations established by the "
+            "entity to direct decision-making and govern behavior across "
+            "business activities, processes and operations."
+        ),
+        "icon": "gavel",
+        "color": "#6d4c41",
+        "category": "Business",
+        "has_hierarchy": False,
+        "subtypes": [],
+        "sort_order": 25,
+        "translations": {
+            "label": _tr(
+                "Richtlinie",
+                "Politique",
+                "Política",
+                "Politica",
+                "Política",
+                "政策",
+                "Политика",
+                "Politik",
+                "السياسة",
+            ),
+            "description": _tr(
+                "Grundsätze, Leitlinien, Regeln oder Vorschriften der Organisation zur Steuerung von Entscheidungen und Verhalten in Geschäftsaktivitäten, Prozessen und Abläufen.",  # noqa: E501
+                "Principes, lignes directrices, règles ou réglementations établis par l'organisme pour orienter la prise de décision et gouverner les comportements dans les activités, processus et opérations métier.",  # noqa: E501
+                "Principios, directrices, reglas o regulaciones establecidos por la entidad para dirigir la toma de decisiones y gobernar el comportamiento en las actividades, procesos y operaciones de negocio.",  # noqa: E501
+                "Principi, linee guida, regole o regolamenti stabiliti dall'ente per orientare le decisioni e governare i comportamenti nelle attività, nei processi e nelle operazioni di business.",  # noqa: E501
+                "Princípios, diretrizes, regras ou regulamentos estabelecidos pela entidade para direcionar a tomada de decisões e governar o comportamento nas atividades, processos e operações de negócio.",  # noqa: E501
+                "实体为指导决策并规范业务活动、流程和运营行为而制定的原则、准则、规则或法规。",
+                "Принципы, руководящие указания, правила или нормативы, установленные организацией для управления решениями и поведением в бизнес-деятельности, процессах и операциях.",  # noqa: E501
+                "Principper, retningslinjer, regler eller forskrifter fastlagt af organisationen til at styre beslutningstagning og adfærd i forretningsaktiviteter, processer og drift.",  # noqa: E501
+                "مبادئ أو إرشادات أو قواعد أو لوائح تعتمدها الجهة لتوجيه اتخاذ القرار وحوكمة السلوك في مختلف أنشطة الأعمال والإجراءات والعمليات.",  # noqa: E501
+            ),
+        },
+        "stakeholder_roles": [
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": _tr(
+                        "Verantwortlicher",
+                        "Responsable",
+                        "Responsable",
+                        "Responsabile",
+                        "Responsável",
+                        "负责人",
+                        "Ответственный",
+                        "Ansvarlig",
+                        "المسؤول",
+                    ),
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": _tr(
+                        "Beobachter",
+                        "Observateur",
+                        "Observador",
+                        "Osservatore",
+                        "Observador",
+                        "观察者",
+                        "Наблюдатель",
+                        "Observatør",
+                        "مراقب",
+                    ),
+                },
+            },
+        ],
+        "fields_schema": [
+            {
+                "section": "Policy Information",
+                "translations": _tr(
+                    "Richtlinieninformationen",
+                    "Informations sur la politique",
+                    "Información de la política",
+                    "Informazioni sulla politica",
+                    "Informações da política",
+                    "政策信息",
+                    "Сведения о политике",
+                    "Politikinformation",
+                    "معلومات السياسة",
+                ),
+                "fields": [
+                    {
+                        "key": "policyCode",
+                        "label": "Code",
+                        "type": "text",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Code",
+                            "Code",
+                            "Código",
+                            "Codice",
+                            "Código",
+                            "编码",
+                            "Код",
+                            "Kode",
+                            "الرمز",
+                        ),
+                    },
+                    {
+                        "key": "policyType",
+                        "label": "Policy Type",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Richtlinientyp",
+                            "Type de politique",
+                            "Tipo de política",
+                            "Tipo di politica",
+                            "Tipo de política",
+                            "政策类型",
+                            "Тип политики",
+                            "Politiktype",
+                            "نوع السياسة",
+                        ),
+                        "options": [
+                            {
+                                "key": "internal",
+                                "label": "Internal",
+                                "translations": _tr(
+                                    "Intern",
+                                    "Interne",
+                                    "Interna",
+                                    "Interna",
+                                    "Interna",
+                                    "内部",
+                                    "Внутренняя",
+                                    "Intern",
+                                    "داخلية",
+                                ),
+                            },
+                            {
+                                "key": "external",
+                                "label": "External (Governmental)",
+                                "translations": _tr(
+                                    "Extern (behördlich)",
+                                    "Externe (gouvernementale)",
+                                    "Externa (gubernamental)",
+                                    "Esterna (governativa)",
+                                    "Externa (governamental)",
+                                    "外部(政府)",
+                                    "Внешняя (государственная)",
+                                    "Ekstern (statslig)",
+                                    "خارجية (حكومية)",
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "key": "policyStatus",
+                        "label": "Status",
+                        "type": "single_select",
+                        "weight": 1,
+                        "translations": _tr(
+                            "Status",
+                            "Statut",
+                            "Estado",
+                            "Stato",
+                            "Status",
+                            "状态",
+                            "Статус",
+                            "Status",
+                            "الحالة",
+                        ),
+                        "options": [
+                            {
+                                "key": "active",
+                                "label": "Activated",
+                                "color": "#2e7d32",
+                                "translations": _tr(
+                                    "Aktiviert",
+                                    "Activée",
+                                    "Activada",
+                                    "Attivata",
+                                    "Ativada",
+                                    "已生效",
+                                    "Действует",
+                                    "Aktiveret",
+                                    "مفعّلة",
+                                ),
+                            },
+                            {
+                                "key": "suspended",
+                                "label": "Suspended",
+                                "color": "#f9a825",
+                                "translations": _tr(
+                                    "Ausgesetzt",
+                                    "Suspendue",
+                                    "Suspendida",
+                                    "Sospesa",
+                                    "Suspensa",
+                                    "已暂停",
+                                    "Приостановлена",
+                                    "Suspenderet",
+                                    "معلّقة",
+                                ),
+                            },
+                            {
+                                "key": "cancelled",
+                                "label": "Cancelled",
+                                "color": "#c62828",
+                                "translations": _tr(
+                                    "Aufgehoben",
+                                    "Annulée",
+                                    "Cancelada",
+                                    "Annullata",
+                                    "Cancelada",
+                                    "已废止",
+                                    "Отменена",
+                                    "Annulleret",
+                                    "ملغاة",
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "key": "activationDate",
+                        "label": "Effective Date",
+                        "type": "date",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Inkrafttreten",
+                            "Date d'entrée en vigueur",
+                            "Fecha de entrada en vigor",
+                            "Data di entrata in vigore",
+                            "Data de vigência",
+                            "生效日期",
+                            "Дата вступления в силу",
+                            "Ikrafttrædelsesdato",
+                            "تاريخ سريان السياسة",
+                        ),
+                    },
+                    {
+                        "key": "policyLink",
+                        "label": "Policy Link",
+                        "type": "url",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Richtlinien-Link",
+                            "Lien vers la politique",
+                            "Enlace de la política",
+                            "Link della politica",
+                            "Link da política",
+                            "政策链接",
+                            "Ссылка на политику",
+                            "Politiklink",
+                            "رابط ملف السياسة",
+                        ),
+                    },
+                ],
+            },
+        ],
+    },
+    # ── Pillar (profile v6 — the Strategic-Alignment building block as a
+    # first-class card type per user decision; supersedes the v4 Objective
+    # `pillar` subtype, which stays for backwards compatibility) ────────────
+    {
+        "key": "Pillar",
+        "label": "Strategic Pillar",
+        "description": (
+            "A top-level strategic pillar of the agency strategy. Strategic "
+            "objectives support pillars; programs, initiatives and projects "
+            "deliver the objectives — the Strategic-Alignment pillar "
+            "building block."
+        ),
+        "icon": "foundation",
+        "color": "#7b1fa2",
+        "category": "Business",
+        "has_hierarchy": False,
+        "subtypes": [],
+        "sort_order": 26,
+        "translations": {
+            "label": _tr(
+                "Strategische Säule",
+                "Pilier stratégique",
+                "Pilar estratégico",
+                "Pilastro strategico",
+                "Pilar estratégico",
+                "战略支柱",
+                "Стратегическая опора",
+                "Strategisk søjle",
+                "الركيزة الاستراتيجية",
+            ),
+            "description": _tr(
+                "Eine strategische Säule der Behördenstrategie auf oberster Ebene. Strategische Ziele stützen Säulen; Programme, Initiativen und Projekte liefern die Ziele — der Säulen-Baustein der strategischen Ausrichtung.",  # noqa: E501
+                "Un pilier stratégique de premier niveau de la stratégie de l'entité. Les objectifs stratégiques soutiennent les piliers ; les programmes, initiatives et projets réalisent les objectifs — le bloc Pilier de l'alignement stratégique.",  # noqa: E501
+                "Un pilar estratégico de primer nivel de la estrategia de la entidad. Los objetivos estratégicos apoyan los pilares; los programas, iniciativas y proyectos entregan los objetivos — el bloque Pilar de la alineación estratégica.",  # noqa: E501
+                "Un pilastro strategico di primo livello della strategia dell'ente. Gli obiettivi strategici sostengono i pilastri; programmi, iniziative e progetti realizzano gli obiettivi — il blocco Pilastro dell'allineamento strategico.",  # noqa: E501
+                "Um pilar estratégico de primeiro nível da estratégia da entidade. Os objetivos estratégicos apoiam os pilares; programas, iniciativas e projetos entregam os objetivos — o bloco Pilar do alinhamento estratégico.",  # noqa: E501
+                "机构战略的顶层战略支柱。战略目标支撑支柱；计划、举措和项目交付目标——战略对齐的支柱构建块。",  # noqa: E501
+                "Стратегическая опора верхнего уровня стратегии ведомства. Стратегические цели поддерживают опоры; программы, инициативы и проекты реализуют цели — строительный блок «Опора» стратегического согласования.",  # noqa: E501
+                "En strategisk søjle på øverste niveau i myndighedens strategi. Strategiske mål understøtter søjler; programmer, initiativer og projekter leverer målene — søjle-byggeblokken i den strategiske tilpasning.",  # noqa: E501
+                "ركيزة استراتيجية عليا في استراتيجية الجهة. تدعم الأهداف الاستراتيجية الركائز، وتنفذ البرامج والمبادرات والمشاريع الأهداف — وحدة بناء الركيزة في التوافق الاستراتيجي.",  # noqa: E501
+            ),
+        },
+        "stakeholder_roles": [
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": _tr(
+                        "Verantwortlicher",
+                        "Responsable",
+                        "Responsable",
+                        "Responsabile",
+                        "Responsável",
+                        "负责人",
+                        "Ответственный",
+                        "Ansvarlig",
+                        "المسؤول",
+                    ),
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": _tr(
+                        "Beobachter",
+                        "Observateur",
+                        "Observador",
+                        "Osservatore",
+                        "Observador",
+                        "观察者",
+                        "Наблюдатель",
+                        "Observatør",
+                        "مراقب",
+                    ),
+                },
+            },
+        ],
+        "fields_schema": [
+            {
+                "section": "Pillar Details",
+                "translations": _tr(
+                    "Säulendetails",
+                    "Détails du pilier",
+                    "Detalles del pilar",
+                    "Dettagli del pilastro",
+                    "Detalhes do pilar",
+                    "支柱详情",
+                    "Сведения об опоре",
+                    "Søjledetaljer",
+                    "تفاصيل الركيزة",
+                ),
+                "fields": [
+                    {
+                        "key": "pillarCode",
+                        "label": "Code",
+                        "type": "text",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Code",
+                            "Code",
+                            "Código",
+                            "Codice",
+                            "Código",
+                            "编码",
+                            "Код",
+                            "Kode",
+                            "الرمز",
+                        ),
+                    },
+                    {
+                        "key": "pillarOrder",
+                        "label": "Display Order",
+                        "type": "number",
+                        "weight": 0,
+                        "translations": _tr(
+                            "Anzeigereihenfolge",
+                            "Ordre d'affichage",
+                            "Orden de visualización",
+                            "Ordine di visualizzazione",
+                            "Ordem de exibição",
+                            "显示顺序",
+                            "Порядок отображения",
+                            "Visningsrækkefølge",
+                            "ترتيب العرض",
+                        ),
+                    },
+                ],
+            },
+        ],
+    },
 ]
 
 # Relation attribute injected on every Initiative relation type so transition
@@ -4577,6 +6849,60 @@ TRANSITION_ROLE_ATTRIBUTE: dict = {
     ],
 }
 
+# WP6.4 — the security-protection semantics on the existing Application →
+# ITComponent "uses" relation. A second relation type on the pair is forbidden
+# by the one-per-pair rule, so protection is a `usageRole` attribute instead.
+USAGE_ROLE_ATTRIBUTE: dict = {
+    "key": "usageRole",
+    "label": "Usage Role",
+    "type": "single_select",
+    "translations": _tr(
+        "Nutzungsrolle",
+        "Rôle d'utilisation",
+        "Rol de uso",
+        "Ruolo d'uso",
+        "Papel de uso",
+        "使用角色",
+        "Роль использования",
+        "Anvendelsesrolle",
+        "دور الاستخدام",
+    ),
+    "options": [
+        {
+            "key": "uses",
+            "label": "Uses",
+            "color": "#546e7a",
+            "translations": _tr(
+                "nutzt",
+                "utilise",
+                "usa",
+                "usa",
+                "usa",
+                "使用",
+                "использует",
+                "bruger",
+                "يستخدم",
+            ),
+        },
+        {
+            "key": "protects",
+            "label": "Is protected by",
+            "color": "#c62828",
+            "translations": _tr(
+                "wird geschützt durch",
+                "est protégé par",
+                "está protegido por",
+                "è protetto da",
+                "é protegido por",
+                "受保护于",
+                "защищается",
+                "beskyttes af",
+                "تحميه",
+            ),
+        },
+    ],
+}
+
 # ---------------------------------------------------------------------------
 # Saudi compliance regulation pack (noraPlan.md WP4.4). Each ``description``
 # is the assessment-scope text the compliance scanner composes into its
@@ -4584,18 +6910,26 @@ TRANSITION_ROLE_ATTRIBUTE: dict = {
 # key on NDMO classification, GSB flags, BRM linkage and standards status.
 # ---------------------------------------------------------------------------
 
+# Pre-v5 NCA ECC scanner scope — kept verbatim so the v5 upgrade pass can
+# recognise (and only then rewrite) an untouched default description (WP6.4).
+_NCA_ECC_DESCRIPTION_V4 = (
+    "Assess alignment with the Saudi National Cybersecurity Authority's "
+    "Essential Cybersecurity Controls. Flag applications and IT components "
+    "without a defined hosting model or security zone, internet-facing "
+    "systems lacking hardening evidence in their descriptions, IT "
+    "components on declining or retired technology standards, and "
+    "landscape gaps such as missing cybersecurity ownership roles or "
+    "absent incident-response capability."
+)
+
 SAUDI_REGULATION_PACK: list[dict] = [
     {
         "key": "nca_ecc",
         "label": "NCA Essential Cybersecurity Controls (ECC)",
         "description": (
-            "Assess alignment with the Saudi National Cybersecurity Authority's "
-            "Essential Cybersecurity Controls. Flag applications and IT components "
-            "without a defined hosting model or security zone, internet-facing "
-            "systems lacking hardening evidence in their descriptions, IT "
-            "components on declining or retired technology standards, and "
-            "landscape gaps such as missing cybersecurity ownership roles or "
-            "absent incident-response capability."
+            _NCA_ECC_DESCRIPTION_V4 + " Also flag in-scope applications with no linked security "
+            "component (security hardware, software or service subtype on "
+            "IT Component) protecting or serving them."
         ),
         "sort_order": 110,
     },
@@ -4640,8 +6974,51 @@ SAUDI_REGULATION_PACK: list[dict] = [
 ]
 
 # The Service Owner can do what a Responsible can — reuse that permission set.
+# Domain Owner / Data Steward (WP2.3 remainder, profile v5) likewise.
 _NORA_SRD_PERMISSION_FALLBACK = {
     "service_owner": DEFAULT_CARD_PERMISSIONS_BY_ROLE.get("responsible", {}),
+    "domain_owner": DEFAULT_CARD_PERMISSIONS_BY_ROLE.get("responsible", {}),
+    "data_steward": DEFAULT_CARD_PERMISSIONS_BY_ROLE.get("responsible", {}),
+}
+
+# WP2.3 remainder (profile v5): data-governance stakeholder roles on existing
+# built-in types — a Domain Owner per capability domain and a Data Steward per
+# data entity (the NDMO-aligned ownership WP4.1's classification fields imply).
+NORA_EXTRA_STAKEHOLDER_ROLES: dict[str, list[dict]] = {
+    "BusinessCapability": [
+        {
+            "key": "domain_owner",
+            "label": "Domain Owner",
+            "translations": _tr(
+                "Domänenverantwortlicher",
+                "Propriétaire de domaine",
+                "Propietario del dominio",
+                "Proprietario del dominio",
+                "Proprietário do domínio",
+                "领域负责人",
+                "Владелец домена",
+                "Domæneejer",
+                "مالك النطاق",
+            ),
+        }
+    ],
+    "DataObject": [
+        {
+            "key": "data_steward",
+            "label": "Data Steward",
+            "translations": _tr(
+                "Datenverantwortlicher",
+                "Intendant des données",
+                "Responsable de datos",
+                "Steward dei dati",
+                "Curador de dados",
+                "数据管家",
+                "Куратор данных",
+                "Dataforvalter",
+                "مسؤول البيانات",
+            ),
+        }
+    ],
 }
 
 # One relation type per ordered (source, target) pair — the apply function
@@ -5059,6 +7436,272 @@ NORA_RELATION_TYPES: list[dict] = [
             ),
         },
     },
+    # ── v4 (GFSA Metamodel): Persona / Journey / Policy connections ────────
+    {
+        "key": "relPersonaToGovService",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "Persona",
+        "target_type_key": "GovService",
+        "cardinality": "n:m",
+        "sort_order": 211,
+        "translations": {
+            "label": _tr(
+                "nutzt",
+                "utilise",
+                "usa",
+                "usa",
+                "usa",
+                "使用",
+                "использует",
+                "bruger",
+                "يستخدم",
+            ),
+            "reverse_label": _tr(
+                "wird genutzt von",
+                "est utilisé par",
+                "es usado por",
+                "è usato da",
+                "é usado por",
+                "被使用",
+                "используется",
+                "bruges af",
+                "يُستخدم بواسطة",
+            ),
+        },
+    },
+    {
+        "key": "relPersonaToJourney",
+        "label": "experiences",
+        "reverse_label": "is experienced by",
+        "source_type_key": "Persona",
+        "target_type_key": "BeneficiaryJourney",
+        "cardinality": "n:m",
+        "sort_order": 212,
+        "translations": {
+            "label": _tr(
+                "durchläuft",
+                "vit",
+                "experimenta",
+                "vive",
+                "vivencia",
+                "经历",
+                "проходит",
+                "oplever",
+                "يخوض",
+            ),
+            "reverse_label": _tr(
+                "wird durchlaufen von",
+                "est vécu par",
+                "es experimentado por",
+                "è vissuto da",
+                "é vivenciado por",
+                "被经历",
+                "проходится",
+                "opleves af",
+                "يُخاض بواسطة",
+            ),
+        },
+    },
+    {
+        "key": "relJourneyToGovService",
+        "label": "covers",
+        "reverse_label": "is covered by",
+        "source_type_key": "BeneficiaryJourney",
+        "target_type_key": "GovService",
+        "cardinality": "n:m",
+        "sort_order": 213,
+        "translations": {
+            "label": _tr(
+                "deckt ab",
+                "couvre",
+                "cubre",
+                "copre",
+                "cobre",
+                "覆盖",
+                "охватывает",
+                "dækker",
+                "تغطي",
+            ),
+            "reverse_label": _tr(
+                "wird abgedeckt von",
+                "est couvert par",
+                "es cubierto por",
+                "è coperto da",
+                "é coberto por",
+                "被覆盖",
+                "охватывается",
+                "dækkes af",
+                "تُغطى بواسطة",
+            ),
+        },
+    },
+    {
+        "key": "relJourneyToChannel",
+        "label": "uses channel",
+        "reverse_label": "is used by journey",
+        "source_type_key": "BeneficiaryJourney",
+        "target_type_key": "Channel",
+        "cardinality": "n:m",
+        "sort_order": 214,
+        "translations": {
+            "label": _tr(
+                "nutzt Kanal",
+                "utilise le canal",
+                "usa el canal",
+                "usa il canale",
+                "usa o canal",
+                "使用渠道",
+                "использует канал",
+                "bruger kanal",
+                "تستخدم القناة",
+            ),
+            "reverse_label": _tr(
+                "wird genutzt von Reise",
+                "est utilisé par le parcours",
+                "es usado por el recorrido",
+                "è usato dal percorso",
+                "é usado pela jornada",
+                "被旅程使用",
+                "используется путём",
+                "bruges af rejse",
+                "تُستخدم بواسطة الرحلة",
+            ),
+        },
+    },
+    {
+        "key": "relPolicyToBC",
+        "label": "governs",
+        "reverse_label": "is governed by",
+        "source_type_key": "Policy",
+        "target_type_key": "BusinessCapability",
+        "cardinality": "n:m",
+        "sort_order": 215,
+        "translations": {
+            "label": _tr(
+                "regelt",
+                "régit",
+                "rige",
+                "governa",
+                "rege",
+                "治理",
+                "регулирует",
+                "styrer",
+                "تحكم",
+            ),
+            "reverse_label": _tr(
+                "wird geregelt durch",
+                "est régi par",
+                "se rige por",
+                "è governato da",
+                "é regido por",
+                "受治理",
+                "регулируется",
+                "styres af",
+                "تُحكم بواسطة",
+            ),
+        },
+    },
+    {
+        "key": "relPolicyToGovService",
+        "label": "governs",
+        "reverse_label": "is governed by",
+        "source_type_key": "Policy",
+        "target_type_key": "GovService",
+        "cardinality": "n:m",
+        "sort_order": 216,
+        "translations": {
+            "label": _tr(
+                "regelt",
+                "régit",
+                "rige",
+                "governa",
+                "rege",
+                "治理",
+                "регулирует",
+                "styrer",
+                "تحكم",
+            ),
+            "reverse_label": _tr(
+                "wird geregelt durch",
+                "est régi par",
+                "se rige por",
+                "è governato da",
+                "é regido por",
+                "受治理",
+                "регулируется",
+                "styres af",
+                "تُحكم بواسطة",
+            ),
+        },
+    },
+    {
+        "key": "relPolicyToProcess",
+        "label": "governs",
+        "reverse_label": "is governed by",
+        "source_type_key": "Policy",
+        "target_type_key": "BusinessProcess",
+        "cardinality": "n:m",
+        "sort_order": 217,
+        "translations": {
+            "label": _tr(
+                "regelt",
+                "régit",
+                "rige",
+                "governa",
+                "rege",
+                "治理",
+                "регулирует",
+                "styrer",
+                "تحكم",
+            ),
+            "reverse_label": _tr(
+                "wird geregelt durch",
+                "est régi par",
+                "se rige por",
+                "è governato da",
+                "é regido por",
+                "受治理",
+                "регулируется",
+                "styres af",
+                "تُحكم بواسطة",
+            ),
+        },
+    },
+    # ── Strategy cascade (profile v6): objectives support pillars ──────────
+    {
+        "key": "relObjectiveToPillar",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "Objective",
+        "target_type_key": "Pillar",
+        "cardinality": "n:m",
+        "sort_order": 230,
+        "translations": {
+            "label": _tr(
+                "stützt",
+                "soutient",
+                "apoya",
+                "sostiene",
+                "apoia",
+                "支撑",
+                "поддерживает",
+                "understøtter",
+                "يدعم",
+            ),
+            "reverse_label": _tr(
+                "wird gestützt von",
+                "est soutenu par",
+                "es apoyado por",
+                "è sostenuto da",
+                "é apoiado por",
+                "由…支撑",
+                "поддерживается",
+                "understøttes af",
+                "يُدعم بواسطة",
+            ),
+        },
+    },
 ]
 
 
@@ -5239,6 +7882,36 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
                 )
             )
 
+    # ── Pass 2b (profile v5): data-governance stakeholder roles on existing
+    # built-in types (WP2.3 remainder) — idempotent by (type, key); skipped
+    # when the target card type doesn't exist on this install (FK).
+    for type_key, role_defs in NORA_EXTRA_STAKEHOLDER_ROLES.items():
+        type_exists = (
+            await db.execute(select(CardType.key).where(CardType.key == type_key))
+        ).scalar_one_or_none()
+        if type_exists is None:
+            continue
+        srd_result = await db.execute(
+            select(StakeholderRoleDefinition).where(
+                StakeholderRoleDefinition.card_type_key == type_key
+            )
+        )
+        existing_srd_keys = {s.key for s in srd_result.scalars().all()}
+        for idx, sr in enumerate(role_defs):
+            if sr["key"] in existing_srd_keys:
+                continue
+            db.add(
+                StakeholderRoleDefinition(
+                    card_type_key=type_key,
+                    key=sr["key"],
+                    label=sr["label"],
+                    permissions=_NORA_SRD_PERMISSION_FALLBACK.get(sr["key"], {}),
+                    sort_order=100 + idx,
+                    translations=deepcopy(sr.get("translations", {})),
+                )
+            )
+            summary.setdefault("stakeholder_roles_created", []).append(f"{type_key}.{sr['key']}")
+
     # ── Pass 3: relation types — respect one-relation-type-per-pair ────────
     rel_result = await db.execute(select(RelationType))
     all_rels = rel_result.scalars().all()
@@ -5291,6 +7964,19 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         rel_type.attributes_schema = attrs
         summary.setdefault("relation_types_updated", []).append(rel_type.key)
 
+    # ── Pass 3c (profile v5): usageRole attribute on Application → ITComponent
+    # (WP6.4) — protection semantics without a second relation type on the
+    # pair. Idempotent: skipped when the key already exists.
+    app_itc = (
+        await db.execute(select(RelationType).where(RelationType.key == "relAppToITC"))
+    ).scalar_one_or_none()
+    if app_itc is not None:
+        attrs = list(app_itc.attributes_schema or [])
+        if not any(a.get("key") == "usageRole" for a in attrs):
+            attrs.append(deepcopy(USAGE_ROLE_ATTRIBUTE))
+            app_itc.attributes_schema = attrs
+            summary.setdefault("relation_types_updated", []).append(app_itc.key)
+
     # ── Pass 4: inject NORA fields into the existing built-in types ────────
     for type_key, fields in NORA_TYPE_FIELDS.items():
         result = await db.execute(select(CardType).where(CardType.key == type_key))
@@ -5321,6 +8007,43 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         card_type.fields_schema = schema
         summary["types_updated"].append(type_key)
         summary["fields_added"] += len(missing)
+
+    # ── Pass 4f (profile v4): sectioned field injection — fields that live in
+    # their own named section rather than "NORA Alignment" (ITComponent
+    # Technical Specification, BeneficiaryJourney Journey Mapping). Same
+    # idempotency rule as pass 4: a field key that exists anywhere in the
+    # type's schema is never duplicated or overwritten.
+    for type_key, section_defs in NORA_SECTIONED_FIELDS.items():
+        result = await db.execute(select(CardType).where(CardType.key == type_key))
+        card_type = result.scalar_one_or_none()
+        if card_type is None:
+            continue
+        schema = [dict(section) for section in (card_type.fields_schema or [])]
+        existing_keys = {
+            field.get("key") for section in schema for field in (section.get("fields") or [])
+        }
+        changed = False
+        for section_def in section_defs:
+            missing = [f for f in section_def["fields"] if f["key"] not in existing_keys]
+            if not missing:
+                continue
+            target = next((s for s in schema if s.get("section") == section_def["section"]), None)
+            if target is None:
+                target = {
+                    "section": section_def["section"],
+                    "translations": deepcopy(section_def.get("translations", {})),
+                    "fields": [],
+                }
+                schema.append(target)
+            else:
+                target["fields"] = list(target.get("fields") or [])
+            target["fields"].extend(deepcopy(missing))
+            summary["fields_added"] += len(missing)
+            changed = True
+        if changed:
+            card_type.fields_schema = schema
+            if type_key not in summary["types_updated"]:
+                summary["types_updated"].append(type_key)
 
     # ── Pass 4b: Database subtype on ITComponent (WP4.1 — DRM database
     # portfolio). Idempotent; admin-added subtypes survive.
@@ -5381,6 +8104,16 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         gov.has_hierarchy = True
         summary["gov_service_hierarchy_enabled"] = True
 
+    # Profile v5: enable hierarchy on Objective so pillar-subtype objectives
+    # can parent their strategic objectives — the Strategic House viewpoint
+    # (WP6.7) reads that tree. Guarded to the built-in type, like GovService.
+    obj = (
+        await db.execute(select(CardType).where(CardType.key == "Objective"))
+    ).scalar_one_or_none()
+    if obj is not None and obj.built_in and not obj.has_hierarchy:
+        obj.has_hierarchy = True
+        summary["objective_hierarchy_enabled"] = True
+
     # ── Pass 4c: Saudi compliance regulation pack (WP4.4). Idempotent by
     # key; follows the built-in regulation precedent (label + scanner-scope
     # description, no translations — labels are proper names).
@@ -5394,6 +8127,17 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         db.add(ComplianceRegulation(**reg, built_in=False, is_enabled=True))
         summary.setdefault("regulations_created", []).append(reg["key"])
 
+    # Profile v5 (WP6.4): extend the NCA ECC scanner scope with the
+    # missing-security-component rule. Guarded — only rewrites while the
+    # stored description still equals the pre-v5 default, so an admin who
+    # edited the regulation text keeps their wording.
+    nca = (
+        await db.execute(select(ComplianceRegulation).where(ComplianceRegulation.key == "nca_ecc"))
+    ).scalar_one_or_none()
+    if nca is not None and nca.description == _NCA_ECC_DESCRIPTION_V4:
+        nca.description = SAUDI_REGULATION_PACK[0]["description"]
+        summary.setdefault("regulations_updated", []).append("nca_ecc")
+
     # ── Pass 4e (profile v3): six-layer category moves. Guarded per type —
     # only rewrites while the category still equals the old default, so an
     # admin who re-categorised a type keeps their choice. Belt-and-braces
@@ -5406,10 +8150,33 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
             ct.category = new_cat
             summary.setdefault("categories_moved", []).append(f"{type_key} → {new_cat}")
 
-    # ── Pass 5: seed the EA Program deliverable catalogue (WP3.1) ──────────
-    from app.services.nora_program import seed_nora_program
+    # ── Pass 5: seed the EA Program deliverable catalogue (WP3.1 + WP6.1) ──
+    # Methodology resolution: an explicit stored version wins; otherwise an
+    # install that already carries deliverable rows is a pre-WP6.1 v1
+    # program (never silently rewritten), and a fresh install starts on the
+    # updated 7-phase methodology (v2).
+    from app.models.nora_program import EaProgramDeliverable
+    from app.services.nora_program import (
+        NORA_METHODOLOGY_VERSIONS,
+        seed_nora_program,
+    )
 
-    summary["program_deliverables_created"] = await seed_nora_program(db)
+    settings_row = await _get_or_create_settings_row(db)
+    general_pre = dict(settings_row.general_settings or {})
+    methodology = general_pre.get("noraMethodologyVersion")
+    if methodology not in NORA_METHODOLOGY_VERSIONS:
+        has_rows = (
+            await db.execute(select(EaProgramDeliverable.id).limit(1))
+        ).scalar_one_or_none() is not None
+        methodology = "v1" if has_rows else "v2"
+    summary["methodology"] = methodology
+    summary["program_deliverables_created"] = await seed_nora_program(db, methodology=methodology)
+
+    # WP6.8 — the pre-methodology practice-establishment checklist (the
+    # Practice Guideline's ten operating-model artifacts), idempotent by key.
+    from app.services.nora_program import seed_practice_checklist
+
+    summary["practice_checklist_created"] = await seed_practice_checklist(db)
 
     # ── Pass 6: seed the EA maturity dimension catalogue (WP5.2) ───────────
     from app.services.maturity import seed_maturity_dimensions
@@ -5420,6 +8187,7 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     general = dict(row.general_settings or {})
     general["frameworkProfile"] = "nora"
     general["noraProfileVersion"] = NORA_PROFILE_VERSION
+    general["noraMethodologyVersion"] = methodology
     row.general_settings = general
 
     await db.commit()

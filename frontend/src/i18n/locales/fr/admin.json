@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Ajouter une tuile",
   "webPortals.tileLabel": "Libellé",
   "webPortals.tileIcon": "Icône",
-  "webPortals.tileTarget": "Lien (ex. /reports/portfolio)"
+  "webPortals.tileTarget": "Lien (ex. /reports/portfolio)",
+  "turbolens_action_promote": "Promouvoir en opportunité d'amélioration",
+  "turbolens_promoted": "Promue"
 }

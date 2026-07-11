@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Tilføj flise",
   "webPortals.tileLabel": "Etiket",
   "webPortals.tileIcon": "Ikon",
-  "webPortals.tileTarget": "Link (f.eks. /reports/portfolio)"
+  "webPortals.tileTarget": "Link (f.eks. /reports/portfolio)",
+  "turbolens_action_promote": "Ophøj til forbedringsmulighed",
+  "turbolens_promoted": "Ophøjet"
 }

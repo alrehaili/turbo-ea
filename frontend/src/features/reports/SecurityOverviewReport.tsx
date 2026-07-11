@@ -48,6 +48,14 @@ const LEVEL_COLOR: Record<string, string> = {
 };
 const OPEN_STATUSES = ["identified", "assessed", "mitigating", "monitoring"];
 
+// WP6.4 — the NEA security-domain ITComponent subtypes.
+const SECURITY_SUBTYPES = ["securityHardware", "securitySoftware", "securityService"] as const;
+const SECURITY_SUBTYPE_ICON: Record<string, string> = {
+  securityHardware: "security",
+  securitySoftware: "shield_lock",
+  securityService: "verified_user",
+};
+
 function scoreColor(score: number): string {
   if (score >= 80) return STATUS_COLORS.success;
   if (score >= 50) return STATUS_COLORS.warning;
@@ -61,6 +69,7 @@ export default function SecurityOverviewReport() {
   const [risk, setRisk] = useState<RiskMetrics | null>(null);
   const [compliance, setCompliance] = useState<ComplianceOverview | null>(null);
   const [layerCards, setLayerCards] = useState<Record<string, Card[]>>({});
+  const [securityComponents, setSecurityComponents] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
 
   const securityTypes = useMemo(
@@ -73,10 +82,18 @@ export default function SecurityOverviewReport() {
     Promise.allSettled([
       api.get<RiskMetrics>("/risks/metrics"),
       api.get<ComplianceOverview>("/compliance/overview"),
-    ]).then(([r, c]) => {
+      api.get<{ items: Card[] }>("/cards?type=ITComponent&page_size=1000"),
+    ]).then(([r, c, itc]) => {
       if (!active) return;
       if (r.status === "fulfilled") setRisk(r.value);
       if (c.status === "fulfilled") setCompliance(c.value);
+      if (itc.status === "fulfilled") {
+        setSecurityComponents(
+          itc.value.items.filter((card) =>
+            (SECURITY_SUBTYPES as readonly string[]).includes(card.subtype ?? ""),
+          ),
+        );
+      }
       setLoading(false);
     });
     return () => {
@@ -214,6 +231,69 @@ export default function SecurityOverviewReport() {
                       )}
                     </Box>
                   )}
+                </Box>
+              );
+            })}
+          </Stack>
+        )}
+      </Paper>
+
+      {/* Security components — the NEA security-domain ITComponent subtypes
+          (WP6.4): security hardware / software / services from the TA half. */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {t("securityLayer.componentsTitle")}
+          </Typography>
+          <Chip size="small" label={securityComponents.length} sx={{ height: 20 }} />
+          <Box sx={{ flex: 1 }} />
+          <Button
+            component={RouterLink}
+            to="/reports/technology-landscape"
+            size="small"
+            startIcon={<MaterialSymbol icon="apartment" size={16} />}
+          >
+            {t("securityLayer.openTechnologyLandscape")}
+          </Button>
+        </Box>
+        {securityComponents.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("securityLayer.componentsEmpty")}
+          </Typography>
+        ) : (
+          <Stack spacing={1.5}>
+            {SECURITY_SUBTYPES.map((subtype) => {
+              const comps = securityComponents.filter((c) => c.subtype === subtype);
+              if (comps.length === 0) return null;
+              return (
+                <Box key={subtype}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                    <MaterialSymbol
+                      icon={SECURITY_SUBTYPE_ICON[subtype]}
+                      size={18}
+                      color={STATUS_COLORS.error}
+                    />
+                    <Typography variant="body2" fontWeight={700}>
+                      {t(`securityLayer.subtype.${subtype}`)}
+                    </Typography>
+                    <Chip size="small" label={comps.length} sx={{ height: 20 }} />
+                  </Box>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                    {comps.slice(0, 24).map((c) => (
+                      <Chip
+                        key={c.id}
+                        size="small"
+                        label={c.name}
+                        component={RouterLink}
+                        to={`/cards/${c.id}`}
+                        clickable
+                        variant="outlined"
+                      />
+                    ))}
+                    {comps.length > 24 && (
+                      <Chip size="small" label={`+${comps.length - 24}`} variant="outlined" />
+                    )}
+                  </Box>
                 </Box>
               );
             })}

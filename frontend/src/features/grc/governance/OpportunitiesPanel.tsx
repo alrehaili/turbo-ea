@@ -28,6 +28,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -38,15 +39,20 @@ interface Opportunity {
   id: string;
   title: string;
   description: string | null;
-  domain: "BA" | "AA" | "DA" | "TA";
+  domain: "BA" | "BX" | "AA" | "DA" | "TA" | "SEC";
   source: string;
   priority: "low" | "medium" | "high";
   status: "proposed" | "approved" | "inTransition" | "realized" | "rejected";
   initiative: { id: string; name: string } | null;
   cards: { id: string; name: string; type: string }[];
+  journey: { id: string; name: string } | null;
+  journey_phase: string | null;
+  feasibility: "high" | "medium" | "low" | null;
 }
 
-const DOMAINS = ["BA", "AA", "DA", "TA"] as const;
+// The six NORA 2.0 domains (WP6.5 added BX + SEC to the original four).
+const DOMAINS = ["BA", "BX", "AA", "DA", "TA", "SEC"] as const;
+const FEASIBILITIES = ["high", "medium", "low"] as const;
 const PRIORITIES = ["low", "medium", "high"] as const;
 const STATUSES = ["proposed", "approved", "inTransition", "realized", "rejected"] as const;
 
@@ -63,9 +69,20 @@ interface FormState {
   description: string;
   domain: (typeof DOMAINS)[number];
   priority: (typeof PRIORITIES)[number];
+  journey: CardOption | null;
+  journeyPhase: string;
+  feasibility: "" | (typeof FEASIBILITIES)[number];
 }
 
-const EMPTY_FORM: FormState = { title: "", description: "", domain: "AA", priority: "medium" };
+const EMPTY_FORM: FormState = {
+  title: "",
+  description: "",
+  domain: "AA",
+  priority: "medium",
+  journey: null,
+  journeyPhase: "",
+  feasibility: "",
+};
 
 interface AiSuggestion {
   title: string;
@@ -112,11 +129,20 @@ export default function OpportunitiesPanel() {
   const save = async () => {
     if (!form.title.trim()) return;
     setError("");
+    const payload = {
+      title: form.title,
+      description: form.description,
+      domain: form.domain,
+      priority: form.priority,
+      journey_card_id: form.journey?.id ?? null,
+      journey_phase: form.journeyPhase.trim() || null,
+      feasibility: form.feasibility || null,
+    };
     try {
       if (editingId) {
-        await api.patch(`/improvement-opportunities/${editingId}`, form);
+        await api.patch(`/improvement-opportunities/${editingId}`, payload);
       } else {
-        await api.post("/improvement-opportunities", form);
+        await api.post("/improvement-opportunities", payload);
       }
       setDialogOpen(false);
       setEditingId(null);
@@ -257,9 +283,39 @@ export default function OpportunitiesPanel() {
                     </Tooltip>
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" variant="outlined" label={o.domain} />
+                    <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                      <Chip size="small" variant="outlined" label={o.domain} />
+                      {o.journey && (
+                        <Tooltip
+                          title={
+                            o.journey_phase
+                              ? `${o.journey.name} — ${o.journey_phase}`
+                              : o.journey.name
+                          }
+                        >
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            icon={<MaterialSymbol icon="conversion_path" size={14} />}
+                            component="a"
+                            href={`/cards/${o.journey.id}`}
+                            clickable
+                            label={o.journey.name}
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
-                  <TableCell>{t(`governance.opportunities.priority.${o.priority}`)}</TableCell>
+                  <TableCell>
+                    {t(`governance.opportunities.priority.${o.priority}`)}
+                    {o.feasibility && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {t("governance.opportunities.feasibility.label")}:{" "}
+                        {t(`governance.opportunities.feasibility.${o.feasibility}`)}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {canManage ? (
                       <TextField
@@ -320,6 +376,11 @@ export default function OpportunitiesPanel() {
                               description: o.description || "",
                               domain: o.domain,
                               priority: o.priority,
+                              journey: o.journey
+                                ? { id: o.journey.id, name: o.journey.name, type: "BeneficiaryJourney" }
+                                : null,
+                              journeyPhase: o.journey_phase || "",
+                              feasibility: o.feasibility || "",
                             });
                             setDialogOpen(true);
                           }}
@@ -392,6 +453,42 @@ export default function OpportunitiesPanel() {
               ))}
             </TextField>
           </Box>
+          {/* Journey-improvement traceability (WP6.5) — the BX template's
+              (journey, phase, feasibility) columns. */}
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <CardPicker
+              types="BeneficiaryJourney"
+              value={form.journey}
+              onChange={(v) => setForm({ ...form, journey: v })}
+              enabled={dialogOpen}
+              size="medium"
+              label={t("governance.opportunities.journey")}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              select
+              label={t("governance.opportunities.feasibility.label")}
+              value={form.feasibility}
+              onChange={(e) =>
+                setForm({ ...form, feasibility: e.target.value as FormState["feasibility"] })
+              }
+              sx={{ flex: 1 }}
+            >
+              <MenuItem value="">—</MenuItem>
+              {FEASIBILITIES.map((f) => (
+                <MenuItem key={f} value={f}>
+                  {t(`governance.opportunities.feasibility.${f}`)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+          {form.journey && (
+            <TextField
+              label={t("governance.opportunities.journeyPhase")}
+              value={form.journeyPhase}
+              onChange={(e) => setForm({ ...form, journeyPhase: e.target.value })}
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>

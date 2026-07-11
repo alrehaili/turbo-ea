@@ -66,7 +66,15 @@
       "aiFocusHint": "p. ej. gobierno de datos, servicios compartidos…",
       "aiGenerate": "Generar",
       "aiReviewHint": "Revise los borradores de la IA y añada los que quiera — entran como propuestos para gobernanza.",
-      "aiAddSelected": "Añadir {{n}} seleccionados"
+      "aiAddSelected": "Añadir {{n}} seleccionados",
+      "journey": "Recorrido del beneficiario",
+      "journeyPhase": "Fase del recorrido",
+      "feasibility": {
+        "label": "Viabilidad",
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Baja"
+      }
     }
   },
   "compliance": {

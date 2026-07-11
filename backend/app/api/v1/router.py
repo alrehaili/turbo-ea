@@ -18,6 +18,7 @@ from app.api.v1 import (
     diagram_groups,
     diagrams,
     documents,
+    ea_requirements,
     eol,
     events,
     favorites,
@@ -65,6 +66,7 @@ api_router.include_router(auth.router)
 api_router.include_router(metamodel.router)
 api_router.include_router(cards.router)
 api_router.include_router(nora_program.router)
+api_router.include_router(ea_requirements.router)
 api_router.include_router(improvement_opportunities.router)
 api_router.include_router(maturity.router)
 api_router.include_router(nea_evidence.router)

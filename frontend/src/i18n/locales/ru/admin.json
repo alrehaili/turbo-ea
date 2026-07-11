@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Добавить плитку",
   "webPortals.tileLabel": "Подпись",
   "webPortals.tileIcon": "Значок",
-  "webPortals.tileTarget": "Ссылка (напр. /reports/portfolio)"
+  "webPortals.tileTarget": "Ссылка (напр. /reports/portfolio)",
+  "turbolens_action_promote": "Преобразовать в возможность улучшения",
+  "turbolens_promoted": "Преобразовано"
 }

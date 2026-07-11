@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "إضافة بطاقة",
   "webPortals.tileLabel": "التسمية",
   "webPortals.tileIcon": "الأيقونة",
-  "webPortals.tileTarget": "الرابط (مثل /reports/portfolio)"
+  "webPortals.tileTarget": "الرابط (مثل /reports/portfolio)",
+  "turbolens_action_promote": "ترقية إلى فرصة تحسين",
+  "turbolens_promoted": "تمت الترقية"
 }

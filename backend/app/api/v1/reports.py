@@ -2629,3 +2629,296 @@ async def reference_models_report(
         models.append(model_out)
 
     return {"models": models}
+
+
+# Technology Landscape ([FORK] noraPlan.md WP6.3 + WP6.4). The two TA
+# viewpoints the inventory grid cannot render: the data-center containment
+# landscape (built on the ITComponent hierarchy: DC ⊃ host ⊃ VM ⊃ container
+# engine) and the network-segment distribution. Security components (the
+# WP6.4 subtypes) are flagged so the UI can offer a security-only view.
+_SECURITY_SUBTYPES = {"securityHardware", "securitySoftware", "securityService"}
+
+
+@router.get("/technology-landscape")
+async def technology_landscape_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """ITComponents grouped by data-center containment and network segment.
+    [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    rows = (
+        (
+            await db.execute(
+                select(Card).where(Card.type == "ITComponent", Card.status != "ARCHIVED")
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    def entry(c: Card, depth: int = 0) -> dict:
+        attrs = c.attributes or {}
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "subtype": c.subtype,
+            "security": c.subtype in _SECURITY_SUBTYPES,
+            "network_segment": attrs.get("networkSegment") or attrs.get("securityZone"),
+            "architecture_state": c.architecture_state or "current",
+            "depth": depth,
+        }
+
+    children: dict = {}
+    for c in rows:
+        if c.parent_id is not None:
+            children.setdefault(c.parent_id, []).append(c)
+    for kids in children.values():
+        kids.sort(key=lambda c: ((c.subtype or ""), c.name.lower()))
+
+    # Data-center containment: each DC root lists its descendants (depth-first
+    # with depth markers so the UI can indent the chain DC ⊃ host ⊃ VM ⊃ …).
+    data_centers = []
+    assigned: set = set()
+    dcs = sorted((c for c in rows if c.subtype == "dataCenter"), key=lambda c: c.name.lower())
+    for dc in dcs:
+        assigned.add(dc.id)
+        components: list[dict] = []
+        stack = [(kid, 1) for kid in reversed(children.get(dc.id, []))]
+        while stack:
+            node, depth = stack.pop()
+            assigned.add(node.id)
+            components.append(entry(node, depth))
+            stack.extend((kid, depth + 1) for kid in reversed(children.get(node.id, [])))
+        data_centers.append({**entry(dc), "components": components})
+
+    unassigned = sorted(
+        (entry(c) for c in rows if c.id not in assigned),
+        key=lambda e: ((e["subtype"] or ""), e["name"].lower()),
+    )
+
+    # Network-segment distribution (segment value from the Technical
+    # Specification section, falling back to the WP1.1 securityZone field).
+    segments: dict = {}
+    for c in rows:
+        e = entry(c)
+        segments.setdefault(e["network_segment"], []).append(e)
+    segment_list = [
+        {"segment": seg, "components": sorted(comps, key=lambda e: e["name"].lower())}
+        for seg, comps in segments.items()
+        if seg
+    ]
+    segment_list.sort(key=lambda s: s["segment"].lower())
+    unsegmented = len(segments.get(None, []))
+
+    by_subtype: dict = {}
+    for c in rows:
+        key = c.subtype or "unspecified"
+        by_subtype[key] = by_subtype.get(key, 0) + 1
+
+    return {
+        "data_centers": data_centers,
+        "unassigned": unassigned,
+        "segments": segment_list,
+        "summary": {
+            "total": len(rows),
+            "data_centers": len(dcs),
+            "security_components": sum(1 for c in rows if c.subtype in _SECURITY_SUBTYPES),
+            "segments": len(segment_list),
+            "unsegmented": unsegmented,
+            "by_subtype": by_subtype,
+        },
+    }
+
+
+# Strategy Cascade ([FORK] — the agency's strategy chain: Strategic Pillars
+# ⊃ Strategic Objectives (Objective hierarchy + pillar subtype) → Programs ⊃
+# Initiatives ⊃ Projects (Objective↔Initiative relation + the Initiative
+# hierarchy with program/project subtypes). One screen answering "which
+# pillar does this project ultimately serve" — and flagging initiatives with
+# no strategic alignment.
+
+
+@router.get("/strategy-cascade")
+async def strategy_cascade_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Pillars → objectives → programs → initiatives → projects. [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    pillar_cards = (
+        (await db.execute(select(Card).where(Card.type == "Pillar", Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    objectives = (
+        (await db.execute(select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    initiatives = (
+        (await db.execute(select(Card).where(Card.type == "Initiative", Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    init_by_id = {c.id: c for c in initiatives}
+
+    # Objective ↔ Initiative and Objective ↔ Pillar links via whatever
+    # relation type(s) an install models for those pairs (either direction)
+    # — never hardcode the keys.
+    async def _pair_link_keys(type_a: str, type_b: str) -> set[str]:
+        rows = await db.execute(
+            select(RelationType.key).where(
+                (
+                    (RelationType.source_type_key == type_a)
+                    & (RelationType.target_type_key == type_b)
+                )
+                | (
+                    (RelationType.source_type_key == type_b)
+                    & (RelationType.target_type_key == type_a)
+                )
+            )
+        )
+        return {key for (key,) in rows.all()}
+
+    link_keys = await _pair_link_keys("Initiative", "Objective")
+    obj_links: dict[uuid.UUID, list[uuid.UUID]] = {}
+    obj_ids = {o.id for o in objectives}
+    if link_keys:
+        rel_rows = await db.execute(select(Relation).where(Relation.type.in_(link_keys)))
+        for rel in rel_rows.scalars().all():
+            if rel.source_id in obj_ids and rel.target_id in init_by_id:
+                obj_links.setdefault(rel.source_id, []).append(rel.target_id)
+            elif rel.target_id in obj_ids and rel.source_id in init_by_id:
+                obj_links.setdefault(rel.target_id, []).append(rel.source_id)
+
+    # Pillar-card ↔ objective assignment (the "supports" relation, profile v6).
+    pillar_card_ids = {p.id for p in pillar_cards}
+    pillar_links: dict[uuid.UUID, list[uuid.UUID]] = {}  # pillar_id -> [objective_id]
+    pillar_link_keys = await _pair_link_keys("Objective", "Pillar")
+    if pillar_link_keys:
+        rel_rows = await db.execute(select(Relation).where(Relation.type.in_(pillar_link_keys)))
+        for rel in rel_rows.scalars().all():
+            if rel.source_id in obj_ids and rel.target_id in pillar_card_ids:
+                pillar_links.setdefault(rel.target_id, []).append(rel.source_id)
+            elif rel.target_id in obj_ids and rel.source_id in pillar_card_ids:
+                pillar_links.setdefault(rel.source_id, []).append(rel.target_id)
+
+    init_children: dict[uuid.UUID, list[Card]] = {}
+    for c in initiatives:
+        if c.parent_id is not None:
+            init_children.setdefault(c.parent_id, []).append(c)
+    for kids in init_children.values():
+        kids.sort(key=lambda c: c.name.lower())
+
+    def init_node(c: Card) -> dict:
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "subtype": c.subtype,
+            "children": [init_node(k) for k in init_children.get(c.id, [])],
+        }
+
+    def collect_subtree(cid: uuid.UUID, acc: set) -> None:
+        acc.add(cid)
+        for k in init_children.get(cid, []):
+            collect_subtree(k.id, acc)
+
+    aligned: set[uuid.UUID] = set()
+    for linked_ids in obj_links.values():
+        for lid in linked_ids:
+            collect_subtree(lid, aligned)
+
+    def objective_dict(o: Card) -> dict:
+        linked = sorted(
+            (init_by_id[i] for i in dict.fromkeys(obj_links.get(o.id, []))),
+            key=lambda c: c.name.lower(),
+        )
+        return {
+            "id": str(o.id),
+            "name": o.name,
+            "initiatives": [init_node(c) for c in linked],
+        }
+
+    # Pillars: first-class Pillar cards (profile v6, ordered by their
+    # pillarOrder field) plus legacy Objective-subtype pillars — installs
+    # that modelled pillars the v4 way keep working.
+    obj_by_id = {o.id: o for o in objectives}
+    legacy_pillars = sorted(
+        (o for o in objectives if o.subtype == "pillar"), key=lambda c: c.name.lower()
+    )
+    plain = [o for o in objectives if o.subtype != "pillar"]
+
+    def _pillar_order(c: Card):
+        order = (c.attributes or {}).get("pillarOrder")
+        return (order if isinstance(order, (int, float)) else 10**9, c.name.lower())
+
+    pillared_obj_ids: set[uuid.UUID] = set()
+    pillar_out = []
+    for p in sorted(pillar_cards, key=_pillar_order):
+        linked_objs = sorted(
+            (
+                obj_by_id[i]
+                for i in dict.fromkeys(pillar_links.get(p.id, []))
+                if i in obj_by_id and obj_by_id[i].subtype != "pillar"
+            ),
+            key=lambda c: c.name.lower(),
+        )
+        pillared_obj_ids.update(o.id for o in linked_objs)
+        pillar_out.append(
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "objectives": [objective_dict(o) for o in linked_objs],
+            }
+        )
+    for p in legacy_pillars:
+        children = sorted((o for o in plain if o.parent_id == p.id), key=lambda c: c.name.lower())
+        pillared_obj_ids.update(o.id for o in children)
+        pillar_out.append(
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "objectives": [objective_dict(o) for o in children],
+            }
+        )
+
+    unpillared = [
+        objective_dict(o)
+        for o in sorted(
+            (o for o in plain if o.id not in pillared_obj_ids),
+            key=lambda c: c.name.lower(),
+        )
+    ]
+
+    # Initiatives with no strategic alignment anywhere in their chain,
+    # presented as trees rooted at the highest unaligned node.
+    unaligned_roots = [
+        c
+        for c in initiatives
+        if c.id not in aligned and (c.parent_id is None or c.parent_id not in init_by_id)
+    ]
+    # Children of aligned parents are aligned; children of unaligned parents
+    # ride inside their root's subtree — so roots above suffice.
+    unaligned_out = [init_node(c) for c in sorted(unaligned_roots, key=lambda c: c.name.lower())]
+
+    by_subtype: dict[str, int] = {}
+    for c in initiatives:
+        key = c.subtype or "initiative"
+        by_subtype[key] = by_subtype.get(key, 0) + 1
+
+    return {
+        "pillars": pillar_out,
+        "unpillared_objectives": unpillared,
+        "unaligned_initiatives": unaligned_out,
+        "summary": {
+            "pillars": len(pillar_cards) + len(legacy_pillars),
+            "objectives": len(plain),
+            "programs": by_subtype.get("program", 0),
+            "initiatives": by_subtype.get("initiative", 0) + by_subtype.get("epic", 0),
+            "projects": by_subtype.get("project", 0),
+            "unaligned": len(initiatives) - len(aligned & set(init_by_id)),
+        },
+    }

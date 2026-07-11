@@ -66,7 +66,15 @@
       "aiFocusHint": "z. B. Datengovernance, gemeinsame Dienste…",
       "aiGenerate": "Erzeugen",
       "aiReviewHint": "Prüfen Sie die KI-Entwürfe und fügen Sie die gewünschten hinzu — sie landen als „vorgeschlagen“ zur Governance.",
-      "aiAddSelected": "{{n}} ausgewählte hinzufügen"
+      "aiAddSelected": "{{n}} ausgewählte hinzufügen",
+      "journey": "Nutzer-Journey",
+      "journeyPhase": "Journey-Phase",
+      "feasibility": {
+        "label": "Machbarkeit",
+        "high": "Hoch",
+        "medium": "Mittel",
+        "low": "Niedrig"
+      }
     }
   },
   "compliance": {

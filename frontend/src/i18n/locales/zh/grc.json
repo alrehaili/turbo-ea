@@ -66,7 +66,15 @@
       "aiFocusHint": "例如 数据治理、共享服务……",
       "aiGenerate": "生成",
       "aiReviewHint": "审阅 AI 草稿并添加所需项 — 它们将以“已提议”状态进入治理流程。",
-      "aiAddSelected": "添加所选 {{n}} 项"
+      "aiAddSelected": "添加所选 {{n}} 项",
+      "journey": "受益人旅程",
+      "journeyPhase": "旅程阶段",
+      "feasibility": {
+        "label": "可行性",
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      }
     }
   },
   "compliance": {

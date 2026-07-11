@@ -3,7 +3,7 @@
 **Purpose**: Working implementation plan and progress tracker for making Turbo EA NORA-based.
 **Companion document**: [NORA.md](NORA.md) — the capability-mapping analysis this plan executes.
 **Additional input reviewed**: external "NORA Alignment Blueprint" (2026-07). Adopted from it: stage gates + artifact immutability, typed target-change semantics, standards conformance/waiver workflow, framework-profile versioning, NEA mapping entities, traceability rules, acceptance criteria. Rejected from it: the large parallel entity zoo (ArchitectureScope/StageInstance/Viewpoint/etc. as ~20 new tables up front — Turbo EA's data-driven metamodel and existing modules cover most of these with far less schema), and its references to a non-existent "System" card type.
-**Additional input reviewed (2026-07-07)**: the official DGA awareness kit `الحقيبة التوعوية - البنية المؤسسية الوطنية` — the **December 2024 *updated* National EA Framework**. See the "Source review" section and **Phase 6** below; it partially unblocks WP5.1 and supersedes several assumptions the earlier phases were built on (10-stage methodology, 4-domain model).
+**Additional input reviewed (2026-07-07)**: the official DGA awareness kit `الحقيبة التوعوية - البنية المؤسسية الوطنية` — the **December 2024 *updated* National EA Framework**. See the "Source review" section and **Phase 6** below; it partially unblocks WP5.1 and supersedes several assumptions the earlier phases were built on (10-stage methodology, 4-domain model). *(2026-07-11: WP5.1 subsequently re-scoped/closed — the reference models turned out to be classification guidance, not importable code lists.)*
 
 **Guiding rule (do not violate)**: one canonical landscape. NORA is delivered as a **profile + governance overlay + views** on the existing cards/relations — never as parallel NORA card types, never as a copied repository.
 
@@ -17,8 +17,8 @@
 | 2 | Current/Target Architecture & Governance | WP2.1–WP2.4 | ☑ **Complete** (all four WPs, 2026-07-02) |
 | 3 | Methodology & Program Management | WP3.1–WP3.4 | ☑ **Complete** (all four WPs, 2026-07-02) |
 | 4 | Domain Completeness (DRM/PRM/Standards/Integration) | WP4.1–WP4.5 | ☑ **Complete** (2026-07-02; WP4.3 closed as fork-covered) |
-| 5 | NEA Content & Federation *(WP5.1 blocked on NEA reference models)* | WP5.1–WP5.5 | ◐ WP5.2–5.5 ☑ (2026-07-06/07); **only WP5.1 remains ⊘** — *partially unblocked 2026-07-07*: the General Model (building blocks + attributes) is now in hand via the awareness kit; the BRM/ARM/DRM/TRM **taxonomy code lists** are still missing, so the catalogue importers stay blocked. The building-block/attribute alignment work moved to Phase 6. |
-| 6 | Updated-Framework Alignment (Dec-2024 NEA: 7-phase methodology, 6 domains, Meta Model, viewpoints, templates) | WP6.1–WP6.9 | ◐ **WP6.2 ☑** (2026-07-07, profile v2 + 3 drive-by bug fixes) · **WP6.6 ☑** (2026-07-08, template importer; exporter deferred) · **WP6.9 ☑** (2026-07-08, NORA 2.0 six-layer model, profile v3) · WP6.3/6.4 metamodel halves pulled forward into profile v2; WP6.1/6.5/6.7/6.8 + WP6.3/6.4 report halves ☐ |
+| 5 | NEA Content & Federation | WP5.1–WP5.5 | ☑ **Complete as re-scoped** — WP5.2–5.5 ☑ (2026-07-06/07); **WP5.1 ✕ re-scoped 2026-07-11**: kit review showed the updated framework's reference models are *classification guidance* (forthcoming documents), not importable national code lists — the "catalogue importer" premise was a superseded old-NORA assumption. Residual follow-up (align option sets when the six RM documents publish) recorded in WP5.1. |
+| 6 | Updated-Framework Alignment (Dec-2024 NEA: 7-phase methodology, 6 domains, Meta Model, viewpoints, templates) | WP6.1–WP6.9 | ☑ **Complete** (2026-07-11) — WP6.1 ☑ (methodology v2 tracker + EA Requirements register) · WP6.2 ☑ · WP6.3 ☑ (Technology Landscape report) · WP6.4 ☑ (profile v5: usageRole attribute, security views, NCA ECC scanner rule) · WP6.5 ☑ (journey-improvement columns + BX/SEC domains) · WP6.6 ☑ (template **exporter** still deferred) · WP6.7 ☑ (registry of all ~47 viewpoints + Strategic House / Value Chain / Application-Modules renderers; interaction-model + per-org-unit viewpoints served by Dependencies/Matrix) · WP6.8 ☑ (9 practice document templates + EA Vocabulary + practice-establishment checklist) · WP6.9 ☑ |
 
 > **Fork-overlap note (2026-07-02).** Codebase inspection found this fork already ships features the plan scheduled (beyond what upstream CLAUDE.md documents): **Scenarios** (`backend/app/models/scenario.py` — copy-on-write current/target overlay with add/modify/retire deltas, approval lifecycle, merge with conflict detection) largely covers WP2.1's intent; the **TechStandard catalogue** (`tech_standard.py` — radar statuses Preferred→Prohibited, replacement links, time-boxed approver-gated exception register) covers most of WP1.3 and WP4.3; **ARB reviews** (`arb_review.py`) partially covers WP2.2's committee-decision needs; **Roadmaps** (`roadmap.py`) and **TIME rationalization** (`rationalization.py` — replaces the dropped `targetDisposition` field) support WP2.4. Affected WPs must start with a gap review against these modules instead of building from scratch.
 
@@ -150,7 +150,8 @@ Each work package is independently shippable and follows project conventions: da
 - [x] Roles seeded by the NORA profile apply (pass 0, never overwritten): `ea_working_team` (member permissions minus approval), `chief_architect` (member + `governance.approve_step`), `ea_governance_committee` (viewer + approval powers).
 - [x] SoD enforced in WP2.2 (`governanceSodEnabled`, default on).
 - [x] Tests: role seeding + permission shape + idempotency.
-- [ ] **Deferred**: `domain_owner`/`data_steward` stakeholder-role definitions (revisit with WP4.1's data-steward needs); `docs/admin/nora-governance.md` RACI page (fork docs pass).
+- [x] `domain_owner`/`data_steward` stakeholder-role definitions — **done 2026-07-11 (profile v5, pass 2b)**: seeded on BusinessCapability / DataObject with responsible-level card permissions, translated ×9, idempotent, skipped when the type doesn't exist.
+- [ ] **Deferred**: `docs/admin/nora-governance.md` RACI page (fork docs pass).
 
 **Acceptance check**: a NORA-profile install has the committee/working-team roles ready; SoD enforced. ✔
 
@@ -219,7 +220,7 @@ Each work package is independently shippable and follows project conventions: da
 
 ### WP3.3 — Improvement Opportunity registry `☑ Done 2026-07-02`
 
-**As implemented**: `improvement_opportunities` + `improvement_opportunity_cards` (migration `128`, shared with WP3.1), CRUD API `/improvement-opportunities` gated by the existing `grc.view`/`grc.manage` (per plan's "reuse grc" option), domain/priority/status lifecycle with validation, card links, initiative assignment (auto-advances proposed/approved → inTransition), **GRC → Governance → Opportunities** sub-tab (table + create/edit dialog + Initiative CardPicker), workspace-io sections (initiative + card FKs remapped), i18n ×10 (nested grc namespace), 2 API tests. **Deferred**: TurboLens/SWOT promotion actions (the `source` field is ready — buttons land when WP3.2's SWOT exists and as a TurboLens follow-up); committee approval via WP2.2 chain (status select is permission-gated but single-step); realized-value widget.
+**As implemented**: `improvement_opportunities` + `improvement_opportunity_cards` (migration `128`, shared with WP3.1), CRUD API `/improvement-opportunities` gated by the existing `grc.view`/`grc.manage` (per plan's "reuse grc" option), domain/priority/status lifecycle with validation, card links, initiative assignment (auto-advances proposed/approved → inTransition), **GRC → Governance → Opportunities** sub-tab (table + create/edit dialog + Initiative CardPicker), workspace-io sections (initiative + card FKs remapped), i18n ×10 (nested grc namespace), 2 API tests. **TurboLens promotion actions done 2026-07-11**: duplicate clusters and modernization assessments carry a Promote action (`POST /turbolens/duplicates/{id}/promote-opportunity` + `…/modernizations/{id}/promote-opportunity`, `turbolens.manage` + `grc.manage`) landing `proposed` opportunities with cards linked — the maturity-gap promotion pattern. **Still deferred**: SWOT-entry promotion (needs structured SWOT entries; today's SWOT is rich text); committee approval via WP2.2 chain; realized-value widget.
 
 *Original spec follows for reference:*
 
@@ -348,13 +349,27 @@ Each work package is independently shippable and follows project conventions: da
 
 ---
 
-## Phase 5 — NEA Content & Federation *(⊘ blocked on NEA reference-model publications)*
+## Phase 5 — NEA Content & Federation *(☑ complete as re-scoped — WP5.1 closed 2026-07-11)*
 
-*Goal: national content, maturity, and DGA-facing outputs. WP5.1 unblocks when the user provides the NEA PRM/BRM/ARM/DRM/TRM documents.*
+*Goal: national content, maturity, and DGA-facing outputs.*
 
-### WP5.1 — NEA reference-model catalogue importers `⊘`
+### WP5.1 — NEA reference-model catalogue importers `✕ Re-scoped/closed 2026-07-11`
 
 **NORA ref**: Stage 5 — agency models derived from NEA models. NORA.md item A4 + blueprint NORA-04 mapping entities.
+
+> **Re-scope rationale (2026-07-11)** — kit re-review settled what the "reference models" actually are. This WP was designed on the **old NORA assumption** of FEAF-style published taxonomies with authoritative codes (the same assumption behind WP1.1's `brmCode`/`armCode`/`drmCode`/`trmCode` fields). The Dec-2024 framework does not work that way:
+>
+> 1. **They are forthcoming guidance documents, six of them.** Deck 01 slide 12: the framework comprises **16 documents "targeted for publication in the coming period"**, including one National Reference Model per domain (Business, Beneficiary Experience, Applications, Technology, Security, Data) plus a *guide for developing sectoral reference models*.
+> 2. **Their nature is classification guidance, not code lists.** Practice Guideline glossary (p. 93): a reference model "acts as a framework that provides a common vocabulary and a high-level structure… a blueprint… best practices to classify and organize architectural elements." Deck 01 slide 13: agencies "يمكن الاستعانة بها" — *consult* them.
+> 3. **The preview slides show category schemes with illustrative samples.** The Business RM defines five capability *categories* (administrative & regulatory / core / supporting / operational / enabling); its health-sector capability tree is explicitly labeled **عينة توضيحية** (illustrative sample). The Applications RM defines application *layers* — already shipped as WP6.2's `appLayer` option set.
+>
+> **Consequences**: there is no national code list to package as an importable catalogue, and no national denominator for a "coverage %" report — taxonomy content is built per sector/agency, guided by the national models. The original checklist below is closed as based on a superseded assumption. Agency/sector-built taxonomy ingestion is already served by the Capability Catalogue machinery and the WP6.6 حصر البيانات importer; the `*Code` profile fields remain as agency-assigned classification codes.
+>
+> **Residual follow-up (small, tracked here)**:
+> - [ ] When the six National Reference Model documents publish: align the profile's classification option sets (capability categories, application layers, data/technology/security classifications) with the published schemes — an option-set/translation pass on the profile, version-bumped and idempotent per the standing rules; not an importer.
+> - [ ] If DGA's *sectoral* reference models later ship as structured content (the sectoral-RM development guide is also forthcoming): revisit packaging those via the Capability-Catalogue wheel pattern — only then does the original importer design apply.
+
+#### (original spec) `superseded — premise invalidated by the Dec-2024 framework`
 
 - [ ] Package the official NEA taxonomies as versioned importable catalogues (Capability-Catalogue wheel pattern; `catalogueId` matching).
 - [ ] BRM import → Business Area / LoB skeleton as BusinessCapability tree with `brmLevel`/`brmCode`; auto-relink of existing capabilities by `catalogueId` (macro-capability import is the proven template).
@@ -362,9 +377,7 @@ Each work package is independently shippable and follows project conventions: da
 - [ ] Per-item `alignmentStatus` (aligned | agencyExtension | unmapped) — the blueprint's `NationalReferenceMapping`, folded onto the card `attributes` instead of a join table.
 - [ ] Coverage report: % of landscape mapped to national codes, unmapped cards, agency extensions.
 
-**Blocked**: needs the actual NEA reference-model content (user to provide).
-
-> **Partial unblock (2026-07-07)**: the DGA awareness kit delivered the **General Model** (EA Content Meta Model — building blocks, attributes, connections) and the viewpoints catalogue. That content is now actioned in **Phase 6** (WP6.2–6.5, 6.7). What is *still* missing for this WP is the **taxonomy content** — the BRM/ARM/DRM/TRM/PRM code lists (business-area trees, application categories, reference KPIs) that the catalogue importers would package. WP5.1 stays ⊘ for the importers only.
+> **Partial unblock (2026-07-07, superseded by the 2026-07-11 re-scope)**: the DGA awareness kit delivered the **General Model** (EA Content Meta Model — building blocks, attributes, connections) and the viewpoints catalogue. That content is actioned in **Phase 6** (WP6.2–6.5, 6.7). The "still missing taxonomy content" this note waited for turned out not to exist as importable data — see the re-scope rationale above.
 
 ### WP5.2 — EA maturity self-assessment (Qiyas-style) `☑ Done 2026-07-06`
 
@@ -450,7 +463,7 @@ Full review of `الحقيبة التوعوية - البنية المؤسسية 
 | 6 | تطوير خارطة الطريق (Roadmap development) | 6.1 Propose & approve EA initiative list · 6.2 Prepare the EA roadmap |
 | 7 | إدارة متطلبات البنية المؤسسية (EA requirements management — **continuous**) | 7.1 Approve EA requirements · 7.2 Track requirement status · 7.3 Assess requirement-change impact |
 
-Supporting elements: EA principles (✓ `ea_principles`), national reference models (⊘ still no taxonomy content), the General Model (now in hand), EA governance (✓ WP2.2/2.3).
+Supporting elements: EA principles (✓ `ea_principles`), national reference models (✓ resolved 2026-07-11 — classification guidance, not taxonomy data; see the WP5.1 re-scope), the General Model (now in hand), EA governance (✓ WP2.2/2.3).
 
 **The 37 building blocks → Turbo EA mapping** (basis for WP6.2–6.5; ✓ = covered today, ◐ = partial, ✕ = missing):
 
@@ -468,17 +481,20 @@ Supporting elements: EA principles (✓ `ea_principles`), national reference mod
 
 *Goal: Turbo EA speaks the **updated** National EA Framework natively — 7-phase methodology, 6 domains, the General Model's building blocks, the core viewpoints, and one-click ingestion of DGA's own data-collection templates. Same guiding rule as ever: profile + overlay + views on the one canonical landscape; prefer subtypes/fields over new card types, new card types over parallel modules.*
 
-### WP6.1 — Methodology v2: 7-phase program tracker `☐`
+### WP6.1 — Methodology v2: 7-phase program tracker `☑ Done 2026-07-11`
 
 **NORA ref**: المنهجية الوطنية المحدثة (7 phases, per-domain execution of phases 2 & 4).
 
-- [ ] Version the methodology on the profile: `noraMethodologyVersion` (`v1` = 10-stage, `v2` = 7-phase, default `v2` for fresh NORA applies; existing installs keep `v1` until an admin opts in — never silently rewrite a live program's deliverables).
-- [ ] New deliverable catalogue for v2 seeded from the phase/step tables above (`nora_program.py` second catalogue): phase 1 (3 steps), phase 2 **× 6 domains** (scope / data collection / documentation / analysis per domain — this is where the per-domain progress becomes visible), phases 3–6 steps, phase 7 as the continuous row (replacing stage 0). Keep `ea_program_deliverables` schema as-is (`stage_no` accommodates 1–7; domain lands in the deliverable `key`, e.g. `p2_business_data_collection`).
-- [ ] `/nora-program` UI: render v2 phase names (i18n ×10, Arabic names above are the source), per-domain grouping chips inside phases 2/4, and a v1→v2 switch dialog (admin, explains the deliverable reset, keeps v1 history rows).
-- [ ] **EA Requirements register (phase 7)** — the methodology's continuous element has no Turbo EA home today. Smallest honest fit: a `requirement` flavour is *not* an Improvement Opportunity (requirements precede the cycle; opportunities come out of analysis). Add `ea_requirements` table (id, title, description, source, domain, status: proposed | approved | inCycle | fulfilled | rejected | changed, approved_by/at, initiative_id nullable, cycle linkage) + a Requirements panel on `/nora-program`; change-impact = the existing `analyze_impact`/dependency machinery on linked cards. Workspace-io section, permissions (`nora.*`), tests, i18n ×10.
-- [ ] Evidence links: phase-2 deliverables auto-suggest the WP6.6 import runs as evidence; phase-5/6 deliverables deep-link the Gap Analysis report and Roadmap.
+**As implemented** (design deltas noted inline):
 
-**Acceptance**: a fresh NORA install shows the 7-phase program with per-domain phase-2/4 tracking; an existing v1 install is untouched until opted in; EA requirements are registered, approved, tracked, and change-impact-assessed.
+- [x] `noraMethodologyVersion` (`v1` = 10-stage, `v2` = 7-phase) stored in `general_settings`. Fresh NORA applies resolve to **v2**; installs that already carry deliverable rows resolve to **v1** — a live program is never silently rewritten. `POST /nora-program/methodology` (admin.settings) switches either way; the other catalogue's rows are **retained** as history. **Delta**: both catalogues share the one `ea_program_deliverables` table exactly as planned — membership derives from the key prefix (`p{1-7}_…` / `custom_v2_…` vs `s*_`/`cg_`/`custom_`), zero schema change.
+- [x] v2 catalogue (44 deliverables): phase 1 ×3 steps, phase 2 **×6 domains ×4 steps** (scope / حصر البيانات data collection / documentation / analysis), phase 3 ×3, phase 4 = one cycle-level target concept + per-domain detail ×6, phases 5/6 ×2 each, phase 7 (continuous requirements management) ×3. Domain parsed from the key and returned per deliverable for the UI chips.
+- [x] `/nora-program` UI: v2 phase names + per-domain chips (i18n ×10), methodology chip in the header, and the v1→v2 **switch dialog** (admin.settings-gated, explains the new catalogue + history retention).
+- [x] **EA Requirements register**: `ea_requirements` + `ea_requirement_cards` (migration `139`), `/ea-requirements` CRUD under `nora.view`/`nora.manage`, approval gated on `governance.approve_step` (stamps approver + time), initiative link auto-advances approved → `inCycle`, change-impact via dependency-report deep-link on linked cards. Requirements panel on `/nora-program` (create/edit dialog, card links via `CardPicker`, initiative assignment). Workspace-io sections (initiative + card FKs remapped, users by email). i18n ×10.
+- [x] Evidence suggestions: phase-2 data-collection rows suggest the WP6.6 importer; phase-5/6 rows deep-link the Gap Analysis report and roadmap (client-side chips shown until real evidence lands).
+- [x] Tests: methodology switch + filtering + custom-deliverable scoping + v2 idempotency (`test_nora_program.py::TestMethodologyV2`), full requirements lifecycle + RBAC (`test_ea_requirements.py`). NORA demo dataset moved to v2 keys (`seed_demo_nora.py`).
+
+**Acceptance check**: a fresh NORA install shows the 7-phase program with per-domain phase-2/4 tracking; an existing v1 install is untouched until opted in; EA requirements are registered, approved, tracked, and change-impact-assessed. ✔ verified by tests.
 
 ### WP6.2 — Metamodel alignment to the EA Content Meta Model (profile v2 fields) `☑ Done 2026-07-07`
 
@@ -495,7 +511,7 @@ Supporting elements: EA principles (✓ `ea_principles`), national reference mod
 - [x] **Subtypes** (new pass 4d, idempotent by key): `Objective.pillar` (strategy decomposition), `ITComponent.dataVault` (مستودع بيانات; the `DataObject → ITComponent` "is stored in" relation exists since WP4.1). GovService hierarchy upgrade shares the pass, guarded to `built_in=True` rows only.
 - [x] Tests: v2 definition tests (field presence per template, appLayer lookup-order check, subtype translations ×9, no seed collisions, profile version) + 3 DB tests (v1→v2 hierarchy upgrade + summary flag, admin-created GovService untouched, v2 fields injected into both seed and NORA-created types). `test_seed_demo_nora.py` helper fixed (NORA card types registered before the field merge; v2 subtypes included). Stale WP4.2-era assertions in `test_nora_profile.py` corrected (relation-set superset; GovService-preserved no longer asserts an empty created list). All NORA + governance backend suites green against the DB harness.
 - [x] Workspace-io: nothing needed — new fields ride `cards.attributes` (JSONB, already in `CARD_COLUMNS`); subtypes/fields_schema live on `card_types`, which the metamodel section already covers.
-- [ ] **Deferred**: Vision/Mission settings fields + NORA-program header editor — lands with WP6.7's Strategic House (its only consumer today).
+- [x] Vision/Mission settings fields — **done 2026-07-11 with WP6.7's Strategic House**: `general_settings.noraVision`/`noraMission` + `GET/PATCH /settings/strategy-house`, edited in-place on the Strategic House page (admin.settings).
 
 **Drive-by fixes surfaced by this WP's test run** (all pre-existing, fixed + changelogged in CHANGELOG.fork.md):
 1. `users.role` was `String(20)` — assigning the seeded 23-char `ea_governance_committee` role key to any user failed with a DB truncation error (WP2.3 defect). Widened to `String(50)` (matches `roles.key`); migration `136_widen_users_role_fork.py`.
@@ -504,7 +520,7 @@ Supporting elements: EA principles (✓ `ea_principles`), national reference mod
 
 **Acceptance**: every column of the six templates has a landing field or a documented mapping; option sets match the Lookup sheets; re-apply is a no-op; v1 installs upgrade in place. ✔ verified by tests.
 
-### WP6.3 — Technology Architecture granularity (TA building blocks) `◐` *(subtypes + manufacturer/model/function fields shipped 2026-07-08 via profile v2 for WP6.6; remaining: Technology Landscape report + spec-section fields)*
+### WP6.3 — Technology Architecture granularity (TA building blocks) `☑ Done 2026-07-11` *(subtypes + manufacturer/model/function fields shipped 2026-07-08 via profile v2; spec-section fields shipped 2026-07-11 via profile v4 — networkSegment, serverRole, CPU/RAM/storage, OS/hypervisor, DC role/tier, license quantity/dates in a "Technical Specification" section; **Technology Landscape report shipped 2026-07-11**: `GET /reports/technology-landscape` + `/reports/technology-landscape` page — data-center containment landscape (DC ⊃ host ⊃ VM ⊃ container engine from the ITComponent hierarchy, depth-indented, unassigned bucket) + network-segment distribution (falls back to `securityZone`) + summary tiles + WP6.4's security-only toggle; i18n ×10; API tests in `test_technology_landscape.py`)*
 
 **NORA ref**: Meta Model §5.3.6 (11 TA building blocks); بنية التقنية template (6 sheets).
 
@@ -517,7 +533,7 @@ The NEA wants Data Center / Physical Host / Server / Network Device / Storage / 
 
 **Acceptance**: the six Technology-template sheets each have a subtype home; hosting chains (VM → host → DC) are modellable; the physical-level TA catalogues are producible as filtered inventory + the landscape report.
 
-### WP6.4 — Security Architecture domain `◐` *(securityHardware/Software/Service subtypes shipped 2026-07-08 via profile v2 for WP6.6; remaining: security views, usageRole attribute, scanner rule, per-domain tracker content)*
+### WP6.4 — Security Architecture domain `☑ Done 2026-07-11` *(subtypes shipped 2026-07-08 via profile v2; the remainder shipped 2026-07-11 as **profile v5**: (a) `usageRole` attribute (uses | protects) injected on `relAppToITC` — pass 3c, idempotent, translated ×9 — protection semantics without breaking the one-pair rule; (b) security views — the Technology Landscape report's security-only toggle + a "Security components" section on the Security layer overview listing the three security subtypes with a jump to the landscape; (c) the NCA ECC scanner scope extended to flag applications with no linked security component — guarded description upgrade, admin-edited text never overwritten; (d) per-domain tracker content: the WP6.1 v2 catalogue carries Security-domain phase-2/4 deliverables. `securityFunction` delta: the profile-v2 `deviceFunction` field already covers the template's function column — mapped, not duplicated.)*
 
 **NORA ref**: Meta Model §5.3.7 (Security Hardware / Software / Service); بنية الأمن template (3 sheets); security viewpoints.
 
@@ -528,7 +544,7 @@ The NEA wants Data Center / Physical Host / Server / Network Device / Storage / 
 
 **Acceptance**: the Security-architecture template's three sheets are capturable and reportable; the security domain shows up as a first-class column in per-domain program tracking.
 
-### WP6.5 — Beneficiary Experience domain `☐`
+### WP6.5 — Beneficiary Experience domain `☑ Done 2026-07-11` *(profile v4 shipped the **Persona card type** (code/objectives/demographics/pain points + uses→GovService, experiences→BeneficiaryJourney relations, Beneficiary Experience layer per the WP6.9 note) and **journey structure** as `journeyPhase`/`journeyStep` subtypes on the hierarchical BeneficiaryJourney type + a "Journey Mapping" section + covers→GovService and uses-channel→Channel relations — superseding the `journeyPhases`-JSONB/custom-section idea below, zero custom UI. **2026-07-11 remainder shipped**: `journey_card_id` / `journey_phase` / `feasibility` columns on `improvement_opportunities` (migration `140`), **BX + SEC** joined the domain options (six-domain model), Opportunities panel gained the journey `CardPicker` + phase + feasibility fields and chips, journey FK remapped in the workspace bundle, API validation + tests. Persona Card / Journey Map viewpoints resolve to the Persona card detail and the BeneficiaryJourney hierarchy in the WP6.7 registry — no dedicated renderers needed.)*
 
 **NORA ref**: Meta Model §5.3.3 (Beneficiary, Journey, Persona, Phase, Step); بنية التجربة template; BX viewpoints (Persona Card, Journey Map, journey-improvement matrix).
 
@@ -561,26 +577,29 @@ The NEA wants Data Center / Physical Host / Server / Network Device / Storage / 
 
 - Agencies executing the national methodology fill *these exact files*. Turbo EA should swallow them whole: NORA template adapter under the migration framework; named-relation columns resolving by card name with staged warnings; non-card rows via a post-apply hook or follow-up; import + export roundtrip; automatic source picker; resilient Arabic header matching with synthetic-workbook tests.
 
-### WP6.7 — Viewpoint library alignment (~45 core viewpoints) `☐`
+### WP6.7 — Viewpoint library alignment (~47 core viewpoints) `☑ Done 2026-07-11`
 
 **NORA ref**: EA Viewpoints Document §5.4 list + §06 detail cards.
 
-- [ ] Build the coverage map: each of the ~45 viewpoints → existing Turbo EA view (most matrices = Matrix report; most catalogues = filtered inventory / existing report pages; landscapes = existing reports) — extend the WP3.4 report-pack map into a full **viewpoint registry** shown in the View Library (`/view-library` already exists in this fork) with NEA viewpoint name (ar/en), type, level, and the deep-link. Data-driven (JSON), not hardcoded pages.
-- [ ] Build the genuinely missing high-value viewpoints (each small, reusing report shells): **Strategic House** (vision/mission/pillars/objectives — reads WP6.2's settings + Objective tree), **Business Value Chain** (capability top-tier ribbon — Capability Map variant), **Interaction Model** (entity ↔ org-unit exchange diagram — dependencies variant scoped to Organization), **Applications by Org Unit** and **Application Modules landscape** (landscape report presets), **Network/Datacenter landscapes** (WP6.3). Persona Card + Journey Map ship in WP6.5.
-- [ ] Each viewpoint card in the library states its methodology linkage (phase 2.3 / 4.2) — mirrors the document's "Link Between the Viewpoints and the Methodology" attribute, and feeds WP6.1 evidence suggestions.
+- [x] **Coverage map / viewpoint registry shipped 2026-07-11**: the authoritative §5.4 table was extracted from the kit's Viewpoints PDF (all **47** core viewpoints) into `frontend/src/features/reports/neaViewpoints.ts` — a data-driven registry with bilingual (ar/en, from the document) names, kind (list/matrix/diagram), level (conceptual/logical/physical), status, and the deep-link to the Turbo EA view that produces each. Rendered as a **"NEA viewpoint registry"** section in the View Library (`EaViewLibraryPage`): per-domain accordions (7 domains), status chips (open view / closest view / descoped), and locale-aware primary/secondary name display. i18n chrome ×10. Status split: **~37 available** (deep-linked), **5 "planned"** mapped to their closest existing view, **~7 "descoped"** (viewpoints resting on the deliberately-descoped Position/Role, Beneficiary registry, Template, Data-Attributes and Network-Link building blocks — descope decisions from WP6.2/6.5/6.8, now visible instead of silent).
+- [x] Methodology linkage (phases 2.3 / 4.2) stated on every registry row.
+- [x] **New renderers shipped (2026-07-11, second pass)**: **Strategic House** (`/reports/strategic-house` — vision/mission settings + `GET/PATCH /settings/strategy-house` closing WP6.2's deferred fields; pillar columns via the newly-enabled Objective hierarchy, profile v5), **Business Value Chain** (`/reports/value-chain` — chevron ribbon of top-tier capabilities, strategic/supporting bands from `capabilityType`), **Application Modules landscape** (`/reports/application-modules` — hierarchy tree). Registry rows flipped to available; i18n ×10; strategy-house settings covered by API tests.
+- [x] **Interaction Model** and **Applications by Org Unit** stay mapped to the Dependencies and Matrix reports — the acceptance's "rest mapped to existing machinery" case (both are matrix/graph-producible today; dedicated presets only if agencies ask).
 
-**Acceptance**: the View Library answers "which NEA viewpoint is this and where do I produce it" for all ~45, with ≤6 genuinely new renderers built and the rest mapped to existing machinery.
+**Acceptance check**: the View Library answers "which NEA viewpoint is this and where do I produce it" for all ~47, with 3 genuinely new renderers built (+ WP6.3's landscape) and the rest mapped to existing machinery. ✔
 
-### WP6.8 — Practice operating-model pack `☐`
+### WP6.8 — Practice operating-model pack `☑ Done 2026-07-11`
 
 **NORA ref**: Establishing EA Practice Guideline §4.1–4.10 (10 artifacts → one "Operating Model" deliverable).
 
-- [ ] Extend WP3.2's governed-document templates (`doc_type` + `soawTemplate.ts` sections) with the practice artifacts not yet covered: **EA Mandates**, **EA Services (practice service catalogue)**, **EA Organizational Structure**, **EA Governance Model**, **EA Processes**, **EA Interaction Model**, **EA KPIs** (documented; measured KPIs already live as KPI cards), and an umbrella **Operating Model** doc. (EA Strategy exists since WP3.2; SWOT exists.)
-- [ ] **EA Vocabulary (§4.9)**: seed a NORA glossary — the Meta Model + Viewpoints "Table of definitions" sections give the ar/en term list. Cheapest honest home: a `docs/`-style reference page (fork docs) + the definitions as a governed document template. Not a new module.
-- [ ] **Policy building block decision** (from WP6.2/6.6): the دليل السياسات template (code, type internal/external, scope, status, effective date, related capability/services/processes, clauses) is a clean card fit → new profile-delivered `Policy` card type (Business layer) with those fields + pair-safe relations to BusinessCapability / GovService / BusinessProcess. **Model/Template (Form)** rows are lighter — land them as `Document` links on their related service/process cards at import time rather than a card type (documented descope; revisit if agencies ask for a forms register).
-- [ ] Program tracker: the practice-establishment deliverables are *pre-methodology* (you establish the practice, then run cycles) — surface them as a separate "Practice establishment" checklist section on `/nora-program` (10 rows, doc-linked), not as methodology phases.
+**As implemented**:
 
-**Acceptance**: all 10 operating-model artifacts are authorable/governed in-app; policies from the BA template import as first-class governable cards.
+- [x] **Nine new governed-document templates** on the `doc_type`/`soawTemplate.ts` machinery: **EA Mandates**, **EA Services**, **EA Organizational Structure**, **EA Governance Model**, **EA Processes**, **EA Interaction Model**, **EA KPIs** (documented framework; measured values stay KPI cards), **EA Vocabulary** and the umbrella **EA Operating Model** (10 sections mirroring the guideline's artifact set). Backend `doc_type` pattern widened; all templates reachable from the program page's "New NORA document" menu (practice group below a divider). Revision chain / sign-off / DOCX+PDF export inherited for free (WP3.2 machinery). Doc labels + 40 section titles + menu labels translated ×10.
+- [x] **EA Vocabulary (§4.9)** delivered as the `ea_vocabulary` governed-document template (scope & conventions + terms & definitions) — governed, signable, exportable. **Delta**: the additional `docs/`-reference glossary page rides the standing fork docs pass (deferred with it).
+- [x] **Policy card type** — shipped earlier via profile v4 (Business layer, *governs* relations); **Model/Template (Form)** stays a documented descope (Document links at import time).
+- [x] **Practice-establishment checklist** on `/nora-program`: the guideline's 10 artifacts seeded as status-tracked deliverable rows under sentinel stage −1 (`practice_*` keys, `seed_practice_checklist`, idempotent, profile pass 5). Rendered as its own accordion under **both** methodologies, excluded from the methodology summary/progress, with one-click **Create document** chips linking each row to its matching template. Evidence links + stage-gate approval work exactly like methodology deliverables. Tests: seeding idempotency, both-methodology visibility, summary isolation, status patch, doc-type roundtrip + invalid-type rejection.
+
+**Acceptance check**: all 10 operating-model artifacts are authorable/governed in-app; policies import as first-class governable cards. ✔ verified by tests.
 
 ### WP6.9 — NORA 2.0 six-layer model `☑ Done 2026-07-08`
 
@@ -596,7 +615,7 @@ The NEA wants Data Center / Physical Host / Server / Network Device / Storage / 
 
 1. **WP6.2 first** (fields are the substrate everything else lands on), then **WP6.6** (importer — the demo-able wow), **WP6.1** (methodology v2 — visible strategic alignment), then 6.3/6.4/6.5 in any order, 6.7/6.8 last.
 2. Every WP follows the standing gates: WP1.4 Arabic-first rule, profile idempotency + version bump, pair-safe relations, workspace-io coverage, tests, CHANGELOG.fork.md.
-3. **WP5.1 remains the only true blocker** — the kit contains the *model*, not the *taxonomies*. When DGA's BRM/ARM/DRM/TRM code lists arrive, WP5.1's importers slot into the WP6.2 field set unchanged.
+3. **No external blocker remains** *(updated 2026-07-11)* — WP5.1 was re-scoped/closed: the updated framework's reference models are classification guidance (forthcoming documents), not importable code lists, so nothing waits on DGA data. When the six National RM documents publish, WP5.1's residual follow-up is an option-set alignment pass on the profile, not an importer.
 
 ---
 
@@ -625,10 +644,22 @@ Every user-facing surface the plan delivers, in one place — each view lives in
 | 17 | Standards & Waivers dashboard (compliance %, expiring waivers) | Fork-covered by the TechStandard radar + time-boxed exception register; dedicated GRC tab not built | WP4.3 | ☑ (fork-covered) |
 | 18 | Saudi policy-pack findings (NCA ECC / NDMO / PDPL / DGA) | GRC → Compliance scanner (existing UI, seeded regulation packs) | WP4.4 | ☑ |
 | 19 | Integration & interoperability view (external exchanges, protocols, GSB posture) | `/reports/interoperability` (secret-off-GSB flagged) | WP4.5 | ☑ |
-| 20 | Reference-model coverage report (BRM/ARM/DRM/TRM distribution + coverage %) | `/reports/reference-models` | WP1.1 companion | ☑ (BRM/ARM/DRM/TRM shipped; NEA-code alignment tracking still WP5.1 ⊘) |
+| 20 | Reference-model coverage report (BRM/ARM/DRM/TRM distribution + coverage %) | `/reports/reference-models` | WP1.1 companion | ☑ (distribution report shipped; "coverage % vs national codes" dropped with the WP5.1 re-scope — no national code lists exist to measure against) |
 | 21 | EA maturity radar + trend | `/maturity` (radar + trend + scoring) | WP5.2 | ☑ |
 | 22 | NEA alignment / evidence pack export | NORA Program → NEA Evidence Packs (multi-sheet `.xlsx`) | WP5.3 | ☑ |
 | 23 | Plateau/time-slice landscape views + segment scope filter | NORA Program → Plateaus & Segments (time-slice + layer-grouped scope) | WP5.4 | ☑ (in-inventory/report filter + TimelineSlider deferred) |
+| 24 | 7-phase methodology board (per-domain phase-2/4 chips, v1→v2 switch) | `/nora-program` (methodology chip + switch dialog + domain chips + evidence suggestions) | WP6.1 | ☑ |
+| 25 | EA Requirements register (phase 7, continuous) | NORA Program → EA Requirements panel (lifecycle, governance approval, initiative + card links, impact deep-link) | WP6.1 | ☑ |
+| 26 | Technology Landscape (DC containment + network segments, security toggle) | `/reports/technology-landscape` | WP6.3/6.4 | ☑ |
+| 27 | Security components view | Security layer overview → "Security components" section (+ Technology Landscape security toggle) | WP6.4 | ☑ |
+| 28 | Journey-improvement registry columns (journey / phase / feasibility, BX+SEC domains) | GRC → Governance → Opportunities | WP6.5 | ☑ |
+| 29 | NEA viewpoint registry (~47 viewpoints, ar/en, mapped views) | View Library → "NEA viewpoint registry" section | WP6.7 | ☑ |
+| 30 | Practice-establishment checklist + 9 operating-model document templates | `/nora-program` practice accordion + "New NORA document" menu | WP6.8 | ☑ |
+| 31 | Strategic House (vision/mission + pillars + objectives) | `/reports/strategic-house` (admin-editable vision/mission) | WP6.7 | ☑ |
+| 32 | Business Value Chain (chevron ribbon + strategic/supporting bands) | `/reports/value-chain` | WP6.7 | ☑ |
+| 33 | Application Modules landscape (hierarchy tree) | `/reports/application-modules` | WP6.7 | ☑ |
+| 34 | TurboLens finding → Improvement Opportunity promotion | TurboLens → Duplicates / Modernization cards (Promote action) | WP3.3 | ☑ |
+| 35 | Strategy Cascade (Pillars → Objectives → Programs → Initiatives → Projects, unaligned flagged) | `/reports/strategy-cascade` | user request | ☑ |
 
 Blueprint §8 must-have views → coverage: Lifecycle/Stage-Gate dashboard → #8/#9 · Reference-model coverage → #20 · Current architecture overview → #5 (+ existing reports) · Target architecture overview → #5 · Gap-to-roadmap → #7 · Service traceability → #14 · Integration/interoperability → #19 · Standards & waivers → #17 · PRM/benefits → #16 · EA maturity → #21. All ten are now explicitly owned by a WP.
 
@@ -649,16 +680,18 @@ Adopted from the reviewed blueprint, enforced pragmatically (lint/flags, not har
 
 ## Acceptance criteria for "basic NORA alignment" (Definition of Done for Phases 1–3)
 
-- [ ] 1. An agency can switch on the NORA profile and see NORA terminology (ar/en) across the app. *(WP1.1)*
-- [ ] 2. The BA artifact set is capturable: BRM-levelled functions, processes, org chart, service catalogue. *(WP1.1, WP1.2)*
-- [ ] 3. The AA/TA artifact sets are capturable, including technology standards. *(WP1.1, WP1.3)*
-- [ ] 4. Current and target architectures coexist on one landscape with typed changes and successor links. *(WP2.1)*
-- [ ] 5. Every stage deliverable can pass a working-team → Chief Architect → Governance Committee chain with full audit history. *(WP2.2, WP2.3)*
-- [ ] 6. Gaps are explicit and every roadmap initiative is traceable to them. *(WP2.4)*
-- [ ] 7. The 10-stage program is tracked with linked evidence and stage gates. *(WP3.1)*
-- [ ] 8. Stage 1/2/3/9 document deliverables are authorable, versioned, and approvable. *(WP3.2)*
-- [ ] 9. Improvement opportunities from analysis and TurboLens feed the transition plan. *(WP3.3)*
-- [ ] 10. The NORA artifact views/reports are producible and exportable on demand. *(WP3.4)*
+*All ten verified — ticked 2026-07-11 during the Phase 6 close-out (each was satisfied when its WP shipped; the checklist had simply never been reconciled).*
+
+- [x] 1. An agency can switch on the NORA profile and see NORA terminology (ar/en) across the app. *(WP1.1)*
+- [x] 2. The BA artifact set is capturable: BRM-levelled functions, processes, org chart, service catalogue. *(WP1.1, WP1.2)*
+- [x] 3. The AA/TA artifact sets are capturable, including technology standards. *(WP1.1, WP1.3)*
+- [x] 4. Current and target architectures coexist on one landscape with typed changes and successor links. *(WP2.1)*
+- [x] 5. Every stage deliverable can pass a working-team → Chief Architect → Governance Committee chain with full audit history. *(WP2.2, WP2.3)*
+- [x] 6. Gaps are explicit and every roadmap initiative is traceable to them. *(WP2.4)*
+- [x] 7. The 10-stage program is tracked with linked evidence and stage gates — and since WP6.1, the updated 7-phase program likewise. *(WP3.1, WP6.1)*
+- [x] 8. Stage 1/2/3/9 document deliverables are authorable, versioned, and approvable. *(WP3.2)*
+- [x] 9. Improvement opportunities from analysis and TurboLens feed the transition plan. *(WP3.3)*
+- [x] 10. The NORA artifact views/reports are producible and exportable on demand. *(WP3.4)*
 
 Full DRM/PRM/standards depth = Phase 4. National content, maturity, and DGA reporting = Phase 5.
 
@@ -668,6 +701,11 @@ Full DRM/PRM/standards depth = Phase 4. National content, maturity, and DGA repo
 
 | Date | Change |
 |---|---|
+| 2026-07-11 | **Strategy Cascade report** (user-requested): `/reports/strategy-cascade` + `GET /reports/strategy-cascade` render the agency's strategy chain — Pillars ⊃ Objectives (Objective hierarchy + pillar subtype) → Programs ⊃ Initiatives ⊃ Projects (Objective↔Initiative relation resolved by type pair + Initiative hierarchy/subtypes) — with per-level summary tiles and an unaligned-initiatives warning (alignment inherits down the chain). i18n ×10; API test; UI-inventory row 35. No metamodel change needed — the chain was already fully expressible after profile v5. |
+| 2026-07-11 | **Deferred-backlog batch — Phase 6 fully closed (WP6.7 ☑).** Second pass through the recorded deferrals, keeping the deliberate ones (external blockers, inventory-sidebar-cost items, docs pass) and clearing the rest: **three new viewpoint renderers** — Strategic House (`/reports/strategic-house`, with the WP6.2-deferred vision/mission settings via `GET/PATCH /settings/strategy-house` and the Objective hierarchy enabled in profile v5 so pillars parent objectives), Business Value Chain (`/reports/value-chain`, chevron ribbon driven by `capabilityType`), Application Modules landscape (`/reports/application-modules`); registry rows flipped to available, leaving only two matrix-producible viewpoints mapped rather than rendered. **WP3.3's TurboLens promotion actions**: duplicate clusters + modernization assessments → proposed Improvement Opportunities with linked cards. **WP2.3's domain_owner/data_steward** stakeholder roles seeded by profile pass 2b (guarded on type existence). i18n ×10 (~23 keys); tests: profile v5 combined test + strategy-house/promotion API tests (backend 3487 passed, frontend 889 passed); OpenAPI +3 endpoints. |
+| 2026-07-11 | **Phase 6 closed (WP6.7 renderers excepted) — v1.67.0.** One session shipped the five open work packages: **WP6.1** methodology v2 (44-deliverable 7-phase catalogue with per-domain phase-2/4 rows sharing the `ea_program_deliverables` table via key-prefix discrimination, `noraMethodologyVersion` setting — fresh installs v2 / existing programs v1 until the admin switch dialog, history retained both ways — domain chips, evidence deep-link suggestions) + the **EA Requirements register** (`ea_requirements` + card links, migration 139, governance-gated approval, initiative auto-`inCycle`, program-page panel, workspace-io); **WP6.3** Technology Landscape report (DC-containment chains + network segments + security toggle); **WP6.4** profile **v5** (`usageRole` uses/protects on `relAppToITC`, Security-layer "Security components" section, guarded NCA ECC scope extension); **WP6.5** journey-improvement columns (`journey_card_id`/`journey_phase`/`feasibility`, migration 140) + **BX/SEC** domains on the Opportunities registry; **WP6.7** the **NEA viewpoint registry** — all 47 §5.4 viewpoints extracted from the kit PDF into a data module rendered in the View Library (bilingual names, kind/level/status/methodology linkage, deep links; ~37 available / 5 closest-view / 7 descoped) with the ≤6 new renderers deferred; **WP6.8** nine practice document templates (incl. EA Vocabulary + umbrella Operating Model) + the 10-row practice-establishment checklist (sentinel stage −1, both methodologies, Create-document chips). Demo dataset moved to v2 program keys. i18n: ~150 new keys ×10 locales across nav/reports/grc/delivery. Tests: full backend suite 3482 passed (23 new), frontend 889 passed; OpenAPI regenerated (+8 endpoints). DoD checklist reconciled (all ten ticked); UI inventory rows 24–30 added. |
+| 2026-07-11 | **NORA profile v4 — GFSA EA Metamodel v3 alignment.** Reviewed the agency's own metamodel deck (`EA MetaModel v3.pptx`: 7 domains, ~40 building blocks with per-block attribute tables, closely derived from the DGA EA Content Meta Model) and implemented the pragmatic gap-fill: **Persona** and **Policy** card types (+7 pair-safe relation types incl. journey covers→GovService and uses-channel→Channel), **journey Phase/Step subtypes** + "Journey Mapping" section on BeneficiaryJourney (hierarchy-based — supersedes the WP6.5 JSONB/custom-UI idea), the **ITComponent "Technical Specification" section** (WP6.3's field half: network segment, server role, CPU/RAM/storage, OS/hypervisor, DC role/tier, license fields) injected by a new sectioned-fields pass 4f, and **~30 attribute-gap fields** across BusinessCapability / Organization / Provider / BusinessContext / Initiative / BusinessProcess / DataObject / Application / GovService / KPI. Deck attributes with an existing seed/profile home mapped, not duplicated; deck blocks the plan descopes (Position, Role, Activity, Beneficiary, Data Attributes, Network Link, Template) stay descoped per user decision ("pragmatic gap-fill"). All ×10 locales, weight-0, idempotent v3→v4 upgrade. Tests: v4 definition + DB tests added (incl. pass-4f idempotency and admin-customisation preservation); fixed two pre-existing test defects (six-layer test asserted a non-existent `types_created` summary key; Phase-4 subtype test assumed an exact ordered list). WP6.3/6.5/6.8 statuses advanced to ◐. |
+| 2026-07-11 | **WP5.1 re-scoped/closed — Phase 5 complete; no external blocker remains.** Kit re-review (deck 01 slides 12–13 + 59–75, Practice Guideline glossary p. 93) established that the updated framework's "National Reference Models" are **six forthcoming classification-guidance documents** (one per domain, among 16 documents targeted for publication), defined as "a common vocabulary and high-level structure… a blueprint", with category schemes (e.g. the Business RM's five capability categories, the Applications RM's layers = WP6.2's `appLayer`) and explicitly *illustrative* sample trees (عينة توضيحية) — **not FEAF-style national code lists**. The catalogue-importer premise (an old-NORA assumption, also behind WP1.1's `*Code` fields) is therefore superseded: original checklist closed ✕; residual follow-up recorded (option-set alignment pass when the six RM documents publish; revisit sectoral-RM packaging only if DGA ships structured sectoral content). Coverage-%-vs-national-codes reporting dropped (no national denominator); `*Code` fields stay as agency-assigned classification codes. Progress table, Phase 6 sequencing note, and UI-inventory row #20 updated accordingly. |
 | 2026-07-08 | **WP6.6 implemented — DGA template importer** (`nora_xlsx` migration-source adapter): one parser for all six حصر البيانات workbooks (normalized Arabic sheet/header matching, Lookup-label → option-key translation, units/dates/costs coercion), sheet routing onto GovService/BusinessProcess/Application/Interface/DataObject/ITComponent-subtypes, name-based identity (`nora:<Type>:<name>`) with cross-workbook resolution and safe stub entities, relations onto the four existing relation types, service hierarchy from الخدمة الأساسية. Pulled the WP6.3/6.4 **metamodel halves** forward into profile v2 (13 NEA ITComponent subtypes + manufacturer/model/function fields, ×10 locales). 8 parser unit tests + 2 stage→apply DB tests; docs updated in 10 locales; automatic source-picker exposure (registry-driven, no UI change). Deferred: template **exporter** (DGA submission roundtrip), non-card sheets (journey improvements / forms / policies / stakeholders / attribute registries). |
 | 2026-07-07 | **Full review of the DGA awareness kit** (`الحقيبة التوعوية - البنية المؤسسية الوطنية`: 5 training decks on the updated methodology, EA Content Meta Model v1.0, EA Viewpoints v2.0, Establishing EA Practice Guideline v1.0 — all Dec 2024 — plus the six حصر البيانات xlsx templates with column-level specs). Headline findings: the National Framework moved to a **7-phase methodology** (our tracker seeds the old 10 stages) and a **6-domain model** adding **Beneficiary Experience** and **Security** as first-class domains; the General Model defines **37 building blocks** with attributes/connections; ~45 core viewpoints are catalogued; the practice operating model has 10 artifacts. Added the **Source review** section, the 37-block coverage mapping, and **Phase 6 (WP6.1–WP6.8)**: methodology v2 + EA requirements register, Meta-Model field alignment (template-exact option sets), TA granularity subtypes, Security domain, Beneficiary Experience domain (Persona + journey structure), **DGA template importer/exporter** (highest value), viewpoint-library alignment, practice operating-model pack. WP5.1 marked *partially unblocked* — General Model in hand; taxonomy code lists still pending. |
 | 2026-07-02 | Initial plan created from NORA.md backlog, merged with external blueprint review (adopted: stage gates, typed target changes, waivers, framework-profile versioning, NEA mapping status, traceability rules, acceptance criteria). |

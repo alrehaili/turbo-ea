@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Chip from "@mui/material/Chip";
@@ -8,9 +11,19 @@ import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import {
+  NEA_DOMAIN_ORDER,
+  NEA_VIEWPOINTS,
+  type NeaDomain,
+} from "@/features/reports/neaViewpoints";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
@@ -235,6 +248,160 @@ function depthColor(depth: ViewCardDef["depth"]) {
 
 function withAlpha(hex: string, alpha: string) {
   return `${hex}${alpha}`;
+}
+
+const NEA_DOMAIN_ICON: Record<NeaDomain, string> = {
+  strategic: "flag",
+  business: "domain",
+  beneficiaryExperience: "sentiment_satisfied",
+  data: "database",
+  applications: "apps",
+  technology: "memory",
+  security: "shield",
+};
+
+const NEA_STATUS_COLOR: Record<string, "success" | "warning" | "default"> = {
+  available: "success",
+  planned: "warning",
+  descoped: "default",
+};
+
+/**
+ * NEA viewpoint registry (WP6.7): the ~47 core viewpoints of the EA
+ * Viewpoints Document mapped to the Turbo EA view that produces each,
+ * grouped by domain. Names are bilingual data (ar/en from the document).
+ */
+function NeaViewpointRegistry() {
+  const { t, i18n } = useTranslation(["reports"]);
+  const arabicFirst = i18n.language === "ar";
+  const counts = useMemo(() => {
+    const c = { available: 0, planned: 0, descoped: 0 };
+    for (const v of NEA_VIEWPOINTS) c[v.status] += 1;
+    return c;
+  }, []);
+
+  return (
+    <Box sx={{ mt: 4 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5, flexWrap: "wrap" }}>
+        <MaterialSymbol icon="menu_book" size={24} color="#00695c" />
+        <Typography variant="h5" sx={{ fontWeight: 800 }}>
+          {t("viewLibrary.nea.title")}
+        </Typography>
+        <Chip
+          size="small"
+          color="success"
+          variant="outlined"
+          label={`${counts.available} ${t("viewLibrary.nea.status.available")}`}
+        />
+        <Chip
+          size="small"
+          color="warning"
+          variant="outlined"
+          label={`${counts.planned} ${t("viewLibrary.nea.status.planned")}`}
+        />
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`${counts.descoped} ${t("viewLibrary.nea.status.descoped")}`}
+        />
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 900 }}>
+        {t("viewLibrary.nea.subtitle")}
+      </Typography>
+      {NEA_DOMAIN_ORDER.map((domain) => {
+        const rows = NEA_VIEWPOINTS.filter((v) => v.domain === domain);
+        return (
+          <Accordion key={domain} disableGutters defaultExpanded={false}>
+            <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon={NEA_DOMAIN_ICON[domain]} size={18} />
+                <Typography sx={{ fontWeight: 700 }}>
+                  {t(`viewLibrary.nea.domain.${domain}`)}
+                </Typography>
+                <Chip size="small" variant="outlined" label={rows.length} />
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>
+                      {t("viewLibrary.nea.colViewpoint")}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, width: 110 }}>
+                      {t("viewLibrary.nea.colType")}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, width: 130 }}>
+                      {t("viewLibrary.nea.colLevel")}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, width: 170 }}>
+                      {t("viewLibrary.nea.colMethodology")}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, width: 180 }}>
+                      {t("viewLibrary.nea.colView")}
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.map((v) => (
+                    <TableRow key={v.key} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {arabicFirst ? v.nameAr : v.nameEn}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {arabicFirst ? v.nameEn : v.nameAr}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={t(`viewLibrary.nea.kind.${v.kind}`)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={t(`viewLibrary.nea.level.${v.level}`)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">
+                          {t("viewLibrary.nea.methodologyLink")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {v.path && v.status !== "descoped" ? (
+                          <Chip
+                            size="small"
+                            color={NEA_STATUS_COLOR[v.status]}
+                            variant={v.status === "available" ? "filled" : "outlined"}
+                            icon={<MaterialSymbol icon="arrow_forward" size={14} />}
+                            label={t(`viewLibrary.nea.status.${v.status}`)}
+                            component={RouterLink}
+                            to={v.path}
+                            clickable
+                          />
+                        ) : (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={t(`viewLibrary.nea.status.${v.status}`)}
+                          />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionDetails>
+          </Accordion>
+        );
+      })}
+    </Box>
+  );
 }
 
 export default function EaViewLibraryPage() {
@@ -594,6 +761,9 @@ export default function EaViewLibraryPage() {
         </Box>
       )}
 
+      {/* NEA viewpoint registry (WP6.7) — which NEA viewpoint is this and
+          where do I produce it, for all ~47 core viewpoints. */}
+      <NeaViewpointRegistry />
     </Box>
   );
 }

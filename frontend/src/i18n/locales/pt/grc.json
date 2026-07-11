@@ -66,7 +66,15 @@
       "aiFocusHint": "ex. governação de dados, serviços partilhados…",
       "aiGenerate": "Gerar",
       "aiReviewHint": "Reveja os rascunhos da IA e adicione os que quiser — entram como propostos para governação.",
-      "aiAddSelected": "Adicionar {{n}} selecionados"
+      "aiAddSelected": "Adicionar {{n}} selecionados",
+      "journey": "Jornada do beneficiário",
+      "journeyPhase": "Fase da jornada",
+      "feasibility": {
+        "label": "Viabilidade",
+        "high": "Alta",
+        "medium": "Média",
+        "low": "Baixa"
+      }
     }
   },
   "compliance": {

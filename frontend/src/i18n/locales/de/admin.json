@@ -1610,5 +1610,7 @@
   "webPortals.addTile": "Kachel hinzufügen",
   "webPortals.tileLabel": "Bezeichnung",
   "webPortals.tileIcon": "Symbol",
-  "webPortals.tileTarget": "Link (z. B. /reports/portfolio)"
+  "webPortals.tileTarget": "Link (z. B. /reports/portfolio)",
+  "turbolens_action_promote": "Zu Verbesserungschance machen",
+  "turbolens_promoted": "Übernommen"
 }
