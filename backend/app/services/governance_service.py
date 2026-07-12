@@ -11,6 +11,11 @@ Configuration lives in ``app_settings.general_settings``:
   "ea_governance_committee"]) — ordered role keys; one ApprovalStep per entry.
 * ``governanceSodEnabled`` (bool, default True) — segregation of duties: the
   submitter of a review round cannot approve any of its steps.
+* ``requireRejectionComment`` (bool, default False) — when True, rejecting
+  cards requires a non-empty comment field (422 if missing).
+* ``typeGovernanceChains`` (dict[str, list[str]], default {}) — optional
+  per-type approval chains. Key is card type key, value is ordered role list.
+  If a type has no entry, falls back to the global governanceChain.
 """
 
 from __future__ import annotations
@@ -39,7 +44,26 @@ async def get_governance_config(db: AsyncSession) -> dict:
         "enabled": bool(general.get("governanceMode", False)),
         "chain": chain,
         "sod_enabled": bool(general.get("governanceSodEnabled", True)),
+        "require_rejection_comment": bool(general.get("requireRejectionComment", False)),
+        "promotion_requires_approval": bool(general.get("promotionRequiresApproval", False)),
+        "type_chains": general.get("typeGovernanceChains") or {},
     }
+
+
+async def get_governance_chain(db: AsyncSession, card_type: str) -> list[str]:
+    """Resolve the approval chain for a specific card type.
+
+    Returns the type-specific chain if defined, otherwise the global default.
+    """
+    config = await get_governance_config(db)
+    type_chains = config["type_chains"]
+    if card_type in type_chains:
+        chain = type_chains[card_type]
+        # Defensive: validate the type-specific chain
+        chain = [str(r) for r in chain if r]
+        if chain:
+            return chain
+    return config["chain"]
 
 
 async def get_steps(db: AsyncSession, card_id: uuid.UUID) -> list[ApprovalStep]:
@@ -109,11 +133,15 @@ async def notify_role_members(
     card_name: str,
     actor_display_name: str,
 ) -> None:
-    """In-app notification to every active user holding the chain role."""
+    """In-app + email notifications to every active user holding the chain role.
+
+    Respects notification_preferences.email.approval_step_pending per user.
+    """
     from app.services.notification_service import create_notification
 
     result = await db.execute(select(User).where(User.role == role_key, User.is_active.is_(True)))
     for member in result.scalars().all():
+        # In-app notification (always sent)
         await create_notification(
             db,
             user_id=member.id,
@@ -123,3 +151,16 @@ async def notify_role_members(
             link=f"/cards/{card_id}",
             data={"card_id": str(card_id)},
         )
+
+        # Email notification (if user opted in)
+        prefs = member.notification_preferences or {}
+        email_prefs = prefs.get("email", {})
+        if email_prefs.get("approval_step_pending", False):
+            from app.services.email_service import send_notification_email
+
+            await send_notification_email(
+                to=member.email,
+                title="Review Needed: " + card_name,
+                message=f'{actor_display_name} requests your review of "{card_name}".',
+                link=f"/cards/{card_id}",
+            )

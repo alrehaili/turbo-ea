@@ -15,6 +15,7 @@
   "preferences.cardUpdated": "Scheda aggiornata",
   "preferences.commentAdded": "Commento aggiunto",
   "preferences.approvalStatusChanged": "Stato di approvazione modificato",
+  "preferences.approvalStepPending": "Passaggio di approvazione in sospeso",
   "preferences.soawSignRequested": "Firma SoAW richiesta",
   "preferences.soawSigned": "SoAW firmato",
   "preferences.surveyRequest": "Richiesta di sondaggio"

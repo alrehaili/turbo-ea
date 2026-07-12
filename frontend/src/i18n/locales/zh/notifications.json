@@ -15,6 +15,7 @@
   "preferences.cardUpdated": "卡片已更新",
   "preferences.commentAdded": "新增评论",
   "preferences.approvalStatusChanged": "审批状态已变更",
+  "preferences.approvalStepPending": "待审批步骤",
   "preferences.soawSignRequested": "SoAW 签署请求",
   "preferences.soawSigned": "SoAW 已签署",
   "preferences.surveyRequest": "调查请求"

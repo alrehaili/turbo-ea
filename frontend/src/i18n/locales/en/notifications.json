@@ -16,6 +16,7 @@
   "preferences.cardUpdated": "Card Updated",
   "preferences.commentAdded": "Comment Added",
   "preferences.approvalStatusChanged": "Approval Status Changed",
+  "preferences.approvalStepPending": "Approval Step Pending",
   "preferences.soawSignRequested": "SoAW Signature Requested",
   "preferences.soawSigned": "SoAW Signed",
   "preferences.surveyRequest": "Survey Request"

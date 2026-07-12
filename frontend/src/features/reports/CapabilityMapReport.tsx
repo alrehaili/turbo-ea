@@ -16,6 +16,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import ArchitectureStateFilter from "@/components/ArchitectureStateFilter";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
@@ -635,6 +636,7 @@ export default function CapabilityMapReport() {
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
   const [drawer, setDrawer] = useState<CapNode | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
+  const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
 
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
@@ -903,6 +905,11 @@ export default function CapabilityMapReport() {
       printParams={printParams}
       toolbar={
         <>
+          <ArchitectureStateFilter
+            onStateChange={setArchitectureStates}
+            storageKey="capability_map_states"
+          />
+
           {/* Row 1: Main controls */}
           <TextField
             select

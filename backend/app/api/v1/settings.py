@@ -401,6 +401,9 @@ class GovernancePayload(BaseModel):
     enabled: bool | None = None
     chain: list[str] | None = Field(default=None, max_length=10)
     sod_enabled: bool | None = None
+    require_rejection_comment: bool | None = None
+    promotion_requires_approval: bool | None = None
+    type_chains: dict[str, list[str]] | None = Field(default=None, max_length=100)
 
 
 @router.get("/governance")
@@ -430,6 +433,18 @@ async def update_governance_settings(
         general["governanceChain"] = chain
     if body.sod_enabled is not None:
         general["governanceSodEnabled"] = body.sod_enabled
+    if body.require_rejection_comment is not None:
+        general["requireRejectionComment"] = body.require_rejection_comment
+    if body.promotion_requires_approval is not None:
+        general["promotionRequiresApproval"] = body.promotion_requires_approval
+    if body.type_chains is not None:
+        # Validate and clean type chains
+        clean_chains = {}
+        for type_key, chain_list in body.type_chains.items():
+            clean_chain = [r.strip() for r in chain_list if r and r.strip()]
+            if clean_chain:
+                clean_chains[type_key] = clean_chain
+        general["typeGovernanceChains"] = clean_chains
     row.general_settings = general
     await db.commit()
 

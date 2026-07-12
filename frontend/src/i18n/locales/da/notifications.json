@@ -15,6 +15,7 @@
   "preferences.cardUpdated": "Kort opdateret",
   "preferences.commentAdded": "Kommentar tilføjet",
   "preferences.approvalStatusChanged": "Godkendelsesstatus ændret",
+  "preferences.approvalStepPending": "Godkendelsestrin afventer",
   "preferences.soawSignRequested": "Anmodning om SoAW-underskrift",
   "preferences.soawSigned": "SoAW underskrevet",
   "preferences.surveyRequest": "Anmodning om undersøgelse"

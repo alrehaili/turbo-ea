@@ -9,6 +9,10 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import Fab from "@mui/material/Fab";
 import Fade from "@mui/material/Fade";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -123,6 +127,12 @@ export default function CardDetail() {
     missing_tag_groups: { id: string; name: string }[];
   } | null>(null);
 
+  // Rejection dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectComment, setRejectComment] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
+  const [requireRejectionComment, setRequireRejectionComment] = useState(false);
+
   const [showScrollTop, setShowScrollTop] = useState(false);
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
@@ -157,6 +167,20 @@ export default function CardDetail() {
       })
       .catch(() => {}); // PPM not enabled or no permission — keep defaults
   }, [card?.id, card?.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch governance config for rejection comment validation
+  useEffect(() => {
+    const fetchGovernanceConfig = async () => {
+      try {
+        const response = await api.get("/settings/bootstrap");
+        const config = response.general_settings || {};
+        setRequireRejectionComment(config.requireRejectionComment ?? false);
+      } catch (e) {
+        console.error("Failed to load governance config:", e);
+      }
+    };
+    fetchGovernanceConfig();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -285,14 +309,30 @@ export default function CardDetail() {
     }
   };
 
-  const handleApprovalAction = async (action: ApprovalAction) => {
+  const handleApprovalAction = (action: ApprovalAction) => {
+    if (action === "reject") {
+      setRejectDialogOpen(true);
+      setRejectComment("");
+      return;
+    }
+    performApprovalAction(action, undefined);
+  };
+
+  const performApprovalAction = async (action: ApprovalAction, comment?: string) => {
     try {
+      setRejectLoading(true);
+      const params = new URLSearchParams({ action });
+      if (comment !== undefined) {
+        params.append("comment", comment);
+      }
       const res = await api.post<{ approval_status: string }>(
-        `/cards/${card.id}/approval-status?action=${action}`,
+        `/cards/${card.id}/approval-status?${params}`,
       );
       setCard({ ...card, approval_status: res.approval_status });
       setStepsRefreshKey((k) => k + 1);
       setApprovalBlock(null);
+      setRejectDialogOpen(false);
+      setRejectComment("");
     } catch (err) {
       if (
         err instanceof ApiError &&
@@ -312,6 +352,8 @@ export default function CardDetail() {
         return;
       }
       throw err;
+    } finally {
+      setRejectLoading(false);
     }
   };
 
@@ -788,6 +830,43 @@ export default function CardDetail() {
         onClose={() => setRestoreDialogOpen(false)}
         onConfirmed={handleRestoreConfirmed}
       />
+
+      {/* ── Rejection comment dialog ── */}
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t("common:actions.reject")}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label={t("inventory:bulkApproval.rejectComment")}
+              value={rejectComment}
+              onChange={(e) => setRejectComment(e.target.value)}
+              placeholder={t("inventory:bulkApproval.commentPlaceholder")}
+              required={requireRejectionComment}
+              error={requireRejectionComment && !rejectComment.trim()}
+              helperText={requireRejectionComment && !rejectComment.trim() ? t("common:validation.required") : undefined}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)} disabled={rejectLoading}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            onClick={() => {
+              setRejectDialogOpen(false);
+              performApprovalAction("reject", rejectComment || undefined);
+            }}
+            variant="contained"
+            color="error"
+            disabled={rejectLoading || (requireRejectionComment && !rejectComment.trim())}
+          >
+            {rejectLoading ? t("common:actions.processing") : t("common:actions.confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!snack}

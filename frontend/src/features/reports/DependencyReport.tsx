@@ -21,6 +21,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import ArchitectureStateFilter from "@/components/ArchitectureStateFilter";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { resolveRevealIds } from "./layeredDependencyLayout";
 import { useTheme } from "@mui/material/styles";
@@ -371,6 +372,7 @@ export default function DependencyReport() {
   // chartMode value "c4" is a stable identifier persisted in saved reports —
   // do not rename. The view it selects is the Layered Dependency View (LDV).
   const [chartMode, setChartMode] = useState<"tree" | "c4">("c4");
+  const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredConn, setHoveredConn] = useState<{
@@ -472,26 +474,42 @@ export default function DependencyReport() {
       });
   }, [cardTypeKey, chartMode]);
 
+  // Filter nodes and edges by architecture_state
+  const { filteredNodes, filteredEdges } = useMemo(() => {
+    const validNodeIds = new Set(
+      nodes
+        .filter((n) => {
+          const state = n.attributes?.architecture_state as string | undefined;
+          return !state || architectureStates.includes(state);
+        })
+        .map((n) => n.id)
+    );
+    return {
+      filteredNodes: nodes.filter((n) => validNodeIds.has(n.id)),
+      filteredEdges: edges.filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target)),
+    };
+  }, [nodes, edges, architectureStates]);
+
   // Adjacency map
   const adjMap = useMemo(() => {
     const m = new Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>();
-    for (const e of edges) {
+    for (const e of filteredEdges) {
       if (!m.has(e.source)) m.set(e.source, []);
       m.get(e.source)!.push({ nodeId: e.target, relType: e.type, relLabel: e.label || e.type, relDescription: e.description });
       if (!m.has(e.target)) m.set(e.target, []);
       m.get(e.target)!.push({ nodeId: e.source, relType: e.type, relLabel: e.reverse_label || e.label || e.type, relDescription: e.description });
     }
     return m;
-  }, [edges]);
+  }, [filteredEdges]);
 
-  const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const nodeMap = useMemo(() => new Map(filteredNodes.map((n) => [n.id, n])), [filteredNodes]);
 
   // Connection counts
   const connCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const n of nodes) m.set(n.id, (adjMap.get(n.id) || []).length);
+    for (const n of filteredNodes) m.set(n.id, (adjMap.get(n.id) || []).length);
     return m;
-  }, [nodes, adjMap]);
+  }, [filteredNodes, adjMap]);
 
   // LDV mode: BFS from center to get dependency neighborhood (all types)
   // Also include depth-1 neighbors of any nodes that have been "expanded"
@@ -721,6 +739,11 @@ export default function DependencyReport() {
       printParams={printParams}
       toolbar={
         <>
+          <ArchitectureStateFilter
+            onStateChange={setArchitectureStates}
+            storageKey="dependency_report_states"
+          />
+
           <TextField
             select
             size="small"

@@ -212,6 +212,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // card-type colors (BusinessCapability navy, DataObject purple, etc.)
   // readable against the dark-theme paper.
   const accent = readableTypeColor(color, isDark);
+  const isTarget = (data.architecture_state as string | undefined) === "target";
 
   // Light tint for background
   const r = parseInt(color.slice(1, 3), 16);
@@ -349,8 +350,9 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
-        border: data.proposed ? `2px dashed ${accent}` : `1.5px solid ${accent}`,
-        bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
+        border: data.proposed || isTarget ? `2px dashed ${accent}` : `1.5px solid ${accent}`,
+        bgcolor: data.proposed || isTarget ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
+        opacity: isTarget ? 0.85 : 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -451,6 +453,18 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
           {t("dependency.proposedBadge")}
+        </Box>
+      )}
+      {/* Target "TARGET" badge */}
+      {isTarget && !data.proposed && (
+        <Box sx={{
+          position: "absolute", top: -8, left: 8,
+          bgcolor: "#4caf50", color: "#fff",
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          px: 0.7, py: 0.25, borderRadius: "4px",
+          textTransform: "uppercase", letterSpacing: 0.5,
+        }}>
+          {t("dependency.targetBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}

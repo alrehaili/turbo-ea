@@ -91,3 +91,14 @@ archive/
 
 #Local Claude
 .claude/
+
+# Test results
+backend/full_suite_result.txt
+backend/*_result.txt
+
+# Experimental / MVP directories
+ea-ui-mvp/
+
+# Accidental workspace directories
+*الحقيبة*/
+*الحقيبة*

@@ -315,3 +315,399 @@ class TestGapAnalysisReport:
         assert replace_row["initiatives"][0]["transition_role"] == "introduces"
         # The brand-new card has no initiative → untraceable.
         assert [r["name"] for r in data["untraceable"]] == ["Brand New Service"]
+
+
+class TestPerTypeApprovalChains:
+    """Tests for per-type approval chain resolution (Phase A.3)."""
+
+    async def test_type_specific_chain_overrides_global(self, client, db, gov_env):
+        """When a type has a custom chain, it should be used instead of the global chain."""
+        await create_card_type(db, key="Initiative", label="Initiative")
+        await db.flush()
+
+        # Enable governance with global chain
+        await _enable_governance(
+            db,
+            chain=["chief_architect", "ea_governance_committee"],
+        )
+
+        # Set a type-specific chain for Initiative
+        settings = AppSettings(
+            id="default",
+            email_settings={},
+            general_settings={
+                "governanceMode": True,
+                "governanceChain": ["chief_architect", "ea_governance_committee"],
+                "governanceSodEnabled": True,
+                "typeGovernanceChains": {
+                    "Initiative": ["ea_governance_committee"]  # Shorter chain for initiatives
+                },
+            },
+        )
+        db.merge(settings)
+        await db.flush()
+
+        member = gov_env["member"]
+        initiative = await create_card(db, card_type="Initiative", name="Test Initiative", user_id=member.id)
+        await db.flush()
+
+        # Submit for review
+        resp = await client.post(
+            f"/api/v1/cards/{initiative.id}/approval-status?action=submit",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+
+        # Fetch approval steps — should have only 1 step (ea_governance_committee)
+        steps_resp = await client.get(
+            f"/api/v1/cards/{initiative.id}/approval-steps",
+            headers=auth_headers(member),
+        )
+        steps = steps_resp.json()["steps"]
+        assert len(steps) == 1
+        assert steps[0]["required_role_key"] == "ea_governance_committee"
+
+    async def test_default_chain_used_when_type_not_customized(self, client, db, gov_env):
+        """When a type has no custom chain, the global chain should be used."""
+        await db.execute(
+            "UPDATE app_settings SET general_settings = jsonb_set(general_settings, '{typeGovernanceChains}', '{}'::jsonb) WHERE id = 'default'"
+        )
+        await _enable_governance(
+            db,
+            chain=["chief_architect", "ea_governance_committee"],
+        )
+
+        member = gov_env["member"]
+        card = gov_env["card"]  # Application type with no custom chain
+        await db.flush()
+
+        # Submit for review
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=submit",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+
+        # Fetch approval steps — should use global chain
+        steps_resp = await client.get(
+            f"/api/v1/cards/{card.id}/approval-steps",
+            headers=auth_headers(member),
+        )
+        steps = steps_resp.json()["steps"]
+        assert len(steps) == 2
+        assert steps[0]["required_role_key"] == "chief_architect"
+        assert steps[1]["required_role_key"] == "ea_governance_committee"
+
+    async def test_type_specific_chain_endpoint_validation(self, client, db, gov_env):
+        """Endpoint should accept and persist per-type chains."""
+        member = gov_env["member"]
+        member.role = "admin"
+        await db.flush()
+
+        # Update governance settings with a per-type chain
+        resp = await client.patch(
+            "/api/v1/settings/governance",
+            json={
+                "governance_mode": True,
+                "chain": ["chief_architect"],
+                "sod_enabled": False,
+                "type_chains": {
+                    "Application": ["ea_governance_committee"],
+                },
+            },
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["type_chains"]["Application"] == ["ea_governance_committee"]
+
+        # Verify settings persisted
+        get_resp = await client.get("/api/v1/settings/governance", headers=auth_headers(member))
+        assert get_resp.json()["type_chains"]["Application"] == ["ea_governance_committee"]
+
+    async def test_empty_type_chain_ignored(self, client, db, gov_env):
+        """A type chain with empty roles should fall back to global chain."""
+        await _enable_governance(
+            db,
+            chain=["chief_architect", "ea_governance_committee"],
+        )
+
+        # Set type-specific chain that's empty
+        settings = AppSettings(
+            id="default",
+            email_settings={},
+            general_settings={
+                "governanceMode": True,
+                "governanceChain": ["chief_architect", "ea_governance_committee"],
+                "governanceSodEnabled": True,
+                "typeGovernanceChains": {
+                    "Application": []  # Empty chain — should fall back to global
+                },
+            },
+        )
+        db.merge(settings)
+        await db.flush()
+
+        member = gov_env["member"]
+        card = gov_env["card"]
+
+        # Submit for review
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=submit",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+
+        # Fetch approval steps — should use global chain (fallback)
+        steps_resp = await client.get(
+            f"/api/v1/cards/{card.id}/approval-steps",
+            headers=auth_headers(member),
+        )
+        steps = steps_resp.json()["steps"]
+        assert len(steps) == 2
+        assert steps[0]["required_role_key"] == "chief_architect"
+        assert steps[1]["required_role_key"] == "ea_governance_committee"
+
+
+class TestApprovalEmailNotifications:
+    """Tests for email notifications on approval step pending (Phase A.4)."""
+
+    async def test_email_sent_when_user_opted_in(self, client, db, gov_env, monkeypatch):
+        """Email notification should be sent if user has approval_step_pending enabled."""
+        await _enable_governance(db)
+
+        # Enable approval step pending email for chief
+        chief = gov_env["chief"]
+        chief.notification_preferences = {
+            "in_app": {"approval_step_pending": True},
+            "email": {"approval_step_pending": True},  # Opted in
+        }
+        await db.flush()
+
+        # Mock send_notification_email to track if it was called
+        email_calls = []
+
+        async def mock_send_email(to: str, title: str, message: str, link: str | None = None):
+            email_calls.append({"to": to, "title": title, "message": message, "link": link})
+            return True
+
+        monkeypatch.setattr(
+            "app.services.governance_service.send_notification_email",
+            mock_send_email,
+        )
+
+        member = gov_env["member"]
+        card = gov_env["card"]
+
+        # Submit for review — this triggers notify_role_members for chief_architect role
+        await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=submit",
+            headers=auth_headers(member),
+        )
+
+        # Verify email was sent to chief
+        assert len(email_calls) == 1
+        assert email_calls[0]["to"] == chief.email
+        assert "Review Needed" in email_calls[0]["title"]
+        assert card.name in email_calls[0]["message"]
+        assert f"/cards/{card.id}" in email_calls[0]["link"]
+
+    async def test_email_not_sent_when_user_opted_out(self, client, db, gov_env, monkeypatch):
+        """Email notification should not be sent if user has approval_step_pending disabled."""
+        await _enable_governance(db)
+
+        # Disable approval step pending email for chief
+        chief = gov_env["chief"]
+        chief.notification_preferences = {
+            "in_app": {"approval_step_pending": True},
+            "email": {"approval_step_pending": False},  # Opted out
+        }
+        await db.flush()
+
+        # Mock send_notification_email to track if it was called
+        email_calls = []
+
+        async def mock_send_email(to: str, title: str, message: str, link: str | None = None):
+            email_calls.append({"to": to, "title": title, "message": message, "link": link})
+            return True
+
+        monkeypatch.setattr(
+            "app.services.governance_service.send_notification_email",
+            mock_send_email,
+        )
+
+        member = gov_env["member"]
+        card = gov_env["card"]
+
+        # Submit for review
+        await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=submit",
+            headers=auth_headers(member),
+        )
+
+        # Verify no email was sent
+        assert len(email_calls) == 0
+
+    async def test_in_app_notification_always_sent(self, client, db, gov_env):
+        """In-app notifications should always be sent regardless of email preference."""
+        await _enable_governance(db)
+
+        # Disable approval step pending email
+        chief = gov_env["chief"]
+        chief.notification_preferences = {
+            "in_app": {"approval_step_pending": True},
+            "email": {"approval_step_pending": False},  # Email disabled
+        }
+        await db.flush()
+
+        member = gov_env["member"]
+        card = gov_env["card"]
+
+        # Submit for review
+        await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=submit",
+            headers=auth_headers(member),
+        )
+
+        # Fetch notifications for chief — in-app notification should exist
+        notif_resp = await client.get(
+            "/api/v1/notifications", headers=auth_headers(chief)
+        )
+        assert notif_resp.status_code == 200
+        notifications = notif_resp.json()
+        assert any(n["notif_type"] == "approval_step_pending" for n in notifications)
+
+
+class TestTargetPromotionGovernance:
+    """Tests for coupled target promotion to governance approval (Phase A.5)."""
+
+    async def test_promote_target_requires_approval_when_enabled(self, client, db, gov_env):
+        """When promotion_requires_approval is ON, target promotion enters approval workflow."""
+        # Enable governance with promotion approval required
+        await _enable_governance(db)
+        settings = AppSettings(
+            id="default",
+            email_settings={},
+            general_settings={
+                "governanceMode": True,
+                "governanceChain": ["chief_architect", "ea_governance_committee"],
+                "governanceSodEnabled": True,
+                "promotionRequiresApproval": True,
+            },
+        )
+        db.merge(settings)
+        await db.flush()
+
+        member = gov_env["member"]
+        # Create a target card
+        target = await create_card(
+            db,
+            card_type="Application",
+            name="Future App",
+            user_id=member.id,
+            architecture_state="target",
+        )
+        await db.flush()
+
+        # Promote the target card
+        resp = await client.post(
+            f"/api/v1/cards/{target.id}/promote-target",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # Should be in transition state and under review
+        assert body["architecture_state"] == "transition"
+        assert body["approval_status"] == "IN_REVIEW"
+
+        # Verify approval steps were created
+        steps_resp = await client.get(
+            f"/api/v1/cards/{target.id}/approval-steps",
+            headers=auth_headers(member),
+        )
+        steps = steps_resp.json()["steps"]
+        assert len(steps) == 2
+        assert steps[0]["required_role_key"] == "chief_architect"
+
+    async def test_promote_target_immediate_when_disabled(self, client, db, gov_env):
+        """When promotion_requires_approval is OFF, target promotion is immediate."""
+        # Enable governance but disable promotion approval
+        await _enable_governance(db)
+        settings = AppSettings(
+            id="default",
+            email_settings={},
+            general_settings={
+                "governanceMode": True,
+                "governanceChain": ["chief_architect", "ea_governance_committee"],
+                "governanceSodEnabled": True,
+                "promotionRequiresApproval": False,  # Disabled
+            },
+        )
+        db.merge(settings)
+        await db.flush()
+
+        member = gov_env["member"]
+        # Create a target card
+        target = await create_card(
+            db,
+            card_type="Application",
+            name="Future App",
+            user_id=member.id,
+            architecture_state="target",
+        )
+        await db.flush()
+
+        # Promote the target card
+        resp = await client.post(
+            f"/api/v1/cards/{target.id}/promote-target",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # Should be immediately promoted to current
+        assert body["architecture_state"] == "current"
+        assert body["approval_status"] == "APPROVED"
+
+        # Verify no approval steps were created
+        steps_resp = await client.get(
+            f"/api/v1/cards/{target.id}/approval-steps",
+            headers=auth_headers(member),
+        )
+        steps = steps_resp.json()["steps"]
+        assert len(steps) == 0
+
+    async def test_promote_non_target_card_fails(self, client, db, gov_env):
+        """Cannot promote a card that is not in target state."""
+        member = gov_env["member"]
+        # Use the existing current-state card
+        card = gov_env["card"]
+
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/promote-target",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 400
+        assert "target" in resp.json()["detail"]
+
+    async def test_promote_target_governance_mode_off(self, client, db, gov_env):
+        """When governance is OFF, promotion is always immediate."""
+        # Governance off
+        member = gov_env["member"]
+        target = await create_card(
+            db,
+            card_type="Application",
+            name="Future App",
+            user_id=member.id,
+            architecture_state="target",
+        )
+        await db.flush()
+
+        resp = await client.post(
+            f"/api/v1/cards/{target.id}/promote-target",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # Governance off → immediate promotion
+        assert body["architecture_state"] == "current"
+        assert body["approval_status"] == "APPROVED"

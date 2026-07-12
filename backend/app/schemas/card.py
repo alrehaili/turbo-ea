@@ -330,6 +330,26 @@ class RestoreImpactResponse(BaseModel):
     passengers: list[RestoreImpactPassenger]
 
 
+class CardApprovalActionResult(BaseModel):
+    card_id: str
+    status: Literal["success", "error"]
+    approval_status: str | None = None
+    error: str | None = None
+
+
+class CardBulkApprovalActionRequest(BaseModel):
+    card_ids: list[str] = Field(..., min_length=1, max_length=10000)
+    action: Literal["submit", "approve", "reject", "reset"]
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class CardBulkApprovalActionResponse(BaseModel):
+    requested: int
+    results: list[CardApprovalActionResult]
+    succeeded: int
+    failed: int
+
+
 class CardRestoreRequest(BaseModel):
     also_restore_card_ids: list[str] = Field(default_factory=list, max_length=200)
 
