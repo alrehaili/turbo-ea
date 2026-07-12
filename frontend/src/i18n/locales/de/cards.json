@@ -11,6 +11,7 @@
   "changeType.retire": "Ablösen",
   "changeType.consolidate": "Konsolidieren",
   "detail.title": "Kartendetail",
+  "detail.viewStrategyCascade": "Strategiekaskade",
   "detail.backToTop": "Nach oben",
   "detail.archivedBanner": "Diese Karte ist archiviert.",
   "detail.purgeWarning_one": "Sie wird in {{count}} Tag endgültig gelöscht.",

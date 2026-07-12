@@ -993,6 +993,7 @@
   "strategyCascade.unalignedSection": "无战略对齐的举措",
   "strategyCascade.unalignedWarning": "{{n}} 项举措无法追溯到任何战略目标——请将其（或其上级计划）关联到目标。",
   "strategyCascade.empty": "尚未建模战略——请创建「战略支柱」卡片，通过「支撑」关系关联目标，并以同样方式将计划关联到目标。",
+  "strategyCascade.addPillar": "添加支柱",
   "strategyCascade.level.program": "计划",
   "strategyCascade.level.project": "项目",
   "strategyCascade.level.epic": "史诗",

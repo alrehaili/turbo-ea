@@ -130,6 +130,12 @@ interface DashboardData {
     critical: number;
     high: number;
   };
+  // Optional so a backend that predates WP100.1 keeps the page usable.
+  strategy?: {
+    pillars: number;
+    objectives: number;
+    unpillared: number;
+  };
 }
 
 const STATUSES = ["notStarted", "inProgress", "inReview", "approved", "descoped"] as const;
@@ -395,6 +401,7 @@ export default function NoraProgramPage() {
     waivers: { active: 0, pending: 0, expiringSoon: 0, expired: 0 },
     opportunities: { proposed: 0, approved: 0, inTransition: 0, realized: 0 },
     compliance: { open: 0, critical: 0, high: 0 },
+    strategy: { pillars: 0, objectives: 0, unpillared: 0 },
   };
 
   return (
@@ -734,6 +741,29 @@ export default function NoraProgramPage() {
                 }
                 alert={dash.compliance.critical > 0}
                 onClick={() => handleTileClick("/grc?tab=compliance")}
+              />
+            </Grid>
+            {/* WP100.1 — strategy cascade tile (pillars / objectives / unaligned) */}
+            <Grid item xs={12} sm={6} md={3}>
+              <DashboardTile
+                icon="foundation"
+                iconColor="#7b1fa2"
+                label={t("noraProgram.tileStrategy")}
+                value={dash.strategy?.pillars ?? 0}
+                detail={
+                  <>
+                    {dash.strategy?.objectives ?? 0} {t("noraProgram.dashObjectives")}
+                    {(dash.strategy?.unpillared ?? 0) > 0 && (
+                      <>
+                        {" · "}
+                        <Box component="span" sx={{ color: "#f57c00", fontWeight: 600 }}>
+                          {dash.strategy?.unpillared} {t("noraProgram.dashUnpillared")}
+                        </Box>
+                      </>
+                    )}
+                  </>
+                }
+                onClick={() => handleTileClick("/reports/strategy-cascade")}
               />
             </Grid>
           </Grid>

@@ -11,6 +11,7 @@
   "changeType.retire": "Вывод",
   "changeType.consolidate": "Консолидация",
   "detail.title": "Карточка",
+  "detail.viewStrategyCascade": "Стратегический каскад",
   "detail.backToTop": "Наверх",
   "detail.archivedBanner": "Эта карточка архивирована.",
   "detail.purgeWarning_one": "Она будет безвозвратно удалена через {{count}} день.",

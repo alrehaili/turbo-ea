@@ -377,6 +377,51 @@ async def get_dashboard(
 
     compliance = await _safe("compliance", _compliance()) or {}
 
+    # --- Strategy cascade (WP100.1): pillars / objectives / unpillared ------
+    async def _strategy():
+        pillar_ids = set(
+            (
+                await db.execute(
+                    select(Card.id).where(Card.type == "Pillar", Card.status != "ARCHIVED")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        objective_ids = set(
+            (
+                await db.execute(
+                    select(Card.id).where(Card.type == "Objective", Card.status != "ARCHIVED")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        linked: set[uuid.UUID] = set()
+        if pillar_ids and objective_ids:
+            rel_rows = await db.execute(
+                select(Relation.source_id, Relation.target_id).where(
+                    Relation.source_id.in_(pillar_ids | objective_ids),
+                    Relation.target_id.in_(pillar_ids | objective_ids),
+                )
+            )
+            for source_id, target_id in rel_rows.all():
+                if source_id in objective_ids and target_id in pillar_ids:
+                    linked.add(source_id)
+                elif target_id in objective_ids and source_id in pillar_ids:
+                    linked.add(target_id)
+        return {
+            "pillars": len(pillar_ids),
+            "objectives": len(objective_ids),
+            "unpillared": len(objective_ids - linked),
+        }
+
+    strategy = await _safe("strategy", _strategy()) or {
+        "pillars": 0,
+        "objectives": 0,
+        "unpillared": 0,
+    }
+
     return {
         "approvals": {
             "total": total_cards,
@@ -408,6 +453,7 @@ async def get_dashboard(
             "critical": compliance.get("critical", 0),
             "high": compliance.get("high", 0),
         },
+        "strategy": strategy,
     }
 
 

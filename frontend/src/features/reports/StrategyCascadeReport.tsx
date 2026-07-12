@@ -13,14 +13,19 @@ import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import CreateCardDialog from "@/components/CreateCardDialog";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { hasPermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
+import type { Card } from "@/types";
 
 interface InitiativeNode {
   id: string;
@@ -65,8 +70,11 @@ const SUBTYPE_STYLE: Record<string, { icon: string; color: string }> = {
 
 export default function StrategyCascadeReport() {
   const { t } = useTranslation(["reports"]);
+  const { user } = useAuthContext();
+  const canCreate = hasPermission(user?.permissions, "inventory.create");
   const [data, setData] = useState<CascadeData | null>(null);
   const [error, setError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -190,7 +198,23 @@ export default function StrategyCascadeReport() {
       )}
 
       {data.pillars.length === 0 && data.unpillared_objectives.length === 0 ? (
-        <Alert severity="info">{t("strategyCascade.empty")}</Alert>
+        <Alert
+          severity="info"
+          action={
+            canCreate ? (
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => setCreateOpen(true)}
+              >
+                {t("strategyCascade.addPillar")}
+              </Button>
+            ) : undefined
+          }
+        >
+          {t("strategyCascade.empty")}
+        </Alert>
       ) : (
         <>
           {data.pillars.map((p) => (
@@ -267,6 +291,20 @@ export default function StrategyCascadeReport() {
             {data.unaligned_initiatives.map((n) => renderInitiative(n, 0))}
           </Box>
         </Paper>
+      )}
+
+      {/* WP100.1: empty-state "Add pillar" — pre-set to the Pillar type.
+          CreateCardDialog navigates to the new card on success. */}
+      {canCreate && (
+        <CreateCardDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreate={async (d) => {
+            const card = await api.post<Card>("/cards", d);
+            return card.id;
+          }}
+          initialType="Pillar"
+        />
       )}
     </Box>
   );

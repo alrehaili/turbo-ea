@@ -11,6 +11,7 @@
   "changeType.retire": "Udfas",
   "changeType.consolidate": "Konsolider",
   "detail.title": "Kortdetaljer",
+  "detail.viewStrategyCascade": "Strategikaskade",
   "detail.backToTop": "Tilbage til toppen",
   "detail.archivedBanner": "Dette kort er arkiveret.",
   "detail.purgeWarning_one": "Det slettes permanent om {{count}} dag.",

@@ -23,10 +23,12 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import CreateCardDialog from "@/components/CreateCardDialog";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { hasPermission } from "@/components/RequirePermission";
+import type { Card } from "@/types";
 
 interface StrategyHouse {
   vision: string;
@@ -55,6 +57,8 @@ export default function StrategicHouseReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { user } = useAuthContext();
   const canEdit = hasPermission(user?.permissions, "admin.settings");
+  const canCreatePillar = hasPermission(user?.permissions, "inventory.create");
+  const [createPillarOpen, setCreatePillarOpen] = useState(false);
   const [house, setHouse] = useState<StrategyHouse | null>(null);
   const [cascade, setCascade] = useState<CascadeData | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -205,7 +209,23 @@ export default function StrategicHouseReport() {
         }}
       >
         {pillars.length === 0 ? (
-          <Alert severity="info">{t("strategicHouse.pillarsEmpty")}</Alert>
+          <Alert
+            severity="info"
+            action={
+              canCreatePillar ? (
+                <Button
+                  color="inherit"
+                  size="small"
+                  startIcon={<MaterialSymbol icon="add" size={18} />}
+                  onClick={() => setCreatePillarOpen(true)}
+                >
+                  {t("strategyCascade.addPillar")}
+                </Button>
+              ) : undefined
+            }
+          >
+            {t("strategicHouse.pillarsEmpty")}
+          </Alert>
         ) : (
           pillars.map((p) => (
             <Paper
@@ -279,6 +299,20 @@ export default function StrategicHouseReport() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* WP100.1: empty-state "Add pillar" — pre-set to the Pillar type.
+          CreateCardDialog navigates to the new card on success. */}
+      {canCreatePillar && (
+        <CreateCardDialog
+          open={createPillarOpen}
+          onClose={() => setCreatePillarOpen(false)}
+          onCreate={async (d) => {
+            const card = await api.post<Card>("/cards", d);
+            return card.id;
+          }}
+          initialType="Pillar"
+        />
+      )}
     </Box>
   );
 }

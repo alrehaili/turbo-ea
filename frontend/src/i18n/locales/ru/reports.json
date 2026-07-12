@@ -993,6 +993,7 @@
   "strategyCascade.unalignedSection": "Инициативы без стратегической привязки",
   "strategyCascade.unalignedWarning": "{{n}} инициатив(ы) не прослеживаются ни к одной стратегической цели — привяжите их (или родительскую программу) к цели.",
   "strategyCascade.empty": "Стратегия ещё не смоделирована — создайте карточки «Стратегическая опора», привяжите цели через отношение «поддерживает» и так же привяжите программы к целям.",
+  "strategyCascade.addPillar": "Добавить столп",
   "strategyCascade.level.program": "Программа",
   "strategyCascade.level.project": "Проект",
   "strategyCascade.level.epic": "Эпик",

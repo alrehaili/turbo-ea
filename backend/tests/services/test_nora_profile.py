@@ -109,10 +109,10 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_6(self):
+    def test_profile_version_is_7(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 6
+        assert NORA_PROFILE_VERSION == 7
 
     def test_pillar_card_type_defined(self):
         """Profile v6 — Pillar is a first-class card type with the
@@ -236,6 +236,26 @@ class TestNoraProfileDefinitions:
             for sub in subtype_defs:
                 for locale in SUPPORTED_LOCALES:
                     assert sub["translations"].get(locale), f"{sub['key']} missing {locale}"
+
+    def test_v7_org_hierarchy_subtypes(self):
+        """Profile v7 (WP100.2) — Saudi government organizational-hierarchy
+        levels as Organization subtypes, Arabic first-class, and the
+        publicAdministration orgUnitType option renamed so «إدارة عامة»
+        means only the generalDepartment subtype."""
+        from app.services.nora_profile import NORA_TYPE_FIELDS, NORA_V2_SUBTYPES
+
+        org_subs = {s["key"]: s for s in NORA_V2_SUBTYPES["Organization"]}
+        assert set(org_subs) == {"sector", "generalDepartment", "department", "sectionUnit"}
+        assert org_subs["sector"]["translations"]["ar"] == "قطاع"
+        assert org_subs["generalDepartment"]["translations"]["ar"] == "إدارة عامة"
+        assert org_subs["department"]["translations"]["ar"] == "إدارة"
+        assert org_subs["sectionUnit"]["translations"]["ar"] == "قسم/وحدة"
+
+        org_unit_type = next(
+            f for f in NORA_TYPE_FIELDS["Organization"] if f["key"] == "orgUnitType"
+        )
+        pub_admin = next(o for o in org_unit_type["options"] if o["key"] == "publicAdministration")
+        assert pub_admin["translations"]["ar"] == "جهة إدارية عامة"
 
     def test_v2_subtype_keys_do_not_collide_with_seed(self):
         from app.services.nora_profile import NORA_V2_SUBTYPES

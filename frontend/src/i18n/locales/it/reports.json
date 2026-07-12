@@ -993,6 +993,7 @@
   "strategyCascade.unalignedSection": "Iniziative senza allineamento strategico",
   "strategyCascade.unalignedWarning": "{{n}} iniziativa/e non sono tracciabili verso alcun obiettivo strategico: collegale (o il loro programma padre) a un obiettivo.",
   "strategyCascade.empty": "Nessuna strategia modellata: crea card «Pilastro strategico», collega gli obiettivi tramite la relazione «sostiene» e collega i programmi agli obiettivi allo stesso modo.",
+  "strategyCascade.addPillar": "Aggiungi pilastro",
   "strategyCascade.level.program": "Programma",
   "strategyCascade.level.project": "Progetto",
   "strategyCascade.level.epic": "Epica",

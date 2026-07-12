@@ -11,6 +11,7 @@
   "changeType.retire": "Retirer",
   "changeType.consolidate": "Consolider",
   "detail.title": "Détail de la fiche",
+  "detail.viewStrategyCascade": "Cascade stratégique",
   "detail.backToTop": "Retour en haut",
   "detail.archivedBanner": "Cette fiche est archivée.",
   "detail.purgeWarning_one": "Elle sera définitivement supprimée dans {{count}} jour.",

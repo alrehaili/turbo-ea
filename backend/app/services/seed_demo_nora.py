@@ -44,18 +44,46 @@ DEMO_CARDS: list[dict] = [
         "name": "Demo Ministry of Commerce",
         "attributes": {},
     },
+    # Saudi org ladder (profile v7 subtypes): sector ⊃ general department ⊃
+    # department ⊃ section/unit — the org chart demos the full four levels.
     {
         "ref": "org_dt",
         "type": "Organization",
-        "name": "Digital Transformation Deputyship",
+        "subtype": "sector",
+        "name": "Digital Transformation Sector",
         "parent": "org_root",
         "attributes": {},
     },
     {
         "ref": "org_bs",
         "type": "Organization",
-        "name": "Business Services Deputyship",
+        "subtype": "sector",
+        "name": "Business Services Sector",
         "parent": "org_root",
+        "attributes": {},
+    },
+    {
+        "ref": "org_dt_it",
+        "type": "Organization",
+        "subtype": "generalDepartment",
+        "name": "General Department of Information Technology",
+        "parent": "org_dt",
+        "attributes": {},
+    },
+    {
+        "ref": "org_dt_it_apps",
+        "type": "Organization",
+        "subtype": "department",
+        "name": "Applications Department",
+        "parent": "org_dt_it",
+        "attributes": {},
+    },
+    {
+        "ref": "org_dt_it_apps_int",
+        "type": "Organization",
+        "subtype": "sectionUnit",
+        "name": "Integration Unit",
+        "parent": "org_dt_it_apps",
         "attributes": {},
     },
     # ── Strategic pillars (strategy cascade roots — profile v6) ──────

@@ -993,6 +993,7 @@
   "strategyCascade.unalignedSection": "Initiativen ohne strategische Ausrichtung",
   "strategyCascade.unalignedWarning": "{{n}} Initiative(n) sind keinem strategischen Ziel zuordenbar — verknüpfen Sie sie (oder ihr übergeordnetes Programm) mit einem Ziel.",
   "strategyCascade.empty": "Noch keine Strategie modelliert — legen Sie „Strategische Säule“-Karten an, verknüpfen Sie Ziele über die Stützt-Beziehung und Programme ebenso mit den Zielen.",
+  "strategyCascade.addPillar": "Säule hinzufügen",
   "strategyCascade.level.program": "Programm",
   "strategyCascade.level.project": "Projekt",
   "strategyCascade.level.epic": "Epic",

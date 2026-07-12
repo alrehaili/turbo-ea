@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -620,6 +621,17 @@ export default function CardDetail() {
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+          {/* WP100.1 — Pillar cards deep-link to the Strategy Cascade */}
+          {card.type === "Pillar" && (
+            <Chip
+              size="small"
+              variant="outlined"
+              clickable
+              icon={<MaterialSymbol icon="lan" size={16} />}
+              label={t("detail.viewStrategyCascade")}
+              onClick={() => navigate("/reports/strategy-cascade")}
+            />
+          )}
           <ArchitectureStateBadge
             state={card.architecture_state ?? "current"}
             changeType={card.change_type ?? null}

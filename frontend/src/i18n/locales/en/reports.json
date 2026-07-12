@@ -1206,6 +1206,7 @@
   "strategyCascade.unalignedSection": "Initiatives with no strategic alignment",
   "strategyCascade.unalignedWarning": "{{n}} initiative(s) are not traceable to any strategic objective — link them (or their parent program) to an objective.",
   "strategyCascade.empty": "No strategy modelled yet — create Strategic Pillar cards, link objectives to them with the supports relation, and link programs to objectives the same way.",
+  "strategyCascade.addPillar": "Add pillar",
   "strategyCascade.level.program": "Program",
   "strategyCascade.level.project": "Project",
   "strategyCascade.level.epic": "Epic",

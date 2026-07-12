@@ -1206,6 +1206,7 @@
   "strategyCascade.unalignedSection": "مبادرات بلا توافق استراتيجي",
   "strategyCascade.unalignedWarning": "{{n}} مبادرة/مبادرات لا يمكن تتبعها إلى أي هدف استراتيجي — اربطها (أو برنامجها الأصل) بهدف.",
   "strategyCascade.empty": "لم تُنمذج الاستراتيجية بعد — أنشئ بطاقات «الركيزة الاستراتيجية»، واربط الأهداف بها عبر علاقة «يدعم»، واربط البرامج بالأهداف بالطريقة نفسها.",
+  "strategyCascade.addPillar": "إضافة ركيزة",
   "strategyCascade.level.program": "برنامج",
   "strategyCascade.level.project": "مشروع",
   "strategyCascade.level.epic": "ملحمة",

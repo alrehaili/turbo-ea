@@ -993,6 +993,7 @@
   "strategyCascade.unalignedSection": "Initiativer uden strategisk tilpasning",
   "strategyCascade.unalignedWarning": "{{n}} initiativ(er) kan ikke spores til noget strategisk mål — tilknyt dem (eller deres overordnede program) til et mål.",
   "strategyCascade.empty": "Ingen strategi modelleret endnu — opret «Strategisk søjle»-kort, tilknyt mål via relationen «understøtter», og tilknyt programmer til mål på samme måde.",
+  "strategyCascade.addPillar": "Tilføj søjle",
   "strategyCascade.level.program": "Program",
   "strategyCascade.level.project": "Projekt",
   "strategyCascade.level.epic": "Epic",

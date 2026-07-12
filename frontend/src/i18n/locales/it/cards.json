@@ -11,6 +11,7 @@
   "changeType.retire": "Dismettere",
   "changeType.consolidate": "Consolidare",
   "detail.title": "Dettaglio scheda",
+  "detail.viewStrategyCascade": "Cascata strategica",
   "detail.backToTop": "Torna su",
   "detail.archivedBanner": "Questa scheda è archiviata.",
   "detail.purgeWarning_one": "Verrà eliminata definitivamente tra {{count}} giorno.",

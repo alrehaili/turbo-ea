@@ -64,7 +64,15 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v6: Pillar as a first-class card type (user decision — supersedes the v4
 # Objective `pillar` subtype, which stays for backwards compatibility) + the
 # Objective → Pillar "supports" relation.
-NORA_PROFILE_VERSION = 6
+# v7: WP100.2 — Saudi government organizational-hierarchy subtypes on
+# Organization (sector / generalDepartment / department / sectionUnit).
+# Reconciliation with the v6 `orgUnitType` field: subtype = internal
+# hierarchy level of a unit; `orgUnitType` = kind of legal entity the whole
+# organization is. The `publicAdministration` option's Arabic label is
+# renamed («إدارة عامة» → «جهة إدارية عامة») so it no longer collides with
+# the generalDepartment subtype (guarded rewrite — admin-customised labels
+# are never overwritten).
+NORA_PROFILE_VERSION = 7
 
 # Old→new category rewrites for the v3 six-layer model, keyed by card-type
 # key. Guarded: a type is only moved while its category still equals the old
@@ -2517,6 +2525,9 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
                     ),
                 },
                 {
+                    # Arabic deliberately NOT «إدارة عامة» — that is the
+                    # generalDepartment *subtype* (hierarchy level); this
+                    # option is the kind of legal entity (v7 reconciliation).
                     "key": "publicAdministration",
                     "label": "Public Administration",
                     "translations": _tr(
@@ -2528,7 +2539,7 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
                         "公共管理部门",
                         "Государственная администрация",
                         "Offentlig forvaltning",
-                        "إدارة عامة",
+                        "جهة إدارية عامة",
                     ),
                 },
                 {
@@ -3415,6 +3426,73 @@ NORA_V2_SUBTYPES: dict[str, list[dict]] = {
                 "Шаг пути",
                 "Rejsetrin",
                 "خطوة الرحلة",
+            ),
+        },
+    ],
+    # v7 (WP100.2): Saudi government organizational-hierarchy levels —
+    # Sector (قطاع) ⊃ General Department (إدارة عامة) ⊃ Department (إدارة) ⊃
+    # Section/Unit (قسم/وحدة). Hierarchy itself rides the existing
+    # Organization parent_id; the subtype names the level. Distinct from the
+    # `orgUnitType` field, which classifies the kind of legal entity.
+    "Organization": [
+        {
+            "key": "sector",
+            "label": "Sector",
+            "translations": _tr(
+                "Sektor",
+                "Secteur",
+                "Sector",
+                "Settore",
+                "Setor",
+                "板块",
+                "Сектор",
+                "Sektor",
+                "قطاع",
+            ),
+        },
+        {
+            "key": "generalDepartment",
+            "label": "General Department",
+            "translations": _tr(
+                "Hauptabteilung",
+                "Direction générale",
+                "Dirección general",
+                "Direzione generale",
+                "Direção-geral",
+                "总局",
+                "Главное управление",
+                "Hovedafdeling",
+                "إدارة عامة",
+            ),
+        },
+        {
+            "key": "department",
+            "label": "Department",
+            "translations": _tr(
+                "Abteilung",
+                "Département",
+                "Departamento",
+                "Dipartimento",
+                "Departamento",
+                "部门",
+                "Управление",
+                "Afdeling",
+                "إدارة",
+            ),
+        },
+        {
+            "key": "sectionUnit",
+            "label": "Section / Unit",
+            "translations": _tr(
+                "Referat/Einheit",
+                "Section/Unité",
+                "Sección/Unidad",
+                "Sezione/Unità",
+                "Seção/Unidade",
+                "科室/单元",
+                "Секция/подразделение",
+                "Sektion/Enhed",
+                "قسم/وحدة",
             ),
         },
     ],
@@ -8094,6 +8172,34 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
             added = True
         if added:
             ct.subtypes = subtypes
+
+    # ── Pass 4g (profile v7, WP100.2): Arabic-label fix on the existing
+    # `orgUnitType.publicAdministration` option — «إدارة عامة» now names the
+    # generalDepartment subtype, so the option is renamed to
+    # «جهة إدارية عامة». Guarded: only rewritten while the stored label still
+    # equals the drifted-from value, so admin customisations survive.
+    org_ct = (
+        await db.execute(select(CardType).where(CardType.key == "Organization"))
+    ).scalar_one_or_none()
+    if org_ct is not None:
+        schema = [dict(section) for section in (org_ct.fields_schema or [])]
+        changed = False
+        for section in schema:
+            for field in section.get("fields") or []:
+                if field.get("key") != "orgUnitType":
+                    continue
+                for opt in field.get("options") or []:
+                    if (
+                        opt.get("key") == "publicAdministration"
+                        and (opt.get("translations") or {}).get("ar") == "إدارة عامة"
+                    ):
+                        opt["translations"]["ar"] = "جهة إدارية عامة"
+                        changed = True
+        if changed:
+            org_ct.fields_schema = schema
+            summary.setdefault("options_relabelled", []).append(
+                "Organization.orgUnitType.publicAdministration.ar"
+            )
 
     gov = (
         await db.execute(select(CardType).where(CardType.key == "GovService"))

@@ -11,6 +11,7 @@
   "changeType.retire": "Retire",
   "changeType.consolidate": "Consolidate",
   "detail.title": "Card Detail",
+  "detail.viewStrategyCascade": "Strategy Cascade",
   "detail.backToTop": "Back to top",
   "detail.archivedBanner": "This card is archived.",
   "detail.purgeWarning_one": "It will be permanently deleted in {{count}} day.",

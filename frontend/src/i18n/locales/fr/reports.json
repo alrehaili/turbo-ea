@@ -993,6 +993,7 @@
   "strategyCascade.unalignedSection": "Initiatives sans alignement stratégique",
   "strategyCascade.unalignedWarning": "{{n}} initiative(s) ne sont traçables vers aucun objectif stratégique — liez-les (ou leur programme parent) à un objectif.",
   "strategyCascade.empty": "Aucune stratégie modélisée — créez des cartes « Pilier stratégique », liez les objectifs via la relation « soutient » et liez les programmes aux objectifs de la même façon.",
+  "strategyCascade.addPillar": "Ajouter un pilier",
   "strategyCascade.level.program": "Programme",
   "strategyCascade.level.project": "Projet",
   "strategyCascade.level.epic": "Epic",

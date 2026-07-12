@@ -11,6 +11,7 @@
   "changeType.retire": "Desativar",
   "changeType.consolidate": "Consolidar",
   "detail.title": "Detalhe da ficha",
+  "detail.viewStrategyCascade": "Cascata estratégica",
   "detail.backToTop": "Voltar ao topo",
   "detail.archivedBanner": "Esta ficha está arquivada.",
   "detail.purgeWarning_one": "Será excluída permanentemente em {{count}} dia.",

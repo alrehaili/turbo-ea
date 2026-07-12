@@ -141,6 +141,7 @@ export const CARD_TYPE_COLORS = {
   TechCategory: "#a6566d",
   Provider: "#ffa31f",
   System: "#5B738B",
+  Pillar: "#7b1fa2", // NORA profile v6 strategic pillar (matches the metamodel color)
 } as const;
 
 // ── EA layers (Layered Dependency View, capability map, dependency report) ─
