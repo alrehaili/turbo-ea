@@ -41,7 +41,7 @@ import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
-import { DataQualityPill } from "@/features/cards/sections";
+import { DataQualityPill, SuccessorFieldSection } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
@@ -794,6 +794,19 @@ export default function CardDetail() {
           </Menu>
         </Box>
       </Box>
+
+      {/* ── Successor field (for target-state cards) ── */}
+      {card.architecture_state === "target" && (
+        <Box sx={{ px: 3, py: 1.5, display: "flex", alignItems: "center" }}>
+          <SuccessorFieldSection
+            card={card}
+            canEdit={perms.can_edit && !isArchived}
+            onUpdate={(updates) => {
+              setCard((prev) => (prev ? { ...prev, ...updates } as Card : null));
+            }}
+          />
+        </Box>
+      )}
 
       {/* ── Multi-step review chain (NORA stage gates — [FORK] WP2.2) ── */}
       {governanceMode && (

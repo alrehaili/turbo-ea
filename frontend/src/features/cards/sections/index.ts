@@ -14,6 +14,7 @@ export { default as LifecycleSection } from "@/features/cards/sections/Lifecycle
 export { default as AttributeSection } from "@/features/cards/sections/AttributeSection";
 export { default as HierarchySection } from "@/features/cards/sections/HierarchySection";
 export { default as SuccessorsSection } from "@/features/cards/sections/SuccessorsSection";
+export { default as SuccessorFieldSection } from "@/features/cards/sections/SuccessorFieldSection";
 export { default as RelationsSection } from "@/features/cards/sections/RelationsSection";
 export { default as LayeredDependencySection } from "@/features/cards/sections/LayeredDependencySection";
 export { default as CommentsTab } from "@/features/cards/sections/CommentsTab";
