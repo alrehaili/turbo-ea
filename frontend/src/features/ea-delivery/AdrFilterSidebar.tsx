@@ -124,6 +124,8 @@ export default function AdrFilterSidebar({
   availableCardTypes,
   availableLinkedCards,
   availableSignatories,
+  availableCommittees,
+  availableStages,
 }: Props) {
   // delivery namespace — keys: adr.filter.*
   const { t } = useTranslation(["delivery", "common"]);

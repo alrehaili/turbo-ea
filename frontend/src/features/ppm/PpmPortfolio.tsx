@@ -6,6 +6,8 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
@@ -203,6 +205,9 @@ export default function PpmPortfolio() {
   const [groupBy, setGroupBy] = useState(searchParams.get("groupBy") || "Organization");
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [subtypeFilter, setSubtypeFilter] = useState(searchParams.get("subtype") || "");
+  const [transitionOnly, setTransitionOnly] = useState(
+    searchParams.get("transitionOnly") === "true",
+  );
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Sync filters to URL
@@ -215,9 +220,11 @@ export default function PpmPortfolio() {
       else next.delete("search");
       if (subtypeFilter) next.set("subtype", subtypeFilter);
       else next.delete("subtype");
+      if (transitionOnly) next.set("transitionOnly", "true");
+      else next.delete("transitionOnly");
       return next;
     }, { replace: true });
-  }, [groupBy, search, subtypeFilter, setSearchParams]);
+  }, [groupBy, search, subtypeFilter, transitionOnly, setSearchParams]);
 
   // ── Report hover popover state ──
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);
@@ -285,8 +292,10 @@ export default function PpmPortfolio() {
 
   useEffect(() => {
     setLoading(true);
+    const params = new URLSearchParams({ group_by: groupBy });
+    if (transitionOnly) params.append("architecture_state", "transition");
     Promise.all([
-      api.get<PpmGanttItem[]>(`/reports/ppm/gantt?group_by=${groupBy}`),
+      api.get<PpmGanttItem[]>(`/reports/ppm/gantt?${params.toString()}`),
       api.get<PpmDashboardData>("/reports/ppm/dashboard"),
     ])
       .then(([g, d]) => {
@@ -294,7 +303,7 @@ export default function PpmPortfolio() {
         setDashboard(d);
       })
       .finally(() => setLoading(false));
-  }, [groupBy]);
+  }, [groupBy, transitionOnly]);
 
 
   const typeConfig = getType("Initiative");
@@ -758,7 +767,7 @@ export default function PpmPortfolio() {
       )}
 
       {/* Filters */}
-      <Box display="flex" gap={2} mb={2} flexWrap="wrap">
+      <Box display="flex" gap={2} mb={2} flexWrap="wrap" alignItems="center">
         <TextField
           size="small"
           placeholder={t("searchInitiatives")}
@@ -801,6 +810,17 @@ export default function PpmPortfolio() {
             ))}
           </Select>
         </FormControl>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={transitionOnly}
+              onChange={(e) => setTransitionOnly(e.target.checked)}
+              size="small"
+            />
+          }
+          label={t("ppm:transitionOnly", "Transition Only")}
+          sx={{ ml: 0 }}
+        />
       </Box>
 
       {/* Scrollable wrapper for desktop grid — enables horizontal scroll on iPad */}

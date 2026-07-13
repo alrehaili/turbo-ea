@@ -213,10 +213,16 @@ async def ppm_gantt(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     group_by: str | None = Query(None, description="Card type key to group by"),
+    architecture_state: str | None = Query(None, description="Filter by architecture_state (e.g., 'transition')"),
 ):
     await PermissionService.require_permission(db, user, "ppm.view")
 
-    q = select(Card).where(Card.type == "Initiative", Card.status == "ACTIVE")
+    where_clauses = [Card.type == "Initiative", Card.status == "ACTIVE"]
+    if architecture_state:
+        where_clauses.append(
+            Card.attributes[("architecture_state")].astext == architecture_state
+        )
+    q = select(Card).where(*where_clauses)
     result = await db.execute(q)
     initiatives = result.scalars().all()
 
