@@ -31,9 +31,10 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
+import { useSegments } from "@/hooks/useSegments";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
-import type { CardType } from "@/types";
+import type { CardType, NoraSegment } from "@/types";
 
 interface Plateau {
   id: string;
@@ -382,6 +383,8 @@ export default function DependencyReport() {
   const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
   const [plateaus, setPlateaus] = useState<Plateau[]>([]);
   const [selectedPlateauId, setSelectedPlateauId] = useState<string | null>(null);
+  const { segments } = useSegments();
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredConn, setHoveredConn] = useState<{
@@ -480,6 +483,7 @@ export default function DependencyReport() {
     const p = new URLSearchParams();
     if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
     if (selectedPlateauId) p.set("plateau_id", selectedPlateauId);
+    if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
     api
       .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
       .then((r) => {
@@ -487,7 +491,7 @@ export default function DependencyReport() {
         setEdges(r.edges);
         setLoading(false);
       });
-  }, [cardTypeKey, chartMode, selectedPlateauId]);
+  }, [cardTypeKey, chartMode, selectedPlateauId, selectedSegmentId]);
 
   // Filter nodes and edges by architecture_state
   const { filteredNodes, filteredEdges } = useMemo(() => {
@@ -788,6 +792,49 @@ export default function DependencyReport() {
                   onClick={() => setSelectedPlateauId(p.id)}
                   variant={selectedPlateauId === p.id ? "filled" : "outlined"}
                   size="small"
+                />
+              ))}
+            </Box>
+          )}
+
+          {/* B.9: Segment scope filter */}
+          {segments.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                alignItems: "center",
+                borderRadius: 1,
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: "divider",
+                my: 1,
+                flexWrap: "wrap",
+                px: 1,
+                py: 0.5,
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600, mr: -0.75 }}>
+                {t("filter.segments")}:
+              </Typography>
+              <Chip
+                label={t("common:all")}
+                onClick={() => setSelectedSegmentId(null)}
+                variant={selectedSegmentId === null ? "filled" : "outlined"}
+                size="small"
+              />
+              {segments.map((s) => (
+                <Chip
+                  key={s.id}
+                  label={s.name}
+                  onClick={() => setSelectedSegmentId(s.id)}
+                  variant={selectedSegmentId === s.id ? "filled" : "outlined"}
+                  size="small"
+                  sx={
+                    selectedSegmentId === s.id
+                      ? { bgcolor: s.color || "#1976d2", color: "#fff" }
+                      : { borderColor: s.color || "#1976d2", color: s.color || "#1976d2" }
+                  }
                 />
               ))}
             </Box>

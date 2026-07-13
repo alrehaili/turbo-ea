@@ -595,6 +595,9 @@ export default function InventoryPage() {
       if (filters.mineScope) {
         params.set("mine", filters.mineScope);
       }
+      if (filters.segmentIds && filters.segmentIds.length > 0) {
+        params.set("segment_id", filters.segmentIds[0]);
+      }
       params.set("page_size", "10000");
       const res = await api.get<CardListResponse>(
         `/cards?${params}`
@@ -604,7 +607,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuses, filters.architectureStates, filters.changeTypes, filters.showArchived, filters.mineScope]);
+  }, [filters.types, filters.search, filters.approvalStatuses, filters.architectureStates, filters.changeTypes, filters.showArchived, filters.mineScope, filters.segmentIds]);
 
   useEffect(() => {
     loadData();

@@ -50,6 +50,7 @@
   "filter.attributes": "Attributes",
   "filter.relationships": "Relationships",
   "filter.tags": "Tags",
+  "filter.segments": "Scopes",
   "filter.noMatches": "No matches",
   "filter.any": "Any",
   "filter.minValue": "Min value",

@@ -31,6 +31,7 @@ import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useSegments } from "@/hooks/useSegments";
 import { api } from "@/api/client";
 import type {
   CardType,
@@ -40,6 +41,7 @@ import type {
   RelationType,
   TagGroup,
   User,
+  NoraSegment,
 } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -64,6 +66,7 @@ export interface Filters {
   // is wired up — kept as a string union so we can add more scopes (creator,
   // both, …) without changing every call site.
   mineScope: "stakeholder" | null;
+  segmentIds: string[]; // NORA segment filtering (B.9)
 }
 
 interface Props {
@@ -241,6 +244,7 @@ export default function InventoryFilterSidebar({
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const { segments } = useSegments();
   const sidebarPrefsRef = useRef(loadSidebarPrefs());
   const [tab, setTab] = useState(() => sidebarPrefsRef.current.tab ?? 0);
   // Which saved view is currently applied (highlighted in the list). Persisted
@@ -265,6 +269,7 @@ export default function InventoryFilterSidebar({
     attributes: false,
     relationships: false,
     tags: false,
+    segments: false,
   });
 
   // Search-within-dropdown state: keyed by field key or relation type key
@@ -359,6 +364,13 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, changeTypes: next });
   };
 
+  const toggleSegment = (key: string) => {
+    const next = filters.segmentIds.includes(key)
+      ? filters.segmentIds.filter((s) => s !== key)
+      : [...filters.segmentIds, key];
+    onFiltersChange({ ...filters, segmentIds: next });
+  };
+
   const setAttr = (key: string, value: string | string[]) => {
     const next = { ...filters.attributes };
     const empty = Array.isArray(value) ? value.length === 0 : !value;
@@ -393,7 +405,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [] });
 
   const activeCount =
     filters.types.length +
@@ -408,7 +420,8 @@ export default function InventoryFilterSidebar({
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length +
     (filters.tagIds?.length ?? 0) +
-    (filters.mineScope ? 1 : 0);
+    (filters.mineScope ? 1 : 0) +
+    (filters.segmentIds?.length ?? 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -1385,6 +1398,46 @@ export default function InventoryFilterSidebar({
                   </>
                 );
               })()}
+
+              {/* NORA Segments (B.9) */}
+              {segments.length > 0 && (
+                <>
+                  <SectionHeader
+                    label={t("filter.segments")}
+                    icon="category"
+                    expanded={expandedSections.segments}
+                    onToggle={() => toggleSection("segments")}
+                    count={filters.segmentIds.length}
+                  />
+                  <Collapse in={expandedSections.segments}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {segments
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                        .map((segment) => (
+                          <Chip
+                            key={segment.id}
+                            label={segment.name}
+                            size="small"
+                            onClick={() => toggleSegment(segment.id)}
+                            variant={filters.segmentIds.includes(segment.id) ? "filled" : "outlined"}
+                            sx={
+                              filters.segmentIds.includes(segment.id)
+                                ? {
+                                    bgcolor: segment.color || "#1976d2",
+                                    color: "#fff",
+                                    borderColor: segment.color || "#1976d2",
+                                  }
+                                : {
+                                    borderColor: segment.color || "#1976d2",
+                                    color: segment.color || "#1976d2",
+                                  }
+                            }
+                          />
+                        ))}
+                    </Box>
+                  </Collapse>
+                </>
+              )}
 
               {/* Include Archived toggle */}
               {canArchive && (

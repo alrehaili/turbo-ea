@@ -2127,3 +2127,25 @@ export interface MaturityOverview {
     max_level: number;
   };
 }
+
+// --- NORA Plateaus & Segments (WP5.4) ---
+export interface NoraPlateau {
+  id: string;
+  name: string;
+  description?: string;
+  target_date?: string | null;
+  sort_order: number;
+  built_in: boolean;
+}
+
+export interface NoraSegment {
+  id: string;
+  name: string;
+  description?: string;
+  root_card_id?: string | null;
+  include_descendants: boolean;
+  include_related: boolean;
+  related_type_keys: string[];
+  color?: string | null;
+  sort_order: number;
+}
