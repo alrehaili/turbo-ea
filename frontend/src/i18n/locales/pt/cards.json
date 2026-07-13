@@ -629,5 +629,14 @@
   "todos.recurrence.months_one": "Todos os meses",
   "todos.recurrence.months_other": "A cada {{count}} meses",
   "todos.recurrence.years_one": "Todos os anos",
-  "todos.recurrence.years_other": "A cada {{count}} anos"
+  "todos.recurrence.years_other": "A cada {{count}} anos",
+  "detail.succeeds.edit": "Editar",
+  "detail.succeeds.mergedInto": "Mesclado em",
+  "detail.succeeds.succeeds": "Sucede",
+  "detail.succeeds.replacedBy": "Substituído por",
+  "detail.succeeds.notSet": "Não definido",
+  "detail.succeeds.error": "Falha ao salvar sucessor",
+  "detail.succeeds.retiredBy": "Retirado por",
+  "detail.succeeds.search": "Pesquisar {{type}}",
+  "detail.succeeds.modifiedAs": "Modificado como"
 }

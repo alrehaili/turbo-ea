@@ -629,5 +629,14 @@
   "todos.recurrence.months_one": "每月",
   "todos.recurrence.months_other": "每 {{count}} 月",
   "todos.recurrence.years_one": "每年",
-  "todos.recurrence.years_other": "每 {{count}} 年"
+  "todos.recurrence.years_other": "每 {{count}} 年",
+  "detail.succeeds.edit": "编辑",
+  "detail.succeeds.mergedInto": "合并至",
+  "detail.succeeds.succeeds": "继承",
+  "detail.succeeds.replacedBy": "被替换为",
+  "detail.succeeds.notSet": "未设置",
+  "detail.succeeds.error": "无法保存继任者",
+  "detail.succeeds.retiredBy": "已停用",
+  "detail.succeeds.search": "搜索 {{type}}",
+  "detail.succeeds.modifiedAs": "修改为"
 }

@@ -629,5 +629,14 @@
   "todos.recurrence.months_one": "Hver måned",
   "todos.recurrence.months_other": "Hver {{count}}. måned",
   "todos.recurrence.years_one": "Hvert år",
-  "todos.recurrence.years_other": "Hvert {{count}}. år"
+  "todos.recurrence.years_other": "Hvert {{count}}. år",
+  "detail.succeeds.edit": "Rediger",
+  "detail.succeeds.mergedInto": "Fusioneret til",
+  "detail.succeeds.succeeds": "Efterfølger",
+  "detail.succeeds.replacedBy": "Erstattet af",
+  "detail.succeeds.notSet": "Ikke indstillet",
+  "detail.succeeds.error": "Kunne ikke gemme efterfølger",
+  "detail.succeeds.retiredBy": "Pensioneret af",
+  "detail.succeeds.search": "Søg {{type}}",
+  "detail.succeeds.modifiedAs": "Ændret som"
 }
