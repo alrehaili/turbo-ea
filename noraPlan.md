@@ -420,7 +420,17 @@ Each work package is independently shippable and follows project conventions: da
 - [x] API `/nora-plateaus` + `/nora-segments`: full CRUD + `GET /nora-segments/{id}/cards` (resolved, layer-grouped) + `GET /nora-plateaus/{id}/landscape` (time-slice). `nora.view` to read, `nora.manage` to mutate.
 - [x] Frontend: **Plateaus & Segments** panel on the NORA Program page (`PlateausSegmentsPanel.tsx`) — segment CRUD (root `CardPicker`, descendants/related switches, related-type narrowing via `useMetamodel`) with a layer-grouped **scope viewer** (clickable card chips coloured by `LAYER_COLORS`); plateau CRUD with a **time-slice viewer** (phase + architecture-state chips). i18n ×10 (31 `noraProgram.landscape.*` nav keys).
 - [x] Workspace-transfer coverage: `NoraPlateaus` + `NoraSegments` EntitySections (segment `root_card_id` remapped as a card FK). Tests: `test_nora_landscape.py` — pure `phase_as_of`, hierarchy+related resolution, related-type narrowing, plateau as-of phase classification, RBAC 403.
-- [ ] **Deferred** (matches the WP2.1 note that the 2.3k-line `InventoryFilterSidebar` is too costly to fold into here): applying a segment as a live filter *inside* the existing inventory grid and every report; a draggable `TimelineSlider` scrubbing plateaus directly on the dependency/landscape reports (the per-plateau landscape breakdown covers the analytical need today); seeded default plateaus.
+- [x] **Segment filtering — Inventory & Reports (B.9 Frontend)** `2026-07-13`: segment scope as a live filter in inventory and dependency/landscape reports. **Implementation**:
+  - Backend: ✔ `/cards?segment_id=` + `/reports/*?segment_id=` (7 endpoints support it via shared `_get_segment_scope()` helper, backend completed 2026-07-13)
+  - Frontend: 
+    - ✔ `useSegments` hook (singleton cache pattern paralleling `useMetamodel`)
+    - ✔ **Inventory segment filter** in `InventoryFilterSideBar` (chips, multi-select, sorted by `sort_order`, coloured by segment `.color`)
+    - ✔ `GET /cards?segment_id=first-only` parameter wiring in `InventoryPage` 
+    - ✔ **DependencyReport segment chips** (in filter bar after plateaus, replicates plateau pattern)
+    - ✔ i18n: `filter.segments` key in all 10 locales (en="Scopes", de="Geltungsbereiche", fr="Portées", es="Alcances", it="Ambiti", pt="Escopos", ru="Области видимости", da="Omfang", ar="النطاقات", zh="范围")
+  - **Pattern for remaining reports** (PortfolioReport, CapabilityMapReport, MatrixReport, CostReport, TechLandscapeReport, FlexiblePortfolioReport): import `useSegments`, add `selectedSegmentId` state, pass `segment_id` param to API call, add chips/dropdown UI, add to useEffect dependency array (copy-paste from DependencyReport works, ~40 lines per report).
+  - Tests: backend `test_segment_filtering.py` covers invalid UUIDs / non-existent / empty segments / wildcard resolution ✔.
+- [ ] **Deferred** (lower priority, P2): `TimelineSlider` component for scrubbing plateaus directly on reports (the per-plateau landscape breakdown covers the analytical need today); seeded default plateaus; segment filtering on the remaining reports (PortfolioReport, CapabilityMapReport, MatrixReport, CostReport, TechLandscapeReport).
 
 **Acceptance check**: an agency can name plateaus and see the landscape's phase distribution at each, and define reusable capability-rooted segments and view their in-scope cards by layer. ✔ verified by tests.
 
