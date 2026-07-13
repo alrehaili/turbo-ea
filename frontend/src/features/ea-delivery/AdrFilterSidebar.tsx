@@ -25,6 +25,8 @@ export interface AdrFilters {
   linkedCards: string[];
   statuses: string[];
   signedBy: string[];
+  committees: string[];
+  stages: number[];
   dateCreatedFrom: string;
   dateCreatedTo: string;
   dateModifiedFrom: string;
@@ -38,6 +40,8 @@ export const EMPTY_ADR_FILTERS: AdrFilters = {
   linkedCards: [],
   statuses: [],
   signedBy: [],
+  committees: [],
+  stages: [],
   dateCreatedFrom: "",
   dateCreatedTo: "",
   dateModifiedFrom: "",
@@ -56,6 +60,8 @@ interface Props {
   availableCardTypes: { key: string; label: string; color: string }[];
   availableLinkedCards: { id: string; name: string; type: string; color: string }[];
   availableSignatories: { userId: string; displayName: string }[];
+  availableCommittees: string[];
+  availableStages: number[];
 }
 
 const STATUS_OPTIONS = [
@@ -126,6 +132,8 @@ export default function AdrFilterSidebar({
     cardTypes: true,
     linkedCards: false,
     status: true,
+    committees: false,
+    stages: false,
     signedBy: false,
     dateCreated: false,
     dateModified: false,
@@ -179,6 +187,26 @@ export default function AdrFilterSidebar({
     [filters, onFiltersChange],
   );
 
+  const toggleCommittee = useCallback(
+    (committee: string) => {
+      const next = filters.committees.includes(committee)
+        ? filters.committees.filter((c) => c !== committee)
+        : [...filters.committees, committee];
+      onFiltersChange({ ...filters, committees: next });
+    },
+    [filters, onFiltersChange],
+  );
+
+  const toggleStage = useCallback(
+    (stage: number) => {
+      const next = filters.stages.includes(stage)
+        ? filters.stages.filter((s) => s !== stage)
+        : [...filters.stages, stage];
+      onFiltersChange({ ...filters, stages: next });
+    },
+    [filters, onFiltersChange],
+  );
+
   const setDateField = useCallback(
     (field: keyof AdrFilters, value: string) => {
       onFiltersChange({ ...filters, [field]: value });
@@ -195,6 +223,8 @@ export default function AdrFilterSidebar({
       filters.cardTypes.length +
       filters.linkedCards.length +
       filters.statuses.length +
+      filters.committees.length +
+      filters.stages.length +
       filters.signedBy.length +
       (filters.dateCreatedFrom ? 1 : 0) +
       (filters.dateCreatedTo ? 1 : 0) +
@@ -482,6 +512,94 @@ export default function AdrFilterSidebar({
                   />
                 </ListItemButton>
               ))}
+            </List>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Committee ---- */}
+          <SectionHeader
+            label={t("adr.filter.committee")}
+            expanded={expandedSections.committees}
+            onToggle={() => toggleSection("committees")}
+          />
+          <Collapse in={expandedSections.committees}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {availableCommittees.map((committee) => (
+                <ListItemButton
+                  key={committee}
+                  dense
+                  onClick={() => toggleCommittee(committee)}
+                  sx={{ py: 0, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.committees.includes(committee)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={committee}
+                    primaryTypographyProps={{ fontSize: 13 }}
+                  />
+                </ListItemButton>
+              ))}
+              {availableCommittees.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
+                >
+                  {t("adr.filter.none")}
+                </Typography>
+              )}
+            </List>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Stage ---- */}
+          <SectionHeader
+            label={t("adr.filter.stage")}
+            expanded={expandedSections.stages}
+            onToggle={() => toggleSection("stages")}
+          />
+          <Collapse in={expandedSections.stages}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {availableStages.map((stage) => (
+                <ListItemButton
+                  key={stage}
+                  dense
+                  onClick={() => toggleStage(stage)}
+                  sx={{ py: 0, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.stages.includes(stage)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={t("adr.filter.stageLabel", { stage })}
+                    primaryTypographyProps={{ fontSize: 13 }}
+                  />
+                </ListItemButton>
+              ))}
+              {availableStages.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
+                >
+                  {t("adr.filter.none")}
+                </Typography>
+              )}
             </List>
           </Collapse>
 
