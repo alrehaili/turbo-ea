@@ -26,6 +26,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSegments } from "@/hooks/useSegments";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
@@ -624,6 +625,7 @@ export default function CapabilityMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
+  const { segments } = useSegments();
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -637,6 +639,7 @@ export default function CapabilityMapReport() {
   const [drawer, setDrawer] = useState<CapNode | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
 
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
@@ -735,6 +738,8 @@ export default function CapabilityMapReport() {
   }, [fieldsSchema]);
 
   useEffect(() => {
+    const p = new URLSearchParams({ metric });
+    if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
     api
       .get<{
         items: CapItem[];
@@ -742,7 +747,7 @@ export default function CapabilityMapReport() {
         fields_schema?: SectionDef[];
         tag_groups?: TagGroupDef[];
       }>(
-        `/reports/capability-heatmap?metric=${metric}`,
+        `/reports/capability-heatmap?${p}`,
       )
       .then((r) => {
         setData(r.items);
@@ -750,7 +755,7 @@ export default function CapabilityMapReport() {
         if (r.fields_schema) setFieldsSchema(r.fields_schema);
         if (r.tag_groups) setTagGroupsData(r.tag_groups);
       });
-  }, [metric]);
+  }, [metric, selectedSegmentId]);
 
   // Compute date range from all app lifecycle dates
   const { dateRange, yearMarks } = useMemo(() => {
@@ -982,6 +987,29 @@ export default function CapabilityMapReport() {
               yearMarks={yearMarks}
               todayMs={tl.todayMs}
             />
+          )}
+
+          {/* Segment filter */}
+          {segments && segments.length > 0 && (
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", border: "1px solid", borderColor: "divider", px: 1, py: 0.5, borderRadius: 0.5 }}>
+              <Typography variant="caption" sx={{ fontWeight: 500, color: "text.secondary", minWidth: "fit-content" }}>
+                {t("filter.segments")}:
+              </Typography>
+              {segments.map((seg) => (
+                <Chip
+                  key={seg.id}
+                  label={seg.name}
+                  size="small"
+                  variant={selectedSegmentId === seg.id ? "filled" : "outlined"}
+                  onClick={() => setSelectedSegmentId(selectedSegmentId === seg.id ? null : seg.id)}
+                  sx={{
+                    backgroundColor: selectedSegmentId === seg.id ? seg.color : "transparent",
+                    color: selectedSegmentId === seg.id ? "white" : "inherit",
+                    borderColor: seg.color,
+                  }}
+                />
+              ))}
+            </Box>
           )}
 
           {/* Row 2: Dynamic application filters */}

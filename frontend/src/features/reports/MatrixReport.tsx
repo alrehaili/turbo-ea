@@ -18,6 +18,7 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSegments } from "@/hooks/useSegments";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
@@ -121,6 +122,8 @@ export default function MatrixReport() {
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [rowType, setRowType] = useState("Application");
   const [colType, setColType] = useState("BusinessCapability");
+  const { segments } = useSegments();
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [data, setData] = useState<MatrixData | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");
@@ -205,8 +208,12 @@ export default function MatrixReport() {
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
-  }, [rowType, colType]);
+    const params = new URLSearchParams();
+    params.set("row_type", rowType);
+    params.set("col_type", colType);
+    if (selectedSegmentId) params.set("segment_id", selectedSegmentId);
+    api.get<MatrixData>(`/reports/matrix?${params}`).then(setData);
+  }, [rowType, colType, selectedSegmentId]);
 
   // Reset depth when switching types
   useEffect(() => {

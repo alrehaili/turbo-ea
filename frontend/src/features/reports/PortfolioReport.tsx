@@ -37,6 +37,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
+import { useSegments } from "@/hooks/useSegments";
 import {
   useTypeLabel,
   useRelationLabel,
@@ -400,6 +401,10 @@ export default function PortfolioReport({
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
 
+  // Segment filtering (B.9)
+  const { segments } = useSegments();
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+
   // AI insights
   const { aiStatus } = useAiStatus();
   const [aiInsights, setAiInsights] = useState<PortfolioInsightsResponse | null>(null);
@@ -498,7 +503,7 @@ export default function PortfolioReport({
     setDefaultsApplied(false);
   }, [saved, initialCardType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch data — refetches whenever the user picks a different card type.
+  // Fetch data — refetches whenever the user picks a different card type or segment.
   useEffect(() => {
     let cancelled = false;
     const fetchedFor = cardType;
@@ -506,8 +511,11 @@ export default function PortfolioReport({
     setDataCardType(null);
     setAiInsights(null);
     setAiOpen(false);
+    const params = new URLSearchParams();
+    params.set("type", cardType);
+    if (selectedSegmentId) params.set("segment_id", selectedSegmentId);
     api
-      .get<ApiResponse>(`/reports/app-portfolio?type=${encodeURIComponent(cardType)}`)
+      .get<ApiResponse>(`/reports/app-portfolio?${params}`)
       .then((r) => {
         if (cancelled) return;
         setData(r);
@@ -516,7 +524,7 @@ export default function PortfolioReport({
     return () => {
       cancelled = true;
     };
-  }, [cardType]);
+  }, [cardType, selectedSegmentId]);
 
   // Switching card types invalidates field/relation/tag selections because
   // the keys they reference don't exist on the new type. Clear them so the
@@ -1184,6 +1192,49 @@ export default function PortfolioReport({
               yearMarks={yearMarks}
               todayMs={tl.todayMs}
             />
+          )}
+
+          {/* B.9: Segment scope filter */}
+          {segments.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                alignItems: "center",
+                borderRadius: 1,
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: "divider",
+                width: "100%",
+                flexWrap: "wrap",
+                px: 1,
+                py: 0.5,
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600, mr: -0.75 }}>
+                {t("filter.segments")}:
+              </Typography>
+              <Chip
+                label={t("common:all")}
+                onClick={() => setSelectedSegmentId(null)}
+                variant={selectedSegmentId === null ? "filled" : "outlined"}
+                size="small"
+              />
+              {segments.map((s) => (
+                <Chip
+                  key={s.id}
+                  label={s.name}
+                  onClick={() => setSelectedSegmentId(s.id)}
+                  variant={selectedSegmentId === s.id ? "filled" : "outlined"}
+                  size="small"
+                  sx={
+                    selectedSegmentId === s.id
+                      ? { bgcolor: s.color || "#1976d2", color: "#fff" }
+                      : { borderColor: s.color || "#1976d2", color: s.color || "#1976d2" }
+                  }
+                />
+              ))}
+            </Box>
           )}
 
           {/* Row 2: Filters */}
