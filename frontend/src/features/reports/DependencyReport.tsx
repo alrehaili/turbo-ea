@@ -35,6 +35,13 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
 
+interface Plateau {
+  id: string;
+  name: string;
+  description: string | null;
+  target_date: string | null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Data types                                                         */
 /* ------------------------------------------------------------------ */
@@ -373,6 +380,8 @@ export default function DependencyReport() {
   // do not rename. The view it selects is the Layered Dependency View (LDV).
   const [chartMode, setChartMode] = useState<"tree" | "c4">("c4");
   const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
+  const [plateaus, setPlateaus] = useState<Plateau[]>([]);
+  const [selectedPlateauId, setSelectedPlateauId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredConn, setHoveredConn] = useState<{
@@ -460,11 +469,17 @@ export default function DependencyReport() {
     setPickerTypeFilter(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch plateaus on mount
+  useEffect(() => {
+    api.get<Plateau[]>("/nora-plateaus").then(setPlateaus).catch(() => setPlateaus([]));
+  }, []);
+
   // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
     if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
+    if (selectedPlateauId) p.set("plateau_id", selectedPlateauId);
     api
       .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
       .then((r) => {
@@ -472,7 +487,7 @@ export default function DependencyReport() {
         setEdges(r.edges);
         setLoading(false);
       });
-  }, [cardTypeKey, chartMode]);
+  }, [cardTypeKey, chartMode, selectedPlateauId]);
 
   // Filter nodes and edges by architecture_state
   const { filteredNodes, filteredEdges } = useMemo(() => {
@@ -743,6 +758,40 @@ export default function DependencyReport() {
             onStateChange={setArchitectureStates}
             storageKey="dependency_report_states"
           />
+
+          {plateaus.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 1,
+                py: 1,
+                px: 1,
+                borderTop: 1,
+                borderColor: "divider",
+                my: 1,
+              }}
+            >
+              <Typography variant="caption" sx={{ width: "100%", mb: -0.5, fontWeight: 600 }}>
+                {t("common:plateau")}:
+              </Typography>
+              <Chip
+                label={t("common:current")}
+                onClick={() => setSelectedPlateauId(null)}
+                variant={selectedPlateauId === null ? "filled" : "outlined"}
+                size="small"
+              />
+              {plateaus.map((p) => (
+                <Chip
+                  key={p.id}
+                  label={p.name}
+                  onClick={() => setSelectedPlateauId(p.id)}
+                  variant={selectedPlateauId === p.id ? "filled" : "outlined"}
+                  size="small"
+                />
+              ))}
+            </Box>
+          )}
 
           <TextField
             select

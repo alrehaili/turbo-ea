@@ -70,15 +70,14 @@ def _brief(card: Card, categories: dict) -> dict:
     }
 
 
-async def resolve_segment(db: AsyncSession, segment: NoraSegment) -> dict:
-    """Resolve a segment to its in-scope cards grouped by EA layer.
+async def get_segment_card_ids(db: AsyncSession, segment: NoraSegment) -> set[uuid.UUID]:
+    """Resolve a segment to its in-scope card IDs (without the display formatting).
 
     Scope = root + (descendants if enabled) + (related cards if enabled, narrowed
-    to ``related_type_keys`` when set). Returns ``{cards, layers, count}``.
+    to ``related_type_keys`` when set). Returns a set of UUID card IDs for filtering.
     """
-    categories = await _type_categories(db)
     if segment.root_card_id is None:
-        return {"cards": [], "layers": [], "count": 0}
+        return set()
 
     # Hierarchy set (root + descendants) is always kept in full; related cards
     # may be narrowed by ``related_type_keys``.
@@ -109,13 +108,38 @@ async def resolve_segment(db: AsyncSession, segment: NoraSegment) -> dict:
         related_ids -= hierarchy_ids
 
     scope_ids = hierarchy_ids | related_ids
-    rows = await db.execute(select(Card).where(Card.id.in_(scope_ids), Card.status != "ARCHIVED"))
-    cards = list(rows.scalars().all())
 
     allowed = set(segment.related_type_keys or [])
     if allowed:
         # Narrow related cards to the allowed types; hierarchy cards stay.
-        cards = [c for c in cards if c.id in hierarchy_ids or c.type in allowed]
+        rows = await db.execute(
+            select(Card.id).where(
+                Card.id.in_(scope_ids),
+                Card.status != "ARCHIVED",
+                (Card.id.in_(hierarchy_ids)) | (Card.type.in_(allowed)),
+            )
+        )
+        return {cid for (cid,) in rows.all()}
+
+    rows = await db.execute(
+        select(Card.id).where(Card.id.in_(scope_ids), Card.status != "ARCHIVED")
+    )
+    return {cid for (cid,) in rows.all()}
+
+
+async def resolve_segment(db: AsyncSession, segment: NoraSegment) -> dict:
+    """Resolve a segment to its in-scope cards grouped by EA layer.
+
+    Scope = root + (descendants if enabled) + (related cards if enabled, narrowed
+    to ``related_type_keys`` when set). Returns ``{cards, layers, count}``.
+    """
+    categories = await _type_categories(db)
+    scope_ids = await get_segment_card_ids(db, segment)
+    if not scope_ids:
+        return {"cards": [], "layers": [], "count": 0}
+
+    rows = await db.execute(select(Card).where(Card.id.in_(scope_ids)))
+    cards = list(rows.scalars().all())
 
     briefs = [_brief(c, categories) for c in cards]
     briefs.sort(key=lambda b: (b["category"] or "zz", b["name"]))

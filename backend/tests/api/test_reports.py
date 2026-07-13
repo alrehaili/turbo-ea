@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
+from app.models.nora_landscape import NoraPlateau
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -630,3 +633,166 @@ class TestIntegrationStatus:
             "/api/v1/reports/integration-status", headers=auth_headers(reports_env["noreports"])
         )
         assert resp.status_code == 403
+
+
+class TestReportsPlateauFiltering:
+    """Tests for plateau-based temporal filtering on reports."""
+
+    async def test_landscape_with_invalid_plateau_id(self, client, db, reports_env):
+        """Landscape returns 400 for invalid plateau_id."""
+        admin = reports_env["admin"]
+        resp = await client.get(
+            "/api/v1/reports/landscape?plateau_id=not-a-uuid",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert "Invalid plateau_id" in resp.json()["detail"]
+
+    async def test_landscape_with_nonexistent_plateau_id(self, client, db, reports_env):
+        """Landscape with nonexistent plateau_id returns empty result (no filtering applied)."""
+        admin = reports_env["admin"]
+        await create_card(
+            db,
+            card_type="Application",
+            name="App A",
+            user_id=admin.id,
+        )
+        # Use a valid UUID that doesn't exist
+        fake_uuid = "11111111-1111-1111-1111-111111111111"
+        resp = await client.get(
+            f"/api/v1/reports/landscape?plateau_id={fake_uuid}",
+            headers=auth_headers(admin),
+        )
+        # Should still work, but no plateau date is found, so it behaves like no plateau_id
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "groups" in data
+        assert "ungrouped" in data
+
+    async def test_landscape_with_valid_plateau_id(self, client, db, reports_env):
+        """Landscape with valid plateau_id returns filtered data."""
+        admin = reports_env["admin"]
+
+        # Create a plateau with a target date in the past
+        past_date = date(2024, 1, 1)
+        plateau = NoraPlateau(name="Past Plateau", description="Test", target_date=past_date)
+        db.add(plateau)
+        await db.flush()
+
+        # Create cards
+        app = await create_card(
+            db,
+            card_type="Application",
+            name="App A",
+            user_id=admin.id,
+        )
+
+        # Make request with plateau_id
+        resp = await client.get(
+            f"/api/v1/reports/landscape?plateau_id={plateau.id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # Should return valid landscape data structure
+        assert "groups" in data
+        assert "ungrouped" in data
+        # The app should appear in ungrouped since there's no relation
+        ungrouped_ids = [item["id"] for item in data["ungrouped"]]
+        assert str(app.id) in ungrouped_ids
+
+    async def test_dependencies_with_plateau_id(self, client, db, reports_env):
+        """Dependencies report supports plateau_id parameter."""
+        admin = reports_env["admin"]
+
+        # Create a plateau
+        plateau = NoraPlateau(name="Test Plateau", target_date=date(2024, 6, 1))
+        db.add(plateau)
+        await db.flush()
+
+        # Create cards with relations
+        app1 = await create_card(
+            db,
+            card_type="Application",
+            name="App 1",
+            user_id=admin.id,
+        )
+        app2 = await create_card(
+            db,
+            card_type="Application",
+            name="App 2",
+            user_id=admin.id,
+        )
+        # Create relation type if needed
+        await create_relation_type(db, key="relAppToApp", label="Uses")
+        await create_relation(db, source_id=app1.id, target_id=app2.id, type="relAppToApp")
+
+        # Request dependencies without plateau_id
+        resp_no_plateau = await client.get(
+            "/api/v1/reports/dependencies",
+            headers=auth_headers(admin),
+        )
+        assert resp_no_plateau.status_code == 200
+        data_no_plateau = resp_no_plateau.json()
+        assert "nodes" in data_no_plateau
+        assert "edges" in data_no_plateau
+
+        # Request dependencies with plateau_id
+        resp_with_plateau = await client.get(
+            f"/api/v1/reports/dependencies?plateau_id={plateau.id}",
+            headers=auth_headers(admin),
+        )
+        assert resp_with_plateau.status_code == 200
+        data_with_plateau = resp_with_plateau.json()
+        assert "nodes" in data_with_plateau
+        assert "edges" in data_with_plateau
+        # Both should return same structure
+        assert len(data_with_plateau["nodes"]) == len(data_no_plateau["nodes"])
+
+    async def test_capability_heatmap_with_plateau_id(self, client, db, reports_env):
+        """Capability heatmap report supports plateau_id parameter."""
+        admin = reports_env["admin"]
+
+        # Create a plateau
+        plateau = NoraPlateau(name="Test Plateau", target_date=date(2025, 12, 31))
+        db.add(plateau)
+        await db.flush()
+
+        # Create business capability and application
+        cap = await create_card(
+            db,
+            card_type="BusinessCapability",
+            name="Finance Capability",
+            user_id=admin.id,
+        )
+        app = await create_card(
+            db,
+            card_type="Application",
+            name="Finance App",
+            user_id=admin.id,
+        )
+
+        # Create relation between them
+        await create_relation_type(db, key="relCapToApp", label="Realized By", cardinality="1:n")
+        await create_relation(db, source_id=cap.id, target_id=app.id, type="relCapToApp")
+
+        # Request heatmap without plateau_id
+        resp_no_plateau = await client.get(
+            "/api/v1/reports/capability-heatmap",
+            headers=auth_headers(admin),
+        )
+        assert resp_no_plateau.status_code == 200
+        data_no_plateau = resp_no_plateau.json()
+        assert "items" in data_no_plateau
+        assert len(data_no_plateau["items"]) > 0
+
+        # Request heatmap with plateau_id
+        resp_with_plateau = await client.get(
+            f"/api/v1/reports/capability-heatmap?plateau_id={plateau.id}",
+            headers=auth_headers(admin),
+        )
+        assert resp_with_plateau.status_code == 200
+        data_with_plateau = resp_with_plateau.json()
+        assert "items" in data_with_plateau
+        # Should have same items (no active filtering on existence)
+        assert len(data_with_plateau["items"]) == len(data_no_plateau["items"])

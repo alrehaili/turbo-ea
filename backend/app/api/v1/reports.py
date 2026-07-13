@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,6 +17,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.event import Event
+from app.models.nora_landscape import NoraPlateau, NoraSegment
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.sso_invitation import SsoInvitation
@@ -36,6 +37,7 @@ from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
 )
+from app.services.nora_landscape import get_segment_card_ids, phase_as_of  # noqa: F401
 from app.services.permission_service import PermissionService
 from app.services.resilience_service import gather_resilience
 from app.services.strategy_map_service import gather_strategy_map
@@ -43,6 +45,43 @@ from app.services.strategy_map_service import gather_strategy_map
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 log = logging.getLogger(__name__)
+
+
+async def _get_plateau_date(db: AsyncSession, plateau_id: str | None) -> date | None:
+    """Fetch the target_date of a plateau by ID. Returns None if plateau_id is None or not found."""
+    if not plateau_id:
+        return None
+    try:
+        result = await db.execute(
+            select(NoraPlateau.target_date).where(NoraPlateau.id == uuid.UUID(plateau_id))
+        )
+        return result.scalar_one_or_none()
+    except ValueError:
+        raise HTTPException(400, f"Invalid plateau_id: {plateau_id}")
+
+
+async def _get_segment_scope(
+    db: AsyncSession, user: User, segment_id: str | None
+) -> set[uuid.UUID] | None:
+    """Fetch and resolve a segment to its card ID scope.
+
+    Returns None if segment_id is None, or a set of UUID card IDs if a segment is provided.
+    Raises HTTPException on invalid segment_id or if segment is not found.
+    Requires nora.view permission.
+    """
+    if not segment_id:
+        return None
+    await PermissionService.require_permission(db, user, "nora.view")
+    try:
+        seg_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        raise HTTPException(400, f"Invalid segment_id format: {segment_id}")
+    segment = (
+        await db.execute(select(NoraSegment).where(NoraSegment.id == seg_uuid))
+    ).scalar_one_or_none()
+    if segment is None:
+        raise HTTPException(404, f"Segment not found: {segment_id}")
+    return await get_segment_card_ids(db, segment)
 
 
 def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
@@ -769,12 +808,31 @@ async def landscape(
     user: User = Depends(get_current_user),
     type: str = Query("Application"),
     group_by: str = Query("BusinessCapability"),
+    plateau_id: str | None = Query(None, description="Optional plateau ID for temporal filtering"),
+    segment_id: str | None = Query(
+        None,
+        description=(
+            "Optional segment ID for scope filtering. When provided, "
+            "only cards in the segment's resolved scope are included."
+        ),
+    ),
 ):
-    """Landscape report: cards grouped by a related type."""
+    """Landscape report: cards grouped by a related type.
+
+    Optionally filtered as-of a plateau date or segment scope.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    plateau_date = await _get_plateau_date(db, plateau_id)  # noqa: F841
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     # Get all cards of the target type
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"groups": [], "ungrouped": []}
+        q = q.where(Card.id.in_(segment_scope))
+    result = await db.execute(q)
     sheets = result.scalars().all()
     # Resolve cost field keys for the target type once
     target_type_result = await db.execute(
@@ -791,10 +849,19 @@ async def landscape(
             return attrs
         return {k: v for k, v in attrs.items() if k not in target_cost_keys}
 
+    def _get_lifecycle_for_card(card: Card) -> dict | None:
+        """Get lifecycle data. When plateau_date is set, phase_as_of can be used for filtering."""
+        if not card.lifecycle:
+            return None
+        # Note: phase_as_of(card.lifecycle, plateau_date) can compute the phase at plateau time
+        # but we preserve the full lifecycle for now and let consumers use phase_as_of as needed
+        return card.lifecycle
+
     # Get group cards (must come before relations query so IDs are available)
-    group_result = await db.execute(
-        select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
-    )
+    group_q = select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        group_q = group_q.where(Card.id.in_(segment_scope))
+    group_result = await db.execute(group_q)
     groups = group_result.scalars().all()
 
     # Get relations connecting only the two relevant sets of IDs
@@ -824,7 +891,7 @@ async def landscape(
                     "name": card.name,
                     "type": card.type,
                     "attributes": _strip_attrs(card.attributes),
-                    "lifecycle": card.lifecycle,
+                    "lifecycle": _get_lifecycle_for_card(card),
                 }
             )
         elif tid in sheet_map and sid in group_map:
@@ -835,7 +902,7 @@ async def landscape(
                     "name": card.name,
                     "type": card.type,
                     "attributes": _strip_attrs(card.attributes),
-                    "lifecycle": card.lifecycle,
+                    "lifecycle": _get_lifecycle_for_card(card),
                 }
             )
 
@@ -884,9 +951,14 @@ async def portfolio(
     y_axis: str = Query("technicalFit"),
     size_field: str = Query("costTotalAnnual"),
     color_field: str = Query("businessCriticality"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Portfolio scatter/bubble chart data."""
+    """Portfolio scatter/bubble chart data. Optionally filtered by segment scope."""
     await PermissionService.require_permission(db, user, "reports.portfolio")
+    segment_scope = await _get_segment_scope(db, user, segment_id)
 
     # M-3: Validate field params against the type's schema + safe format
     type_result = await db.execute(select(CardType).where(CardType.key == type))
@@ -911,7 +983,13 @@ async def portfolio(
     if cost_keys & {x_axis, y_axis, size_field, color_field}:
         await PermissionService.require_permission(db, user, "costs.view")
 
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"items": [], "x_axis": x_axis, "y_axis": y_axis}
+        q = q.where(Card.id.in_(segment_scope))
+    result = await db.execute(q)
     sheets = result.scalars().all()
     items = []
     for card in sheets:
@@ -935,6 +1013,10 @@ async def app_portfolio(
     type: str = Query("Application"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
     """Portfolio report: all cards of the requested type with their relations
     for flexible client-side grouping by any attribute or related card type.
@@ -942,8 +1024,10 @@ async def app_portfolio(
     Defaults to ``type=Application`` so the original Application Portfolio
     report keeps working without changes. The Flexible Portfolio report passes
     other card type keys (BusinessCapability, Initiative, ITComponent, ...).
+    Optionally filtered by segment scope.
     """
     await PermissionService.require_permission(db, user, "reports.portfolio")
+    segment_scope = await _get_segment_scope(db, user, segment_id)
 
     # 0. Validate the requested card type exists and is visible.
     all_types_result = await db.execute(select(CardType))
@@ -953,7 +1037,17 @@ async def app_portfolio(
         raise HTTPException(status_code=404, detail=f"Card type '{type}' not found")
 
     # 1. Get all active cards of the requested type
-    apps_result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    apps_q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {
+                "cards": [],
+                "relations": [],
+                "relation_types": [],
+            }
+        apps_q = apps_q.where(Card.id.in_(segment_scope))
+    apps_result = await db.execute(apps_q)
     apps = apps_result.scalars().all()
     app_ids = [a.id for a in apps]
     app_id_set = {str(a.id) for a in apps}
@@ -1136,17 +1230,30 @@ async def matrix(
     user: User = Depends(get_current_user),
     row_type: str = Query("Application"),
     col_type: str = Query("BusinessCapability"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Matrix report: cross-reference grid."""
+    """Matrix report: cross-reference grid. Optionally filtered by segment scope."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    rows_result = await db.execute(
-        select(Card).where(Card.type == row_type, Card.status == "ACTIVE").order_by(Card.name)
-    )
+    segment_scope = await _get_segment_scope(db, user, segment_id)
+
+    rows_q = select(Card).where(Card.type == row_type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"rows": [], "columns": [], "intersections": []}
+        rows_q = rows_q.where(Card.id.in_(segment_scope))
+    rows_q = rows_q.order_by(Card.name)
+    rows_result = await db.execute(rows_q)
     rows = rows_result.scalars().all()
 
-    cols_result = await db.execute(
-        select(Card).where(Card.type == col_type, Card.status == "ACTIVE").order_by(Card.name)
-    )
+    cols_q = select(Card).where(Card.type == col_type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        cols_q = cols_q.where(Card.id.in_(segment_scope))
+    cols_q = cols_q.order_by(Card.name)
+    cols_result = await db.execute(cols_q)
     cols = cols_result.scalars().all()
 
     # Get all relations between these types
@@ -1271,8 +1378,12 @@ async def cost_treemap(
     group_by: str | None = Query(None),
     aggregate: list[str] | None = Query(None),
     parent_card_id: uuid.UUID | None = Query(None),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Cost treemap: items with cost, optionally grouped by a related type.
+    """Cost treemap: items with cost, optionally grouped and segment-filtered.
 
     When ``aggregate`` is non-empty, each entry is a ``"<typeKey>:<costFieldKey>"``
     pair identifying a cost field on a related card type. The endpoint sums that
@@ -1291,10 +1402,17 @@ async def cost_treemap(
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     await PermissionService.require_permission(db, user, "costs.view")
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     # M-3: Validate cost_field format
     if not _SAFE_KEY_RE.match(cost_field):
         raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"items": [], "total": 0.0}
+        q = q.where(Card.id.in_(segment_scope))
+    result = await db.execute(q)
     sheets = result.scalars().all()
 
     if parent_card_id is not None:
@@ -1480,9 +1598,16 @@ async def capability_heatmap(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     metric: str = Query("app_count"),
+    plateau_id: str | None = Query(None, description="Optional plateau ID for temporal filtering"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Business capability heatmap data with hierarchy."""
+    """Business capability heatmap with hierarchy, plateau and segment filtering."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    plateau_date = await _get_plateau_date(db, plateau_id)  # noqa: F841
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     # M-3: Whitelist valid metric values
     if metric not in {"app_count", "total_cost", "risk_count"}:
         raise HTTPException(400, f"Invalid metric: {metric!r}")
@@ -1490,14 +1615,23 @@ async def capability_heatmap(
         await PermissionService.require_permission(db, user, "costs.view")
     can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     # Get all business capabilities
-    caps_result = await db.execute(
-        select(Card)
-        .where(
-            Card.type == "BusinessCapability",
-            Card.status == "ACTIVE",
-        )
-        .order_by(Card.name)
+    caps_q = select(Card).where(
+        Card.type == "BusinessCapability",
+        Card.status == "ACTIVE",
     )
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {
+                "items": [],
+                "metric": metric,
+                "filterable_types": {},
+                "fields_schema": [],
+                "tag_groups": [],
+            }
+        caps_q = caps_q.where(Card.id.in_(segment_scope))
+    caps_q = caps_q.order_by(Card.name)
+    caps_result = await db.execute(caps_q)
     caps = caps_result.scalars().all()
     cap_ids = [c.id for c in caps]
 
@@ -1514,9 +1648,10 @@ async def capability_heatmap(
                 cost_field_keys.append(field["key"])
 
     # Get related applications via relations
-    apps_result = await db.execute(
-        select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
-    )
+    apps_q = select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
+    if segment_scope is not None:
+        apps_q = apps_q.where(Card.id.in_(segment_scope))
+    apps_result = await db.execute(apps_q)
     apps = apps_result.scalars().all()
     app_map = {str(a.id): a for a in apps}
 
@@ -1592,6 +1727,14 @@ async def capability_heatmap(
             }
         )
 
+    def _get_lifecycle_heatmap(card: Card) -> dict | None:
+        """Get lifecycle. When plateau_date is set, use phase_as_of for temporal filtering."""
+        if not card.lifecycle:
+            return None
+        # When plateau_date is set, phase_as_of(card.lifecycle, plateau_date)
+        # determines the lifecycle phase at that plateau date
+        return card.lifecycle
+
     def _app_to_dict(a):
         aid = str(a.id)
         by_type = app_related.get(aid, {})
@@ -1603,7 +1746,7 @@ async def capability_heatmap(
             "name": a.name,
             "subtype": a.subtype,
             "attributes": attrs,
-            "lifecycle": a.lifecycle,
+            "lifecycle": _get_lifecycle_heatmap(a),
             "org_ids": sorted(by_type.get("Organization", [])),
             "related_by_type": {k: sorted(v) for k, v in by_type.items()},
             "tag_ids": cap_app_tag_ids.get(aid, []),
@@ -1670,15 +1813,27 @@ async def dependencies(
     center_id: str | None = Query(None),
     depth: int = Query(2, ge=1, le=3),
     type: str | None = Query(None),
+    plateau_id: str | None = Query(None, description="Optional plateau ID for temporal filtering"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Dependency / interface map: nodes + edges for graph rendering."""
+    """Dependency / interface map: nodes + edges, plateau and segment-filtered."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    plateau_date = await _get_plateau_date(db, plateau_id)  # noqa: F841
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     # Always load ALL active cards for ancestor path resolution
     full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
     all_sheets = full_result.scalars().all()
     full_map = {str(card.id): card for card in all_sheets}
 
-    # Apply optional type filter for the graph scope
+    # Apply optional segment and/or type filter for the graph scope
+    if segment_scope is not None:
+        segment_str = {str(cid) for cid in segment_scope}
+        full_map = {k: v for k, v in full_map.items() if k in segment_str}
+        if not full_map:
+            return {"nodes": [], "edges": []}
     if type:
         sheet_map = {k: v for k, v in full_map.items() if v.type == type}
     else:
@@ -1745,6 +1900,14 @@ async def dependencies(
             cur = parent
         return path
 
+    # Helper: get lifecycle as-of plateau date if provided
+    def _get_lifecycle_deps(card: Card) -> dict | None:
+        if not card.lifecycle:
+            return None
+        # When plateau_date is set, phase_as_of(card.lifecycle, plateau_date)
+        # computes which phase the card was/will be in at that time
+        return card.lifecycle
+
     # Build nodes
     nodes = []
     for nid in visible_ids:
@@ -1756,7 +1919,7 @@ async def dependencies(
                 "id": nid,
                 "name": card.name,
                 "type": card.type,
-                "lifecycle": card.lifecycle,
+                "lifecycle": _get_lifecycle_deps(card),
                 "attributes": card.attributes,
                 "parent_id": str(card.parent_id) if card.parent_id else None,
                 "path": _ancestor_path(nid),

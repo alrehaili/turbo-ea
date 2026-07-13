@@ -16,6 +16,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.event import Event
+from app.models.nora_landscape import NoraSegment
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -76,6 +77,7 @@ from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
+from app.services.nora_landscape import get_segment_card_ids
 from app.services.permission_service import PermissionService
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
@@ -431,6 +433,13 @@ async def list_cards(
             "diagram editor's view perspectives to recolor cells."
         ),
     ),
+    segment_id: str | None = Query(
+        None,
+        description=(
+            "Filter to cards within a NORA segment scope (root + descendants + related). "
+            "When provided, only cards in the resolved segment are returned."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
     sort_by: str = Query("name"),
@@ -513,6 +522,26 @@ async def list_cards(
         mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
         q = q.where(Card.id.in_(mine_cards_sq))
         count_q = count_q.where(Card.id.in_(mine_cards_sq))
+
+    # Segment scope filtering (Phase B.9) — when provided, restrict to segment membership
+    if segment_id:
+        await PermissionService.require_permission(db, user, "nora.view")
+        try:
+            seg_uuid = uuid.UUID(segment_id)
+        except ValueError:
+            raise HTTPException(400, f"Invalid segment_id format: {segment_id}")
+        segment = (
+            await db.execute(select(NoraSegment).where(NoraSegment.id == seg_uuid))
+        ).scalar_one_or_none()
+        if segment is None:
+            raise HTTPException(404, f"Segment not found: {segment_id}")
+        scope_ids = await get_segment_card_ids(db, segment)
+        if scope_ids:
+            q = q.where(Card.id.in_(scope_ids))
+            count_q = count_q.where(Card.id.in_(scope_ids))
+        else:
+            # Empty segment scope — return empty result
+            return CardListResponse(items=[], total=0, page=page, page_size=page_size)
 
     # Sorting — H9: whitelist sort columns
     if sort_by not in _ALLOWED_SORT_COLUMNS:
@@ -2664,7 +2693,11 @@ async def update_approval_status(
     else:
         if action == "submit":
             raise HTTPException(400, "Governance mode is not enabled")
-        if action == "reject" and config["require_rejection_comment"] and not (comment and comment.strip()):
+        if (
+            action == "reject"
+            and config["require_rejection_comment"]
+            and not (comment and comment.strip())
+        ):
             raise HTTPException(
                 status_code=422,
                 detail="Rejection comment is required",
@@ -2729,9 +2762,7 @@ async def bulk_approval_action(
         if not card:
             results.append(
                 CardApprovalActionResult(
-                    card_id=card_id_str,
-                    status="error",
-                    error="Card not found"
+                    card_id=card_id_str, status="error", error="Card not found"
                 )
             )
             continue
@@ -2743,9 +2774,7 @@ async def bulk_approval_action(
             ):
                 results.append(
                     CardApprovalActionResult(
-                        card_id=card_id_str,
-                        status="error",
-                        error="Not enough permissions"
+                        card_id=card_id_str, status="error", error="Not enough permissions"
                     )
                 )
                 continue
@@ -2758,7 +2787,7 @@ async def bulk_approval_action(
                         CardApprovalActionResult(
                             card_id=card_id_str,
                             status="error",
-                            error="Mandatory relations or tag groups missing"
+                            error="Mandatory relations or tag groups missing",
                         )
                     )
                     continue
@@ -2771,7 +2800,7 @@ async def bulk_approval_action(
                             CardApprovalActionResult(
                                 card_id=card_id_str,
                                 status="error",
-                                error="Card is already approved"
+                                error="Card is already approved",
                             )
                         )
                         continue
@@ -2791,16 +2820,18 @@ async def bulk_approval_action(
                             CardApprovalActionResult(
                                 card_id=card_id_str,
                                 status="error",
-                                error="Card is not in review — submit it first"
+                                error="Card is not in review — submit it first",
                             )
                         )
                         continue
-                    if not await PermissionService.check_permission(db, user, "governance.approve_step"):
+                    if not await PermissionService.check_permission(
+                        db, user, "governance.approve_step"
+                    ):
                         results.append(
                             CardApprovalActionResult(
                                 card_id=card_id_str,
                                 status="error",
-                                error="Missing governance.approve_step permission"
+                                error="Missing governance.approve_step permission",
                             )
                         )
                         continue
@@ -2809,9 +2840,7 @@ async def bulk_approval_action(
                     if step is None:
                         results.append(
                             CardApprovalActionResult(
-                                card_id=card_id_str,
-                                status="error",
-                                error="No pending review step"
+                                card_id=card_id_str, status="error", error="No pending review step"
                             )
                         )
                         continue
@@ -2823,7 +2852,7 @@ async def bulk_approval_action(
                             CardApprovalActionResult(
                                 card_id=card_id_str,
                                 status="error",
-                                error=f"This step requires the '{step.required_role_key}' role"
+                                error=f"This step requires the '{step.required_role_key}' role",
                             )
                         )
                         continue
@@ -2832,17 +2861,19 @@ async def bulk_approval_action(
                             CardApprovalActionResult(
                                 card_id=card_id_str,
                                 status="error",
-                                error="Segregation of duties: the submitter cannot decide this step"
+                                error="Segregation of duties: the submitter cannot decide this step",
                             )
                         )
                         continue
                     if body.action == "reject":
-                        if config["require_rejection_comment"] and not (body.comment and body.comment.strip()):
+                        if config["require_rejection_comment"] and not (
+                            body.comment and body.comment.strip()
+                        ):
                             results.append(
                                 CardApprovalActionResult(
                                     card_id=card_id_str,
                                     status="error",
-                                    error="Rejection comment is required"
+                                    error="Rejection comment is required",
                                 )
                             )
                             continue
@@ -2870,16 +2901,20 @@ async def bulk_approval_action(
                         CardApprovalActionResult(
                             card_id=card_id_str,
                             status="error",
-                            error="Governance mode is not enabled"
+                            error="Governance mode is not enabled",
                         )
                     )
                     continue
-                if body.action == "reject" and config["require_rejection_comment"] and not (body.comment and body.comment.strip()):
+                if (
+                    body.action == "reject"
+                    and config["require_rejection_comment"]
+                    and not (body.comment and body.comment.strip())
+                ):
                     results.append(
                         CardApprovalActionResult(
                             card_id=card_id_str,
                             status="error",
-                            error="Rejection comment is required"
+                            error="Rejection comment is required",
                         )
                     )
                     continue
@@ -2922,11 +2957,7 @@ async def bulk_approval_action(
             )
         except Exception as e:
             results.append(
-                CardApprovalActionResult(
-                    card_id=card_id_str,
-                    status="error",
-                    error=str(e)
-                )
+                CardApprovalActionResult(card_id=card_id_str, status="error", error=str(e))
             )
 
     await db.commit()
@@ -2958,7 +2989,9 @@ async def promote_target_to_current(
     from app.services import governance_service as gov
     from app.services.notification_service import create_notifications_for_subscribers
 
-    await PermissionService.require_permission(db, user, "inventory.edit", card_id=card_id, card_permission="card.edit")
+    await PermissionService.require_permission(
+        db, user, "inventory.edit", card_id=card_id, card_permission="card.edit"
+    )
 
     card_uuid = UUID(card_id)
     result = await db.execute(select(Card).where(Card.id == card_uuid))
@@ -2967,7 +3000,9 @@ async def promote_target_to_current(
         raise HTTPException(404, "Card not found")
 
     if card.architecture_state != "target":
-        raise HTTPException(400, f"Card must have architecture_state='target', got '{card.architecture_state}'")
+        raise HTTPException(
+            400, f"Card must have architecture_state='target', got '{card.architecture_state}'"
+        )
 
     config = await gov.get_governance_config(db)
     governed = config["enabled"] and config["promotion_requires_approval"]
@@ -2987,7 +3022,11 @@ async def promote_target_to_current(
         )
         await event_bus.publish(
             "card.promotion_submitted",
-            {"id": str(card.id), "architecture_state": "transition", "approval_status": "IN_REVIEW"},
+            {
+                "id": str(card.id),
+                "architecture_state": "transition",
+                "approval_status": "IN_REVIEW",
+            },
             db=db,
             card_id=card.id,
             user_id=user.id,
@@ -3013,7 +3052,10 @@ async def promote_target_to_current(
         title=f"Target Promotion {action_label.title()}",
         message=f'{user.display_name} {action_label} the target card "{card.name}"',
         link=f"/cards/{card_id}",
-        data={"architecture_state": card.architecture_state, "approval_status": card.approval_status},
+        data={
+            "architecture_state": card.architecture_state,
+            "approval_status": card.approval_status,
+        },
         actor_id=user.id,
     )
 
