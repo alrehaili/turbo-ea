@@ -7,18 +7,25 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "./MaterialSymbol";
 import { STATUS_COLORS } from "@/theme/tokens";
 
+export type ApprovalAction = "submit" | "approve" | "reject" | "reset";
+
 interface Props {
   status: string;
   size?: "small" | "medium";
   canChange?: boolean;
-  onAction?: (action: "approve" | "reject" | "reset") => void;
+  onAction?: (action: ApprovalAction) => void;
+  /** Multi-step review mode (NORA stage gates — [FORK] WP2.2): drafts are
+   * submitted for review instead of approved directly; approve/reject decide
+   * the current chain step. */
+  governanceEnabled?: boolean;
 }
 
 const STATUS_CONFIG: Record<
   string,
-  { color: "default" | "success" | "warning" | "error"; icon: string }
+  { color: "default" | "success" | "warning" | "error" | "info"; icon: string }
 > = {
   DRAFT: { color: "default", icon: "edit_note" },
+  IN_REVIEW: { color: "info", icon: "hourglass_top" },
   APPROVED: { color: "success", icon: "verified" },
   BROKEN: { color: "warning", icon: "warning" },
   REJECTED: { color: "error", icon: "cancel" },
@@ -29,6 +36,7 @@ export default function ApprovalStatusBadge({
   size = "small",
   canChange,
   onAction,
+  governanceEnabled,
 }: Props) {
   const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -36,6 +44,69 @@ export default function ApprovalStatusBadge({
   if (!cfg) return null;
 
   const interactive = canChange && onAction;
+
+  const item = (
+    action: ApprovalAction,
+    icon: string,
+    color: string,
+    label: string,
+    disabled: boolean,
+  ) => (
+    <MenuItem
+      key={action}
+      onClick={() => {
+        onAction?.(action);
+        setAnchorEl(null);
+      }}
+      disabled={disabled}
+    >
+      <MaterialSymbol icon={icon} size={18} color={color} />
+      <Typography sx={{ ml: 1 }}>{label}</Typography>
+    </MenuItem>
+  );
+
+  const menuItems = governanceEnabled
+    ? [
+        item(
+          "submit",
+          "send",
+          STATUS_COLORS.info ?? STATUS_COLORS.neutral,
+          t("actions.submitForReview"),
+          status === "IN_REVIEW" || status === "APPROVED",
+        ),
+        item(
+          "approve",
+          "verified",
+          STATUS_COLORS.success,
+          t("actions.approveStep"),
+          status !== "IN_REVIEW",
+        ),
+        item("reject", "cancel", STATUS_COLORS.error, t("actions.reject"), status !== "IN_REVIEW"),
+        item(
+          "reset",
+          "restart_alt",
+          STATUS_COLORS.neutral,
+          t("actions.resetToDraft"),
+          status === "DRAFT",
+        ),
+      ]
+    : [
+        item(
+          "approve",
+          "verified",
+          STATUS_COLORS.success,
+          t("actions.approve"),
+          status === "APPROVED",
+        ),
+        item("reject", "cancel", STATUS_COLORS.error, t("actions.reject"), status === "REJECTED"),
+        item(
+          "reset",
+          "restart_alt",
+          STATUS_COLORS.neutral,
+          t("actions.resetToDraft"),
+          status === "DRAFT",
+        ),
+      ];
 
   return (
     <>
@@ -55,34 +126,8 @@ export default function ApprovalStatusBadge({
         sx={interactive ? { cursor: "pointer" } : undefined}
       />
       {interactive && (
-        <Menu
-          anchorEl={anchorEl}
-          open={!!anchorEl}
-          onClose={() => setAnchorEl(null)}
-        >
-          <MenuItem
-            onClick={() => { onAction("approve"); setAnchorEl(null); }}
-            disabled={status === "APPROVED"}
-          >
-            <MaterialSymbol icon="verified" size={18} color={STATUS_COLORS.success} />
-            <Typography sx={{ ml: 1 }}>{t("actions.approve")}</Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => { onAction("reject"); setAnchorEl(null); }}
-            disabled={status === "REJECTED"}
-          >
-            <MaterialSymbol icon="cancel" size={18} color={STATUS_COLORS.error} />
-            <Typography sx={{ ml: 1 }}>{t("actions.reject")}</Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => { onAction("reset"); setAnchorEl(null); }}
-            disabled={status === "DRAFT"}
-          >
-            <MaterialSymbol icon="restart_alt" size={18} color={STATUS_COLORS.neutral} />
-            <Typography sx={{ ml: 1 }}>
-              {t("actions.resetToDraft")}
-            </Typography>
-          </MenuItem>
+        <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={() => setAnchorEl(null)}>
+          {menuItems}
         </Menu>
       )}
     </>

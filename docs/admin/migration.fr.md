@@ -1,6 +1,6 @@
 # Migration de plateforme
 
-> Plateformes source prises en charge aujourd'hui : **SAP LeanIX**. Des adaptateurs supplémentaires (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) se branchent sur la même pipeline de staging et d'application et apparaissent automatiquement dans la boîte de dialogue d'upload dès qu'ils sont livrés.
+> Plateformes source prises en charge aujourd'hui : **SAP LeanIX** et les **modèles de collecte de données NORA (DGA)**. Des adaptateurs supplémentaires (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) se branchent sur la même pipeline de staging et d'application et apparaissent automatiquement dans la boîte de dialogue d'upload dès qu'ils sont livrés.
 
 L'importateur de migration de plateforme (**Administration → Paramètres → Migration**) ingère un workspace LeanIX complet et le dépose sous forme de cartes, relations, tags, parties prenantes, documents, commentaires et d'un métamodèle entièrement étoffé dans Turbo EA en une seule opération en plusieurs étapes, révisable.
 
@@ -93,3 +93,9 @@ Cette page est gardée par la permission `admin.migrate`. Par défaut, seul le r
 ## Nettoyage
 
 Supprimer un enregistrement de migration (Paramètres → Migration → icône poubelle) retire à la fois les lignes en base pour cette migration (les staged records cascadent) et le fichier snapshot sur disque. Les migrations dans les statuts `uploaded`, `parsed`, `previewed`, `failed`, `aborted` et `applied` sont toutes supprimables ; une migration `applying` doit d'abord terminer (ou échouer) avant de pouvoir être supprimée.
+
+### Modèles de collecte de données NORA (DGA)
+
+L'importateur ingère également les classeurs officiels de collecte de données du cadre national d'architecture d'entreprise saoudien — un classeur par domaine (métier, applications, technologie, sécurité, données). Les feuilles atterrissent sur les types de cartes correspondants, et les colonnes à choix sont traduites depuis les valeurs de référence des modèles vers les champs du profil NORA — activez donc le profil de cadre NORA avant l'import.
+
+Les références par nom entre lignes deviennent des relations et des liens hiérarchiques ; les noms référencés sans ligne propre sont créés comme cartes minimales qui se lient aux cartes existantes portant le même nom. Les classeurs peuvent être téléversés dans n'importe quel ordre et réimportés en toute sécurité. Les feuilles expérience bénéficiaire, formulaires, politiques et parties prenantes ne sont pas encore importées.

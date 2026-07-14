@@ -21,6 +21,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.tech_standard import (
     STANDARD_CATEGORIES,
+    STANDARD_MANDATES,
     STANDARD_STATUSES,
     StandardException,
     TechStandard,
@@ -43,6 +44,13 @@ class StandardCreate(BaseModel):
     replacement_id: uuid.UUID | None = None
     owner_id: uuid.UUID | None = None
     sort_order: int = 0
+    # NORA TRM metadata (noraPlan.md WP1.3)
+    standard_body: str | None = Field(default=None, max_length=200)
+    mandate: str = "recommended"
+    review_date: date | None = None
+    spec_url: str | None = Field(default=None, max_length=500)
+    trm_code: str | None = Field(default=None, max_length=50)
+    tech_category_id: uuid.UUID | None = None
 
 
 class StandardUpdate(BaseModel):
@@ -54,6 +62,13 @@ class StandardUpdate(BaseModel):
     replacement_id: uuid.UUID | None = None
     owner_id: uuid.UUID | None = None
     sort_order: int | None = None
+    # NORA TRM metadata (noraPlan.md WP1.3)
+    standard_body: str | None = Field(default=None, max_length=200)
+    mandate: str | None = None
+    review_date: date | None = None
+    spec_url: str | None = Field(default=None, max_length=500)
+    trm_code: str | None = Field(default=None, max_length=50)
+    tech_category_id: uuid.UUID | None = None
 
 
 class ExceptionCreate(BaseModel):
@@ -75,7 +90,7 @@ class ExceptionUpdate(BaseModel):
 # --------------------------------------------------------------------------- #
 # Serialisation                                                                #
 # --------------------------------------------------------------------------- #
-def _standard_dict(s: TechStandard) -> dict:
+def _standard_dict(s: TechStandard, cards: dict[uuid.UUID, dict] | None = None) -> dict:
     return {
         "id": str(s.id),
         "name": s.name,
@@ -86,6 +101,13 @@ def _standard_dict(s: TechStandard) -> dict:
         "replacement_id": str(s.replacement_id) if s.replacement_id else None,
         "owner_id": str(s.owner_id) if s.owner_id else None,
         "sort_order": s.sort_order,
+        "standard_body": s.standard_body,
+        "mandate": s.mandate,
+        "review_date": s.review_date.isoformat() if s.review_date else None,
+        "spec_url": s.spec_url,
+        "trm_code": s.trm_code,
+        "tech_category_id": str(s.tech_category_id) if s.tech_category_id else None,
+        "tech_category": (cards or {}).get(s.tech_category_id) if s.tech_category_id else None,
     }
 
 
@@ -131,11 +153,13 @@ async def _get_exception(db: AsyncSession, eid: uuid.UUID) -> StandardException:
     return e
 
 
-def _validate(category: str | None, status: str | None) -> None:
+def _validate(category: str | None, status: str | None, mandate: str | None = None) -> None:
     if category is not None and category not in STANDARD_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category: {category}")
     if status is not None and status not in STANDARD_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+    if mandate is not None and mandate not in STANDARD_MANDATES:
+        raise HTTPException(status_code=400, detail=f"Invalid mandate: {mandate}")
 
 
 # --------------------------------------------------------------------------- #
@@ -155,7 +179,9 @@ async def list_standards(
     if status:
         stmt = stmt.where(TechStandard.status == status)
     res = await db.execute(stmt)
-    return [_standard_dict(s) for s in res.scalars().all()]
+    standards = list(res.scalars().all())
+    cards = await _card_brief_map(db, {s.tech_category_id for s in standards})
+    return [_standard_dict(s, cards) for s in standards]
 
 
 @router.post("", status_code=201)
@@ -165,7 +191,7 @@ async def create_standard(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
-    _validate(body.category, body.status)
+    _validate(body.category, body.status, body.mandate)
     s = TechStandard(**body.model_dump())
     db.add(s)
     await db.commit()
@@ -183,6 +209,7 @@ async def radar(
     await PermissionService.require_permission(db, user, "tech_standards.view")
     res = await db.execute(select(TechStandard).order_by(TechStandard.name))
     standards = list(res.scalars().all())
+    cat_cards = await _card_brief_map(db, {s.tech_category_id for s in standards})
 
     # Open (approved + non-expired, or requested) exception counts per standard.
     eres = await db.execute(
@@ -205,7 +232,7 @@ async def radar(
     for s in standards:
         cat = s.category if s.category in matrix else "other"
         st = s.status if s.status in by_status else "allowed"
-        row = {**_standard_dict(s), "open_exceptions": open_exc.get(s.id, 0)}
+        row = {**_standard_dict(s, cat_cards), "open_exceptions": open_exc.get(s.id, 0)}
         matrix[cat][st].append(row)
         by_status[st] += 1
 
@@ -254,9 +281,15 @@ async def get_standard(
     )
     exceptions = list(eres.scalars().all())
     cards = await _card_brief_map(
-        db, {e.card_id for e in exceptions} | {e.initiative_id for e in exceptions}
+        db,
+        {e.card_id for e in exceptions}
+        | {e.initiative_id for e in exceptions}
+        | {s.tech_category_id},
     )
-    return {**_standard_dict(s), "exceptions": [_exception_dict(e, cards) for e in exceptions]}
+    return {
+        **_standard_dict(s, cards),
+        "exceptions": [_exception_dict(e, cards) for e in exceptions],
+    }
 
 
 @router.patch("/{standard_id}")
@@ -269,7 +302,7 @@ async def update_standard(
     await PermissionService.require_permission(db, user, "tech_standards.manage")
     s = await _get_standard(db, standard_id)
     data = body.model_dump(exclude_unset=True)
-    _validate(data.get("category"), data.get("status"))
+    _validate(data.get("category"), data.get("status"), data.get("mandate"))
     for key, value in data.items():
         setattr(s, key, value)
     await db.commit()

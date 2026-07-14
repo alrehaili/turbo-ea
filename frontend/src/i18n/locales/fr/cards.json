@@ -1,5 +1,17 @@
 {
+  "detail.reviewChain": "Chaîne de revue",
+  "architectureState.title": "État d'architecture",
+  "architectureState.current": "Actuel",
+  "architectureState.transition": "Transition",
+  "architectureState.target": "Cible",
+  "changeType.title": "Type de changement",
+  "changeType.create": "Créer",
+  "changeType.modify": "Modifier",
+  "changeType.replace": "Remplacer",
+  "changeType.retire": "Retirer",
+  "changeType.consolidate": "Consolider",
   "detail.title": "Détail de la fiche",
+  "detail.viewStrategyCascade": "Cascade stratégique",
   "detail.backToTop": "Retour en haut",
   "detail.archivedBanner": "Cette fiche est archivée.",
   "detail.purgeWarning_one": "Elle sera définitivement supprimée dans {{count}} jour.",
@@ -617,5 +629,14 @@
   "todos.recurrence.months_one": "Chaque mois",
   "todos.recurrence.months_other": "Tous les {{count}} mois",
   "todos.recurrence.years_one": "Chaque année",
-  "todos.recurrence.years_other": "Tous les {{count}} ans"
+  "todos.recurrence.years_other": "Tous les {{count}} ans",
+  "detail.succeeds.edit": "Modifier",
+  "detail.succeeds.mergedInto": "Fusionné en",
+  "detail.succeeds.succeeds": "Succède à",
+  "detail.succeeds.replacedBy": "Remplacé par",
+  "detail.succeeds.notSet": "Non défini",
+  "detail.succeeds.error": "Impossible d'enregistrer le successeur",
+  "detail.succeeds.retiredBy": "Retiré par",
+  "detail.succeeds.search": "Rechercher {{type}}",
+  "detail.succeeds.modifiedAs": "Modifié comme"
 }

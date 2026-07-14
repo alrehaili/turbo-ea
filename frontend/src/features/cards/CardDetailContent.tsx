@@ -26,6 +26,7 @@ import {
   SuccessorsSection,
   RelationsSection,
   LayeredDependencySection,
+  PortfolioDecisionsSection,
   CommentsTab,
   TodosTab,
   StakeholdersTab,
@@ -469,6 +470,13 @@ export default function CardDetailContent({
       {tab === 0 && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           {sectionOrder.map(renderSection)}
+          {/* Portfolio decisions — only renders when the card has any
+              rationalization decisions recorded against it. Silently hides
+              itself otherwise, so cards that aren't applications (or haven't
+              been reviewed) don't get an empty section. */}
+          <ErrorBoundary label="Portfolio Decisions" inline>
+            <PortfolioDecisionsSection cardId={card.id} />
+          </ErrorBoundary>
           {showLdvSection && (
             <ErrorBoundary label="Dependencies" inline>
               <LayeredDependencySection cardId={card.id} />

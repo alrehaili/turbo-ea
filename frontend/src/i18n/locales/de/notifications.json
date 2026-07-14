@@ -15,6 +15,7 @@
   "preferences.cardUpdated": "Karte aktualisiert",
   "preferences.commentAdded": "Kommentar hinzugefügt",
   "preferences.approvalStatusChanged": "Genehmigungsstatus geändert",
+  "preferences.approvalStepPending": "Genehmigungsschritt erforderlich",
   "preferences.soawSignRequested": "SoAW-Unterschrift angefordert",
   "preferences.soawSigned": "SoAW unterzeichnet",
   "preferences.surveyRequest": "Umfrageanfrage"

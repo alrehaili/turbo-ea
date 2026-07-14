@@ -8,6 +8,9 @@ imports".
 
 from __future__ import annotations
 
-from app.services.migration.sources import leanix  # noqa: F401
+from app.services.migration.sources import (
+    leanix,  # noqa: F401
+    nora_xlsx,  # noqa: F401
+)
 
-__all__ = ["leanix"]
+__all__ = ["leanix", "nora_xlsx"]

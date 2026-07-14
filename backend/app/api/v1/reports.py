@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,6 +17,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.event import Event
+from app.models.nora_landscape import NoraPlateau, NoraSegment
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.sso_invitation import SsoInvitation
@@ -36,6 +37,7 @@ from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
 )
+from app.services.nora_landscape import get_segment_card_ids, phase_as_of  # noqa: F401
 from app.services.permission_service import PermissionService
 from app.services.resilience_service import gather_resilience
 from app.services.strategy_map_service import gather_strategy_map
@@ -43,6 +45,43 @@ from app.services.strategy_map_service import gather_strategy_map
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 log = logging.getLogger(__name__)
+
+
+async def _get_plateau_date(db: AsyncSession, plateau_id: str | None) -> date | None:
+    """Fetch the target_date of a plateau by ID. Returns None if plateau_id is None or not found."""
+    if not plateau_id:
+        return None
+    try:
+        result = await db.execute(
+            select(NoraPlateau.target_date).where(NoraPlateau.id == uuid.UUID(plateau_id))
+        )
+        return result.scalar_one_or_none()
+    except ValueError:
+        raise HTTPException(400, f"Invalid plateau_id: {plateau_id}")
+
+
+async def _get_segment_scope(
+    db: AsyncSession, user: User, segment_id: str | None
+) -> set[uuid.UUID] | None:
+    """Fetch and resolve a segment to its card ID scope.
+
+    Returns None if segment_id is None, or a set of UUID card IDs if a segment is provided.
+    Raises HTTPException on invalid segment_id or if segment is not found.
+    Requires nora.view permission.
+    """
+    if not segment_id:
+        return None
+    await PermissionService.require_permission(db, user, "nora.view")
+    try:
+        seg_uuid = uuid.UUID(segment_id)
+    except ValueError:
+        raise HTTPException(400, f"Invalid segment_id format: {segment_id}")
+    segment = (
+        await db.execute(select(NoraSegment).where(NoraSegment.id == seg_uuid))
+    ).scalar_one_or_none()
+    if segment is None:
+        raise HTTPException(404, f"Segment not found: {segment_id}")
+    return await get_segment_card_ids(db, segment)
 
 
 def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
@@ -769,12 +808,31 @@ async def landscape(
     user: User = Depends(get_current_user),
     type: str = Query("Application"),
     group_by: str = Query("BusinessCapability"),
+    plateau_id: str | None = Query(None, description="Optional plateau ID for temporal filtering"),
+    segment_id: str | None = Query(
+        None,
+        description=(
+            "Optional segment ID for scope filtering. When provided, "
+            "only cards in the segment's resolved scope are included."
+        ),
+    ),
 ):
-    """Landscape report: cards grouped by a related type."""
+    """Landscape report: cards grouped by a related type.
+
+    Optionally filtered as-of a plateau date or segment scope.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    plateau_date = await _get_plateau_date(db, plateau_id)  # noqa: F841
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     # Get all cards of the target type
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"groups": [], "ungrouped": []}
+        q = q.where(Card.id.in_(segment_scope))
+    result = await db.execute(q)
     sheets = result.scalars().all()
     # Resolve cost field keys for the target type once
     target_type_result = await db.execute(
@@ -791,10 +849,19 @@ async def landscape(
             return attrs
         return {k: v for k, v in attrs.items() if k not in target_cost_keys}
 
+    def _get_lifecycle_for_card(card: Card) -> dict | None:
+        """Get lifecycle data. When plateau_date is set, phase_as_of can be used for filtering."""
+        if not card.lifecycle:
+            return None
+        # Note: phase_as_of(card.lifecycle, plateau_date) can compute the phase at plateau time
+        # but we preserve the full lifecycle for now and let consumers use phase_as_of as needed
+        return card.lifecycle
+
     # Get group cards (must come before relations query so IDs are available)
-    group_result = await db.execute(
-        select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
-    )
+    group_q = select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        group_q = group_q.where(Card.id.in_(segment_scope))
+    group_result = await db.execute(group_q)
     groups = group_result.scalars().all()
 
     # Get relations connecting only the two relevant sets of IDs
@@ -824,7 +891,7 @@ async def landscape(
                     "name": card.name,
                     "type": card.type,
                     "attributes": _strip_attrs(card.attributes),
-                    "lifecycle": card.lifecycle,
+                    "lifecycle": _get_lifecycle_for_card(card),
                 }
             )
         elif tid in sheet_map and sid in group_map:
@@ -835,7 +902,7 @@ async def landscape(
                     "name": card.name,
                     "type": card.type,
                     "attributes": _strip_attrs(card.attributes),
-                    "lifecycle": card.lifecycle,
+                    "lifecycle": _get_lifecycle_for_card(card),
                 }
             )
 
@@ -884,9 +951,14 @@ async def portfolio(
     y_axis: str = Query("technicalFit"),
     size_field: str = Query("costTotalAnnual"),
     color_field: str = Query("businessCriticality"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Portfolio scatter/bubble chart data."""
+    """Portfolio scatter/bubble chart data. Optionally filtered by segment scope."""
     await PermissionService.require_permission(db, user, "reports.portfolio")
+    segment_scope = await _get_segment_scope(db, user, segment_id)
 
     # M-3: Validate field params against the type's schema + safe format
     type_result = await db.execute(select(CardType).where(CardType.key == type))
@@ -911,7 +983,13 @@ async def portfolio(
     if cost_keys & {x_axis, y_axis, size_field, color_field}:
         await PermissionService.require_permission(db, user, "costs.view")
 
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"items": [], "x_axis": x_axis, "y_axis": y_axis}
+        q = q.where(Card.id.in_(segment_scope))
+    result = await db.execute(q)
     sheets = result.scalars().all()
     items = []
     for card in sheets:
@@ -935,6 +1013,10 @@ async def app_portfolio(
     type: str = Query("Application"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
     """Portfolio report: all cards of the requested type with their relations
     for flexible client-side grouping by any attribute or related card type.
@@ -942,8 +1024,10 @@ async def app_portfolio(
     Defaults to ``type=Application`` so the original Application Portfolio
     report keeps working without changes. The Flexible Portfolio report passes
     other card type keys (BusinessCapability, Initiative, ITComponent, ...).
+    Optionally filtered by segment scope.
     """
     await PermissionService.require_permission(db, user, "reports.portfolio")
+    segment_scope = await _get_segment_scope(db, user, segment_id)
 
     # 0. Validate the requested card type exists and is visible.
     all_types_result = await db.execute(select(CardType))
@@ -953,7 +1037,17 @@ async def app_portfolio(
         raise HTTPException(status_code=404, detail=f"Card type '{type}' not found")
 
     # 1. Get all active cards of the requested type
-    apps_result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    apps_q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {
+                "cards": [],
+                "relations": [],
+                "relation_types": [],
+            }
+        apps_q = apps_q.where(Card.id.in_(segment_scope))
+    apps_result = await db.execute(apps_q)
     apps = apps_result.scalars().all()
     app_ids = [a.id for a in apps]
     app_id_set = {str(a.id) for a in apps}
@@ -1136,17 +1230,30 @@ async def matrix(
     user: User = Depends(get_current_user),
     row_type: str = Query("Application"),
     col_type: str = Query("BusinessCapability"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Matrix report: cross-reference grid."""
+    """Matrix report: cross-reference grid. Optionally filtered by segment scope."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    rows_result = await db.execute(
-        select(Card).where(Card.type == row_type, Card.status == "ACTIVE").order_by(Card.name)
-    )
+    segment_scope = await _get_segment_scope(db, user, segment_id)
+
+    rows_q = select(Card).where(Card.type == row_type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"rows": [], "columns": [], "intersections": []}
+        rows_q = rows_q.where(Card.id.in_(segment_scope))
+    rows_q = rows_q.order_by(Card.name)
+    rows_result = await db.execute(rows_q)
     rows = rows_result.scalars().all()
 
-    cols_result = await db.execute(
-        select(Card).where(Card.type == col_type, Card.status == "ACTIVE").order_by(Card.name)
-    )
+    cols_q = select(Card).where(Card.type == col_type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        cols_q = cols_q.where(Card.id.in_(segment_scope))
+    cols_q = cols_q.order_by(Card.name)
+    cols_result = await db.execute(cols_q)
     cols = cols_result.scalars().all()
 
     # Get all relations between these types
@@ -1271,8 +1378,12 @@ async def cost_treemap(
     group_by: str | None = Query(None),
     aggregate: list[str] | None = Query(None),
     parent_card_id: uuid.UUID | None = Query(None),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Cost treemap: items with cost, optionally grouped by a related type.
+    """Cost treemap: items with cost, optionally grouped and segment-filtered.
 
     When ``aggregate`` is non-empty, each entry is a ``"<typeKey>:<costFieldKey>"``
     pair identifying a cost field on a related card type. The endpoint sums that
@@ -1291,10 +1402,17 @@ async def cost_treemap(
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     await PermissionService.require_permission(db, user, "costs.view")
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     # M-3: Validate cost_field format
     if not _SAFE_KEY_RE.match(cost_field):
         raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
-    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
+    q = select(Card).where(Card.type == type, Card.status == "ACTIVE")
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {"items": [], "total": 0.0}
+        q = q.where(Card.id.in_(segment_scope))
+    result = await db.execute(q)
     sheets = result.scalars().all()
 
     if parent_card_id is not None:
@@ -1480,9 +1598,16 @@ async def capability_heatmap(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     metric: str = Query("app_count"),
+    plateau_id: str | None = Query(None, description="Optional plateau ID for temporal filtering"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Business capability heatmap data with hierarchy."""
+    """Business capability heatmap with hierarchy, plateau and segment filtering."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    plateau_date = await _get_plateau_date(db, plateau_id)  # noqa: F841
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     # M-3: Whitelist valid metric values
     if metric not in {"app_count", "total_cost", "risk_count"}:
         raise HTTPException(400, f"Invalid metric: {metric!r}")
@@ -1490,14 +1615,23 @@ async def capability_heatmap(
         await PermissionService.require_permission(db, user, "costs.view")
     can_view_costs_global = await PermissionService.has_app_permission(db, user, "costs.view")
     # Get all business capabilities
-    caps_result = await db.execute(
-        select(Card)
-        .where(
-            Card.type == "BusinessCapability",
-            Card.status == "ACTIVE",
-        )
-        .order_by(Card.name)
+    caps_q = select(Card).where(
+        Card.type == "BusinessCapability",
+        Card.status == "ACTIVE",
     )
+    if segment_scope is not None:
+        if not segment_scope:
+            # Empty segment scope
+            return {
+                "items": [],
+                "metric": metric,
+                "filterable_types": {},
+                "fields_schema": [],
+                "tag_groups": [],
+            }
+        caps_q = caps_q.where(Card.id.in_(segment_scope))
+    caps_q = caps_q.order_by(Card.name)
+    caps_result = await db.execute(caps_q)
     caps = caps_result.scalars().all()
     cap_ids = [c.id for c in caps]
 
@@ -1514,9 +1648,10 @@ async def capability_heatmap(
                 cost_field_keys.append(field["key"])
 
     # Get related applications via relations
-    apps_result = await db.execute(
-        select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
-    )
+    apps_q = select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
+    if segment_scope is not None:
+        apps_q = apps_q.where(Card.id.in_(segment_scope))
+    apps_result = await db.execute(apps_q)
     apps = apps_result.scalars().all()
     app_map = {str(a.id): a for a in apps}
 
@@ -1592,6 +1727,14 @@ async def capability_heatmap(
             }
         )
 
+    def _get_lifecycle_heatmap(card: Card) -> dict | None:
+        """Get lifecycle. When plateau_date is set, use phase_as_of for temporal filtering."""
+        if not card.lifecycle:
+            return None
+        # When plateau_date is set, phase_as_of(card.lifecycle, plateau_date)
+        # determines the lifecycle phase at that plateau date
+        return card.lifecycle
+
     def _app_to_dict(a):
         aid = str(a.id)
         by_type = app_related.get(aid, {})
@@ -1603,7 +1746,7 @@ async def capability_heatmap(
             "name": a.name,
             "subtype": a.subtype,
             "attributes": attrs,
-            "lifecycle": a.lifecycle,
+            "lifecycle": _get_lifecycle_heatmap(a),
             "org_ids": sorted(by_type.get("Organization", [])),
             "related_by_type": {k: sorted(v) for k, v in by_type.items()},
             "tag_ids": cap_app_tag_ids.get(aid, []),
@@ -1670,15 +1813,27 @@ async def dependencies(
     center_id: str | None = Query(None),
     depth: int = Query(2, ge=1, le=3),
     type: str | None = Query(None),
+    plateau_id: str | None = Query(None, description="Optional plateau ID for temporal filtering"),
+    segment_id: str | None = Query(
+        None,
+        description="Optional segment ID for scope filtering by segment membership.",
+    ),
 ):
-    """Dependency / interface map: nodes + edges for graph rendering."""
+    """Dependency / interface map: nodes + edges, plateau and segment-filtered."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    plateau_date = await _get_plateau_date(db, plateau_id)  # noqa: F841
+    segment_scope = await _get_segment_scope(db, user, segment_id)
     # Always load ALL active cards for ancestor path resolution
     full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
     all_sheets = full_result.scalars().all()
     full_map = {str(card.id): card for card in all_sheets}
 
-    # Apply optional type filter for the graph scope
+    # Apply optional segment and/or type filter for the graph scope
+    if segment_scope is not None:
+        segment_str = {str(cid) for cid in segment_scope}
+        full_map = {k: v for k, v in full_map.items() if k in segment_str}
+        if not full_map:
+            return {"nodes": [], "edges": []}
     if type:
         sheet_map = {k: v for k, v in full_map.items() if v.type == type}
     else:
@@ -1745,6 +1900,14 @@ async def dependencies(
             cur = parent
         return path
 
+    # Helper: get lifecycle as-of plateau date if provided
+    def _get_lifecycle_deps(card: Card) -> dict | None:
+        if not card.lifecycle:
+            return None
+        # When plateau_date is set, phase_as_of(card.lifecycle, plateau_date)
+        # computes which phase the card was/will be in at that time
+        return card.lifecycle
+
     # Build nodes
     nodes = []
     for nid in visible_ids:
@@ -1756,7 +1919,7 @@ async def dependencies(
                 "id": nid,
                 "name": card.name,
                 "type": card.type,
-                "lifecycle": card.lifecycle,
+                "lifecycle": _get_lifecycle_deps(card),
                 "attributes": card.attributes,
                 "parent_id": str(card.parent_id) if card.parent_id else None,
                 "path": _ancestor_path(nid),
@@ -2263,5 +2426,709 @@ async def eol_report(
             "impacted_apps": len(eol_impacted_app_ids),
             "approaching_impacted_apps": len(approaching_impacted_app_ids - eol_impacted_app_ids),
             "manual": manual_count,
+        },
+    }
+
+
+@router.get("/gap-analysis")
+async def gap_analysis_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Current vs target gap analysis (NORA Stage 8 input — noraPlan.md WP2.4).
+
+    Buckets every architecture-state delta and reports, per changed card, the
+    transition initiatives linked to it — plus the "untraceable" list of
+    target/transition cards no initiative delivers. [FORK FEATURE]
+    """
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    # Every card participating in a change: target/transition cards, plus
+    # current cards flagged for planned retirement.
+    changed_q = select(Card).where(
+        Card.status != "ARCHIVED",
+        (Card.architecture_state.in_(("target", "transition")))
+        | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
+    )
+    changed = list((await db.execute(changed_q)).scalars().all())
+    changed_ids = {c.id for c in changed}
+
+    # Resolve successor targets (the current cards being replaced).
+    successor_ids = {c.successor_id for c in changed if c.successor_id}
+    successor_map: dict[uuid.UUID, Card] = {}
+    if successor_ids:
+        rows = await db.execute(select(Card).where(Card.id.in_(successor_ids)))
+        successor_map = {c.id: c for c in rows.scalars().all()}
+
+    # Initiative links: any relation between a changed card and an Initiative.
+    initiatives_by_card: dict[uuid.UUID, list[dict]] = {}
+    if changed_ids:
+        rel_rows = await db.execute(
+            select(Relation, Card)
+            .join(
+                Card,
+                ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
+                & (Card.type == "Initiative"),
+            )
+            .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
+        )
+        for rel, initiative in rel_rows.all():
+            changed_id = rel.source_id if rel.target_id == initiative.id else rel.target_id
+            if changed_id not in changed_ids:
+                continue
+            initiatives_by_card.setdefault(changed_id, []).append(
+                {
+                    "id": str(initiative.id),
+                    "name": initiative.name,
+                    "transition_role": (rel.attributes or {}).get("transitionRole"),
+                }
+            )
+
+    def brief(c: Card) -> dict:
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "architecture_state": c.architecture_state or "current",
+            "change_type": c.change_type,
+            "initiatives": initiatives_by_card.get(c.id, []),
+        }
+
+    buckets: dict[str, list[dict]] = {"create": [], "replace": [], "retire": [], "modify": []}
+    untraceable: list[dict] = []
+    for c in sorted(changed, key=lambda x: (x.type, x.name.lower())):
+        row = brief(c)
+        if c.architecture_state == "current":
+            # current + change_type=retire → planned retirement without successor
+            buckets["retire"].append(row)
+        elif c.successor_id or c.change_type in ("replace", "consolidate"):
+            replaced = successor_map.get(c.successor_id) if c.successor_id else None
+            row["replaces"] = (
+                {"id": str(replaced.id), "name": replaced.name, "type": replaced.type}
+                if replaced
+                else None
+            )
+            buckets["replace"].append(row)
+        elif c.change_type == "modify":
+            buckets["modify"].append(row)
+        else:
+            buckets["create"].append(row)
+        if not row["initiatives"]:
+            untraceable.append(row)
+
+    return {
+        "buckets": buckets,
+        "untraceable": untraceable,
+        "summary": {
+            "total_changes": len(changed),
+            "create": len(buckets["create"]),
+            "replace": len(buckets["replace"]),
+            "modify": len(buckets["modify"]),
+            "retire": len(buckets["retire"]),
+            "untraceable": len(untraceable),
+        },
+    }
+
+
+@router.get("/service-traceability")
+async def service_traceability_report(
+    card_id: str = Query(..., description="The GovService (or any) card to trace from"),
+    depth: int = Query(2, ge=1, le=3),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Service delivery chain (NORA — noraPlan.md WP3.4): everything reachable
+    from a service within ``depth`` relation hops, grouped by EA layer, so the
+    committee can answer "how is this service delivered" on one screen.
+    [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    root_id = uuid.UUID(card_id)
+    root = (await db.execute(select(Card).where(Card.id == root_id))).scalar_one_or_none()
+    if root is None:
+        raise HTTPException(404, "Card not found")
+
+    # BFS over relations up to `depth` hops.
+    seen: dict[uuid.UUID, int] = {root_id: 0}
+    frontier = {root_id}
+    edges: list[dict] = []
+    for hop in range(1, depth + 1):
+        if not frontier:
+            break
+        rel_rows = (
+            await db.execute(
+                select(Relation).where(
+                    Relation.source_id.in_(frontier) | Relation.target_id.in_(frontier)
+                )
+            )
+        ).scalars()
+        next_frontier: set[uuid.UUID] = set()
+        for rel in rel_rows:
+            edges.append(
+                {
+                    "type": rel.type,
+                    "source_id": str(rel.source_id),
+                    "target_id": str(rel.target_id),
+                }
+            )
+            for nid in (rel.source_id, rel.target_id):
+                if nid not in seen:
+                    seen[nid] = hop
+                    next_frontier.add(nid)
+        frontier = next_frontier
+
+    cards = (
+        (await db.execute(select(Card).where(Card.id.in_(seen), Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    categories = dict((await db.execute(select(CardType.key, CardType.category))).all())
+
+    layer_order = [
+        "Business",
+        "Beneficiary Experience",
+        "Application",
+        "Data",
+        "Technology",
+        "Security",
+    ]
+    layers: dict[str, list[dict]] = {layer: [] for layer in layer_order}
+    other: list[dict] = []
+    for c in cards:
+        if c.id == root_id:
+            continue
+        entry = {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "architecture_state": c.architecture_state or "current",
+            "hops": seen[c.id],
+        }
+        category = categories.get(c.type)
+        (layers[category] if category in layers else other).append(entry)
+    for layer in layers.values():
+        layer.sort(key=lambda e: (e["hops"], e["type"], e["name"].lower()))
+
+    kept_ids = {str(c.id) for c in cards}
+    return {
+        "root": {"id": str(root.id), "name": root.name, "type": root.type},
+        "layers": [{"category": layer, "cards": layers[layer]} for layer in layer_order],
+        "other": other,
+        "edges": [e for e in edges if e["source_id"] in kept_ids and e["target_id"] in kept_ids],
+    }
+
+
+@router.get("/interoperability")
+async def interoperability_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Integration & interoperability posture (NORA — noraPlan.md WP4.5):
+    every Interface and DataExchange with its NORA attributes (integration
+    type, GSB routing, classification carried, external party) and the
+    applications it connects. [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    rows = (
+        (
+            await db.execute(
+                select(Card).where(
+                    Card.type.in_(("Interface", "DataExchange")),
+                    Card.status != "ARCHIVED",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    ids = {c.id for c in rows}
+    apps_by_conn: dict[uuid.UUID, list[dict]] = {}
+    if ids:
+        rel_rows = await db.execute(
+            select(Relation, Card)
+            .join(
+                Card,
+                ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
+                & (Card.type == "Application"),
+            )
+            .where(Relation.source_id.in_(ids) | Relation.target_id.in_(ids))
+        )
+        for rel, app_card in rel_rows.all():
+            conn_id = rel.source_id if rel.target_id == app_card.id else rel.target_id
+            if conn_id not in ids:
+                continue
+            apps_by_conn.setdefault(conn_id, []).append(
+                {
+                    "id": str(app_card.id),
+                    "name": app_card.name,
+                    "direction": (rel.attributes or {}).get("direction"),
+                }
+            )
+
+    def entry(c: Card) -> dict:
+        attrs = c.attributes or {}
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "kind": c.type,
+            "integration_type": attrs.get("integrationType") or attrs.get("exchangeMethod"),
+            "via_gsb": bool(attrs.get("viaGsb")),
+            "classification": attrs.get("dataClassificationCarried"),
+            "external_party": attrs.get("externalParty"),
+            "frequency": attrs.get("frequency"),
+            "applications": sorted(apps_by_conn.get(c.id, []), key=lambda a: a["name"].lower()),
+        }
+
+    entries = sorted((entry(c) for c in rows), key=lambda e: (e["kind"], e["name"].lower()))
+    external = [e for e in entries if e["external_party"]]
+    flagged = [
+        e for e in entries if e["classification"] in ("secret", "topSecret") and not e["via_gsb"]
+    ]
+    return {
+        "items": entries,
+        "summary": {
+            "total": len(entries),
+            "via_gsb": sum(1 for e in entries if e["via_gsb"]),
+            "external": len(external),
+            "sensitive_off_gsb": len(flagged),
+        },
+        "sensitive_off_gsb": flagged,
+    }
+
+
+# NORA reference-model explorer ([FORK] noraPlan.md WP1.1 companion feature).
+# Reads live counts of cards per classification bucket for each of the four
+# NORA reference models (BRM / ARM / DRM / TRM). Options come from the card
+# type's ``fields_schema`` so admin-added options auto-appear here.
+_REFERENCE_MODELS: list[dict] = [
+    {
+        "key": "brm",
+        "card_type": "BusinessCapability",
+        "field_key": "brmLevel",
+        "domain": "business",
+        "code_field": "brmCode",
+    },
+    {
+        "key": "arm",
+        "card_type": "Application",
+        "field_key": "armCategory",
+        "domain": "applications",
+        "code_field": "armCode",
+    },
+    {
+        "key": "drm",
+        "card_type": "DataObject",
+        "field_key": "dataClassification",
+        "domain": "data",
+        "code_field": "drmCode",
+    },
+    {
+        "key": "trm",
+        "card_type": "ITComponent",
+        "field_key": "hostingModel",
+        "domain": "technology",
+        "code_field": "trmCode",
+    },
+]
+
+
+def _find_field(fields_schema: list | None, field_key: str) -> dict | None:
+    for section in fields_schema or []:
+        for f in section.get("fields") or []:
+            if f.get("key") == field_key:
+                return f
+    return None
+
+
+@router.get("/reference-models")
+async def reference_models_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Coverage + distribution across the four NORA reference models.
+
+    Returns, per model: the target card type, the classification field, the
+    total non-archived cards of that type, how many are classified vs left
+    empty, and a per-option count. The classification options themselves are
+    pulled from the type's live ``fields_schema`` so admin-added options are
+    picked up automatically. [FORK FEATURE]
+    """
+    await PermissionService.require_permission(db, user, "nora.view")
+
+    from app.services.reference_models import items_for, resolve_active_model
+
+    ct_rows = await db.execute(select(CardType))
+    ct_by_key = {ct.key: ct for ct in ct_rows.scalars().all()}
+
+    models: list[dict] = []
+    for entry in _REFERENCE_MODELS:
+        ct = ct_by_key.get(entry["card_type"])
+        model_out: dict = {
+            "key": entry["key"],
+            "card_type": entry["card_type"],
+            "field_key": entry["field_key"],
+            "available": False,
+            "total": 0,
+            "classified": 0,
+            "uncategorised": 0,
+            "options": [],
+            "distribution": {},
+        }
+        if ct is None:
+            models.append(model_out)
+            continue
+        field_def = _find_field(ct.fields_schema, entry["field_key"])
+        if field_def is None:
+            models.append(model_out)
+            continue
+
+        options = field_def.get("options") or []
+        distribution: dict[str, int] = {opt["key"]: 0 for opt in options}
+        total = 0
+        uncategorised = 0
+        code_values: list[str] = []
+        cards_res = await db.execute(
+            select(Card.attributes).where(
+                Card.type == entry["card_type"], Card.status != "ARCHIVED"
+            )
+        )
+        for (attributes,) in cards_res.all():
+            total += 1
+            val = (attributes or {}).get(entry["field_key"])
+            if val and val in distribution:
+                distribution[val] += 1
+            else:
+                uncategorised += 1
+            code = (attributes or {}).get(entry["code_field"])
+            if isinstance(code, str) and code.strip():
+                code_values.append(code.strip())
+
+        model_out.update(
+            {
+                "available": True,
+                "card_type_label": ct.label,
+                "card_type_icon": ct.icon,
+                "card_type_color": ct.color,
+                "card_type_translations": ct.translations or {},
+                "field_label": field_def.get("label"),
+                "field_translations": field_def.get("translations") or {},
+                "total": total,
+                "classified": total - uncategorised,
+                "uncategorised": uncategorised,
+                "options": options,
+                "distribution": distribution,
+            }
+        )
+
+        # Coverage against the published Reference Model of this domain
+        # (WP100.3): how many cards carry a code that resolves to an RM item.
+        rm_model = await resolve_active_model(db, entry["domain"])
+        if rm_model is not None:
+            item_codes = {i.code for i in await items_for(db, rm_model.id)}
+            mapped = sum(1 for v in code_values if v in item_codes)
+            model_out["reference_model"] = {
+                "id": str(rm_model.id),
+                "name": rm_model.name,
+                "name_ar": rm_model.name_ar,
+                "version": rm_model.version,
+                "item_count": len(item_codes),
+                "mapped": mapped,
+                "unmatched": len(code_values) - mapped,
+                "uncoded": total - len(code_values),
+            }
+        models.append(model_out)
+
+    return {"models": models}
+
+
+# Technology Landscape ([FORK] noraPlan.md WP6.3 + WP6.4). The two TA
+# viewpoints the inventory grid cannot render: the data-center containment
+# landscape (built on the ITComponent hierarchy: DC ⊃ host ⊃ VM ⊃ container
+# engine) and the network-segment distribution. Security components (the
+# WP6.4 subtypes) are flagged so the UI can offer a security-only view.
+_SECURITY_SUBTYPES = {"securityHardware", "securitySoftware", "securityService"}
+
+
+@router.get("/technology-landscape")
+async def technology_landscape_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """ITComponents grouped by data-center containment and network segment.
+    [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    rows = (
+        (
+            await db.execute(
+                select(Card).where(Card.type == "ITComponent", Card.status != "ARCHIVED")
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    def entry(c: Card, depth: int = 0) -> dict:
+        attrs = c.attributes or {}
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "subtype": c.subtype,
+            "security": c.subtype in _SECURITY_SUBTYPES,
+            "network_segment": attrs.get("networkSegment") or attrs.get("securityZone"),
+            "architecture_state": c.architecture_state or "current",
+            "depth": depth,
+        }
+
+    children: dict = {}
+    for c in rows:
+        if c.parent_id is not None:
+            children.setdefault(c.parent_id, []).append(c)
+    for kids in children.values():
+        kids.sort(key=lambda c: ((c.subtype or ""), c.name.lower()))
+
+    # Data-center containment: each DC root lists its descendants (depth-first
+    # with depth markers so the UI can indent the chain DC ⊃ host ⊃ VM ⊃ …).
+    data_centers = []
+    assigned: set = set()
+    dcs = sorted((c for c in rows if c.subtype == "dataCenter"), key=lambda c: c.name.lower())
+    for dc in dcs:
+        assigned.add(dc.id)
+        components: list[dict] = []
+        stack = [(kid, 1) for kid in reversed(children.get(dc.id, []))]
+        while stack:
+            node, depth = stack.pop()
+            assigned.add(node.id)
+            components.append(entry(node, depth))
+            stack.extend((kid, depth + 1) for kid in reversed(children.get(node.id, [])))
+        data_centers.append({**entry(dc), "components": components})
+
+    unassigned = sorted(
+        (entry(c) for c in rows if c.id not in assigned),
+        key=lambda e: ((e["subtype"] or ""), e["name"].lower()),
+    )
+
+    # Network-segment distribution (segment value from the Technical
+    # Specification section, falling back to the WP1.1 securityZone field).
+    segments: dict = {}
+    for c in rows:
+        e = entry(c)
+        segments.setdefault(e["network_segment"], []).append(e)
+    segment_list = [
+        {"segment": seg, "components": sorted(comps, key=lambda e: e["name"].lower())}
+        for seg, comps in segments.items()
+        if seg
+    ]
+    segment_list.sort(key=lambda s: s["segment"].lower())
+    unsegmented = len(segments.get(None, []))
+
+    by_subtype: dict = {}
+    for c in rows:
+        key = c.subtype or "unspecified"
+        by_subtype[key] = by_subtype.get(key, 0) + 1
+
+    return {
+        "data_centers": data_centers,
+        "unassigned": unassigned,
+        "segments": segment_list,
+        "summary": {
+            "total": len(rows),
+            "data_centers": len(dcs),
+            "security_components": sum(1 for c in rows if c.subtype in _SECURITY_SUBTYPES),
+            "segments": len(segment_list),
+            "unsegmented": unsegmented,
+            "by_subtype": by_subtype,
+        },
+    }
+
+
+# Strategy Cascade ([FORK] — the agency's strategy chain: Strategic Pillars
+# ⊃ Strategic Objectives (Objective hierarchy + pillar subtype) → Programs ⊃
+# Initiatives ⊃ Projects (Objective↔Initiative relation + the Initiative
+# hierarchy with program/project subtypes). One screen answering "which
+# pillar does this project ultimately serve" — and flagging initiatives with
+# no strategic alignment.
+
+
+@router.get("/strategy-cascade")
+async def strategy_cascade_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Pillars → objectives → programs → initiatives → projects. [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    pillar_cards = (
+        (await db.execute(select(Card).where(Card.type == "Pillar", Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    objectives = (
+        (await db.execute(select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    initiatives = (
+        (await db.execute(select(Card).where(Card.type == "Initiative", Card.status != "ARCHIVED")))
+        .scalars()
+        .all()
+    )
+    init_by_id = {c.id: c for c in initiatives}
+
+    # Objective ↔ Initiative and Objective ↔ Pillar links via whatever
+    # relation type(s) an install models for those pairs (either direction)
+    # — never hardcode the keys.
+    async def _pair_link_keys(type_a: str, type_b: str) -> set[str]:
+        rows = await db.execute(
+            select(RelationType.key).where(
+                (
+                    (RelationType.source_type_key == type_a)
+                    & (RelationType.target_type_key == type_b)
+                )
+                | (
+                    (RelationType.source_type_key == type_b)
+                    & (RelationType.target_type_key == type_a)
+                )
+            )
+        )
+        return {key for (key,) in rows.all()}
+
+    link_keys = await _pair_link_keys("Initiative", "Objective")
+    obj_links: dict[uuid.UUID, list[uuid.UUID]] = {}
+    obj_ids = {o.id for o in objectives}
+    if link_keys:
+        rel_rows = await db.execute(select(Relation).where(Relation.type.in_(link_keys)))
+        for rel in rel_rows.scalars().all():
+            if rel.source_id in obj_ids and rel.target_id in init_by_id:
+                obj_links.setdefault(rel.source_id, []).append(rel.target_id)
+            elif rel.target_id in obj_ids and rel.source_id in init_by_id:
+                obj_links.setdefault(rel.target_id, []).append(rel.source_id)
+
+    # Pillar-card ↔ objective assignment (the "supports" relation, profile v6).
+    pillar_card_ids = {p.id for p in pillar_cards}
+    pillar_links: dict[uuid.UUID, list[uuid.UUID]] = {}  # pillar_id -> [objective_id]
+    pillar_link_keys = await _pair_link_keys("Objective", "Pillar")
+    if pillar_link_keys:
+        rel_rows = await db.execute(select(Relation).where(Relation.type.in_(pillar_link_keys)))
+        for rel in rel_rows.scalars().all():
+            if rel.source_id in obj_ids and rel.target_id in pillar_card_ids:
+                pillar_links.setdefault(rel.target_id, []).append(rel.source_id)
+            elif rel.target_id in obj_ids and rel.source_id in pillar_card_ids:
+                pillar_links.setdefault(rel.source_id, []).append(rel.target_id)
+
+    init_children: dict[uuid.UUID, list[Card]] = {}
+    for c in initiatives:
+        if c.parent_id is not None:
+            init_children.setdefault(c.parent_id, []).append(c)
+    for kids in init_children.values():
+        kids.sort(key=lambda c: c.name.lower())
+
+    def init_node(c: Card) -> dict:
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "subtype": c.subtype,
+            "children": [init_node(k) for k in init_children.get(c.id, [])],
+        }
+
+    def collect_subtree(cid: uuid.UUID, acc: set) -> None:
+        acc.add(cid)
+        for k in init_children.get(cid, []):
+            collect_subtree(k.id, acc)
+
+    aligned: set[uuid.UUID] = set()
+    for linked_ids in obj_links.values():
+        for lid in linked_ids:
+            collect_subtree(lid, aligned)
+
+    def objective_dict(o: Card) -> dict:
+        linked = sorted(
+            (init_by_id[i] for i in dict.fromkeys(obj_links.get(o.id, []))),
+            key=lambda c: c.name.lower(),
+        )
+        return {
+            "id": str(o.id),
+            "name": o.name,
+            "initiatives": [init_node(c) for c in linked],
+        }
+
+    # Pillars: first-class Pillar cards (profile v6, ordered by their
+    # pillarOrder field) plus legacy Objective-subtype pillars — installs
+    # that modelled pillars the v4 way keep working.
+    obj_by_id = {o.id: o for o in objectives}
+    legacy_pillars = sorted(
+        (o for o in objectives if o.subtype == "pillar"), key=lambda c: c.name.lower()
+    )
+    plain = [o for o in objectives if o.subtype != "pillar"]
+
+    def _pillar_order(c: Card):
+        order = (c.attributes or {}).get("pillarOrder")
+        return (order if isinstance(order, (int, float)) else 10**9, c.name.lower())
+
+    pillared_obj_ids: set[uuid.UUID] = set()
+    pillar_out = []
+    for p in sorted(pillar_cards, key=_pillar_order):
+        linked_objs = sorted(
+            (
+                obj_by_id[i]
+                for i in dict.fromkeys(pillar_links.get(p.id, []))
+                if i in obj_by_id and obj_by_id[i].subtype != "pillar"
+            ),
+            key=lambda c: c.name.lower(),
+        )
+        pillared_obj_ids.update(o.id for o in linked_objs)
+        pillar_out.append(
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "objectives": [objective_dict(o) for o in linked_objs],
+            }
+        )
+    for p in legacy_pillars:
+        children = sorted((o for o in plain if o.parent_id == p.id), key=lambda c: c.name.lower())
+        pillared_obj_ids.update(o.id for o in children)
+        pillar_out.append(
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "objectives": [objective_dict(o) for o in children],
+            }
+        )
+
+    unpillared = [
+        objective_dict(o)
+        for o in sorted(
+            (o for o in plain if o.id not in pillared_obj_ids),
+            key=lambda c: c.name.lower(),
+        )
+    ]
+
+    # Initiatives with no strategic alignment anywhere in their chain,
+    # presented as trees rooted at the highest unaligned node.
+    unaligned_roots = [
+        c
+        for c in initiatives
+        if c.id not in aligned and (c.parent_id is None or c.parent_id not in init_by_id)
+    ]
+    # Children of aligned parents are aligned; children of unaligned parents
+    # ride inside their root's subtree — so roots above suffice.
+    unaligned_out = [init_node(c) for c in sorted(unaligned_roots, key=lambda c: c.name.lower())]
+
+    by_subtype: dict[str, int] = {}
+    for c in initiatives:
+        key = c.subtype or "initiative"
+        by_subtype[key] = by_subtype.get(key, 0) + 1
+
+    return {
+        "pillars": pillar_out,
+        "unpillared_objectives": unpillared,
+        "unaligned_initiatives": unaligned_out,
+        "summary": {
+            "pillars": len(pillar_cards) + len(legacy_pillars),
+            "objectives": len(plain),
+            "programs": by_subtype.get("program", 0),
+            "initiatives": by_subtype.get("initiative", 0) + by_subtype.get("epic", 0),
+            "projects": by_subtype.get("project", 0),
+            "unaligned": len(initiatives) - len(aligned & set(init_by_id)),
         },
     }

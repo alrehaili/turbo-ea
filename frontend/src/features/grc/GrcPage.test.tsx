@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/AuthContext";
+import type { User } from "@/types";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -31,12 +33,26 @@ beforeEach(() => {
   vi.mocked(api.get).mockResolvedValue([]);
 });
 
+// The governance panels (Principles / Decisions) read the current user from
+// AuthContext to gate their admin CRUD affordances. A plain member without
+// admin.metamodel keeps this smoke test on the read-only branch.
+const memberUser: User = {
+  id: "u1",
+  email: "u@example.com",
+  display_name: "U",
+  role: "member",
+  is_active: true,
+  permissions: {},
+};
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/grc" element={<GrcPage />} />
-      </Routes>
+      <AuthProvider user={memberUser} refreshUser={async () => {}}>
+        <Routes>
+          <Route path="/grc" element={<GrcPage />} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>,
   );
 }
@@ -53,8 +69,10 @@ describe("GrcPage", () => {
   it("defaults to the Governance tab and lands on the Principles sub-tab", async () => {
     renderAt("/grc");
     // With no principles seeded, the panel renders its empty-state copy.
+    // Two nested lazy() boundaries (GovernanceTab → PrinciplesPanel) resolve
+    // slowly under full-suite worker contention — allow more than the 1s default.
     expect(
-      await screen.findByText(/No active principles yet/i),
+      await screen.findByText(/No active principles yet/i, undefined, { timeout: 5000 }),
     ).toBeInTheDocument();
   });
 

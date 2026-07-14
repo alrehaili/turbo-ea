@@ -32,6 +32,11 @@ import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays"
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
+import {
+  invalidateFrameworkProfile,
+  type FrameworkProfile,
+} from "@/hooks/useFrameworkProfile";
+import { invalidateGovernanceMode } from "@/hooks/useGovernanceMode";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
 import type { ComplianceRegulation, ResourceType } from "@/types";
 
@@ -57,6 +62,8 @@ type BootstrapResponse = {
   login_help_text: string;
   login_help_link: string;
   smtp_configured: boolean;
+  framework_profile: FrameworkProfile;
+  governance_mode: boolean;
 };
 
 let _primed = false;
@@ -107,6 +114,9 @@ export function primeBootstrap(): Promise<void> {
       invalidateResourceTypes(
         Array.isArray(r.resource_types) ? r.resource_types : [],
       );
+
+      invalidateFrameworkProfile(r.framework_profile === "nora" ? "nora" : "togaf");
+      invalidateGovernanceMode(Boolean(r.governance_mode));
 
       invalidateLoginBranding({
         tagline: r.login_tagline || "",

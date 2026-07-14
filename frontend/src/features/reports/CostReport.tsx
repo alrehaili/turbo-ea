@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
 import ListItemText from "@mui/material/ListItemText";
 import TextField from "@mui/material/TextField";
@@ -22,6 +23,7 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSegments } from "@/hooks/useSegments";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency, type CurrencyFormatter } from "@/hooks/useCurrency";
@@ -192,6 +194,8 @@ export default function CostReport() {
   // single chart.
   const [drillPanels, setDrillPanels] = useState<{ source: SourceRef; items: CostItem[] }[] | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
+  const { segments } = useSegments();
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [sortK, setSortK] = useState("cost");
   const [sortD, setSortD] = useState<"asc" | "desc">("desc");
   // Drill-down stack. Empty = root. Each frame swaps the treemap to the related
@@ -347,6 +351,7 @@ export default function CostReport() {
           cost_field: s.fieldKey,
           parent_card_id: parentId,
         });
+        if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
         return api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`);
       })).then((rs) => {
         setDrillPanels(rs.map((r, i) => ({ source: sources[i], items: r.items })));
@@ -359,12 +364,13 @@ export default function CostReport() {
       } else {
         p.set("cost_field", costField);
       }
+      if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
       api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
         setRawItems(r.items);
         setDrillPanels(null);
       });
     }
-  }, [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally]);
+  }, [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally, selectedSegmentId]);
 
   // Unify root and drilled data into a list of panels: depth-0 has one
   // anonymous panel; drilled levels have one labelled panel per source.
@@ -605,6 +611,28 @@ export default function CostReport() {
               <MenuItem value="">{t("cost.none")}</MenuItem>
               {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
+          )}
+
+          {segments && segments.length > 0 && (
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", border: "1px solid", borderColor: "divider", px: 1, py: 0.5, borderRadius: 0.5 }}>
+              <Typography variant="caption" sx={{ fontWeight: 500, color: "text.secondary", minWidth: "fit-content" }}>
+                {t("filter.segments")}:
+              </Typography>
+              {segments.map((seg) => (
+                <Chip
+                  key={seg.id}
+                  label={seg.name}
+                  size="small"
+                  variant={selectedSegmentId === seg.id ? "filled" : "outlined"}
+                  onClick={() => setSelectedSegmentId(selectedSegmentId === seg.id ? null : seg.id)}
+                  sx={{
+                    backgroundColor: selectedSegmentId === seg.id ? seg.color : "transparent",
+                    color: selectedSegmentId === seg.id ? "white" : "inherit",
+                    borderColor: seg.color,
+                  }}
+                />
+              ))}
+            </Box>
           )}
         </>
       }

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    adm,
     adr,
     ai_suggest,
     arb,
@@ -17,19 +18,26 @@ from app.api.v1 import (
     diagram_groups,
     diagrams,
     documents,
+    ea_requirements,
     eol,
     events,
     favorites,
     file_attachments,
+    improvement_opportunities,
+    maturity,
     metamodel,
     migration,
     mutation_batches,
+    nea_evidence,
+    nora_landscape,
+    nora_program,
     notifications,
     ppm,
     ppm_reports,
     principles_catalogue,
     process_catalogue,
     rationalization,
+    reference_models,
     relations,
     reports,
     risk_mitigation_tasks,
@@ -58,6 +66,13 @@ api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(metamodel.router)
 api_router.include_router(cards.router)
+api_router.include_router(nora_program.router)
+api_router.include_router(ea_requirements.router)
+api_router.include_router(improvement_opportunities.router)
+api_router.include_router(maturity.router)
+api_router.include_router(nea_evidence.router)
+api_router.include_router(nora_landscape.router)
+api_router.include_router(reference_models.router)
 api_router.include_router(relations.router)
 api_router.include_router(stakeholders.router)
 api_router.include_router(comments.router)
@@ -96,6 +111,7 @@ api_router.include_router(ai_suggest.router)
 api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
+api_router.include_router(adm.router)
 api_router.include_router(risks.router)
 api_router.include_router(risks.cards_risks_router)
 api_router.include_router(risk_mitigation_tasks.risks_router)

@@ -23,7 +23,7 @@ vi.mock("./metamodel", () => ({
 }));
 
 vi.mock("./metamodel/constants", () => ({
-  CATEGORIES: ["Application & Data", "Business Architecture", "Strategy & Transformation", "Technical Architecture"],
+  CATEGORIES: ["Business", "Beneficiary Experience", "Application", "Data", "Technology", "Security"],
   CARDINALITY_OPTIONS: ["1:1", "1:n", "n:m"],
 }));
 
@@ -67,7 +67,7 @@ const MOCK_TYPES = [
     label: "Application",
     icon: "apps",
     color: "#0f7eb5",
-    category: "Application & Data",
+    category: "Application",
     has_hierarchy: true,
     subtypes: [{ key: "business_app", label: "Business Application" }],
     fields_schema: [
@@ -82,7 +82,7 @@ const MOCK_TYPES = [
     label: "Objective",
     icon: "flag",
     color: "#c7527d",
-    category: "Strategy & Transformation",
+    category: "Business",
     has_hierarchy: false,
     subtypes: [],
     fields_schema: [],
@@ -160,7 +160,9 @@ describe("MetamodelAdmin", () => {
     renderMetamodel();
 
     await waitFor(() => {
-      expect(screen.getByText("Application")).toBeInTheDocument();
+      // "Application" appears as both the type label and its layer category
+      // caption since the six-layer model, so match on all occurrences.
+      expect(screen.getAllByText("Application").length).toBeGreaterThan(0);
       expect(screen.getByText("Objective")).toBeInTheDocument();
     });
   });

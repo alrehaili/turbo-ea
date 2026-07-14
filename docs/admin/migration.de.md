@@ -1,6 +1,6 @@
 # Plattform-Migration
 
-> Aktuell unterstützte Quellplattformen: **SAP LeanIX**. Weitere Adapter (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) werden über dieselbe Staging- und Apply-Pipeline angebunden und erscheinen automatisch im Upload-Dialog, sobald sie ausgeliefert werden.
+> Aktuell unterstützte Quellplattformen: **SAP LeanIX** und die **NORA-Datenerhebungsvorlagen (DGA)**. Weitere Adapter (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) werden über dieselbe Staging- und Apply-Pipeline angebunden und erscheinen automatisch im Upload-Dialog, sobald sie ausgeliefert werden.
 
 Der Plattform-Migrations-Importer (**Admin → Einstellungen → Migration**) importiert einen vollständigen LeanIX-Workspace und legt ihn in einem überprüfbaren, abgestuften Vorgang als Turbo-EA-Karten, Beziehungen, Tags, Stakeholder, Dokumente, Kommentare und ein vollständig ausgearbeitetes Metamodell an.
 
@@ -93,3 +93,9 @@ Diese Seite ist durch die Berechtigung `admin.migrate` geschützt. Standardmäß
 ## Aufräumen
 
 Das Löschen eines Migrations-Datensatzes (Einstellungen → Migration → Papierkorb-Symbol) entfernt sowohl die Datenbankzeilen für diese Migration (Staged Records kaskadieren) als auch die Snapshot-Datei auf der Festplatte. Migrationen in den Status `uploaded`, `parsed`, `previewed`, `failed`, `aborted` und `applied` sind alle löschbar; eine `applying`-Migration muss erst abschließen (oder fehlschlagen), bevor sie entfernt werden kann.
+
+### NORA-Datenerhebungsvorlagen (DGA)
+
+Der Importer liest auch die offiziellen Datenerhebungs-Arbeitsmappen des saudischen nationalen EA-Frameworks ein — eine Mappe pro EA-Domäne (Business, Applikationen, Technologie, Sicherheit, Daten). Die Blätter landen auf den passenden Kartentypen, und Auswahlspalten werden aus den Nachschlagewerten der Vorlagen in die Felder des NORA-Profils übersetzt — das NORA-Framework-Profil daher vor dem Import aktivieren.
+
+Namensreferenzen zwischen Zeilen werden zu Beziehungen und Hierarchieverknüpfungen; referenzierte Namen ohne eigene Zeile werden als minimale Platzhalterkarten angelegt, die sich an bestehende Karten gleichen Namens binden. Die Mappen können in beliebiger Reihenfolge hochgeladen und sicher erneut importiert werden. Die Blätter für Nutzererlebnis-Verbesserungen, Formulare, Richtlinien und Stakeholder werden noch nicht importiert.

@@ -1,5 +1,17 @@
 {
+  "detail.reviewChain": "Catena di revisione",
+  "architectureState.title": "Stato dell'architettura",
+  "architectureState.current": "Attuale",
+  "architectureState.transition": "Transizione",
+  "architectureState.target": "Obiettivo",
+  "changeType.title": "Tipo di modifica",
+  "changeType.create": "Creare",
+  "changeType.modify": "Modificare",
+  "changeType.replace": "Sostituire",
+  "changeType.retire": "Dismettere",
+  "changeType.consolidate": "Consolidare",
   "detail.title": "Dettaglio scheda",
+  "detail.viewStrategyCascade": "Cascata strategica",
   "detail.backToTop": "Torna su",
   "detail.archivedBanner": "Questa scheda è archiviata.",
   "detail.purgeWarning_one": "Verrà eliminata definitivamente tra {{count}} giorno.",
@@ -617,5 +629,14 @@
   "todos.recurrence.months_one": "Ogni mese",
   "todos.recurrence.months_other": "Ogni {{count}} mesi",
   "todos.recurrence.years_one": "Ogni anno",
-  "todos.recurrence.years_other": "Ogni {{count}} anni"
+  "todos.recurrence.years_other": "Ogni {{count}} anni",
+  "detail.succeeds.edit": "Modifica",
+  "detail.succeeds.mergedInto": "Unito in",
+  "detail.succeeds.succeeds": "Succede a",
+  "detail.succeeds.replacedBy": "Sostituito da",
+  "detail.succeeds.notSet": "Non impostato",
+  "detail.succeeds.error": "Impossibile salvare il successore",
+  "detail.succeeds.retiredBy": "Ritirato da",
+  "detail.succeeds.search": "Cerca {{type}}",
+  "detail.succeeds.modifiedAs": "Modificato come"
 }

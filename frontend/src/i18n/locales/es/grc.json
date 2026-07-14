@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "Principios",
       "standards": "Estándares",
-      "decisions": "Decisiones"
+      "decisions": "Decisiones",
+      "opportunities": "Oportunidades"
     },
     "principles": {
       "title": "Principios de arquitectura",
@@ -33,6 +34,47 @@
       "status": "Estado",
       "open": "Abrir",
       "create": "Nueva decisión"
+    },
+    "opportunities": {
+      "new": "Nueva oportunidad",
+      "edit": "Editar oportunidad",
+      "empty": "Aún no hay oportunidades de mejora. Registre aquí los hallazgos del análisis de la arquitectura actual.",
+      "colTitle": "Título",
+      "colDomain": "Dominio",
+      "colPriority": "Prioridad",
+      "colStatus": "Estado",
+      "colInitiative": "Iniciativa",
+      "assign": "Asignar iniciativa",
+      "description": "Descripción",
+      "confirmDelete": "¿Eliminar la oportunidad «{{title}}»?",
+      "priority": {
+        "low": "Baja",
+        "medium": "Media",
+        "high": "Alta"
+      },
+      "status": {
+        "proposed": "Propuesta",
+        "approved": "Aprobada",
+        "inTransition": "En transición",
+        "realized": "Realizada",
+        "rejected": "Rechazada"
+      },
+      "aiSuggest": "Sugerir con IA",
+      "aiTitle": "Oportunidades de mejora sugeridas por IA",
+      "aiLanguage": "Idioma",
+      "aiFocus": "Enfoque (opcional)",
+      "aiFocusHint": "p. ej. gobierno de datos, servicios compartidos…",
+      "aiGenerate": "Generar",
+      "aiReviewHint": "Revise los borradores de la IA y añada los que quiera — entran como propuestos para gobernanza.",
+      "aiAddSelected": "Añadir {{n}} seleccionados",
+      "journey": "Recorrido del beneficiario",
+      "journeyPhase": "Fase del recorrido",
+      "feasibility": {
+        "label": "Viabilidad",
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Baja"
+      }
     }
   },
   "compliance": {

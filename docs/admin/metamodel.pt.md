@@ -8,14 +8,16 @@ Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele pos
 
 ## Tipos de Card
 
-A aba de Tipos de Card lista todos os tipos no sistema. O Turbo EA vem com 14 tipos incorporados em quatro camadas de arquitetura:
+A aba de Tipos de Card lista todos os tipos no sistema. O Turbo EA vem com 14 tipos incorporados nas seis camadas de arquitetura do NORA 2.0:
 
 | Camada | Tipos |
 |--------|-------|
-| **Estratégia e Transformação** | Objetivo, Plataforma, Iniciativa |
-| **Arquitetura de Negócio** | Organização, Capacidade de Negócio, Contexto de Negócio, Processo de Negócio |
-| **Aplicação e Dados** | Aplicação, Interface, Objeto de Dados |
-| **Arquitetura Técnica** | Componente de TI, Categoria Tecnológica, Fornecedor, Sistema |
+| **Negócio** | Objetivo, Plataforma, Iniciativa, Organização, Capacidade de Negócio, Contexto de Negócio, Processo de Negócio |
+| **Experiência do beneficiário** | Serviço governamental, Jornada do beneficiário, Canal *(via perfil NORA)* |
+| **Aplicações** | Aplicação, Interface |
+| **Dados** | Objeto de Dados *(+ Troca de dados via perfil NORA)* |
+| **Tecnologia** | Componente de TI, Categoria Tecnológica, Fornecedor, Sistema |
+| **Segurança** | Controle de segurança *(via perfil NORA)* |
 
 ### Criando um Tipo Personalizado
 

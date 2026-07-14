@@ -205,6 +205,14 @@ export default function DeliverableSection(props: Props) {
       >
         <Typography sx={{ fontSize: "0.9rem", flex: 1, minWidth: 0 }} noWrap>
           {soaw.name}
+          {soaw.doc_type && soaw.doc_type !== "soaw" && (
+            <Typography
+              component="span"
+              sx={{ ml: 0.5, fontSize: "0.75rem", color: "text.secondary" }}
+            >
+              · {t(`noraTemplate.docLabel.${soaw.doc_type}`)}
+            </Typography>
+          )}
           {soaw.revision_number > 1 && (
             <Typography
               component="span"

@@ -31,6 +31,7 @@ import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useSegments } from "@/hooks/useSegments";
 import { api } from "@/api/client";
 import type {
   CardType,
@@ -53,6 +54,8 @@ export interface Filters {
   lifecyclePhases: string[];
   dataQualityMin: number | null;
   approvalStatuses: string[];
+  architectureStates: string[]; // current, transition, target
+  changeTypes: string[]; // create, modify, replace, retire, consolidate
   showArchived: boolean;
   attributes: Record<string, string | string[]>; // select fields → string[], text/number → string
   relations: Record<string, string[]>; // relTypeKey → related card names (multi-select)
@@ -62,6 +65,7 @@ export interface Filters {
   // is wired up — kept as a string union so we can add more scopes (creator,
   // both, …) without changing every call site.
   mineScope: "stakeholder" | null;
+  segmentIds: string[]; // NORA segment filtering (B.9)
 }
 
 interface Props {
@@ -108,6 +112,20 @@ const DATA_QUALITY_THRESHOLDS = [
   { key: 80, tKey: "filter.dataQualityGood" as const, color: "#4caf50" },
   { key: 50, tKey: "filter.dataQualityMedium" as const, color: "#ff9800" },
   { key: 0, tKey: "filter.dataQualityPoor" as const, color: "#f44336" },
+];
+
+const ARCHITECTURE_STATES = [
+  { key: "current", tKey: "common:architectureState.current" as const, color: "#2196f3", icon: "check_circle" },
+  { key: "transition", tKey: "common:architectureState.transition" as const, color: "#ffc107", icon: "sync_alt" },
+  { key: "target", tKey: "common:architectureState.target" as const, color: "#4caf50", icon: "flag" },
+];
+
+const CHANGE_TYPES = [
+  { key: "create", tKey: "common:changeType.create" as const, color: "#4caf50", icon: "add" },
+  { key: "modify", tKey: "common:changeType.modify" as const, color: "#2196f3", icon: "edit" },
+  { key: "replace", tKey: "common:changeType.replace" as const, color: "#ff9800", icon: "autorenew" },
+  { key: "retire", tKey: "common:changeType.retire" as const, color: "#f44336", icon: "remove" },
+  { key: "consolidate", tKey: "common:changeType.consolidate" as const, color: "#9c27b0", icon: "merge_type" },
 ];
 
 const MIN_WIDTH = 220;
@@ -225,6 +243,7 @@ export default function InventoryFilterSidebar({
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const { segments } = useSegments();
   const sidebarPrefsRef = useRef(loadSidebarPrefs());
   const [tab, setTab] = useState(() => sidebarPrefsRef.current.tab ?? 0);
   // Which saved view is currently applied (highlighted in the list). Persisted
@@ -244,9 +263,12 @@ export default function InventoryFilterSidebar({
     lifecycle: false,
     dataQuality: false,
     approvalStatus: false,
+    architectureState: false,
+    changeType: false,
     attributes: false,
     relationships: false,
     tags: false,
+    segments: false,
   });
 
   // Search-within-dropdown state: keyed by field key or relation type key
@@ -327,6 +349,27 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, approvalStatuses: next });
   };
 
+  const toggleArchitectureState = (key: string) => {
+    const next = filters.architectureStates.includes(key)
+      ? filters.architectureStates.filter((s) => s !== key)
+      : [...filters.architectureStates, key];
+    onFiltersChange({ ...filters, architectureStates: next });
+  };
+
+  const toggleChangeType = (key: string) => {
+    const next = filters.changeTypes.includes(key)
+      ? filters.changeTypes.filter((s) => s !== key)
+      : [...filters.changeTypes, key];
+    onFiltersChange({ ...filters, changeTypes: next });
+  };
+
+  const toggleSegment = (key: string) => {
+    const next = filters.segmentIds.includes(key)
+      ? filters.segmentIds.filter((s) => s !== key)
+      : [...filters.segmentIds, key];
+    onFiltersChange({ ...filters, segmentIds: next });
+  };
+
   const setAttr = (key: string, value: string | string[]) => {
     const next = { ...filters.attributes };
     const empty = Array.isArray(value) ? value.length === 0 : !value;
@@ -361,7 +404,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [] });
 
   const activeCount =
     filters.types.length +
@@ -370,11 +413,14 @@ export default function InventoryFilterSidebar({
     filters.lifecyclePhases.length +
     (filters.dataQualityMin !== null ? 1 : 0) +
     filters.approvalStatuses.length +
+    filters.architectureStates.length +
+    filters.changeTypes.length +
     (filters.showArchived ? 1 : 0) +
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length +
     (filters.tagIds?.length ?? 0) +
-    (filters.mineScope ? 1 : 0);
+    (filters.mineScope ? 1 : 0) +
+    (filters.segmentIds?.length ?? 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -424,6 +470,8 @@ export default function InventoryFilterSidebar({
         lifecyclePhases: filters.lifecyclePhases,
         dataQualityMin: filters.dataQualityMin,
         approvalStatuses: filters.approvalStatuses,
+        architectureStates: filters.architectureStates,
+        changeTypes: filters.changeTypes,
         showArchived: filters.showArchived,
         attributes: filters.attributes,
         relations: filters.relations,
@@ -457,10 +505,13 @@ export default function InventoryFilterSidebar({
         lifecyclePhases: f.lifecyclePhases || [],
         dataQualityMin: f.dataQualityMin ?? null,
         approvalStatuses: f.approvalStatuses || [],
+        architectureStates: f.architectureStates || [],
+        changeTypes: f.changeTypes || [],
         showArchived: f.showArchived || false,
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
+        segmentIds: f.segmentIds || [],
         mineScope: f.mineScope ?? null,
       });
     }
@@ -819,6 +870,62 @@ export default function InventoryFilterSidebar({
                         filters.approvalStatuses.includes(s.key)
                           ? { bgcolor: s.color, color: "#fff", borderColor: s.color }
                           : { borderColor: s.color, color: s.color }
+                      }
+                    />
+                  ))}
+                </Box>
+              </Collapse>
+
+              {/* Architecture State */}
+              <SectionHeader
+                label={t("filter.architectureState")}
+                icon="architecture"
+                expanded={expandedSections.architectureState}
+                onToggle={() => toggleSection("architectureState")}
+                count={filters.architectureStates.length}
+              />
+              <Collapse in={expandedSections.architectureState}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                  {ARCHITECTURE_STATES.map((s) => (
+                    <Chip
+                      key={s.key}
+                      icon={<MaterialSymbol icon={s.icon} size={14} />}
+                      label={t(s.tKey)}
+                      size="small"
+                      onClick={() => toggleArchitectureState(s.key)}
+                      variant={filters.architectureStates.includes(s.key) ? "filled" : "outlined"}
+                      sx={
+                        filters.architectureStates.includes(s.key)
+                          ? { bgcolor: s.color, color: "#fff", borderColor: s.color }
+                          : { borderColor: s.color, color: s.color }
+                      }
+                    />
+                  ))}
+                </Box>
+              </Collapse>
+
+              {/* Change Type */}
+              <SectionHeader
+                label={t("filter.changeType")}
+                icon="autorenew"
+                expanded={expandedSections.changeType}
+                onToggle={() => toggleSection("changeType")}
+                count={filters.changeTypes.length}
+              />
+              <Collapse in={expandedSections.changeType}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                  {CHANGE_TYPES.map((c) => (
+                    <Chip
+                      key={c.key}
+                      icon={<MaterialSymbol icon={c.icon} size={14} />}
+                      label={t(c.tKey)}
+                      size="small"
+                      onClick={() => toggleChangeType(c.key)}
+                      variant={filters.changeTypes.includes(c.key) ? "filled" : "outlined"}
+                      sx={
+                        filters.changeTypes.includes(c.key)
+                          ? { bgcolor: c.color, color: "#fff", borderColor: c.color }
+                          : { borderColor: c.color, color: c.color }
                       }
                     />
                   ))}
@@ -1291,6 +1398,46 @@ export default function InventoryFilterSidebar({
                   </>
                 );
               })()}
+
+              {/* NORA Segments (B.9) */}
+              {segments.length > 0 && (
+                <>
+                  <SectionHeader
+                    label={t("filter.segments")}
+                    icon="category"
+                    expanded={expandedSections.segments}
+                    onToggle={() => toggleSection("segments")}
+                    count={filters.segmentIds.length}
+                  />
+                  <Collapse in={expandedSections.segments}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {segments
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                        .map((segment) => (
+                          <Chip
+                            key={segment.id}
+                            label={segment.name}
+                            size="small"
+                            onClick={() => toggleSegment(segment.id)}
+                            variant={filters.segmentIds.includes(segment.id) ? "filled" : "outlined"}
+                            sx={
+                              filters.segmentIds.includes(segment.id)
+                                ? {
+                                    bgcolor: segment.color || "#1976d2",
+                                    color: "#fff",
+                                    borderColor: segment.color || "#1976d2",
+                                  }
+                                : {
+                                    borderColor: segment.color || "#1976d2",
+                                    color: segment.color || "#1976d2",
+                                  }
+                            }
+                          />
+                        ))}
+                    </Box>
+                  </Collapse>
+                </>
+              )}
 
               {/* Include Archived toggle */}
               {canArchive && (
@@ -1831,6 +1978,8 @@ export const CORE_COLUMNS = [
   { key: "core_subtype", icon: "subdirectory_arrow_right", tKey: "common:labels.subtype" as const },
   { key: "core_lifecycle", icon: "timeline", tKey: "columns.lifecycle" as const },
   { key: "core_approval_status", icon: "verified", tKey: "columns.approvalStatus" as const },
+  { key: "core_architecture_state", icon: "check_circle", tKey: "columns.architectureState" as const },
+  { key: "core_change_type", icon: "edit", tKey: "columns.changeType" as const },
   { key: "core_data_quality", icon: "donut_small", tKey: "columns.dataQuality" as const },
   { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
 ];

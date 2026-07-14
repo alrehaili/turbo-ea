@@ -28,11 +28,42 @@ const InventoryPage = lazy(() => import("@/features/inventory/InventoryPage"));
 const CardDetail = lazy(() => import("@/features/cards/CardDetail"));
 const ErrorBoundary = lazy(() => import("@/components/ErrorBoundary"));
 const PortfolioReport = lazy(() => import("@/features/reports/PortfolioReport"));
+const EaViewLibraryPage = lazy(() => import("@/features/reports/EaViewLibraryPage"));
+const LayerSwimlaneOverview = lazy(() => import("@/features/layers/LayerSwimlaneOverview"));
+const LayersDashboard = lazy(() => import("@/features/layers/LayersDashboard"));
+const TraceabilityView = lazy(() => import("@/features/layers/TraceabilityView"));
+const ApplicationSummaryReport = lazy(
+  () => import("@/features/reports/ApplicationSummaryReport"),
+);
 const FlexiblePortfolioReport = lazy(() => import("@/features/reports/FlexiblePortfolioReport"));
 const CapabilityMapReport = lazy(() => import("@/features/reports/CapabilityMapReport"));
 const LifecycleReport = lazy(() => import("@/features/reports/LifecycleReport"));
 const TransformationRoadmap = lazy(() => import("@/features/reports/TransformationRoadmap"));
 const DependencyReport = lazy(() => import("@/features/reports/DependencyReport"));
+const GapAnalysisReport = lazy(() => import("@/features/reports/GapAnalysisReport"));
+const NoraProgramPage = lazy(() => import("@/features/nora/NoraProgramPage"));
+const MaturityPage = lazy(() => import("@/features/maturity/MaturityPage"));
+const ReferenceModelsPage = lazy(() => import("@/features/reference-models/ReferenceModelsPage"));
+const OrgChartReport = lazy(() => import("@/features/reports/OrgChartReport"));
+const ServiceTraceabilityReport = lazy(
+  () => import("@/features/reports/ServiceTraceabilityReport"),
+);
+const KpiScorecardReport = lazy(() => import("@/features/reports/KpiScorecardReport"));
+const ServiceCatalogueReport = lazy(() => import("@/features/reports/ServiceCatalogueReport"));
+const LayerSummaryReport = lazy(() => import("@/features/reports/LayerSummaryReport"));
+const SecurityOverviewReport = lazy(() => import("@/features/reports/SecurityOverviewReport"));
+const ReferenceModelsReport = lazy(
+  () => import("@/features/reports/ReferenceModelsReport"),
+);
+const ProcessMapReport = lazy(() => import("@/features/reports/ProcessMapReport"));
+const InteroperabilityReport = lazy(() => import("@/features/reports/InteroperabilityReport"));
+const TechnologyLandscapeReport = lazy(
+  () => import("@/features/reports/TechnologyLandscapeReport"),
+);
+const StrategicHouseReport = lazy(() => import("@/features/reports/StrategicHouseReport"));
+const StrategyCascadeReport = lazy(() => import("@/features/reports/StrategyCascadeReport"));
+const ValueChainReport = lazy(() => import("@/features/reports/ValueChainReport"));
+const AppModulesReport = lazy(() => import("@/features/reports/AppModulesReport"));
 const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
 const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStrategyMap"));
 const ApplicationRationalizationBoard = lazy(
@@ -61,6 +92,8 @@ const SoAWEditor = lazy(() => import("@/features/ea-delivery/SoAWEditor"));
 const SoAWPreview = lazy(() => import("@/features/ea-delivery/SoAWPreview"));
 const ADREditor = lazy(() => import("@/features/ea-delivery/ADREditor"));
 const ADRPreview = lazy(() => import("@/features/ea-delivery/ADRPreview"));
+const AdmWorkspaceListPage = lazy(() => import("@/features/adm/AdmWorkspaceListPage"));
+const AdmWorkspacePage = lazy(() => import("@/features/adm/AdmWorkspacePage"));
 const RiskDetailPage = lazy(
   () => import("@/features/grc/risk/RiskDetailPage"),
 );
@@ -168,12 +201,65 @@ function AppRoutes() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/inventory" element={<InventoryPage />} />
                 <Route path="/cards/:id" element={<ErrorBoundary label="Card Detail"><CardDetail /></ErrorBoundary>} />
+                <Route path="/view-library" element={<EaViewLibraryPage />} />
+                <Route path="/reports/view-library" element={<Navigate to="/view-library" replace />} />
+                {/* Layers tab — rich per-layer swim-lane overviews (moved off /reports/). */}
+                <Route path="/layers/overview" element={<LayersDashboard />} />
+                <Route path="/layers/traceability" element={<TraceabilityView />} />
+                <Route path="/layers/business" element={<LayerSwimlaneOverview layer="Business" />} />
+                <Route path="/layers/beneficiary" element={<LayerSwimlaneOverview layer="Beneficiary Experience" />} />
+                <Route path="/layers/application" element={<LayerSwimlaneOverview layer="Application" />} />
+                <Route path="/layers/data" element={<LayerSwimlaneOverview layer="Data" />} />
+                <Route path="/layers/technology" element={<LayerSwimlaneOverview layer="Technology" />} />
+                <Route path="/layers/security" element={<SecurityOverviewReport />} />
+                <Route path="/layers/business-summary" element={<LayerSummaryReport layer="Business" />} />
+                <Route path="/layers/beneficiary-summary" element={<LayerSummaryReport layer="Beneficiary Experience" />} />
+                <Route path="/layers/application-summary" element={<ApplicationSummaryReport />} />
+                <Route path="/layers/data-summary" element={<LayerSummaryReport layer="Data" />} />
+                <Route path="/layers/technology-summary" element={<LayerSummaryReport layer="Technology" />} />
+                <Route path="/layers/security-summary" element={<LayerSummaryReport layer="Security" />} />
+                {/* Back-compat redirects — pre-six-layer slugs + old /reports/*-layer paths. */}
+                <Route path="/layers/strategy" element={<Navigate to="/layers/business" replace />} />
+                <Route path="/layers/technical" element={<Navigate to="/layers/technology" replace />} />
+                <Route path="/layers/strategy-summary" element={<Navigate to="/layers/business-summary" replace />} />
+                <Route path="/layers/technical-summary" element={<Navigate to="/layers/technology-summary" replace />} />
+                <Route path="/reports/application-layer" element={<Navigate to="/layers/application" replace />} />
+                <Route path="/reports/strategy-layer" element={<Navigate to="/layers/business" replace />} />
+                <Route path="/reports/business-layer" element={<Navigate to="/layers/business" replace />} />
+                <Route path="/reports/technology-layer" element={<Navigate to="/layers/technology" replace />} />
+                <Route path="/reports/security-layer" element={<Navigate to="/layers/security" replace />} />
+                <Route path="/reports/application-summary" element={<Navigate to="/layers/application-summary" replace />} />
+                <Route path="/reports/strategy-summary" element={<Navigate to="/layers/business-summary" replace />} />
+                <Route path="/reports/business-summary" element={<Navigate to="/layers/business-summary" replace />} />
+                <Route path="/reports/technology-summary" element={<Navigate to="/layers/technology-summary" replace />} />
                 <Route path="/reports/portfolio" element={<PortfolioReport />} />
                 <Route path="/reports/flexible-portfolio" element={<FlexiblePortfolioReport />} />
                 <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
                 <Route path="/reports/lifecycle" element={<LifecycleReport />} />
                 <Route path="/reports/transformation-roadmap" element={<TransformationRoadmap />} />
                 <Route path="/reports/dependencies" element={<DependencyReport />} />
+                <Route path="/reports/gap-analysis" element={<GapAnalysisReport />} />
+                <Route path="/nora-program" element={<NoraProgramPage />} />
+                <Route path="/maturity" element={<MaturityPage />} />
+                <Route path="/reference-models" element={<ReferenceModelsPage />} />
+                <Route path="/reports/org-chart" element={<OrgChartReport />} />
+                <Route path="/reports/service-traceability" element={<ServiceTraceabilityReport />} />
+                <Route path="/reports/kpi-scorecard" element={<KpiScorecardReport />} />
+                <Route path="/reports/service-catalogue" element={<ServiceCatalogueReport />} />
+                <Route
+                  path="/reports/reference-models"
+                  element={<ReferenceModelsReport />}
+                />
+                <Route path="/reports/process-map" element={<ModuleGate module="bpm"><ProcessMapReport /></ModuleGate>} />
+                <Route path="/reports/interoperability" element={<InteroperabilityReport />} />
+                <Route
+                  path="/reports/technology-landscape"
+                  element={<TechnologyLandscapeReport />}
+                />
+                <Route path="/reports/strategic-house" element={<StrategicHouseReport />} />
+                <Route path="/reports/strategy-cascade" element={<StrategyCascadeReport />} />
+                <Route path="/reports/value-chain" element={<ValueChainReport />} />
+                <Route path="/reports/application-modules" element={<AppModulesReport />} />
                 <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
                 <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />
                 <Route path="/rationalization" element={<ApplicationRationalizationBoard />} />
@@ -208,6 +294,8 @@ function AppRoutes() {
                 <Route path="/ea-delivery/adr/new" element={<ADREditor />} />
                 <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
                 <Route path="/ea-delivery/adr/:id" element={<ADREditor />} />
+                <Route path="/ea-delivery/adm" element={<RequirePermission permission="adm.view"><AdmWorkspaceListPage /></RequirePermission>} />
+                <Route path="/ea-delivery/adm/:workspaceId" element={<RequirePermission permission="adm.view"><AdmWorkspacePage /></RequirePermission>} />
                 <Route path="/ea-delivery/risks" element={<Navigate to="/grc?tab=risk" replace />} />
                 <Route path="/ea-delivery/risks/:id" element={<LegacyRiskDetailRedirect />} />
                 <Route path="/grc" element={<ModuleGate module="grc"><GrcPage /></ModuleGate>} />

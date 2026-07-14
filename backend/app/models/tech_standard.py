@@ -29,6 +29,8 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 # Radar adoption rings + the categories a standard can belong to.
 STANDARD_STATUSES = ("preferred", "allowed", "tolerated", "sunset", "prohibited")
 STANDARD_CATEGORIES = ("technology", "cloud", "integration", "data", "security", "other")
+# NORA TRM mandate levels (noraPlan.md WP1.3).
+STANDARD_MANDATES = ("mandatory", "recommended", "optional")
 # Exception lifecycle.
 EXCEPTION_STATUSES = ("requested", "approved", "rejected", "expired")
 
@@ -52,6 +54,20 @@ class TechStandard(UUIDMixin, TimestampMixin, Base):
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
+    # NORA TRM metadata (noraPlan.md WP1.3): issuing body (DGA, NCA, W3C, …),
+    # mandate level, next review date, spec link, TRM code, and an optional
+    # link to a TechCategory card (the TRM Service Area / Category tree).
+    standard_body: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mandate: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="recommended", server_default="recommended"
+    )
+    review_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    spec_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    trm_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    tech_category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL"), nullable=True
+    )
+
     exceptions = relationship(
         "StandardException",
         cascade="all, delete-orphan",
@@ -61,6 +77,7 @@ class TechStandard(UUIDMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_tech_standards_category", "category"),
         Index("ix_tech_standards_status", "status"),
+        Index("ix_tech_standards_tech_category_id", "tech_category_id"),
     )
 
 

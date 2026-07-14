@@ -282,6 +282,7 @@ async def create_card_type(
         color=kwargs.get("color", "#0f7eb5"),
         category=kwargs.get("category"),
         fields_schema=fields_schema if fields_schema is not None else [],
+        subtypes=kwargs.get("subtypes", []),
         has_hierarchy=kwargs.get("has_hierarchy", False),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),
@@ -306,6 +307,9 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
         lifecycle=kwargs.get("lifecycle", {}),
         description=kwargs.get("description"),
         parent_id=kwargs.get("parent_id"),
+        architecture_state=kwargs.get("architecture_state", "current"),
+        change_type=kwargs.get("change_type"),
+        successor_id=kwargs.get("successor_id"),
         created_by=user_id,
         updated_by=user_id,
     )

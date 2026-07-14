@@ -2,7 +2,6 @@
   "title": "الإشعارات",
   "markAllRead": "وضع علامة مقروء على الكل",
   "noNotifications": "لا توجد إشعارات",
-
   "preferences.title": "تفضيلات الإشعارات",
   "preferences.description": "اختر الإشعارات التي تريد تلقيها وكيفية تلقيها.",
   "preferences.notification": "الإشعار",
@@ -18,5 +17,6 @@
   "preferences.approvalStatusChanged": "تغيّرت حالة الاعتماد",
   "preferences.soawSignRequested": "تم طلب توقيع SoAW",
   "preferences.soawSigned": "تم توقيع SoAW",
-  "preferences.surveyRequest": "طلب استبيان"
+  "preferences.surveyRequest": "طلب استبيان",
+  "preferences.approvalStepPending": "خطوة اعتماد معلقة"
 }

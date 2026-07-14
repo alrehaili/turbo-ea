@@ -49,6 +49,7 @@ vi.mock("@/features/cards/sections", () => ({
   HistoryTab: () => <div data-testid="history-tab" />,
   RisksTab: () => <div data-testid="risks-tab" />,
   ComplianceTab: () => <div data-testid="compliance-tab" />,
+  PortfolioDecisionsSection: () => <div data-testid="portfolio-decisions-section" />,
 }));
 
 vi.mock("@/features/cards/sections/SoAWTab", () => ({

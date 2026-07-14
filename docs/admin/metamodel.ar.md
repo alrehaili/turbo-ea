@@ -8,14 +8,16 @@
 
 ## أنواع البطاقات
 
-يسرد تبويب Card Types جميع الأنواع في النظام. يأتي Turbo EA مع 14 نوعًا مدمجًا موزّعة على أربع طبقات هندسية:
+يسرد تبويب Card Types جميع الأنواع في النظام. يأتي Turbo EA مع 14 نوعًا مدمجًا موزّعة على طبقات نورا 2.0 الست:
 
 | الطبقة | الأنواع |
 |-------|-------|
-| **Strategy & Transformation** | Objective، Platform، Initiative |
-| **Business Architecture** | Organization، Business Capability، Business Context، Business Process |
-| **Application & Data** | Application، Interface، Data Object |
-| **Technical Architecture** | IT Component، Tech Category، Provider، System |
+| **الأعمال** | Objective، Platform، Initiative، Organization، Business Capability، Business Context، Business Process |
+| **تجربة المستفيد** | Government Service، Beneficiary Journey، Channel *(عبر ملف نورا)* |
+| **التطبيقات** | Application، Interface |
+| **البيانات** | Data Object *(+ Data Exchange عبر ملف نورا)* |
+| **التقنية** | IT Component، Tech Category، Provider، System |
+| **الأمن** | Security Control *(عبر ملف نورا)* |
 
 ### إنشاء نوع مخصّص
 

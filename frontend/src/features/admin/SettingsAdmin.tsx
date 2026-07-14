@@ -18,6 +18,10 @@ import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -41,6 +45,8 @@ import {
 } from "@/hooks/useArchiveRetentionDays";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useFrameworkProfile, type FrameworkProfile } from "@/hooks/useFrameworkProfile";
+import { invalidateGovernanceMode } from "@/hooks/useGovernanceMode";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 
@@ -177,7 +183,86 @@ function GeneralTab() {
   const faviconFileInputRef = useRef<HTMLInputElement>(null);
 
   // Metamodel cache (invalidated when BPM toggle changes type visibility)
-  const { invalidateCache: invalidateMetamodel } = useMetamodel();
+  const { types, invalidateCache: invalidateMetamodel } = useMetamodel();
+  const { profile: frameworkProfile, invalidateProfile } = useFrameworkProfile();
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [governance, setGovernance] = useState<{
+    enabled: boolean;
+    chain: string[];
+    sod_enabled: boolean;
+    promotion_requires_approval?: boolean;
+    type_chains?: Record<string, string[]>;
+  } | null>(null);
+  const [savingGovernance, setSavingGovernance] = useState(false);
+  const [typeChainDialogOpen, setTypeChainDialogOpen] = useState(false);
+  const [selectedTypeForChain, setSelectedTypeForChain] = useState<string>("");
+  const [typeChainEdit, setTypeChainEdit] = useState<string[]>([]);
+  const [savingTypeChain, setSavingTypeChain] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ enabled: boolean; chain: string[]; sod_enabled: boolean; type_chains?: Record<string, string[]> }>("/settings/governance")
+      .then(setGovernance)
+      .catch(() => setGovernance({ enabled: false, chain: [], sod_enabled: true, type_chains: {} }));
+  }, []);
+
+  const handleGovernanceChange = async (patch: {
+    enabled?: boolean;
+    sod_enabled?: boolean;
+    promotion_requires_approval?: boolean;
+  }) => {
+    setSavingGovernance(true);
+    setError("");
+    try {
+      const res = await api.patch<{ enabled: boolean; chain: string[]; sod_enabled: boolean }>(
+        "/settings/governance",
+        patch,
+      );
+      setGovernance(res);
+      invalidateGovernanceMode(res.enabled);
+      setSnack(
+        res.enabled
+          ? t("settings.governance.enabledSuccess")
+          : t("settings.governance.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingGovernance(false);
+    }
+  };
+
+  const handleSaveTypeChain = async () => {
+    if (!selectedTypeForChain || !governance) return;
+    setSavingTypeChain(true);
+    setError("");
+    try {
+      const newTypeChains = { ...(governance.type_chains || {}) };
+      if (typeChainEdit.length === 0) {
+        delete newTypeChains[selectedTypeForChain];
+      } else {
+        newTypeChains[selectedTypeForChain] = typeChainEdit;
+      }
+      const res = await api.patch<{ type_chains: Record<string, string[]> }>(
+        "/settings/governance",
+        { type_chains: newTypeChains },
+      );
+      setGovernance({ ...governance, type_chains: res.type_chains });
+      setTypeChainDialogOpen(false);
+      setSelectedTypeForChain("");
+      setTypeChainEdit([]);
+      setSnack(t("settings.governance.typeChainSaved"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingTypeChain(false);
+    }
+  };
+
+  const handleOpenTypeChainDialog = (typeKey: string) => {
+    setSelectedTypeForChain(typeKey);
+    setTypeChainEdit(governance?.type_chains?.[typeKey] || []);
+  };
 
   // Currency state
   const { currency: currentCurrency, invalidate: invalidateCurrency } = useCurrency();
@@ -428,6 +513,29 @@ function GeneralTab() {
       setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setUploadingFavicon(false);
+    }
+  };
+
+  const handleFrameworkProfileChange = async (next: FrameworkProfile) => {
+    setSavingProfile(true);
+    setError("");
+    try {
+      const res = await api.patch<{ fields_added?: number }>("/settings/framework-profile", {
+        profile: next,
+      });
+      invalidateProfile(next);
+      invalidateMetamodel();
+      setSnack(
+        next === "nora"
+          ? t("settings.frameworkProfile.noraApplied", {
+              count: res.fields_added ?? 0,
+            })
+          : t("settings.frameworkProfile.togafApplied"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -1241,6 +1349,242 @@ function GeneralTab() {
 
       {/* ── Modules ───────────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.modules")}</SectionHeader>
+
+      {/* Framework Profile (TOGAF / NORA) — [FORK] noraPlan.md WP1.1 */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="account_balance" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.frameworkProfile.title")}
+          </Typography>
+          <Chip
+            label={
+              frameworkProfile === "nora"
+                ? t("settings.frameworkProfile.noraChip")
+                : t("settings.frameworkProfile.togafChip")
+            }
+            size="small"
+            color={frameworkProfile === "nora" ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.frameworkProfile.description")}
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={frameworkProfile === "nora"}
+              onChange={(e) =>
+                handleFrameworkProfileChange(e.target.checked ? "nora" : "togaf")
+              }
+              disabled={savingProfile}
+            />
+          }
+          label={
+            frameworkProfile === "nora"
+              ? t("settings.frameworkProfile.noraActive")
+              : t("settings.frameworkProfile.togafActive")
+          }
+        />
+        {frameworkProfile === "nora" && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {t("settings.frameworkProfile.disableNote")}
+          </Typography>
+        )}
+      </Paper>
+
+      {/* Governance workflow (multi-step approval) — [FORK] noraPlan.md WP2.2 */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="approval_delegation" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.governance.title")}
+          </Typography>
+          <Chip
+            label={
+              governance?.enabled
+                ? t("settings.governance.enabled")
+                : t("settings.governance.disabled")
+            }
+            size="small"
+            color={governance?.enabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.governance.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={governance?.enabled ?? false}
+              onChange={(e) => handleGovernanceChange({ enabled: e.target.checked })}
+              disabled={savingGovernance || !governance}
+            />
+          }
+          label={t("settings.governance.toggleLabel")}
+        />
+        {governance?.enabled && (
+          <>
+            <FormControlLabel
+              sx={{ display: "flex" }}
+              control={
+                <Switch
+                  checked={governance.sod_enabled}
+                  onChange={(e) => handleGovernanceChange({ sod_enabled: e.target.checked })}
+                  disabled={savingGovernance}
+                />
+              }
+              label={t("settings.governance.sodLabel")}
+            />
+            <FormControlLabel
+              sx={{ display: "flex", mt: 1 }}
+              control={
+                <Switch
+                  checked={governance.promotion_requires_approval || false}
+                  onChange={(e) => handleGovernanceChange({ promotion_requires_approval: e.target.checked })}
+                  disabled={savingGovernance || !governance.enabled}
+                />
+              }
+              label={t("settings.governance.promotionRequiresApprovalLabel")}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, ml: 4, mb: 2 }}>
+              {t("settings.governance.promotionRequiresApprovalHint")}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
+              {t("settings.governance.chainLabel")}:{" "}
+              {governance.chain.map((r) => (
+                <Chip key={r} size="small" label={r} sx={{ mr: 0.5 }} />
+              ))}
+            </Typography>
+            <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #eee" }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                {t("settings.governance.perTypeChains")}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+                {t("settings.governance.perTypeChainsHint")}
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setTypeChainDialogOpen(true)}
+                disabled={savingGovernance}
+              >
+                {Object.keys(governance.type_chains || {}).length > 0
+                  ? t("settings.governance.editTypeChains")
+                  : t("settings.governance.defineTypeChains")}
+              </Button>
+            </Box>
+          </>
+        )}
+      </Paper>
+
+      {/* Type-Specific Approval Chains Dialog */}
+      <Dialog open={typeChainDialogOpen} onClose={() => setTypeChainDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t("settings.governance.manageTypeChains")}</DialogTitle>
+        <DialogContent>
+          {!selectedTypeForChain ? (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                {t("settings.governance.selectTypeToEdit")}
+              </Typography>
+              {types && types.length > 0 ? (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  {types.map((type) => {
+                    const hasOverride = (governance?.type_chains || {})[type.key];
+                    return (
+                      <Button
+                        key={type.key}
+                        variant={hasOverride ? "contained" : "outlined"}
+                        onClick={() => handleOpenTypeChainDialog(type.key)}
+                        fullWidth
+                        sx={{ justifyContent: "flex-start", textAlign: "left" }}
+                      >
+                        <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                          <span>{type.label}</span>
+                          {hasOverride && (
+                            <Chip
+                              size="small"
+                              label={t("settings.governance.customChain")}
+                              variant="outlined"
+                              sx={{ ml: 1 }}
+                            />
+                          )}
+                        </Box>
+                      </Button>
+                    );
+                  })}
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {t("settings.governance.noTypesAvailable")}
+                </Typography>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ pt: 2 }}>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  setSelectedTypeForChain("");
+                  setTypeChainEdit([]);
+                }}
+                sx={{ mb: 2 }}
+              >
+                ← {t("common:actions.back")}
+              </Button>
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                {types?.find((t) => t.key === selectedTypeForChain)?.label}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                {t("settings.governance.customChainHint")}
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+                {governance?.chain.map((role) => {
+                  const isSelected = typeChainEdit.includes(role);
+                  return (
+                    <Chip
+                      key={role}
+                      label={role}
+                      onClick={() => {
+                        if (isSelected) {
+                          setTypeChainEdit(typeChainEdit.filter((r) => r !== role));
+                        } else {
+                          setTypeChainEdit([...typeChainEdit, role]);
+                        }
+                      }}
+                      variant={isSelected ? "filled" : "outlined"}
+                      color={isSelected ? "primary" : "default"}
+                    />
+                  );
+                })}
+              </Box>
+              {typeChainEdit.length > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                  {t("settings.governance.selectedChain")}: {typeChainEdit.join(" → ")}
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTypeChainDialogOpen(false)} disabled={savingTypeChain}>
+            {t("common:actions.close")}
+          </Button>
+          {selectedTypeForChain && (
+            <Button
+              onClick={handleSaveTypeChain}
+              variant="contained"
+              disabled={savingTypeChain}
+            >
+              {savingTypeChain ? t("common:actions.processing") : t("common:actions.save")}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       {/* BPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

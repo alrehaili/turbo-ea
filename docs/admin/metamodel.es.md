@@ -8,14 +8,16 @@ Navegue a **Administración > Metamodelo** para acceder al editor. Tiene ocho pe
 
 ## Tipos de Fichas
 
-La pestaña Tipos de Fichas lista todos los tipos en el sistema. Turbo EA incluye 14 tipos predefinidos en cuatro capas de arquitectura:
+La pestaña Tipos de Fichas lista todos los tipos en el sistema. Turbo EA incluye 14 tipos predefinidos en las seis capas de arquitectura de NORA 2.0:
 
 | Capa | Tipos |
 |------|-------|
-| **Estrategia y Transformación** | Objetivo, Plataforma, Iniciativa |
-| **Arquitectura de Negocio** | Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio |
-| **Aplicación y Datos** | Aplicación, Interfaz, Objeto de Datos |
-| **Arquitectura Técnica** | Componente TI, Categoría Tecnológica, Proveedor, Sistema |
+| **Negocio** | Objetivo, Plataforma, Iniciativa, Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio |
+| **Experiencia del beneficiario** | Servicio gubernamental, Recorrido del beneficiario, Canal *(mediante el perfil NORA)* |
+| **Aplicaciones** | Aplicación, Interfaz |
+| **Datos** | Objeto de Datos *(+ Intercambio de datos mediante el perfil NORA)* |
+| **Tecnología** | Componente TI, Categoría Tecnológica, Proveedor, Sistema |
+| **Seguridad** | Control de seguridad *(mediante el perfil NORA)* |
 
 ### Crear un Tipo Personalizado
 

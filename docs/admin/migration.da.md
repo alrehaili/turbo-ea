@@ -7,6 +7,7 @@ Platforms-migreringsimportøren (**Admin → Indstillinger → Migrering**) inge
 | Kilde | Format |
 |---|---|
 | **SAP LeanIX** | Full Snapshot xlsx-projektmappe (Administration → Export → Full Snapshot) |
+| **NORA-dataindsamlingsskabeloner (DGA)** | حصر البيانات xlsx-projektmappe — én pr. EA-domæne (forretning / applikationer / teknologi / sikkerhed / data) |
 
 Yderligere kildeplatforme (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) plugger ind i den samme staging + apply-pipeline via per-kilde-adaptere. Når en ny adapter sendes, vises den automatisk i vælgeren **Kildeplatform** i upload-dialogen uden admin-konfiguration påkrævet.
 
@@ -103,3 +104,9 @@ Denne side er bevogtet af `admin.migrate`-tilladelsen. Kun **admin**-rollen har 
 ## Oprydning
 
 Sletning af en migreringspost (Indstillinger → Migrering → papirkurvsikon) fjerner både databaserækkerne for den migrering (staged poster cascade) og snapshot-filen på disken. `uploaded`-, `parsed`-, `previewed`-, `failed`-, `aborted`- og `applied`-migreringer kan alle slettes; en `applying`-migrering skal afslutte (eller fejle), før den kan fjernes.
+
+### NORA-dataindsamlingsskabeloner (DGA)
+
+Importeren kan også indlæse de officielle dataindsamlingsprojektmapper fra det saudiske nationale EA-rammeværk — én projektmappe pr. EA-domæne (forretning, applikationer, teknologi, sikkerhed, data). Arkene lander på de tilsvarende korttyper, og valgmulighedskolonner oversættes fra skabelonernes egne opslagsværdier til NORA-profilens felter — aktivér derfor NORA-rammeprofilen før import.
+
+Navnereferencer mellem rækker bliver til relationer og hierarkiforbindelser, og refererede navne uden egen række oprettes som minimale pladsholderkort, der binder sig til eksisterende kort med samme navn. Projektmapperne kan uploades i vilkårlig rækkefølge og genimporteres sikkert. Arkene for modtageroplevelse, formularer, politikker og interessenter importeres endnu ikke.

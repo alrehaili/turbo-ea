@@ -15,6 +15,7 @@
   "preferences.cardUpdated": "Карточка обновлена",
   "preferences.commentAdded": "Добавлен комментарий",
   "preferences.approvalStatusChanged": "Изменён статус утверждения",
+  "preferences.approvalStepPending": "Ожидается утверждение",
   "preferences.soawSignRequested": "Запрошена подпись SoAW",
   "preferences.soawSigned": "SoAW подписан",
   "preferences.surveyRequest": "Запрос на опрос"

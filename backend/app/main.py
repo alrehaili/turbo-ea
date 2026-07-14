@@ -538,6 +538,42 @@ async def lifespan(app: FastAPI):
         await seed_metamodel(db)
     logger.info("[startup] Metamodel seed complete")
 
+    # Apply/upgrade the NORA framework profile when requested ([FORK] WP1.1)
+    from app.services.nora_profile import ensure_framework_profile
+
+    async with async_session() as db:
+        await ensure_framework_profile(db)
+
+    # Seed the NORA demo landscape ([FORK]): SEED_NORA=true.
+    # RESET_NORA_DEMO=true clears the previously seeded rows first so the
+    # enriched dataset can replace an already-seeded install (the marker check
+    # in seed_nora_demo_data would otherwise skip it).
+    if settings.SEED_NORA:
+        from app.services.seed_demo_nora import reset_nora_demo_data, seed_nora_demo_data
+
+        if settings.RESET_NORA_DEMO:
+            async with async_session() as db:
+                counts = await reset_nora_demo_data(db)
+                await db.commit()
+                print(
+                    f"[seed_nora] Reset removed {counts['cards']} cards, "
+                    f"{counts['opportunities']} opportunities, "
+                    f"{counts['documents']} document(s); "
+                    f"reset {counts['program_updates']} program deliverable(s)"
+                )
+
+        async with async_session() as db:
+            result = await seed_nora_demo_data(db)
+            await db.commit()
+            if result.get("skipped"):
+                print(f"[seed_nora] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_nora] Seeded {result['cards']} cards, "
+                    f"{result['relations']} relations, {result['program_updates']} "
+                    f"program updates, {result['documents']} document(s)"
+                )
+
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
         from app.services.seed_demo import seed_demo_data
@@ -658,19 +694,25 @@ async def lifespan(app: FastAPI):
             if not result.get("skipped"):
                 print("[seed_extended] Seeded comprehensive extended demo data:")
                 if "sample_users" in result and not result["sample_users"].get("skipped"):
-                    print(f"  - {result['sample_users'].get('users', 0)} users, "
-                          f"{result['sample_users'].get('stakeholder_assignments', 0)} stakeholder assignments")
+                    _users = result["sample_users"]
+                    print(
+                        f"  - {_users.get('users', 0)} users, "
+                        f"{_users.get('stakeholder_assignments', 0)} stakeholder assignments"
+                    )
                 if "calculations" in result and not result["calculations"].get("skipped"):
                     print(f"  - {result['calculations'].get('calculations', 0)} calculated fields")
                 if "application_rationalization" in result:
-                    print(f"  - {result['application_rationalization'].get('applications_rationalized', 0)} "
-                          "applications rationalized (BOLD model)")
+                    _rat = result["application_rationalization"]
+                    print(
+                        f"  - {_rat.get('applications_rationalized', 0)} "
+                        "applications rationalized (BOLD model)"
+                    )
                 if "roadmaps" in result and not result["roadmaps"].get("skipped"):
                     print(f"  - {result['roadmaps'].get('roadmaps', 0)} technology roadmaps")
                 if "scenarios" in result and not result["scenarios"].get("skipped"):
                     print(f"  - {result['scenarios'].get('scenarios', 0)} what-if scenarios")
             else:
-                print(f"[seed_extended] Skipped: already seeded")
+                print("[seed_extended] Skipped: already seeded")
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None

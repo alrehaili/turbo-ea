@@ -212,7 +212,7 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState<Filters>(() => {
     // URL params take precedence over localStorage
     const hasUrlParams = searchParams.has("type") || searchParams.has("search") ||
-      searchParams.has("approval_status") || searchParams.has("show_archived") ||
+      searchParams.has("approval_status") || searchParams.has("architecture_state") || searchParams.has("change_type") || searchParams.has("show_archived") ||
       searchParams.has("mine") ||
       Array.from(searchParams.keys()).some((k) => k.startsWith("attr_"));
 
@@ -229,11 +229,14 @@ export default function InventoryPage() {
         subtypes: [],
         lifecyclePhases: [],
         dataQualityMin: null,
-        approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
+        approvalStatuses: searchParams.get("approval_status") ? searchParams.get("approval_status")!.split(",") : [],
+        architectureStates: searchParams.get("architecture_state") ? searchParams.get("architecture_state")!.split(",") : [],
+        changeTypes: searchParams.get("change_type") ? searchParams.get("change_type")!.split(",") : [],
         showArchived: searchParams.get("show_archived") === "true",
         attributes,
         relations: {},
         tagIds: [],
+        segmentIds: searchParams.get("segment_id") ? [searchParams.get("segment_id")!] : [],
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
       };
     }
@@ -248,10 +251,13 @@ export default function InventoryPage() {
         lifecyclePhases: saved.filters.lifecyclePhases || [],
         dataQualityMin: saved.filters.dataQualityMin ?? null,
         approvalStatuses: saved.filters.approvalStatuses || [],
+        architectureStates: saved.filters.architectureStates || [],
+        changeTypes: saved.filters.changeTypes || [],
         showArchived: saved.filters.showArchived || false,
         attributes: saved.filters.attributes || {},
         relations: saved.filters.relations || {},
         tagIds: saved.filters.tagIds || [],
+        segmentIds: saved.filters.segmentIds || [],
         mineScope: saved.filters.mineScope ?? null,
       };
     }
@@ -263,10 +269,13 @@ export default function InventoryPage() {
       lifecyclePhases: [],
       dataQualityMin: null,
       approvalStatuses: [],
+      architectureStates: [],
+      changeTypes: [],
       showArchived: false,
       attributes: {},
       relations: {},
       tagIds: [],
+      segmentIds: [],
       mineScope: null,
     };
   });
@@ -398,6 +407,15 @@ export default function InventoryPage() {
   const [massEditRelSearch, setMassEditRelSearch] = useState("");
   const [massEditRelOptions, setMassEditRelOptions] = useState<{ id: string; name: string; type: string }[]>([]);
 
+  // Bulk approval action state
+  const [bulkApprovalAction, setBulkApprovalAction] = useState<"submit" | "approve" | "reject" | "reset" | null>(null);
+  const [bulkApprovalOpen, setBulkApprovalOpen] = useState(false);
+  const [bulkApprovalComment, setBulkApprovalComment] = useState("");
+  const [bulkApprovalLoading, setBulkApprovalLoading] = useState(false);
+  const [bulkApprovalResults, setBulkApprovalResults] = useState<Array<{ card_id: string; status: string; approval_status?: string; error?: string }>>([]);
+  const [bulkApprovalResultsOpen, setBulkApprovalResultsOpen] = useState(false);
+  const [requireRejectionComment, setRequireRejectionComment] = useState(false);
+
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
   const [massDeleteOpen, setMassDeleteOpen] = useState(false);
@@ -424,6 +442,22 @@ export default function InventoryPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Fetch governance config for rejection comment validation
+  useEffect(() => {
+    const fetchGovernanceConfig = async () => {
+      try {
+        const response = await api.get<{
+          general_settings?: { requireRejectionComment?: boolean };
+        }>("/settings/bootstrap");
+        const config = response.general_settings || {};
+        setRequireRejectionComment(config.requireRejectionComment ?? false);
+      } catch (e) {
+        console.error("Failed to load governance config:", e);
+      }
+    };
+    fetchGovernanceConfig();
+  }, []);
 
   // Derive the single selected type for column rendering (only when exactly one type selected)
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
@@ -554,11 +588,20 @@ export default function InventoryPage() {
       if (filters.approvalStatuses.length > 0) {
         params.set("approval_status", filters.approvalStatuses.join(","));
       }
+      if (filters.architectureStates.length > 0) {
+        params.set("architecture_state", filters.architectureStates.join(","));
+      }
+      if (filters.changeTypes.length > 0) {
+        params.set("change_type", filters.changeTypes.join(","));
+      }
       if (filters.showArchived) {
         params.set("status", "ARCHIVED");
       }
       if (filters.mineScope) {
         params.set("mine", filters.mineScope);
+      }
+      if (filters.segmentIds && filters.segmentIds.length > 0) {
+        params.set("segment_id", filters.segmentIds[0]);
       }
       params.set("page_size", "10000");
       const res = await api.get<CardListResponse>(
@@ -569,7 +612,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived, filters.mineScope]);
+  }, [filters.types, filters.search, filters.approvalStatuses, filters.architectureStates, filters.changeTypes, filters.showArchived, filters.mineScope, filters.segmentIds]);
 
   useEffect(() => {
     loadData();
@@ -1308,6 +1351,35 @@ export default function InventoryPage() {
     loadData();
   };
 
+  const handleBulkApprovalConfirmed = async () => {
+    if (!bulkApprovalAction) return;
+    setBulkApprovalLoading(true);
+    try {
+      const response = await api.post<{
+        results?: Array<{ card_id: string; status: string; approval_status?: string; error?: string }>;
+      }>(
+        "/cards/bulk-approval-action",
+        {
+          card_ids: selectedIds,
+          action: bulkApprovalAction,
+          comment: bulkApprovalComment || undefined,
+        },
+      );
+      setBulkApprovalResults(response.results || []);
+      setBulkApprovalResultsOpen(true);
+      setBulkApprovalOpen(false);
+      // Reload data after action
+      await loadData();
+      setSelectedIds([]);
+      gridRef.current?.api?.deselectAll();
+    } catch (err: unknown) {
+      const error = err as { detail?: string; message?: string };
+      alert(`Error: ${error?.detail || error?.message || "Unknown error"}`);
+    } finally {
+      setBulkApprovalLoading(false);
+    }
+  };
+
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols: ColDef[] = [
       {
@@ -1507,6 +1579,60 @@ export default function InventoryPage() {
               label={labels[p.value] || p.value}
               sx={{ bgcolor: color, color: "#fff", fontWeight: 500 }}
             />
+          );
+        },
+      },
+      {
+        colId: "core_architecture_state",
+        field: "architecture_state",
+        headerName: t("columns.architectureState"),
+        width: 110,
+        hide: !selectedColumns.has("core_architecture_state"),
+        cellRenderer: (p: { value: string }) => {
+          if (!p.value) return "";
+          const stateColors: Record<string, string> = {
+            current: "#2196f3",
+            transition: "#ffc107",
+            target: "#4caf50",
+          };
+          const stateLabels: Record<string, string> = {
+            current: t("common:architectureState.current"),
+            transition: t("common:architectureState.transition"),
+            target: t("common:architectureState.target"),
+          };
+          const color = stateColors[p.value] || "#9e9e9e";
+          const label = stateLabels[p.value] || p.value;
+          return (
+            <Chip
+              size="small"
+              label={label}
+              sx={{ bgcolor: color, color: "#fff", fontWeight: 500 }}
+            />
+          );
+        },
+      },
+      {
+        colId: "core_change_type",
+        field: "change_type",
+        headerName: t("columns.changeType"),
+        width: 120,
+        hide: !selectedColumns.has("core_change_type"),
+        cellRenderer: (p: { value: string }) => {
+          if (!p.value) return "";
+          const changeTypeConfig: Record<string, { icon: string; color: string; label: string }> = {
+            create: { icon: "add", color: "#4caf50", label: t("common:changeType.create") },
+            modify: { icon: "edit", color: "#2196f3", label: t("common:changeType.modify") },
+            replace: { icon: "autorenew", color: "#ff9800", label: t("common:changeType.replace") },
+            retire: { icon: "remove", color: "#f44336", label: t("common:changeType.retire") },
+            consolidate: { icon: "merge_type", color: "#9c27b0", label: t("common:changeType.consolidate") },
+          };
+          const config = changeTypeConfig[p.value];
+          if (!config) return p.value;
+          return (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <MaterialSymbol icon={config.icon} size={16} />
+              <span>{config.label}</span>
+            </Box>
           );
         },
       },
@@ -2380,6 +2506,26 @@ export default function InventoryPage() {
                 {t("common:actions.restore")}
               </Button>
             )}
+            <Button
+              size="small"
+              variant="contained"
+              color="inherit"
+              sx={{
+                color: "#1565c0",
+                bgcolor: "background.paper",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+                "&:hover": { bgcolor: "action.selected" },
+              }}
+              startIcon={<MaterialSymbol icon="approve" size={16} />}
+              onClick={() => {
+                setBulkApprovalAction("submit");
+                setBulkApprovalComment("");
+                setBulkApprovalOpen(true);
+              }}
+            >
+              {t("inventory:actions.submitForReview")}
+            </Button>
             {canDelete && filters.showArchived && (
               <Button
                 size="small"
@@ -2677,6 +2823,93 @@ export default function InventoryPage() {
         preSelectedType={selectedType || undefined}
         tagGroups={tagGroups}
       />
+
+      {/* Bulk Approval Action Dialog */}
+      <Dialog open={bulkApprovalOpen} onClose={() => setBulkApprovalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {bulkApprovalAction === "submit" && t("inventory:actions.submitForReview")}
+          {bulkApprovalAction === "approve" && t("common:actions.approve")}
+          {bulkApprovalAction === "reject" && t("common:actions.reject")}
+          {bulkApprovalAction === "reset" && t("common:actions.reset")}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t("inventory:bulkApproval.confirmCount", { count: selectedIds.length, action: bulkApprovalAction })}
+          </Typography>
+          {bulkApprovalAction === "reject" && (
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label={t("inventory:bulkApproval.rejectComment")}
+              value={bulkApprovalComment}
+              onChange={(e) => setBulkApprovalComment(e.target.value)}
+              placeholder={t("inventory:bulkApproval.commentPlaceholder")}
+              required={requireRejectionComment}
+              error={requireRejectionComment && !bulkApprovalComment.trim()}
+              helperText={requireRejectionComment && !bulkApprovalComment.trim() ? t("common:validation.required") : undefined}
+              sx={{ mb: 2 }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkApprovalOpen(false)} disabled={bulkApprovalLoading}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            onClick={handleBulkApprovalConfirmed}
+            variant="contained"
+            color={bulkApprovalAction === "reject" ? "error" : "primary"}
+            disabled={bulkApprovalLoading || (bulkApprovalAction === "reject" && requireRejectionComment && !bulkApprovalComment.trim())}
+          >
+            {bulkApprovalLoading ? t("common:actions.processing") : t("common:actions.confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Approval Results Dialog */}
+      <Dialog open={bulkApprovalResultsOpen} onClose={() => setBulkApprovalResultsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t("inventory:bulkApproval.results")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t("inventory:bulkApproval.resultsSummary", {
+              succeeded: bulkApprovalResults.filter((r) => r.status === "success").length,
+              failed: bulkApprovalResults.filter((r) => r.status === "error").length,
+            })}
+          </Typography>
+          <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
+            {bulkApprovalResults.map((result) => (
+              <Box
+                key={result.card_id}
+                sx={{
+                  p: 1,
+                  mb: 1,
+                  bgcolor: result.status === "success" ? "#e8f5e9" : "#ffebee",
+                  borderRadius: 1,
+                  borderLeft: `3px solid ${result.status === "success" ? "#4caf50" : "#f44336"}`,
+                }}
+              >
+                <Typography variant="body2" fontWeight={600}>
+                  {data.find((c) => c.id === result.card_id)?.name || result.card_id}
+                </Typography>
+                {result.error && (
+                  <Typography variant="caption" color="error">
+                    {result.error}
+                  </Typography>
+                )}
+                {result.approval_status && (
+                  <Typography variant="caption" color="textSecondary">
+                    Status: {result.approval_status}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkApprovalResultsOpen(false)}>{t("common:actions.close")}</Button>
+        </DialogActions>
+      </Dialog>
 
       <CardDetailSidePanel
         cardId={previewCardId}

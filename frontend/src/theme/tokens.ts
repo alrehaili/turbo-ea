@@ -141,15 +141,19 @@ export const CARD_TYPE_COLORS = {
   TechCategory: "#a6566d",
   Provider: "#ffa31f",
   System: "#5B738B",
+  Pillar: "#7b1fa2", // NORA profile v6 strategic pillar (matches the metamodel color)
 } as const;
 
 // ── EA layers (Layered Dependency View, capability map, dependency report) ─
 
+// NORA 2.0 six-layer model (categories on card_types.category).
 export const LAYER_COLORS = {
-  "Strategy & Transformation": "#33cc58",
-  "Business Architecture": "#2889ff",
-  "Application & Data": "#0f7eb5",
-  "Technical Architecture": "#d29270",
+  Business: "#2889ff",
+  "Beneficiary Experience": "#00a3a3",
+  Application: "#0f7eb5",
+  Data: "#774fcc",
+  Technology: "#d29270",
+  Security: "#c62828",
 } as const;
 
 // ── Vendor accent (VendorField, Provider chips) ─────────────────────────
@@ -183,6 +187,23 @@ export const typography = {
   h1: { fontSize: "2rem", fontWeight: 600 },
   h2: { fontSize: "1.5rem", fontWeight: 600 },
   h3: { fontSize: "1.25rem", fontWeight: 600 },
+} as const;
+
+// ── EA visual-explorer palette ──────────────────────────────────────────
+// [FORK] The ea-ui-mvp look used by the Layers section (overview pages,
+// EA dashboard, traceability view, component drawer): a light blue-grey
+// canvas, white panels with soft shadows, blue accents, and pastel
+// healthy/warning/risk surfaces with darker companion text.
+
+export const EXPLORER_COLORS = {
+  bg: "#f5f7fb",
+  line: "#dbe3ef",
+  primary: "#1d4ed8",
+  primarySoft: "#dbeafe",
+  shadow: "0 8px 28px rgba(15, 23, 42, 0.06)",
+  healthy: { main: "#16a34a", soft: "#dcfce7", border: "#86efac", text: "#166534" },
+  warning: { main: "#d97706", soft: "#fef3c7", border: "#fcd34d", text: "#92400e" },
+  risk: { main: "#dc2626", soft: "#fee2e2", border: "#fca5a5", text: "#991b1b" },
 } as const;
 
 // ── Type exports ────────────────────────────────────────────────────────

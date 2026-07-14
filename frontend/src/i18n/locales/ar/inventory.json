@@ -229,5 +229,10 @@
   "export.allFieldsHint": "مجموعة بيانات كاملة، قابلة لإعادة الاستيراد",
   "export.currentView": "تصدير العرض الحالي",
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
-  "export.viewSheetName": "عرض"
+  "export.viewSheetName": "عرض",
+  "filter.segments": "النطاقات",
+  "columns.architectureState": "حالة البنية",
+  "columns.changeType": "نوع التغيير",
+  "filter.architectureState": "حالة البنية",
+  "filter.changeType": "نوع التغيير"
 }

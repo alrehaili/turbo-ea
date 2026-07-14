@@ -9,6 +9,8 @@
   "columns.title": "Столбцы",
   "columns.lifecycle": "Жизненный цикл",
   "columns.approvalStatus": "Статус утверждения",
+  "columns.architectureState": "Состояние архитектуры",
+  "columns.changeType": "Тип изменения",
   "columns.dataQuality": "Качество данных",
   "columns.tags": "Теги",
   "columns.clickToEdit": "Нажмите для редактирования",
@@ -38,6 +40,8 @@
   "filter.types": "Типы",
   "filter.subtypes": "Подтипы",
   "filter.approvalStatus": "Статус утверждения",
+  "filter.architectureState": "Состояние архитектуры",
+  "filter.changeType": "Тип изменения",
   "filter.lifecycle": "Жизненный цикл",
   "filter.dataQuality": "Качество данных",
   "filter.dataQualityGood": "Хорошее (80%+)",
@@ -229,5 +233,6 @@
   "export.allFieldsHint": "Полный набор данных, пригоден для повторного импорта",
   "export.currentView": "Экспортировать текущий вид",
   "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
-  "export.viewSheetName": "Вид"
+  "export.viewSheetName": "Вид",
+  "filter.segments": "Области видимости"
 }

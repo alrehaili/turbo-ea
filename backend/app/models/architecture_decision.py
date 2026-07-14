@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +24,11 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin):
     decision: Mapped[str | None] = mapped_column(Text)
     consequences: Mapped[str | None] = mapped_column(Text)
     alternatives_considered: Mapped[str | None] = mapped_column(Text)
+    # NORA committee decision register ([FORK] WP3.4): which governance body
+    # decided, in which meeting, for which NORA stage (0-10, optional).
+    committee: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    meeting_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    stage_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     related_decisions: Mapped[list | None] = mapped_column(JSONB, default=list)
 
     created_by: Mapped[uuid.UUID | None] = mapped_column(

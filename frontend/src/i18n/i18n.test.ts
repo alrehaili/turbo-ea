@@ -31,7 +31,9 @@ const NAMESPACES = [
   "validation",
 ] as const;
 
-const LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"] as const;
+// [FORK] EN + AR only — the other upstream locale files stay on disk but are
+// not registered in the i18n config (see src/i18n/index.ts).
+const LOCALES = ["en", "ar"] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers

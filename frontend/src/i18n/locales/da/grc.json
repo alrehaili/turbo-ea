@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "Principper",
       "standards": "Standarder",
-      "decisions": "Beslutninger"
+      "decisions": "Beslutninger",
+      "opportunities": "Muligheder"
     },
     "principles": {
       "title": "Arkitekturprincipper",
@@ -33,6 +34,47 @@
       "status": "Status",
       "open": "Åbn",
       "create": "Ny beslutning"
+    },
+    "opportunities": {
+      "new": "Ny forbedringsmulighed",
+      "edit": "Rediger forbedringsmulighed",
+      "empty": "Ingen forbedringsmuligheder endnu. Registrér fund fra analysen af den nuværende arkitektur her.",
+      "colTitle": "Titel",
+      "colDomain": "Domæne",
+      "colPriority": "Prioritet",
+      "colStatus": "Status",
+      "colInitiative": "Initiativ",
+      "assign": "Tildel initiativ",
+      "description": "Beskrivelse",
+      "confirmDelete": "Slet forbedringsmuligheden «{{title}}»?",
+      "priority": {
+        "low": "Lav",
+        "medium": "Mellem",
+        "high": "Høj"
+      },
+      "status": {
+        "proposed": "Foreslået",
+        "approved": "Godkendt",
+        "inTransition": "Under omstilling",
+        "realized": "Realiseret",
+        "rejected": "Afvist"
+      },
+      "aiSuggest": "AI-forslag",
+      "aiTitle": "AI-foreslåede forbedringsmuligheder",
+      "aiLanguage": "Sprog",
+      "aiFocus": "Fokus (valgfrit)",
+      "aiFocusHint": "f.eks. datastyring, delte tjenester…",
+      "aiGenerate": "Generer",
+      "aiReviewHint": "Gennemgå AI-udkastene og tilføj dem, du vil have — de lander som foreslået til governance.",
+      "aiAddSelected": "Tilføj {{n}} valgte",
+      "journey": "Modtagerrejse",
+      "journeyPhase": "Rejsefase",
+      "feasibility": {
+        "label": "Gennemførlighed",
+        "high": "Høj",
+        "medium": "Mellem",
+        "low": "Lav"
+      }
     }
   },
   "compliance": {

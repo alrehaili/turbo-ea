@@ -16,11 +16,14 @@ export const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; tKey: string }[] = [
   { value: "multiple_select", tKey: "common:fieldTypes.multipleSelect" },
 ];
 
+// NORA 2.0 six-layer model.
 export const CATEGORIES = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
+  "Business",
+  "Beneficiary Experience",
+  "Application",
+  "Data",
+  "Technology",
+  "Security",
 ];
 
 export const LAYER_ORDER = [...CATEGORIES, "Other"];

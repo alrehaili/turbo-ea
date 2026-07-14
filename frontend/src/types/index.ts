@@ -273,6 +273,10 @@ export interface Card {
   data_quality: number;
   external_id?: string;
   alias?: string;
+  /** Architecture-state slice (NORA current/target — [FORK] WP2.1). */
+  architecture_state?: "current" | "transition" | "target";
+  change_type?: "create" | "modify" | "replace" | "retire" | "consolidate" | null;
+  successor_id?: string | null;
   archived_at?: string;
   created_by?: string;
   updated_by?: string;
@@ -613,6 +617,8 @@ export interface SoAWSignatory {
 export interface SoAW {
   id: string;
   name: string;
+  /** "soaw" (TOGAF, default) or a NORA governed document type ([FORK] WP3.2). */
+  doc_type?: string;
   initiative_id: string | null;
   status: "draft" | "in_review" | "approved" | "signed";
   document_info: SoAWDocumentInfo;
@@ -641,6 +647,10 @@ export interface ArchitectureDecision {
   consequences: string | null;
   alternatives_considered: string | null;
   related_decisions: string[];
+  /** NORA committee decision register ([FORK] WP3.4). */
+  committee?: string | null;
+  meeting_date?: string | null;
+  stage_no?: number | null;
   created_by: string | null;
   creator_name?: string | null;
   signatories: SoAWSignatory[];
@@ -2033,4 +2043,150 @@ export interface CardRestoreRequest {
 export interface CardRestoreResponse {
   primary: Card;
   restored_passenger_ids: string[];
+}
+
+// --- EA maturity self-assessment (NORA WP5.2) ---
+export interface MaturityDimension {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  weight: number;
+  sort_order: number;
+  is_active: boolean;
+  built_in: boolean;
+}
+
+export interface MaturityDimensionScore {
+  id: string;
+  assessment_id: string;
+  dimension_id: string | null;
+  dimension_key: string;
+  dimension_name: string;
+  weight: number;
+  sort_order: number;
+  level: number;
+  target_level: number;
+  /** Advisory repository-derived suggestion (0 = no automated evidence). */
+  suggested_level: number;
+  /** Indicator snapshot the suggestion was banded from. */
+  evidence: MaturityIndicator[] | null;
+  notes: string | null;
+}
+
+/** One automated evidence indicator ([FORK] — automated maturity assessment). */
+export interface MaturityIndicator {
+  key: string;
+  kind: "ratio" | "adoption" | "quality";
+  value: number;
+  numerator: number | null;
+  denominator: number | null;
+}
+
+export type MaturityAssessmentStatus = "draft" | "submitted" | "approved";
+
+export interface MaturityAssessment {
+  id: string;
+  title: string;
+  assessment_date: string | null;
+  status: MaturityAssessmentStatus;
+  notes: string | null;
+  overall_score: number | null;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_by_display_name: string | null;
+  approved_at: string | null;
+  scores?: MaturityDimensionScore[];
+}
+
+export interface MaturityRadarEntry {
+  dimension_key: string;
+  dimension_name: string;
+  level: number;
+  target_level: number;
+  max_level: number;
+}
+
+export interface MaturityTrendEntry {
+  id: string;
+  title: string;
+  date: string | null;
+  overall_score: number | null;
+  status: MaturityAssessmentStatus;
+}
+
+export interface MaturityOverview {
+  latest: MaturityAssessment | null;
+  radar: MaturityRadarEntry[];
+  trend: MaturityTrendEntry[];
+  summary: {
+    overall_score: number | null;
+    dimensions: number;
+    below_target: number;
+    assessments: number;
+    max_level: number;
+  };
+}
+
+// --- NORA Plateaus & Segments (WP5.4) ---
+export interface NoraPlateau {
+  id: string;
+  name: string;
+  description?: string;
+  target_date?: string | null;
+  sort_order: number;
+  built_in: boolean;
+}
+
+export interface NoraSegment {
+  id: string;
+  name: string;
+  description?: string;
+  root_card_id?: string | null;
+  include_descendants: boolean;
+  include_related: boolean;
+  related_type_keys: string[];
+  color?: string | null;
+  sort_order: number;
+}
+
+// --- Reference Models (WP100.3) ---
+export type ReferenceModelDomain =
+  | "business"
+  | "beneficiaryExperience"
+  | "applications"
+  | "data"
+  | "technology"
+  | "security";
+export type ReferenceModelSource = "national" | "sectoral" | "agency";
+export type ReferenceModelStatus = "draft" | "published" | "archived";
+
+export interface ReferenceModel {
+  id: string;
+  domain: ReferenceModelDomain;
+  key: string | null;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  version: string;
+  source: ReferenceModelSource;
+  status: ReferenceModelStatus;
+  built_in: boolean;
+  created_by: string | null;
+  published_by: string | null;
+  published_by_display_name?: string | null;
+  published_at: string | null;
+  created_at: string | null;
+  item_count?: number;
+}
+
+export interface ReferenceModelItem {
+  id: string;
+  model_id: string;
+  parent_id: string | null;
+  code: string;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  sort_order: number;
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -8,6 +9,10 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import Fab from "@mui/material/Fab";
 import Fade from "@mui/material/Fade";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -20,7 +25,13 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
+import ApprovalStatusBadge, { type ApprovalAction } from "@/components/ApprovalStatusBadge";
+import ApprovalStepsStrip from "@/components/ApprovalStepsStrip";
+import ArchitectureStateBadge, {
+  type ArchitectureState,
+  type ChangeType,
+} from "@/components/ArchitectureStateBadge";
+import { useGovernanceMode } from "@/hooks/useGovernanceMode";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
@@ -30,7 +41,7 @@ import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
-import { DataQualityPill } from "@/features/cards/sections";
+import { DataQualityPill, SuccessorFieldSection } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
@@ -80,6 +91,8 @@ export default function CardDetail() {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [snack, setSnack] = useState("");
+  const { governanceMode } = useGovernanceMode();
+  const [stepsRefreshKey, setStepsRefreshKey] = useState(0);
 
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
@@ -113,6 +126,12 @@ export default function CardDetail() {
     missing_relations: { key: string; label: string; side: "source" | "target"; other_type_key: string }[];
     missing_tag_groups: { id: string; name: string }[];
   } | null>(null);
+
+  // Rejection dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectComment, setRejectComment] = useState("");
+  const [rejectLoading, setRejectLoading] = useState(false);
+  const [requireRejectionComment, setRequireRejectionComment] = useState(false);
 
   const [showScrollTop, setShowScrollTop] = useState(false);
   useEffect(() => {
@@ -148,6 +167,22 @@ export default function CardDetail() {
       })
       .catch(() => {}); // PPM not enabled or no permission — keep defaults
   }, [card?.id, card?.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch governance config for rejection comment validation
+  useEffect(() => {
+    const fetchGovernanceConfig = async () => {
+      try {
+        const response = await api.get<{
+          general_settings?: { requireRejectionComment?: boolean };
+        }>("/settings/bootstrap");
+        const config = response.general_settings || {};
+        setRequireRejectionComment(config.requireRejectionComment ?? false);
+      } catch (e) {
+        console.error("Failed to load governance config:", e);
+      }
+    };
+    fetchGovernanceConfig();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -259,17 +294,47 @@ export default function CardDetail() {
   const isArchived = card.status === "ARCHIVED";
   const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;
 
-  const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
+  const handleArchitectureStateChange = async (updates: {
+    architecture_state?: ArchitectureState;
+    change_type?: ChangeType | null;
+  }) => {
     try {
-      await api.post(`/cards/${card.id}/approval-status?action=${action}`);
-      const newStatus =
-        action === "approve"
-          ? "APPROVED"
-          : action === "reject"
-            ? "REJECTED"
-            : "DRAFT";
-      setCard({ ...card, approval_status: newStatus });
+      const res = await api.patch<Card>(`/cards/${card.id}`, updates);
+      setCard({
+        ...card,
+        architecture_state: res.architecture_state,
+        change_type: res.change_type,
+        approval_status: res.approval_status,
+      });
+    } catch (err) {
+      setSnack(err instanceof Error ? err.message : t("common:errors.generic"));
+    }
+  };
+
+  const handleApprovalAction = (action: ApprovalAction) => {
+    if (action === "reject") {
+      setRejectDialogOpen(true);
+      setRejectComment("");
+      return;
+    }
+    performApprovalAction(action, undefined);
+  };
+
+  const performApprovalAction = async (action: ApprovalAction, comment?: string) => {
+    try {
+      setRejectLoading(true);
+      const params = new URLSearchParams({ action });
+      if (comment !== undefined) {
+        params.append("comment", comment);
+      }
+      const res = await api.post<{ approval_status: string }>(
+        `/cards/${card.id}/approval-status?${params}`,
+      );
+      setCard({ ...card, approval_status: res.approval_status });
+      setStepsRefreshKey((k) => k + 1);
       setApprovalBlock(null);
+      setRejectDialogOpen(false);
+      setRejectComment("");
     } catch (err) {
       if (
         err instanceof ApiError &&
@@ -289,6 +354,8 @@ export default function CardDetail() {
         return;
       }
       throw err;
+    } finally {
+      setRejectLoading(false);
     }
   };
 
@@ -598,12 +665,30 @@ export default function CardDetail() {
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+          {/* WP100.1 — Pillar cards deep-link to the Strategy Cascade */}
+          {card.type === "Pillar" && (
+            <Chip
+              size="small"
+              variant="outlined"
+              clickable
+              icon={<MaterialSymbol icon="lan" size={16} />}
+              label={t("detail.viewStrategyCascade")}
+              onClick={() => navigate("/reports/strategy-cascade")}
+            />
+          )}
+          <ArchitectureStateBadge
+            state={card.architecture_state ?? "current"}
+            changeType={card.change_type ?? null}
+            canChange={perms.can_edit && !isArchived}
+            onChange={handleArchitectureStateChange}
+          />
           <DataQualityPill value={card.data_quality} />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
             status={card.approval_status}
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
+            governanceEnabled={governanceMode}
           />
           <Tooltip title={t("detail.actions.moreActions")}>
             <IconButton
@@ -712,6 +797,24 @@ export default function CardDetail() {
         </Box>
       </Box>
 
+      {/* ── Successor field (for target-state cards) ── */}
+      {card.architecture_state === "target" && (
+        <Box sx={{ px: 3, py: 1.5, display: "flex", alignItems: "center" }}>
+          <SuccessorFieldSection
+            card={card}
+            canEdit={perms.can_edit && !isArchived}
+            onUpdate={(updates) => {
+              setCard((prev) => (prev ? { ...prev, ...updates } as Card : null));
+            }}
+          />
+        </Box>
+      )}
+
+      {/* ── Multi-step review chain (NORA stage gates — [FORK] WP2.2) ── */}
+      {governanceMode && (
+        <ApprovalStepsStrip cardId={card.id} refreshKey={stepsRefreshKey} />
+      )}
+
       {/* ── Archive dialog (with children + related strategies) ── */}
       <ArchiveDeleteDialog
         open={archiveDialogOpen}
@@ -742,6 +845,43 @@ export default function CardDetail() {
         onClose={() => setRestoreDialogOpen(false)}
         onConfirmed={handleRestoreConfirmed}
       />
+
+      {/* ── Rejection comment dialog ── */}
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t("common:actions.reject")}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label={t("inventory:bulkApproval.rejectComment")}
+              value={rejectComment}
+              onChange={(e) => setRejectComment(e.target.value)}
+              placeholder={t("inventory:bulkApproval.commentPlaceholder")}
+              required={requireRejectionComment}
+              error={requireRejectionComment && !rejectComment.trim()}
+              helperText={requireRejectionComment && !rejectComment.trim() ? t("common:validation.required") : undefined}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)} disabled={rejectLoading}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            onClick={() => {
+              setRejectDialogOpen(false);
+              performApprovalAction("reject", rejectComment || undefined);
+            }}
+            variant="contained"
+            color="error"
+            disabled={rejectLoading || (requireRejectionComment && !rejectComment.trim())}
+          >
+            {rejectLoading ? t("common:actions.processing") : t("common:actions.confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!snack}

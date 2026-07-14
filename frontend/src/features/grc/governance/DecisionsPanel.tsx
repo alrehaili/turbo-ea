@@ -116,6 +116,12 @@ export default function DecisionsPanel() {
         (a.linked_cards ?? []).some((c) => adrFilters.linkedCards.includes(c.id)),
       );
     }
+    if (adrFilters.committees.length > 0) {
+      list = list.filter((a) => a.committee && adrFilters.committees.includes(a.committee));
+    }
+    if (adrFilters.stages.length > 0) {
+      list = list.filter((a) => a.stage_no !== null && a.stage_no !== undefined && adrFilters.stages.includes(a.stage_no));
+    }
     if (adrFilters.dateCreatedFrom) {
       list = list.filter((a) => a.created_at && a.created_at >= adrFilters.dateCreatedFrom);
     }
@@ -203,6 +209,22 @@ export default function DecisionsPanel() {
     return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [adrs]);
 
+  const availableCommittees = useMemo(() => {
+    const committees = new Set<string>();
+    for (const adr of adrs) {
+      if (adr.committee) committees.add(adr.committee);
+    }
+    return [...committees].sort((a, b) => a.localeCompare(b));
+  }, [adrs]);
+
+  const availableStages = useMemo(() => {
+    const stages = new Set<number>();
+    for (const adr of adrs) {
+      if (adr.stage_no !== null && adr.stage_no !== undefined) stages.add(adr.stage_no);
+    }
+    return [...stages].sort((a, b) => a - b);
+  }, [adrs]);
+
   return (
     <Box>
       <Stack
@@ -262,6 +284,8 @@ export default function DecisionsPanel() {
               availableCardTypes={availableCardTypes}
               availableLinkedCards={availableLinkedCards}
               availableSignatories={availableSignatories}
+              availableCommittees={availableCommittees}
+              availableStages={availableStages}
             />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>

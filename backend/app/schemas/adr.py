@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,10 @@ class ADRCreate(BaseModel):
     consequences: str | None = None
     alternatives_considered: str | None = None
     related_decisions: list[str] = []
+    # NORA committee decision register ([FORK] WP3.4)
+    committee: str | None = Field(default=None, max_length=200)
+    meeting_date: date | None = None
+    stage_no: int | None = Field(default=None, ge=0, le=10)
 
 
 class ADRUpdate(BaseModel):
@@ -22,6 +26,9 @@ class ADRUpdate(BaseModel):
     alternatives_considered: str | None = None
     related_decisions: list[str] | None = None
     status: str | None = None
+    committee: str | None = Field(default=None, max_length=200)
+    meeting_date: date | None = None
+    stage_no: int | None = Field(default=None, ge=0, le=10)
 
 
 class ADRSignatureRequest(BaseModel):
@@ -55,6 +62,9 @@ class ADRResponse(BaseModel):
     consequences: str | None = None
     alternatives_considered: str | None = None
     related_decisions: list[str] = []
+    committee: str | None = None
+    meeting_date: date | None = None
+    stage_no: int | None = None
     created_by: str | None = None
     creator_name: str | None = None
     signatories: list[dict] = []

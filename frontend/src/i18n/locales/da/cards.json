@@ -1,5 +1,17 @@
 {
+  "detail.reviewChain": "Gennemgangskæde",
+  "architectureState.title": "Arkitekturtilstand",
+  "architectureState.current": "Nuværende",
+  "architectureState.transition": "Overgang",
+  "architectureState.target": "Mål",
+  "changeType.title": "Ændringstype",
+  "changeType.create": "Opret",
+  "changeType.modify": "Ændr",
+  "changeType.replace": "Erstat",
+  "changeType.retire": "Udfas",
+  "changeType.consolidate": "Konsolider",
   "detail.title": "Kortdetaljer",
+  "detail.viewStrategyCascade": "Strategikaskade",
   "detail.backToTop": "Tilbage til toppen",
   "detail.archivedBanner": "Dette kort er arkiveret.",
   "detail.purgeWarning_one": "Det slettes permanent om {{count}} dag.",
@@ -617,5 +629,14 @@
   "todos.recurrence.months_one": "Hver måned",
   "todos.recurrence.months_other": "Hver {{count}}. måned",
   "todos.recurrence.years_one": "Hvert år",
-  "todos.recurrence.years_other": "Hvert {{count}}. år"
+  "todos.recurrence.years_other": "Hvert {{count}}. år",
+  "detail.succeeds.edit": "Rediger",
+  "detail.succeeds.mergedInto": "Fusioneret til",
+  "detail.succeeds.succeeds": "Efterfølger",
+  "detail.succeeds.replacedBy": "Erstattet af",
+  "detail.succeeds.notSet": "Ikke indstillet",
+  "detail.succeeds.error": "Kunne ikke gemme efterfølger",
+  "detail.succeeds.retiredBy": "Pensioneret af",
+  "detail.succeeds.search": "Søg {{type}}",
+  "detail.succeeds.modifiedAs": "Ændret som"
 }

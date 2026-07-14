@@ -8,14 +8,16 @@ Vai su **Admin > Metamodello** per accedere all'editor del metamodello. Ha otto 
 
 ## Tipi di card
 
-La scheda Tipi di card elenca tutti i tipi nel sistema. Turbo EA viene fornito con 14 tipi predefiniti distribuiti su quattro livelli architetturali:
+La scheda Tipi di card elenca tutti i tipi nel sistema. Turbo EA viene fornito con 14 tipi predefiniti distribuiti sui sei livelli architetturali di NORA 2.0:
 
 | Livello | Tipi |
 |---------|------|
-| **Strategy & Transformation** | Objective, Platform, Initiative |
-| **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
-| **Application & Data** | Application, Interface, Data Object |
-| **Technical Architecture** | IT Component, Tech Category, Provider, System |
+| **Business** | Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process |
+| **Esperienza del beneficiario** | Government Service, Beneficiary Journey, Channel *(tramite il profilo NORA)* |
+| **Applicazioni** | Application, Interface |
+| **Dati** | Data Object *(+ Data Exchange tramite il profilo NORA)* |
+| **Tecnologia** | IT Component, Tech Category, Provider, System |
+| **Sicurezza** | Security Control *(tramite il profilo NORA)* |
 
 ### Creazione di un tipo personalizzato
 

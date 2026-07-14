@@ -12,7 +12,8 @@
     "subtabs": {
       "principles": "Principles",
       "standards": "Standards",
-      "decisions": "Decisions"
+      "decisions": "Decisions",
+      "opportunities": "Opportunities"
     },
     "principles": {
       "title": "Architecture Principles",
@@ -33,6 +34,47 @@
       "status": "Status",
       "open": "Open",
       "create": "New decision"
+    },
+    "opportunities": {
+      "new": "New opportunity",
+      "edit": "Edit opportunity",
+      "empty": "No improvement opportunities yet. Capture findings from current-architecture analysis here.",
+      "colTitle": "Title",
+      "colDomain": "Domain",
+      "colPriority": "Priority",
+      "colStatus": "Status",
+      "colInitiative": "Initiative",
+      "assign": "Assign initiative",
+      "description": "Description",
+      "confirmDelete": "Delete opportunity «{{title}}»?",
+      "priority": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "status": {
+        "proposed": "Proposed",
+        "approved": "Approved",
+        "inTransition": "In transition",
+        "realized": "Realized",
+        "rejected": "Rejected"
+      },
+      "aiSuggest": "AI suggest",
+      "aiTitle": "AI-suggested improvement opportunities",
+      "aiLanguage": "Language",
+      "aiFocus": "Focus (optional)",
+      "aiFocusHint": "e.g. data governance, shared services…",
+      "aiGenerate": "Generate",
+      "aiReviewHint": "Review the AI drafts and add the ones you want — they land as proposed for governance.",
+      "aiAddSelected": "Add {{n}} selected",
+      "journey": "Beneficiary journey",
+      "journeyPhase": "Journey phase",
+      "feasibility": {
+        "label": "Feasibility",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
     }
   },
   "compliance": {

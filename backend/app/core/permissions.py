@@ -137,6 +137,14 @@ APP_PERMISSIONS: dict[str, dict] = {
             "adr.delete": "Delete architecture decisions",
         },
     },
+    "adm": {
+        "label": "ADM Governance",
+        "permissions": {
+            "adm.view": "View ADM governance workspaces and phase detail",
+            "adm.manage": ("Create and edit ADM workspaces, phases and artefact links"),
+            "adm.approve_gate": ("Approve, reopen, and skip ADM phase gates"),
+        },
+    },
     "tags": {
         "label": "Tags",
         "permissions": {
@@ -215,6 +223,50 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
             "grc.manage": (
                 "Manage Governance content (AI risk classifications, ownership, principles)"
+            ),
+        },
+    },
+    "governance": {
+        "label": "Governance workflow",
+        "permissions": {
+            "governance.approve_step": (
+                "Approve or reject a step of a card's multi-step review chain "
+                "(NORA stage gates). The user must also hold the chain role of "
+                "the step being decided."
+            ),
+        },
+    },
+    "nora": {
+        "label": "NORA EA Program",
+        "permissions": {
+            "nora.view": "View the NORA EA Program tracker (stages, deliverables, evidence)",
+            "nora.manage": (
+                "Update NORA program deliverables — status, owner, evidence, "
+                "custom deliverables. Marking a deliverable approved additionally "
+                "requires governance.approve_step."
+            ),
+        },
+    },
+    "maturity": {
+        "label": "EA Maturity",
+        "permissions": {
+            "maturity.view": "View EA maturity assessments, dimensions and the radar/trend",
+            "maturity.manage": (
+                "Create and score maturity assessments, manage dimensions, and promote "
+                "dimension gaps to improvement opportunities. Approving an assessment "
+                "additionally requires governance.approve_step."
+            ),
+        },
+    },
+    "reference_models": {
+        "label": "Reference Models",
+        "permissions": {
+            "reference_models.view": (
+                "Browse reference models and their classification items across all domains"
+            ),
+            "reference_models.manage": (
+                "Create, edit, import and archive reference models and their items. "
+                "Publishing a model additionally requires governance.approve_step."
             ),
         },
     },
@@ -390,6 +442,9 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "adr.manage": True,
     "adr.sign": True,
     "adr.delete": False,
+    "adm.view": True,
+    "adm.manage": True,
+    "adm.approve_gate": True,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -409,6 +464,13 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "grc.view": True,
     "grc.manage": True,
+    "governance.approve_step": False,
+    "nora.view": True,
+    "nora.manage": False,
+    "maturity.view": True,
+    "maturity.manage": False,
+    "reference_models.view": True,
+    "reference_models.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -477,6 +539,9 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "adr.manage": True,
     "adr.sign": True,
     "adr.delete": False,
+    "adm.view": True,
+    "adm.manage": True,
+    "adm.approve_gate": True,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -496,6 +561,13 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "grc.view": True,
     "grc.manage": True,
+    "governance.approve_step": False,
+    "nora.view": True,
+    "nora.manage": False,
+    "maturity.view": True,
+    "maturity.manage": False,
+    "reference_models.view": True,
+    "reference_models.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -563,6 +635,9 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "adr.view": True,
     "adr.manage": False,
     "adr.sign": False,
+    "adm.view": True,
+    "adm.manage": False,
+    "adm.approve_gate": False,
     "adr.delete": False,
     "tags.manage": False,
     "bookmarks.manage": True,
@@ -583,6 +658,13 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": False,
     "grc.view": True,
     "grc.manage": False,
+    "governance.approve_step": False,
+    "nora.view": True,
+    "nora.manage": False,
+    "maturity.view": True,
+    "maturity.manage": False,
+    "reference_models.view": True,
+    "reference_models.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,

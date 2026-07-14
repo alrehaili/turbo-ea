@@ -16,6 +16,7 @@ import { useTheme } from "@mui/material/styles";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
+import type { SoawDocType } from "./soawTemplate";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { SoAW, SoAWSectionData } from "@/types";
@@ -106,10 +107,10 @@ export default function SoAWPreview() {
 
   const docInfo = soaw.document_info ?? { prepared_by: "", reviewed_by: "", review_date: "" };
   const versionHistory = soaw.version_history ?? [];
-  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
+  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, (soaw.doc_type as SoawDocType) || "soaw");
 
   const handleExportPdf = () =>
-    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
+    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, (soaw.doc_type as SoawDocType) || "soaw");
 
   return (
     <>

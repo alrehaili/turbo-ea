@@ -5,6 +5,73 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.67.0] - 2026-07-11
+
+### Added
+- **Updated 7-phase NORA methodology tracker.** The NORA Program page can now track the updated Dec-2024 National EA Framework: seven phases with per-domain deliverables in the diagnosis and target-design phases (Business, Beneficiary Experience, Applications, Data, Technology, Security). Fresh NORA installs start on the new methodology; existing 10-stage programs keep running until an admin opts in via a one-click switch that preserves all history.
+- **EA Requirements register.** The methodology's continuous element: register architecture requirements, approve them through governance, track them through development cycles via an assigned initiative, and assess change impact through their linked cards. New panel on the NORA Program page.
+- **Technology Landscape report** (`/reports/technology-landscape`): IT components grouped by data-center containment (data center ⊃ host ⊃ VM ⊃ container engine) and by network segment, with a security-components-only toggle.
+- **NEA viewpoint registry** in the View Library: all ~47 core viewpoints of the National EA Viewpoints Document (bilingual ar/en names, type, level, methodology linkage) mapped to the Turbo EA view that produces each one.
+- **Practice operating-model pack**: nine new governed-document templates (EA Mandates, EA Services, Organizational Structure, Governance Model, EA Processes, Interaction Model, EA KPIs, EA Vocabulary, and an umbrella Operating Model) plus a ten-item practice-establishment checklist on the NORA Program page with one-click document creation.
+- **Journey-improvement traceability** on Improvement Opportunities: link an opportunity to a beneficiary journey and phase, record feasibility, and use the new BX (Beneficiary Experience) and SEC (Security) domains.
+- **Security-protection semantics**: the Application → IT Component relation gains a "usage role" attribute (uses / is protected by), the Security layer overview lists the security hardware/software/service components, and the NCA ECC compliance scan flags applications with no linked security component.
+- **Strategic Pillar card type** (NORA profile v6): pillars are now first-class cards (code + display order) with an Objective → Pillar "supports" relation; the Strategic House and Strategy Cascade read them (the earlier Objective pillar-subtype keeps working).
+- **Strategy demo data**: `SEED_NORA=true` now seeds a test strategy cascade — two pillars, linked objectives, a program ⊃ initiative ⊃ projects chain, one deliberately unaligned project (to demo the warning), and a demo vision/mission (never overwriting real ones).
+- **Strategy Cascade report** (`/reports/strategy-cascade`): the full strategy chain on one screen — Strategic Pillars ⊃ Strategic Objectives → Programs ⊃ Initiatives ⊃ Projects — with summary tiles per level and a warning list of initiatives that aren't traceable to any strategic objective.
+- **Three new NEA viewpoint renderers**: **Strategic House** (`/reports/strategic-house` — editable vision/mission, pillar columns with their objectives), **Business Value Chain** (`/reports/value-chain` — top-tier capabilities as a chevron ribbon with strategic/supporting bands), and **Application Modules** (`/reports/application-modules` — the application ⊃ modules hierarchy tree).
+- **Promote TurboLens findings to improvement opportunities**: duplicate clusters and modernization assessments gain one-click promotion into the Improvement Opportunity registry (landing as proposed, with the affected cards linked).
+- **Domain Owner and Data Steward stakeholder roles** seeded on Business Capability and Data Object when the NORA profile is active.
+
+## [1.66.0] - 2026-07-08
+
+### Added
+- **Automated EA maturity assessment (advisory).** Each maturity dimension now gets repository-derived evidence indicators — coverage ratios (approved cards, apps mapped to capabilities, processes with flows, data ownership, lifecycle coverage, compliance posture, risk hygiene, initiative planning, catalogue alignment, …), adoption counts (principles, ADRs, ADM workspaces, NEA evidence packs) and layer data-quality averages — banded into a **suggested level** per dimension. New assessments pre-fill the suggestion and evidence snapshot, and opening a draft auto-refreshes them from the live repository; the assessor always confirms (accept per dimension, accept all, or override). Live view via `GET /maturity/indicators`.
+- **Layers → Overview dashboard** (`/layers/overview`) — an executive view across all six EA layers: hero banner, KPI tiles (total cards, per-layer counts, risks/gaps), six layer cards with health pills and meta grids, the strategy-to-controls layer stack, a health-by-layer bar chart, a priority-attention list, and an inventory preview table. Clicking any card opens the component-details drawer.
+- **Layers → Traceability view** (`/layers/traceability`) — pick any card and see its connections across all six EA layers: a selected-component summary, a direct-traceability diagram (one band per layer with relation verbs), direct connections grouped by layer, and the two-hop extended-impact grid. Every node opens the component-details drawer.
+
+### Changed
+- **Layers section themed with the EA visual-explorer palette** — light blue-grey canvas, white panels with soft shadows and large radii, blue eyebrow accents, a gradient hero, and pastel healthy/warning/risk surfaces and badges (with dark-mode-aware equivalents). Palette added as the `EXPLORER_COLORS` design-token group.
+- **Layer overview pages revamped in the EA visual-explorer style.** Each layer page now opens with a per-layer description and a layer health score card, followed by a mini-KPI strip (cards, types, avg quality, healthy / warning / risk), a **portfolio** grid of status-coloured cards, a lifecycle view with per-phase lanes, per-target-layer **mapping panels** ("Application to Business", "Application to Data", …) with relation verbs on hover, an **integration map** of relations within the layer, a clickable architecture-layer stack showing live cross-layer link counts, a priority-attention list of at-risk cards, and a full catalog table with status, lifecycle, and data-quality health pills. Clicking any card opens a **component-details side drawer** (badges, health, metamodel-driven fields, stakeholders, connected components) with a jump-through to the full card page.
+
+## [1.65.0] - 2026-07-08
+
+### Changed
+- **EA Maturity moved under the Governance menu** — it sits with the other governance workflow tools instead of occupying its own top-level tab (still NORA-profile-gated).
+- **EA layers restructured to the NORA 2.0 six-layer model.** Card-type categories move from the four legacy layers to **Business, Beneficiary Experience, Application, Data, Technology, Security**: Strategy & Transformation folds into Business, Application & Data splits into Application and a standalone Data layer, and Technical Architecture becomes Technology. Every layer gets its own swim-lane overview and summary under the Layers tab (old links redirect). A guarded migration moves only categories still at their old defaults — admin-customised categories are preserved.
+
+### Added
+- **Beneficiary Experience layer** with new Beneficiary Journey and Channel card types (via the NORA profile), joining Government Service.
+- **Security layer** as a real metamodel layer with a new Security Control card type; the Security layer page now shows the layer's cards alongside the GRC risk & compliance posture.
+
+## [1.64.0] - 2026-07-04
+
+### Added
+- **"Portfolio Decisions" section on the Application card detail.** Users landing on an Application card (say Tableau) now see every rationalization board verdict recorded against that card — with the strategic rationale front and centre, the successor as a clickable chip, risk + execution notes in a two-column split, cost / savings / progress footer, and a direct link back to the assessment on the board. The verdict is colour-accented by TIME decision (invest = green, migrate = amber, eliminate = red, tolerate = blue), so the answer to "what happened to this app and why" is visible without leaving the card. Rows without a recorded rationale surface a warning indicator so missing evidence is called out instead of silently absent. New `GET /rationalization/cards/{card_id}/decisions` endpoint powers the section — one query returns every assessment/decision pair for a card, most recent first.
+
+## [1.63.2] - 2026-07-04
+
+### Changed
+- **Rationalization decision rationales rewritten with concrete reasoning.** The initial NexaTech seed had every migrate/eliminate decision carry a rationale that essentially restated the verdict ("Consolidate analytics onto the Power BI standard" for Tableau → Power BI), rather than answering *why this app specifically*. The five migrate/eliminate rationales are now 4-6 sentence business cases citing licence economics (Tableau vs Power BI Pro through M365 E5), platform gravity (repos already on GitHub Enterprise), FTE cost (Jenkins masters + agents), incident history (Opcenter APS/Execution schedule divergence at the Coventry line) and contract-renewal dates that anchor the deadlines. Risk notes and execution notes were also expanded so each decision reads like an ARB-ready record. Idempotent upgrade path: existing seeded installs whose rationale still exactly matches the prior weak text is auto-upgraded on next boot; admin-edited rationales are left alone.
+
+## [1.63.1] - 2026-07-04
+
+### Fixed
+- **Application Portfolio Review decisions now show their rationale** — the seed authored a strategic "why" for every TIME decision (e.g. "Consolidate analytics onto the Power BI standard" for Tableau → Power BI migrate), but the field was silently dropped when the assessment was seeded and had no home in the schema, so users saw a `migrate` verdict with no supporting reasoning. Added a nullable `rationale` column to `assessment_decisions`, wired it through the API, exposed a `Rationale (why)` field in the decision edit dialog alongside a proper Risk-note / Execution-notes split (previously only "Description" was editable), and the board now renders the rationale directly under each application name — with an inline "Add rationale" affordance on rows that don't have one yet. Existing seeded installs get their rationale backfilled from the seed on next boot (only where the field is still `NULL`).
+
+## [1.63.0] - 2026-07-04
+
+### Added
+- **Application Layer Overview** (`/reports/application-layer`) — Essential Viewer–inspired landing view that stacks the four EA layers (Business Capabilities → Applications → Technology → Data) with metric tiles, portfolio and health donuts, a critical-apps watchlist, and shortcuts to the Portfolio and Dependencies reports. Rendered from existing cards, subtypes, stakeholders, lifecycle and data-quality signals — no additional data collection.
+- **EA View Library navigation** — New top-level "View Library" landing page at `/view-library` linking every EA view by domain and analysis depth, so users can find the right view without hunting the reports menu.
+- **NORA reference-models explorer** — Browse Business, Application, Data and Technology Reference Models (BRM / ARM / DRM / TRM) inline.
+
+### Changed
+- **NORA demo dataset now populates every band of the Application Layer view** — added 5 more Business Capabilities, 4 more Applications, 6 Interfaces (from zero, spanning REST/SOAP/event/SFTP/batch/GraphQL), 3 more Data Objects, 3 more IT Components, plus 33 relations wiring the layered flow (Apps → Interfaces → Data → Storage). Some new cards carry lifecycle dates so the health donut shows real variety (healthy / at-risk / retired) rather than all-unknown.
+- NORA is now the default framework profile on this fork.
+
+### Fork operations
+- **`RESET_NORA_DEMO=true` env flag** — one-shot upgrade path for installs whose NORA demo landscape was seeded by an older version of the seed. On boot, before re-seeding, clears every card, relation, improvement opportunity, draft SoAW and program-tracker progress row created by the previous seed run — matched by natural key, so customer-created data with unrelated names is untouched. Requires `SEED_NORA=true` to be meaningful; safe to leave on across restarts (the seed then skips on subsequent boots via its marker check).
+
 ## [1.62.4] - 2026-07-01
 
 ### Security

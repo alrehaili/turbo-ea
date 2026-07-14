@@ -418,6 +418,51 @@ async def update_duplicate_status(
     return DuplicateClusterOut.model_validate(cluster, from_attributes=True)
 
 
+@router.post("/duplicates/{cluster_id}/promote-opportunity", status_code=201)
+async def promote_cluster_to_opportunity(
+    cluster_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Spawn an Improvement Opportunity from a duplicate cluster ([FORK] —
+    noraPlan.md WP3.3 promotion action). Mirrors the maturity-gap promotion:
+    lands as ``proposed`` with the cluster's cards linked, so governance
+    approval stays a human step."""
+    await PermissionService.require_permission(db, user, "turbolens.manage")
+    await PermissionService.require_permission(db, user, "grc.manage")
+    from app.models.improvement_opportunity import (
+        ImprovementOpportunity,
+        ImprovementOpportunityCard,
+    )
+
+    cluster = await db.get(TurboLensDuplicateCluster, uuid.UUID(cluster_id))
+    if not cluster:
+        raise HTTPException(404, "Cluster not found")
+
+    names = ", ".join(cluster.card_names or [])
+    opp = ImprovementOpportunity(
+        title=f"Consolidate duplicates: {cluster.cluster_name}"[:300],
+        description=(
+            f"Functional duplicate cluster ({cluster.functional_domain or cluster.card_type}): "
+            f"{names}.\n\nEvidence: {cluster.evidence}\n\nRecommendation: "
+            f"{cluster.recommendation}"
+        ),
+        domain="AA",
+        source="turbolens_duplicate",
+        priority="medium",
+        created_by=user.id,
+    )
+    db.add(opp)
+    await db.flush()
+    for cid in cluster.card_ids or []:
+        try:
+            db.add(ImprovementOpportunityCard(opportunity_id=opp.id, card_id=uuid.UUID(cid)))
+        except (ValueError, TypeError):
+            continue
+    await db.commit()
+    return {"id": str(opp.id), "title": opp.title, "status": opp.status}
+
+
 # ── Modernization ─────────────────────────────────────────────────────────
 
 
@@ -459,6 +504,48 @@ async def get_modernizations(
     return [
         ModernizationOut.model_validate(m, from_attributes=True) for m in result.scalars().all()
     ]
+
+
+@router.post("/duplicates/modernizations/{assessment_id}/promote-opportunity", status_code=201)
+async def promote_modernization_to_opportunity(
+    assessment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Spawn an Improvement Opportunity from a modernization assessment
+    ([FORK] — noraPlan.md WP3.3 promotion action)."""
+    await PermissionService.require_permission(db, user, "turbolens.manage")
+    await PermissionService.require_permission(db, user, "grc.manage")
+    from app.models.improvement_opportunity import (
+        ImprovementOpportunity,
+        ImprovementOpportunityCard,
+    )
+
+    m = await db.get(TurboLensModernization, uuid.UUID(assessment_id))
+    if not m:
+        raise HTTPException(404, "Assessment not found")
+
+    subject = m.card_name or m.target_type
+    domain = "TA" if m.target_type == "ITComponent" else "AA"
+    priority = m.priority if m.priority in ("low", "medium", "high") else "medium"
+    opp = ImprovementOpportunity(
+        title=f"Modernize: {subject}"[:300],
+        description=(
+            f"Modernization assessment ({m.modernization_type or 'general'}, "
+            f"effort: {m.effort}).\nCurrent technology: {m.current_tech}\n\n"
+            f"Recommendation: {m.recommendation}"
+        ),
+        domain=domain,
+        source="turbolens_modernization",
+        priority=priority,
+        created_by=user.id,
+    )
+    db.add(opp)
+    await db.flush()
+    if m.card_id:
+        db.add(ImprovementOpportunityCard(opportunity_id=opp.id, card_id=m.card_id))
+    await db.commit()
+    return {"id": str(opp.id), "title": opp.title, "status": opp.status}
 
 
 # ── Architecture AI ───────────────────────────────────────────────────────

@@ -146,6 +146,30 @@ describe("AppLayout", () => {
     expect(screen.queryByRole("link", { name: /delivery/i })).not.toBeInTheDocument();
   });
 
+  it("shows Process Map in reports menu only with BPM report permission", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderLayout();
+
+    await user.click(screen.getByRole("button", { name: /reports/i }));
+    expect(await screen.findByRole("menuitem", { name: /process map/i })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    rerender(
+      <MemoryRouter initialEntries={["/"]}>
+        <AuthProvider user={viewerUser} refreshUser={async () => {}}>
+          <AppLayout user={viewerUser} onLogout={onLogout}>
+            <div data-testid="page-content">Page Content</div>
+          </AppLayout>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /reports/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: /process map/i })).not.toBeInTheDocument();
+    });
+  });
+
   it("shows Create button for users with inventory.create permission", () => {
     renderLayout();
     expect(screen.getByRole("button", { name: /create/i })).toBeInTheDocument();

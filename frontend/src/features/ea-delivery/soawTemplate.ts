@@ -32,8 +32,99 @@ export interface TemplateSectionDef {
 
 const t = (key: string) => String(i18n.t(`delivery:${key}`));
 
-/** Returns the SOAW template sections with translated labels. */
-export function getTemplateSections(): TemplateSectionDef[] {
+// ─── NORA governed documents ([FORK] noraPlan.md WP3.2) ─────────────────────
+// The same editor/export machinery renders the NORA Stage 1/2/3/9 documents;
+// each doc type gets its own flat rich-text section template.
+
+export type SoawDocType =
+  | "soaw"
+  | "ea_project_strategy"
+  | "ea_project_plan"
+  | "environment_analysis"
+  | "ea_usage_plan"
+  | "ea_management_plan"
+  | "ea_mandates"
+  | "ea_services"
+  | "ea_org_structure"
+  | "ea_governance_model"
+  | "ea_processes"
+  | "ea_interaction_model"
+  | "ea_kpis"
+  | "ea_vocabulary"
+  | "ea_operating_model";
+
+export const NORA_DOC_TYPES: Exclude<SoawDocType, "soaw">[] = [
+  "ea_project_strategy",
+  "ea_project_plan",
+  "environment_analysis",
+  "ea_usage_plan",
+  "ea_management_plan",
+];
+
+// The Establishing EA Practice Guideline's operating-model artifacts
+// ([FORK] noraPlan.md WP6.8). EA Strategy + SWOT already exist above; the
+// measured KPI values live as KPI cards — the ea_kpis document is the
+// *documented* KPI framework. ea_operating_model is the umbrella document.
+export const PRACTICE_DOC_TYPES: Exclude<SoawDocType, "soaw">[] = [
+  "ea_mandates",
+  "ea_services",
+  "ea_org_structure",
+  "ea_governance_model",
+  "ea_processes",
+  "ea_interaction_model",
+  "ea_kpis",
+  "ea_vocabulary",
+  "ea_operating_model",
+];
+
+const NORA_TEMPLATE_SECTION_IDS: Record<Exclude<SoawDocType, "soaw">, string[]> = {
+  ea_project_strategy: ["value", "goals", "scope", "approach", "cost"],
+  ea_project_plan: ["teams", "approach", "workplan", "schedule", "risks"],
+  environment_analysis: [
+    "requirements",
+    "internal",
+    "external",
+    "strengths",
+    "weaknesses",
+    "opportunities",
+    "threats",
+  ],
+  ea_usage_plan: ["purpose", "stakeholders", "value", "communication"],
+  ea_management_plan: ["purpose", "operating", "repository", "reviews", "compliance"],
+  // Practice operating-model artifacts (WP6.8)
+  ea_mandates: ["context", "mandates", "compliance", "review"],
+  ea_services: ["purpose", "services", "consumers", "delivery"],
+  ea_org_structure: ["model", "roles", "responsibilities", "staffing"],
+  ea_governance_model: ["committees", "authorities", "processes", "escalation"],
+  ea_processes: ["overview", "processes", "raci", "tooling"],
+  ea_interaction_model: ["stakeholders", "interfaces", "cadence", "channels"],
+  ea_kpis: ["objectives", "kpis", "measurement", "reporting"],
+  ea_vocabulary: ["scope", "terms"],
+  ea_operating_model: [
+    "summary",
+    "strategy",
+    "services",
+    "structure",
+    "governance",
+    "processes",
+    "interaction",
+    "kpis",
+    "vocabulary",
+    "tools",
+  ],
+};
+
+/** Returns the template sections for a document type with translated labels. */
+export function getTemplateSections(docType: SoawDocType = "soaw"): TemplateSectionDef[] {
+  if (docType !== "soaw") {
+    return NORA_TEMPLATE_SECTION_IDS[docType].map((sid) => ({
+      id: `${docType}.${sid}`,
+      title: t(`noraTemplate.${docType}.${sid}.title`),
+      type: "rich_text" as const,
+      part: "I" as const,
+      level: 2 as const,
+    }));
+  }
   return [
     // -- Part I --
     {
@@ -208,7 +299,7 @@ export function getTogafPhases(): { key: string; label: string }[] {
 
 
 /** Build the default (empty) sections record from the template. */
-export function buildDefaultSections(): Record<
+export function buildDefaultSections(docType: SoawDocType = "soaw"): Record<
   string,
   {
     content: string;
@@ -217,7 +308,7 @@ export function buildDefaultSections(): Record<
     togaf_data?: Record<string, string>;
   }
 > {
-  const templateSections = getTemplateSections();
+  const templateSections = getTemplateSections(docType);
   const togafPhases = getTogafPhases();
   const sections: Record<string, {
     content: string;

@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Grid from "@mui/material/Grid";
-import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import {
   BarChart,
@@ -31,6 +33,7 @@ import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/th
 import type { DashboardData } from "@/types";
 import TrendIndicator from "./TrendIndicator";
 import RecentActivity from "./RecentActivity";
+import AdmDashboardWidget from "@/features/adm/AdmDashboardWidget";
 import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
 
 const DATA_QUALITY_LABELS: Record<string, string> = {
@@ -110,20 +113,28 @@ export default function OverviewTab() {
 
   if (!data) return <LinearProgress />;
 
-  const typeCards = types.filter(
-    (t) => !t.is_hidden && ((data.by_type[t.key] ?? 0) > 0 || ["Application", "BusinessCapability", "ITComponent", "Initiative"].includes(t.key)),
-  );
-
   return (
     <Box>
       {/* -------- KPI summary cards -------- */}
-      <Grid container spacing={2} sx={{ mb: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 1 }}>
+          {t("dashboard.section.kpis")}
+        </Typography>
+        {data.trends && (
+          <Tooltip title={t("dashboard.trend.caption")}>
+            <IconButton size="small" aria-label={t("dashboard.trend.aria")}>
+              <MaterialSymbol icon="info" size={14} color="disabled" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ borderLeft: `4px solid ${STATUS_COLORS.info}`, height: "100%" }} aria-label={`${t("dashboard.totalCards")}: ${data.total_cards}`}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="inventory_2" size={24} color="#1976d2" />
+                  <MaterialSymbol icon="inventory_2" size={22} color={STATUS_COLORS.info} />
                   <Typography variant="subtitle2" color="text.secondary" noWrap>{t("dashboard.totalCards")}</Typography>
                 </Box>
                 {data.trends && (
@@ -139,11 +150,11 @@ export default function OverviewTab() {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ borderLeft: `4px solid ${STATUS_COLORS.success}`, height: "100%" }} aria-label={`${t("dashboard.avgCompletion")}: ${data.avg_data_quality}%`}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="pie_chart" size={24} color="#4caf50" />
+                  <MaterialSymbol icon="pie_chart" size={22} color={STATUS_COLORS.success} />
                   <Typography variant="subtitle2" color="text.secondary" noWrap>{t("dashboard.avgCompletion")}</Typography>
                 </Box>
                 {data.trends && (
@@ -158,11 +169,11 @@ export default function OverviewTab() {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ borderLeft: `4px solid ${APPROVAL_STATUS_COLORS.APPROVED}`, height: "100%" }} aria-label={`${t("status.approved")}: ${data.approval_statuses["APPROVED"] || 0}`}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
+                  <MaterialSymbol icon="verified" size={22} color={APPROVAL_STATUS_COLORS.APPROVED} />
                   <Typography variant="subtitle2" color="text.secondary" noWrap>{t("status.approved")}</Typography>
                 </Box>
                 {data.trends && (
@@ -178,11 +189,11 @@ export default function OverviewTab() {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ borderLeft: `4px solid ${APPROVAL_STATUS_COLORS.BROKEN}`, height: "100%" }} aria-label={`${t("status.broken")}: ${data.approval_statuses["BROKEN"] || 0}`}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <MaterialSymbol icon="warning" size={24} color="#f57c00" />
+                  <MaterialSymbol icon="warning" size={22} color={APPROVAL_STATUS_COLORS.BROKEN} />
                   <Typography variant="subtitle2" color="text.secondary" noWrap>{t("status.broken")}</Typography>
                 </Box>
                 {data.trends && (
@@ -199,24 +210,128 @@ export default function OverviewTab() {
         </Grid>
       </Grid>
 
-      {data.trends && (
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mb: 3, textAlign: "left" }}
-        >
-          {t("dashboard.trend.caption")}
-        </Typography>
-      )}
+      {/* -------- Needs attention band -------- */}
+      {(() => {
+        const brokenCount = data.approval_statuses["BROKEN"] || 0;
+        const lowQualityCount =
+          (data.data_quality_distribution["0-25"] || 0) +
+          (data.data_quality_distribution["25-50"] || 0);
+        const eolCount = data.lifecycle_distribution["endOfLife"] || 0;
+        const draftCount = data.approval_statuses["DRAFT"] || 0;
+        const attention = [
+          {
+            key: "broken",
+            icon: "report",
+            color: APPROVAL_STATUS_COLORS.BROKEN,
+            label: t("dashboard.attention.broken"),
+            count: brokenCount,
+            to: "/inventory?approval_status=BROKEN",
+          },
+          {
+            key: "lowQuality",
+            icon: "data_alert",
+            color: STATUS_COLORS.error,
+            label: t("dashboard.attention.lowQuality"),
+            count: lowQualityCount,
+            to: "/reports/data-quality",
+          },
+          {
+            key: "eol",
+            icon: "hourglass_bottom",
+            color: STATUS_COLORS.warning,
+            label: t("dashboard.attention.eol"),
+            count: eolCount,
+            to: "/reports/lifecycle",
+          },
+          {
+            key: "draft",
+            icon: "edit_note",
+            color: STATUS_COLORS.neutral,
+            label: t("dashboard.attention.draft"),
+            count: draftCount,
+            to: "/inventory?approval_status=DRAFT",
+          },
+        ];
+        const visible = attention.filter((a) => a.count > 0);
+        if (visible.length === 0) return null;
+        return (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 1, display: "block", mb: 1 }}>
+              {t("dashboard.attention.title")}
+            </Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: `repeat(${Math.min(visible.length, 4)}, 1fr)` },
+                gap: 1.25,
+              }}
+            >
+              {visible.map((row) => (
+                <Paper
+                  key={row.key}
+                  variant="outlined"
+                  component={RouterLink}
+                  to={row.to}
+                  aria-label={`${row.label}: ${row.count}`}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.25,
+                    p: 1.25,
+                    textDecoration: "none",
+                    color: "text.primary",
+                    borderRadius: 1,
+                    transition: "border-color 120ms, box-shadow 120ms",
+                    "&:hover": { borderColor: row.color, boxShadow: 2 },
+                    "&:focus-visible": { outline: `2px solid ${row.color}`, outlineOffset: 2 },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 1,
+                      bgcolor: `${row.color}1a`,
+                      color: row.color,
+                      display: "grid",
+                      placeItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <MaterialSymbol icon={row.icon} size={20} color="inherit" />
+                  </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                      {row.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("dashboard.attention.openLink")}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: row.color }}>
+                    {row.count}
+                  </Typography>
+                  <MaterialSymbol icon="arrow_forward" size={16} color="disabled" />
+                </Paper>
+              ))}
+            </Box>
+          </Box>
+        );
+      })()}
 
       {/* -------- Row 2: Type bar chart + Approval status donut -------- */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={7}>
           <Card sx={{ height: "100%" }}>
             <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.cardsByType")}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  {t("dashboard.cardsByType")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {t("dashboard.cardsByType.hint")}
+                </Typography>
+              </Box>
               {typeChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
                   <BarChart data={typeChartData} layout="vertical" margin={{ left: 16, right: 16, top: 4, bottom: 4 }}>
@@ -431,38 +546,17 @@ export default function OverviewTab() {
         </Grid>
       </Grid>
 
-      {/* -------- Row 4: Card type list + Recent Activity -------- */}
+      {/* -------- Row 4: Recent Activity + My ADM actions widget -------- */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={5}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                {t("dashboard.browseByType")}
-              </Typography>
-              {typeCards.map((t) => (
-                <Box
-                  key={t.key}
-                  sx={{
-                    display: "flex", alignItems: "center", gap: 1.5, py: 1,
-                    cursor: "pointer", "&:hover": { bgcolor: "action.hover" }, borderRadius: 1, px: 1,
-                  }}
-                  onClick={() => navigate(`/inventory?type=${t.key}`)}
-                >
-                  <MaterialSymbol icon={t.icon} size={20} color={t.color} />
-                  <Typography variant="body2" sx={{ flex: 1 }}>{typeLabel(t)}</Typography>
-                  <Chip size="small" label={data.by_type[t.key] || 0} />
-                </Box>
-              ))}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={7}>
+        <Grid item xs={12} md={8}>
           <Card>
             <CardContent>
               <RecentActivity events={data.recent_events} />
             </CardContent>
           </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <AdmDashboardWidget />
         </Grid>
       </Grid>
     </Box>

@@ -437,3 +437,39 @@ class TestReviseSoAW:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 400
+
+
+class TestNoraDocTypes:
+    """NORA governed documents ride the SoAW machinery ([FORK] WP3.2)."""
+
+    async def test_doc_type_roundtrip_and_filter(self, client, db, soaw_env):
+        admin = soaw_env["admin"]
+        resp = await client.post(
+            "/api/v1/soaw",
+            json={"name": "EA Strategy 1446H", "doc_type": "ea_project_strategy"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["doc_type"] == "ea_project_strategy"
+
+        # Default stays TOGAF.
+        resp = await client.post(
+            "/api/v1/soaw", json={"name": "Classic SoAW"}, headers=auth_headers(admin)
+        )
+        assert resp.json()["doc_type"] == "soaw"
+
+        # List filter by doc_type.
+        resp = await client.get(
+            "/api/v1/soaw?doc_type=ea_project_strategy", headers=auth_headers(admin)
+        )
+        names = {s["name"] for s in resp.json()}
+        assert names == {"EA Strategy 1446H"}
+
+    async def test_invalid_doc_type_rejected(self, client, db, soaw_env):
+        resp = await client.post(
+            "/api/v1/soaw",
+            json={"name": "X", "doc_type": "random_doc"},
+            headers=auth_headers(soaw_env["admin"]),
+        )
+        assert resp.status_code == 422

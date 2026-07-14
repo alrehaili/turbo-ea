@@ -1,5 +1,17 @@
 {
+  "detail.reviewChain": "Цепочка согласования",
+  "architectureState.title": "Состояние архитектуры",
+  "architectureState.current": "Текущее",
+  "architectureState.transition": "Переходное",
+  "architectureState.target": "Целевое",
+  "changeType.title": "Тип изменения",
+  "changeType.create": "Создание",
+  "changeType.modify": "Изменение",
+  "changeType.replace": "Замена",
+  "changeType.retire": "Вывод",
+  "changeType.consolidate": "Консолидация",
   "detail.title": "Карточка",
+  "detail.viewStrategyCascade": "Стратегический каскад",
   "detail.backToTop": "Наверх",
   "detail.archivedBanner": "Эта карточка архивирована.",
   "detail.purgeWarning_one": "Она будет безвозвратно удалена через {{count}} день.",
@@ -617,5 +629,14 @@
   "todos.recurrence.months_one": "Каждый месяц",
   "todos.recurrence.months_other": "Каждые {{count}} мес.",
   "todos.recurrence.years_one": "Каждый год",
-  "todos.recurrence.years_other": "Каждые {{count}} лет"
+  "todos.recurrence.years_other": "Каждые {{count}} лет",
+  "detail.succeeds.edit": "Изменить",
+  "detail.succeeds.mergedInto": "Объединено в",
+  "detail.succeeds.succeeds": "Сменяет",
+  "detail.succeeds.replacedBy": "Заменено на",
+  "detail.succeeds.notSet": "Не установлено",
+  "detail.succeeds.error": "Не удалось сохранить преемника",
+  "detail.succeeds.retiredBy": "Снят",
+  "detail.succeeds.search": "Поиск {{type}}",
+  "detail.succeeds.modifiedAs": "Изменено как"
 }

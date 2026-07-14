@@ -54,6 +54,7 @@ class DecisionCreate(BaseModel):
     initiative_id: uuid.UUID | None = None
     annual_cost: float | None = None
     planned_savings: float | None = None
+    rationale: str | None = None
     risk_note: str | None = None
     notes: str | None = None
     progress: int = Field(default=0, ge=0, le=100)
@@ -65,6 +66,7 @@ class DecisionUpdate(BaseModel):
     initiative_id: uuid.UUID | None = None
     annual_cost: float | None = None
     planned_savings: float | None = None
+    rationale: str | None = None
     risk_note: str | None = None
     notes: str | None = None
     progress: int | None = Field(default=None, ge=0, le=100)
@@ -96,6 +98,7 @@ def _decision_dict(d: AssessmentDecision, names: dict[uuid.UUID, dict]) -> dict:
         "initiative": brief(d.initiative_id),
         "annual_cost": d.annual_cost,
         "planned_savings": d.planned_savings,
+        "rationale": d.rationale,
         "risk_note": d.risk_note,
         "notes": d.notes,
         "progress": d.progress,
@@ -313,3 +316,57 @@ async def delete_decision(
         raise HTTPException(status_code=404, detail="Decision not found")
     await db.delete(decision)
     await db.commit()
+
+
+@router.get("/cards/{card_id}/decisions")
+async def list_decisions_for_card(
+    card_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List every rationalization decision recorded against a specific card.
+
+    Powers the Portfolio Decisions section on the card detail page so users
+    who visit an Application card see the board's verdict — including the
+    strategic rationale — without having to remember which assessment it
+    lives in. Returns rows across every assessment, most recent first.
+    """
+    await PermissionService.require_permission(db, user, "rationalization.view")
+
+    card_res = await db.execute(select(Card).where(Card.id == card_id))
+    if card_res.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    decisions_res = await db.execute(
+        select(AssessmentDecision, RationalizationAssessment)
+        .join(
+            RationalizationAssessment,
+            RationalizationAssessment.id == AssessmentDecision.assessment_id,
+        )
+        .where(AssessmentDecision.card_id == card_id)
+        .order_by(RationalizationAssessment.created_at.desc())
+    )
+    rows = decisions_res.all()
+
+    # Resolve successor + initiative card briefs in one query so the
+    # payload is self-contained and the card-detail page needs no follow-up
+    # lookups.
+    ref_ids: set[uuid.UUID] = set()
+    for decision, _ in rows:
+        if decision.successor_id:
+            ref_ids.add(decision.successor_id)
+        if decision.initiative_id:
+            ref_ids.add(decision.initiative_id)
+    names = await _card_brief_map(db, ref_ids)
+
+    return [
+        {
+            **_decision_dict(decision, names),
+            "assessment": {
+                "id": str(assessment.id),
+                "name": assessment.name,
+                "status": assessment.status,
+            },
+        }
+        for decision, assessment in rows
+    ]

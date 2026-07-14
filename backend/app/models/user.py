@@ -15,6 +15,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "card_updated": True,
         "comment_added": True,
         "approval_status_changed": True,
+        "approval_step_pending": True,
         "soaw_sign_requested": True,
         "soaw_signed": True,
         "survey_request": True,
@@ -25,6 +26,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "card_updated": False,
         "comment_added": False,
         "approval_status_changed": False,
+        "approval_step_pending": False,
         "soaw_sign_requested": True,
         "soaw_signed": True,
         "survey_request": True,
@@ -42,7 +44,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    role: Mapped[str] = mapped_column(String(20), default="member")  # admin/bpm_admin/member/viewer
+    # Role keys are admin-definable (roles.key is String(50)); the NORA
+    # governance pack seeds keys like "ea_governance_committee" (23 chars).
+    role: Mapped[str] = mapped_column(String(50), default="member")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_provider: Mapped[str] = mapped_column(String(20), default="local")  # local/sso
     sso_subject_id: Mapped[str | None] = mapped_column(String(256), nullable=True, unique=True)

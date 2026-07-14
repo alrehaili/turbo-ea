@@ -1,6 +1,6 @@
 # Migração de plataforma
 
-> Plataformas de origem suportadas hoje: **SAP LeanIX**. Adaptadores adicionais (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) se conectam ao mesmo pipeline de staging e aplicação e aparecem automaticamente no diálogo de upload quando são lançados.
+> Plataformas de origem suportadas hoje: **SAP LeanIX** e os **modelos de coleta de dados NORA (DGA)**. Adaptadores adicionais (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) se conectam ao mesmo pipeline de staging e aplicação e aparecem automaticamente no diálogo de upload quando são lançados.
 
 O importador de migração de plataforma (**Administração → Configurações → Migração**) ingere um workspace LeanIX completo e o aterrissa como cards, relações, tags, partes interessadas, documentos, comentários e um metamodelo totalmente desenvolvido no Turbo EA em uma única operação por etapas, revisável.
 
@@ -93,3 +93,9 @@ Esta página é controlada pela permissão `admin.migrate`. Por padrão apenas o
 ## Limpeza
 
 Apagar um registro de migração (Configurações → Migração → ícone lixeira) remove tanto as linhas de banco para essa migração (registros staged cascateiam) quanto o arquivo de snapshot em disco. Migrações nos status `uploaded`, `parsed`, `previewed`, `failed`, `aborted` e `applied` são todas deletáveis; uma migração `applying` deve terminar (ou falhar) antes de poder ser removida.
+
+### Modelos de coleta de dados NORA (DGA)
+
+O importador também ingere as planilhas oficiais de coleta de dados do framework nacional de AE saudita — uma planilha por domínio de AE (negócio, aplicações, tecnologia, segurança, dados). As abas aterrissam nos tipos de cartão correspondentes, e as colunas de opções são traduzidas dos próprios valores de consulta dos modelos para os campos do perfil NORA — ative o perfil de framework NORA antes de importar.
+
+Referências por nome entre linhas viram relações e vínculos hierárquicos; nomes referenciados sem linha própria são criados como cartões mínimos que se vinculam a cartões existentes com o mesmo nome. As planilhas podem ser enviadas em qualquer ordem e reimportadas com segurança. As abas de experiência do beneficiário, formulários, políticas e partes interessadas ainda não são importadas.

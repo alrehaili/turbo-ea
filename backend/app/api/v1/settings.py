@@ -220,6 +220,8 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "login_help_text": (general.get("loginHelpText") or "").strip(),
         "login_help_link": (general.get("loginHelpLink") or "").strip(),
         "smtp_configured": smtp_configured,
+        "framework_profile": general.get("frameworkProfile", "togaf"),
+        "governance_mode": bool(general.get("governanceMode", False)),
     }
 
 
@@ -303,6 +305,152 @@ async def test_email_settings(
         )
 
     return {"ok": True, "sent_to": user.email}
+
+
+# ---------------------------------------------------------------------------
+# Framework profile endpoint ([FORK] NORA — noraPlan.md WP1.1)
+# ---------------------------------------------------------------------------
+
+
+class FrameworkProfilePayload(BaseModel):
+    profile: str = Field(pattern="^(togaf|nora)$")
+
+
+@router.get("/framework-profile")
+async def get_framework_profile_endpoint(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the active EA framework profile."""
+    from app.services.nora_profile import get_framework_profile
+
+    return await get_framework_profile(db)
+
+
+@router.patch("/framework-profile")
+async def update_framework_profile(
+    body: FrameworkProfilePayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — switch the EA framework profile.
+
+    Switching to ``nora`` idempotently injects the NORA Alignment fields into
+    the built-in card types (existing customisations are preserved). Switching
+    back to ``togaf`` only flips the flag — fields and captured data remain.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.nora_profile import apply_nora_profile, set_togaf_profile
+
+    if body.profile == "nora":
+        summary = await apply_nora_profile(db)
+        return {"ok": True, "profile": "nora", **summary}
+
+    await set_togaf_profile(db)
+    return {"ok": True, "profile": "togaf"}
+
+
+# ---------------------------------------------------------------------------
+# Strategy House endpoint ([FORK] NORA — noraPlan.md WP6.7 Strategic House;
+# delivers WP6.2's deferred vision/mission fields)
+# ---------------------------------------------------------------------------
+
+
+class StrategyHousePayload(BaseModel):
+    vision: str | None = Field(default=None, max_length=1000)
+    mission: str | None = Field(default=None, max_length=1000)
+
+
+@router.get("/strategy-house")
+async def get_strategy_house(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — the agency vision/mission read by the Strategic
+    House viewpoint."""
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    return {
+        "vision": general.get("noraVision") or "",
+        "mission": general.get("noraMission") or "",
+    }
+
+
+@router.patch("/strategy-house")
+async def update_strategy_house(
+    body: StrategyHousePayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    if body.vision is not None:
+        general["noraVision"] = body.vision.strip()
+    if body.mission is not None:
+        general["noraMission"] = body.mission.strip()
+    row.general_settings = general
+    await db.commit()
+    return {
+        "vision": general.get("noraVision") or "",
+        "mission": general.get("noraMission") or "",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Governance workflow endpoint ([FORK] NORA — noraPlan.md WP2.2)
+# ---------------------------------------------------------------------------
+
+
+class GovernancePayload(BaseModel):
+    enabled: bool | None = None
+    chain: list[str] | None = Field(default=None, max_length=10)
+    sod_enabled: bool | None = None
+    require_rejection_comment: bool | None = None
+    promotion_requires_approval: bool | None = None
+    type_chains: dict[str, list[str]] | None = Field(default=None, max_length=100)
+
+
+@router.get("/governance")
+async def get_governance_settings(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — multi-step approval configuration (read by the
+    card-detail approval UI to decide which actions to offer)."""
+    from app.services.governance_service import get_governance_config
+
+    return await get_governance_config(db)
+
+
+@router.patch("/governance")
+async def update_governance_settings(
+    body: GovernancePayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    if body.enabled is not None:
+        general["governanceMode"] = body.enabled
+    if body.chain is not None:
+        chain = [r.strip() for r in body.chain if r and r.strip()]
+        if not chain:
+            raise HTTPException(400, "Governance chain must contain at least one role key")
+        general["governanceChain"] = chain
+    if body.sod_enabled is not None:
+        general["governanceSodEnabled"] = body.sod_enabled
+    if body.require_rejection_comment is not None:
+        general["requireRejectionComment"] = body.require_rejection_comment
+    if body.promotion_requires_approval is not None:
+        general["promotionRequiresApproval"] = body.promotion_requires_approval
+    if body.type_chains is not None:
+        # Validate and clean type chains
+        clean_chains = {}
+        for type_key, chain_list in body.type_chains.items():
+            clean_chain = [r.strip() for r in chain_list if r and r.strip()]
+            if clean_chain:
+                clean_chains[type_key] = clean_chain
+        general["typeGovernanceChains"] = clean_chains
+    row.general_settings = general
+    await db.commit()
+
+    from app.services.governance_service import get_governance_config
+
+    return await get_governance_config(db)
 
 
 # ---------------------------------------------------------------------------

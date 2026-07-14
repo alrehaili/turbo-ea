@@ -181,6 +181,31 @@ export default function TurboLensDuplicates() {
     }
   };
 
+  // WP3.3 promotion actions: cluster / modernization → Improvement Opportunity.
+  const [promoted, setPromoted] = useState<Set<string>>(new Set());
+  const promoteCluster = async (clusterId: string) => {
+    setUpdatingCluster(clusterId);
+    try {
+      await api.post(`/turbolens/duplicates/${clusterId}/promote-opportunity`, {});
+      setPromoted((prev) => new Set(prev).add(clusterId));
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setUpdatingCluster(null);
+    }
+  };
+  const promoteModernization = async (assessmentId: string) => {
+    try {
+      await api.post(
+        `/turbolens/duplicates/modernizations/${assessmentId}/promote-opportunity`,
+        {},
+      );
+      setPromoted((prev) => new Set(prev).add(assessmentId));
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : String(err));
+    }
+  };
+
   const handleClusterAction = async (
     clusterId: string,
     action: "confirmed" | "dismissed" | "investigating",
@@ -442,6 +467,18 @@ export default function TurboLensDuplicates() {
                                 </IconButton>
                               </span>
                             </Tooltip>
+                            <Tooltip title={t("turbolens_action_promote")}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => promoteCluster(cluster.id)}
+                                  disabled={promoted.has(cluster.id)}
+                                >
+                                  <MaterialSymbol icon="trending_up" size={20} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           </>
                         )}
                       </Stack>
@@ -569,6 +606,18 @@ export default function TurboLensDuplicates() {
                               <Typography variant="body2" color="text.secondary">
                                 {m.recommendation}
                               </Typography>
+                              <Box sx={{ mt: 1 }}>
+                                <Button
+                                  size="small"
+                                  startIcon={<MaterialSymbol icon="trending_up" size={16} />}
+                                  onClick={() => promoteModernization(m.id)}
+                                  disabled={promoted.has(m.id)}
+                                >
+                                  {promoted.has(m.id)
+                                    ? t("turbolens_promoted")
+                                    : t("turbolens_action_promote")}
+                                </Button>
+                              </Box>
                             </CardContent>
                           </Card>
                         </Grid>

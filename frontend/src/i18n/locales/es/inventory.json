@@ -9,6 +9,8 @@
   "columns.title": "Columnas",
   "columns.lifecycle": "Ciclo de vida",
   "columns.approvalStatus": "Estado de aprobación",
+  "columns.architectureState": "Estado de arquitectura",
+  "columns.changeType": "Tipo de cambio",
   "columns.dataQuality": "Calidad de datos",
   "columns.tags": "Etiquetas",
   "columns.clickToEdit": "Haga clic para editar",
@@ -38,6 +40,8 @@
   "filter.types": "Tipos",
   "filter.subtypes": "Subtipos",
   "filter.approvalStatus": "Estado de aprobación",
+  "filter.architectureState": "Estado de arquitectura",
+  "filter.changeType": "Tipo de cambio",
   "filter.lifecycle": "Ciclo de vida",
   "filter.dataQuality": "Calidad de datos",
   "filter.dataQualityGood": "Buena (80%+)",
@@ -229,5 +233,6 @@
   "export.allFieldsHint": "Conjunto de datos completo, reimportable",
   "export.currentView": "Exportar vista actual",
   "export.currentViewHint": "Refleja la cuadrícula en pantalla: no apta para reimportar",
-  "export.viewSheetName": "Vista"
+  "export.viewSheetName": "Vista",
+  "filter.segments": "Alcances"
 }

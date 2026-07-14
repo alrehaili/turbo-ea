@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
@@ -12,10 +14,15 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
 import { useTranslation } from "react-i18next";
+import { api } from "@/api/client";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import {
+  RM_CODE_FIELD_DOMAINS,
+  useActiveReferenceModels,
+} from "@/hooks/useActiveReferenceModels";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
-import type { FieldDef } from "@/types";
+import type { FieldDef, ReferenceModelItem } from "@/types";
 
 // ── URL validation (matches backend _ALLOWED_URL_SCHEMES) ────────
 const ALLOWED_URL_SCHEMES = ["http://", "https://", "mailto:"];
@@ -235,6 +242,91 @@ export function FieldValue({
   }
   return (
     <Typography variant="body2">{safeString(value) || "—"}</Typography>
+  );
+}
+
+// ── RM code field editor ([FORK] — Reference Models, WP100.3) ───
+// Rendered only for the six RM code fields (brmCode/armCode/…). When the
+// field's domain has a *published* reference model, the plain text input
+// upgrades to a freeSolo autocomplete over the model's coded items;
+// otherwise it behaves exactly like a text field. freeSolo keeps any
+// pre-existing free-text value editable.
+function RmCodeFieldEditor({
+  field,
+  value,
+  onChange,
+  label,
+}: {
+  field: FieldDef;
+  value: string;
+  onChange: (v: unknown) => void;
+  label: string;
+}) {
+  const { i18n } = useTranslation();
+  const { summary } = useActiveReferenceModels();
+  const domain = RM_CODE_FIELD_DOMAINS[field.key];
+  const published = !!summary[domain];
+  const isArabic = i18n.language.startsWith("ar");
+  const [items, setItems] = useState<ReferenceModelItem[] | null>(null);
+
+  useEffect(() => {
+    if (!published || items !== null) return;
+    let cancelled = false;
+    api
+      .get<{ items: ReferenceModelItem[] }>(`/reference-models/active?domain=${domain}`)
+      .then((res) => {
+        if (!cancelled) setItems(res.items);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [published, domain, items]);
+
+  if (!published) {
+    return (
+      <TextField
+        size="small"
+        label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        sx={{ minWidth: 300 }}
+      />
+    );
+  }
+
+  const options = items ?? [];
+  return (
+    <Autocomplete
+      freeSolo
+      size="small"
+      options={options}
+      getOptionLabel={(opt) => (typeof opt === "string" ? opt : opt.code)}
+      value={value || null}
+      inputValue={value}
+      onInputChange={(_e, v) => onChange(v || undefined)}
+      onChange={(_e, v) => {
+        if (v && typeof v !== "string") onChange(v.code);
+      }}
+      renderOption={(props, opt) =>
+        typeof opt === "string" ? null : (
+          <li {...props} key={opt.id}>
+            <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+              <Typography variant="body2" fontFamily="monospace">
+                {opt.code}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {isArabic && opt.name_ar ? opt.name_ar : opt.name}
+              </Typography>
+            </Box>
+          </li>
+        )
+      }
+      renderInput={(params) => <TextField {...params} label={label} />}
+      sx={{ minWidth: 300 }}
+    />
   );
 }
 
@@ -459,6 +551,16 @@ export function FieldEditor({
         />
       );
     default:
+      if (field.key in RM_CODE_FIELD_DOMAINS) {
+        return (
+          <RmCodeFieldEditor
+            field={field}
+            value={strVal}
+            onChange={onChange}
+            label={fieldLabel(field)}
+          />
+        );
+      }
       return (
         <TextField
           size="small"

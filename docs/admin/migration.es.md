@@ -1,6 +1,6 @@
 # Migración de plataforma
 
-> Plataformas de origen admitidas hoy: **SAP LeanIX**. Otros adaptadores (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) se conectan a la misma canalización de preparación y aplicación, y aparecen automáticamente en el diálogo de carga cuando se entregan.
+> Plataformas de origen admitidas hoy: **SAP LeanIX** y las **plantillas de recopilación de datos NORA (DGA)**. Otros adaptadores (Ardoq, Mega HOPEX, BiZZdesign, Avolution Abacus, …) se conectan a la misma canalización de preparación y aplicación, y aparecen automáticamente en el diálogo de carga cuando se entregan.
 
 El importador de migración de plataforma (**Administración → Configuración → Migración**) ingiere un workspace completo de LeanIX y lo deposita como tarjetas, relaciones, etiquetas, partes interesadas, documentos, comentarios y un metamodelo totalmente desarrollado de Turbo EA en una sola operación por etapas, revisable.
 
@@ -93,3 +93,9 @@ Esta página está protegida por el permiso `admin.migrate`. Por defecto, solo e
 ## Limpieza
 
 Borrar un registro de migración (Configuración → Migración → icono de papelera) elimina tanto las filas de base de datos de esa migración (los registros staged cascadean) como el archivo de snapshot en disco. Las migraciones en estado `uploaded`, `parsed`, `previewed`, `failed`, `aborted` y `applied` son todas eliminables; una migración `applying` debe terminar (o fallar) antes de poder eliminarse.
+
+### Plantillas de recopilación de datos NORA (DGA)
+
+El importador también ingiere los libros oficiales de recopilación de datos del marco nacional de AE saudí — un libro por dominio de AE (negocio, aplicaciones, tecnología, seguridad, datos). Las hojas aterrizan en los tipos de tarjeta correspondientes, y las columnas de opciones se traducen de los propios valores de búsqueda de las plantillas a los campos del perfil NORA — active el perfil de marco NORA antes de importar.
+
+Las referencias por nombre entre filas se convierten en relaciones y vínculos jerárquicos; los nombres referenciados sin fila propia se crean como tarjetas mínimas que se vinculan a tarjetas existentes con el mismo nombre. Los libros pueden subirse en cualquier orden y reimportarse con seguridad. Las hojas de experiencia del beneficiario, formularios, políticas e interesados aún no se importan.

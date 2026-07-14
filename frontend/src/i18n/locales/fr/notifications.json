@@ -15,6 +15,7 @@
   "preferences.cardUpdated": "Fiche mise à jour",
   "preferences.commentAdded": "Commentaire ajouté",
   "preferences.approvalStatusChanged": "Statut d’approbation modifié",
+  "preferences.approvalStepPending": "Étape d’approbation en attente",
   "preferences.soawSignRequested": "Signature SoAW demandée",
   "preferences.soawSigned": "SoAW signé",
   "preferences.surveyRequest": "Demande d’enquête"

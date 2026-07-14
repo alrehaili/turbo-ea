@@ -24,6 +24,7 @@ const NOTIFICATION_TYPES = [
   { key: "card_updated", labelKey: "preferences.cardUpdated" },
   { key: "comment_added", labelKey: "preferences.commentAdded" },
   { key: "approval_status_changed", labelKey: "preferences.approvalStatusChanged" },
+  { key: "approval_step_pending", labelKey: "preferences.approvalStepPending" },
   { key: "soaw_sign_requested", labelKey: "preferences.soawSignRequested" },
   { key: "soaw_signed", labelKey: "preferences.soawSigned" },
   { key: "survey_request", labelKey: "preferences.surveyRequest", forceEmail: true },

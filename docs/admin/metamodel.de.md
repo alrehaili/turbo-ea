@@ -8,14 +8,16 @@ Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreif
 
 ## Kartentypen
 
-Der Kartentypen-Tab listet alle Typen im System auf. Turbo EA wird mit 14 integrierten Typen über vier Architekturebenen ausgeliefert:
+Der Kartentypen-Tab listet alle Typen im System auf. Turbo EA wird mit 14 integrierten Typen über die sechs NORA-2.0-Architekturebenen ausgeliefert:
 
 | Ebene | Typen |
 |-------|-------|
-| **Strategie & Transformation** | Ziel, Plattform, Initiative |
-| **Geschäftsarchitektur** | Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess |
-| **Anwendung & Daten** | Anwendung, Schnittstelle, Datenobjekt |
-| **Technische Architektur** | IT-Komponente, Technologiekategorie, Anbieter, System |
+| **Geschäft** | Ziel, Plattform, Initiative, Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess |
+| **Nutzererlebnis** | Verwaltungsdienstleistung, Nutzerreise, Kanal *(über das NORA-Profil)* |
+| **Anwendungen** | Anwendung, Schnittstelle |
+| **Daten** | Datenobjekt *(+ Datenaustausch über das NORA-Profil)* |
+| **Technologie** | IT-Komponente, Technologiekategorie, Anbieter, System |
+| **Sicherheit** | Sicherheitskontrolle *(über das NORA-Profil)* |
 
 ### Einen benutzerdefinierten Typ erstellen
 

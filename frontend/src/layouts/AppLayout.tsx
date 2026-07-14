@@ -10,12 +10,16 @@ import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
+import Switch from "@mui/material/Switch";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import Collapse from "@mui/material/Collapse";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
+import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTranslation } from "react-i18next";
@@ -30,6 +34,8 @@ import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
+import { useFrameworkProfile } from "@/hooks/useFrameworkProfile";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
@@ -60,17 +66,56 @@ interface NavItem {
 const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "dashboard", icon: "dashboard", path: "/" },
   { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
+  { labelKey: "viewLibrary", icon: "travel_explore", path: "/view-library" },
+  {
+    // EA layers — one rich swim-lane overview per architecture layer. Kept
+    // as its own top-level tab (not under Reports) so the layered mental
+    // model is a first-class navigation concept.
+    labelKey: "layers",
+    icon: "layers",
+    permission: "inventory.view",
+    children: [
+      { labelKey: "reports.layersOverview", icon: "space_dashboard", path: "/layers/overview", permission: "inventory.view" },
+      { labelKey: "reports.traceability", icon: "hub", path: "/layers/traceability", permission: "inventory.view" },
+      { labelKey: "reports.businessLayer", icon: "domain", path: "/layers/business", permission: "inventory.view" },
+      { labelKey: "reports.businessSummary", icon: "article", path: "/layers/business-summary", permission: "inventory.view" },
+      { labelKey: "reports.beneficiaryLayer", icon: "diversity_3", path: "/layers/beneficiary", permission: "inventory.view" },
+      { labelKey: "reports.beneficiarySummary", icon: "article", path: "/layers/beneficiary-summary", permission: "inventory.view" },
+      { labelKey: "reports.applicationLayer", icon: "apps", path: "/layers/application", permission: "inventory.view" },
+      { labelKey: "reports.applicationSummary", icon: "article", path: "/layers/application-summary", permission: "inventory.view" },
+      { labelKey: "reports.dataLayer", icon: "database", path: "/layers/data", permission: "inventory.view" },
+      { labelKey: "reports.dataSummary", icon: "article", path: "/layers/data-summary", permission: "inventory.view" },
+      { labelKey: "reports.technologyLayer", icon: "memory", path: "/layers/technology", permission: "inventory.view" },
+      { labelKey: "reports.technologySummary", icon: "article", path: "/layers/technology-summary", permission: "inventory.view" },
+      { labelKey: "reports.securityLayer", icon: "security", path: "/layers/security", permission: "risks.view" },
+      { labelKey: "reports.securitySummary", icon: "article", path: "/layers/security-summary", permission: "inventory.view" },
+    ],
+  },
   {
     labelKey: "reports",
     icon: "analytics",
     permission: "reports.ea_dashboard",
     children: [
+      { labelKey: "reports.admWorkspaces", icon: "account_tree", path: "/ea-delivery/adm", permission: "adm.view" },
       { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio" },
       { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
       { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
       { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
       { labelKey: "reports.transformationRoadmap", icon: "route", path: "/reports/transformation-roadmap" },
       { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
+      { labelKey: "reports.gapAnalysis", icon: "compare_arrows", path: "/reports/gap-analysis" },
+      { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart" },
+      { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
+      { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
+      { labelKey: "reports.serviceCatalogue", icon: "assured_workload", path: "/reports/service-catalogue", permission: "inventory.view" },
+      { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
+      { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
+      { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
+      { labelKey: "reports.technologyLandscape", icon: "apartment", path: "/reports/technology-landscape" },
+      { labelKey: "reports.strategicHouse", icon: "home_work", path: "/reports/strategic-house" },
+      { labelKey: "reports.strategyCascade", icon: "account_tree", path: "/reports/strategy-cascade" },
+      { labelKey: "reports.valueChain", icon: "linear_scale", path: "/reports/value-chain" },
+      { labelKey: "reports.appModules", icon: "widgets", path: "/reports/application-modules" },
       { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
       { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },
       { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
@@ -97,6 +142,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       "rationalization.view",
       "tech_standards.view",
       "arb.view",
+      "maturity.view",
     ],
     children: [
       {
@@ -118,12 +164,26 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
         permission: "tech_standards.view",
       },
       { labelKey: "governance.arb", icon: "gavel", path: "/arb", permission: "arb.view" },
+      // NORA-only (filtered out below when the profile isn't "nora").
+      {
+        labelKey: "governance.maturity",
+        icon: "monitoring",
+        path: "/maturity",
+        permission: "maturity.view",
+      },
+      {
+        labelKey: "governance.referenceModels",
+        icon: "schema",
+        path: "/reference-models",
+        permission: "reference_models.view",
+      },
     ],
   },
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
   { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
+  { labelKey: "noraProgram", icon: "account_balance", path: "/nora-program", permission: "nora.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 
@@ -154,6 +214,27 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
   const { grcEnabled } = useGrcEnabled();
+  const { profile: frameworkProfile, invalidateProfile } = useFrameworkProfile();
+  const { invalidateCache: invalidateMetamodel } = useMetamodel();
+  const [togglingNora, setTogglingNora] = useState(false);
+  const [noraSnack, setNoraSnack] = useState<
+    "activated" | "deactivated" | "activationFailed" | "deactivationFailed" | null
+  >(null);
+
+  const toggleNoraProfile = useCallback(async () => {
+    const target = frameworkProfile === "nora" ? "togaf" : "nora";
+    setTogglingNora(true);
+    try {
+      await api.patch("/settings/framework-profile", { profile: target });
+      invalidateProfile(target);
+      invalidateMetamodel();
+      setNoraSnack(target === "nora" ? "activated" : "deactivated");
+    } catch {
+      setNoraSnack(target === "nora" ? "activationFailed" : "deactivationFailed");
+    } finally {
+      setTogglingNora(false);
+    }
+  }, [frameworkProfile, invalidateProfile, invalidateMetamodel]);
   const { sponsorButtonEnabled } = useSponsorButtonEnabled();
   const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
@@ -177,6 +258,20 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
     if (!grcEnabled) items = items.filter((item) => item.labelKey !== "grc");
+    if (frameworkProfile !== "nora") {
+      items = items.filter((item) => item.labelKey !== "noraProgram");
+      // EA Maturity + Reference Models live under Governance but are
+      // NORA-methodology tools.
+      const noraOnly = ["governance.maturity", "governance.referenceModels"];
+      items = items.map((item) =>
+        item.labelKey === "governance" && item.children
+          ? {
+              ...item,
+              children: item.children.filter((c) => !noraOnly.includes(c.labelKey)),
+            }
+          : item,
+      );
+    }
 
     // When PPM is disabled, EA Delivery has no parent tab to live under —
     // promote it to a top-level nav item, sitting in PPM's old slot (between
@@ -223,7 +318,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     });
 
     return items.filter((item) => hasPerm(item.permission)).map(resolve);
-  }, [bpmEnabled, ppmEnabled, grcEnabled, turboLensReady, can, t]);
+  }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {
@@ -965,6 +1060,30 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <ListItemText>{item.label}</ListItemText>
               </MenuItem>
             ))}
+            {can("admin.settings") && (
+              <MenuItem
+                disabled={togglingNora}
+                onClick={() => toggleNoraProfile()}
+                sx={{ pl: 3 }}
+              >
+                <ListItemIcon>
+                  {togglingNora ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <MaterialSymbol icon="account_balance" size={18} />
+                  )}
+                </ListItemIcon>
+                <ListItemText>{t("userMenu.noraProfile")}</ListItemText>
+                <Switch
+                  edge="end"
+                  size="small"
+                  checked={frameworkProfile === "nora"}
+                  disabled={togglingNora}
+                  tabIndex={-1}
+                  sx={{ ml: 2 }}
+                />
+              </MenuItem>
+            )}
             {can("admin.impersonate") && !user.impersonated_role && <Divider />}
             {can("admin.impersonate") && !user.impersonated_role && (
               <MenuItem
@@ -1020,6 +1139,26 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
       {/* Sponsorship dialog */}
       <SponsorshipDialog open={sponsorshipOpen} onClose={() => setSponsorshipOpen(false)} />
+
+      {/* NORA-profile toggle feedback (user-menu Admin section switch) */}
+      <Snackbar
+        open={noraSnack !== null}
+        autoHideDuration={5000}
+        onClose={() => setNoraSnack(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={
+            noraSnack === "activated" || noraSnack === "deactivated" ? "success" : "error"
+          }
+          onClose={() => setNoraSnack(null)}
+        >
+          {noraSnack === "activated" && t("userMenu.noraActivated")}
+          {noraSnack === "deactivated" && t("userMenu.noraDeactivated")}
+          {noraSnack === "activationFailed" && t("userMenu.noraActivationFailed")}
+          {noraSnack === "deactivationFailed" && t("userMenu.noraDeactivationFailed")}
+        </Alert>
+      </Snackbar>
 
       {/* Language submenu */}
       <Menu

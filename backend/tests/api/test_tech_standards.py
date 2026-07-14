@@ -77,6 +77,57 @@ class TestStandardCrud:
         resp = await _mk_standard(client, std_env["viewer"])
         assert resp.status_code == 403
 
+    async def test_nora_trm_fields_roundtrip(self, client, db, std_env):
+        """NORA TRM metadata (WP1.3): body, mandate, review date, spec URL,
+        TRM code and the TechCategory card link survive create → get → patch."""
+        admin = std_env["admin"]
+        await create_card_type(db, key="TechCategory", label="Tech Category")
+        cat = await create_card(db, card_type="TechCategory", name="Databases")
+        await db.flush()
+
+        resp = await _mk_standard(
+            client,
+            admin,
+            standard_body="NCA",
+            mandate="mandatory",
+            review_date="2027-01-01",
+            spec_url="https://nca.gov.sa/tls-standard",
+            trm_code="TRM-4.2",
+            tech_category_id=str(cat.id),
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["standard_body"] == "NCA"
+        assert body["mandate"] == "mandatory"
+        assert body["review_date"] == "2027-01-01"
+        assert body["trm_code"] == "TRM-4.2"
+
+        # The detail + list endpoints resolve the TechCategory card brief.
+        sid = body["id"]
+        resp = await client.get(f"/api/v1/tech-standards/{sid}", headers=auth_headers(admin))
+        assert resp.json()["tech_category"] == {
+            "id": str(cat.id),
+            "name": "Databases",
+            "type": "TechCategory",
+        }
+        resp = await client.get("/api/v1/tech-standards", headers=auth_headers(admin))
+        row = next(s for s in resp.json() if s["id"] == sid)
+        assert row["tech_category"]["name"] == "Databases"
+
+        # Patch: clear the category link, downgrade the mandate.
+        resp = await client.patch(
+            f"/api/v1/tech-standards/{sid}",
+            json={"tech_category_id": None, "mandate": "optional"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["tech_category"] is None
+        assert resp.json()["mandate"] == "optional"
+
+    async def test_invalid_mandate_rejected(self, client, db, std_env):
+        resp = await _mk_standard(client, std_env["admin"], mandate="forced")
+        assert resp.status_code == 400
+
     async def test_radar_matrix(self, client, db, std_env):
         admin = std_env["admin"]
         await _mk_standard(client, admin, name="PostgreSQL", category="data", status="preferred")

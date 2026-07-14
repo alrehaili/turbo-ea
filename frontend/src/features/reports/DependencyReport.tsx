@@ -21,6 +21,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import ArchitectureStateFilter from "@/components/ArchitectureStateFilter";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { resolveRevealIds } from "./layeredDependencyLayout";
 import { useTheme } from "@mui/material/styles";
@@ -30,9 +31,17 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
+import { useSegments } from "@/hooks/useSegments";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
+
+interface Plateau {
+  id: string;
+  name: string;
+  description: string | null;
+  target_date: string | null;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Data types                                                         */
@@ -371,6 +380,11 @@ export default function DependencyReport() {
   // chartMode value "c4" is a stable identifier persisted in saved reports —
   // do not rename. The view it selects is the Layered Dependency View (LDV).
   const [chartMode, setChartMode] = useState<"tree" | "c4">("c4");
+  const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
+  const [plateaus, setPlateaus] = useState<Plateau[]>([]);
+  const [selectedPlateauId, setSelectedPlateauId] = useState<string | null>(null);
+  const { segments } = useSegments();
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredConn, setHoveredConn] = useState<{
@@ -458,11 +472,18 @@ export default function DependencyReport() {
     setPickerTypeFilter(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch plateaus on mount
+  useEffect(() => {
+    api.get<Plateau[]>("/nora-plateaus").then(setPlateaus).catch(() => setPlateaus([]));
+  }, []);
+
   // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
     if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
+    if (selectedPlateauId) p.set("plateau_id", selectedPlateauId);
+    if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
     api
       .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
       .then((r) => {
@@ -470,28 +491,44 @@ export default function DependencyReport() {
         setEdges(r.edges);
         setLoading(false);
       });
-  }, [cardTypeKey, chartMode]);
+  }, [cardTypeKey, chartMode, selectedPlateauId, selectedSegmentId]);
+
+  // Filter nodes and edges by architecture_state
+  const { filteredNodes, filteredEdges } = useMemo(() => {
+    const validNodeIds = new Set(
+      nodes
+        .filter((n) => {
+          const state = n.attributes?.architecture_state as string | undefined;
+          return !state || architectureStates.includes(state);
+        })
+        .map((n) => n.id)
+    );
+    return {
+      filteredNodes: nodes.filter((n) => validNodeIds.has(n.id)),
+      filteredEdges: edges.filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target)),
+    };
+  }, [nodes, edges, architectureStates]);
 
   // Adjacency map
   const adjMap = useMemo(() => {
     const m = new Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>();
-    for (const e of edges) {
+    for (const e of filteredEdges) {
       if (!m.has(e.source)) m.set(e.source, []);
       m.get(e.source)!.push({ nodeId: e.target, relType: e.type, relLabel: e.label || e.type, relDescription: e.description });
       if (!m.has(e.target)) m.set(e.target, []);
       m.get(e.target)!.push({ nodeId: e.source, relType: e.type, relLabel: e.reverse_label || e.label || e.type, relDescription: e.description });
     }
     return m;
-  }, [edges]);
+  }, [filteredEdges]);
 
-  const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const nodeMap = useMemo(() => new Map(filteredNodes.map((n) => [n.id, n])), [filteredNodes]);
 
   // Connection counts
   const connCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const n of nodes) m.set(n.id, (adjMap.get(n.id) || []).length);
+    for (const n of filteredNodes) m.set(n.id, (adjMap.get(n.id) || []).length);
     return m;
-  }, [nodes, adjMap]);
+  }, [filteredNodes, adjMap]);
 
   // LDV mode: BFS from center to get dependency neighborhood (all types)
   // Also include depth-1 neighbors of any nodes that have been "expanded"
@@ -721,6 +758,88 @@ export default function DependencyReport() {
       printParams={printParams}
       toolbar={
         <>
+          <ArchitectureStateFilter
+            onStateChange={setArchitectureStates}
+            storageKey="dependency_report_states"
+          />
+
+          {plateaus.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 1,
+                py: 1,
+                px: 1,
+                borderTop: 1,
+                borderColor: "divider",
+                my: 1,
+              }}
+            >
+              <Typography variant="caption" sx={{ width: "100%", mb: -0.5, fontWeight: 600 }}>
+                {t("common:plateau")}:
+              </Typography>
+              <Chip
+                label={t("common:current")}
+                onClick={() => setSelectedPlateauId(null)}
+                variant={selectedPlateauId === null ? "filled" : "outlined"}
+                size="small"
+              />
+              {plateaus.map((p) => (
+                <Chip
+                  key={p.id}
+                  label={p.name}
+                  onClick={() => setSelectedPlateauId(p.id)}
+                  variant={selectedPlateauId === p.id ? "filled" : "outlined"}
+                  size="small"
+                />
+              ))}
+            </Box>
+          )}
+
+          {/* B.9: Segment scope filter */}
+          {segments.length > 0 && (
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                alignItems: "center",
+                borderRadius: 1,
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: "divider",
+                my: 1,
+                flexWrap: "wrap",
+                px: 1,
+                py: 0.5,
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600, mr: -0.75 }}>
+                {t("filter.segments")}:
+              </Typography>
+              <Chip
+                label={t("common:all")}
+                onClick={() => setSelectedSegmentId(null)}
+                variant={selectedSegmentId === null ? "filled" : "outlined"}
+                size="small"
+              />
+              {segments.map((s) => (
+                <Chip
+                  key={s.id}
+                  label={s.name}
+                  onClick={() => setSelectedSegmentId(s.id)}
+                  variant={selectedSegmentId === s.id ? "filled" : "outlined"}
+                  size="small"
+                  sx={
+                    selectedSegmentId === s.id
+                      ? { bgcolor: s.color || "#1976d2", color: "#fff" }
+                      : { borderColor: s.color || "#1976d2", color: s.color || "#1976d2" }
+                  }
+                />
+              ))}
+            </Box>
+          )}
+
           <TextField
             select
             size="small"

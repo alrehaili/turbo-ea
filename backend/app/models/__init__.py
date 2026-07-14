@@ -1,4 +1,6 @@
+from app.models.adm import AdmPhase, AdmPhaseArtefact, AdmWorkspace
 from app.models.app_settings import AppSettings
+from app.models.approval_step import ApprovalStep
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
@@ -14,11 +16,24 @@ from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
+from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
+from app.models.improvement_opportunity import (
+    ImprovementOpportunity,
+    ImprovementOpportunityCard,
+)
 from app.models.kpi_snapshot import KpiSnapshot
+from app.models.maturity import (
+    MaturityAssessment,
+    MaturityDimension,
+    MaturityDimensionScore,
+)
 from app.models.migration import IdentityMap, Migration, StagedRecord
 from app.models.mutation_batch import MutationBatch
+from app.models.nea_evidence import NeaEvidencePack
+from app.models.nora_landscape import NoraPlateau, NoraSegment
+from app.models.nora_program import EaProgramDeliverable
 from app.models.notification import Notification
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
@@ -32,6 +47,7 @@ from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.rationalization import AssessmentDecision, RationalizationAssessment
+from app.models.reference_model import ReferenceModel, ReferenceModelItem
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
@@ -99,7 +115,22 @@ __all__ = [
     "StandardPrinciple",
     "TechStandard",
     "StandardException",
+    "ApprovalStep",
     "ArbReview",
+    "AdmWorkspace",
+    "AdmPhase",
+    "AdmPhaseArtefact",
+    "EaProgramDeliverable",
+    "EaRequirement",
+    "EaRequirementCard",
+    "ImprovementOpportunity",
+    "ImprovementOpportunityCard",
+    "MaturityDimension",
+    "MaturityAssessment",
+    "MaturityDimensionScore",
+    "NeaEvidencePack",
+    "NoraPlateau",
+    "NoraSegment",
     "Scenario",
     "ScenarioChange",
     "TagGroup",
@@ -143,6 +174,8 @@ __all__ = [
     "RoadmapMilestone",
     "RationalizationAssessment",
     "AssessmentDecision",
+    "ReferenceModel",
+    "ReferenceModelItem",
     "Survey",
     "SurveyResponse",
     "ProcessDiagram",
