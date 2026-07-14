@@ -415,7 +415,10 @@ async def list_cards(
     ),
     change_type: str | None = Query(
         None,
-        description="Filter by change type (NORA architecture state transitions). Comma-separated values supported.",
+        description=(
+            "Filter by change type (NORA architecture state transitions). "
+            "Comma-separated values supported."
+        ),
     ),
     mine: str | None = Query(
         None,
@@ -2861,7 +2864,9 @@ async def bulk_approval_action(
                             CardApprovalActionResult(
                                 card_id=card_id_str,
                                 status="error",
-                                error="Segregation of duties: the submitter cannot decide this step",
+                                error=(
+                                    "Segregation of duties: the submitter cannot decide this step"
+                                ),
                             )
                         )
                         continue
@@ -2942,7 +2947,10 @@ async def bulk_approval_action(
                 card_id=card.id,
                 notif_type="approval_status_changed",
                 title=f"Approval Status {action_label[body.action].title()}",
-                message=f'{user.display_name} {action_label[body.action]} the approval status on "{card.name}"',
+                message=(
+                    f"{user.display_name} {action_label[body.action]} "
+                    f'the approval status on "{card.name}"'
+                ),
                 link=f"/cards/{card_id_str}",
                 data={"approval_status": card.approval_status, "action": body.action},
                 actor_id=user.id,
@@ -2993,7 +3001,7 @@ async def promote_target_to_current(
         db, user, "inventory.edit", card_id=card_id, card_permission="card.edit"
     )
 
-    card_uuid = UUID(card_id)
+    card_uuid = uuid.UUID(card_id)
     result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = result.scalar_one_or_none()
     if not card:
@@ -3060,7 +3068,16 @@ async def promote_target_to_current(
     )
 
     await db.commit()
-    return card_detail_response(card, user, db)
+    result = await db.execute(
+        select(Card)
+        .where(Card.id == card_uuid)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    card = result.scalar_one()
+    return await _card_response_with_cost_check(db, user, card)
 
 
 @router.post("/{card_id}/confirm")

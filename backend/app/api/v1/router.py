@@ -37,6 +37,7 @@ from app.api.v1 import (
     principles_catalogue,
     process_catalogue,
     rationalization,
+    reference_models,
     relations,
     reports,
     risk_mitigation_tasks,
@@ -71,6 +72,7 @@ api_router.include_router(improvement_opportunities.router)
 api_router.include_router(maturity.router)
 api_router.include_router(nea_evidence.router)
 api_router.include_router(nora_landscape.router)
+api_router.include_router(reference_models.router)
 api_router.include_router(relations.router)
 api_router.include_router(stakeholders.router)
 api_router.include_router(comments.router)

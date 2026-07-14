@@ -211,6 +211,7 @@
   "reports.dataSummary": "Dataresumé",
   "reports.securitySummary": "Sikkerhedsresumé",
   "governance.maturity": "EA-modenhed",
+  "governance.referenceModels": "Referencemodeller",
   "userMenu.noraProfile": "NORA-profil",
   "userMenu.noraActivated": "NORA-profilen er aktiveret — NORA-korttyper, felter og programværktøjer er nu tilgængelige.",
   "userMenu.noraActivationFailed": "NORA-profilen kunne ikke aktiveres. Tjek dine rettigheder og prøv igen.",

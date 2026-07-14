@@ -26,9 +26,7 @@ async def segment_test_env(db):
     await db.flush()
 
     # Create card types
-    await create_card_type(
-        db, key="BusinessCapability", label="Capability", category="Business"
-    )
+    await create_card_type(db, key="BusinessCapability", label="Capability", category="Business")
     await create_card_type(db, key="Application", label="Application", category="Application")
     await create_card_type(db, key="ITComponent", label="IT Component", category="Technology")
 
@@ -96,9 +94,7 @@ class TestInventorySegmentFiltering:
 
         # Query without segment — should see all
         res_all = (
-            await client.get(
-                "/api/v1/cards?type=Application", headers=auth_headers(admin)
-            )
+            await client.get("/api/v1/cards?type=Application", headers=auth_headers(admin))
         ).json()
         assert len(res_all["items"]) == 2
 
@@ -143,9 +139,7 @@ class TestInventorySegmentFiltering:
         admin = segment_test_env["admin"]
 
         # Query with malformed UUID
-        res = await client.get(
-            "/api/v1/cards?segment_id=not-a-uuid", headers=auth_headers(admin)
-        )
+        res = await client.get("/api/v1/cards?segment_id=not-a-uuid", headers=auth_headers(admin))
         assert res.status_code == 400
 
     async def test_segment_not_found(self, client, segment_test_env):
@@ -292,9 +286,7 @@ class TestReportSegmentFiltering:
 
         # Query without segment
         res_all = (
-            await client.get(
-                "/api/v1/reports/dependencies", headers=auth_headers(admin)
-            )
+            await client.get("/api/v1/reports/dependencies", headers=auth_headers(admin))
         ).json()
         all_node_names = {n["name"] for n in res_all["nodes"]}
         # Should have: 2 capabilities, 2 apps, 1 component

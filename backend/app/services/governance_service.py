@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.app_settings import AppSettings
 from app.models.approval_step import ApprovalStep
 from app.models.user import User
+from app.services.email_service import send_notification_email
 
 DEFAULT_GOVERNANCE_CHAIN = ["chief_architect", "ea_governance_committee"]
 
@@ -152,12 +153,11 @@ async def notify_role_members(
             data={"card_id": str(card_id)},
         )
 
-        # Email notification (if user opted in)
+        # Email notification (if user opted in). Module-level import so tests
+        # can monkeypatch ``governance_service.send_notification_email``.
         prefs = member.notification_preferences or {}
         email_prefs = prefs.get("email", {})
         if email_prefs.get("approval_step_pending", False):
-            from app.services.email_service import send_notification_email
-
             await send_notification_email(
                 to=member.email,
                 title="Review Needed: " + card_name,

@@ -18,7 +18,6 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useSegments } from "@/hooks/useSegments";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
@@ -122,8 +121,7 @@ export default function MatrixReport() {
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [rowType, setRowType] = useState("Application");
   const [colType, setColType] = useState("BusinessCapability");
-  const { segments } = useSegments();
-  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const [selectedSegmentId] = useState<string | null>(null);
   const [data, setData] = useState<MatrixData | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");

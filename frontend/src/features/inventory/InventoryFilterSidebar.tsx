@@ -41,7 +41,6 @@ import type {
   RelationType,
   TagGroup,
   User,
-  NoraSegment,
 } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -512,6 +511,7 @@ export default function InventoryFilterSidebar({
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
+        segmentIds: f.segmentIds || [],
         mineScope: f.mineScope ?? null,
       });
     }

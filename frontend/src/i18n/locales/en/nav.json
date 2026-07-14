@@ -214,6 +214,7 @@
   "reports.dataSummary": "Data Summary",
   "reports.securitySummary": "Security Summary",
   "governance.maturity": "EA Maturity",
+  "governance.referenceModels": "Reference Models",
   "userMenu.noraProfile": "NORA profile",
   "userMenu.noraActivated": "NORA profile activated — the NORA card types, fields and program tools are now available.",
   "userMenu.noraActivationFailed": "Could not activate the NORA profile. Check your permissions and try again.",

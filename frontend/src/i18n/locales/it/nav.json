@@ -211,6 +211,7 @@
   "reports.dataSummary": "Sintesi dati",
   "reports.securitySummary": "Sintesi sicurezza",
   "governance.maturity": "Maturità EA",
+  "governance.referenceModels": "Modelli di riferimento",
   "userMenu.noraProfile": "Profilo NORA",
   "userMenu.noraActivated": "Profilo NORA attivato — i tipi di card, i campi e gli strumenti di programma NORA sono ora disponibili.",
   "userMenu.noraActivationFailed": "Impossibile attivare il profilo NORA. Verifica le autorizzazioni e riprova.",

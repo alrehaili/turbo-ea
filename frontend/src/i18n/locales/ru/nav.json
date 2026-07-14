@@ -211,6 +211,7 @@
   "reports.dataSummary": "Сводка по данным",
   "reports.securitySummary": "Сводка по безопасности",
   "governance.maturity": "Зрелость EA",
+  "governance.referenceModels": "Эталонные модели",
   "userMenu.noraProfile": "Профиль NORA",
   "userMenu.noraActivated": "Профиль NORA активирован — типы карточек, поля и инструменты программы NORA теперь доступны.",
   "userMenu.noraActivationFailed": "Не удалось активировать профиль NORA. Проверьте свои права и повторите попытку.",

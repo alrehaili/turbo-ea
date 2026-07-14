@@ -2149,3 +2149,44 @@ export interface NoraSegment {
   color?: string | null;
   sort_order: number;
 }
+
+// --- Reference Models (WP100.3) ---
+export type ReferenceModelDomain =
+  | "business"
+  | "beneficiaryExperience"
+  | "applications"
+  | "data"
+  | "technology"
+  | "security";
+export type ReferenceModelSource = "national" | "sectoral" | "agency";
+export type ReferenceModelStatus = "draft" | "published" | "archived";
+
+export interface ReferenceModel {
+  id: string;
+  domain: ReferenceModelDomain;
+  key: string | null;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  version: string;
+  source: ReferenceModelSource;
+  status: ReferenceModelStatus;
+  built_in: boolean;
+  created_by: string | null;
+  published_by: string | null;
+  published_by_display_name?: string | null;
+  published_at: string | null;
+  created_at: string | null;
+  item_count?: number;
+}
+
+export interface ReferenceModelItem {
+  id: string;
+  model_id: string;
+  parent_id: string | null;
+  code: string;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  sort_order: number;
+}

@@ -172,7 +172,9 @@ export default function CardDetail() {
   useEffect(() => {
     const fetchGovernanceConfig = async () => {
       try {
-        const response = await api.get("/settings/bootstrap");
+        const response = await api.get<{
+          general_settings?: { requireRejectionComment?: boolean };
+        }>("/settings/bootstrap");
         const config = response.general_settings || {};
         setRequireRejectionComment(config.requireRejectionComment ?? false);
       } catch (e) {

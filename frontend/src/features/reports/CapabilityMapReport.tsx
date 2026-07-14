@@ -638,7 +638,7 @@ export default function CapabilityMapReport() {
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
   const [drawer, setDrawer] = useState<CapNode | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
-  const [architectureStates, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
+  const [, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
 
   // Controls

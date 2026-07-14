@@ -60,6 +60,16 @@ interface ReferenceModel {
   uncategorised: number;
   options: OptionDef[];
   distribution: Record<string, number>;
+  reference_model?: {
+    id: string;
+    name: string;
+    name_ar: string | null;
+    version: string;
+    item_count: number;
+    mapped: number;
+    unmatched: number;
+    uncoded: number;
+  };
 }
 
 interface ReferenceModelsPayload {
@@ -263,6 +273,46 @@ function ModelCard({ model, onNavigate }: ModelCardProps) {
           sx={{ height: 6, borderRadius: 3 }}
         />
       </Box>
+
+      {/* Published Reference Model code coverage (WP100.3) */}
+      {model.reference_model && (
+        <Box
+          sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, flexWrap: "wrap" }}
+        >
+          <MaterialSymbol icon="schema" size={16} color="#00695c" />
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            {t("referenceModels.rmCoverage")}
+          </Typography>
+          <Tooltip title={t("referenceModels.openRmLibrary")}>
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`${
+                locale.startsWith("ar") && model.reference_model.name_ar
+                  ? model.reference_model.name_ar
+                  : model.reference_model.name
+              } · ${model.reference_model.version}`}
+              onClick={() => onNavigate("/reference-models")}
+              clickable
+              sx={{ cursor: "pointer" }}
+            />
+          </Tooltip>
+          <Chip
+            size="small"
+            color="success"
+            variant="outlined"
+            label={`${model.reference_model.mapped} ${t("referenceModels.rmMapped")}`}
+          />
+          {model.reference_model.unmatched > 0 && (
+            <Chip
+              size="small"
+              color="warning"
+              variant="outlined"
+              label={`${model.reference_model.unmatched} ${t("referenceModels.rmUnmatched")}`}
+            />
+          )}
+        </Box>
+      )}
 
       {/* Chart */}
       {noData ? (

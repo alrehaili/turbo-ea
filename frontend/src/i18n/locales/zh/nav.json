@@ -211,6 +211,7 @@
   "reports.dataSummary": "数据摘要",
   "reports.securitySummary": "安全摘要",
   "governance.maturity": "EA 成熟度",
+  "governance.referenceModels": "参考模型",
   "userMenu.noraProfile": "NORA 配置",
   "userMenu.noraActivated": "NORA 配置已启用——NORA 卡片类型、字段和计划工具现已可用。",
   "userMenu.noraActivationFailed": "无法启用 NORA 配置。请检查您的权限后重试。",

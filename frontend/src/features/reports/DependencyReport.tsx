@@ -34,7 +34,7 @@ import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveL
 import { useSegments } from "@/hooks/useSegments";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
-import type { CardType, NoraSegment } from "@/types";
+import type { CardType } from "@/types";
 
 interface Plateau {
   id: string;

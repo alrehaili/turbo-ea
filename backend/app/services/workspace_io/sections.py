@@ -45,6 +45,7 @@ from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.rationalization import AssessmentDecision, RationalizationAssessment
+from app.models.reference_model import ReferenceModel, ReferenceModelItem
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
 from app.models.roadmap import Roadmap, RoadmapMilestone
@@ -279,6 +280,17 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # --- NORA plateaus + segment scopes (WP5.4) ---------------------------
     EntitySection("NoraPlateaus", NoraPlateau),
     EntitySection("NoraSegments", NoraSegment, card_fk_columns=("root_card_id",)),
+    # --- Reference models (WP100.3, model before its items) ---------------
+    EntitySection(
+        "ReferenceModels",
+        ReferenceModel,
+        user_fk_columns=("created_by", "published_by"),
+    ),
+    EntitySection(
+        "ReferenceModelItems",
+        ReferenceModelItem,
+        self_parent_column="parent_id",
+    ),
     # --- Architecture Review Board ---------------------------------------
     EntitySection(
         "ArbReviews",

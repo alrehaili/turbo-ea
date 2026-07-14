@@ -183,13 +183,14 @@ function GeneralTab() {
   const faviconFileInputRef = useRef<HTMLInputElement>(null);
 
   // Metamodel cache (invalidated when BPM toggle changes type visibility)
-  const { invalidateCache: invalidateMetamodel } = useMetamodel();
+  const { types, invalidateCache: invalidateMetamodel } = useMetamodel();
   const { profile: frameworkProfile, invalidateProfile } = useFrameworkProfile();
   const [savingProfile, setSavingProfile] = useState(false);
   const [governance, setGovernance] = useState<{
     enabled: boolean;
     chain: string[];
     sod_enabled: boolean;
+    promotion_requires_approval?: boolean;
     type_chains?: Record<string, string[]>;
   } | null>(null);
   const [savingGovernance, setSavingGovernance] = useState(false);
@@ -208,6 +209,7 @@ function GeneralTab() {
   const handleGovernanceChange = async (patch: {
     enabled?: boolean;
     sod_enabled?: boolean;
+    promotion_requires_approval?: boolean;
   }) => {
     setSavingGovernance(true);
     setError("");

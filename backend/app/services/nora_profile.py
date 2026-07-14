@@ -72,7 +72,10 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # renamed («إدارة عامة» → «جهة إدارية عامة») so it no longer collides with
 # the generalDepartment subtype (guarded rewrite — admin-customised labels
 # are never overwritten).
-NORA_PROFILE_VERSION = 7
+# v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
+# national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
+# `srmCode` on SecurityControl) so all six domains have a landing field.
+NORA_PROFILE_VERSION = 8
 
 # Old→new category rewrites for the v3 six-layer model, keyed by card-type
 # key. Guarded: a type is only moved while its category still equals the old
@@ -3389,6 +3392,60 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
 # Merge the v4 additions into the canonical field map.
 for _type_key, _v4_fields in NORA_V4_TYPE_FIELDS.items():
     NORA_TYPE_FIELDS.setdefault(_type_key, []).extend(_v4_fields)
+
+
+# ---------------------------------------------------------------------------
+# v8 (Reference Models, WP100.3): the last two RM code fields so every one of
+# the six domains has a landing field for its reference-model classification
+# (business/applications/data/technology already have brmCode/armCode/drmCode/
+# trmCode from v1). Free text like the others; the card-detail picker offers
+# published-RM items when one exists.
+# ---------------------------------------------------------------------------
+
+NORA_V8_TYPE_FIELDS: dict[str, list[dict]] = {
+    "GovService": [
+        {
+            "key": "bxrmCode",
+            "label": "BXRM Code",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "BXRM-Code",
+                "Code BXRM",
+                "Código BXRM",
+                "Codice BXRM",
+                "Código BXRM",
+                "BXRM 代码",
+                "Код BXRM",
+                "BXRM-kode",
+                "رمز BXRM",
+            ),
+        },
+    ],
+    "SecurityControl": [
+        {
+            "key": "srmCode",
+            "label": "SRM Code",
+            "type": "text",
+            "weight": 0,
+            "translations": _tr(
+                "SRM-Code",
+                "Code SRM",
+                "Código SRM",
+                "Codice SRM",
+                "Código SRM",
+                "SRM 代码",
+                "Код SRM",
+                "SRM-kode",
+                "رمز SRM",
+            ),
+        },
+    ],
+}
+
+# Merge the v8 additions into the canonical field map.
+for _type_key, _v8_fields in NORA_V8_TYPE_FIELDS.items():
+    NORA_TYPE_FIELDS.setdefault(_type_key, []).extend(_v8_fields)
 
 
 # Subtypes appended by the profile apply (pass 4d). Idempotent by key.
@@ -7797,7 +7854,14 @@ def _nora_governance_roles() -> list[dict]:
         k: v for k, v in MEMBER_PERMISSIONS.items() if k not in ("inventory.approval_status",)
     }
     working_team.update(
-        {"nora.view": True, "nora.manage": True, "maturity.view": True, "maturity.manage": True}
+        {
+            "nora.view": True,
+            "nora.manage": True,
+            "maturity.view": True,
+            "maturity.manage": True,
+            "reference_models.view": True,
+            "reference_models.manage": True,
+        }
     )
     chief_architect = {
         **MEMBER_PERMISSIONS,
@@ -7806,6 +7870,8 @@ def _nora_governance_roles() -> list[dict]:
         "nora.manage": True,
         "maturity.view": True,
         "maturity.manage": True,
+        "reference_models.view": True,
+        "reference_models.manage": True,
     }
     committee = {
         **VIEWER_PERMISSIONS,
@@ -8288,6 +8354,11 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     from app.services.maturity import seed_maturity_dimensions
 
     summary["maturity_dimensions_created"] = await seed_maturity_dimensions(db)
+
+    # ── Pass 7: seed the kit-preview reference-model starters (WP100.3) ────
+    from app.services.reference_models import seed_reference_model_starters
+
+    summary["reference_models_created"] = await seed_reference_model_starters(db)
 
     row = await _get_or_create_settings_row(db)
     general = dict(row.general_settings or {})

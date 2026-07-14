@@ -171,6 +171,12 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
         path: "/maturity",
         permission: "maturity.view",
       },
+      {
+        labelKey: "governance.referenceModels",
+        icon: "schema",
+        path: "/reference-models",
+        permission: "reference_models.view",
+      },
     ],
   },
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
@@ -254,12 +260,14 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!grcEnabled) items = items.filter((item) => item.labelKey !== "grc");
     if (frameworkProfile !== "nora") {
       items = items.filter((item) => item.labelKey !== "noraProgram");
-      // EA Maturity lives under Governance but is a NORA-methodology tool.
+      // EA Maturity + Reference Models live under Governance but are
+      // NORA-methodology tools.
+      const noraOnly = ["governance.maturity", "governance.referenceModels"];
       items = items.map((item) =>
         item.labelKey === "governance" && item.children
           ? {
               ...item,
-              children: item.children.filter((c) => c.labelKey !== "governance.maturity"),
+              children: item.children.filter((c) => !noraOnly.includes(c.labelKey)),
             }
           : item,
       );

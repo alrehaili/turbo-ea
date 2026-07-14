@@ -363,5 +363,14 @@
   "dashboard.attention.broken": "موافقات تحتاج إصلاحًا",
   "dashboard.attention.lowQuality": "بطاقات جودة بياناتها منخفضة",
   "dashboard.attention.eol": "بطاقات في نهاية العمر",
-  "dashboard.attention.draft": "بطاقات لا تزال في المسودة"
+  "dashboard.attention.draft": "بطاقات لا تزال في المسودة",
+  "architectureState.current": "الحالي",
+  "architectureState.target": "المستهدف",
+  "architectureState.transition": "انتقالي",
+  "changeType.create": "إنشاء",
+  "changeType.modify": "تعديل",
+  "changeType.replace": "استبدال",
+  "changeType.retire": "إيقاف",
+  "changeType.consolidate": "دمج",
+  "labels.show": "إظهار"
 }

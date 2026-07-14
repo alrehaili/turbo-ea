@@ -211,6 +211,7 @@
   "reports.dataSummary": "Resumen de datos",
   "reports.securitySummary": "Resumen de seguridad",
   "governance.maturity": "Madurez EA",
+  "governance.referenceModels": "Modelos de referencia",
   "userMenu.noraProfile": "Perfil NORA",
   "userMenu.noraActivated": "Perfil NORA activado — los tipos de tarjeta, campos y herramientas de programa de NORA ya están disponibles.",
   "userMenu.noraActivationFailed": "No se pudo activar el perfil NORA. Compruebe sus permisos e inténtelo de nuevo.",

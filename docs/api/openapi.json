@@ -867,6 +867,55 @@
         "title": "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post",
         "type": "object"
       },
+      "Body_import_into_model_api_v1_reference_models__model_id__import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_into_model_api_v1_reference_models__model_id__import_post",
+        "type": "object"
+      },
+      "Body_import_new_model_api_v1_reference_models_import_post": {
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Ar"
+          }
+        },
+        "required": [
+          "file",
+          "domain",
+          "name"
+        ],
+        "title": "Body_import_new_model_api_v1_reference_models_import_post",
+        "type": "object"
+      },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
         "properties": {
           "file": {
@@ -1468,6 +1517,50 @@
         "title": "CalculationUpdate",
         "type": "object"
       },
+      "CardApprovalActionResult": {
+        "properties": {
+          "approval_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Status"
+          },
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "status"
+        ],
+        "title": "CardApprovalActionResult",
+        "type": "object"
+      },
       "CardArchiveRequest": {
         "properties": {
           "cascade_all_related": {
@@ -1529,6 +1622,78 @@
           "affected_related_card_ids"
         ],
         "title": "CardArchiveResponse",
+        "type": "object"
+      },
+      "CardBulkApprovalActionRequest": {
+        "properties": {
+          "action": {
+            "enum": [
+              "submit",
+              "approve",
+              "reject",
+              "reset"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Card Ids",
+            "type": "array"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "required": [
+          "card_ids",
+          "action"
+        ],
+        "title": "CardBulkApprovalActionRequest",
+        "type": "object"
+      },
+      "CardBulkApprovalActionResponse": {
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CardApprovalActionResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "results",
+          "succeeded",
+          "failed"
+        ],
+        "title": "CardBulkApprovalActionResponse",
         "type": "object"
       },
       "CardBulkArchiveRequest": {
@@ -5469,6 +5634,28 @@
             ],
             "title": "Enabled"
           },
+          "promotion_requires_approval": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promotion Requires Approval"
+          },
+          "require_rejection_comment": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Rejection Comment"
+          },
           "sod_enabled": {
             "anyOf": [
               {
@@ -5479,6 +5666,24 @@
               }
             ],
             "title": "Sod Enabled"
+          },
+          "type_chains": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "maxProperties": 100,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type Chains"
           }
         },
         "title": "GovernancePayload",
@@ -5644,6 +5849,151 @@
           "catalogue_ids"
         ],
         "title": "ImportRequest",
+        "type": "object"
+      },
+      "ItemCreate": {
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "name_ar": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Ar"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "ItemCreate",
+        "type": "object"
+      },
+      "ItemUpdate": {
+        "properties": {
+          "clear_parent": {
+            "default": false,
+            "title": "Clear Parent",
+            "type": "boolean"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "name_ar": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Ar"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "ItemUpdate",
         "type": "object"
       },
       "LoginBrandingPayload": {
@@ -6798,6 +7148,128 @@
           }
         },
         "title": "MitigationTaskUpdate",
+        "type": "object"
+      },
+      "ModelCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "domain": {
+            "pattern": "^(business|beneficiaryExperience|applications|data|technology|security)$",
+            "title": "Domain",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "name_ar": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Ar"
+          },
+          "source": {
+            "default": "agency",
+            "pattern": "^(national|sectoral|agency)$",
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "default": "1.0",
+            "maxLength": 32,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "name"
+        ],
+        "title": "ModelCreate",
+        "type": "object"
+      },
+      "ModelUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "name_ar": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Ar"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "pattern": "^(national|sectoral|agency)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "ModelUpdate",
         "type": "object"
       },
       "ModernizationOut": {
@@ -21277,6 +21749,24 @@
             }
           },
           {
+            "description": "Filter by change type (NORA architecture state transitions). Comma-separated values supported.",
+            "in": "query",
+            "name": "change_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by change type (NORA architecture state transitions). Comma-separated values supported.",
+              "title": "Change Type"
+            }
+          },
+          {
             "description": "Scope the result to cards related to the current user. `stakeholder` keeps only cards on which the user holds at least one stakeholder role.",
             "in": "query",
             "name": "mine",
@@ -21311,6 +21801,24 @@
               ],
               "description": "Comma-separated UUIDs to fetch in one round trip. Used by the diagram editor's view perspectives to recolor cells.",
               "title": "Ids"
+            }
+          },
+          {
+            "description": "Filter to cards within a NORA segment scope (root + descendants + related). When provided, only cards in the resolved segment are returned.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter to cards within a NORA segment scope (root + descendants + related). When provided, only cards in the resolved segment are returned.",
+              "title": "Segment Id"
             }
           },
           {
@@ -21458,6 +21966,48 @@
           }
         },
         "summary": "Bulk Update",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/bulk-approval-action": {
+      "post": {
+        "description": "Submit, approve, reject, or reset approval status on multiple cards in one request.\n\nReturns per-card results with success/error status. Mixed success/failure is allowed \u2014\nthe endpoint doesn't fail the batch if individual cards error.",
+        "operationId": "bulk_approval_action_api_v1_cards_bulk_approval_action_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardBulkApprovalActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardBulkApprovalActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Approval Action",
         "tags": [
           "cards"
         ]
@@ -22937,6 +23487,47 @@
           }
         },
         "summary": "My Permissions",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/promote-target": {
+      "post": {
+        "description": "Promote a target card to current state.\n\nWhen governance is enabled + promotion_requires_approval is ON, the\npromotion is submitted for multi-step approval. Otherwise, it's immediate.\n\nRequires card.edit permission.",
+        "operationId": "promote_target_to_current_api_v1_cards__card_id__promote_target_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Target To Current",
         "tags": [
           "cards"
         ]
@@ -32034,6 +32625,637 @@
         ]
       }
     },
+    "/api/v1/reference-models": {
+      "get": {
+        "operationId": "list_models_api_v1_reference_models_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Models",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "post": {
+        "operationId": "create_model_api_v1_reference_models_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/active": {
+      "get": {
+        "description": "The published RM for a domain, with its flat item list (powers pickers).",
+        "operationId": "get_active_api_v1_reference_models_active_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Active",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/active-summary": {
+      "get": {
+        "description": "Cheap existence probe: which domains currently have a published RM.",
+        "operationId": "active_summary_api_v1_reference_models_active_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Active Summary",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/import": {
+      "post": {
+        "description": "Create a new reference model from an xlsx file in the exchange layout.",
+        "operationId": "import_new_model_api_v1_reference_models_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_new_model_api_v1_reference_models_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import New Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/items/{item_id}": {
+      "delete": {
+        "operationId": "delete_item_api_v1_reference_models_items__item_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Item",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "patch": {
+        "operationId": "update_item_api_v1_reference_models_items__item_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Item",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}": {
+      "delete": {
+        "operationId": "delete_model_api_v1_reference_models__model_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Model",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "get": {
+        "operationId": "get_model_api_v1_reference_models__model_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "patch": {
+        "operationId": "update_model_api_v1_reference_models__model_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/archive": {
+      "post": {
+        "operationId": "archive_model_api_v1_reference_models__model_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/export": {
+      "get": {
+        "operationId": "export_model_api_v1_reference_models__model_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/import": {
+      "post": {
+        "description": "Upsert items by code from an xlsx file in the exchange layout.",
+        "operationId": "import_into_model_api_v1_reference_models__model_id__import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_into_model_api_v1_reference_models__model_id__import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Into Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/items": {
+      "post": {
+        "operationId": "create_item_api_v1_reference_models__model_id__items_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Item",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/publish": {
+      "post": {
+        "description": "Publish a model (supersedes the previously published RM of its domain).",
+        "operationId": "publish_model_api_v1_reference_models__model_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
     "/api/v1/relations": {
       "get": {
         "operationId": "list_relations_api_v1_relations_get",
@@ -32291,7 +33513,7 @@
     },
     "/api/v1/reports/app-portfolio": {
       "get": {
-        "description": "Portfolio report: all cards of the requested type with their relations\nfor flexible client-side grouping by any attribute or related card type.\n\nDefaults to ``type=Application`` so the original Application Portfolio\nreport keeps working without changes. The Flexible Portfolio report passes\nother card type keys (BusinessCapability, Initiative, ITComponent, ...).",
+        "description": "Portfolio report: all cards of the requested type with their relations\nfor flexible client-side grouping by any attribute or related card type.\n\nDefaults to ``type=Application`` so the original Application Portfolio\nreport keeps working without changes. The Flexible Portfolio report passes\nother card type keys (BusinessCapability, Initiative, ITComponent, ...).\nOptionally filtered by segment scope.",
         "operationId": "app_portfolio_api_v1_reports_app_portfolio_get",
         "parameters": [
           {
@@ -32302,6 +33524,24 @@
               "default": "Application",
               "title": "Type",
               "type": "string"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering by segment membership.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering by segment membership.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -32517,7 +33757,7 @@
     },
     "/api/v1/reports/capability-heatmap": {
       "get": {
-        "description": "Business capability heatmap data with hierarchy.",
+        "description": "Business capability heatmap with hierarchy, plateau and segment filtering.",
         "operationId": "capability_heatmap_api_v1_reports_capability_heatmap_get",
         "parameters": [
           {
@@ -32528,6 +33768,42 @@
               "default": "app_count",
               "title": "Metric",
               "type": "string"
+            }
+          },
+          {
+            "description": "Optional plateau ID for temporal filtering",
+            "in": "query",
+            "name": "plateau_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional plateau ID for temporal filtering",
+              "title": "Plateau Id"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering by segment membership.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering by segment membership.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -32601,7 +33877,7 @@
     },
     "/api/v1/reports/cost-treemap": {
       "get": {
-        "description": "Cost treemap: items with cost, optionally grouped by a related type.\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
+        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
         "operationId": "cost_treemap_api_v1_reports_cost_treemap_get",
         "parameters": [
           {
@@ -32674,6 +33950,24 @@
                 }
               ],
               "title": "Parent Card Id"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering by segment membership.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering by segment membership.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -32764,7 +34058,7 @@
     },
     "/api/v1/reports/dependencies": {
       "get": {
-        "description": "Dependency / interface map: nodes + edges for graph rendering.",
+        "description": "Dependency / interface map: nodes + edges, plateau and segment-filtered.",
         "operationId": "dependencies_api_v1_reports_dependencies_get",
         "parameters": [
           {
@@ -32809,6 +34103,42 @@
                 }
               ],
               "title": "Type"
+            }
+          },
+          {
+            "description": "Optional plateau ID for temporal filtering",
+            "in": "query",
+            "name": "plateau_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional plateau ID for temporal filtering",
+              "title": "Plateau Id"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering by segment membership.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering by segment membership.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -33030,7 +34360,7 @@
     },
     "/api/v1/reports/landscape": {
       "get": {
-        "description": "Landscape report: cards grouped by a related type.",
+        "description": "Landscape report: cards grouped by a related type.\n\nOptionally filtered as-of a plateau date or segment scope.",
         "operationId": "landscape_api_v1_reports_landscape_get",
         "parameters": [
           {
@@ -33051,6 +34381,42 @@
               "default": "BusinessCapability",
               "title": "Group By",
               "type": "string"
+            }
+          },
+          {
+            "description": "Optional plateau ID for temporal filtering",
+            "in": "query",
+            "name": "plateau_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional plateau ID for temporal filtering",
+              "title": "Plateau Id"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering. When provided, only cards in the segment's resolved scope are included.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering. When provided, only cards in the segment's resolved scope are included.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -33082,7 +34448,7 @@
     },
     "/api/v1/reports/matrix": {
       "get": {
-        "description": "Matrix report: cross-reference grid.",
+        "description": "Matrix report: cross-reference grid. Optionally filtered by segment scope.",
         "operationId": "matrix_api_v1_reports_matrix_get",
         "parameters": [
           {
@@ -33103,6 +34469,24 @@
               "default": "BusinessCapability",
               "title": "Col Type",
               "type": "string"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering by segment membership.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering by segment membership.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -33154,7 +34538,7 @@
     },
     "/api/v1/reports/portfolio": {
       "get": {
-        "description": "Portfolio scatter/bubble chart data.",
+        "description": "Portfolio scatter/bubble chart data. Optionally filtered by segment scope.",
         "operationId": "portfolio_api_v1_reports_portfolio_get",
         "parameters": [
           {
@@ -33205,6 +34589,24 @@
               "default": "businessCriticality",
               "title": "Color Field",
               "type": "string"
+            }
+          },
+          {
+            "description": "Optional segment ID for scope filtering by segment membership.",
+            "in": "query",
+            "name": "segment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional segment ID for scope filtering by segment membership.",
+              "title": "Segment Id"
             }
           }
         ],
@@ -33273,6 +34675,24 @@
               ],
               "description": "Card type key to group by",
               "title": "Group By"
+            }
+          },
+          {
+            "description": "Filter by architecture_state (e.g., 'transition')",
+            "in": "query",
+            "name": "architecture_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by architecture_state (e.g., 'transition')",
+              "title": "Architecture State"
             }
           }
         ],

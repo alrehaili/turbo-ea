@@ -258,6 +258,18 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
         },
     },
+    "reference_models": {
+        "label": "Reference Models",
+        "permissions": {
+            "reference_models.view": (
+                "Browse reference models and their classification items across all domains"
+            ),
+            "reference_models.manage": (
+                "Create, edit, import and archive reference models and their items. "
+                "Publishing a model additionally requires governance.approve_step."
+            ),
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -457,6 +469,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "nora.manage": False,
     "maturity.view": True,
     "maturity.manage": False,
+    "reference_models.view": True,
+    "reference_models.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -552,6 +566,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "nora.manage": False,
     "maturity.view": True,
     "maturity.manage": False,
+    "reference_models.view": True,
+    "reference_models.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -647,6 +663,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "nora.manage": False,
     "maturity.view": True,
     "maturity.manage": False,
+    "reference_models.view": True,
+    "reference_models.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,

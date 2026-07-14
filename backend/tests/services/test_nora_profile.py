@@ -109,10 +109,24 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_7(self):
+    def test_profile_version_is_8(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 7
+        assert NORA_PROFILE_VERSION == 8
+
+    def test_v8_rm_code_fields_defined(self):
+        """Profile v8 — every one of the six domains has an RM code field."""
+        expected = {
+            "BusinessCapability": "brmCode",
+            "Application": "armCode",
+            "DataObject": "drmCode",
+            "ITComponent": "trmCode",
+            "GovService": "bxrmCode",
+            "SecurityControl": "srmCode",
+        }
+        for type_key, field_key in expected.items():
+            keys = {f["key"] for f in NORA_TYPE_FIELDS.get(type_key, [])}
+            assert field_key in keys, f"{type_key} is missing {field_key}"
 
     def test_pillar_card_type_defined(self):
         """Profile v6 — Pillar is a first-class card type with the
@@ -506,7 +520,13 @@ class TestApplyNoraProfile:
         # pass 4 even on an otherwise empty metamodel; no seed type is touched.
         # v4: KPI likewise receives its v4 fields via pass 4, and the
         # profile-created BeneficiaryJourney gets Journey Mapping via pass 4f.
-        assert set(summary["types_updated"]) == {"GovService", "KPI", "BeneficiaryJourney"}
+        # v8: SecurityControl receives srmCode via pass 4.
+        assert set(summary["types_updated"]) == {
+            "GovService",
+            "KPI",
+            "BeneficiaryJourney",
+            "SecurityControl",
+        }
         assert (await get_framework_profile(db))["profile"] == "nora"
 
     async def test_apply_creates_govservice_with_roles_and_relations(self, db):

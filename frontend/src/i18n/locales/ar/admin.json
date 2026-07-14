@@ -1612,5 +1612,13 @@
   "webPortals.tileIcon": "الأيقونة",
   "webPortals.tileTarget": "الرابط (مثل /reports/portfolio)",
   "turbolens_action_promote": "ترقية إلى فرصة تحسين",
-  "turbolens_promoted": "تمت الترقية"
+  "turbolens_promoted": "تمت الترقية",
+  "settings.governance.defineTypeChains": "تحديد سلاسل الاعتماد حسب النوع",
+  "settings.governance.editTypeChains": "تعديل سلاسل الاعتماد حسب النوع",
+  "settings.governance.manageTypeChains": "إدارة سلاسل الاعتماد حسب النوع",
+  "settings.governance.perTypeChains": "سلاسل الاعتماد حسب النوع",
+  "settings.governance.perTypeChainsHint": "تجاوز سلسلة المراجعة الافتراضية لأنواع بطاقات محددة — مثلًا الاكتفاء بلجنة حوكمة البنية المؤسسية لبطاقات المبادرات.",
+  "settings.governance.promotionRequiresApprovalHint": "عند التفعيل، تتطلب ترقية بطاقة مستهدفة إلى الوضع الحالي اعتمادًا حوكميًا متعدد الخطوات.",
+  "settings.governance.promotionRequiresApprovalLabel": "ترقيات الوضع المستهدف تتطلب اعتمادًا",
+  "settings.governance.selectTypeToEdit": "اختر نوع بطاقة لتحديد سلسلة الاعتماد الخاصة به أو تعديلها"
 }

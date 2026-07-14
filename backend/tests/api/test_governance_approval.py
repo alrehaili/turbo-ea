@@ -344,11 +344,13 @@ class TestPerTypeApprovalChains:
                 },
             },
         )
-        db.merge(settings)
+        await db.merge(settings)
         await db.flush()
 
         member = gov_env["member"]
-        initiative = await create_card(db, card_type="Initiative", name="Test Initiative", user_id=member.id)
+        initiative = await create_card(
+            db, card_type="Initiative", name="Test Initiative", user_id=member.id
+        )
         await db.flush()
 
         # Submit for review
@@ -369,8 +371,14 @@ class TestPerTypeApprovalChains:
 
     async def test_default_chain_used_when_type_not_customized(self, client, db, gov_env):
         """When a type has no custom chain, the global chain should be used."""
+        from sqlalchemy import text
+
         await db.execute(
-            "UPDATE app_settings SET general_settings = jsonb_set(general_settings, '{typeGovernanceChains}', '{}'::jsonb) WHERE id = 'default'"
+            text(
+                "UPDATE app_settings SET general_settings = "
+                "jsonb_set(general_settings, '{typeGovernanceChains}', '{}'::jsonb) "
+                "WHERE id = 'default'"
+            )
         )
         await _enable_governance(
             db,
@@ -445,7 +453,7 @@ class TestPerTypeApprovalChains:
                 },
             },
         )
-        db.merge(settings)
+        await db.merge(settings)
         await db.flush()
 
         member = gov_env["member"]
@@ -570,12 +578,10 @@ class TestApprovalEmailNotifications:
         )
 
         # Fetch notifications for chief — in-app notification should exist
-        notif_resp = await client.get(
-            "/api/v1/notifications", headers=auth_headers(chief)
-        )
+        notif_resp = await client.get("/api/v1/notifications", headers=auth_headers(chief))
         assert notif_resp.status_code == 200
-        notifications = notif_resp.json()
-        assert any(n["notif_type"] == "approval_step_pending" for n in notifications)
+        notifications = notif_resp.json()["items"]
+        assert any(n["type"] == "approval_step_pending" for n in notifications)
 
 
 class TestTargetPromotionGovernance:
@@ -595,7 +601,7 @@ class TestTargetPromotionGovernance:
                 "promotionRequiresApproval": True,
             },
         )
-        db.merge(settings)
+        await db.merge(settings)
         await db.flush()
 
         member = gov_env["member"]
@@ -643,7 +649,7 @@ class TestTargetPromotionGovernance:
                 "promotionRequiresApproval": False,  # Disabled
             },
         )
-        db.merge(settings)
+        await db.merge(settings)
         await db.flush()
 
         member = gov_env["member"]

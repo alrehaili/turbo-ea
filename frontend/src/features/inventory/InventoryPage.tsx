@@ -236,6 +236,7 @@ export default function InventoryPage() {
         attributes,
         relations: {},
         tagIds: [],
+        segmentIds: searchParams.get("segment_id") ? [searchParams.get("segment_id")!] : [],
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
       };
     }
@@ -256,6 +257,7 @@ export default function InventoryPage() {
         attributes: saved.filters.attributes || {},
         relations: saved.filters.relations || {},
         tagIds: saved.filters.tagIds || [],
+        segmentIds: saved.filters.segmentIds || [],
         mineScope: saved.filters.mineScope ?? null,
       };
     }
@@ -273,6 +275,7 @@ export default function InventoryPage() {
       attributes: {},
       relations: {},
       tagIds: [],
+      segmentIds: [],
       mineScope: null,
     };
   });
@@ -444,7 +447,9 @@ export default function InventoryPage() {
   useEffect(() => {
     const fetchGovernanceConfig = async () => {
       try {
-        const response = await api.get("/settings/bootstrap");
+        const response = await api.get<{
+          general_settings?: { requireRejectionComment?: boolean };
+        }>("/settings/bootstrap");
         const config = response.general_settings || {};
         setRequireRejectionComment(config.requireRejectionComment ?? false);
       } catch (e) {
@@ -1350,11 +1355,16 @@ export default function InventoryPage() {
     if (!bulkApprovalAction) return;
     setBulkApprovalLoading(true);
     try {
-      const response = await api.post("/cards/bulk-approval-action", {
-        card_ids: selectedIds,
-        action: bulkApprovalAction,
-        comment: bulkApprovalComment || undefined,
-      });
+      const response = await api.post<{
+        results?: Array<{ card_id: string; status: string; approval_status?: string; error?: string }>;
+      }>(
+        "/cards/bulk-approval-action",
+        {
+          card_ids: selectedIds,
+          action: bulkApprovalAction,
+          comment: bulkApprovalComment || undefined,
+        },
+      );
       setBulkApprovalResults(response.results || []);
       setBulkApprovalResultsOpen(true);
       setBulkApprovalOpen(false);
@@ -2496,12 +2506,6 @@ export default function InventoryPage() {
                 {t("common:actions.restore")}
               </Button>
             )}
-            <Menu
-              anchorEl={selectedIds.length > 0 ? (gridRef.current?.gridApi as any)?.element : null}
-              open={false}
-            >
-              {/* Approval actions dropdown placeholder - will be populated via Button menu */}
-            </Menu>
             <Button
               size="small"
               variant="contained"

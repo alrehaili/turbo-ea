@@ -2701,10 +2701,34 @@ async def interoperability_report(
 # NORA reference models (BRM / ARM / DRM / TRM). Options come from the card
 # type's ``fields_schema`` so admin-added options auto-appear here.
 _REFERENCE_MODELS: list[dict] = [
-    {"key": "brm", "card_type": "BusinessCapability", "field_key": "brmLevel"},
-    {"key": "arm", "card_type": "Application", "field_key": "armCategory"},
-    {"key": "drm", "card_type": "DataObject", "field_key": "dataClassification"},
-    {"key": "trm", "card_type": "ITComponent", "field_key": "hostingModel"},
+    {
+        "key": "brm",
+        "card_type": "BusinessCapability",
+        "field_key": "brmLevel",
+        "domain": "business",
+        "code_field": "brmCode",
+    },
+    {
+        "key": "arm",
+        "card_type": "Application",
+        "field_key": "armCategory",
+        "domain": "applications",
+        "code_field": "armCode",
+    },
+    {
+        "key": "drm",
+        "card_type": "DataObject",
+        "field_key": "dataClassification",
+        "domain": "data",
+        "code_field": "drmCode",
+    },
+    {
+        "key": "trm",
+        "card_type": "ITComponent",
+        "field_key": "hostingModel",
+        "domain": "technology",
+        "code_field": "trmCode",
+    },
 ]
 
 
@@ -2730,6 +2754,8 @@ async def reference_models_report(
     picked up automatically. [FORK FEATURE]
     """
     await PermissionService.require_permission(db, user, "nora.view")
+
+    from app.services.reference_models import items_for, resolve_active_model
 
     ct_rows = await db.execute(select(CardType))
     ct_by_key = {ct.key: ct for ct in ct_rows.scalars().all()}
@@ -2760,6 +2786,7 @@ async def reference_models_report(
         distribution: dict[str, int] = {opt["key"]: 0 for opt in options}
         total = 0
         uncategorised = 0
+        code_values: list[str] = []
         cards_res = await db.execute(
             select(Card.attributes).where(
                 Card.type == entry["card_type"], Card.status != "ARCHIVED"
@@ -2772,6 +2799,9 @@ async def reference_models_report(
                 distribution[val] += 1
             else:
                 uncategorised += 1
+            code = (attributes or {}).get(entry["code_field"])
+            if isinstance(code, str) and code.strip():
+                code_values.append(code.strip())
 
         model_out.update(
             {
@@ -2789,6 +2819,23 @@ async def reference_models_report(
                 "distribution": distribution,
             }
         )
+
+        # Coverage against the published Reference Model of this domain
+        # (WP100.3): how many cards carry a code that resolves to an RM item.
+        rm_model = await resolve_active_model(db, entry["domain"])
+        if rm_model is not None:
+            item_codes = {i.code for i in await items_for(db, rm_model.id)}
+            mapped = sum(1 for v in code_values if v in item_codes)
+            model_out["reference_model"] = {
+                "id": str(rm_model.id),
+                "name": rm_model.name,
+                "name_ar": rm_model.name_ar,
+                "version": rm_model.version,
+                "item_count": len(item_codes),
+                "mapped": mapped,
+                "unmatched": len(code_values) - mapped,
+                "uncoded": total - len(code_values),
+            }
         models.append(model_out)
 
     return {"models": models}
