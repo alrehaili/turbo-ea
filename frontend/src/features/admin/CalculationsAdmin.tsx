@@ -121,7 +121,7 @@ function highlightLine(line: string): string {
         result += `<span class="hl-constant">${escapeHtml(word)}</span>`;
       } else if (FORMULA_KEYWORDS.has(word)) {
         result += `<span class="hl-keyword">${escapeHtml(word)}</span>`;
-      } else if (word === "data" || word === "relations" || word === "relation_count" || word === "children" || word === "children_count") {
+      } else if (word === "data" || word === "relations" || word === "relation_count" || word === "children" || word === "children_count" || word === "parent" || word === "hierarchy_level") {
         result += `<span class="hl-context">${escapeHtml(word)}</span>`;
       } else {
         result += escapeHtml(word);
@@ -186,6 +186,8 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       { insert: "relation_count", label: "relation_count", detail: "Relation counts by type", category: "Context" },
       { insert: "children", label: "children", detail: "Child cards list", category: "Context" },
       { insert: "children_count", label: "children_count", detail: "Number of children", category: "Context" },
+      { insert: "parent", label: "parent", detail: "Parent card object (or None)", category: "Context" },
+      { insert: "hierarchy_level", label: "hierarchy_level", detail: "Depth in hierarchy (1 = root)", category: "Context" },
       { insert: "None", label: "None", detail: "Null value", category: "Constants" },
       { insert: "True", label: "True", detail: "Boolean true", category: "Constants" },
       { insert: "False", label: "False", detail: "Boolean false", category: "Constants" },
@@ -530,6 +532,12 @@ COALESCE(data.budgetCapEx, 0) + COALESCE(data.budgetOpEx, 0)
 # Count related applications
 relation_count.relAppToITC
 
+# Inherit a value from the parent card (fall back to own value at the root)
+IF(parent, parent.attributes.businessCriticality, data.businessCriticality)
+
+# Score by depth in the hierarchy (1 = root)
+hierarchy_level * 10
+
 # Weighted score
 scores = {"perfect": 4, "good": 3, "adequate": 2, "poor": 1}
 MAP_SCORE(data.stability, scores) * 0.5 + MAP_SCORE(data.security, scores) * 0.5
@@ -633,6 +641,14 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
     { name: 'MAP_SCORE(val, {"a":1,...})', desc: "Map key to score" },
   ];
 
+  const contextVars = [
+    { name: "parent", desc: t("calculations.ctxParent") },
+    { name: "parent.attributes.<key>", desc: t("calculations.ctxParentAttributes") },
+    { name: "hierarchy_level", desc: t("calculations.ctxHierarchyLevel") },
+    { name: "children", desc: t("calculations.ctxChildren") },
+    { name: "children_count", desc: t("calculations.ctxChildrenCount") },
+  ];
+
   return (
     <Accordion sx={{ mt: 2 }}>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
@@ -688,6 +704,24 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
               </Typography>
             </Box>
           )}
+
+          <Box>
+            <Typography variant="caption" fontWeight={600} gutterBottom>
+              {t("calculations.contextVariables")}
+            </Typography>
+            <Table size="small" sx={{ mt: 0.5 }}>
+              <TableBody>
+                {contextVars.map((cv) => (
+                  <TableRow key={cv.name}>
+                    <TableCell sx={{ fontFamily: "monospace", fontSize: "0.75rem", py: 0.25, whiteSpace: "nowrap" }}>
+                      {cv.name}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "0.75rem", py: 0.25 }}>{cv.desc}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
 
           <Box>
             <Typography variant="caption" fontWeight={600} gutterBottom>
