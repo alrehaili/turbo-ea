@@ -495,7 +495,7 @@ function CapabilityCard({
           <Chip
             size="small"
             label={fmtVal(val)}
-            sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
+            sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)", color: "#333" }}
           />
           {node.deepRiskCount > 0 && metric !== "risk_count" && (
             <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
@@ -566,7 +566,7 @@ function CapabilityCard({
         <Chip
           size="small"
           label={t("capabilityMap.apps", { count: node.deepAppCount })}
-          sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
+          sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)", color: "#333" }}
         />
         {node.deepRiskCount > 0 && metric !== "risk_count" && (
           <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>

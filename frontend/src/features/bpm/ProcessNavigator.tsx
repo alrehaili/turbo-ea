@@ -10,6 +10,8 @@ import {
   useMemo,
   useCallback,
   useRef,
+  lazy,
+  Suspense,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -41,12 +43,20 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Skeleton from "@mui/material/Skeleton";
 import Autocomplete from "@mui/material/Autocomplete";
 import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Button from "@mui/material/Button";
 import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
+import type { ProcessElement, ProcessFlowVersion } from "@/types";
+
+const LazyBpmnViewer = lazy(() => import("./BpmnViewer"));
 
 /* ================================================================== */
 /*  Types                                                              */
@@ -130,7 +140,10 @@ const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] =
   { key: "riskLevel", labelKey: "navigator.overlayRisk", icon: "warning" },
 ];
 
-const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
+// Exported for the issue #762 regression test (key parity with the seeded
+// automationLevel options); it is a plain constant, not a component.
+// eslint-disable-next-line react-refresh/only-export-components
+export const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
   processType: {
     core: { label: "Core", color: "#1565c0" },
     support: { label: "Support", color: "#7b1fa2" },
@@ -145,8 +158,8 @@ const ATTR_COLORS: Record<string, Record<string, { label: string; color: string 
   },
   automationLevel: {
     manual: { label: "Manual", color: "#d32f2f" },
-    partially: { label: "Partial", color: "#f57c00" },
-    fully: { label: "Fully Auto", color: "#2e7d32" },
+    partiallyAutomated: { label: "Partial", color: "#f57c00" },
+    fullyAutomated: { label: "Fully Auto", color: "#2e7d32" },
   },
   riskLevel: {
     low: { label: "Low", color: "#66bb6a" },
@@ -323,6 +336,7 @@ function HouseCard({
   rowType,
   onOpen,
   onDrill,
+  onViewFlow,
   dragRef,
   onDragDrop,
 }: {
@@ -334,6 +348,7 @@ function HouseCard({
   rowType?: string;
   onOpen: (n: ProcNode) => void;
   onDrill: (id: string) => void;
+  onViewFlow: (n: ProcNode) => void;
   dragRef?: React.MutableRefObject<{ id: string; rowType: string } | null>;
   onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
@@ -454,6 +469,7 @@ function HouseCard({
               fontWeight: 600,
               fontSize: "0.82rem",
               flex: 1,
+              minWidth: 0,
               lineHeight: 1.3,
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -463,11 +479,6 @@ function HouseCard({
           >
             {node.name}
           </Typography>
-          {subtypeLabel && (
-            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0, ml: 0.5 }}>
-              {subtypeLabel}
-            </Typography>
-          )}
         </Box>
 
         {/* Footer badges */}
@@ -483,13 +494,18 @@ function HouseCard({
             borderColor: "divider",
           }}
         >
+          {subtypeLabel && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem", flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {subtypeLabel}
+            </Typography>
+          )}
           {node.deepAppCount > 0 && (
             <Tooltip title={t("navigator.applicationCount", { count: node.deepAppCount })}>
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="apps" size={12} />}
                 label={node.deepAppCount}
-                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover" }}
+                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover", flexShrink: 0 }}
               />
             </Tooltip>
           )}
@@ -499,13 +515,37 @@ function HouseCard({
                 size="small"
                 icon={<MaterialSymbol icon="checklist" size={12} />}
                 label={node.element_count}
-                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover" }}
+                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover", flexShrink: 0 }}
               />
             </Tooltip>
           )}
           {hasDiagram && (
-            <Tooltip title={t("navigator.hasBpmnDiagram")}>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Tooltip title={t("navigator.viewFlow")}>
+              <Box
+                role="button"
+                tabIndex={0}
+                aria-label={t("navigator.viewFlow")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewFlow(node);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onViewFlow(node);
+                  }
+                }}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  borderRadius: 1,
+                  p: 0.25,
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
                 <MaterialSymbol icon="schema" size={14} color="#7b1fa2" />
               </Box>
             </Tooltip>
@@ -527,6 +567,7 @@ function HouseCard({
                   bgcolor: color,
                   color: "#fff",
                   cursor: "pointer",
+                  flexShrink: 0,
                   "&:hover": { opacity: 0.85 },
                 }}
               />
@@ -587,7 +628,7 @@ function HouseCard({
           bgcolor: color,
           color: "#fff",
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 0.5,
           cursor: "pointer",
           "&:hover": { opacity: 0.9 },
@@ -598,83 +639,128 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
-        {nestedDrag && (
-          <Box
-            onMouseDown={() => { dragHandleActive.current = true; }}
-            onMouseUp={() => { dragHandleActive.current = false; }}
-            sx={{
-              opacity: 0.5,
-              transition: "opacity 0.15s",
-              cursor: "grab",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              p: 0.25,
-              ml: -0.5,
-              borderRadius: 0.5,
-              zIndex: 2,
-              position: "relative",
-              bgcolor: "rgba(255,255,255,0.25)",
-              "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
-              "&:active": { cursor: "grabbing" },
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MaterialSymbol icon="drag_indicator" size={16} />
-          </Box>
-        )}
-        <Typography
-          variant="body2"
-          sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
-        >
-          {node.name}
-        </Typography>
-        {subtypeLabel && (
-          <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0, ml: 0.5 }}>
-            {subtypeLabel}
-          </Typography>
-        )}
-        {(hasDiagram || hasElements) && (
-          <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
-            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85 }}>
-              <MaterialSymbol icon="schema" size={16} />
-              {hasElements && (
-                <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
-                  {node.element_count}
-                </Typography>
-              )}
-            </Box>
-          </Tooltip>
-        )}
-        <Chip
-          size="small"
-          label={childCount}
-          sx={{
-            height: 20,
-            fontSize: "0.65rem",
-            fontWeight: 600,
-            bgcolor: "rgba(255,255,255,0.25)",
-            color: "#fff",
-            ml: 0.5,
-          }}
-        />
-        {!isNested && (
-          <Tooltip title={t("navigator.drillDown")}>
-            <IconButton
-              size="small"
-              onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
+        {/* Title row — the name gets the full width */}
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+          {nestedDrag && (
+            <Box
+              onMouseDown={() => { dragHandleActive.current = true; }}
+              onMouseUp={() => { dragHandleActive.current = false; }}
               sx={{
+                opacity: 0.5,
+                transition: "opacity 0.15s",
+                cursor: "grab",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
                 p: 0.25,
-                ml: 0.25,
-                color: "#fff",
-                opacity: 0.7,
-                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+                ml: -0.5,
+                borderRadius: 0.5,
+                zIndex: 2,
+                position: "relative",
+                bgcolor: "rgba(255,255,255,0.25)",
+                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
+                "&:active": { cursor: "grabbing" },
               }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <MaterialSymbol icon="zoom_in" size={18} />
-            </IconButton>
+              <MaterialSymbol icon="drag_indicator" size={16} />
+            </Box>
+          )}
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 700,
+              fontSize: "0.82rem",
+              flex: 1,
+              minWidth: 0,
+              lineHeight: 1.3,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {node.name}
+          </Typography>
+        </Box>
+        {/* Meta row — subtype label, counts, and the drill affordance */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minHeight: 20 }}>
+          {subtypeLabel && (
+            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {subtypeLabel}
+            </Typography>
+          )}
+          <Box sx={{ flex: 1 }} />
+          {(hasDiagram || hasElements) && (
+            <Tooltip title={hasDiagram ? t("navigator.viewFlow") : t("navigator.bpmnElementCount", { count: node.element_count })}>
+              <Box
+                role={hasDiagram ? "button" : undefined}
+                tabIndex={hasDiagram ? 0 : undefined}
+                aria-label={hasDiagram ? t("navigator.viewFlow") : undefined}
+                onClick={hasDiagram ? (e) => {
+                  e.stopPropagation();
+                  onViewFlow(node);
+                } : undefined}
+                onKeyDown={hasDiagram ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onViewFlow(node);
+                  }
+                } : undefined}
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.25,
+                  opacity: 0.85,
+                  flexShrink: 0,
+                  borderRadius: 1,
+                  p: 0.25,
+                  cursor: hasDiagram ? "pointer" : "default",
+                  ...(hasDiagram && { "&:hover": { bgcolor: "rgba(255,255,255,0.2)", opacity: 1 } }),
+                }}
+              >
+                <MaterialSymbol icon="schema" size={16} />
+                {hasElements && (
+                  <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
+                    {node.element_count}
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          )}
+          <Tooltip title={t("navigator.subProcessDrillDown", { count: childCount })}>
+            <Chip
+              size="small"
+              label={childCount}
+              sx={{
+                height: 20,
+                fontSize: "0.65rem",
+                fontWeight: 600,
+                bgcolor: "rgba(255,255,255,0.25)",
+                color: "#fff",
+                flexShrink: 0,
+              }}
+            />
           </Tooltip>
-        )}
+          {!isNested && (
+            <Tooltip title={t("navigator.drillDown")}>
+              <IconButton
+                size="small"
+                onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
+                sx={{
+                  p: 0.25,
+                  color: "#fff",
+                  opacity: 0.7,
+                  flexShrink: 0,
+                  "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+                }}
+              >
+                <MaterialSymbol icon="zoom_in" size={18} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       </Box>
       <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
         {node.children.map((ch) => (
@@ -688,6 +774,7 @@ function HouseCard({
               rowType={node.id}
               onOpen={onOpen}
               onDrill={onDrill}
+              onViewFlow={onViewFlow}
               dragRef={dragRef}
               onDragDrop={onDragDrop}
             />
@@ -1286,6 +1373,114 @@ function DrawerFlow({
 }
 
 /* ================================================================== */
+/*  Fullscreen Flow Preview Dialog                                     */
+/* ================================================================== */
+
+function FlowPreviewDialog({
+  node,
+  onClose,
+  onNavigate,
+}: {
+  node: ProcNode;
+  onClose: () => void;
+  onNavigate: (path: string) => void;
+}) {
+  const { t } = useTranslation(["bpm", "common"]);
+  const [loading, setLoading] = useState(true);
+  const [bpmnXml, setBpmnXml] = useState<string | null>(null);
+  const [elements, setElements] = useState<ProcessElement[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setBpmnXml(null);
+    setElements([]);
+    Promise.all([
+      api
+        .get<ProcessFlowVersion | null>(`/bpm/processes/${node.id}/flow/published`)
+        .catch(() => null),
+      api
+        .get<ProcessElement[]>(`/bpm/processes/${node.id}/elements`)
+        .catch(() => [] as ProcessElement[]),
+    ])
+      .then(([pub, els]) => {
+        if (cancelled) return;
+        setBpmnXml(pub?.bpmn_xml ?? null);
+        setElements(els ?? []);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [node.id]);
+
+  const openFlowEditor = () => onNavigate(`/cards/${node.id}?tab=1`);
+
+  return (
+    <Dialog open onClose={onClose} fullScreen>
+      <AppBar position="relative" color="default" elevation={1}>
+        <Toolbar>
+          <IconButton edge="start" onClick={onClose} aria-label={t("common:actions.close")}>
+            <MaterialSymbol icon="close" />
+          </IconButton>
+          <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" noWrap>
+            {node.name} &mdash; {t("navigator.flow")}
+          </Typography>
+          <Button
+            color="inherit"
+            startIcon={<MaterialSymbol icon="open_in_new" />}
+            onClick={openFlowEditor}
+          >
+            {t("navigator.viewFlow")}
+          </Button>
+        </Toolbar>
+      </AppBar>
+      <DialogContent sx={{ p: 0, display: "flex", flexDirection: "column" }}>
+        {loading ? (
+          <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", py: 6 }}>
+            <CircularProgress size={40} />
+          </Box>
+        ) : !bpmnXml ? (
+          <Box sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 6 }}>
+            <MaterialSymbol icon="schema" size={48} color="#ccc" />
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              {t("navigator.noProcessFlow")}
+            </Typography>
+            <Chip
+              size="small"
+              icon={<MaterialSymbol icon="open_in_new" size={14} />}
+              label={t("navigator.goToProcessFlow")}
+              onClick={openFlowEditor}
+              color="primary"
+              sx={{ mt: 1.5, cursor: "pointer" }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <Suspense
+              fallback={
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 116px)" }}>
+                  <CircularProgress size={40} />
+                </Box>
+              }
+            >
+              <LazyBpmnViewer
+                bpmnXml={bpmnXml}
+                elements={elements}
+                onElementClick={() => {}}
+                height="calc(100vh - 116px)"
+              />
+            </Suspense>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
 /*  Drawer Tab: Apps                                                   */
 /* ================================================================== */
 
@@ -1868,6 +2063,7 @@ export default function ProcessNavigator() {
   const [overlay, setOverlay] = useState<ColorOverlay>(overlayParam);
   const [zoomNodeId, setZoomNodeId] = useState<string | null>(zoomParam);
   const [drawerNode, setDrawerNode] = useState<ProcNode | null>(null);
+  const [flowNode, setFlowNode] = useState<ProcNode | null>(null);
   const [orgFilter, setOrgFilter] = useState<RefItem[]>([]);
 
   // ── Load data ──
@@ -1991,6 +2187,8 @@ export default function ProcessNavigator() {
     (node: ProcNode) => setDrawerNode(node),
     [],
   );
+
+  const handleViewFlow = useCallback((node: ProcNode) => setFlowNode(node), []);
 
   const handleDrill = useCallback((id: string) => {
     setZoomNodeId(id);
@@ -2441,6 +2639,7 @@ export default function ProcessNavigator() {
                               rowType={rowType}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
+                              onViewFlow={handleViewFlow}
                               dragRef={dragRef}
                               onDragDrop={handleDragDrop}
                             />
@@ -2470,6 +2669,7 @@ export default function ProcessNavigator() {
                               rowType={rowType}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
+                              onViewFlow={handleViewFlow}
                               dragRef={dragRef}
                               onDragDrop={handleDragDrop}
                             />
@@ -2513,6 +2713,15 @@ export default function ProcessNavigator() {
           />
         )}
       </Drawer>
+
+      {/* ── Fullscreen Flow Preview ── */}
+      {flowNode && (
+        <FlowPreviewDialog
+          node={flowNode}
+          onClose={() => setFlowNode(null)}
+          onNavigate={handleNavigate}
+        />
+      )}
     </Box>
   );
 }

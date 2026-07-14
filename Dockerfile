@@ -38,7 +38,12 @@ COPY --from=backend-build /app/bpmn_templates ./bpmn_templates
 # pip is never executed at runtime — this only silences Trivy noise on the image.
 RUN pip install --no-cache-dir --upgrade 'pip>=26.1'
 
-RUN chown -R ${APP_UID}:${APP_GID} /app
+# /app/data is the mountpoint of the backend_data named volume (uploads,
+# installed extensions, workspace transfers). It MUST exist in the image
+# owned by appuser: Docker copies the mountpoint's ownership into a fresh
+# named volume, and without this the volume is created root-owned — the
+# non-root backend (cap_drop: ALL) then cannot write any upload.
+RUN mkdir -p /app/data && chown -R ${APP_UID}:${APP_GID} /app
 
 USER ${APP_UID}:${APP_GID}
 
@@ -170,6 +175,25 @@ case "$ipv6_enabled" in
         ;;
 esac
 
+# Pick the DNS resolver for request-time upstream resolution. Docker publishes its
+# embedded DNS at 127.0.0.11 and writes it into /etc/resolv.conf; Podman
+# (netavark/aardvark-dns) uses a different address and does NOT answer at 127.0.0.11,
+# so a hard-coded 127.0.0.11 makes every proxied request 502 under Podman (issue #789).
+# Read the first nameserver from the container's own resolv.conf so one image works on
+# both runtimes; allow an explicit NGINX_RESOLVER override.
+if [ -n "${NGINX_RESOLVER:-}" ]; then
+    resolver_addr="$NGINX_RESOLVER"
+else
+    resolver_addr=$(awk '$1 == "nameserver" { print $2; exit }' /etc/resolv.conf 2>/dev/null || true)
+    [ -n "$resolver_addr" ] || resolver_addr="127.0.0.11"
+fi
+# nginx requires IPv6 resolver addresses in bracket form.
+case "$resolver_addr" in
+    \[*\]) ;;
+    *:*) resolver_addr="[$resolver_addr]" ;;
+esac
+resolver_directive="resolver ${resolver_addr} valid=30s ipv6=off;"
+
 export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
 export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
 
@@ -219,10 +243,10 @@ ${nginx_https_ipv6_line}
     ssl_certificate ${NGINX_TLS_CERT_PATH};
     ssl_certificate_key ${NGINX_TLS_KEY_PATH};
 
-    resolver 127.0.0.11 valid=30s;
+    ${resolver_directive}
 
-    # Resolve service hostnames through Docker's embedded DNS at request time
-    # (the resolver above only re-resolves when the upstream is a variable).
+    # Resolve service hostnames through the container DNS resolver (Docker or Podman)
+    # at request time (the resolver above only re-resolves when the upstream is a variable).
     # A literal \"proxy_pass http://backend:8000\" caches the IP at startup, so
     # if backend/frontend are recreated (new IP) while this nginx keeps running
     # — e.g. after \"docker compose pull && up -d\" — every proxied request 502s
@@ -265,6 +289,47 @@ ${nginx_https_ipv6_line}
         add_header X-XSS-Protection \"1; mode=block\" always;
         add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+
+    # OAuth 2.1 discovery (RFC 9728 / RFC 8414). Standard MCP clients fetch these
+    # at the host root, not under /mcp/, so they must be routed to the MCP server
+    # explicitly — otherwise they fall through to the SPA catch-all and return
+    # index.html, breaking discovery ('JSON Parse error: Unrecognized token <').
+    # ^~ makes these prefixes win over the SPA regex; the rewrite collapses any
+    # RFC 8414 resource suffix (e.g. .../oauth-authorization-server/mcp) to the
+    # bare canonical path the MCP server serves.
+    location ^~ /.well-known/oauth-authorization-server {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-authorization-server break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    location ^~ /.well-known/oauth-protected-resource {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-protected-resource break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    # Clean MCP endpoint URL. The MCP server serves its Streamable-HTTP endpoint
+    # at internal /mcp; without this exact-match block a bare external /mcp would
+    # miss 'location /mcp/' and hit the SPA catch-all, so clients had to use the
+    # doubled /mcp/mcp. This maps external /mcp -> internal /mcp; /mcp/mcp still
+    # works via the prefixed block below for already-configured clients.
+    location = /mcp {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /mcp break;
+        proxy_pass \$mcp_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
     }
 
     location /mcp/ {
@@ -340,10 +405,10 @@ ${nginx_http_ipv6_line}
         proxy_read_timeout 86400s;
     }
 
-    resolver 127.0.0.11 valid=30s;
+    ${resolver_directive}
 
-    # Resolve service hostnames through Docker's embedded DNS at request time
-    # (the resolver above only re-resolves when the upstream is a variable).
+    # Resolve service hostnames through the container DNS resolver (Docker or Podman)
+    # at request time (the resolver above only re-resolves when the upstream is a variable).
     # A literal \"proxy_pass http://backend:8000\" caches the IP at startup, so
     # if backend/frontend are recreated (new IP) while this nginx keeps running
     # — e.g. after \"docker compose pull && up -d\" — every proxied request 502s
@@ -384,6 +449,47 @@ ${nginx_http_ipv6_line}
         add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header X-XSS-Protection \"1; mode=block\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+
+    # OAuth 2.1 discovery (RFC 9728 / RFC 8414). Standard MCP clients fetch these
+    # at the host root, not under /mcp/, so they must be routed to the MCP server
+    # explicitly — otherwise they fall through to the SPA catch-all and return
+    # index.html, breaking discovery ('JSON Parse error: Unrecognized token <').
+    # ^~ makes these prefixes win over the SPA regex; the rewrite collapses any
+    # RFC 8414 resource suffix (e.g. .../oauth-authorization-server/mcp) to the
+    # bare canonical path the MCP server serves.
+    location ^~ /.well-known/oauth-authorization-server {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-authorization-server break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    location ^~ /.well-known/oauth-protected-resource {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-protected-resource break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    # Clean MCP endpoint URL. The MCP server serves its Streamable-HTTP endpoint
+    # at internal /mcp; without this exact-match block a bare external /mcp would
+    # miss 'location /mcp/' and hit the SPA catch-all, so clients had to use the
+    # doubled /mcp/mcp. This maps external /mcp -> internal /mcp; /mcp/mcp still
+    # works via the prefixed block below for already-configured clients.
+    location = /mcp {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /mcp break;
+        proxy_pass \$mcp_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
     }
 
     location /mcp/ {

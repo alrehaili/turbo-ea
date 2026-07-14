@@ -100,6 +100,53 @@ async def _purge_mutation_batches_loop() -> None:
             logger.exception("Error in mutation-batch purge loop")
 
 
+async def _ops_access_maintenance_loop() -> None:
+    """Hourly maintenance for the control-plane ops API: deactivate time-boxed
+    rescue accounts past ``access_expires_at`` (defense in depth on top of the
+    ``get_current_user`` check) and purge old signed-request nonces. A no-op on
+    self-hosted installs — no rescue accounts, no nonces ever exist."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import delete, select
+
+    from app.database import async_session
+    from app.models.ops_nonce import OpsRequestNonce
+    from app.models.user import User
+
+    while True:
+        try:
+            await asyncio.sleep(3600)
+            async with async_session() as db:
+                now = datetime.now(timezone.utc)
+                expired = (
+                    (
+                        await db.execute(
+                            select(User).where(
+                                User.access_expires_at.isnot(None),
+                                User.access_expires_at < now,
+                                User.is_active == True,  # noqa: E712
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                for user in expired:
+                    user.is_active = False
+                    user.password_setup_token = None
+                    logger.info("Deactivated expired rescue account %s", user.id)
+                await db.execute(
+                    delete(OpsRequestNonce).where(
+                        OpsRequestNonce.created_at < now - timedelta(hours=1)
+                    )
+                )
+                await db.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in ops access maintenance loop")
+
+
 async def _purge_archived_cards_loop() -> None:
     """Background loop that permanently deletes cards archived past the
     admin-configured retention window.
@@ -225,6 +272,32 @@ async def _kpi_snapshot_loop() -> None:
             await asyncio.sleep(3600)
 
 
+async def _license_refresh_loop() -> None:
+    """Daily loop that auto-renews the extension license from the store.
+
+    Only acts when the active license carries a store-issued renewal
+    credential and an entitlement is close to expiry; a renewing Stripe
+    subscription then extends the license with no customer action. Silent
+    on air-gapped / offline installs (the fetch just fails debug-quietly),
+    and manually issued licenses are never touched. Runs shortly after
+    boot (catch-up after downtime) and then every 24h.
+    """
+    from app.database import async_session
+    from app.services.extensions.license_refresh import refresh_license_if_due
+
+    delay = 120  # first attempt shortly after boot, then daily
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = 24 * 3600
+            async with async_session() as db:
+                await refresh_license_if_due(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in extension license refresh loop")
+
+
 async def _promote_recurring_tasks_loop() -> None:
     """Daily background loop that flips eligible ``scheduled`` recurring
     items to ``open`` once their lead-time window opens.
@@ -272,6 +345,66 @@ async def _promote_recurring_tasks_loop() -> None:
             # Same backoff pattern as the KPI loop — avoid a tight retry
             # spiral if the DB is unavailable.
             await asyncio.sleep(3600)
+
+
+# Marker in app_settings.general_settings recording that the one-shot
+# canonical data-quality rescore has run on this install.
+_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDone"
+
+
+async def _one_shot_data_quality_rescore() -> None:
+    """Rescore every card with the canonical scorer, once per install.
+
+    Existing installs can carry non-canonical ``data_quality`` values from two
+    historic sources: the demo seed's insert-time approximation (which cannot
+    see the relation/tag/stakeholder buckets) and workspace imports made by
+    importer versions that scored cards before their relations were applied.
+    Both inflate or depress the Dashboard's Average Completion until each card
+    is individually edited. This one-shot heals the whole inventory on the
+    first startup after upgrading; a marker in ``app_settings`` makes every
+    later boot a no-op (discussion #667).
+    """
+    from app.database import async_session
+
+    try:
+        async with async_session() as db:
+            changed = await run_dq_rescore_once(db)
+            await db.commit()
+            if changed:
+                logger.info(
+                    "One-shot data-quality rescore updated %d card(s) to canonical scores",
+                    changed,
+                )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # Marker not written — the rescore retries on the next startup.
+        logger.exception("One-shot data-quality rescore failed")
+
+
+async def run_dq_rescore_once(db) -> int | None:
+    """Rescore all cards unless the settings marker says it already ran.
+
+    Returns the changed-card count, or ``None`` when the marker was set and
+    nothing was done. The caller commits.
+    """
+    from sqlalchemy import select
+
+    from app.models.app_settings import AppSettings
+    from app.services.data_quality import recompute_all_data_quality
+
+    row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if row is not None and (row.general_settings or {}).get(_DQ_RESCORE_FLAG):
+        return None
+    changed = await recompute_all_data_quality(db)
+    if row is None:
+        row = AppSettings(id="default", general_settings={}, email_settings={})
+        db.add(row)
+    row.general_settings = {**(row.general_settings or {}), _DQ_RESCORE_FLAG: True}
+    await db.flush()
+    return changed
 
 
 async def _ensure_initial_kpi_snapshot() -> None:
@@ -506,23 +639,11 @@ async def lifespan(app: FastAPI):
         _res = await _db.execute(_sel(AppSettings).where(AppSettings.id == "default"))
         _row = _res.scalar_one_or_none()
         if _row and _row.email_settings:
-            _email = _row.email_settings
-            if _email.get("smtp_host"):
-                settings.SMTP_HOST = _email["smtp_host"]
-            if _email.get("smtp_port"):
-                settings.SMTP_PORT = int(_email["smtp_port"])
-            if _email.get("smtp_user"):
-                settings.SMTP_USER = _email["smtp_user"]
-            if _email.get("smtp_password"):
-                from app.core.encryption import decrypt_value
+            from app.services.email_backends.runtime import apply_email_settings_to_runtime
 
-                settings.SMTP_PASSWORD = decrypt_value(_email["smtp_password"])
-            if _email.get("smtp_from"):
-                settings.SMTP_FROM = _email["smtp_from"]
-            if "smtp_tls" in _email:
-                settings.SMTP_TLS = bool(_email["smtp_tls"])
-            if _email.get("app_base_url"):
-                settings._app_base_url = _email["app_base_url"]
+            # Shared with PATCH /settings/email and the workspace importer, so
+            # the method + OAuth/Graph fields survive a restart like smtp_*.
+            apply_email_settings_to_runtime(_row.email_settings)
         # Seed the app title from the general_settings JSONB so email templates
         # and any other consumers can read it off the singleton without a DB query.
         if _row and _row.general_settings:
@@ -714,6 +835,17 @@ async def lifespan(app: FastAPI):
             else:
                 print("[seed_extended] Skipped: already seeded")
 
+    # ── Extension Store: mint/load the instance ID (licensing identity —
+    # must exist before the registry evaluates license binding), then
+    # reconcile statuses, load license/registry, run per-extension
+    # migrations, fire on_startup hooks, spawn job loops.
+    from app.services.extensions.instance_id import ensure_instance_id
+    from app.services.extensions.startup import initialize_extensions
+
+    async with async_session() as db:
+        await ensure_instance_id(db)
+    extension_job_tasks = await initialize_extensions(extension_load_report)
+
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None
     if settings.AI_AUTO_CONFIGURE:
@@ -738,9 +870,27 @@ async def lifespan(app: FastAPI):
     # scheduled cycles to open once their lead window opens.
     promote_task = asyncio.create_task(_promote_recurring_tasks_loop())
 
+    # Daily extension-license auto-renewal from the store (no-op for
+    # manually issued licenses and on air-gapped installs).
+    license_refresh_task = asyncio.create_task(_license_refresh_loop())
+
+    # One-shot canonical data-quality rescore (guarded by a settings marker;
+    # a no-op on every boot after the first successful run).
+    dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
+
+    # Hourly ops-access maintenance: expire rescue accounts + purge ops nonces.
+    ops_access_task = asyncio.create_task(_ops_access_maintenance_loop())
+
     yield
 
     # Cancel background tasks on shutdown
+    for ext_task in extension_job_tasks:
+        ext_task.cancel()
+    for ext_task in extension_job_tasks:
+        try:
+            await ext_task
+        except asyncio.CancelledError:
+            pass
     purge_task.cancel()
     try:
         await purge_task
@@ -761,6 +911,22 @@ async def lifespan(app: FastAPI):
         await promote_task
     except asyncio.CancelledError:
         pass
+    license_refresh_task.cancel()
+    try:
+        await license_refresh_task
+    except asyncio.CancelledError:
+        pass
+    ops_access_task.cancel()
+    try:
+        await ops_access_task
+    except asyncio.CancelledError:
+        pass
+    if not dq_rescore_task.done():
+        dq_rescore_task.cancel()
+        try:
+            await dq_rescore_task
+        except asyncio.CancelledError:
+            pass
     if ollama_task and not ollama_task.done():
         ollama_task.cancel()
         try:
@@ -882,6 +1048,21 @@ async def capture_request_origin(request, call_next):
 
 
 app.middleware("http")(capture_request_origin)
+
+# ── Extension Store: load vendor-signed extensions BEFORE mounting the API ──
+# Routes are static once the app serves, so extension routers must be mounted
+# here; activation (enabled + license entitlement) is enforced per-request by
+# require_extension. Every installed bundle's signature is re-verified on each
+# boot; a broken extension is quarantined and can never block core startup.
+from app.services.extensions.loader import (  # noqa: E402
+    load_extensions,
+    merge_extension_permissions,
+    mount_extension_routers,
+)
+
+extension_load_report = load_extensions()
+mount_extension_routers(api_router, extension_load_report)
+merge_extension_permissions(extension_load_report)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 

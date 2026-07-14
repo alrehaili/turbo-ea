@@ -31,8 +31,10 @@ Clicca **+ Nuova rilevazione** nella toolbar Conformità per aprire il dialogo d
 | **Lacuna** | Descrizione della lacuna o osservazione. |
 | **Evidenza** | Evidenza di supporto, note di audit, link. |
 | **Rimedio** | Rimedio suggerito. Usato come seme per il task di mitigazione se in seguito promuovi la rilevazione a un Rischio. |
-| **Card collegata** | Opzionale — restringere la rilevazione a una specifica Applicazione, Componente IT o altra card. |
+| **Ambito** | Obbligatorio. Scegli **Una scheda specifica** — restringere la rilevazione a una singola Applicazione o Componente IT — oppure **L'intero paesaggio** per una lacuna sistemica, a livello dell'intero parco, che nessuna singola card possiede (es. una procedura a livello di organizzazione mancante). Le rilevazioni di paesaggio sono mostrate in verde nella colonna **Card**. |
 | **Rischio collegato** | Opzionale — pre-collegare a un Rischio esistente se uno già traccia questa lacuna. |
+
+Ogni rilevazione deve essere circoscritta a una card specifica o all'intero paesaggio — non esiste uno stato ambiguo «senza card». L'ambito paesaggio è una scelta a pieno titolo, non un campo vuoto: anche le scansioni IA producono rilevazioni a livello di paesaggio per controlli sistemici che coprono l'intero parco.
 
 `compliance.manage` è richiesto per creare, modificare, ritirare o bulk-azionare rilevazioni. `compliance.view` basta per leggere il registro e triagiare dalla scheda Conformità a livello di card.
 
@@ -105,7 +107,7 @@ La scheda Conformità mostra anche un **KPI complessivo di conformità** in cima
 
 ## Conformità su una singola card
 
-![Dettaglio della card — scheda Conformità](../assets/img/it/56_card_compliance_tab.png)
+![Dettaglio della card — scheda Conformità](../assets/img/it/56_scheda_conformita_tab.png)
 
 Le card in scope di qualsiasi rilevazione espongono anche una scheda **Conformità** sulla loro pagina di dettaglio (governata da `compliance.view`). Elenca ogni rilevazione attualmente collegata alla card con le stesse azioni Riconosci / Accetta / **Crea rischio** / **Apri rischio** della vista GRC — in modo che un Application Owner possa triagiare le proprie rilevazioni senza lasciare la card. La stessa regola di auto-nascondimento si applica alla scheda **Rischi** nel dettaglio della card: entrambe le schede appaiono solo quando la card ha effettivamente elementi collegati, in modo che le card senza attività GRC non si trascinino schede vuote.
 

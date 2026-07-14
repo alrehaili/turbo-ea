@@ -18,6 +18,12 @@ from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.event import Event
+from app.models.extension import (
+    Extension,
+    ExtensionInstall,
+    ExtensionLicense,
+    ExtensionSchemaVersion,
+)
 from app.models.file_attachment import FileAttachment
 from app.models.improvement_opportunity import (
     ImprovementOpportunity,
@@ -35,6 +41,7 @@ from app.models.nea_evidence import NeaEvidencePack
 from app.models.nora_landscape import NoraPlateau, NoraSegment
 from app.models.nora_program import EaProgramDeliverable
 from app.models.notification import Notification
+from app.models.ops_nonce import OpsRequestNonce
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
 from app.models.ppm_risk import PpmRisk
@@ -141,6 +148,10 @@ __all__ = [
     "SavedReport",
     "Todo",
     "Event",
+    "Extension",
+    "ExtensionInstall",
+    "ExtensionLicense",
+    "ExtensionSchemaVersion",
     "Document",
     "EAPrinciple",
     "Bookmark",
@@ -192,4 +203,5 @@ __all__ = [
     "SnowIdentityMap",
     "UserFavorite",
     "ResourceType",
+    "OpsRequestNonce",
 ]

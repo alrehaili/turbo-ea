@@ -305,6 +305,7 @@ APP_PERMISSIONS: dict[str, dict] = {
             "admin.settings": "Manage app settings (email, logo, SSO)",
             "admin.mcp": "Manage MCP integration settings (AI tool access)",
             "admin.events": "View audit trail and event stream",
+            "admin.todos": "View and manage other users' todos (not just your own)",
             "admin.migrate": (
                 "Run platform migration imports (e.g., LeanIX workspace snapshot). "
                 "Lets the holder extend the metamodel and bulk-create cards, "
@@ -326,6 +327,11 @@ APP_PERMISSIONS: dict[str, dict] = {
                 "Import a full-workspace bundle into this instance — upserts the "
                 "metamodel, configuration, settings, users, cards, and relations. "
                 "A dry-run preview is shown before anything is written."
+            ),
+            "admin.manage_extensions": (
+                "Manage the Extension Store: upload and install vendor-signed "
+                "extension bundles, apply their content, upload license files, "
+                "and enable/disable or uninstall extensions."
             ),
         },
     },
@@ -482,10 +488,12 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.todos": False,
     "admin.migrate": False,
     "admin.impersonate": False,
     "admin.export_workspace": False,
     "admin.import_workspace": False,
+    "admin.manage_extensions": False,
 }
 
 MEMBER_PERMISSIONS: dict[str, bool] = {
@@ -579,10 +587,12 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.todos": False,
     "admin.migrate": False,
     "admin.impersonate": False,
     "admin.export_workspace": False,
     "admin.import_workspace": False,
+    "admin.manage_extensions": False,
 }
 
 VIEWER_PERMISSIONS: dict[str, bool] = {
@@ -676,10 +686,12 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.todos": False,
     "admin.migrate": False,
     "admin.impersonate": False,
     "admin.export_workspace": False,
     "admin.import_workspace": False,
+    "admin.manage_extensions": False,
 }
 
 # ---------------------------------------------------------------------------

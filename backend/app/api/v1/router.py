@@ -21,6 +21,7 @@ from app.api.v1 import (
     ea_requirements,
     eol,
     events,
+    extensions,
     favorites,
     file_attachments,
     improvement_opportunities,
@@ -32,6 +33,7 @@ from app.api.v1 import (
     nora_landscape,
     nora_program,
     notifications,
+    ops,
     ppm,
     ppm_reports,
     principles_catalogue,
@@ -104,6 +106,9 @@ api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
 api_router.include_router(migration.router)
 api_router.include_router(workspace.router)
+api_router.include_router(extensions.router)
+api_router.include_router(extensions.status_router)
+api_router.include_router(extensions.assets_router)
 api_router.include_router(turbolens.router)
 api_router.include_router(turbolens.cards_router)
 api_router.include_router(turbolens.compliance_router)
@@ -126,3 +131,4 @@ api_router.include_router(rationalization.router)
 api_router.include_router(tech_standards.router)
 api_router.include_router(arb.router)
 api_router.include_router(scenarios.router)
+api_router.include_router(ops.router)

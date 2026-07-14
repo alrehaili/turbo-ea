@@ -31,8 +31,10 @@ Cliquez **+ Nouveau constat** dans la barre d'outils Conformité pour ouvrir le 
 | **Lacune** | Description de la lacune ou de l'observation. |
 | **Preuve** | Preuves justificatives, notes d'audit, liens. |
 | **Remédiation** | Remédiation suggérée. Utilisée comme amorce de la tâche de mitigation si le constat est ensuite promu en Risque. |
-| **Carte liée** | Optionnel — restreindre le constat à une Application, un Composant IT ou une autre carte spécifique. |
+| **Périmètre** | Requis. Choisissez **Une carte spécifique** — restreindre le constat à une seule Application ou un Composant IT — ou **L'ensemble du paysage** pour une lacune systémique, à l'échelle du parc, qu'aucune carte ne possède (par ex. une procédure à l'échelle de l'organisation manquante). Les constats paysage sont affichés en vert dans la colonne **Carte**. |
 | **Risque lié** | Optionnel — pré-lier à un Risque existant si l'un suit déjà cette lacune. |
+
+Chaque constat doit être rattaché soit à une carte spécifique, soit à l'ensemble du paysage — il n'y a pas d'état ambigu « sans carte ». Le périmètre paysage est un choix à part entière, pas un champ vide : les scans IA produisent eux aussi des constats de niveau paysage pour les contrôles systémiques qui couvrent tout le parc.
 
 `compliance.manage` est requis pour créer, modifier, retirer ou bulk-actionner des constats. `compliance.view` suffit pour lire le registre et trier depuis l'onglet Conformité d'une fiche.
 
@@ -105,7 +107,7 @@ L'onglet Conformité affiche aussi un **KPI global de conformité** en haut de p
 
 ## Conformité sur une seule fiche
 
-![Détail de la fiche — onglet Conformité](../assets/img/fr/56_card_compliance_tab.png)
+![Détail de la fiche — onglet Conformité](../assets/img/fr/56_fiche_conformite_tab.png)
 
 Les fiches dans le périmètre de n'importe quel constat exposent aussi un onglet **Conformité** sur leur page de détail (gouverné par `compliance.view`). Il liste chaque constat actuellement lié à la fiche avec les mêmes actions Acquitter / Accepter / **Créer un risque** / **Ouvrir le risque** que la vue GRC — de sorte qu'un Application Owner peut trier ses propres constats sans quitter la fiche. La même règle d'auto-masquage s'applique à l'onglet **Risques** dans le détail de la fiche : les deux onglets n'apparaissent que lorsque la fiche a effectivement des éléments liés, de sorte que les fiches sans activité GRC ne traînent pas d'onglets vides.
 

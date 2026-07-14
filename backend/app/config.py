@@ -5,6 +5,10 @@ from pathlib import Path
 
 _DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
 
+# Placeholder From address used when the admin never configured one. The Graph
+# backend treats it as "unset" and lets the sender mailbox supply the From.
+DEFAULT_SMTP_FROM = "noreply@turboea.local"
+
 
 def _read_version() -> str:
     """Read version from the project-root VERSION file."""
@@ -18,6 +22,15 @@ def _read_version() -> str:
 
 
 APP_VERSION = _read_version()
+
+# The vendor's extension catalogue — a hard constant, deliberately NOT an
+# environment variable. The Store tab on Admin → Extensions is part of the
+# product on every install; there is no opt-in/opt-out configuration
+# (repointing it means forking, exactly like the trusted vendor keys in
+# app/core/extension_signing.py). Air-gapped instances need nothing: an
+# unreachable catalogue degrades to a friendly offline hint and the
+# file-based install flow is always fully functional.
+EXTENSION_STORE_URL = "https://store.turbo-ea.org"
 
 
 class Settings:
@@ -71,12 +84,44 @@ class Settings:
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@turboea.local")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", DEFAULT_SMTP_FROM)
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes")
+
+    # Email transport method: smtp_basic (default) | smtp_oauth | graph_api.
+    # OAuth fields are a *dedicated* email app registration (not the SSO one) —
+    # used by the Microsoft Graph backend and SMTP XOAUTH2. Secrets may be
+    # sourced from the environment / a secret store instead of the database.
+    EMAIL_METHOD: str = os.getenv("EMAIL_METHOD", "smtp_basic")
+    EMAIL_OAUTH_PROVIDER: str = os.getenv("EMAIL_OAUTH_PROVIDER", "microsoft")
+    EMAIL_OAUTH_TENANT_ID: str = os.getenv("EMAIL_OAUTH_TENANT_ID", "")
+    EMAIL_OAUTH_CLIENT_ID: str = os.getenv("EMAIL_OAUTH_CLIENT_ID", "")
+    EMAIL_OAUTH_CLIENT_SECRET: str = os.getenv("EMAIL_OAUTH_CLIENT_SECRET", "")
+    EMAIL_OAUTH_SCOPE: str = os.getenv("EMAIL_OAUTH_SCOPE", "")
+    EMAIL_OAUTH_TOKEN_ENDPOINT: str = os.getenv("EMAIL_OAUTH_TOKEN_ENDPOINT", "")
+    EMAIL_GRAPH_SENDER: str = os.getenv("EMAIL_GRAPH_SENDER", "")
+    EMAIL_SERVICE_ACCOUNT_JSON: str = os.getenv("EMAIL_SERVICE_ACCOUNT_JSON", "")
 
     # Display name shown in the navbar, browser tab, and outgoing emails.
     # Seeded from the DB on startup and updated when the admin changes it.
     APP_TITLE: str = "Turbo EA"
+
+    # Public base URL used in email links — seeded from the stored email
+    # settings (app_base_url) at startup / on save; empty means localhost.
+    _app_base_url: str = ""
+
+    # Control-plane ops API (optional — the /api/v1/ops router only accepts
+    # requests when this Ed25519 public key (base64 raw 32 bytes) is set.
+    # Managed Turbo EA Cloud deployments inject it; self-hosted installs
+    # leave it empty and the ops API answers 404.
+    OPS_PUBLIC_KEY: str = os.getenv("OPS_PUBLIC_KEY", "")
+
+    # Base URL of the vendor's extension catalogue (static hosting serving
+    # catalog.json + the public .teax bundles). Powers the in-product Store
+    # tab: the backend proxies the catalogue and downloads bundles from
+    # here — read-only, no account, no token, and every download goes
+    # through the same signature verification as a manual upload. A code
+    # constant by design (see the module-level comment) — no env override.
+    EXTENSION_STORE_URL: str = EXTENSION_STORE_URL
 
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")

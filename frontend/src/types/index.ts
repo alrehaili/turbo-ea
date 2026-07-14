@@ -2,6 +2,9 @@ export type DashboardTabKey = "overview" | "workspace" | "admin";
 
 export interface UiPreferences {
   dashboard_default_tab?: DashboardTabKey;
+  // Enabled Draw.io "More Shapes" libraries the user chose to remember, in the
+  // order Draw.io reports them. Restored as the embedded editor's `libs` param.
+  diagram_libraries?: string[];
 }
 
 export interface User {
@@ -94,6 +97,7 @@ export interface SsoConfig {
   scopes?: string;
   extra_auth_params?: Record<string, string>;
   registration_enabled?: boolean;
+  local_login_available?: boolean;
 }
 
 export interface SsoInvitation {
@@ -138,19 +142,24 @@ export interface FieldOption {
   _original?: boolean;
 }
 
+export type BuiltInFieldType =
+  | "text"
+  | "multiline_text"
+  | "number"
+  | "cost"
+  | "boolean"
+  | "date"
+  | "single_select"
+  | "multiple_select"
+  | "url";
+
 export interface FieldDef {
   key: string;
   label: string;
-  type:
-    | "text"
-    | "multiline_text"
-    | "number"
-    | "cost"
-    | "boolean"
-    | "date"
-    | "single_select"
-    | "multiple_select"
-    | "url";
+  // A built-in type, or an extension-contributed custom type namespaced
+  // `ext.{key}.*` (e.g. `ext.plus.rating`). The `& {}` keeps autocomplete on the
+  // built-ins while still accepting the open custom-type strings.
+  type: BuiltInFieldType | (string & {});
   options?: FieldOption[];
   required?: boolean;
   weight?: number;
@@ -158,6 +167,27 @@ export interface FieldDef {
   group?: string;
   column?: 0 | 1;
   translations?: TranslationMap;
+  // Collapsible helper text shown under the field during data entry. Authorable
+  // only when an extension grants `metamodel.field_help`; rendering is
+  // unconditional. `help` is the base (English) string; `helpTranslations` maps
+  // locale → localized help.
+  help?: string;
+  helpTranslations?: TranslationMap;
+  // Optional visual "badge" chip shown next to the field label, and the basis
+  // for a per-section badge filter on the card. Purely a display/UX affordance
+  // — ungated, so any metamodel field (core or extension) may set it. `badge`
+  // is the base (English) string; `badgeTranslations` maps locale → localized
+  // badge.
+  badge?: string;
+  badgeTranslations?: TranslationMap;
+  // Free-form per-field configuration for extension-contributed field types
+  // (e.g. a rating field's `{ min, max }`). Ignored by built-in types.
+  config?: Record<string, unknown>;
+  // Stamped `<extension key>` on fields contributed by an extension manifest
+  // (see backend field_contributions). Such fields are re-synced from the
+  // manifest on enable/update, so the admin UI shows their config/help
+  // read-only ("Managed by <ext>") rather than offering edits that won't stick.
+  ext?: string;
   // Set on built-in relation attribute "dimensions" (e.g. usageType,
   // flowDirection): the field definition is locked, but its options can be
   // managed. Custom relation dimensions are fully editable.
@@ -181,6 +211,10 @@ export interface SectionDef {
   columns?: 1 | 2;
   groups?: string[];
   translations?: TranslationMap;
+  // Localized labels for subsection (group) headers, keyed by the raw group
+  // name → { locale → label }. Display-only and ungated; any metamodel section
+  // (core or extension) may supply it so group headers aren't English-only.
+  groupTranslations?: Record<string, TranslationMap>;
 }
 
 export interface StakeholderRoleDefinition {
@@ -377,6 +411,7 @@ export interface RelationRef {
   id: string;
   type: string;
   name: string;
+  subtype?: string;
 }
 
 export interface Relation {
@@ -473,6 +508,7 @@ export interface Bookmark {
   filters?: Record<string, unknown>;
   columns?: string[];
   column_state?: ColumnLayoutItem[];
+  column_filter_model?: Record<string, unknown>;
   sort?: Record<string, unknown>;
   is_default: boolean;
   visibility: "private" | "public" | "shared";
@@ -651,6 +687,9 @@ export interface ArchitectureDecision {
   committee?: string | null;
   meeting_date?: string | null;
   stage_no?: number | null;
+  // Extension attributes bag — keys are namespaced `ext.*` (e.g. `ext.savings`).
+  // Frozen once the ADR is signed; written by ADR panel extensions (SDK 1.3).
+  attributes?: Record<string, unknown>;
   created_by: string | null;
   creator_name?: string | null;
   signatories: SoAWSignatory[];
@@ -693,6 +732,12 @@ export interface SurveyField {
   action: "maintain" | "confirm";
   translations?: TranslationMap;
   section_translations?: TranslationMap;
+  // Per-field settings for custom (ext.*) field types + collapsible help text,
+  // enriched from the live metamodel by the response-form endpoint so the survey
+  // form can render the same rating widget / guidance as the card detail.
+  config?: Record<string, unknown>;
+  help?: string;
+  helpTranslations?: TranslationMap;
   // Relation fields: when kind === "relation" the field surveys a relationship
   // rather than an attribute. The respondent's value is a list of SurveyRelationRef.
   kind?: "attribute" | "relation";
@@ -1094,6 +1139,7 @@ export interface SnowFieldMapping {
   direction: string;
   transform_type?: string | null;
   transform_config?: Record<string, unknown> | null;
+  default_value?: unknown;
   is_identity: boolean;
 }
 

@@ -31,8 +31,10 @@ Klick **+ Neuer Befund** in der Compliance-Symbolleiste, um den Erstellungsdialo
 | **Lücke** | Beschreibung der Lücke oder Beobachtung. |
 | **Nachweis** | Belege, Audit-Notizen, Links. |
 | **Empfohlene Behebung** | Vorgeschlagene Behebung. Wird als Seed für die Mitigationsaufgabe verwendet, wenn der Befund später zu einem Risiko überführt wird. |
-| **Verknüpfte Karte** | Optional — den Befund auf eine bestimmte Anwendung, IT-Komponente oder andere Karte beziehen. |
+| **Scope** | Erforderlich. Wählen Sie **Eine bestimmte Karte** — den Befund auf eine einzelne Anwendung oder IT-Komponente beziehen — oder **Die gesamte Landschaft** für eine systemische, bestandsweite Lücke, die keine einzelne Karte besitzt (z. B. ein fehlendes organisationsweites Verfahren). Landschaftsbefunde werden in der Spalte **Karte** grün dargestellt. |
 | **Verknüpftes Risiko** | Optional — vorab mit einem bestehenden Risiko verknüpfen, falls eines die Lücke bereits verfolgt. |
+
+Jeder Befund muss entweder auf eine bestimmte Karte oder auf die gesamte Landschaft bezogen werden — es gibt keinen mehrdeutigen Zustand „ohne Karte“. Der Landschafts-Scope ist eine vollwertige Wahl, kein leeres Feld: KI-Scans erzeugen ebenfalls Landschaftsbefunde für systemische Kontrollen, die sich über den gesamten Bestand erstrecken.
 
 `compliance.manage` ist erforderlich, um Befunde zu erstellen, zu bearbeiten, stillzulegen oder bulk-zu-aktionieren. `compliance.view` reicht, um das Register zu lesen und vom kartenseitigen Compliance-Reiter zu triagieren.
 
@@ -105,7 +107,7 @@ Der Compliance-Reiter zeigt zudem oben auf der Seite einen **Gesamt-Compliance-K
 
 ## Compliance auf einer einzelnen Karte
 
-![Kartendetail — Compliance-Reiter](../assets/img/de/56_card_compliance_tab.png)
+![Kartendetail — Compliance-Reiter](../assets/img/de/56_karte_compliance_tab.png)
 
 Karten, die im Scope eines beliebigen Befunds liegen, exponieren ebenfalls einen **Compliance**-Reiter auf ihrer Detailseite (durch `compliance.view` gesteuert). Er listet jeden mit der Karte verknüpften Befund mit denselben Aktionen Acknowledge / Accept / **Risiko erstellen** / **Risiko öffnen** wie die GRC-Ansicht — sodass ein Application Owner seine eigenen Befunde triagieren kann, ohne die Karte zu verlassen. Dieselbe Auto-Ausblende-Regel gilt für den **Risiken**-Reiter in den Kartendetails: beide Reiter erscheinen nur, wenn die Karte tatsächlich verknüpfte Einträge hat, sodass Karten ohne GRC-Aktivität keine leeren Reiter mitschleppen.
 

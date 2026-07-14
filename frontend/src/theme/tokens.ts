@@ -35,6 +35,24 @@ export const surface = {
   dark: { default: "#121212", paper: "#1e1e1e" },
 } as const;
 
+// ── Navbar (admin-configurable — these are the built-in defaults/presets) ──
+
+export const NAVBAR_DEFAULTS = { bg: "#1a1a2e", fg: "#ffffff" } as const;
+
+/** Curated navbar background/text combinations offered in Admin → Settings.
+ *  Every pair meets WCAG AA contrast (≥ 4.5:1) for normal text. */
+export const NAVBAR_PRESETS = [
+  { key: "navy", bg: "#1a1a2e", fg: "#ffffff" },
+  { key: "light", bg: "#ffffff", fg: "#1a1a2e" },
+  { key: "charcoal", bg: "#212121", fg: "#ffffff" },
+  { key: "slate", bg: "#1e293b", fg: "#ffffff" },
+  { key: "blue", bg: brand.primary, fg: "#ffffff" },
+  { key: "forest", bg: "#1b5e20", fg: "#ffffff" },
+  { key: "plum", bg: "#4a148c", fg: "#ffffff" },
+] as const;
+
+export type NavbarPresetKey = (typeof NAVBAR_PRESETS)[number]["key"];
+
 // ── Status (matches MUI default success/warning/error/info hues) ─────────
 
 export const STATUS_COLORS = {
@@ -79,6 +97,23 @@ export const RAG_COLORS = {
   red: "#d32f2f",
   amber: "#f57c00",
   green: "#2e7d32",
+} as const;
+
+// ── Notification-type accents (NotificationBell) ─────────────────────────
+// Categorical palette used only to visually differentiate notification
+// types in the bell dropdown — not a semantic status scale. Values reuse
+// existing tokens where the hue matches exactly; the rest are MUI accent
+// hues kept verbatim so the dropdown looks unchanged.
+
+export const NOTIFICATION_TYPE_COLORS = {
+  todo_assigned: brand.primary, // #1976d2
+  task_assigned: "#7b1fa2", // purple 700
+  card_updated: "#ed6c02", // orange 800
+  comment_added: RAG_COLORS.green, // #2e7d32
+  approval_status_changed: "#9c27b0", // purple 500
+  soaw_sign_requested: RAG_COLORS.red, // #d32f2f
+  soaw_signed: RAG_COLORS.green, // #2e7d32
+  survey_request: "#0288d1", // light blue 700
 } as const;
 
 // ── Data quality buckets (Dashboard chart) ───────────────────────────────

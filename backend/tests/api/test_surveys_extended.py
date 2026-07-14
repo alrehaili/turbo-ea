@@ -282,6 +282,47 @@ class TestMySurveys:
         assert item["card_id"] == str(survey_env["card"].id)
         assert item["card_name"] == "Survey Test App"
 
+    async def test_closed_survey_not_shown_as_pending(self, client, db, survey_env):
+        """A closed survey drops off /surveys/my and the badge count (issue #746)."""
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+
+        survey = await _create_draft_survey(client, admin)
+        survey_id = survey["id"]
+
+        # Send the survey so the member has a pending response.
+        send_resp = await client.post(
+            f"/api/v1/surveys/{survey_id}/send",
+            headers=auth_headers(admin),
+        )
+        assert send_resp.status_code == 200
+
+        # Sanity: the member sees it while the survey is active.
+        resp = await client.get("/api/v1/surveys/my", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert any(s["survey_id"] == survey_id for s in resp.json())
+
+        badge = await client.get("/api/v1/notifications/badge-counts", headers=auth_headers(member))
+        assert badge.status_code == 200
+        assert badge.json()["pending_surveys"] >= 1
+
+        # Admin closes the survey without the member ever responding.
+        close_resp = await client.post(
+            f"/api/v1/surveys/{survey_id}/close",
+            headers=auth_headers(admin),
+        )
+        assert close_resp.status_code == 200
+
+        # The closed survey must no longer appear in the member's Todos.
+        resp = await client.get("/api/v1/surveys/my", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert not any(s["survey_id"] == survey_id for s in resp.json())
+
+        # ...and the badge count drops back to zero.
+        badge = await client.get("/api/v1/notifications/badge-counts", headers=auth_headers(member))
+        assert badge.status_code == 200
+        assert badge.json()["pending_surveys"] == 0
+
     async def test_non_targeted_user_sees_no_surveys(self, client, db, survey_env):
         """A user who is not a stakeholder on any matching card sees nothing."""
         admin = survey_env["admin"]
@@ -357,6 +398,63 @@ class TestGetResponseForm:
 
         risk_field = next(f for f in data["fields"] if f["key"] == "riskLevel")
         assert risk_field["current_value"] == "medium"
+
+    async def test_response_form_enriches_custom_field_config_and_help(
+        self, client, db, survey_env
+    ):
+        """A contributed custom-typed field's config + help are pulled from the
+        live metamodel into the response form, even though the survey snapshot
+        omits them — so the respond UI can render the same rating widget +
+        guidance as the card detail."""
+        from sqlalchemy.orm.attributes import flag_modified
+
+        from app.models.card_type import CardType
+
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+        card = survey_env["card"]
+
+        # Add a custom-typed field carrying config + help to the Application type.
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.fields_schema[0]["fields"].append(
+            {
+                "key": "autonomyRating",
+                "label": "Autonomy Rating",
+                "type": "ext.demo.rating",
+                "config": {"min": 1, "max": 5},
+                "help": "Score 1 (worst) to 5 (best).",
+                "helpTranslations": {"de": "Bewerten Sie 1 bis 5."},
+                "weight": 1,
+            }
+        )
+        flag_modified(ct, "fields_schema")
+        await db.flush()
+
+        # The survey snapshot deliberately omits config/help (the builder never
+        # captures them) — the response form must enrich from the metamodel.
+        fields = [
+            {
+                "key": "autonomyRating",
+                "label": "Autonomy Rating",
+                "type": "ext.demo.rating",
+                "action": "maintain",
+            }
+        ]
+        survey = await _create_draft_survey(client, admin, fields=fields)
+        send_resp = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send", headers=auth_headers(admin)
+        )
+        assert send_resp.status_code == 200
+
+        resp = await client.get(
+            f"/api/v1/surveys/{survey['id']}/respond/{card.id}",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        field = next(f for f in resp.json()["fields"] if f["key"] == "autonomyRating")
+        assert field["config"] == {"min": 1, "max": 5}
+        assert field["help"] == "Score 1 (worst) to 5 (best)."
+        assert field["helpTranslations"] == {"de": "Bewerten Sie 1 bis 5."}
 
     async def test_get_response_form_not_found_for_wrong_user(self, client, db, survey_env):
         """A user who is not targeted cannot access the response form."""

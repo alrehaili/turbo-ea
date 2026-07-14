@@ -31,8 +31,10 @@ Haz clic en **+ Nuevo hallazgo** en la barra de herramientas de Cumplimiento par
 | **Brecha** | Descripción de la brecha u observación. |
 | **Evidencia** | Evidencia de respaldo, notas de auditoría, enlaces. |
 | **Remediación** | Remediación sugerida. Usada como semilla para la tarea de mitigación si luego promueves el hallazgo a un Riesgo. |
-| **Tarjeta vinculada** | Opcional — limitar el hallazgo a una Aplicación, Componente IT u otra tarjeta específica. |
+| **Alcance** | Obligatorio. Elige **Una tarjeta específica** — limitar el hallazgo a una sola Aplicación o Componente IT — o **Todo el paisaje** para una brecha sistémica, a nivel de todo el parque, que ninguna tarjeta posee (p. ej. un procedimiento a nivel de organización ausente). Los hallazgos de paisaje se muestran en verde en la columna **Tarjeta**. |
 | **Riesgo vinculado** | Opcional — pre-vincular a un Riesgo existente si uno ya rastrea esta brecha. |
+
+Cada hallazgo debe estar acotado a una tarjeta específica o a todo el paisaje — no existe un estado ambiguo «sin tarjeta». El alcance de paisaje es una opción de pleno derecho, no un campo vacío: los escaneos con IA también producen hallazgos a nivel de paisaje para controles sistémicos que abarcan todo el parque.
 
 `compliance.manage` es requerido para crear, editar, retirar o bulk-actionar hallazgos. `compliance.view` basta para leer el registro y triagear desde la pestaña Cumplimiento a nivel de tarjeta.
 
@@ -105,7 +107,7 @@ La pestaña Cumplimiento también muestra un **KPI global de cumplimiento** en l
 
 ## Cumplimiento en una sola ficha
 
-![Detalle de la ficha — pestaña Cumplimiento](../assets/img/es/56_card_compliance_tab.png)
+![Detalle de la ficha — pestaña Cumplimiento](../assets/img/es/56_ficha_cumplimiento_tab.png)
 
 Las fichas dentro del alcance de cualquier hallazgo también muestran una pestaña **Cumplimiento** en su página de detalle (gobernada por `compliance.view`). Lista cada hallazgo actualmente vinculado a la ficha con las mismas acciones Reconocer / Aceptar / **Crear riesgo** / **Abrir riesgo** que la vista GRC — de modo que un Application Owner pueda clasificar sus propios hallazgos sin salir de la ficha. La misma regla de ocultamiento automático se aplica a la pestaña **Riesgos** en el detalle de la ficha: ambas pestañas solo aparecen cuando la ficha realmente tiene elementos vinculados, de modo que las fichas sin actividad GRC no arrastran pestañas vacías.
 

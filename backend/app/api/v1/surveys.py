@@ -481,9 +481,11 @@ async def my_surveys(
     await PermissionService.require_permission(db, user, "surveys.respond")
     q = (
         select(SurveyResponse)
+        .join(Survey, SurveyResponse.survey_id == Survey.id)
         .where(
             SurveyResponse.user_id == user.id,
             SurveyResponse.status == "pending",
+            Survey.status == "active",
         )
         .options(selectinload(SurveyResponse.survey), selectinload(SurveyResponse.card))
         .order_by(SurveyResponse.created_at.desc())
@@ -932,6 +934,14 @@ async def get_response_form(
         # Field label translations (prefer snapshot if set, else live metamodel)
         if not enriched.get("translations") and meta_field.get("translations"):
             enriched["translations"] = meta_field["translations"]
+
+        # Custom field-type config + help text are not captured in the survey's
+        # field snapshot, so pull them from the live metamodel field. This lets
+        # the respond form render an extension field type (e.g. a rating widget)
+        # and its collapsible help, matching the card detail.
+        for prop in ("config", "help", "helpTranslations"):
+            if enriched.get(prop) is None and meta_field.get(prop) is not None:
+                enriched[prop] = meta_field[prop]
 
         # Section name translations
         section_tr = section_translations_by_name.get(field_def.get("section") or "")

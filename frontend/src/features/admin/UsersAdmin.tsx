@@ -367,10 +367,9 @@ export default function UsersAdmin() {
       setCreateUserError(t("users.create.requiredFields"));
       return;
     }
-    if (!ssoEnabled && !createUserForm.password) {
-      setCreateUserError(t("users.create.passwordRequiredLocal"));
-      return;
-    }
+    // Password is optional for local accounts too: leaving it blank creates a
+    // password-less account that sets its own password on first login (via the
+    // returned setup link or «Forgot password»).
     try {
       setCreateUserSubmitting(true);
       setCreateUserError(null);
@@ -386,6 +385,8 @@ export default function UsersAdmin() {
       );
       setUsers((prev) => [...prev, created]);
       setCreateUserOpen(false);
+      // Password-less accounts set their password on first login via «Forgot
+      // password» on the login page; surface only an email-send failure here.
       if (createUserForm.send_email && created.email_error) {
         setWarning(created.email_error);
       } else {
@@ -573,20 +574,6 @@ export default function UsersAdmin() {
   /* ---- AG Grid column defs ---- */
   const columnDefs = useMemo<ColDef<User>[]>(
     () => [
-      {
-        headerName: "",
-        field: "id",
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
-        headerCheckboxSelectionFilteredOnly: true,
-        width: 44,
-        pinned: "left",
-        sortable: false,
-        filter: false,
-        resizable: false,
-        suppressMovable: true,
-        suppressHeaderMenuButton: true,
-      },
       {
         field: "display_name",
         headerName: t("users.columns.name"),
@@ -904,6 +891,19 @@ export default function UsersAdmin() {
     () => ({ sortable: true, filter: true, resizable: true }),
     [],
   );
+  // AG Grid v32 multi-select API — the checkbox selection column is
+  // auto-generated. ``selectAll: "filtered"`` makes the header checkbox respect
+  // the active filters (matching the old headerCheckboxSelectionFilteredOnly).
+  const rowSelection = useMemo(
+    () =>
+      ({
+        mode: "multiRow" as const,
+        enableClickSelection: false,
+        headerCheckbox: true,
+        selectAll: "filtered" as const,
+      }),
+    [],
+  );
   const getRowId = useCallback((p: { data: User }) => p.data.id, []);
   const getRowStyle = useCallback(
     (p: { data?: User }) =>
@@ -1060,8 +1060,7 @@ export default function UsersAdmin() {
                 loading={loading}
                 animateRows
                 rowHeight={48}
-                rowSelection="multiple"
-                suppressRowClickSelection
+                rowSelection={rowSelection}
                 onGridReady={(params) => {
                   gridApiRef.current = params.api;
                 }}
@@ -1138,11 +1137,7 @@ export default function UsersAdmin() {
                   size="small"
                 />
                 <TextField
-                  label={
-                    ssoEnabled
-                      ? t("users.create.passwordOptional")
-                      : t("users.create.password")
-                  }
+                  label={t("users.create.passwordOptional")}
                   type="password"
                   value={createUserForm.password}
                   onChange={(e) =>
@@ -1150,11 +1145,10 @@ export default function UsersAdmin() {
                   }
                   fullWidth
                   size="small"
-                  required={!ssoEnabled}
                   helperText={
                     ssoEnabled
                       ? t("users.create.passwordSsoHelperText")
-                      : t("users.create.passwordHelperText")
+                      : t("users.create.passwordOptionalLocalHelperText")
                   }
                 />
                 <FormControl fullWidth size="small">

@@ -91,6 +91,68 @@ class TestListUsers:
         assert "disabled@test.com" in emails
         assert "admin@test.com" in emails
 
+    # Fields the lite (non-admin) payload must never expose.
+    SENSITIVE_FIELDS = {
+        "role",
+        "auth_provider",
+        "has_password",
+        "pending_setup",
+        "last_login",
+        "created_at",
+        "locale",
+        "ui_preferences",
+    }
+
+    async def test_admin_gets_full_payload(self, client, db, users_env):
+        admin = users_env["admin"]
+        resp = await client.get("/api/v1/users", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        row = resp.json()[0]
+        # Admin retains the full record (used by the Users admin screen).
+        assert self.SENSITIVE_FIELDS.issubset(row.keys())
+
+    @pytest.mark.parametrize("role_key", ["member", "viewer"])
+    async def test_non_admin_gets_lite_payload(self, client, db, users_env, role_key):
+        """A non-admin picker consumer sees only id/display_name/email/is_active
+        — never the PII / attacker-surface metadata."""
+        caller = users_env[role_key]
+        resp = await client.get("/api/v1/users", headers=auth_headers(caller))
+        assert resp.status_code == 200
+        rows = resp.json()
+        assert rows, "expected at least one user in the list"
+        for row in rows:
+            assert set(row.keys()) == {"id", "display_name", "email", "is_active"}
+            assert not self.SENSITIVE_FIELDS.intersection(row.keys())
+        # email stays — pickers display/search by it.
+        assert any(r["email"] == "admin@test.com" for r in rows)
+
+
+# -------------------------------------------------------------------
+# GET /users/{id}  (single)
+# -------------------------------------------------------------------
+
+
+class TestGetUser:
+    async def test_admin_gets_full_payload(self, client, db, users_env):
+        admin, member = users_env["admin"], users_env["member"]
+        resp = await client.get(f"/api/v1/users/{member.id}", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert TestListUsers.SENSITIVE_FIELDS.issubset(resp.json().keys())
+
+    async def test_non_admin_reading_other_user_gets_lite_payload(self, client, db, users_env):
+        member, admin = users_env["member"], users_env["admin"]
+        resp = await client.get(f"/api/v1/users/{admin.id}", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert set(resp.json().keys()) == {"id", "display_name", "email", "is_active"}
+
+    async def test_non_admin_reading_self_gets_full_payload(self, client, db, users_env):
+        """A user reading their own profile gets the full record (defensive —
+        no frontend caller hits this today)."""
+        member = users_env["member"]
+        resp = await client.get(f"/api/v1/users/{member.id}", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert TestListUsers.SENSITIVE_FIELDS.issubset(resp.json().keys())
+
 
 # -------------------------------------------------------------------
 # POST /users  (create)
@@ -292,14 +354,14 @@ class TestUpdateUser:
         )
         assert resp.status_code == 404
 
-    async def test_create_user_without_password_rejected_when_sso_disabled(
+    async def test_create_user_without_password_allowed_when_sso_disabled(
         self, client, db, users_env
     ):
-        """Creating a local account requires a password when SSO is not enabled.
-
-        Replaces the pre-fix flow where an admin could invite a user without a
-        password and expect an emailed setup link — that flow leaked stale
-        SsoInvitation rows into the admin list with no clean way to recover.
+        """A local account may be created with no password and no invite email.
+        It lands as a «Pending Setup» account (password-less) — the user sets
+        their password on first login via «Forgot password» on the login page.
+        The one-time setup token is stored on the row but never returned by the
+        API.
         """
         admin = users_env["admin"]
         resp = await client.post(
@@ -312,8 +374,34 @@ class TestUpdateUser:
             },
             headers=auth_headers(admin),
         )
-        assert resp.status_code == 400
-        assert "password" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["has_password"] is False
+        assert data["pending_setup"] is True
+        # The one-time setup token is never surfaced through the API.
+        assert "setup_token" not in data
+
+    async def test_setup_token_never_returned_by_api(self, client, db, users_env):
+        """Neither the create response nor the list endpoint exposes the setup
+        token, whether or not a password was supplied at creation."""
+        admin = users_env["admin"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "with-pass@test.com",
+                "display_name": "With Pass",
+                "password": "StrongPass1",
+                "role": "member",
+                "send_email": False,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert "setup_token" not in resp.json()
+
+        # The list endpoint never exposes the setup token either.
+        listing = await client.get("/api/v1/users", headers=auth_headers(admin))
+        assert all("setup_token" not in u for u in listing.json())
 
     async def test_admin_setting_password_keeps_invitation_visible_until_login(
         self, client, db, users_env
@@ -330,9 +418,9 @@ class TestUpdateUser:
 
         admin = users_env["admin"]
 
-        # Inject the "invited but not yet accepted" state directly. We bypass
-        # POST /users because that endpoint now rejects no-password invites
-        # when SSO is disabled (test env has SSO off by default).
+        # Inject the "invited but not yet accepted" state directly so this test
+        # focuses purely on the admin-set-password path (independent of how the
+        # account was first created).
         invited = User(
             email="admin-set@test.com",
             display_name="Admin-Set",
@@ -483,6 +571,39 @@ class TestUpdateUser:
         resp = await client.get("/api/v1/users/invitations", headers=auth_headers(admin))
         assert resp.status_code == 200
         assert any(inv["email"] == "import-with-invite@test.com" for inv in resp.json())
+
+    async def test_invite_email_failure_does_not_leak_exception_details(
+        self, client, db, users_env, monkeypatch
+    ):
+        """When sending the invitation email raises, the response reports the
+        failure generically — exception text (which can carry SMTP hostnames
+        or connection details) must only reach the server logs, never the
+        API response (CodeQL py/stack-trace-exposure)."""
+        import app.services.email_service as email_service
+
+        async def _boom(**kwargs):
+            raise RuntimeError("smtp-secret-host boom")
+
+        monkeypatch.setattr(email_service, "send_notification_email", _boom)
+
+        admin = users_env["admin"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "invite-fail@test.com",
+                "display_name": "Invite Fail",
+                "password": "StrongPass1",
+                "role": "member",
+                "send_email": True,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["email_sent"] is False
+        assert body["email_error"]
+        assert "boom" not in body["email_error"]
+        assert "smtp-secret-host" not in body["email_error"]
 
     async def test_create_user_sso_enabled_without_invite_skips_invitation(
         self, client, db, users_env
@@ -647,12 +768,12 @@ class TestUpdateUser:
         assert u.password_setup_token is not None
         assert len(u.password_setup_token) >= 32  # urlsafe(48) → 64 chars
 
-    async def test_create_user_local_no_password_without_invite_rejected(
+    async def test_create_user_local_no_password_without_invite_allowed(
         self, client, db, users_env
     ):
-        """Local account, no password, no invite → reject. The setup link
-        only travels via email, so without the welcome email the user has
-        no way into the system."""
+        """Explicit local account, no password, no invite → allowed. It lands
+        as a «Pending Setup» account; the user sets their password on first
+        login via «Forgot password» on the login page."""
         admin = users_env["admin"]
         resp = await client.post(
             "/api/v1/users",
@@ -665,8 +786,11 @@ class TestUpdateUser:
             },
             headers=auth_headers(admin),
         )
-        assert resp.status_code == 400
-        assert "invitation" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["has_password"] is False
+        assert data["pending_setup"] is True
+        assert "setup_token" not in data
 
     async def test_create_user_explicit_auth_provider_sso_requires_sso_enabled(
         self, client, db, users_env
@@ -799,3 +923,52 @@ class TestUiPreferences:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 422
+
+    async def test_persists_diagram_libraries(self, client, db, users_env):
+        admin = users_env["admin"]
+        libs = ["general", "uml", "archimate3"]
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": libs},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["diagram_libraries"] == libs
+        # Survives a fresh read
+        resp = await client.get(
+            "/api/v1/users/me/ui-preferences",
+            headers=auth_headers(admin),
+        )
+        assert resp.json()["diagram_libraries"] == libs
+
+    async def test_diagram_libraries_merge_preserves_tab(self, client, db, users_env):
+        admin = users_env["admin"]
+        await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"dashboard_default_tab": "workspace"},
+            headers=auth_headers(admin),
+        )
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": ["general", "azure"]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["diagram_libraries"] == ["general", "azure"]
+        assert body["dashboard_default_tab"] == "workspace"
+
+    async def test_null_clears_diagram_libraries(self, client, db, users_env):
+        admin = users_env["admin"]
+        await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": ["general", "uml"]},
+            headers=auth_headers(admin),
+        )
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": None},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert "diagram_libraries" not in resp.json()

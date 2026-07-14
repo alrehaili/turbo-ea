@@ -53,6 +53,10 @@ class NotificationPreferencesUpdate(BaseModel):
 
 class UiPreferencesUpdate(BaseModel):
     dashboard_default_tab: Literal["overview", "workspace", "admin"] | None = None
+    # Enabled Draw.io "More Shapes" libraries the user chose to remember, in the
+    # order Draw.io reports them (e.g. ["general", "uml", "archimate3"]). Restored
+    # as the embedded editor's `libs` URL param so the selection survives sessions.
+    diagram_libraries: list[str] | None = None
 
 
 class InvitationCreate(BaseModel):
@@ -92,6 +96,27 @@ def _user_response(u: User) -> dict:
     }
 
 
+def _user_response_lite(u: User) -> dict:
+    """Minimal user payload for non-admin callers.
+
+    `GET /users` feeds owner / assignee / stakeholder / signer pickers that
+    every authenticated user needs, so the endpoint can't be locked behind
+    `admin.users`. Instead we shape the response to the caller: non-admins get
+    only what those pickers consume (`id`, `display_name`, `email`,
+    `is_active`) and are denied the account-security / attacker-surface fields
+    (`role`, `auth_provider`, `has_password`, `pending_setup`, `last_login`,
+    `created_at`, `locale`, `ui_preferences`) that only the admin Users screen
+    reads. `email` stays: pickers display and search by it, and it is already
+    surfaced to non-admins via the stakeholders endpoint.
+    """
+    return {
+        "id": str(u.id),
+        "display_name": u.display_name,
+        "email": u.email,
+        "is_active": u.is_active,
+    }
+
+
 def _invitation_response(inv: SsoInvitation) -> dict:
     return {
         "id": str(inv.id),
@@ -124,7 +149,14 @@ async def list_users(
     if not include_inactive:
         stmt = stmt.where(User.is_active.is_(True))
     result = await db.execute(stmt)
-    return [_user_response(u) for u in result.scalars().all()]
+    users = result.scalars().all()
+
+    # Shape the payload to the caller. Admins (Users admin screen) get the full
+    # record; everyone else gets the lite payload the pickers need — never the
+    # PII / attacker-surface metadata.
+    is_admin = await PermissionService.has_app_permission(db, user, "admin.users")
+    serialize = _user_response if is_admin else _user_response_lite
+    return [serialize(u) for u in users]
 
 
 @router.get("/invitations")
@@ -195,12 +227,17 @@ async def resend_invitation_by_invitation(
         import logging
 
         logging.getLogger(__name__).exception("Failed to resend invitation email to %s", inv.email)
-        raise HTTPException(502, f"Failed to send invitation email: {exc}") from exc
+        raise HTTPException(
+            502,
+            "Failed to send invitation email. Check the email settings and "
+            "server logs for details.",
+        ) from exc
 
     if not sent:
         raise HTTPException(
             400,
-            "SMTP is not configured. Configure SMTP in admin settings before resending.",
+            "Email is not configured. Configure an email sending method in admin "
+            "settings before resending.",
         )
 
     return {"email_sent": True, "sent_to": inv.email}
@@ -273,6 +310,13 @@ async def update_ui_preferences(
             prefs.pop("dashboard_default_tab", None)
         else:
             prefs["dashboard_default_tab"] = value
+
+    if "diagram_libraries" in data:
+        libs = data["diagram_libraries"]
+        if libs is None:
+            prefs.pop("diagram_libraries", None)
+        else:
+            prefs["diagram_libraries"] = libs
 
     current_user.ui_preferences = prefs
     await db.commit()
@@ -424,7 +468,12 @@ async def get_user(
     u = result.scalar_one_or_none()
     if not u:
         raise HTTPException(404, "User not found")
-    return _user_response(u)
+
+    # Full record only for admins or the user reading their own profile;
+    # everyone else gets the lite payload (mirrors list_users).
+    is_admin = await PermissionService.has_app_permission(db, current_user, "admin.users")
+    is_self = str(current_user.id) == user_id
+    return _user_response(u) if (is_admin or is_self) else _user_response_lite(u)
 
 
 INVITE_ALLOWED_ROLES: set[str] = {"member", "viewer"}
@@ -479,19 +528,12 @@ async def create_user(
     sso_enabled = sso_cfg.get("enabled", False)
 
     if body.auth_provider == "local":
+        # A local account may be created without a password: it gets a
+        # single-use setup token (below) so the user picks their own
+        # password on first login. When no invite email is sent, the
+        # setup link is returned in the response so the creator can hand
+        # it over out-of-band (and «Forgot password» can re-deliver it).
         auth_provider = "local"
-        if not body.password and not body.send_email:
-            # Local account with no password and no invite — the user has
-            # no way to reach the system. Bulk imports leave the password
-            # column blank by design (passwords don't belong in
-            # spreadsheets) and rely on the welcome email to deliver a
-            # password-setup link instead.
-            raise HTTPException(
-                400,
-                "Local accounts need an invitation email to deliver the "
-                "password-setup link. Tick «send invites» on the import "
-                "step and try again.",
-            )
     elif body.auth_provider == "sso":
         auth_provider = "sso"
         if not sso_enabled:
@@ -501,14 +543,15 @@ async def create_user(
                 "Enable SSO in admin settings first.",
             )
     else:
-        # Legacy heuristic — no explicit provider passed.
-        if not body.password and not sso_enabled:
-            raise HTTPException(
-                400,
-                "A password is required when creating a local account. "
-                "Enable SSO or set a password for the new user.",
-            )
-        auth_provider = "sso" if not body.password else "local"
+        # Legacy heuristic — no explicit provider passed. A password means
+        # a local account. Without a password we default to SSO when it's
+        # enabled (the invite binds the SSO identity on first sign-in);
+        # otherwise the account is local and password-less, relying on the
+        # setup-token flow rather than being rejected.
+        if not body.password:
+            auth_provider = "sso" if sso_enabled else "local"
+        else:
+            auth_provider = "local"
 
     pw_hash = hash_password(body.password) if body.password else None
 
@@ -574,17 +617,18 @@ async def create_user(
             response["email_sent"] = bool(sent)
             if not sent:
                 response["email_error"] = (
-                    "SMTP is not configured, so the invitation email could not "
-                    "be sent. The account was created — configure SMTP in admin "
-                    "settings and re-send manually if needed."
+                    "Email is not configured, so the invitation email could not "
+                    "be sent. The account was created — configure an email "
+                    "sending method in admin settings and re-send manually if needed."
                 )
-        except Exception as exc:
+        except Exception:
             import logging
 
             logging.getLogger(__name__).exception("Failed to send invitation email to %s", email)
             response["email_sent"] = False
             response["email_error"] = (
-                f"The account was created, but the invitation email could not be sent: {exc}"
+                "The account was created, but the invitation email could not be "
+                "sent. Check the email settings and server logs for details."
             )
 
     return response

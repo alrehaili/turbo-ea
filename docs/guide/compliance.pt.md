@@ -31,8 +31,10 @@ Clique em **+ Nova descoberta** na barra de ferramentas Conformidade para abrir 
 | **Lacuna** | Descrição da lacuna ou observação. |
 | **Evidência** | Evidência de respaldo, notas de auditoria, links. |
 | **Remediação** | Remediação sugerida. Usada como semente para a tarefa de mitigação se depois promover a descoberta a um Risco. |
-| **Card vinculado** | Opcional — restringir a descoberta a uma Aplicação, Componente IT ou outro card específico. |
+| **Escopo** | Obrigatório. Escolha **Um cartão específico** — restringir a descoberta a uma única Aplicação ou Componente IT — ou **Toda a paisagem** para uma lacuna sistêmica, ao nível de todo o parque, que nenhum card possui (p. ex. um procedimento a nível de organização ausente). As descobertas de paisagem são exibidas em verde na coluna **Card**. |
 | **Risco vinculado** | Opcional — pré-vincular a um Risco existente se algum já rastreia essa lacuna. |
+
+Cada descoberta deve estar delimitada a um card específico ou a toda a paisagem — não existe um estado ambíguo «sem card». O escopo de paisagem é uma escolha de pleno direito, não um campo vazio: as varreduras com IA também produzem descobertas em nível de paisagem para controles sistêmicos que abrangem todo o parque.
 
 `compliance.manage` é requerido para criar, editar, retirar ou bulk-actionar descobertas. `compliance.view` basta para ler o registro e triagiar a partir da aba Conformidade no nível do card.
 
@@ -105,7 +107,7 @@ A aba Conformidade também mostra um **KPI geral de conformidade** no topo da p�
 
 ## Conformidade num único card
 
-![Detalhe do card — aba Conformidade](../assets/img/pt/56_card_compliance_tab.png)
+![Detalhe do card — aba Conformidade](../assets/img/pt/56_ficha_conformidade_tab.png)
 
 Cards no escopo de qualquer descoberta também expõem uma aba **Conformidade** na sua página de detalhe (governada por `compliance.view`). Lista cada descoberta atualmente vinculada ao card com as mesmas ações Reconhecer / Aceitar / **Criar risco** / **Abrir risco** da visão GRC — de modo que um Application Owner possa triagiar suas próprias descobertas sem deixar o card. A mesma regra de auto-ocultação se aplica à aba **Riscos** no detalhe do card: ambas as abas só aparecem quando o card realmente tem itens vinculados, de modo que cards sem atividade GRC não arrastam abas vazias.
 
