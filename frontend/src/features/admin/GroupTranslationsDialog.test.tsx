@@ -13,24 +13,24 @@ describe("GroupTranslationsDialog — group header translation authoring", () =>
     render(
       <GroupTranslationsDialog
         groupName="Dimension One"
-        initial={{ de: "Dimension Eins" }}
+        initial={{ ar: "البعد الأول" }}
         onClose={() => {}}
         onSave={onSave}
       />,
     );
 
-    // Existing German translation is prefilled.
-    expect(screen.getByDisplayValue("Dimension Eins")).toBeInTheDocument();
+    // Existing Arabic translation is prefilled (fork ships EN/AR only).
+    expect(screen.getByDisplayValue("البعد الأول")).toBeInTheDocument();
     // The raw group name is the placeholder / fallback (not a stored value).
-    expect(screen.getByLabelText("Français")).toHaveValue("");
+    expect(screen.getByLabelText("English")).toHaveValue("");
 
-    // Author a French translation and save.
-    await user.type(screen.getByLabelText("Français"), "Dimension Un");
+    // Author an English override and save.
+    await user.type(screen.getByLabelText("English"), "Dimension One EN");
     await user.click(screen.getByRole("button", { name: /^Save$/ }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     const map = onSave.mock.calls[0][0] as Record<string, string>;
-    expect(map.de).toBe("Dimension Eins");
-    expect(map.fr).toBe("Dimension Un");
+    expect(map.ar).toBe("البعد الأول");
+    expect(map.en).toBe("Dimension One EN");
   });
 });

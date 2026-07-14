@@ -63,8 +63,8 @@ interface Props {
   availableCardTypes: { key: string; label: string; color: string }[];
   availableLinkedCards: { id: string; name: string; type: string; color: string }[];
   availableSignatories: { userId: string; displayName: string }[];
-  availableCommittees: string[];
-  availableStages: number[];
+  availableCommittees?: string[];
+  availableStages?: number[];
   /** colIds hidden in the grid (column chooser state, owned by the panel). */
   hiddenColumns: Set<string>;
   onHiddenColumnsChange: (next: Set<string>) => void;
@@ -263,8 +263,8 @@ export default function AdrFilterSidebar({
   availableCardTypes,
   availableLinkedCards,
   availableSignatories,
-  availableCommittees,
-  availableStages,
+  availableCommittees = [],
+  availableStages = [],
   hiddenColumns,
   onHiddenColumnsChange,
   extensionColumns,

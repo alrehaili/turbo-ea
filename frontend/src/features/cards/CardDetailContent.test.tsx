@@ -50,6 +50,7 @@ vi.mock("@/features/cards/sections", async () => {
     SuccessorsSection: stub,
     RelationsSection: stub,
     LayeredDependencySection: stub,
+    PortfolioDecisionsSection: stub,
     CommentsTab: stub,
     TodosTab: stub,
     StakeholdersTab: stub,
