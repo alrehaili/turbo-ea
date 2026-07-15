@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import Boolean, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -18,3 +19,7 @@ class EAPrinciple(Base, UUIDMixin, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     catalogue_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    # Grouping domain, e.g. "Data Architecture", "Cybersecurity".
+    domain: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Authoritative-source codes this principle traces back to (["SA-01", ...]).
+    source_ids: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")

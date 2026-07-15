@@ -12,6 +12,7 @@ import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { surface } from "@/theme/tokens";
 import type { EAPrinciple } from "@/types";
+import CatalogMeta from "./CatalogMeta";
 
 export default function PrinciplesPanel() {
   const { user } = useAuthContext();
@@ -108,6 +109,7 @@ function ReadOnlyPrinciples() {
                     {p.description}
                   </Typography>
                 )}
+                <CatalogMeta domain={p.domain} sourceIds={p.source_ids} />
                 {(p.rationale || p.implications) && (
                   <Box sx={{ display: "flex", gap: 3, mt: 0.5, flexWrap: "wrap" }}>
                     {p.rationale && (

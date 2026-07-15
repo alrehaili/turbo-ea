@@ -20,6 +20,7 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { EAPrinciple, Standard } from "@/types";
+import CatalogMeta from "@/features/grc/governance/CatalogMeta";
 
 interface StandardForm {
   title: string;
@@ -217,6 +218,7 @@ export default function StandardsAdmin() {
                       {s.description}
                     </Typography>
                   )}
+                  <CatalogMeta domain={s.domain} adoption={s.adoption} sourceIds={s.source_ids} />
                   {s.principle_ids.length > 0 && (
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.75, flexWrap: "wrap" }}>
                       <Typography variant="caption" color="text.secondary" fontWeight={600}>

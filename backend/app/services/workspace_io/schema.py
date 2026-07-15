@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.models.authoritative_source import AuthoritativeSource
 from app.models.calculation import Calculation
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
@@ -48,6 +49,7 @@ SHEET_CALCULATIONS = "Calculations"
 SHEET_PRINCIPLES = "Principles"
 SHEET_STANDARDS = "Standards"
 SHEET_STANDARD_PRINCIPLES = "StandardPrinciples"
+SHEET_AUTHORITATIVE_SOURCES = "AuthoritativeSources"
 SHEET_COMPLIANCE_REGS = "ComplianceRegs"
 SHEET_RESOURCE_TYPES = "ResourceTypes"
 SHEET_SETTINGS = "Settings"
@@ -216,7 +218,10 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "is_active",
             "sort_order",
             "catalogue_id",
+            "domain",
+            "source_ids",
         ),
+        json_columns=frozenset({"source_ids"}),
     ),
     ConfigSection(
         sheet=SHEET_STANDARDS,
@@ -230,6 +235,24 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "is_active",
             "sort_order",
             "catalogue_id",
+            "domain",
+            "adoption",
+            "source_ids",
+        ),
+        json_columns=frozenset({"source_ids"}),
+    ),
+    ConfigSection(
+        sheet=SHEET_AUTHORITATIVE_SOURCES,
+        model=AuthoritativeSource,
+        natural_key=("code",),
+        columns=(
+            "code",
+            "authority",
+            "classification",
+            "title",
+            "url",
+            "note",
+            "sort_order",
         ),
     ),
     ConfigSection(

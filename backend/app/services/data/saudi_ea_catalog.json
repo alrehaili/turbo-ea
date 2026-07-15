@@ -1197,5 +1197,447 @@
         "INT-21"
       ]
     }
+  ],
+  "sources": [
+    {
+      "code": "SA-01",
+      "authority": "Saudi — DGA",
+      "classification": "Regulatory / assessment baseline",
+      "title": "Digital Transformation Basic Standards, Version 4.0",
+      "url": "https://dga.gov.sa/sites/default/files/2025-10/Digital%20Transformation%20Basic%20Standards%20-%20V4.0.pdf",
+      "note": "Requires, among other matters, an EA methodology compatible with NORA and documented architecture principles with rationale and implications/consequences."
+    },
+    {
+      "code": "SA-02",
+      "authority": "Saudi — DGA",
+      "classification": "Authoritative national EA guideline",
+      "title": "Guideline for National Overall Reference Architecture (NORA), Issue 1.0",
+      "url": "https://dga.gov.sa/sites/default/files/2024-03/Guideline%20for%20National%20Overall%20Reference%20Architecture%20%28NORA%29%20-%20V1.0.pdf",
+      "note": "National method for government entities to develop and govern EA, reference models, current/target architectures, transition, and maintenance."
+    },
+    {
+      "code": "SA-03",
+      "authority": "Saudi — DGA",
+      "classification": "Authoritative implementation guideline",
+      "title": "Guideline for Implementing the National Enterprise Architecture Methodology",
+      "url": "https://dga.gov.sa/en/regulatory-documents/guideline-national-enterprise-architecture-methodology",
+      "note": "Current DGA implementation guidance published in 2026; confirm applicability and latest downloadable version before formal approval."
+    },
+    {
+      "code": "SA-04",
+      "authority": "Saudi — DGA",
+      "classification": "Regulatory policy",
+      "title": "Digital Government Policies, Version 2.0",
+      "url": "https://dga.gov.sa/en/regulatory-documents/Digital-government-policies",
+      "note": "Covers governance, whole-of-government platforms, service lifecycle, beneficiary centricity, and technology policy."
+    },
+    {
+      "code": "SA-05",
+      "authority": "Saudi — DGA",
+      "classification": "Regulatory framework / principles",
+      "title": "Digital Government Regulatory Framework",
+      "url": "https://dga.gov.sa/en/regulatory_framework",
+      "note": "Includes national digital-government principles such as once-only, digital-first, mobile-first, government as a platform, and open by default."
+    },
+    {
+      "code": "SA-06",
+      "authority": "Saudi — DGA",
+      "classification": "Control framework",
+      "title": "Controls for Information Technology Governance in Digital Government",
+      "url": "https://dga.gov.sa/en/regulatory-documents/IT-governance-controls-in-digital-government",
+      "note": "Government IT governance requirements; verify the current control text and applicability."
+    },
+    {
+      "code": "SA-07",
+      "authority": "Saudi — DGA",
+      "classification": "Controls",
+      "title": "Controls for Whole-of-Government Platforms",
+      "url": "https://dga.gov.sa/en/Controls_of_Whole_of_Government_Platforms",
+      "note": "Governance and requirements for whole-of-government platforms."
+    },
+    {
+      "code": "SA-08",
+      "authority": "Saudi — DGA",
+      "classification": "Controls",
+      "title": "Controls for Registration and Management of Digital Government Domains, Platforms, and Services",
+      "url": "https://dga.gov.sa/en/regulatory-documents/registration-management-domains-platforms-digital-government-services",
+      "note": "Governs approval, registration, rationalization, and management of government domains, platforms, and services."
+    },
+    {
+      "code": "SA-09",
+      "authority": "Saudi — DGA",
+      "classification": "Authoritative technical guideline",
+      "title": "Guideline for Application Programming Interfaces (APIs)",
+      "url": "https://dga.gov.sa/en/Guideline-Application-Programming-Interfaces",
+      "note": "Saudi government API and integration guidance."
+    },
+    {
+      "code": "SA-10",
+      "authority": "Saudi — DGA",
+      "classification": "Authoritative guideline",
+      "title": "Cloud Computing Adoption by Government Agencies",
+      "url": "https://dga.gov.sa/en/Cloud-Computing-Adoption-by-Government-Agencies",
+      "note": "Cloud adoption and workload/provider considerations, subject to data classification and national requirements."
+    },
+    {
+      "code": "SA-11",
+      "authority": "Saudi — DGA",
+      "classification": "Government design standard",
+      "title": "Platforms Code — Government Design System",
+      "url": "https://design.dga.gov.sa/",
+      "note": "Reusable design guidance and components for consistent government digital experiences."
+    },
+    {
+      "code": "SA-12",
+      "authority": "Saudi — DGA",
+      "classification": "Accessibility guideline",
+      "title": "Web Accessibility to Digital Channels Content to Serve People with Disabilities and the Elderly",
+      "url": "https://dga.gov.sa/en/regulatory-documents/web-accessibility-disabilities-and-elderly-people",
+      "note": "DGA guidance based on WCAG 2.2, targeting government digital channels."
+    },
+    {
+      "code": "SA-13",
+      "authority": "Saudi — DGA",
+      "classification": "Methodology",
+      "title": "Software Development Life Cycle (SDLC) Methodology",
+      "url": "https://dga.gov.sa/en/regulatory-documents/software-development-life-cycle-SDLC-methodology",
+      "note": "Government software lifecycle methodology."
+    },
+    {
+      "code": "SA-14",
+      "authority": "Saudi — DGA",
+      "classification": "Methodology / guideline",
+      "title": "Guideline for Development and Operation (DevOps)",
+      "url": "https://dga.gov.sa/en/Guideline_Development_and_Operation",
+      "note": "Government DevOps adoption guidance."
+    },
+    {
+      "code": "SA-15",
+      "authority": "Saudi — DGA",
+      "classification": "Quality guideline",
+      "title": "Quality Testing of Government Digital Products’ Software and Services",
+      "url": "https://dga.gov.sa/en/regulatory-documents/guideline-quality-testing-government-digital-products-services",
+      "note": "Current DGA quality-testing guidance published in 2026."
+    },
+    {
+      "code": "SA-16",
+      "authority": "Saudi — DGA",
+      "classification": "Authoritative guideline",
+      "title": "Guideline for Free and Open-Source Software Adoption",
+      "url": "https://dga.gov.sa/en/regulatory-documents/OSS-adoption-guideline",
+      "note": "Guidance for controlled evaluation and adoption of open-source software."
+    },
+    {
+      "code": "SA-17",
+      "authority": "Saudi — NCA",
+      "classification": "Mandatory national cybersecurity baseline for government entities",
+      "title": "Essential Cybersecurity Controls (ECC 2:2024)",
+      "url": "https://nca.gov.sa/en/regulatory-documents/controls-list/ecc/",
+      "note": "Minimum cybersecurity controls; use the current official version and implementation guidance."
+    },
+    {
+      "code": "SA-18",
+      "authority": "Saudi — NCA",
+      "classification": "Conditional mandatory national controls",
+      "title": "Cloud Cybersecurity Controls (CCC 2:2024)",
+      "url": "https://nca.gov.sa/en/regulatory-documents/controls-list/ccc/",
+      "note": "Cloud controls for service providers and tenants; updated for localization requirements."
+    },
+    {
+      "code": "SA-19",
+      "authority": "Saudi — NCA",
+      "classification": "Conditional / applicable national controls",
+      "title": "Data Cybersecurity Controls (DCC 1:2022)",
+      "url": "https://nca.gov.sa/en/regulatory-documents/controls-list/dcc/",
+      "note": "Minimum cybersecurity requirements for data across its lifecycle; extension to ECC."
+    },
+    {
+      "code": "SA-20",
+      "authority": "Saudi — NCA",
+      "classification": "Conditional mandatory national controls",
+      "title": "Critical Systems Cybersecurity Controls (CSCC 1:2019)",
+      "url": "https://nca.gov.sa/en/regulatory-documents/controls-list/cscc/",
+      "note": "Additional controls for systems classified as critical."
+    },
+    {
+      "code": "SA-21",
+      "authority": "Saudi — NCA",
+      "classification": "National control and standards register",
+      "title": "NCA Regulatory Documents and Controls",
+      "url": "https://nca.gov.sa/en/regulatory-documents/",
+      "note": "Use for the current National Cryptographic Standards and other applicable NCA control sets, including OT and sector-specific extensions."
+    },
+    {
+      "code": "SA-22",
+      "authority": "Saudi — SDAIA/NDMO",
+      "classification": "National data-management and protection standards",
+      "title": "Data Management and Personal Data Protection Standards",
+      "url": "https://sdaia.gov.sa/en/SDAIA/about/Documents/DataManagementPersonalDataProtectionStandards.pdf",
+      "note": "National data management domains and control expectations; confirm current version in the National Data Governance Platform."
+    },
+    {
+      "code": "SA-23",
+      "authority": "Saudi law",
+      "classification": "Legal requirement",
+      "title": "Personal Data Protection Law (PDPL)",
+      "url": "https://sdaia.gov.sa/en/SDAIA/about/Documents/Personal%20Data%20English%20V2-23April2023-%20Reviewed-.pdf",
+      "note": "Use the official Arabic legal text and current amendments as authoritative where interpretation matters."
+    },
+    {
+      "code": "SA-24",
+      "authority": "Saudi regulation",
+      "classification": "Legal / regulatory requirement",
+      "title": "PDPL Implementing Regulations",
+      "url": "https://sdaia.gov.sa/en/SDAIA/about/Documents/ImplementingRegulation.pdf",
+      "note": "Detailed implementation requirements supporting the PDPL."
+    },
+    {
+      "code": "SA-25",
+      "authority": "Saudi — SDAIA/NDMO",
+      "classification": "National policy",
+      "title": "Data Sharing Policy, Version 0.2 (2024)",
+      "url": "https://dgp.sdaia.gov.sa/wps/wcm/connect/b5d1907f-1b54-469d-8609-204ede2fa928/Data%2BSharing%2BPolicy.pdf?CACHEID=ROOTWORKSPACE-b5d1907f-1b54-469d-8609-204ede2fa928-p9iH7ub&CONVERT_TO=url&MOD=AJPERES",
+      "note": "Governs government data sharing, approved channels, metadata, controls, responsibilities, and timeframes."
+    },
+    {
+      "code": "SA-26",
+      "authority": "Saudi — SDAIA",
+      "classification": "National AI ethics framework",
+      "title": "AI Ethics Principles",
+      "url": "https://sdaia.gov.sa/en/SDAIA/about/Documents/ai-principles.pdf",
+      "note": "Responsible AI principles, governance, assessment, and lifecycle expectations."
+    },
+    {
+      "code": "SA-27",
+      "authority": "Saudi — SDAIA",
+      "classification": "National adoption framework",
+      "title": "Artificial Intelligence Adoption Framework",
+      "url": "https://sdaia.gov.sa/en/SDAIA/about/Files/AIAdoptionFramework.pdf",
+      "note": "Enterprise-wide framework for structured AI adoption."
+    },
+    {
+      "code": "SA-28",
+      "authority": "Saudi — SDAIA",
+      "classification": "Government guidance",
+      "title": "Generative Artificial Intelligence Guidelines for Government",
+      "url": "https://sdaia.gov.sa/en/SDAIA/about/Files/GenAIGuidelinesForGovernmentENCompressed.pdf",
+      "note": "Guidance for government use of generative AI and government data."
+    },
+    {
+      "code": "INT-01",
+      "authority": "International — ISO/IEC/IEEE",
+      "classification": "Recommended international architecture baseline",
+      "title": "ISO/IEC/IEEE 42010:2022 — Architecture description",
+      "url": "https://www.iso.org/standard/74393.html",
+      "note": "Concepts and requirements for architecture descriptions, viewpoints, stakeholders, and concerns."
+    },
+    {
+      "code": "INT-02",
+      "authority": "International — The Open Group",
+      "classification": "Recommended modeling notation",
+      "title": "ArchiMate 3.2 Specification",
+      "url": "https://pubs.opengroup.org/architecture/archimate32-doc/",
+      "note": "Enterprise architecture modeling language; adoption does not require using TOGAF as the EA method."
+    },
+    {
+      "code": "INT-03",
+      "authority": "International — OMG",
+      "classification": "Recommended process notation",
+      "title": "BPMN 2.0.2",
+      "url": "https://www.omg.org/spec/BPMN/2.0.2/About-BPMN",
+      "note": "Formal, implementation-independent business process notation."
+    },
+    {
+      "code": "INT-04",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended security management baseline",
+      "title": "ISO/IEC 27001:2022 and ISO/IEC 27002:2022",
+      "url": "https://www.iso.org/standard/27001",
+      "note": "Information security management system and control guidance. Also see https://www.iso.org/standard/75652.html."
+    },
+    {
+      "code": "INT-05",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended privacy management baseline",
+      "title": "ISO/IEC 27701:2025",
+      "url": "https://www.iso.org/standard/27701",
+      "note": "Privacy information management system requirements and guidance."
+    },
+    {
+      "code": "INT-06",
+      "authority": "International — ISO",
+      "classification": "Recommended continuity baseline",
+      "title": "ISO 22301:2019",
+      "url": "https://www.iso.org/standard/75106.html",
+      "note": "Business continuity management system."
+    },
+    {
+      "code": "INT-07",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended ICT readiness baseline",
+      "title": "ISO/IEC 27031:2025",
+      "url": "https://www.iso.org/standard/27031",
+      "note": "ICT readiness for business continuity."
+    },
+    {
+      "code": "INT-08",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended service-management baseline",
+      "title": "ISO/IEC 20000-1:2018",
+      "url": "https://www.iso.org/standard/70636.html",
+      "note": "Service management system requirements."
+    },
+    {
+      "code": "INT-09",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended quality model",
+      "title": "ISO/IEC 25010:2023",
+      "url": "https://www.iso.org/standard/78176.html",
+      "note": "Product quality model for software and systems."
+    },
+    {
+      "code": "INT-10",
+      "authority": "International — ISO",
+      "classification": "Recommended data-quality baseline",
+      "title": "ISO 8000-61:2016 and ISO 8000-150:2022",
+      "url": "https://www.iso.org/standard/63086.html",
+      "note": "Data quality management and quality-management concepts. Also see https://www.iso.org/standard/80753.html."
+    },
+    {
+      "code": "INT-11",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended metadata baseline",
+      "title": "ISO/IEC 11179-1:2023 and ISO/IEC 11179-3:2023",
+      "url": "https://www.iso.org/standard/78914.html",
+      "note": "Metadata registry concepts and metamodel. Also see https://www.iso.org/standard/78915.html."
+    },
+    {
+      "code": "INT-12",
+      "authority": "International — W3C",
+      "classification": "International accessibility standard",
+      "title": "Web Content Accessibility Guidelines (WCAG) 2.2",
+      "url": "https://www.w3.org/TR/WCAG22/",
+      "note": "Accessibility success criteria and conformance levels."
+    },
+    {
+      "code": "INT-13",
+      "authority": "International — OpenAPI Initiative",
+      "classification": "Recommended API description standard",
+      "title": "OpenAPI Specification 3.1.1 / current approved version",
+      "url": "https://spec.openapis.org/oas/v3.1.1.html",
+      "note": "Machine-readable HTTP API contracts; the Authority should manage its approved version."
+    },
+    {
+      "code": "INT-14",
+      "authority": "International — IETF",
+      "classification": "Recommended authorization standard",
+      "title": "OAuth 2.0 — RFC 6749",
+      "url": "https://www.rfc-editor.org/rfc/rfc6749.html",
+      "note": "Authorization framework; implementation must also apply current security best practices."
+    },
+    {
+      "code": "INT-15",
+      "authority": "International — OpenID Foundation",
+      "classification": "Recommended identity standard",
+      "title": "OpenID Connect Core 1.0",
+      "url": "https://openid.net/specs/openid-connect-core-1_0.html",
+      "note": "Identity layer built on OAuth 2.0."
+    },
+    {
+      "code": "INT-16",
+      "authority": "International — IETF",
+      "classification": "Recommended secure-transport baseline",
+      "title": "TLS 1.3 — RFC 8446",
+      "url": "https://www.rfc-editor.org/rfc/rfc8446.html",
+      "note": "Current preferred TLS protocol baseline, subject to NCA cryptographic requirements."
+    },
+    {
+      "code": "INT-17",
+      "authority": "International — NIST",
+      "classification": "Recommended security architecture reference",
+      "title": "NIST SP 800-207 — Zero Trust Architecture",
+      "url": "https://csrc.nist.gov/pubs/sp/800/207/final",
+      "note": "Identity- and policy-centric zero-trust architecture guidance."
+    },
+    {
+      "code": "INT-18",
+      "authority": "International — NIST",
+      "classification": "Recommended secure-development baseline",
+      "title": "NIST SP 800-218 — Secure Software Development Framework (SSDF) v1.1",
+      "url": "https://nvlpubs.nist.gov/nistpubs/specialpublications/nist.sp.800-218.pdf",
+      "note": "Secure software development practices and software supply-chain controls."
+    },
+    {
+      "code": "INT-19",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended AI management baseline",
+      "title": "ISO/IEC 42001:2023",
+      "url": "https://www.iso.org/standard/42001",
+      "note": "AI management system requirements."
+    },
+    {
+      "code": "INT-20",
+      "authority": "International — ISO/IEC",
+      "classification": "Recommended AI risk guidance",
+      "title": "ISO/IEC 23894:2023",
+      "url": "https://www.iso.org/standard/77304.html",
+      "note": "AI risk-management guidance."
+    },
+    {
+      "code": "INT-21",
+      "authority": "International — NIST",
+      "classification": "Recommended AI risk framework",
+      "title": "NIST AI Risk Management Framework",
+      "url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "note": "Voluntary AI risk-management framework supporting trustworthy AI."
+    },
+    {
+      "code": "INT-22",
+      "authority": "International — ISO",
+      "classification": "Recommended risk-governance guidance",
+      "title": "ISO 31000:2018",
+      "url": "https://www.iso.org/standard/65694.html",
+      "note": "Enterprise risk-management principles and process; a replacement edition is under development as of July 2026."
+    },
+    {
+      "code": "INT-23",
+      "authority": "International — ISO",
+      "classification": "Interchange convention",
+      "title": "ISO 8601-1:2019 with Amendment 1:2022",
+      "url": "https://www.iso.org/standard/70907.html",
+      "note": "Date and time representations for information interchange."
+    },
+    {
+      "code": "INT-24",
+      "authority": "International — Unicode Consortium",
+      "classification": "Character-encoding standard",
+      "title": "The Unicode Standard / UTF-8",
+      "url": "https://www.unicode.org/versions/Unicode16.0.0/core-spec/",
+      "note": "Universal character encoding supporting Arabic and multilingual text."
+    },
+    {
+      "code": "INT-25",
+      "authority": "International — IETF",
+      "classification": "Data interchange standard",
+      "title": "JSON — RFC 8259 / Internet Standard 90",
+      "url": "https://www.rfc-editor.org/info/rfc8259/",
+      "note": "Portable structured-data interchange format."
+    },
+    {
+      "code": "INT-26",
+      "authority": "International — IETF",
+      "classification": "API error standard",
+      "title": "Problem Details for HTTP APIs — RFC 9457",
+      "url": "https://datatracker.ietf.org/doc/rfc9457/",
+      "note": "Standard machine-readable HTTP API error format."
+    },
+    {
+      "code": "INT-27",
+      "authority": "International — IETF",
+      "classification": "Security best current practice",
+      "title": "JSON Web Token Best Current Practices — RFC 8725",
+      "url": "https://www.rfc-editor.org/info/rfc8725/",
+      "note": "Security guidance for JWT-based deployments."
+    }
   ]
 }

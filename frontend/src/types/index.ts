@@ -345,6 +345,8 @@ export interface EAPrinciple {
   is_active: boolean;
   sort_order: number;
   catalogue_id?: string | null;
+  domain?: string | null;
+  source_ids?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -359,8 +361,22 @@ export interface Standard {
   sort_order: number;
   principle_ids: string[];
   catalogue_id?: string | null;
+  domain?: string | null;
+  adoption?: string | null;
+  source_ids?: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface AuthoritativeSource {
+  id: string;
+  code: string;
+  authority?: string | null;
+  classification?: string | null;
+  title: string;
+  url?: string | null;
+  note?: string | null;
+  sort_order: number;
 }
 
 export interface CataloguePrinciple {

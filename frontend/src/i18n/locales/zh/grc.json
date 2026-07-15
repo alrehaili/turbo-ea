@@ -76,7 +76,10 @@
         "low": "低"
       }
     },
-    "referenceModels": "参考模型"
+    "referenceModels": "参考模型",
+    "sources": {
+      "label": "来源"
+    }
   },
   "compliance": {
     "aiRequired": {

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -22,6 +22,12 @@ class Standard(Base, UUIDMixin, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     catalogue_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    # Grouping domain, e.g. "Integration Architecture", "Cybersecurity".
+    domain: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Proposed adoption status, e.g. "Mandatory", "Conditional mandatory".
+    adoption: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Authoritative-source codes this standard traces back to (["SA-01", ...]).
+    source_ids: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
 
 
 class StandardPrinciple(Base):

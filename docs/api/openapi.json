@@ -10728,6 +10728,18 @@
             ],
             "title": "Description"
           },
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
           "implications": {
             "anyOf": [
               {
@@ -10760,6 +10772,13 @@
             "title": "Sort Order",
             "type": "integer"
           },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
           "title": {
             "maxLength": 300,
             "minLength": 1,
@@ -10785,6 +10804,18 @@
               }
             ],
             "title": "Description"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
           },
           "implications": {
             "anyOf": [
@@ -10829,6 +10860,20 @@
               }
             ],
             "title": "Sort Order"
+          },
+          "source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ids"
           },
           "title": {
             "anyOf": [
@@ -17028,6 +17073,18 @@
       },
       "app__api__v1__metamodel__StandardCreate": {
         "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adoption"
+          },
           "description": {
             "anyOf": [
               {
@@ -17038,6 +17095,18 @@
               }
             ],
             "title": "Description"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
           },
           "implications": {
             "anyOf": [
@@ -17078,6 +17147,13 @@
             "title": "Sort Order",
             "type": "integer"
           },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
           "title": {
             "maxLength": 300,
             "minLength": 1,
@@ -17093,6 +17169,18 @@
       },
       "app__api__v1__metamodel__StandardUpdate": {
         "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adoption"
+          },
           "description": {
             "anyOf": [
               {
@@ -17103,6 +17191,18 @@
               }
             ],
             "title": "Description"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
           },
           "implications": {
             "anyOf": [
@@ -17161,6 +17261,20 @@
               }
             ],
             "title": "Sort Order"
+          },
+          "source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ids"
           },
           "title": {
             "anyOf": [
@@ -28392,6 +28506,26 @@
         "summary": "Get Overview",
         "tags": [
           "maturity"
+        ]
+      }
+    },
+    "/api/v1/metamodel/authoritative-sources": {
+      "get": {
+        "description": "List the authoritative-source register (laws, controls, standards that\nprinciples and standards trace back to), ordered by code.",
+        "operationId": "list_authoritative_sources_api_v1_metamodel_authoritative_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Authoritative Sources",
+        "tags": [
+          "metamodel"
         ]
       }
     },

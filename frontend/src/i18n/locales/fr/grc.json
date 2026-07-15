@@ -76,6 +76,9 @@
         "medium": "Moyenne",
         "low": "Faible"
       }
+    },
+    "sources": {
+      "label": "Sources"
     }
   },
   "compliance": {

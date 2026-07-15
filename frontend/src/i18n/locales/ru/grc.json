@@ -76,7 +76,10 @@
         "low": "Низкая"
       }
     },
-    "referenceModels": "Эталонные модели"
+    "referenceModels": "Эталонные модели",
+    "sources": {
+      "label": "Источники"
+    }
   },
   "compliance": {
     "aiRequired": {

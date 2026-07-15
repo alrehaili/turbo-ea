@@ -76,6 +76,9 @@
         "medium": "Média",
         "low": "Baixa"
       }
+    },
+    "sources": {
+      "label": "Fontes"
     }
   },
   "compliance": {

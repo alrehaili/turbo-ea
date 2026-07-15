@@ -20,6 +20,7 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { EAPrinciple } from "@/types";
+import CatalogMeta from "@/features/grc/governance/CatalogMeta";
 
 interface PrincipleForm {
   title: string;
@@ -240,6 +241,7 @@ export default function PrinciplesAdmin() {
                       {p.description}
                     </Typography>
                   )}
+                  <CatalogMeta domain={p.domain} sourceIds={p.source_ids} />
                   {(p.rationale || p.implications) && (
                     <Box sx={{ display: "flex", gap: 3, mt: 0.5, flexWrap: "wrap" }}>
                       {p.rationale && (

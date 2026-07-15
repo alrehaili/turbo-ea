@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.authoritative_source import AuthoritativeSource
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.compliance_regulation import ComplianceRegulation
@@ -1193,6 +1194,8 @@ class PrincipleCreate(BaseModel):
     implications: str | None = None
     is_active: bool = True
     sort_order: int = 0
+    domain: str | None = Field(default=None, max_length=64)
+    source_ids: list[str] = Field(default_factory=list)
 
 
 class PrincipleUpdate(BaseModel):
@@ -1202,6 +1205,8 @@ class PrincipleUpdate(BaseModel):
     implications: str | None = None
     is_active: bool | None = None
     sort_order: int | None = None
+    domain: str | None = Field(default=None, max_length=64)
+    source_ids: list[str] | None = None
 
 
 def _serialize_principle(p: EAPrinciple) -> dict:
@@ -1213,6 +1218,9 @@ def _serialize_principle(p: EAPrinciple) -> dict:
         "implications": p.implications,
         "is_active": p.is_active,
         "sort_order": p.sort_order,
+        "domain": p.domain,
+        "source_ids": p.source_ids or [],
+        "catalogue_id": p.catalogue_id,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
     }
@@ -1246,6 +1254,8 @@ async def create_principle(
         implications=body.implications,
         is_active=body.is_active,
         sort_order=body.sort_order,
+        domain=body.domain,
+        source_ids=body.source_ids,
     )
     db.add(p)
     await db.commit()
@@ -1297,6 +1307,9 @@ class StandardCreate(BaseModel):
     is_active: bool = True
     sort_order: int = 0
     principle_ids: list[str] = Field(default_factory=list)
+    domain: str | None = Field(default=None, max_length=64)
+    adoption: str | None = Field(default=None, max_length=64)
+    source_ids: list[str] = Field(default_factory=list)
 
 
 class StandardUpdate(BaseModel):
@@ -1307,6 +1320,9 @@ class StandardUpdate(BaseModel):
     is_active: bool | None = None
     sort_order: int | None = None
     principle_ids: list[str] | None = None
+    domain: str | None = Field(default=None, max_length=64)
+    adoption: str | None = Field(default=None, max_length=64)
+    source_ids: list[str] | None = None
 
 
 def _serialize_standard(s: Standard, principle_ids: list[str]) -> dict:
@@ -1319,6 +1335,10 @@ def _serialize_standard(s: Standard, principle_ids: list[str]) -> dict:
         "is_active": s.is_active,
         "sort_order": s.sort_order,
         "principle_ids": principle_ids,
+        "domain": s.domain,
+        "adoption": s.adoption,
+        "source_ids": s.source_ids or [],
+        "catalogue_id": s.catalogue_id,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
     }
@@ -1386,6 +1406,9 @@ async def create_standard(
         implications=body.implications,
         is_active=body.is_active,
         sort_order=body.sort_order,
+        domain=body.domain,
+        adoption=body.adoption,
+        source_ids=body.source_ids,
     )
     db.add(s)
     await db.flush()
@@ -1431,6 +1454,37 @@ async def delete_standard(
     await PermissionService.require_permission(db, user, "admin.metamodel")
     await db.execute(delete(Standard).where(Standard.id == uuid.UUID(standard_id)))
     await db.commit()
+
+
+# ── Authoritative Sources ─────────────────────────────────────────────
+
+
+def _serialize_source(s: AuthoritativeSource) -> dict:
+    return {
+        "id": str(s.id),
+        "code": s.code,
+        "authority": s.authority,
+        "classification": s.classification,
+        "title": s.title,
+        "url": s.url,
+        "note": s.note,
+        "sort_order": s.sort_order,
+    }
+
+
+@router.get("/authoritative-sources")
+async def list_authoritative_sources(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List the authoritative-source register (laws, controls, standards that
+    principles and standards trace back to), ordered by code."""
+    result = await db.execute(
+        select(AuthoritativeSource).order_by(
+            AuthoritativeSource.sort_order, AuthoritativeSource.code
+        )
+    )
+    return [_serialize_source(s) for s in result.scalars().all()]
 
 
 # ── Compliance Regulations ────────────────────────────────────────────

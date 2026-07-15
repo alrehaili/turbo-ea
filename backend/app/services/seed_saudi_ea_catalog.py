@@ -25,6 +25,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.authoritative_source import AuthoritativeSource
 from app.models.ea_principle import EAPrinciple
 from app.models.standard import Standard, StandardPrinciple
 
@@ -35,42 +36,18 @@ def _load_catalog() -> dict:
     return json.loads(_DATA_FILE.read_text(encoding="utf-8"))
 
 
-def _principle_implications(p: dict) -> str:
-    """Implications text, with authoritative-source traceability appended."""
-    text = p.get("implications", "").strip()
-    sources = p.get("sources") or []
-    if sources:
-        text = f"{text}\n\nAuthoritative sources: {', '.join(sources)}."
-    return text
-
-
-def _standard_implications(s: dict) -> str:
-    """Implementation implications, prefixed with the proposed adoption status
-    (the ``standards`` model has no dedicated status field) and suffixed with
-    authoritative-source traceability."""
-    parts: list[str] = []
-    adoption = (s.get("adoption") or "").strip()
-    if adoption:
-        parts.append(f"Adoption: {adoption}.")
-    impl = (s.get("implications") or "").strip()
-    if impl:
-        parts.append(impl)
-    text = " ".join(parts)
-    sources = s.get("sources") or []
-    if sources:
-        text = f"{text}\n\nAuthoritative sources: {', '.join(sources)}."
-    return text
-
-
 async def seed_saudi_ea_catalog(db: AsyncSession) -> dict:
-    """Seed the 22 principles + 36 standards + their principle links.
+    """Seed the 22 principles + 36 standards + their principle links + the
+    55-entry authoritative-source register.
 
-    Idempotent by ``catalogue_id``. Returns per-section counts (0 = already
-    present / nothing to add).
+    Idempotent by ``catalogue_id`` / source ``code``. Returns per-section counts
+    (0 = already present / nothing to add). Domain, adoption status and
+    authoritative-source codes are stored as first-class fields.
     """
     catalog = _load_catalog()
     principles = catalog["principles"]
     standards = catalog["standards"]
+    sources = catalog.get("sources", [])
 
     # ── Existing catalogue ids (for idempotency + link resolution) ──────────
     existing_principle_ids = {
@@ -101,10 +78,12 @@ async def seed_saudi_ea_catalog(db: AsyncSession) -> dict:
                 title=p["title"],
                 description=p.get("statement", ""),
                 rationale=p.get("rationale", ""),
-                implications=_principle_implications(p),
+                implications=p.get("implications", ""),
                 is_active=True,
                 sort_order=base_p + idx,
                 catalogue_id=p["id"],
+                domain=p.get("domain"),
+                source_ids=p.get("sources", []),
             )
         )
         principles_added += 1
@@ -122,10 +101,13 @@ async def seed_saudi_ea_catalog(db: AsyncSession) -> dict:
                 title=s["title"],
                 description=s.get("statement", ""),
                 rationale=s.get("rationale", ""),
-                implications=_standard_implications(s),
+                implications=s.get("implications", ""),
                 is_active=True,
                 sort_order=base_s + idx,
                 catalogue_id=s["id"],
+                domain=s.get("domain"),
+                adoption=s.get("adoption"),
+                source_ids=s.get("sources", []),
             )
         )
         standards_added += 1
@@ -172,9 +154,30 @@ async def seed_saudi_ea_catalog(db: AsyncSession) -> dict:
             existing_links.add((sid, pid))
             links_added += 1
 
+    # ── Authoritative-source register (idempotent by code) ──────────────────
+    existing_source_codes = {
+        code for (code,) in (await db.execute(select(AuthoritativeSource.code))).all()
+    }
+    sources_added = 0
+    for idx, src in enumerate(sources, start=1):
+        if src["code"] in existing_source_codes:
+            continue
+        db.add(
+            AuthoritativeSource(
+                code=src["code"],
+                authority=src.get("authority"),
+                classification=src.get("classification"),
+                title=src.get("title", ""),
+                url=src.get("url"),
+                note=src.get("note"),
+                sort_order=idx,
+            )
+        )
+        sources_added += 1
+
     await db.commit()
 
-    if not any((principles_added, standards_added, links_added)):
+    if not any((principles_added, standards_added, links_added, sources_added)):
         return {"skipped": True, "reason": "Saudi EA catalog already seeded"}
 
     return {
@@ -182,4 +185,5 @@ async def seed_saudi_ea_catalog(db: AsyncSession) -> dict:
         "principles": principles_added,
         "standards": standards_added,
         "principle_standard_links": links_added,
+        "authoritative_sources": sources_added,
     }

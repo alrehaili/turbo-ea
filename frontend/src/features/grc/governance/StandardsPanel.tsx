@@ -13,6 +13,7 @@ import StandardsAdmin from "@/features/admin/StandardsAdmin";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { surface } from "@/theme/tokens";
 import type { EAPrinciple, Standard } from "@/types";
+import CatalogMeta from "./CatalogMeta";
 
 export default function StandardsPanel() {
   const { user } = useAuthContext();
@@ -118,6 +119,7 @@ function ReadOnlyStandards() {
                     {s.description}
                   </Typography>
                 )}
+                <CatalogMeta domain={s.domain} adoption={s.adoption} sourceIds={s.source_ids} />
                 {s.principle_ids.length > 0 && (
                   <Box
                     sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.5, flexWrap: "wrap" }}

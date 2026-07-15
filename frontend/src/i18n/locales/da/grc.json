@@ -76,6 +76,9 @@
         "medium": "Mellem",
         "low": "Lav"
       }
+    },
+    "sources": {
+      "label": "Kilder"
     }
   },
   "compliance": {
