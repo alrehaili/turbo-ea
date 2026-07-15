@@ -149,6 +149,7 @@ class CardResponse(BaseModel):
     approval_status: str
     data_quality: float
     external_id: str | None = None
+    reference: str | None = None
     alias: str | None = None
     architecture_state: str = "current"
     change_type: str | None = None

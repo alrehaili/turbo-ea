@@ -41,7 +41,7 @@ import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
-import { DataQualityPill, SuccessorFieldSection } from "@/features/cards/sections";
+import { CardIdPill, DataQualityPill, SuccessorFieldSection } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
   Card,
@@ -584,7 +584,7 @@ export default function CardDetail() {
               )}
             </Box>
           )}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
             <Typography
               variant="body2"
               sx={{ color: typeConfig?.color || "text.secondary" }}
@@ -660,6 +660,9 @@ export default function CardDetail() {
                   )
                 )}
               </>
+            )}
+            {card.reference && (
+              <CardIdPill reference={card.reference} typeColor={typeConfig?.color} />
             )}
           </Box>
         </Box>
