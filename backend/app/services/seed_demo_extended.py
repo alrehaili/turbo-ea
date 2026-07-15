@@ -463,7 +463,18 @@ async def seed_recurring_todos(db: AsyncSession) -> dict:
     if existing.scalar_one_or_none():
         return {"skipped": "recurring_todos"}
 
-    from app.services.seed_demo import _refs
+    # Resolve link targets by card *name*, not the in-memory ``_refs`` dict:
+    # on idempotent re-runs (seed_demo skipped) ``_refs`` holds fresh random
+    # UUIDs that don't match the existing cards, which would violate the
+    # todos.card_id FK. A missing card simply yields an unlinked todo.
+    name_to_id = {
+        name: cid
+        for name, cid in (
+            await db.execute(
+                select(Card.name, Card.id).where(Card.name.in_(["SAP S/4HANA", "Quote to Cash"]))
+            )
+        ).all()
+    }
 
     now = datetime.now(timezone.utc)
 
@@ -476,7 +487,7 @@ async def seed_recurring_todos(db: AsyncSession) -> dict:
             "recurrence_unit": "months",
             "recurrence_interval": 1,
             "is_system": False,
-            "card_id": _refs.get("app_sap_s4"),
+            "card_id": name_to_id.get("SAP S/4HANA"),
         },
         {
             "title": "Audit Process Assessment Scores",
@@ -486,7 +497,7 @@ async def seed_recurring_todos(db: AsyncSession) -> dict:
             "recurrence_unit": "weeks",
             "recurrence_interval": 2,
             "is_system": False,
-            "card_id": _refs.get("bp_quote_to_cash"),
+            "card_id": name_to_id.get("Quote to Cash"),
         },
         {
             "title": "Update Risk Register & Mitigation Status",
