@@ -1486,43 +1486,49 @@ POLICIES = [
 
 
 async def seed_nora_validated(db: AsyncSession) -> dict:
-    """Seed validated, strategically-linked NORA data.
+    """Seed the validated NORA operational landscape (cross-linked).
 
-    All data is properly cross-linked across layers:
-    Service → Process → Capability → Objective → Pillar
+    Landscape only — the strategic layer (Objectives, Pillars, Vision/Mission,
+    Maturity) is owned by seed_strategic_house_maturity, so this seed does not
+    create Pillars/Objectives (nor Principles/ADRs, which are not cards). Any
+    relation that referenced those is skipped by the source/target guard.
+
+    Cross-links produced:
+    Service → Process → Capability
     Service → Channel → Persona → Journey
     Application → Interface → DataObject → ITComponent
     """
-    # Check if already seeded
+    # Check if already seeded (keyed on a landscape card this seed owns)
     result = await db.execute(
         select(Card.id)
-        .where(Card.type == "Objective", Card.name == "Achieve Digital Excellence")
+        .where(Card.type == "GovService", Card.name == "Issue Commercial Registration")
         .limit(1)
     )
     if result.scalar_one_or_none() is not None:
-        return {"skipped": True, "reason": "NORA validated data already seeded"}
+        return {"skipped": True, "reason": "NORA validated landscape already seeded"}
 
     cards: dict[str, Card] = {}
     relations_to_create: list[tuple[str, str, str, dict]] = []
 
     # ─── Load all card specs ───
+    # Landscape-only: the strategic layer (Objectives, Pillars, Vision/Mission)
+    # is owned by seed_strategic_house_maturity, and Principles/ADRs are not
+    # cards (they live in ea_principles / architecture_decisions). Card types
+    # are hardcoded per group — the spec dicts intentionally omit "type".
     all_specs = (
-        [(s["type"], s) for s in [*BUSINESS_OBJECTIVES, *BUSINESS_PILLARS]]
-        + [
-            (s["type"], s)
-            for s in BENEFICIARY_SERVICES
-            + BENEFICIARY_CHANNELS
-            + BENEFICIARY_PERSONAS
-            + BENEFICIARY_JOURNEYS
-        ]
-        + [(s["type"], s) for s in BUSINESS_PROCESSES + BUSINESS_CAPABILITIES]
+        [("GovService", s) for s in BENEFICIARY_SERVICES]
+        + [("Channel", s) for s in BENEFICIARY_CHANNELS]
+        + [("Persona", s) for s in BENEFICIARY_PERSONAS]
+        + [("BeneficiaryJourney", s) for s in BENEFICIARY_JOURNEYS]
+        + [("BusinessProcess", s) for s in BUSINESS_PROCESSES]
+        + [("BusinessCapability", s) for s in BUSINESS_CAPABILITIES]
         + [("Application", s) for s in APPLICATIONS]
         + [("Interface", s) for s in INTERFACES]
         + [("DataObject", s) for s in DATA_OBJECTS]
         + [("DataExchange", s) for s in DATA_EXCHANGES]
         + [("ITComponent", s) for s in IT_COMPONENTS]
         + [("KPI", s) for s in KPIS]
-        + [(s["type"], s) for s in PRINCIPLES + ADRS + POLICIES]
+        + [("Policy", s) for s in POLICIES]
     )
 
     # ─── Create all cards ───
@@ -1694,10 +1700,11 @@ async def seed_nora_validated(db: AsyncSession) -> dict:
 
     await db.commit()
 
+    linked_relations = sum(1 for _, s, t, _ in relations_to_create if s in cards and t in cards)
     return {
         "loaded": True,
         "cards": len(cards),
-        "relations": len(relations_to_create),
-        "layers_complete": 6,
-        "validation": "strategic_linkage_complete",
+        "relations": linked_relations,
+        "layers_complete": 4,
+        "validation": "landscape_linkage_complete",
     }
