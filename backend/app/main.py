@@ -749,6 +749,23 @@ async def lifespan(app: FastAPI):
         except Exception as exc:  # noqa: BLE001
             logger.exception("[seed_reference_models] FAILED: %s", exc)
 
+        # Seed GRC examples (10 each: risks, compliance findings, principles, ADRs)
+        from app.services.seed_nora_grc import seed_nora_grc
+
+        try:
+            async with async_session() as db:
+                result = await seed_nora_grc(db)
+            if result.get("skipped"):
+                print(f"[seed_nora_grc] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_nora_grc] ✓ Seeded {result['risks']} risks, "
+                    f"{result['compliance_findings']} compliance findings, "
+                    f"{result['principles']} principles, {result['decisions']} decisions"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_nora_grc] FAILED: %s", exc)
+
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
         from app.services.seed_demo import seed_demo_data
