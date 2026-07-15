@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Regulierung konnte nicht gespeichert werden.",
   "metamodel.regulations.deleteError": "Regulierung konnte nicht gelöscht werden.",
   "compliance_regulation_disabled": "Deaktiviert",
+  "compliance_regulation_unscanned": "Nicht geprüft",
   "compliance_regulation_orphan": "Entfernt",
   "compliance_no_regulations_enabled": "Derzeit ist keine Regulierung aktiviert. Fügen Sie unter Admin → Metamodell → Regulierungen eine hinzu oder reaktivieren Sie eine, um einen Compliance-Scan auszuführen.",
   "compliance_ai_not_configured_register_still_available": "KI ist nicht konfiguriert, daher sind On-Demand-Scans nicht verfügbar. Sie können das Compliance-Register weiterhin einsehen und Befunde manuell erfassen.",

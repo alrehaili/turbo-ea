@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "无法保存法规。",
   "metamodel.regulations.deleteError": "无法删除法规。",
   "compliance_regulation_disabled": "已禁用",
+  "compliance_regulation_unscanned": "未扫描",
   "compliance_regulation_orphan": "已移除",
   "compliance_no_regulations_enabled": "目前没有启用的法规。请在 管理 → 元模型 → 法规 中添加或重新启用法规，然后再运行合规扫描。",
   "compliance_ai_not_configured_register_still_available": "AI 未配置，因此无法按需扫描。您仍然可以浏览合规登记册并手动添加发现。",

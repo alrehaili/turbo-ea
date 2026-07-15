@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Não foi possível salvar a regulamentação.",
   "metamodel.regulations.deleteError": "Não foi possível excluir a regulamentação.",
   "compliance_regulation_disabled": "Desativada",
+  "compliance_regulation_unscanned": "Não analisado",
   "compliance_regulation_orphan": "Removida",
   "compliance_no_regulations_enabled": "Nenhuma regulamentação está ativa no momento. Adicione ou reative uma em Admin → Metamodelo → Regulamentações para executar um scan de conformidade.",
   "compliance_ai_not_configured_register_still_available": "A IA não está configurada, portanto os scans sob demanda não estão disponíveis. Você ainda pode consultar o registro de conformidade e adicionar constatações manualmente.",

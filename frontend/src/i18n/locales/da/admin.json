@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Kunne ikke gemme regulering.",
   "metamodel.regulations.deleteError": "Kunne ikke slette regulering.",
   "compliance_regulation_disabled": "Deaktiveret",
+  "compliance_regulation_unscanned": "Ikke scannet",
   "compliance_regulation_orphan": "Fjernet",
   "compliance_no_regulations_enabled": "Ingen reguleringer er aktiveret i øjeblikket. Tilføj eller genaktivér en regulering under Administration → Metamodel → Reguleringer for at køre en compliance-scanning.",
   "compliance_ai_not_configured_register_still_available": "AI er ikke konfigureret, så on-demand-scanninger er ikke tilgængelige. Du kan stadig gennemse compliance-registret og tilføje fund manuelt.",

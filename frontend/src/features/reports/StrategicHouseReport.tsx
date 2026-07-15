@@ -153,108 +153,136 @@ export default function StrategicHouseReport() {
         </Alert>
       )}
 
-      {/* Roof — vision */}
+      {/* Roof — a short decorative triangular gable for the house silhouette,
+          then a full-width rectangular banner (same colour) holding the vision.
+          The vision can be several sentences, so it lives in a rectangle where
+          it wraps cleanly rather than in a triangle where it would overflow the
+          slanted edges. */}
       <Box
         sx={{
           mx: "auto",
-          width: "85%",
+          width: "60%",
+          height: 44,
           clipPath: "polygon(50% 0, 100% 100%, 0 100%)",
           bgcolor: PILLAR_COLOR,
+        }}
+      />
+      <Box
+        sx={{
+          mx: "auto",
+          width: "90%",
+          bgcolor: PILLAR_COLOR,
           color: "#fff",
-          pt: 6,
-          pb: 2,
-          px: 8,
+          p: 2.5,
           textAlign: "center",
         }}
       >
         <Typography variant="overline" sx={{ opacity: 0.85 }}>
           {t("strategicHouse.vision")}
         </Typography>
-        <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.3 }}>
+        <Typography
+          variant="subtitle1"
+          fontWeight={700}
+          sx={{ lineHeight: 1.4, overflowWrap: "anywhere", whiteSpace: "pre-line" }}
+        >
           {house.vision || t("strategicHouse.visionEmpty")}
         </Typography>
       </Box>
 
-      {/* Band — mission */}
-      <Paper
-        elevation={0}
-        sx={{
-          mx: "auto",
-          width: "85%",
-          bgcolor: "action.hover",
-          p: 2,
-          textAlign: "center",
-          borderRadius: 0,
-        }}
-      >
-        <Typography variant="overline" color="text.secondary">
-          {t("strategicHouse.mission")}
-        </Typography>
-        <Typography variant="body1" fontWeight={600}>
-          {house.mission || t("strategicHouse.missionEmpty")}
-        </Typography>
-      </Paper>
-
-      {/* Pillars */}
+      {/* House body — walls enclosing the mission band and the pillars so they
+          read as being *inside* the house rather than floating below it. */}
       <Box
         sx={{
           mx: "auto",
-          width: "85%",
-          display: "grid",
-          gridTemplateColumns: pillars.length
-            ? `repeat(${Math.min(pillars.length, 5)}, 1fr)`
-            : "1fr",
-          gap: 1.5,
-          py: 1.5,
+          width: "90%",
+          border: "1px solid",
+          borderColor: "divider",
+          borderTop: "none",
         }}
       >
-        {pillars.length === 0 ? (
-          <Alert
-            severity="info"
-            action={
-              canCreatePillar ? (
-                <Button
-                  color="inherit"
-                  size="small"
-                  startIcon={<MaterialSymbol icon="add" size={18} />}
-                  onClick={() => setCreatePillarOpen(true)}
-                >
-                  {t("strategyCascade.addPillar")}
-                </Button>
-              ) : undefined
-            }
-          >
-            {t("strategicHouse.pillarsEmpty")}
-          </Alert>
-        ) : (
-          pillars.map((p) => (
-            <Paper
-              key={p.id}
-              variant="outlined"
-              sx={{
-                borderTop: `4px solid ${PILLAR_COLOR}`,
-                p: 1.5,
-                display: "flex",
-                flexDirection: "column",
-                gap: 1,
-                minHeight: 160,
-              }}
+        {/* Band — mission */}
+        <Box
+          sx={{
+            bgcolor: "action.hover",
+            p: 2,
+            textAlign: "center",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Typography variant="overline" color="text.secondary">
+            {t("strategicHouse.mission")}
+          </Typography>
+          <Typography variant="body1" fontWeight={600} sx={{ overflowWrap: "anywhere" }}>
+            {house.mission || t("strategicHouse.missionEmpty")}
+          </Typography>
+        </Box>
+
+        {/* Pillars */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: pillars.length
+              ? `repeat(${Math.min(pillars.length, 4)}, minmax(0, 1fr))`
+              : "1fr",
+            gap: 1.5,
+            p: 1.5,
+          }}
+        >
+          {pillars.length === 0 ? (
+            <Alert
+              severity="info"
+              action={
+                canCreatePillar ? (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    startIcon={<MaterialSymbol icon="add" size={18} />}
+                    onClick={() => setCreatePillarOpen(true)}
+                  >
+                    {t("strategyCascade.addPillar")}
+                  </Button>
+                ) : undefined
+              }
             >
-              <Typography
-                variant="subtitle2"
-                fontWeight={700}
-                component={RouterLink}
-                to={`/cards/${p.id}`}
-                sx={{ color: "inherit", textDecoration: "none", "&:hover": { color: PILLAR_COLOR } }}
+              {t("strategicHouse.pillarsEmpty")}
+            </Alert>
+          ) : (
+            pillars.map((p) => (
+              <Paper
+                key={p.id}
+                variant="outlined"
+                sx={{
+                  borderTop: `4px solid ${PILLAR_COLOR}`,
+                  p: 1.5,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  minHeight: 160,
+                  minWidth: 0,
+                }}
               >
-                {p.name}
-              </Typography>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                {p.objectives.map(objectiveChip)}
-              </Box>
-            </Paper>
-          ))
-        )}
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={700}
+                  component={RouterLink}
+                  to={`/cards/${p.id}`}
+                  sx={{
+                    color: "inherit",
+                    textDecoration: "none",
+                    overflowWrap: "anywhere",
+                    "&:hover": { color: PILLAR_COLOR },
+                  }}
+                >
+                  {p.name}
+                </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, minWidth: 0 }}>
+                  {p.objectives.map(objectiveChip)}
+                </Box>
+              </Paper>
+            ))
+          )}
+        </Box>
       </Box>
 
       {/* Base — objectives not under a pillar */}

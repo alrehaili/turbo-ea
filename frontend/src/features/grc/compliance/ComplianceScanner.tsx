@@ -720,17 +720,26 @@ export default function ComplianceScanner() {
                         sx={{ height: 18, fontSize: 10 }}
                       />
                     )}
-                    <Chip
-                      size="small"
-                      label={`${bundle.score}%`}
-                      color={
-                        bundle.score >= 80
-                          ? "success"
-                          : bundle.score >= 60
-                            ? "warning"
-                            : "error"
-                      }
-                    />
+                    {bundle.findings.length === 0 ? (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={t("compliance_regulation_unscanned")}
+                        sx={{ height: 18, fontSize: 10 }}
+                      />
+                    ) : (
+                      <Chip
+                        size="small"
+                        label={`${bundle.score}%`}
+                        color={
+                          bundle.score >= 80
+                            ? "success"
+                            : bundle.score >= 60
+                              ? "warning"
+                              : "error"
+                        }
+                      />
+                    )}
                   </Stack>
                 }
               />

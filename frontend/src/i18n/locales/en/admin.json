@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Could not save regulation.",
   "metamodel.regulations.deleteError": "Could not delete regulation.",
   "compliance_regulation_disabled": "Disabled",
+  "compliance_regulation_unscanned": "Not scanned",
   "compliance_regulation_orphan": "Removed",
   "compliance_no_regulations_enabled": "No regulations are currently enabled. Add or re-enable a regulation under Admin → Metamodel → Regulations to run a compliance scan.",
   "compliance_ai_not_configured_register_still_available": "AI is not configured, so on-demand scans are unavailable. You can still browse the compliance register and add findings manually.",

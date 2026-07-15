@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Impossible d'enregistrer la réglementation.",
   "metamodel.regulations.deleteError": "Impossible de supprimer la réglementation.",
   "compliance_regulation_disabled": "Désactivée",
+  "compliance_regulation_unscanned": "Non analysé",
   "compliance_regulation_orphan": "Supprimée",
   "compliance_no_regulations_enabled": "Aucune réglementation n'est actuellement activée. Ajoutez ou réactivez-en une via Admin → Métamodèle → Réglementations pour exécuter un scan de conformité.",
   "compliance_ai_not_configured_register_still_available": "L'IA n'est pas configurée, les scans à la demande ne sont donc pas disponibles. Vous pouvez tout de même consulter le registre de conformité et y ajouter des constats manuellement.",

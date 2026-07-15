@@ -1144,7 +1144,7 @@ async def seed_compliance_finding_to_risk_promotion(db: AsyncSession) -> dict:
             title=f"Risk: {finding.requirement}",
             description=finding.evidence or "Compliance gap identified",
             category="compliance",
-            source_type="compliance_finding",
+            source_type="compliance",
             source_ref=str(finding.id),
             initial_probability="high",
             initial_impact="high",

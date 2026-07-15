@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Не удалось сохранить регламент.",
   "metamodel.regulations.deleteError": "Не удалось удалить регламент.",
   "compliance_regulation_disabled": "Отключён",
+  "compliance_regulation_unscanned": "Не проверено",
   "compliance_regulation_orphan": "Удалён",
   "compliance_no_regulations_enabled": "Сейчас нет ни одного активного регламента. Добавьте или включите регламент в разделе Админ → Метамодель → Регламенты, чтобы запустить скан соответствия.",
   "compliance_ai_not_configured_register_still_available": "ИИ не настроен, поэтому сканы по запросу недоступны. Реестр соответствия по-прежнему доступен, и находки можно добавлять вручную.",

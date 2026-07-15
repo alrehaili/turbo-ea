@@ -79,6 +79,7 @@ export default function ComplianceHeatmap({
       {regulations.map(({ key: reg, label }) => {
         const row = matrix[reg] || {};
         const score = scores[reg] ?? 100;
+        const total = Object.values(row).reduce((a, b) => a + (b || 0), 0);
         return (
           <Stack key={reg} direction="row" sx={{ display: "contents" }}>
             <Box sx={{ py: 1.25, px: 1, display: "flex", alignItems: "center" }}>
@@ -119,9 +120,15 @@ export default function ComplianceHeatmap({
               );
             })}
             <Box sx={{ py: 1.25, textAlign: "center" }}>
-              <Typography variant="subtitle2" color={scoreColor(score)} fontWeight={700}>
-                {score}%
-              </Typography>
+              {total === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  {t("compliance_regulation_unscanned")}
+                </Typography>
+              ) : (
+                <Typography variant="subtitle2" color={scoreColor(score)} fontWeight={700}>
+                  {score}%
+                </Typography>
+              )}
             </Box>
           </Stack>
         );

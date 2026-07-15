@@ -198,6 +198,7 @@ RISKS: list[dict] = [
 # COMPLIANCE FINDINGS — 10 landscape-scoped entries across all six regulations
 # ════════════════════════════════════════════════════════════════════════════
 # regulation: eu_ai_act | gdpr | nis2 | dora | soc2 | iso27001
+#             | pdpl | nca_ecc | ndmo_dm | dga_policy
 # severity:   critical | high | medium | low | info
 # status:     non_compliant | partial | compliant | not_applicable | review_needed
 # decision:   new | in_review | accepted | mitigated | verified | not_applicable
@@ -399,6 +400,162 @@ GRC_COMPLIANCE_FINDINGS: list[dict] = [
             "platform estate — retained here as an attestation record."
         ),
         "evidence": "Change advisory board minutes, 2025-Q1; no exceptions.",
+        "remediation": "None — control verified as effective.",
+    },
+    # ── Saudi Government regulations (PDPL, NCA ECC, NDMO, DGA) ──────────────
+    {
+        "regulation": "pdpl",
+        "regulation_article": "Art. 12",
+        "category": "lawful_basis",
+        "severity": "info",
+        "status": "compliant",
+        "decision": "verified",
+        "requirement": (
+            "Article 12 requires a documented legal basis and, where applicable, "
+            "the data subject's consent before processing personal data."
+        ),
+        "gap_description": (
+            "A legal basis is recorded per processing activity and consent is "
+            "captured where relied upon — retained here as an attestation record."
+        ),
+        "evidence": "PDPL readiness assessment of citizen-facing services, 2025-Q2; no exceptions.",
+        "remediation": "None — control verified as effective.",
+    },
+    {
+        "regulation": "pdpl",
+        "regulation_article": "Art. 18",
+        "category": "data_subject_rights",
+        "severity": "info",
+        "status": "compliant",
+        "decision": "verified",
+        "requirement": (
+            "Article 18 grants data subjects the right to access, correct and "
+            "request deletion of their personal data."
+        ),
+        "gap_description": (
+            "A data-subject-request procedure with a 30-day SLA is published and "
+            "requests are handled through a tracked workflow — attestation record."
+        ),
+        "evidence": "Data-subject-request log review, 2025-Q1; no exceptions.",
+        "remediation": "None — control verified as effective.",
+    },
+    {
+        "regulation": "nca_ecc",
+        "regulation_article": "ECC 2-2-3",
+        "category": "identity_and_access",
+        "severity": "high",
+        "status": "non_compliant",
+        "decision": "new",
+        "requirement": (
+            "ECC 2-2-3 requires multi-factor authentication for remote and "
+            "privileged access to information assets."
+        ),
+        "gap_description": (
+            "Privileged administrative access to two government platforms relies "
+            "on single-factor credentials."
+        ),
+        "evidence": "Privileged-access review against NCA ECC, 2025-Q2.",
+        "remediation": "Enforce MFA on all remote and privileged access paths.",
+    },
+    {
+        "regulation": "nca_ecc",
+        "regulation_article": "ECC 2-12-1",
+        "category": "resilience",
+        "severity": "medium",
+        "status": "partial",
+        "decision": "in_review",
+        "requirement": (
+            "ECC 2-12-1 requires cybersecurity resilience requirements to be "
+            "embedded in business-continuity management."
+        ),
+        "gap_description": (
+            "Continuity plans exist for infrastructure but do not yet cover "
+            "cyber-incident recovery scenarios for essential services."
+        ),
+        "evidence": "Business-continuity programme review, 2025-Q1.",
+        "remediation": (
+            "Add cyber-incident recovery playbooks to the continuity plans and test them annually."
+        ),
+    },
+    {
+        "regulation": "ndmo_dm",
+        "regulation_article": "DG 1.3",
+        "category": "data_governance",
+        "severity": "medium",
+        "status": "partial",
+        "decision": "new",
+        "requirement": (
+            "NDMO Data Governance requires each data domain to have an accountable "
+            "data owner and a maintained data catalogue."
+        ),
+        "gap_description": (
+            "Data ownership is assigned for master data but the enterprise data "
+            "catalogue is incomplete for operational domains."
+        ),
+        "evidence": "NDMO data-management maturity assessment, 2025-Q2.",
+        "remediation": (
+            "Complete the data catalogue for all operational domains and confirm "
+            "accountable owners."
+        ),
+    },
+    {
+        "regulation": "ndmo_dm",
+        "regulation_article": "PDP 2.1",
+        "category": "personal_data_protection",
+        "severity": "high",
+        "status": "non_compliant",
+        "decision": "new",
+        "requirement": (
+            "NDMO Personal Data Protection standards require classification of "
+            "personal data and controls proportionate to its sensitivity."
+        ),
+        "gap_description": (
+            "Personal data is not consistently classified, so protection controls "
+            "cannot be applied by sensitivity tier."
+        ),
+        "evidence": "Data-classification coverage review, 2025-Q1.",
+        "remediation": (
+            "Roll out the national data-classification scheme and tag personal "
+            "data stores accordingly."
+        ),
+    },
+    {
+        "regulation": "dga_policy",
+        "regulation_article": "DGA-INT-01",
+        "category": "interoperability",
+        "severity": "medium",
+        "status": "review_needed",
+        "decision": "in_review",
+        "requirement": (
+            "DGA digital-government policy requires new services to integrate "
+            "through the national integration and API platform."
+        ),
+        "gap_description": (
+            "Two recently launched services expose point-to-point integrations "
+            "that bypass the national API gateway."
+        ),
+        "evidence": "DGA policy conformance review, 2025-Q2.",
+        "remediation": (
+            "Re-platform the integrations onto the national API gateway and "
+            "register the APIs in the catalogue."
+        ),
+    },
+    {
+        "regulation": "dga_policy",
+        "regulation_article": "DGA-OPEN-02",
+        "category": "open_data",
+        "severity": "info",
+        "status": "compliant",
+        "decision": "verified",
+        "requirement": (
+            "DGA policy requires eligible non-sensitive datasets to be published "
+            "as open data on the national open-data portal."
+        ),
+        "gap_description": (
+            "Eligible datasets are published on the national open-data portal on "
+            "the agreed cadence — retained here as an attestation record."
+        ),
+        "evidence": "Open-data portal publication log, 2025-Q1; no exceptions.",
         "remediation": "None — control verified as effective.",
     },
 ]
@@ -673,21 +830,25 @@ async def _seed_decisions(db: AsyncSession, owner_id: uuid.UUID | None) -> int:
 
 
 async def _seed_compliance(db: AsyncSession) -> int:
-    """Insert 10 landscape-scoped compliance findings under one demo run.
+    """Insert landscape-scoped compliance findings under one demo run.
 
-    Idempotent on the first finding's stable finding_key (so it coexists with
-    the NexaTech demo findings from seed_demo_security).
+    Idempotent per finding_key, so a re-run tops up only the findings that
+    aren't already present (e.g. after new regulations are added to the seed)
+    and coexists with the NexaTech demo findings from seed_demo_security.
     """
-    first = GRC_COMPLIANCE_FINDINGS[0]
-    first_key = compute_finding_key(
-        "landscape", None, first["regulation"], first["regulation_article"]
+    # Which of the seed's finding_keys already exist? Skip those; add the rest.
+    keys = {
+        compute_finding_key("landscape", None, f["regulation"], f.get("regulation_article")): f
+        for f in GRC_COMPLIANCE_FINDINGS
+    }
+    existing = await db.execute(
+        select(TurboLensComplianceFinding.finding_key).where(
+            TurboLensComplianceFinding.finding_key.in_(list(keys.keys()))
+        )
     )
-    marker = await db.execute(
-        select(TurboLensComplianceFinding.id)
-        .where(TurboLensComplianceFinding.finding_key == first_key)
-        .limit(1)
-    )
-    if marker.scalar_one_or_none() is not None:
+    existing_keys = {row[0] for row in existing.all()}
+    missing = {k: f for k, f in keys.items() if k not in existing_keys}
+    if not missing:
         return 0
 
     now = datetime.now(timezone.utc)
@@ -700,16 +861,15 @@ async def _seed_compliance(db: AsyncSession) -> int:
         results={
             "demo": True,
             "source": "nora_grc",
-            "findings_count": len(GRC_COMPLIANCE_FINDINGS),
+            "findings_count": len(missing),
         },
     )
     db.add(run)
     await db.flush()
 
     created = 0
-    for f in GRC_COMPLIANCE_FINDINGS:
+    for key, f in missing.items():
         article = f.get("regulation_article")
-        key = compute_finding_key("landscape", None, f["regulation"], article)
         db.add(
             TurboLensComplianceFinding(
                 id=uuid.uuid4(),

@@ -783,6 +783,38 @@ async def lifespan(app: FastAPI):
         except Exception as exc:  # noqa: BLE001
             logger.exception("[seed_saudi_ea_catalog] FAILED: %s", exc)
 
+        # Top-up empty/thin card types (Platform, Provider, Persona, Channel,
+        # Policy, SecurityControl, TechCategory, BusinessContext, Journeys) and
+        # 5 BusinessProcess cards with BPMN process flows, all cross-linked.
+        from app.services.seed_nora_landscape_fill import seed_nora_landscape_fill
+
+        try:
+            async with async_session() as db:
+                result = await seed_nora_landscape_fill(db)
+            if result.get("skipped"):
+                print(f"[seed_nora_landscape_fill] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_nora_landscape_fill] ✓ Seeded {result['cards']} cards, "
+                    f"{result['process_flows']} process flows, "
+                    f"{result['relations']} relations"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_nora_landscape_fill] FAILED: %s", exc)
+
+        # Seed public web portals (catalogue per card type + Strategic House hub)
+        from app.services.seed_nora_portals import seed_nora_portals
+
+        try:
+            async with async_session() as db:
+                result = await seed_nora_portals(db)
+            if result.get("skipped"):
+                print(f"[seed_nora_portals] Skipped: {result.get('reason')}")
+            else:
+                print(f"[seed_nora_portals] ✓ Seeded {result['portals']} web portals")
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_nora_portals] FAILED: %s", exc)
+
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
         from app.services.seed_demo import seed_demo_data

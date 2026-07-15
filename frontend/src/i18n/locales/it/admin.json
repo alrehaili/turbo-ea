@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "Impossibile salvare la normativa.",
   "metamodel.regulations.deleteError": "Impossibile eliminare la normativa.",
   "compliance_regulation_disabled": "Disattivata",
+  "compliance_regulation_unscanned": "Non analizzato",
   "compliance_regulation_orphan": "Rimossa",
   "compliance_no_regulations_enabled": "Attualmente nessuna normativa è attiva. Aggiungine o riattivane una da Admin → Metamodello → Normative per eseguire una scansione di conformità.",
   "compliance_ai_not_configured_register_still_available": "L'IA non è configurata, quindi le scansioni on-demand non sono disponibili. Puoi comunque consultare il registro di conformità e aggiungere rilievi manualmente.",

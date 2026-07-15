@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "تعذّر حفظ اللائحة.",
   "metamodel.regulations.deleteError": "تعذّر حذف اللائحة.",
   "compliance_regulation_disabled": "معطّل",
+  "compliance_regulation_unscanned": "لم يُفحص",
   "compliance_regulation_orphan": "تمت الإزالة",
   "compliance_no_regulations_enabled": "لا توجد لوائح مفعّلة حاليًا. أضف أو أعد تفعيل لائحة ضمن الإدارة ← النموذج الوصفي ← اللوائح لتشغيل فحص الامتثال.",
   "compliance_ai_not_configured_register_still_available": "الذكاء الاصطناعي غير مُهيأ، لذا فإن عمليات الفحص عند الطلب غير متاحة. لا يزال بإمكانك تصفّح سجل الامتثال وإضافة النتائج يدويًا.",

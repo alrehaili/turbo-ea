@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.17.0] - 2026-07-16
+
+### Added
+- **NORA landscape seed now populates every card type.** Seeds at least 5 cards each for Platform, Provider, Tech Category, Channel, Persona, Beneficiary Journey, Policy, Security Control, and Business Context, plus 5 Business Processes each with a ready-to-view BPMN process flow — all cross-linked into the existing landscape (77 relations).
+- **Security Control relationships.** Security Controls can now be linked to the Applications and Data Objects they protect and the IT Components they secure, via three new built-in relation types (`protects` / `secures`). Existing installs get them through a migration.
+- **Public web portals are seeded out of the box** — one catalogue portal per card type plus a Strategic House hub landing page.
+- **Saudi regulations now carry example compliance findings.** PDPL, NCA ECC, NDMO, and DGA Policy show real findings in the GRC Compliance tab instead of empty grids.
+
+### Fixed
+- **GRC Risk tab no longer returns a 500.** A seeded risk with an invalid `source_type` broke the entire risk list and metrics; the value is corrected and the seed hardened.
+- **Compliance regulations with no findings show "Not scanned" instead of a misleading 100%.** The score and grid now agree — an unscanned regulation reads as unscanned, not fully compliant.
+- **Strategic House vision text no longer overflows the roof.** The roof is a flat banner with a decorative gable so multi-sentence vision statements wrap cleanly, and the pillars and objectives are enclosed within the house body.
+
 ## [2.16.0] - 2026-07-14
 
 ### Added

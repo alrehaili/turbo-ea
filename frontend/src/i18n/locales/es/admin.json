@@ -58,6 +58,7 @@
   "metamodel.regulations.saveError": "No se pudo guardar la regulación.",
   "metamodel.regulations.deleteError": "No se pudo eliminar la regulación.",
   "compliance_regulation_disabled": "Desactivada",
+  "compliance_regulation_unscanned": "Sin analizar",
   "compliance_regulation_orphan": "Eliminada",
   "compliance_no_regulations_enabled": "Actualmente no hay ninguna regulación activada. Añada o reactive una en Admin → Metamodelo → Regulaciones para ejecutar un escaneo de cumplimiento.",
   "compliance_ai_not_configured_register_still_available": "La IA no está configurada, por lo que los escaneos bajo demanda no están disponibles. Puede consultar el registro de cumplimiento y añadir hallazgos manualmente.",
