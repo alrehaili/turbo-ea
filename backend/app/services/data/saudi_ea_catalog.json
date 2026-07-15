@@ -1,0 +1,1201 @@
+{
+  "principles": [
+    {
+      "id": "P-01",
+      "domain": "Enterprise / Strategy",
+      "title": "Public Value and Strategic Alignment",
+      "statement": "Architecture decisions and digital investments shall demonstrably support the Authority’s statutory mandate, approved strategies, national digital-government directions, and measurable public outcomes.",
+      "rationale": "Enterprise Architecture is valuable only when it converts strategy into coordinated change. This principle prevents technically attractive but low-value projects, fragmented priorities, and investments that cannot show an outcome for beneficiaries or the Authority.",
+      "implications": "Every material initiative maps to strategic objectives, capabilities, government services, risks, and KPIs; expected benefits have baselines, targets, owners, and review dates; portfolio prioritization considers public value, compliance, risk, cost, and dependency; initiatives without a defensible business outcome may be stopped or redesigned.",
+      "linked_standards": [
+        "S-01",
+        "S-04",
+        "S-05",
+        "S-10"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03",
+        "SA-04"
+      ]
+    },
+    {
+      "id": "P-02",
+      "domain": "Business Architecture",
+      "title": "Business-Led and Capability-Oriented Architecture",
+      "statement": "Business needs, government services, capabilities, policies, and operating outcomes shall drive application, data, technology, security, and investment decisions.",
+      "rationale": "Starting with products or technologies encourages silo solutions and weakens accountability. A capability-oriented approach creates a stable bridge between strategy, organization, processes, information, systems, and change initiatives.",
+      "implications": "Architecture work begins with business outcomes and capability/service gaps; requirements are traceable across all architecture domains; technology teams shall not define target architecture independently of accountable business owners; organization-chart changes do not automatically redefine capabilities.",
+      "linked_standards": [
+        "S-01",
+        "S-02",
+        "S-05",
+        "S-06"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03",
+        "INT-01"
+      ]
+    },
+    {
+      "id": "P-03",
+      "domain": "Digital Services / Experience",
+      "title": "Beneficiary-Centric and Journey-Led Services",
+      "statement": "Government services shall be designed around beneficiary needs and end-to-end journeys rather than around internal departmental boundaries.",
+      "rationale": "Beneficiaries experience the Authority as one organization. Journey-led design reduces repeated steps, hand-offs, inconsistent information, avoidable visits, and service failure caused by internal fragmentation.",
+      "implications": "Priority services maintain beneficiary segments, journey maps, service blueprints, experience measures, and accountable service owners; requirements include accessibility, trust, completion rate, effort, time, and satisfaction; cross-department problems are resolved at service level rather than passed to the beneficiary.",
+      "linked_standards": [
+        "S-05",
+        "S-07",
+        "S-08",
+        "S-09"
+      ],
+      "sources": [
+        "SA-04",
+        "SA-05",
+        "SA-10",
+        "SA-11"
+      ]
+    },
+    {
+      "id": "P-04",
+      "domain": "Digital Services / Experience",
+      "title": "Digital-First, Mobile-First, Inclusive and Accessible",
+      "statement": "Services shall be digital by design, optimized for mobile use, accessible to people with disabilities and elderly users, and supported by appropriate assisted channels where needed.",
+      "rationale": "Digital-first improves reach and efficiency, but digital exclusion or inaccessible design transfers cost and difficulty to beneficiaries. Saudi government channels must work across devices, abilities, languages, and realistic connectivity conditions.",
+      "implications": "Responsive mobile design and accessibility are acceptance criteria, not post-launch enhancements; WCAG 2.2 Level AA is the minimum target for applicable channels; testing includes keyboard, screen-reader, contrast, zoom, Arabic/RTL, low-bandwidth, and mobile scenarios; non-digital channels are integrated rather than operated as disconnected services.",
+      "linked_standards": [
+        "S-07",
+        "S-08",
+        "S-09",
+        "S-34"
+      ],
+      "sources": [
+        "SA-04",
+        "SA-11",
+        "SA-12",
+        "INT-12"
+      ]
+    },
+    {
+      "id": "P-05",
+      "domain": "Enterprise / Government Ecosystem",
+      "title": "Whole-of-Government Collaboration and Shared Platforms",
+      "statement": "The Authority shall use and contribute to approved whole-of-government platforms, shared capabilities, and national integration mechanisms whenever they satisfy the business, legal, security, and service requirements.",
+      "rationale": "Government-wide reuse reduces duplication, improves interoperability, creates a more consistent beneficiary experience, and concentrates scarce investment on genuine authority-specific needs.",
+      "implications": "Projects document assessment of relevant national/shared services before approval; duplicate platforms require explicit justification; integration with government entities uses approved mechanisms; shared components have clear service levels, ownership, dependency, continuity, and exit considerations.",
+      "linked_standards": [
+        "S-10",
+        "S-12",
+        "S-13",
+        "S-23"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-04",
+        "SA-05",
+        "SA-06",
+        "SA-07"
+      ]
+    },
+    {
+      "id": "P-06",
+      "domain": "Application / Investment",
+      "title": "Reuse Before Acquire, Acquire Before Build",
+      "statement": "Existing approved services, applications, data products, platforms, components, and open-source assets shall be evaluated for reuse before acquiring or developing a new solution.",
+      "rationale": "Uncontrolled custom development and repeated procurement create duplicate capability, higher lifetime cost, inconsistent controls, difficult integration, and vendor dependency.",
+      "implications": "Business cases contain a documented reuse and market assessment; total cost of ownership includes integration, migration, licensing, support, security, data, exit, and retirement; custom build is justified by differentiated needs; reusable components are catalogued and supported as products.",
+      "linked_standards": [
+        "S-10",
+        "S-11",
+        "S-24",
+        "S-25",
+        "S-26"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-04",
+        "SA-06",
+        "SA-16"
+      ]
+    },
+    {
+      "id": "P-07",
+      "domain": "Data Architecture",
+      "title": "Once-Only Data Collection and Authoritative Sources",
+      "statement": "Data shall be collected from beneficiaries only when necessary and shall not be requested repeatedly when it is lawfully available from an authoritative source through approved channels.",
+      "rationale": "Repeated collection increases beneficiary effort, inconsistency, privacy exposure, and reconciliation cost. Authoritative sourcing improves trust and enables proactive, integrated government services.",
+      "implications": "Each critical data element has an authoritative source and owner; forms and services check approved sources before requesting data; copies are minimized and synchronized under defined rules; legal basis, purpose, consent where applicable, and data-sharing controls are documented.",
+      "linked_standards": [
+        "S-12",
+        "S-17",
+        "S-21",
+        "S-22"
+      ],
+      "sources": [
+        "SA-05",
+        "SA-21",
+        "SA-23",
+        "SA-25"
+      ]
+    },
+    {
+      "id": "P-08",
+      "domain": "Data Architecture",
+      "title": "Data Is a Governed Enterprise Asset",
+      "statement": "Data shall be managed as an enterprise and national asset throughout its lifecycle, with accountable ownership, stewardship, classification, quality, metadata, access, retention, and disposal.",
+      "rationale": "Applications change more quickly than the information needed to operate and regulate. Treating data as an application by-product creates unknown ownership, weak quality, duplication, and high migration risk.",
+      "implications": "Data domains and owners are formally assigned; critical data elements, metadata, lineage, quality rules, and retention are managed; datasets are discoverable according to authorization; data issues have owners and remediation plans; project closure includes data disposition.",
+      "linked_standards": [
+        "S-17",
+        "S-18",
+        "S-19",
+        "S-20",
+        "S-21",
+        "S-22"
+      ],
+      "sources": [
+        "SA-21",
+        "SA-22",
+        "SA-25",
+        "INT-10",
+        "INT-11"
+      ]
+    },
+    {
+      "id": "P-09",
+      "domain": "Data / Integration",
+      "title": "Data Sharing and Interoperability by Design",
+      "statement": "Solutions shall make lawful, secure, semantic, and operational interoperability a design requirement rather than a later integration activity.",
+      "rationale": "Government outcomes commonly span organizational and system boundaries. Point-to-point integration without common meaning, contracts, ownership, and service levels becomes fragile and expensive.",
+      "implications": "Data exchanges define purpose, legal basis, owner, classifications, semantics, schema, quality, frequency, security, SLA, and retention; approved government sharing channels are used; canonical definitions and metadata accompany shared data; integration dependencies are visible in architecture and continuity plans.",
+      "linked_standards": [
+        "S-12",
+        "S-13",
+        "S-14",
+        "S-15",
+        "S-16",
+        "S-18"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-09",
+        "SA-21",
+        "SA-25",
+        "INT-13"
+      ]
+    },
+    {
+      "id": "P-10",
+      "domain": "Application / Integration",
+      "title": "API-First and Contract-Based Integration",
+      "statement": "Reusable business and data capabilities shall expose governed, documented, secure, versioned contracts through APIs or approved event mechanisms where appropriate.",
+      "rationale": "Contract-based integration reduces hidden coupling, enables controlled reuse, improves testing, and allows providers and consumers to evolve independently.",
+      "implications": "API/interface design starts with the service contract; specifications are machine-readable and reviewed before implementation; direct database integration is prohibited except by approved exception; versions, compatibility, errors, security, quotas, SLAs, ownership, and deprecation are governed.",
+      "linked_standards": [
+        "S-11",
+        "S-12",
+        "S-13",
+        "S-14",
+        "S-15",
+        "S-16"
+      ],
+      "sources": [
+        "SA-09",
+        "INT-13",
+        "INT-14",
+        "INT-15",
+        "INT-16"
+      ]
+    },
+    {
+      "id": "P-11",
+      "domain": "Privacy / Data",
+      "title": "Privacy by Design and Data Minimization",
+      "statement": "Personal data protection shall be embedded throughout the service, data, application, technology, analytics, and AI lifecycles, and processing shall be limited to data necessary for a defined lawful purpose.",
+      "rationale": "Privacy failures can harm individuals, undermine trust, create legal exposure, and permanently restrict data use. Retrofitting privacy after implementation is costly and often ineffective.",
+      "implications": "Processing activities identify purpose and legal basis; privacy impact assessments are performed when required; collection, access, sharing, retention, and non-production use are minimized; privacy notices and data-subject rights are supported; vendors and AI solutions are contractually controlled.",
+      "linked_standards": [
+        "S-20",
+        "S-21",
+        "S-22",
+        "S-35",
+        "S-36"
+      ],
+      "sources": [
+        "SA-22",
+        "SA-23",
+        "SA-24",
+        "INT-05"
+      ]
+    },
+    {
+      "id": "P-12",
+      "domain": "Cybersecurity",
+      "title": "Security by Design and Continuous Compliance",
+      "statement": "Cybersecurity requirements shall be embedded from concept through retirement, using risk-based controls, secure defaults, verifiable evidence, and continuous monitoring.",
+      "rationale": "Security added after procurement or development leaves structural weaknesses and increases remediation cost. Government entities are accountable for continuous compliance, not merely one-time certification.",
+      "implications": "Security architecture and threat/risk assessment are required at defined gates; NCA controls are mapped to assets and evidence; security acceptance criteria are included in contracts and testing; vulnerabilities, configurations, third parties, incidents, and exceptions are continuously governed.",
+      "linked_standards": [
+        "S-03",
+        "S-27",
+        "S-28",
+        "S-29",
+        "S-30",
+        "S-31",
+        "S-33"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-19",
+        "SA-20",
+        "SA-21",
+        "INT-04"
+      ]
+    },
+    {
+      "id": "P-13",
+      "domain": "Cybersecurity / Identity",
+      "title": "Identity-Centric Least Privilege and Zero Trust",
+      "statement": "Access shall be based on verified identity, device and contextual risk, least privilege, segregation of duties, and explicit authorization; network location alone shall not establish trust.",
+      "rationale": "Modern services span cloud, partners, remote access, APIs, and mobile channels. Perimeter-only trust cannot adequately control compromised credentials, insiders, or lateral movement.",
+      "implications": "Central identity federation is preferred; MFA, privileged-access management, service identities, periodic recertification, and rapid revocation are implemented based on risk; authorization is enforced at service and data levels; access decisions and privileged actions are auditable.",
+      "linked_standards": [
+        "S-13",
+        "S-27",
+        "S-29",
+        "S-31"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-20",
+        "INT-14",
+        "INT-15",
+        "INT-17"
+      ]
+    },
+    {
+      "id": "P-14",
+      "domain": "Technology / Cloud",
+      "title": "Cloud-First, Workload-Fit and Sovereignty-Aware",
+      "statement": "Cloud services shall be the preferred deployment option after a documented workload assessment confirms business fit, data classification, cybersecurity, sovereignty, resilience, integration, cost, and exit requirements.",
+      "rationale": "Cloud can improve agility, scalability, and access to modern capabilities, but indiscriminate migration can create regulatory, cost, resilience, performance, or lock-in risks.",
+      "implications": "Each workload has a placement decision; approved providers and regions are used; data localization and NCA cloud controls are applied; shared-responsibility, landing-zone, identity, logging, backup, portability, and exit controls are defined; cost is monitored over the service lifecycle.",
+      "linked_standards": [
+        "S-23",
+        "S-25",
+        "S-27",
+        "S-31",
+        "S-33"
+      ],
+      "sources": [
+        "SA-04",
+        "SA-10",
+        "SA-18",
+        "SA-21"
+      ]
+    },
+    {
+      "id": "P-15",
+      "domain": "Resilience / Technology",
+      "title": "Resilience, Continuity and Recoverability by Design",
+      "statement": "Services and supporting architectures shall be designed to meet approved availability, continuity, recovery, integrity, and crisis-operation requirements proportionate to their business criticality.",
+      "rationale": "Continuity cannot be achieved by infrastructure redundancy alone. End-to-end recovery depends on people, processes, applications, data, suppliers, communications, and tested operational procedures.",
+      "implications": "Business impact analysis defines service tiers, RTO, RPO, and minimum service levels; single points of failure are documented and treated; backup and recovery are tested; dependencies and supplier recovery commitments are verified; continuity exercises produce tracked improvements.",
+      "linked_standards": [
+        "S-23",
+        "S-31",
+        "S-32",
+        "S-33"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-20",
+        "INT-06",
+        "INT-07"
+      ]
+    },
+    {
+      "id": "P-16",
+      "domain": "Application / Technology",
+      "title": "Modularity, Loose Coupling and Portability",
+      "statement": "Solutions shall be composed of cohesive, replaceable components with explicit interfaces and minimized dependence on proprietary implementation details.",
+      "rationale": "Tightly coupled systems make change slow, amplify outages, complicate procurement, and create long-term dependency on products and suppliers.",
+      "implications": "Boundaries follow business capabilities and data ownership; interfaces are explicit and versioned; shared databases across independent systems are avoided; deployment and data export are automated; portability and exit are considered before product selection; modularity is not used to justify unnecessary complexity.",
+      "linked_standards": [
+        "S-11",
+        "S-12",
+        "S-24",
+        "S-25"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-09",
+        "SA-16",
+        "INT-13"
+      ]
+    },
+    {
+      "id": "P-17",
+      "domain": "Technology / Procurement",
+      "title": "Open Standards and Technology Neutrality",
+      "statement": "Architecture shall prefer open, internationally recognized, and widely supported standards, while specifications and procurements remain technology-neutral unless a justified constraint requires otherwise.",
+      "rationale": "Open standards improve interoperability, competition, longevity, skills availability, and portability. Unnecessary product-specific requirements narrow competition and increase lock-in.",
+      "implications": "Requirements state capabilities and conformance criteria before naming products; proprietary formats require an exit/export plan; standards versions are explicitly managed; open-source and commercial options are evaluated fairly; deviations document business value, risk, cost, and interoperability impact.",
+      "linked_standards": [
+        "S-02",
+        "S-06",
+        "S-08",
+        "S-11",
+        "S-16",
+        "S-25",
+        "S-26"
+      ],
+      "sources": [
+        "SA-09",
+        "SA-16",
+        "INT-01",
+        "INT-02",
+        "INT-03"
+      ]
+    },
+    {
+      "id": "P-18",
+      "domain": "Technology Governance",
+      "title": "Standardization, Lifecycle and Technical-Debt Management",
+      "statement": "The technology estate shall use an approved, limited, lifecycle-managed set of technologies, patterns, and products, and shall actively identify and reduce unsupported assets and material technical debt.",
+      "rationale": "Uncontrolled variety increases skills, support, security, integration, procurement, and continuity costs. Technology debt silently transfers current delivery speed into future operational and change risk.",
+      "implications": "A technology standards lifecycle identifies preferred, permitted, contained, deprecated, and prohibited items; end-of-support dates and dependencies are recorded; modernization plans are risk-prioritized; new exceptions include retirement dates; portfolio health is reported to governance bodies.",
+      "linked_standards": [
+        "S-03",
+        "S-24",
+        "S-25",
+        "S-27",
+        "S-32"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-06",
+        "SA-17"
+      ]
+    },
+    {
+      "id": "P-19",
+      "domain": "Quality / Operations",
+      "title": "Quality, Performance, Observability and Service Management",
+      "statement": "Quality attributes and operational outcomes shall be measurable design inputs, and production services shall provide sufficient telemetry and management controls to verify them.",
+      "rationale": "Functional completion does not ensure a usable, secure, supportable, or reliable service. Without measurable quality and telemetry, teams detect failure through beneficiary complaints.",
+      "implications": "Architectures define availability, performance, capacity, security, accessibility, maintainability, recoverability, and support requirements; service levels and error budgets are owned; logs, metrics, traces, and audit records are designed consistently; post-launch performance drives backlog and architecture decisions.",
+      "linked_standards": [
+        "S-14",
+        "S-31",
+        "S-32",
+        "S-34"
+      ],
+      "sources": [
+        "SA-14",
+        "SA-15",
+        "INT-08",
+        "INT-09"
+      ]
+    },
+    {
+      "id": "P-20",
+      "domain": "Engineering / Security",
+      "title": "DevSecOps, Automation and Software Supply-Chain Integrity",
+      "statement": "Software and infrastructure changes shall use automated, repeatable, secure, and auditable delivery practices with controls over source, dependencies, build, test, release, configuration, and artifacts.",
+      "rationale": "Manual and inconsistent delivery creates security gaps, environment drift, slow recovery, and weak evidence. Modern attacks also target dependencies, build systems, and supplier components.",
+      "implications": "Version control, peer review, CI/CD, infrastructure as code, automated testing, secret management, dependency and vulnerability scanning, artifact integrity, separation of duties, rollback, and traceable approvals are applied proportionately; software bills of materials are required for critical or high-risk solutions.",
+      "linked_standards": [
+        "S-30",
+        "S-31",
+        "S-34"
+      ],
+      "sources": [
+        "SA-13",
+        "SA-14",
+        "SA-15",
+        "SA-17",
+        "INT-18"
+      ]
+    },
+    {
+      "id": "P-21",
+      "domain": "AI / Data",
+      "title": "Responsible AI and Human Accountability",
+      "statement": "AI shall be adopted only for a defined public-value purpose and shall remain subject to accountable human governance, proportional risk assessment, data governance, security, privacy, fairness, transparency, safety, and ongoing monitoring.",
+      "rationale": "AI can improve government outcomes but may amplify errors, bias, opacity, privacy harms, or unsafe automation. Accountability cannot be delegated to a model or supplier.",
+      "implications": "AI use cases have accountable owners, risk classification, impact assessment, approved data, measurable performance, human oversight, explainability appropriate to impact, monitoring for drift and harm, incident handling, and exit/rollback; high-risk decisions require enhanced review and challenge mechanisms.",
+      "linked_standards": [
+        "S-20",
+        "S-21",
+        "S-35",
+        "S-36"
+      ],
+      "sources": [
+        "SA-26",
+        "SA-27",
+        "SA-28",
+        "INT-19",
+        "INT-20",
+        "INT-21"
+      ]
+    },
+    {
+      "id": "P-22",
+      "domain": "EA Governance",
+      "title": "Governed Decisions, Traceability and Controlled Exceptions",
+      "statement": "Material architecture decisions shall be evidence-based, recorded, traceable to requirements and outcomes, and subject to proportionate review; exceptions shall be explicit, risk-accepted, time-bound, and monitored.",
+      "rationale": "Unrecorded decisions are repeatedly debated, inconsistently implemented, and impossible to audit. Permanent informal exceptions gradually become the architecture.",
+      "implications": "Decision rights and materiality thresholds are defined; architecture records identify context, options, decision, consequences, owner, date, and affected assets; standards compliance is assessed at gates; waivers require justification, compensating controls, accountable risk acceptance, expiry, and remediation.",
+      "linked_standards": [
+        "S-01",
+        "S-02",
+        "S-03",
+        "S-04"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03",
+        "SA-06",
+        "INT-01",
+        "INT-22"
+      ]
+    }
+  ],
+  "standards": [
+    {
+      "id": "S-01",
+      "domain": "EA Governance",
+      "title": "NORA-Aligned Architecture Lifecycle and Stage Gates",
+      "statement": "Material digital investments, major procurements, new platforms, significant integrations, cloud migrations, and material solution changes shall follow an approved NORA-compatible architecture lifecycle covering scope, requirements, current state, target state, gaps, transition, governance, and maintenance.",
+      "adoption": "Mandatory for material change",
+      "rationale": "A repeatable lifecycle ensures that architecture is used to make decisions rather than produced after decisions. It directly supports DGA expectations for NORA-compatible EA and governed current/target architectures.",
+      "implications": "Define materiality thresholds and tailored pathways; assign accountable business and domain architects; require architecture approval before irreversible procurement/build commitments; maintain approved artifacts and evidence; revisit architecture after material scope, risk, regulation, or design changes.",
+      "linked_principles": [
+        "P-01",
+        "P-02",
+        "P-22"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03"
+      ]
+    },
+    {
+      "id": "S-02",
+      "domain": "EA Governance",
+      "title": "Architecture Descriptions, Viewpoints and Modeling",
+      "statement": "Formal architecture descriptions shall identify scope, stakeholders, concerns, viewpoints, model conventions, assumptions, decisions, and relationships. ISO/IEC/IEEE 42010 concepts shall guide architecture descriptions; ArchiMate 3.2 is the preferred enterprise-level notation.",
+      "adoption": "Mandatory for formal EA artifacts",
+      "rationale": "A single diagram cannot answer every stakeholder concern. Standard viewpoints and notation improve consistency, traceability, reuse, review quality, and tool interoperability.",
+      "implications": "Maintain viewpoint definitions for executives, business owners, data, applications, technology, security, operations, and projects; models use a governed metamodel and naming standard; all official views are versioned and linked to repository objects; alternative notations require documented purpose.",
+      "linked_principles": [
+        "P-02",
+        "P-17",
+        "P-22"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-03",
+        "INT-01",
+        "INT-02"
+      ]
+    },
+    {
+      "id": "S-03",
+      "domain": "EA Governance",
+      "title": "Standards Lifecycle, Conformance and Waivers",
+      "statement": "Every enterprise standard shall have an owner, authoritative sources, version, scope, adoption status, effective date, review date, conformance criteria, evidence requirements, and supersession rule. Nonconformance requires an approved, time-bound waiver.",
+      "adoption": "Mandatory",
+      "rationale": "A static list quickly becomes obsolete and cannot support procurement or audit. Lifecycle and waiver controls preserve flexibility without allowing unmanaged exceptions.",
+      "implications": "Use statuses Mandatory, Preferred, Permitted, Deprecated, and Prohibited; assess standards at architecture and delivery gates; waivers include business justification, risk, options considered, compensating controls, accountable acceptance, expiry, and remediation; expired waivers become noncompliance.",
+      "linked_principles": [
+        "P-12",
+        "P-18",
+        "P-22"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03",
+        "SA-06",
+        "INT-22"
+      ]
+    },
+    {
+      "id": "S-04",
+      "domain": "EA Governance",
+      "title": "Architecture Decision Records and End-to-End Traceability",
+      "statement": "Material architecture decisions shall be recorded and linked to drivers, requirements, principles, standards, risks, affected architecture objects, transition initiatives, and expected outcomes.",
+      "adoption": "Mandatory for material decisions",
+      "rationale": "Traceability demonstrates why a decision was made, exposes consequences and dependencies, supports audit, and prevents repeated or contradictory decisions.",
+      "implications": "Use a standard decision-record template; include context, options, trade-offs, decision, consequences, owner, date, and review trigger; link decisions to requirements and implementation evidence; supersede rather than silently edit approved decisions.",
+      "linked_principles": [
+        "P-01",
+        "P-22"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03",
+        "INT-01"
+      ]
+    },
+    {
+      "id": "S-05",
+      "domain": "Business Architecture",
+      "title": "Government Service and Business Capability Classification",
+      "statement": "The Authority shall maintain governed government-service and business-capability catalogs, with owners, outcomes, beneficiaries, supporting processes, information, applications, risks, KPIs, maturity, and planned changes.",
+      "adoption": "Mandatory for enterprise planning",
+      "rationale": "Capabilities and services provide a stable enterprise view that is more durable than organization structures and enables strategy-to-investment alignment.",
+      "implications": "Use NORA/NEA reference models where available; distinguish capability from department, process, application, and project; map initiatives and costs to capabilities/services; assign accountable owners; use capability/service gaps to drive target architecture and roadmaps.",
+      "linked_principles": [
+        "P-01",
+        "P-02",
+        "P-03"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-03"
+      ]
+    },
+    {
+      "id": "S-06",
+      "domain": "Business Architecture",
+      "title": "Business Process Modeling",
+      "statement": "Cross-functional, regulated, automated, high-volume, high-risk, or transformation-critical processes shall be modeled using BPMN 2.0.2 or an approved simplified notation derived from it.",
+      "adoption": "Conditional mandatory",
+      "rationale": "A common process notation enables business and technology teams to agree on events, responsibilities, decisions, controls, hand-offs, and automation boundaries.",
+      "implications": "Models identify start/end events, roles, decisions, controls, systems, data, exceptions, and measures; model detail is proportionate to purpose; published processes have owners and version control; process models link to services, capabilities, requirements, applications, and data.",
+      "linked_principles": [
+        "P-02",
+        "P-17"
+      ],
+      "sources": [
+        "SA-02",
+        "INT-03"
+      ]
+    },
+    {
+      "id": "S-07",
+      "domain": "Digital Experience",
+      "title": "Beneficiary Journey and Service Design",
+      "statement": "New or materially redesigned beneficiary-facing services shall use evidence-based journey mapping, service blueprinting, usability validation, and measurable experience outcomes before full-scale implementation.",
+      "adoption": "Mandatory for beneficiary-facing services",
+      "rationale": "Internal requirements alone do not reveal beneficiary effort, failed hand-offs, inaccessible steps, or inconsistent channel behavior.",
+      "implications": "Research includes representative beneficiaries; journeys cover discovery through completion and follow-up; service blueprints expose people, process, data, system, and policy dependencies; prototypes are tested; experience KPIs and feedback mechanisms continue after launch.",
+      "linked_principles": [
+        "P-03",
+        "P-04"
+      ],
+      "sources": [
+        "SA-04",
+        "SA-10",
+        "SA-11"
+      ]
+    },
+    {
+      "id": "S-08",
+      "domain": "Digital Experience",
+      "title": "Accessibility and Government Design System",
+      "statement": "Government digital channels shall conform to the current DGA accessibility guidance, target WCAG 2.2 Level AA, and use the DGA Platforms Code/design system or approved equivalent components.",
+      "adoption": "Mandatory where applicable",
+      "rationale": "Accessibility is a service-quality and inclusion requirement. Reusable government design components improve consistency, trust, delivery speed, and conformance.",
+      "implications": "Accessibility criteria are included in procurement, design, development, content, and testing; automated scans are supplemented by manual and assistive-technology testing; exceptions are documented and remediated; component deviations require UX and accessibility review.",
+      "linked_principles": [
+        "P-03",
+        "P-04",
+        "P-17"
+      ],
+      "sources": [
+        "SA-11",
+        "SA-12",
+        "INT-12"
+      ]
+    },
+    {
+      "id": "S-09",
+      "domain": "Digital Experience / Interoperability",
+      "title": "Arabic-Primary, Bilingual and RTL-Compatible Experience",
+      "statement": "Arabic shall be the primary language for Saudi government beneficiary channels, with complete RTL behavior and equivalent bilingual content where English is offered. Text and exchange interfaces shall support Unicode and UTF-8.",
+      "adoption": "Mandatory for applicable channels",
+      "rationale": "Partial translation or superficial RTL conversion causes errors, exclusion, inconsistent meaning, and high maintenance cost. Language behavior is an architectural requirement across content, data, UI, search, documents, and notifications.",
+      "implications": "Layouts, icons, navigation, tables, charts, forms, validation, dates, numbers, search, generated documents, and notifications are tested in RTL; translation keys replace embedded text; Arabic and English content have ownership and parity; systems store and exchange full Unicode without lossy conversion.",
+      "linked_principles": [
+        "P-03",
+        "P-04",
+        "P-17"
+      ],
+      "sources": [
+        "SA-11",
+        "INT-24"
+      ]
+    },
+    {
+      "id": "S-10",
+      "domain": "Investment / Application",
+      "title": "Shared-Service and Reuse Assessment",
+      "statement": "Before funding, procurement, or development, the initiative shall document assessment of relevant whole-of-government platforms, shared services, existing authority capabilities, reusable components, data products, commercial services, and open-source options.",
+      "adoption": "Mandatory before acquire/build",
+      "rationale": "A formal reuse gate prevents duplicate investment and makes the chosen sourcing strategy auditable.",
+      "implications": "The assessment compares functional fit, compliance, security, data, integration, service levels, cost, roadmap, skills, and exit; duplicate capability requires executive/architecture approval; reused components receive product ownership and service commitments; reuse does not override legitimate risk or service requirements.",
+      "linked_principles": [
+        "P-01",
+        "P-05",
+        "P-06"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-04",
+        "SA-06",
+        "SA-07",
+        "SA-16"
+      ]
+    },
+    {
+      "id": "S-11",
+      "domain": "Application Architecture",
+      "title": "Modular Application Architecture",
+      "statement": "Applications shall be structured around cohesive business responsibilities, explicit interfaces, independent lifecycle boundaries where justified, and minimal shared implementation dependencies.",
+      "adoption": "Preferred default; mandatory for strategic platforms",
+      "rationale": "Modularity enables controlled change, reuse, testing, scaling, replacement, and supplier transition. It does not require microservices for every system.",
+      "implications": "Bounded responsibilities and ownership are documented; direct cross-application database access is prohibited by default; shared libraries and platforms have versioning; deployment units reflect operational need; architecture complexity is justified against team capability, scale, and service criticality.",
+      "linked_principles": [
+        "P-06",
+        "P-10",
+        "P-16"
+      ],
+      "sources": [
+        "SA-02",
+        "SA-09",
+        "INT-01"
+      ]
+    },
+    {
+      "id": "S-12",
+      "domain": "Integration Architecture",
+      "title": "API-First and OpenAPI Contracts",
+      "statement": "Reusable synchronous service interfaces shall be designed API-first and described using OpenAPI 3.1 or a later Authority-approved version before implementation. REST/JSON over HTTPS is the default unless another pattern is demonstrably better.",
+      "adoption": "Mandatory for reusable synchronous services",
+      "rationale": "Machine-readable contracts improve collaboration, validation, testing, documentation, discoverability, and consumer independence.",
+      "implications": "Specifications define resources, operations, schemas, validation, errors, security, examples, limits, and version; contract review precedes build; generated documentation and tests are maintained from the contract; RPC, SOAP, GraphQL, files, or events may be used when justified and governed.",
+      "linked_principles": [
+        "P-09",
+        "P-10",
+        "P-16",
+        "P-17"
+      ],
+      "sources": [
+        "SA-09",
+        "INT-13",
+        "INT-25",
+        "INT-26"
+      ]
+    },
+    {
+      "id": "S-13",
+      "domain": "Integration / Data",
+      "title": "Approved National Data-Sharing Channels",
+      "statement": "Inter-government data sharing shall use the Government Service Bus, Data Marketplace, or other methods approved by the competent national authority, in accordance with the current Data Sharing Policy and applicable classifications.",
+      "adoption": "Mandatory where applicable",
+      "rationale": "National channels provide governed, secure, discoverable, and consistent mechanisms for government interoperability and support the once-only principle.",
+      "implications": "Requests, approvals, controls, agreements, metadata, classification, purpose, and retention are recorded; direct point-to-point alternatives require documented justification and approval; exchanged data is minimized and current; service levels and incident responsibilities are agreed.",
+      "linked_principles": [
+        "P-05",
+        "P-07",
+        "P-09",
+        "P-10"
+      ],
+      "sources": [
+        "SA-05",
+        "SA-21",
+        "SA-25"
+      ]
+    },
+    {
+      "id": "S-14",
+      "domain": "Integration / Security",
+      "title": "API Identity, Authentication and Authorization",
+      "statement": "APIs shall use approved identity federation and standards-based authentication/authorization. OAuth 2.0 and OpenID Connect are preferred for user and delegated access; strong service identity and mutual authentication shall be used where risk requires.",
+      "adoption": "Mandatory",
+      "rationale": "Consistent identity controls reduce credential proliferation, insecure custom mechanisms, and unauthorized data access.",
+      "implications": "No credentials in URLs or source code; tokens are audience-, scope-, time-, and issuer-bound; service accounts have owners and rotation; sensitive operations use stronger authentication and transaction controls; authorization is enforced server-side at object/data level; security events are logged.",
+      "linked_principles": [
+        "P-09",
+        "P-10",
+        "P-12",
+        "P-13"
+      ],
+      "sources": [
+        "SA-09",
+        "SA-17",
+        "INT-14",
+        "INT-15",
+        "INT-17",
+        "INT-27"
+      ]
+    },
+    {
+      "id": "S-15",
+      "domain": "Integration Architecture",
+      "title": "API Lifecycle, Compatibility and Service Levels",
+      "statement": "Every production API shall have an accountable owner, lifecycle status, consumer registry or discovery mechanism, versioning and compatibility policy, operational SLA/SLO, rate controls, monitoring, support, and deprecation process.",
+      "adoption": "Mandatory",
+      "rationale": "An interface without lifecycle ownership becomes an unmanaged dependency that blocks change or fails without accountability.",
+      "implications": "Breaking changes require a new version and migration window; consumers receive notice and test support; idempotency is used for retry-sensitive operations; timeouts, retries, quotas, pagination, and error behavior are standardized; deprecated versions have an approved retirement date.",
+      "linked_principles": [
+        "P-09",
+        "P-10",
+        "P-19"
+      ],
+      "sources": [
+        "SA-09",
+        "INT-13",
+        "INT-26"
+      ]
+    },
+    {
+      "id": "S-16",
+      "domain": "Integration / Data",
+      "title": "Interchange Formats and Semantic Conventions",
+      "statement": "Text shall use UTF-8; JSON conforming to RFC 8259 is the default structured API format; dates/times shall use ISO 8601-compatible representations with explicit time zones; machine-readable API errors shall follow RFC 9457 where applicable.",
+      "adoption": "Mandatory default profile",
+      "rationale": "Common encoding, format, time, and error conventions remove avoidable ambiguity and integration defects, especially across Arabic/English systems and distributed services.",
+      "implications": "Schemas define types, units, code sets, nullability, precision, and identifiers; UTC is used for system timestamps while local display is handled at presentation; XML/CSV/file formats require a documented use case and schema; shared terminology and reference data are governed.",
+      "linked_principles": [
+        "P-09",
+        "P-10",
+        "P-17"
+      ],
+      "sources": [
+        "INT-23",
+        "INT-24",
+        "INT-25",
+        "INT-26"
+      ]
+    },
+    {
+      "id": "S-17",
+      "domain": "Data Architecture",
+      "title": "Data Ownership and Authoritative Sources",
+      "statement": "Each data domain and critical data element shall have an accountable business owner, operational steward, defined authoritative source, approved consumers, and lifecycle responsibilities.",
+      "adoption": "Mandatory",
+      "rationale": "Clear accountability is required to resolve conflicting definitions, quality issues, access decisions, and duplicate records.",
+      "implications": "Ownership is assigned to business roles rather than systems or vendors; authoritative-source decisions are recorded; downstream copies include synchronization and quality rules; ownership changes are governed; data issues and access requests follow defined escalation paths.",
+      "linked_principles": [
+        "P-07",
+        "P-08"
+      ],
+      "sources": [
+        "SA-21",
+        "SA-22",
+        "SA-25"
+      ]
+    },
+    {
+      "id": "S-18",
+      "domain": "Data Architecture",
+      "title": "Metadata, Data Dictionary and Lineage",
+      "statement": "Critical, shared, personal, regulated, and analytical data shall be registered in the enterprise metadata catalog with business definitions, ownership, classification, schemas, code sets, quality rules, lineage, and usage constraints.",
+      "adoption": "Mandatory for critical/shared data",
+      "rationale": "Data cannot be safely reused or governed if its meaning, origin, transformation, and restrictions are unknown.",
+      "implications": "Use ISO/IEC 11179 concepts for metadata registries where practical; metadata accompanies shared datasets; terms have approval and versioning; lineage covers material source-to-report and source-to-AI flows; schema changes trigger impact analysis and consumer notification.",
+      "linked_principles": [
+        "P-08",
+        "P-09"
+      ],
+      "sources": [
+        "SA-21",
+        "SA-22",
+        "SA-25",
+        "INT-11"
+      ]
+    },
+    {
+      "id": "S-19",
+      "domain": "Data Architecture",
+      "title": "Data Quality Management",
+      "statement": "Critical data shall have measurable quality requirements, monitoring, issue ownership, root-cause remediation, and reporting across relevant dimensions such as accuracy, completeness, validity, consistency, timeliness, and uniqueness.",
+      "adoption": "Mandatory for critical data",
+      "rationale": "Data quality directly affects regulatory decisions, beneficiary outcomes, automation, analytics, and AI. Repeated manual correction is not a sustainable control.",
+      "implications": "Quality rules and thresholds are approved by owners; controls operate as close to source as possible; dashboards show trend and business impact; exceptions are quarantined or visibly qualified; remediation addresses process and source causes; quality evidence accompanies data products.",
+      "linked_principles": [
+        "P-08",
+        "P-09",
+        "P-19",
+        "P-21"
+      ],
+      "sources": [
+        "SA-21",
+        "SA-22",
+        "INT-10"
+      ]
+    },
+    {
+      "id": "S-20",
+      "domain": "Data / Cybersecurity",
+      "title": "Data Classification, Handling, Retention and Disposal",
+      "statement": "Data shall be classified and handled throughout creation, use, sharing, storage, backup, archive, and disposal according to current national data and cybersecurity requirements and approved retention schedules.",
+      "adoption": "Mandatory",
+      "rationale": "Uniform protection is both inefficient and unsafe. Classification allows controls to match sensitivity, business value, legal obligations, and harm.",
+      "implications": "Classification is recorded in metadata and propagated to exchanges; storage, access, encryption, masking, transfer, logging, residency, and disposal controls vary by class; retention has legal/business basis and owner; expired data and media are securely disposed; reclassification is governed.",
+      "linked_principles": [
+        "P-08",
+        "P-11",
+        "P-12",
+        "P-14"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-19",
+        "SA-21",
+        "SA-22",
+        "SA-23"
+      ]
+    },
+    {
+      "id": "S-21",
+      "domain": "Privacy",
+      "title": "Privacy Engineering and Impact Assessment",
+      "statement": "Solutions processing personal data shall implement privacy by design and default, document lawful purpose and processing, minimize data, and conduct privacy impact assessment when required by law, regulation, policy, or risk.",
+      "adoption": "Mandatory where personal data is processed",
+      "rationale": "Privacy compliance requires architectural controls over collection, use, sharing, access, retention, analytics, testing, and supplier processing.",
+      "implications": "Maintain processing records and privacy requirements; use synthetic or properly protected data outside production; support notices, consent where applicable, rights, correction, deletion, breach response, and cross-party obligations; privacy review occurs before procurement/design approval and before material change.",
+      "linked_principles": [
+        "P-07",
+        "P-08",
+        "P-11",
+        "P-21"
+      ],
+      "sources": [
+        "SA-21",
+        "SA-22",
+        "SA-23",
+        "SA-24",
+        "INT-05"
+      ]
+    },
+    {
+      "id": "S-22",
+      "domain": "Data Architecture",
+      "title": "Master and Reference Data Management",
+      "statement": "High-value shared entities and code sets shall use governed master/reference data with authoritative ownership, identifiers, matching rules, quality controls, distribution, versioning, and change processes.",
+      "adoption": "Conditional mandatory",
+      "rationale": "Multiple uncontrolled versions of core entities create inconsistent services, duplicate beneficiaries, incorrect reporting, and fragile integration.",
+      "implications": "Identify enterprise master domains and golden-record rules; avoid creating new identifiers when national or authoritative identifiers exist; govern code lists and mappings; publish change notifications; resolve stewardship and survivorship rules; do not centralize data without a justified operating model.",
+      "linked_principles": [
+        "P-07",
+        "P-08",
+        "P-09"
+      ],
+      "sources": [
+        "SA-21",
+        "SA-22",
+        "INT-10",
+        "INT-11"
+      ]
+    },
+    {
+      "id": "S-23",
+      "domain": "Cloud / Technology",
+      "title": "Cloud Placement, Sovereignty and Landing-Zone Controls",
+      "statement": "Each workload shall have a documented cloud-placement decision based on service needs, data classification, NCA/DGA requirements, approved provider and region, shared responsibility, resilience, integration, cost, portability, and exit.",
+      "adoption": "Mandatory for cloud decisions",
+      "rationale": "Cloud-first is a decision preference, not an exemption from architecture, security, data, continuity, or financial governance.",
+      "implications": "Use approved landing zones, identity, network, encryption, logging, configuration, tagging, backup, monitoring, and cost controls; verify data localization and subcontractors; define responsibility matrices and incident obligations; test recovery and data export; reassess material workload changes.",
+      "linked_principles": [
+        "P-05",
+        "P-14",
+        "P-15"
+      ],
+      "sources": [
+        "SA-04",
+        "SA-10",
+        "SA-18",
+        "SA-21"
+      ]
+    },
+    {
+      "id": "S-24",
+      "domain": "Technology Governance",
+      "title": "Technology Standards and Product Lifecycle",
+      "statement": "Technologies and products shall be governed through an enterprise lifecycle catalog with statuses Preferred, Permitted, Contained, Deprecated, and Prohibited, including approved versions and end-of-support dates.",
+      "adoption": "Mandatory",
+      "rationale": "Lifecycle control reduces unsupported technology, security exposure, unnecessary variety, and unplanned modernization cost.",
+      "implications": "New technologies require evaluation and ownership; procurements use approved versions; deprecated items cannot be used for new solutions without waiver; EOL/EOS exposure is mapped to services and risk; product upgrades and retirements are roadmap items with funding and owners.",
+      "linked_principles": [
+        "P-06",
+        "P-18"
+      ],
+      "sources": [
+        "SA-01",
+        "SA-02",
+        "SA-06",
+        "SA-17"
+      ]
+    },
+    {
+      "id": "S-25",
+      "domain": "Technology / Procurement",
+      "title": "Open Standards, Portability and Exit",
+      "statement": "Strategic solutions shall use documented open interfaces and exportable data formats and shall include tested portability, transition, and supplier-exit provisions proportionate to dependency and criticality.",
+      "adoption": "Mandatory for strategic procurements",
+      "rationale": "Exit architecture protects service continuity, competition, data access, and negotiating position over the full lifecycle.",
+      "implications": "Contracts address data ownership, formats, schemas, metadata, configuration, logs, documentation, source/build assets where applicable, transition assistance, deletion evidence, and exit cost; proprietary dependencies are declared; periodic exit tests are required for high-criticality services.",
+      "linked_principles": [
+        "P-06",
+        "P-14",
+        "P-16",
+        "P-17",
+        "P-18"
+      ],
+      "sources": [
+        "SA-06",
+        "SA-10",
+        "SA-16",
+        "INT-13"
+      ]
+    },
+    {
+      "id": "S-26",
+      "domain": "Technology / Application",
+      "title": "Free and Open-Source Software Assessment",
+      "statement": "Open-source options shall be considered on equal, evidence-based terms with commercial products, and adopted only after assessment of license, security, maintenance, community/vendor support, roadmap, interoperability, skills, and total cost.",
+      "adoption": "Preferred assessment; controlled adoption",
+      "rationale": "Open source can improve reuse, transparency, portability, and local capability, but unsupported or poorly governed components can create legal and operational risk.",
+      "implications": "Maintain software-component inventory and licenses; approve repositories and contribution rules; monitor vulnerabilities and project health; define internal or contracted support; do not equate zero license cost with zero lifecycle cost; publish modifications only where license and policy require or permit.",
+      "linked_principles": [
+        "P-06",
+        "P-17"
+      ],
+      "sources": [
+        "SA-16",
+        "INT-18"
+      ]
+    },
+    {
+      "id": "S-27",
+      "domain": "Cybersecurity",
+      "title": "NCA Cybersecurity Baseline and Architecture Mapping",
+      "statement": "The current NCA Essential Cybersecurity Controls shall be the minimum cybersecurity baseline for the Authority, with additional NCA controls applied according to cloud, data, critical-system, operational-technology, remote-work, and other applicability.",
+      "adoption": "Mandatory",
+      "rationale": "NCA controls establish nationally required minimum protection and a common compliance structure for Saudi government entities.",
+      "implications": "Maintain an applicability matrix and control owners; map controls to architecture assets, patterns, risks, contracts, and evidence; use stricter sector or internal requirements where needed; gaps have risk treatment and deadlines; architecture approval does not replace cybersecurity approval.",
+      "linked_principles": [
+        "P-12",
+        "P-13",
+        "P-14",
+        "P-15",
+        "P-18"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-19",
+        "SA-20",
+        "SA-21",
+        "INT-04"
+      ]
+    },
+    {
+      "id": "S-28",
+      "domain": "Cybersecurity / Cryptography",
+      "title": "Encryption and Secure Transport",
+      "statement": "Sensitive data shall be encrypted in transit and at rest using current NCA-approved cryptographic standards and centrally governed key management. TLS 1.3 is the preferred transport baseline; TLS 1.2 is permitted only under an approved compatibility profile.",
+      "adoption": "Mandatory",
+      "rationale": "Inconsistent algorithms, weak protocols, and unmanaged keys undermine confidentiality, integrity, non-repudiation, and long-term compliance.",
+      "implications": "Prohibit obsolete protocols and algorithms; maintain certificate and key ownership, rotation, backup, revocation, and hardware-protection requirements; inventory cryptographic dependencies; validate configurations automatically; exceptions include exposure analysis and retirement dates.",
+      "linked_principles": [
+        "P-12",
+        "P-13",
+        "P-14"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-19",
+        "SA-21",
+        "INT-16"
+      ]
+    },
+    {
+      "id": "S-29",
+      "domain": "Cybersecurity / Identity",
+      "title": "Identity, Least Privilege and Zero-Trust Access",
+      "statement": "Workforce, privileged, service, device, partner, and beneficiary access shall use authoritative identity, strong authentication proportionate to risk, least privilege, segregation of duties, periodic recertification, and explicit policy enforcement.",
+      "adoption": "Mandatory",
+      "rationale": "Identity is the primary control plane across data centers, cloud, APIs, mobile, suppliers, and remote work.",
+      "implications": "Federate identity where appropriate; require MFA for privileged and sensitive access; use PAM for administrative accounts; avoid shared accounts; manage service identities and secrets; enforce joiner/mover/leaver processes; monitor anomalous and privileged activity; apply just-in-time access where practical.",
+      "linked_principles": [
+        "P-12",
+        "P-13"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-20",
+        "INT-14",
+        "INT-15",
+        "INT-17"
+      ]
+    },
+    {
+      "id": "S-30",
+      "domain": "Engineering / Cybersecurity",
+      "title": "Secure SDLC, DevSecOps and Software Supply Chain",
+      "statement": "Development and configuration changes shall follow the DGA SDLC/DevOps guidance and a risk-based secure-development profile aligned with NIST SSDF, covering design, code, dependencies, build, test, release, deployment, and maintenance.",
+      "adoption": "Mandatory for software and infrastructure changes",
+      "rationale": "Most security and reliability defects are cheaper to prevent or detect before production, while supply-chain compromise requires controls beyond source-code scanning.",
+      "implications": "Use threat modeling for material changes; protect branches, pipelines, secrets, and artifacts; automate SAST/DAST/SCA/IaC/container checks as applicable; sign or verify releases; maintain SBOMs for critical/high-risk software; patch by defined severity timelines; vendors provide equivalent evidence.",
+      "linked_principles": [
+        "P-12",
+        "P-20"
+      ],
+      "sources": [
+        "SA-13",
+        "SA-14",
+        "SA-15",
+        "SA-17",
+        "INT-18"
+      ]
+    },
+    {
+      "id": "S-31",
+      "domain": "Operations / Security",
+      "title": "Logging, Auditability and Observability",
+      "statement": "Production services shall produce standardized, protected, time-synchronized logs, metrics, traces, security events, and audit records sufficient to operate, troubleshoot, measure, investigate, and demonstrate compliance.",
+      "adoption": "Mandatory",
+      "rationale": "Without reliable telemetry, the Authority cannot distinguish service degradation, misuse, fraud, data issues, or cyber incidents in time.",
+      "implications": "Define required events and fields; use correlation identifiers; protect confidentiality and integrity; restrict and audit log access; align retention with legal, security, and operational needs; avoid unnecessary personal/sensitive data; monitor critical controls and service indicators; test alert and investigation procedures.",
+      "linked_principles": [
+        "P-12",
+        "P-13",
+        "P-19",
+        "P-20"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-19",
+        "INT-04",
+        "INT-08"
+      ]
+    },
+    {
+      "id": "S-32",
+      "domain": "Service Management",
+      "title": "Service Ownership, SLOs and Operational Management",
+      "statement": "Every production digital service shall have an accountable service owner, service catalog entry, support model, dependency map, SLOs/SLAs, capacity and availability management, incident/problem/change processes, and continual-improvement plan.",
+      "adoption": "Mandatory for production services",
+      "rationale": "Project delivery does not ensure sustainable service outcomes. Named ownership and measurable operational controls protect beneficiaries and investment.",
+      "implications": "Define service hours, priority, support contacts, escalation, maintenance, availability, latency, throughput, recovery, and supplier obligations; measure from the beneficiary and business perspective; recurring incidents trigger problem/root-cause action; operational acceptance is required before go-live.",
+      "linked_principles": [
+        "P-15",
+        "P-19"
+      ],
+      "sources": [
+        "SA-06",
+        "SA-14",
+        "INT-08"
+      ]
+    },
+    {
+      "id": "S-33",
+      "domain": "Resilience",
+      "title": "Business Continuity, Backup and Disaster Recovery",
+      "statement": "Services shall have business-approved continuity and recovery requirements, tested backup and restoration, documented disaster-recovery architecture and procedures, and exercised end-to-end recovery at a frequency proportionate to criticality.",
+      "adoption": "Mandatory based on service criticality",
+      "rationale": "A backup is not a recovery capability, and infrastructure failover does not prove the business service can operate.",
+      "implications": "BIA defines service tiers, MTPD, RTO, RPO, and minimum operations; backup copies are protected and isolated according to risk; tests validate data integrity, identities, integrations, suppliers, communications, and manual workarounds; exercise findings are tracked to closure.",
+      "linked_principles": [
+        "P-12",
+        "P-14",
+        "P-15",
+        "P-19"
+      ],
+      "sources": [
+        "SA-17",
+        "SA-18",
+        "SA-20",
+        "INT-06",
+        "INT-07"
+      ]
+    },
+    {
+      "id": "S-34",
+      "domain": "Quality Engineering",
+      "title": "Software Quality Model and Testing",
+      "statement": "Solutions shall define and verify quality requirements using a profile aligned with ISO/IEC 25010 and current DGA quality-testing guidance, including functional suitability, performance, compatibility, usability, reliability, security, maintainability, and portability.",
+      "adoption": "Mandatory",
+      "rationale": "Testing only business functions leaves major operational and beneficiary risks undiscovered.",
+      "implications": "Quality attributes have measurable acceptance criteria; testing is risk-based and automated where repeatable; accessibility, security, performance, resilience, data migration, integration, recovery, and operability are included; defects are risk-assessed; production readiness requires evidence and accountable acceptance.",
+      "linked_principles": [
+        "P-04",
+        "P-19",
+        "P-20"
+      ],
+      "sources": [
+        "SA-12",
+        "SA-15",
+        "INT-09"
+      ]
+    },
+    {
+      "id": "S-35",
+      "domain": "AI Governance",
+      "title": "Responsible AI Lifecycle and Impact Assessment",
+      "statement": "AI systems shall be registered and governed through a lifecycle aligned with SDAIA AI Ethics Principles and the Authority’s AI governance profile, including use-case justification, risk classification, impact assessment, data/model documentation, human oversight, validation, monitoring, incident response, and retirement.",
+      "adoption": "Mandatory for AI systems",
+      "rationale": "AI creates risks that ordinary software controls do not fully address, including bias, opacity, model drift, unsafe automation, and impacts on people or society.",
+      "implications": "Assign business, data, model, risk, and compliance owners; prohibit unacceptable uses; test fairness, robustness, privacy, security, explainability, and performance proportionate to impact; document limitations and human review; monitor drift and harm; suppliers provide equivalent transparency and evidence.",
+      "linked_principles": [
+        "P-08",
+        "P-11",
+        "P-12",
+        "P-19",
+        "P-21"
+      ],
+      "sources": [
+        "SA-26",
+        "SA-27",
+        "INT-19",
+        "INT-20",
+        "INT-21"
+      ]
+    },
+    {
+      "id": "S-36",
+      "domain": "Generative AI",
+      "title": "Government Generative-AI Use and Data Handling",
+      "statement": "Government data shall be entered into generative-AI services only when the service, use case, data classification, contract, security, privacy, retention, model-training behavior, and human-review controls are approved under current SDAIA/NCA/Authority requirements.",
+      "adoption": "Mandatory for GenAI use",
+      "rationale": "Public GenAI tools can disclose sensitive information, retain prompts, create inaccurate outputs, or use data in ways inconsistent with government obligations.",
+      "implications": "Maintain an approved-tool and use-case list; block prohibited data and tools; configure no-training/no-retention options where required; verify outputs before decisions or publication; label AI-assisted content where appropriate; log material use; perform legal, security, data, and AI-governance review for high-impact cases.",
+      "linked_principles": [
+        "P-04",
+        "P-11",
+        "P-12",
+        "P-21"
+      ],
+      "sources": [
+        "SA-23",
+        "SA-26",
+        "SA-28",
+        "INT-19",
+        "INT-21"
+      ]
+    }
+  ]
+}

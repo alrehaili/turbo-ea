@@ -1,4 +1,4 @@
-"""NORA GRC seed — Risks, Compliance findings, Principles, Decisions (ADRs).
+"""NORA GRC seed — Risks, Compliance findings, Decisions (ADRs).
 
 [FORK FEATURE] — Populates the GRC page (Governance / Risk / Compliance) with
 10 realistic government-EA examples of each, so a fresh ``SEED_NORA=true`` boot
@@ -7,8 +7,10 @@ lands users on fully-populated GRC tabs:
 * 10 Risks (EA Risk Register — varied category / probability / impact / status)
 * 10 Compliance findings (landscape-scoped across the six built-in regulations,
   so they land regardless of which landscape cards are present)
-* 10 EA Principles (governance)
 * 10 Architecture Decisions / ADRs (governance)
+
+Principles + Standards are seeded separately from the authoritative Saudi
+Government EA catalog — see ``seed_saudi_ea_catalog``.
 
 Each section is independently idempotent (guarded by a marker), so a re-run adds
 only what's missing and never duplicates. References (R-NNNNNN, ADR-NNN) are
@@ -20,11 +22,10 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
-from app.models.ea_principle import EAPrinciple
 from app.models.risk import Risk
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.user import User
@@ -403,147 +404,6 @@ GRC_COMPLIANCE_FINDINGS: list[dict] = [
 ]
 
 # ════════════════════════════════════════════════════════════════════════════
-# EA PRINCIPLES (Governance) — 10 entries
-# ════════════════════════════════════════════════════════════════════════════
-GRC_PRINCIPLES: list[dict] = [
-    {
-        "title": "Digital by default",
-        "description": (
-            "Government services are designed to be delivered digitally end to "
-            "end, with non-digital channels as an assisted fallback."
-        ),
-        "rationale": (
-            "Maximises reach, reduces cost to serve and aligns with national "
-            "digital-government ambitions."
-        ),
-        "implications": (
-            "Every new service must expose a digital channel before launch; "
-            "legacy paper processes require a retirement plan."
-        ),
-    },
-    {
-        "title": "Data is a shared national asset",
-        "description": (
-            "Data is managed as a reusable asset, shared securely across "
-            "agencies through governed exchanges rather than duplicated."
-        ),
-        "rationale": (
-            "Reduces redundant collection, improves quality and enables "
-            "whole-of-government insight."
-        ),
-        "implications": (
-            "Agencies publish authoritative data through governed interfaces; "
-            "point-to-point copies require an exception."
-        ),
-    },
-    {
-        "title": "Interoperability through open standards",
-        "description": (
-            "Systems integrate via open, published standards and APIs rather "
-            "than proprietary interfaces."
-        ),
-        "rationale": ("Avoids lock-in, lowers integration cost and future-proofs the landscape."),
-        "implications": (
-            "New integrations must use the national API standards; proprietary "
-            "protocols require architecture-board approval."
-        ),
-    },
-    {
-        "title": "Security and privacy by design",
-        "description": (
-            "Security and data-protection controls are built into solutions "
-            "from inception, not added later."
-        ),
-        "rationale": (
-            "Cheaper and more effective than retrofitting; a regulatory "
-            "expectation under PDPL and the security baseline."
-        ),
-        "implications": (
-            "Threat modelling and a privacy assessment are mandatory gates in "
-            "the delivery lifecycle."
-        ),
-    },
-    {
-        "title": "Cloud first",
-        "description": (
-            "Government-approved cloud platforms are the default hosting "
-            "target for new and re-platformed workloads."
-        ),
-        "rationale": (
-            "Delivers elasticity, resilience and faster provisioning while "
-            "reducing data-centre overhead."
-        ),
-        "implications": (
-            "On-premises hosting requires a justified exception; workloads are "
-            "designed to be cloud-portable."
-        ),
-    },
-    {
-        "title": "Reuse before buy, buy before build",
-        "description": (
-            "Prefer reusing existing shared capabilities, then commercial "
-            "off-the-shelf products, before building bespoke solutions."
-        ),
-        "rationale": ("Reduces duplication, total cost of ownership and delivery risk."),
-        "implications": (
-            "Business cases must document why existing shared services cannot "
-            "meet the need before bespoke build is approved."
-        ),
-    },
-    {
-        "title": "Single source of truth",
-        "description": (
-            "Each data domain has one authoritative system of record that "
-            "other systems consume rather than re-master."
-        ),
-        "rationale": ("Eliminates conflicting data and clarifies ownership and accountability."),
-        "implications": (
-            "Data owners are assigned per domain; consumers integrate with the "
-            "system of record, not local copies."
-        ),
-    },
-    {
-        "title": "Accessibility and inclusion",
-        "description": (
-            "Services meet recognised accessibility standards so that all "
-            "beneficiaries, regardless of ability, can use them."
-        ),
-        "rationale": ("A legal and ethical obligation that also broadens service adoption."),
-        "implications": (
-            "WCAG conformance is a release gate; assistive-technology testing "
-            "is part of acceptance."
-        ),
-    },
-    {
-        "title": "Responsible and transparent AI",
-        "description": (
-            "AI is used transparently, with human oversight and documented "
-            "governance proportionate to its risk."
-        ),
-        "rationale": ("Maintains public trust and aligns with emerging AI regulation."),
-        "implications": (
-            "High-risk AI use cases require a documented risk assessment, "
-            "human-in-the-loop controls and disclosure to users."
-        ),
-    },
-    {
-        "title": "Total cost of ownership drives decisions",
-        "description": (
-            "Architecture and investment decisions weigh full lifecycle cost, "
-            "not just upfront delivery cost."
-        ),
-        "rationale": (
-            "Prevents cheap-to-build, expensive-to-run solutions and supports "
-            "financial sustainability."
-        ),
-        "implications": (
-            "Business cases include run, maintenance and decommission costs "
-            "over the solution lifetime."
-        ),
-    },
-]
-
-# ════════════════════════════════════════════════════════════════════════════
 # ARCHITECTURE DECISIONS (Governance) — 10 entries
 # ════════════════════════════════════════════════════════════════════════════
 # status: draft | in_review | signed
@@ -772,34 +632,6 @@ async def _seed_risks(db: AsyncSession, owner_id: uuid.UUID | None) -> int:
     return created
 
 
-async def _seed_principles(db: AsyncSession) -> int:
-    """Insert the 10 NORA EA principles. Idempotent on the first title."""
-    marker = await db.execute(
-        select(EAPrinciple.id).where(EAPrinciple.title == GRC_PRINCIPLES[0]["title"]).limit(1)
-    )
-    if marker.scalar_one_or_none() is not None:
-        return 0
-
-    base = (
-        await db.execute(select(func.coalesce(func.max(EAPrinciple.sort_order), 0)))
-    ).scalar() or 0
-    created = 0
-    for i, p in enumerate(GRC_PRINCIPLES, start=1):
-        db.add(
-            EAPrinciple(
-                title=p["title"],
-                description=p["description"],
-                rationale=p["rationale"],
-                implications=p["implications"],
-                is_active=True,
-                sort_order=base + i,
-                catalogue_id=f"nora-grc-{i:02d}",
-            )
-        )
-        created += 1
-    return created
-
-
 async def _seed_decisions(db: AsyncSession, owner_id: uuid.UUID | None) -> int:
     """Insert the 10 ADRs. Idempotent on the first title."""
     marker = await db.execute(
@@ -908,7 +740,7 @@ async def _seed_compliance(db: AsyncSession) -> int:
 # PUBLIC ENTRY POINT
 # ════════════════════════════════════════════════════════════════════════════
 async def seed_nora_grc(db: AsyncSession) -> dict:
-    """Seed 10 examples each of Risks, Compliance findings, Principles, ADRs.
+    """Seed 10 examples each of Risks, Compliance findings, ADRs.
 
     Each section is independently idempotent, so a re-run tops up only what's
     missing. Returns per-section counts (0 = already present).
@@ -924,19 +756,17 @@ async def seed_nora_grc(db: AsyncSession) -> dict:
     owner_id = owner.id if owner else None
 
     risks = await _seed_risks(db, owner_id)
-    principles = await _seed_principles(db)
     decisions = await _seed_decisions(db, owner_id)
     findings = await _seed_compliance(db)
 
     await db.commit()
 
-    if not any((risks, principles, decisions, findings)):
+    if not any((risks, decisions, findings)):
         return {"skipped": True, "reason": "GRC examples already seeded"}
 
     return {
         "loaded": True,
         "risks": risks,
         "compliance_findings": findings,
-        "principles": principles,
         "decisions": decisions,
     }

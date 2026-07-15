@@ -749,7 +749,7 @@ async def lifespan(app: FastAPI):
         except Exception as exc:  # noqa: BLE001
             logger.exception("[seed_reference_models] FAILED: %s", exc)
 
-        # Seed GRC examples (10 each: risks, compliance findings, principles, ADRs)
+        # Seed GRC examples (10 each: risks, compliance findings, ADRs)
         from app.services.seed_nora_grc import seed_nora_grc
 
         try:
@@ -761,10 +761,27 @@ async def lifespan(app: FastAPI):
                 print(
                     f"[seed_nora_grc] ✓ Seeded {result['risks']} risks, "
                     f"{result['compliance_findings']} compliance findings, "
-                    f"{result['principles']} principles, {result['decisions']} decisions"
+                    f"{result['decisions']} decisions"
                 )
         except Exception as exc:  # noqa: BLE001
             logger.exception("[seed_nora_grc] FAILED: %s", exc)
+
+        # Seed the authoritative Saudi Government EA principles + standards catalog
+        from app.services.seed_saudi_ea_catalog import seed_saudi_ea_catalog
+
+        try:
+            async with async_session() as db:
+                result = await seed_saudi_ea_catalog(db)
+            if result.get("skipped"):
+                print(f"[seed_saudi_ea_catalog] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_saudi_ea_catalog] ✓ Seeded {result['principles']} principles, "
+                    f"{result['standards']} standards, "
+                    f"{result['principle_standard_links']} principle links"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_saudi_ea_catalog] FAILED: %s", exc)
 
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
