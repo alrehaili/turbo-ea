@@ -75,7 +75,8 @@
         "medium": "中",
         "low": "低"
       }
-    }
+    },
+    "referenceModels": "参考模型"
   },
   "compliance": {
     "aiRequired": {

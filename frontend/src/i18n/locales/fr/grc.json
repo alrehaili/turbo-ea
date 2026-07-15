@@ -9,6 +9,7 @@
     "compliance": "Conformité"
   },
   "governance": {
+    "referenceModels": "Modèles de référence",
     "subtabs": {
       "principles": "Principes",
       "standards": "Standards",

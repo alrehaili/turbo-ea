@@ -9,6 +9,7 @@
     "compliance": "Compliance"
   },
   "governance": {
+    "referenceModels": "Referencemodeller",
     "subtabs": {
       "principles": "Principper",
       "standards": "Standarder",

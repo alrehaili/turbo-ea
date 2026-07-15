@@ -75,7 +75,8 @@
         "medium": "Средняя",
         "low": "Низкая"
       }
-    }
+    },
+    "referenceModels": "Эталонные модели"
   },
   "compliance": {
     "aiRequired": {

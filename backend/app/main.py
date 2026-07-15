@@ -695,6 +695,60 @@ async def lifespan(app: FastAPI):
                     f"program updates, {result['documents']} document(s)"
                 )
 
+        # Seed validated NORA data (60 cards with full strategic linkages across 6 layers).
+        # Each supplementary NORA seed runs in isolation so one failure never aborts
+        # the others (they each open their own session and commit internally).
+        from app.services.seed_nora_validated import seed_nora_validated
+
+        try:
+            async with async_session() as db:
+                result = await seed_nora_validated(db)
+            if result.get("skipped"):
+                print(f"[seed_nora_validated] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_nora_validated] ✓ Seeded {result['cards']} cards across "
+                    f"{result['layers_complete']} layers, {result['relations']} validated relations"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_nora_validated] FAILED: %s", exc)
+
+        # Seed Strategic House (vision/mission settings + pillars/objectives) + EA Maturity
+        from app.services.seed_strategic_house_maturity import seed_strategic_house_and_maturity
+
+        try:
+            async with async_session() as db:
+                result = await seed_strategic_house_and_maturity(db)
+            if result.get("skipped"):
+                print(f"[seed_strategic_house] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_strategic_house] ✓ Seeded {result['pillars']} pillars, "
+                    f"{result['objectives']} objectives ({result['objective_pillar_relations']} "
+                    f"pillar links), {result['initiatives']} initiatives; "
+                    f"{result['maturity_assessments']} maturity assessments with "
+                    f"{result['maturity_scores']} scores"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_strategic_house] FAILED: %s", exc)
+
+        # Seed Reference Models (6 domains, published, coexisting with kit previews)
+        from app.services.seed_reference_models import seed_reference_models
+
+        try:
+            async with async_session() as db:
+                result = await seed_reference_models(db)
+            if result.get("skipped"):
+                print(f"[seed_reference_models] Skipped: {result.get('reason')}")
+            else:
+                print(
+                    f"[seed_reference_models] ✓ Seeded {result['reference_models']} RMs, "
+                    f"{result['reference_model_items']} items; "
+                    f"domains: {', '.join(result['domains'])}, status: {result['status']}"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_reference_models] FAILED: %s", exc)
+
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:
         from app.services.seed_demo import seed_demo_data
