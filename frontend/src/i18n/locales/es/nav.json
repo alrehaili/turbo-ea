@@ -279,4 +279,21 @@
   "reports.valueChain": "Cadena de valor",
   "reports.appModules": "Módulos de aplicación",
   "reports.strategyCascade": "Cascada estratégica"
+,
+  "reports.dataRelationships": "Relaciones de datos",
+  "reports.principlesTraceability": "Trazabilidad de principios",
+  "reports.dataClassification": "Clasificación de datos",
+  "reports.techStack": "Pila tecnológica",
+  "reports.cloudAdoption": "Adopción en la nube",
+  "reports.appDataCrud": "Matriz CRUD App-Datos",
+  "reports.currentVsTarget": "Actual vs. Objetivo",
+  "reports.techPortfolio": "Cartera tecnológica",
+  "reports.gapSummary": "Resumen de brechas",
+  "reports.dataDomains": "Dominios de datos",
+  "reports.securityControls": "Controles de seguridad",
+  "reports.standardsCompliance": "Cumplimiento de estándares",
+  "reports.dataOwnership": "Propiedad de datos",
+  "reports.initiativeGaps": "Brechas de iniciativa",
+  "reports.transitionRoadmap": "Hoja de ruta de transición",
+  "reports.exceptionsWaivers": "Excepciones y exenciones"
 }

@@ -279,4 +279,21 @@
   "reports.valueChain": "Цепочка ценности",
   "reports.appModules": "Модули приложений",
   "reports.strategyCascade": "Стратегический каскад"
+,
+  "reports.dataOwnership": "Владение данными",
+  "reports.appDataCrud": "Матрица CRUD приложение-данные",
+  "reports.exceptionsWaivers": "Исключения и отказы",
+  "reports.dataClassification": "Классификация данных",
+  "reports.currentVsTarget": "Текущее и целевое",
+  "reports.dataRelationships": "Связи данных",
+  "reports.standardsCompliance": "Соответствие стандартам",
+  "reports.cloudAdoption": "Внедрение облака",
+  "reports.techPortfolio": "Технологический портфель",
+  "reports.transitionRoadmap": "Дорожная карта переходного периода",
+  "reports.gapSummary": "Сводка пробелов",
+  "reports.securityControls": "Средства безопасности",
+  "reports.principlesTraceability": "Отслеживаемость принципов",
+  "reports.dataDomains": "Домены данных",
+  "reports.techStack": "Технологический стек",
+  "reports.initiativeGaps": "Пробелы инициативы"
 }

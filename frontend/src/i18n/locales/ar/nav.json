@@ -284,4 +284,21 @@
   "reports.valueChain": "سلسلة القيمة",
   "reports.appModules": "وحدات التطبيقات",
   "reports.strategyCascade": "التسلسل الاستراتيجي"
+,
+  "reports.dataOwnership": "ملكية البيانات",
+  "reports.appDataCrud": "مصفوفة CRUD للتطبيق والبيانات",
+  "reports.exceptionsWaivers": "الاستثناءات والإعفاءات",
+  "reports.dataClassification": "تصنيف البيانات",
+  "reports.currentVsTarget": "الحالة الحالية مقابل الهدف",
+  "reports.dataRelationships": "علاقات البيانات",
+  "reports.standardsCompliance": "الامتثال للمعايير",
+  "reports.cloudAdoption": "اعتماد السحابة",
+  "reports.techPortfolio": "محفظة التكنولوجيا",
+  "reports.transitionRoadmap": "خريطة طريق الانتقال",
+  "reports.gapSummary": "ملخص الفجوات",
+  "reports.securityControls": "ضوابط الأمان",
+  "reports.principlesTraceability": "تتبع المبادئ",
+  "reports.dataDomains": "مجالات البيانات",
+  "reports.techStack": "مكدس التكنولوجيا",
+  "reports.initiativeGaps": "فجوات المبادرة"
 }

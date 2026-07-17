@@ -279,4 +279,21 @@
   "reports.valueChain": "Værdikæde",
   "reports.appModules": "Applikationsmoduler",
   "reports.strategyCascade": "Strategikaskade"
+,
+  "reports.dataOwnership": "Datatilhørende",
+  "reports.appDataCrud": "App-Data CRUD-matrix",
+  "reports.exceptionsWaivers": "Undtagelser og dispensationer",
+  "reports.dataClassification": "Dataklassifikation",
+  "reports.currentVsTarget": "Nuværende vs. Målsætning",
+  "reports.dataRelationships": "Datarelationer",
+  "reports.standardsCompliance": "Standardoverholdelse",
+  "reports.cloudAdoption": "Cloudadoption",
+  "reports.techPortfolio": "Teknologiportfolio",
+  "reports.transitionRoadmap": "Overgangskort",
+  "reports.gapSummary": "Sammenfatning af huller",
+  "reports.securityControls": "Sikkerhedskontroller",
+  "reports.principlesTraceability": "Principper sporbarhed",
+  "reports.dataDomains": "Datadomæner",
+  "reports.techStack": "Teknologistak",
+  "reports.initiativeGaps": "Initiativhuller"
 }

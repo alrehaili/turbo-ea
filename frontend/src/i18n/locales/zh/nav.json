@@ -279,4 +279,21 @@
   "reports.valueChain": "价值链",
   "reports.appModules": "应用模块",
   "reports.strategyCascade": "战略级联"
+,
+  "reports.dataOwnership": "数据所有权",
+  "reports.appDataCrud": "应用-数据CRUD矩阵",
+  "reports.exceptionsWaivers": "异常和豁免",
+  "reports.dataClassification": "数据分类",
+  "reports.currentVsTarget": "当前与目标",
+  "reports.dataRelationships": "数据关系",
+  "reports.standardsCompliance": "标准合规性",
+  "reports.cloudAdoption": "云采用",
+  "reports.techPortfolio": "技术组合",
+  "reports.transitionRoadmap": "过渡路线图",
+  "reports.gapSummary": "差距摘要",
+  "reports.securityControls": "安全控制",
+  "reports.principlesTraceability": "原则可追溯性",
+  "reports.dataDomains": "数据域",
+  "reports.techStack": "技术堆栈",
+  "reports.initiativeGaps": "计划差距"
 }

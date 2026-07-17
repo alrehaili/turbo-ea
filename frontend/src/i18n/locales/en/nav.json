@@ -283,5 +283,21 @@
   "reports.strategicHouse": "Strategic House",
   "reports.valueChain": "Value Chain",
   "reports.appModules": "Application Modules",
-  "reports.strategyCascade": "Strategy Cascade"
+  "reports.strategyCascade": "Strategy Cascade",
+  "reports.currentVsTarget": "Current vs Target",
+  "reports.gapSummary": "Gap Summary",
+  "reports.initiativeGaps": "Initiative Gaps",
+  "reports.transitionRoadmap": "Transition Roadmap",
+  "reports.appDataCrud": "App-Data CRUD Matrix",
+  "reports.dataClassification": "Data Classification",
+  "reports.dataDomains": "Data Domains",
+  "reports.dataOwnership": "Data Ownership",
+  "reports.dataRelationships": "Data Relationships",
+  "reports.cloudAdoption": "Cloud Adoption",
+  "reports.techPortfolio": "Technology Portfolio",
+  "reports.techStack": "Technology Stack",
+  "reports.exceptionsWaivers": "Exceptions & Waivers",
+  "reports.principlesTraceability": "Principles Traceability",
+  "reports.securityControls": "Security Controls",
+  "reports.standardsCompliance": "Standards Compliance"
 }

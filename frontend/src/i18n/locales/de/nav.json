@@ -279,4 +279,21 @@
   "reports.valueChain": "Wertschöpfungskette",
   "reports.appModules": "Anwendungsmodule",
   "reports.strategyCascade": "Strategiekaskade"
+,
+  "reports.dataRelationships": "Datenbeziehungen",
+  "reports.principlesTraceability": "Prinzipien-Nachverfolgung",
+  "reports.dataClassification": "Dateneinstufung",
+  "reports.techStack": "Technologie-Stack",
+  "reports.cloudAdoption": "Cloud-Einführung",
+  "reports.appDataCrud": "App-Daten CRUD-Matrix",
+  "reports.currentVsTarget": "Aktuell vs. Zielzustand",
+  "reports.techPortfolio": "Technologieportfolio",
+  "reports.gapSummary": "Lückenzusammenfassung",
+  "reports.dataDomains": "Datendomänen",
+  "reports.securityControls": "Sicherheitskontrollen",
+  "reports.standardsCompliance": "Normeneinhaltung",
+  "reports.dataOwnership": "Dateneigentümerschaft",
+  "reports.initiativeGaps": "Initiative Lücken",
+  "reports.transitionRoadmap": "Übergangspfad",
+  "reports.exceptionsWaivers": "Ausnahmen & Verzichte"
 }
