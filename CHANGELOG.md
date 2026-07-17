@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.23.0] - 2026-07-17
+
+### Added
+- **Card type colors are now fully customizable — including the built-in types** (discussion #740). The metamodel admin's color picker is no longer locked for built-in types, so you can align Turbo EA with TOGAF/ArchiMate visual conventions (business elements in yellow/orange, applications in blue, …). A **reset to default color** button appears whenever a built-in type's color differs from the standard palette, and the picker warns (without blocking) when a chosen color would be nearly invisible against light or dark backgrounds. The API now validates type colors as `#rrggbb` hex values.
+- **The type color picker shows a live preview in both themes.** Beside the palette, sample renderings of the type name, chip, card icon, subtype, card ID pill, and a dependency-view node update as you pick — once on a light background and once on a dark one — so you can see exactly how a color will look before saving.
+- **Text on colored chips and diagram shapes now picks black or white automatically for readability.** Card-type, tag, select-option, and related-card chips across the inventory, card detail, reports, and filter sidebars — as well as newly inserted DrawIO card shapes — compute their text color from the background instead of always using white, so pale custom colors stay legible in both light and dark mode. Dark mode no longer washes out pale type colors in the dependency views.
+
+### Fixed
+- The Compliance filter sidebar, Capability Map, and Process Map now use the metamodel colors for Application, IT Component, Data Object, and Business Capability instead of hardcoded defaults, so admin color customizations show up consistently.
+- **The notification bell now inherits the custom navigation bar text color** (#852). With a light custom navbar the bell was hardcoded white and nearly invisible; it now follows the configured text color like every other top-bar icon, while the red unread badge keeps its status color.
+
 ## [2.22.4] - 2026-07-17
 
 ### Fixed
