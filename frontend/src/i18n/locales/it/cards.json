@@ -18,6 +18,7 @@
   "detail.purgeWarning_other": "Verrأ  eliminata definitivamente tra {{count}} giorni.",
   "detail.archivedIndefinite": "Viene conservata a tempo indeterminato.",
   "detail.actions.moreActions": "Altre azioni",
+  "detail.actions.visualize": "Visualizza architettura",
   "detail.actions.archiveTooltip": "Archivia questa scheda",
   "detail.actions.deleteTooltip": "Elimina definitivamente questa scheda",
   "actions.addToFavorites": "Aggiungi ai preferiti",

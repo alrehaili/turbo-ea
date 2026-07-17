@@ -18,6 +18,7 @@
   "detail.purgeWarning_other": "Sie wird in {{count}} Tagen endgأ¼ltig gelأ¶scht.",
   "detail.archivedIndefinite": "Sie wird unbegrenzt aufbewahrt.",
   "detail.actions.moreActions": "Weitere Aktionen",
+  "detail.actions.visualize": "Architektur visualisieren",
   "detail.actions.archiveTooltip": "Diese Karte archivieren",
   "detail.actions.deleteTooltip": "Diese Karte endgأ¼ltig lأ¶schen",
   "actions.addToFavorites": "Zu Favoriten hinzufأ¼gen",

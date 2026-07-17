@@ -18,6 +18,7 @@
   "detail.purgeWarning_other": "Det slettes permanent om {{count}} dage.",
   "detail.archivedIndefinite": "Det opbevares pأ¥ ubestemt tid.",
   "detail.actions.moreActions": "Flere handlinger",
+  "detail.actions.visualize": "Visualiser arkitektur",
   "detail.actions.archiveTooltip": "Arkivأ©r dette kort",
   "detail.actions.deleteTooltip": "Slet dette kort permanent",
   "actions.addToFavorites": "Tilfأ¸j til favoritter",

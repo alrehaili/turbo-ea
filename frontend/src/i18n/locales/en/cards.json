@@ -18,6 +18,7 @@
   "detail.purgeWarning_other": "It will be permanently deleted in {{count}} days.",
   "detail.archivedIndefinite": "It is kept indefinitely.",
   "detail.actions.moreActions": "More actions",
+  "detail.actions.visualize": "Visualize architecture",
   "detail.actions.archiveTooltip": "Archive this card",
   "detail.actions.deleteTooltip": "Permanently delete this card",
   "actions.addToFavorites": "Add to favorites",

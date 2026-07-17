@@ -18,6 +18,7 @@
   "detail.purgeWarning_other": "Elle sera dأ©finitivement supprimأ©e dans {{count}} jours.",
   "detail.archivedIndefinite": "Elle est conservأ©e indأ©finiment.",
   "detail.actions.moreActions": "Plus d'actions",
+  "detail.actions.visualize": "Visualiser l'architecture",
   "detail.actions.archiveTooltip": "Archiver cette fiche",
   "detail.actions.deleteTooltip": "Supprimer dأ©finitivement cette fiche",
   "actions.addToFavorites": "Ajouter aux favoris",

@@ -18,6 +18,7 @@
   "detail.purgeWarning_other": "Serأ، eliminada permanentemente en {{count}} dأ­as.",
   "detail.archivedIndefinite": "Se conserva indefinidamente.",
   "detail.actions.moreActions": "Mأ،s acciones",
+  "detail.actions.visualize": "Visualizar la arquitectura",
   "detail.actions.archiveTooltip": "Archivar esta ficha",
   "detail.actions.deleteTooltip": "Eliminar permanentemente esta ficha",
   "actions.addToFavorites": "Agregar a favoritos",
