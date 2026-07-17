@@ -273,12 +273,44 @@ const NEA_STATUS_COLOR: Record<string, "success" | "warning" | "default"> = {
  */
 function NeaViewpointRegistry() {
   const { t, i18n } = useTranslation(["reports"]);
+  const { user } = useAuthContext();
+  const { bpmEnabled } = useBpmEnabled();
+  const { grcEnabled } = useGrcEnabled();
+  const { ppmEnabled } = usePpmEnabled();
   const arabicFirst = i18n.language === "ar";
+  const [neaSearch, setNeaSearch] = useState("");
+
+  const canLaunch = (permission?: string) => {
+    if (!permission) return true;
+    const perms = user?.permissions;
+    if (!perms) return false;
+    if (perms["*"]) return true;
+    return !!perms[permission];
+  };
+
+  const isModuleEnabled = (module?: "bpm" | "ppm" | "grc" | "turbolens") => {
+    if (module === "bpm") return bpmEnabled;
+    if (module === "grc") return grcEnabled;
+    if (module === "ppm") return ppmEnabled;
+    return true;
+  };
+
   const counts = useMemo(() => {
     const c = { available: 0, planned: 0, descoped: 0 };
     for (const v of NEA_VIEWPOINTS) c[v.status] += 1;
     return c;
   }, []);
+
+  const filteredNea = useMemo(() => {
+    const q = neaSearch.trim().toLowerCase();
+    if (!q) return NEA_VIEWPOINTS;
+    return NEA_VIEWPOINTS.filter((v) => {
+      const name = (arabicFirst ? v.nameAr : v.nameEn).toLowerCase();
+      const altName = (arabicFirst ? v.nameEn : v.nameAr).toLowerCase();
+      const question = (arabicFirst ? (v.questionAr || "") : (v.questionEn || "")).toLowerCase();
+      return name.includes(q) || altName.includes(q) || question.includes(q);
+    });
+  }, [neaSearch, arabicFirst]);
 
   return (
     <Box sx={{ mt: 4 }}>
@@ -305,11 +337,34 @@ function NeaViewpointRegistry() {
           label={`${counts.descoped} ${t("viewLibrary.nea.status.descoped")}`}
         />
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 900 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 900 }}>
         {t("viewLibrary.nea.subtitle")}
       </Typography>
+      <TextField
+        size="small"
+        placeholder={t("viewLibrary.nea.search.placeholder", "Search viewpoints...")}
+        value={neaSearch}
+        onChange={(e) => setNeaSearch(e.target.value)}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <MaterialSymbol icon="search" size={18} color="disabled" />
+              </InputAdornment>
+            ),
+            endAdornment: neaSearch ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setNeaSearch("")}>
+                  <MaterialSymbol icon="close" size={16} />
+                </IconButton>
+              </InputAdornment>
+            ) : undefined,
+          },
+        }}
+        sx={{ mb: 2, maxWidth: 360 }}
+      />
       {NEA_DOMAIN_ORDER.map((domain) => {
-        const rows = NEA_VIEWPOINTS.filter((v) => v.domain === domain);
+        const rows = filteredNea.filter((v) => v.domain === domain);
         return (
           <Accordion key={domain} disableGutters defaultExpanded={false}>
             <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
@@ -328,72 +383,93 @@ function NeaViewpointRegistry() {
                     <TableCell sx={{ fontWeight: 700 }}>
                       {t("viewLibrary.nea.colViewpoint")}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 700, width: 110 }}>
+                    <TableCell sx={{ fontWeight: 700, width: 100 }}>
                       {t("viewLibrary.nea.colType")}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 700, width: 130 }}>
+                    <TableCell sx={{ fontWeight: 700, width: 100 }}>
                       {t("viewLibrary.nea.colLevel")}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 700, width: 170 }}>
-                      {t("viewLibrary.nea.colMethodology")}
+                    <TableCell sx={{ fontWeight: 700 }}>
+                      {t("viewLibrary.nea.colQuestion", "Question")}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 700, width: 180 }}>
-                      {t("viewLibrary.nea.colView")}
+                    <TableCell sx={{ fontWeight: 700, width: 160 }}>
+                      {t("viewLibrary.nea.colAction")}
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {rows.map((v) => (
-                    <TableRow key={v.key} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {arabicFirst ? v.nameAr : v.nameEn}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {arabicFirst ? v.nameEn : v.nameAr}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={t(`viewLibrary.nea.kind.${v.kind}`)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={t(`viewLibrary.nea.level.${v.level}`)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">
-                          {t("viewLibrary.nea.methodologyLink")}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {v.path && v.status !== "descoped" ? (
-                          <Chip
-                            size="small"
-                            color={NEA_STATUS_COLOR[v.status]}
-                            variant={v.status === "available" ? "filled" : "outlined"}
-                            icon={<MaterialSymbol icon="arrow_forward" size={14} />}
-                            label={t(`viewLibrary.nea.status.${v.status}`)}
-                            component={RouterLink}
-                            to={v.path}
-                            clickable
-                          />
-                        ) : (
+                  {rows.map((v) => {
+                    const canView = canLaunch(v.permission) && isModuleEnabled(v.module);
+                    return (
+                      <TableRow key={v.key} hover sx={{ opacity: canView ? 1 : 0.5 }}>
+                        <TableCell>
+                          <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                            {v.icon && (
+                              <Box sx={{ mt: 0.25, flexShrink: 0 }}>
+                                <MaterialSymbol icon={v.icon} size={18} />
+                              </Box>
+                            )}
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {arabicFirst ? v.nameAr : v.nameEn}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {arabicFirst ? v.nameEn : v.nameAr}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
                           <Chip
                             size="small"
                             variant="outlined"
-                            label={t(`viewLibrary.nea.status.${v.status}`)}
+                            label={t(`viewLibrary.nea.kind.${v.kind}`)}
                           />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={t(`viewLibrary.nea.level.${v.level}`)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" color="text.secondary">
+                            {arabicFirst ? (v.questionAr || "—") : (v.questionEn || "—")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {v.path && v.status !== "descoped" ? (
+                            canView ? (
+                              <Chip
+                                size="small"
+                                color={NEA_STATUS_COLOR[v.status]}
+                                variant={v.status === "available" ? "filled" : "outlined"}
+                                icon={<MaterialSymbol icon="arrow_forward" size={14} />}
+                                label={t(`viewLibrary.nea.status.${v.status}`)}
+                                component={RouterLink}
+                                to={v.path}
+                                clickable
+                              />
+                            ) : (
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                icon={<MaterialSymbol icon="lock" size={14} />}
+                                label={t("viewLibrary.nea.locked", "Locked")}
+                              />
+                            )
+                          ) : (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={t(`viewLibrary.nea.status.${v.status}`)}
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </AccordionDetails>

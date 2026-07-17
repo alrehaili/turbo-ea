@@ -278,8 +278,11 @@
   "reports.strategicHouse": "Casa estratégica",
   "reports.valueChain": "Cadeia de valor",
   "reports.appModules": "Módulos de aplicação",
-  "reports.strategyCascade": "Cascata estratégica"
-,
+  "reports.strategyCascade": "Cascata estratégica",
+  "reports.phase5": "Atual vs. Alvo e lacunas",
+  "reports.phase6": "Arquitetura de dados",
+  "reports.phase7": "Tecnologia e nuvem",
+  "reports.phase8": "Segurança e padrões",
   "reports.dataOwnership": "Propriedade de dados",
   "reports.appDataCrud": "Matriz CRUD App-Dados",
   "reports.exceptionsWaivers": "Exceções e isenções",

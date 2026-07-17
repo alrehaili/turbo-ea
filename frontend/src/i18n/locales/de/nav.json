@@ -278,8 +278,11 @@
   "reports.strategicHouse": "Strategisches Haus",
   "reports.valueChain": "Wertschöpfungskette",
   "reports.appModules": "Anwendungsmodule",
-  "reports.strategyCascade": "Strategiekaskade"
-,
+  "reports.strategyCascade": "Strategiekaskade",
+  "reports.phase5": "Aktuell vs. Zielzustand & Lücken",
+  "reports.phase6": "Datenarchitektur",
+  "reports.phase7": "Technologie & Cloud",
+  "reports.phase8": "Sicherheit & Normen",
   "reports.dataRelationships": "Datenbeziehungen",
   "reports.principlesTraceability": "Prinzipien-Nachverfolgung",
   "reports.dataClassification": "Dateneinstufung",

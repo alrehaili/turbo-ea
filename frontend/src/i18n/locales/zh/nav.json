@@ -278,8 +278,11 @@
   "reports.strategicHouse": "战略之屋",
   "reports.valueChain": "价值链",
   "reports.appModules": "应用模块",
-  "reports.strategyCascade": "战略级联"
-,
+  "reports.strategyCascade": "战略级联",
+  "reports.phase5": "当前与目标和差距",
+  "reports.phase6": "数据架构",
+  "reports.phase7": "技术和云",
+  "reports.phase8": "安全和标准",
   "reports.dataOwnership": "数据所有权",
   "reports.appDataCrud": "应用-数据CRUD矩阵",
   "reports.exceptionsWaivers": "异常和豁免",

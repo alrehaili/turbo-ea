@@ -283,8 +283,11 @@
   "reports.strategicHouse": "البيت الاستراتيجي",
   "reports.valueChain": "سلسلة القيمة",
   "reports.appModules": "وحدات التطبيقات",
-  "reports.strategyCascade": "التسلسل الاستراتيجي"
-,
+  "reports.strategyCascade": "التسلسل الاستراتيجي",
+  "reports.phase5": "الحالة الحالية مقابل الهدف والفجوات",
+  "reports.phase6": "معمارية البيانات",
+  "reports.phase7": "التكنولوجيا والسحابة",
+  "reports.phase8": "الأمان والمعايير",
   "reports.dataOwnership": "ملكية البيانات",
   "reports.appDataCrud": "مصفوفة CRUD للتطبيق والبيانات",
   "reports.exceptionsWaivers": "الاستثناءات والإعفاءات",

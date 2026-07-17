@@ -3090,6 +3090,111 @@ PLATFORMS = [
 
 
 # ===================================================================
+# PERSONAS (Beneficiary Experience Layer)
+# ===================================================================
+PERSONAS = [
+    _fs(
+        "persona_mfg_manager",
+        "Persona",
+        "Manufacturing Operations Manager",
+        subtype="employee",
+        desc="Manages daily production operations, oversees equipment health, coordinates with engineering and quality teams.",
+        attrs={"demographics": "40-55, 10+ years experience", "goals": "Optimize production, reduce downtime, ensure quality", "painPoints": "Complex dashboards, slow data access", "preferredChannels": "Web portal, mobile app, email"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "persona_design_eng",
+        "Persona",
+        "Design Engineer",
+        subtype="employee",
+        desc="Creates product designs using CAD/PLM tools, collaborates with manufacturing and R&D teams.",
+        attrs={"demographics": "28-45, 3-8 years experience", "goals": "Design innovative products, improve manufacturability", "painPoints": "Tool integration issues, version control", "preferredChannels": "Desktop app, internal wiki, team chat"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "persona_customer_buyer",
+        "Persona",
+        "Enterprise Procurement Manager",
+        subtype="customer",
+        desc="Responsible for sourcing components and products, manages vendor relationships and contracts.",
+        attrs={"demographics": "35-55, corporate buyer", "goals": "Best pricing, reliable supply, technical support", "painPoints": "Manual processes, slow order turnaround", "preferredChannels": "Online portal, email, phone"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "persona_quality_auditor",
+        "Persona",
+        "Quality Assurance Auditor",
+        subtype="employee",
+        desc="Conducts quality inspections, maintains compliance documentation, reports on production metrics.",
+        attrs={"demographics": "30-50, quality/compliance specialist", "goals": "Ensure compliance, reduce defects, improve processes", "painPoints": "Outdated inspection tools, data consolidation", "preferredChannels": "Mobile app for inspections, reporting portal"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "persona_distributor",
+        "Persona",
+        "Channel Partner / Distributor",
+        subtype="partner",
+        desc="Sells NexaTech products to regional markets, manages inventory and customer relationships.",
+        attrs={"demographics": "Business partner, regional distributor", "goals": "Grow sales, manage inventory efficiently", "painPoints": "Limited visibility into product roadmap, slow order confirmation", "preferredChannels": "Partner portal, sales rep contact, email"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+]
+
+
+# ===================================================================
+# JOURNEYS (Beneficiary Experience Layer)
+# ===================================================================
+JOURNEYS = [
+    _fs(
+        "journey_production",
+        "Journey",
+        "Daily Production Operations",
+        subtype="customerJourney",
+        parent=None,
+        desc="End-to-end flow of manufacturing operations from shift start to completion, including monitoring, adjustments, and quality checks.",
+        attrs={"stages": "Pre-shift prep → Equipment check → Production run → Quality inspection → Post-shift closeout", "touchpoints": "MES dashboard, mobile alerts, email notifications", "satisfaction": "medium", "painAreasDescription": "Slow data refresh, multiple system login"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "journey_design_cycle",
+        "Journey",
+        "Product Design & Review Cycle",
+        subtype="customerJourney",
+        desc="Complete product design workflow from concept to manufacturing handoff, including reviews and approvals.",
+        attrs={"stages": "Concept → CAD design → Simulation → Design review → Manufacturing feasibility → Sign-off", "touchpoints": "CAD tool, PLM system, email, team meetings", "satisfaction": "medium", "painAreasDescription": "Tool switching overhead, version control complexity"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "journey_procurement",
+        "Journey",
+        "Order-to-Delivery Procurement Process",
+        subtype="customerJourney",
+        desc="Customer procurement journey from product discovery through order, delivery, and support.",
+        attrs={"stages": "Product search → Specification review → Quote request → Order placement → Tracking → Delivery → Support", "touchpoints": "Online catalog, email, customer portal, phone", "satisfaction": "high", "painAreasDescription": "Quote turnaround time, limited order visibility"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "journey_compliance",
+        "Journey",
+        "Quality Compliance & Audit Journey",
+        subtype="userExperienceFlow",
+        desc="Quality assurance workflow including inspections, documentation, compliance tracking, and reporting.",
+        attrs={"stages": "Plan inspections → Conduct tests → Document results → Analyze trends → Report metrics → Schedule reviews", "touchpoints": "Inspection app, reporting system, compliance dashboard, email", "satisfaction": "medium", "painAreasDescription": "Manual data entry, fragmented documentation systems"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+    _fs(
+        "journey_partner_sales",
+        "Journey",
+        "Channel Partner Sales & Support Journey",
+        subtype="customerJourney",
+        desc="Partner experience from onboarding through ongoing sales support and market development.",
+        attrs={"stages": "Partner qualification → Training → Sales kit provision → Deal registration → Ongoing support → Quarterly reviews", "touchpoints": "Partner portal, sales rep, email, training sessions", "satisfaction": "medium", "painAreasDescription": "Limited real-time product availability, slow deal approval"},
+        lifecycle={"active": "2024-01-01"},
+    ),
+]
+
+
+# ===================================================================
 # RELATIONS
 # ===================================================================
 RELATIONS = [
@@ -3852,6 +3957,48 @@ RELATIONS = [
     _rel("relBizCtxToBC", "bctx_design_review", "bc_elec_design"),
     _rel("relBizCtxToBC", "bctx_regulatory_sub", "bc_regulatory"),
     _rel("relBizCtxToBC", "bctx_regulatory_sub", "bc_certification"),
+    # ── Persona Relations ────────────────────────────────
+    _rel("relPersonaToOrg", "persona_mfg_manager", "org_manufacturing"),
+    _rel("relPersonaToOrg", "persona_design_eng", "org_engineering"),
+    _rel("relPersonaToOrg", "persona_customer_buyer", "org_sales"),
+    _rel("relPersonaToOrg", "persona_quality_auditor", "org_qa_eng"),
+    _rel("relPersonaToOrg", "persona_distributor", "org_sales"),
+    # ── Application → Persona (serves) ─────────────────────
+    _rel("relAppToPersona", "app_sap_s4", "persona_mfg_manager"),
+    _rel("relAppToPersona", "app_sap_s4", "persona_quality_auditor"),
+    _rel("relAppToPersona", "app_teamcenter", "persona_design_eng"),
+    _rel("relAppToPersona", "app_nexaportal", "persona_customer_buyer"),
+    _rel("relAppToPersona", "app_sf_sales", "persona_distributor"),
+    # ── Journey → Business Capability (maps to) ────────────
+    _rel("relJourneyToCapability", "journey_production", "bc_prod_execution"),
+    _rel("relJourneyToCapability", "journey_design_cycle", "bc_prod_req"),
+    _rel("relJourneyToCapability", "journey_design_cycle", "bc_mech_design"),
+    _rel("relJourneyToCapability", "journey_procurement", "bc_order_mgmt"),
+    _rel("relJourneyToCapability", "journey_compliance", "bc_quality"),
+    _rel("relJourneyToCapability", "journey_partner_sales", "bc_sales"),
+    # ── Journey → Business Context (manifests through) ──────
+    _rel("relJourneyToContext", "journey_production", "bctx_mfg_exec"),
+    _rel("relJourneyToContext", "journey_design_cycle", "bctx_design_review"),
+    _rel("relJourneyToContext", "journey_procurement", "bctx_otc"),
+    _rel("relJourneyToContext", "journey_compliance", "bctx_mfg_exec"),
+    # ── Journey → Persona (targets) ───────────────────────
+    _rel("relJourneyToPersona", "journey_production", "persona_mfg_manager"),
+    _rel("relJourneyToPersona", "journey_production", "persona_quality_auditor"),
+    _rel("relJourneyToPersona", "journey_design_cycle", "persona_design_eng"),
+    _rel("relJourneyToPersona", "journey_procurement", "persona_customer_buyer"),
+    _rel("relJourneyToPersona", "journey_partner_sales", "persona_distributor"),
+    # ── Additional Persona Cross-links ─────────────────────
+    # Personas linked to business capabilities they support
+    _rel("relPersonaToCapability", "persona_mfg_manager", "bc_prod_execution"),
+    _rel("relPersonaToCapability", "persona_design_eng", "bc_eng_design"),
+    _rel("relPersonaToCapability", "persona_customer_buyer", "bc_order_mgmt"),
+    _rel("relPersonaToCapability", "persona_quality_auditor", "bc_quality"),
+    # ── Application → Journey (supports) ───────────────────
+    # Additional app-journey mappings showing which apps support which journeys
+    _rel("relAppToJourney", "app_sap_s4", "journey_production"),
+    _rel("relAppToJourney", "app_sap_s4", "journey_procurement"),
+    _rel("relAppToJourney", "app_teamcenter", "journey_design_cycle"),
+    _rel("relAppToJourney", "app_nexaportal", "journey_procurement"),
 ]
 
 
@@ -5656,6 +5803,8 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         + OBJECTIVES
         + INITIATIVES
         + PLATFORMS
+        + PERSONAS
+        + JOURNEYS
     )
 
     # Build reverse lookup: UUID → ref name

@@ -278,8 +278,11 @@
   "reports.strategicHouse": "Strategisk hus",
   "reports.valueChain": "Værdikæde",
   "reports.appModules": "Applikationsmoduler",
-  "reports.strategyCascade": "Strategikaskade"
-,
+  "reports.strategyCascade": "Strategikaskade",
+  "reports.phase5": "Nuværende vs. Målsætning og huller",
+  "reports.phase6": "Dataarkitektur",
+  "reports.phase7": "Teknologi og cloud",
+  "reports.phase8": "Sikkerhed og standarder",
   "reports.dataOwnership": "Datatilhørende",
   "reports.appDataCrud": "App-Data CRUD-matrix",
   "reports.exceptionsWaivers": "Undtagelser og dispensationer",

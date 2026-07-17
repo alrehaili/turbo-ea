@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
@@ -707,6 +707,18 @@ export default function CardDetail() {
             open={!!actionsMenuAnchor}
             onClose={() => setActionsMenuAnchor(null)}
           >
+            {card.type === "Application" && (
+              <MenuItem
+                component={RouterLink}
+                to={`/layers/application-summary?card_id=${card.id}`}
+                onClick={() => setActionsMenuAnchor(null)}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon="article" size={20} />
+                </ListItemIcon>
+                <ListItemText>{t("detail.actions.visualize")}</ListItemText>
+              </MenuItem>
+            )}
             <MenuItem
               onClick={() => {
                 setActionsMenuAnchor(null);

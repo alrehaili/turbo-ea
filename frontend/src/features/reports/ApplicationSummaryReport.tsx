@@ -48,6 +48,7 @@ export default function ApplicationSummaryReport() {
   const [selected, setSelected] = useState<CardOption | null>(null);
   const [app, setApp] = useState<Card | null>(null);
   const [relations, setRelations] = useState<Relation[]>([]);
+  const [risks, setRisks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { types, relationTypes, getType } = useMetamodel();
   const typeLabel = useTypeLabel();
@@ -60,13 +61,15 @@ export default function ApplicationSummaryReport() {
   const load = useCallback(async (cardId: string) => {
     setLoading(true);
     try {
-      const [cardRes, relationRes] = await Promise.all([
+      const [cardRes, relationRes, risksRes] = await Promise.all([
         api.get<Card>(`/cards/${cardId}`),
         api.get<Relation[]>(`/relations?card_id=${cardId}`),
+        api.get<any[]>(`/cards/${cardId}/risks`).catch(() => []),
       ]);
       setApp(cardRes);
       setSelected({ id: cardRes.id, name: cardRes.name, type: cardRes.type });
       setRelations(relationRes);
+      setRisks(risksRes);
     } finally {
       setLoading(false);
     }
@@ -259,6 +262,164 @@ export default function ApplicationSummaryReport() {
               </Paper>
             ))}
           </Box>
+
+          {/* Section 7: Security Classifications */}
+          {(app.attributes?.securityClassification || app.attributes?.dataClassification) ? (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 750, mb: 1 }}>
+                {t("applicationSummary.securitySection" as any)}
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {app.attributes?.securityClassification ? (
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 140 }}>
+                      {t("applicationSummary.classification" as any)}
+                    </Typography>
+                    <Chip size="small" label={String(app.attributes.securityClassification)} />
+                  </Box>
+                ) : null}
+                {app.attributes?.dataClassification ? (
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 140 }}>
+                      {t("applicationSummary.dataClassification" as any)}
+                    </Typography>
+                    <Chip size="small" label={String(app.attributes.dataClassification)} />
+                  </Box>
+                ) : null}
+              </Box>
+            </Paper>
+          ) : null}
+
+          {/* Section 9: Costs (if present) */}
+          {(app.attributes?.costAnnual || app.attributes?.costOneTime) ? (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 750, mb: 1 }}>
+                {t("applicationSummary.costs")}
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {app.attributes?.costAnnual ? (
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 140 }}>
+                      Annual Cost
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                      {String(app.attributes.costAnnual)}
+                    </Typography>
+                  </Box>
+                ) : null}
+                {app.attributes?.costOneTime ? (
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 140 }}>
+                      One-Time Cost
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                      {String(app.attributes.costOneTime)}
+                    </Typography>
+                  </Box>
+                ) : null}
+              </Box>
+            </Paper>
+          ) : null}
+
+          {/* Section 10: Risks & Findings */}
+          {risks.length > 0 ? (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 750, mb: 1 }}>
+                {t("applicationSummary.risksFindings" as any)} ({risks.length})
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {risks.slice(0, 5).map((risk: any) => (
+                  <RouterLink
+                    key={risk.id}
+                    to={`/grc/risks/${risk.id}`}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <Box
+                      sx={{
+                        p: 1,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        color: "primary.main",
+                        "&:hover": { bgcolor: "action.hover" },
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                        {risk.reference}: {risk.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {risk.status}
+                      </Typography>
+                    </Box>
+                  </RouterLink>
+                ))}
+                {risks.length > 5 && (
+                  <Typography variant="caption" color="text.secondary">
+                    +{risks.length - 5} {t("applicationSummary.moreRisks" as any)}
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          ) : null}
+
+          {/* Section 11: Related Initiatives & Architecture Decisions */}
+          {relations.filter((r) => r.target?.type === "Initiative" || r.target?.type === "ArchitectureDecision").length > 0 ? (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 750, mb: 1 }}>
+                {t("applicationSummary.relatedInitiatives")}
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {relations
+                  .filter((r) => (r.target?.type === "Initiative" || r.target?.type === "ArchitectureDecision") && r.target)
+                  .slice(0, 5)
+                  .map((rel) => (
+                    <RouterLink
+                      key={`${rel.id}-related`}
+                      to={`/cards/${rel.target!.id}`}
+                      style={{ textDecoration: "none", color: "inherit" }}
+                    >
+                      <Box
+                        sx={{
+                          p: 1,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 1,
+                          color: "primary.main",
+                          "&:hover": { bgcolor: "action.hover" },
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                          {rel.target!.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {getType(rel.target!.type)?.label || rel.target!.type}
+                        </Typography>
+                      </Box>
+                    </RouterLink>
+                  ))}
+              </Box>
+            </Paper>
+          ) : null}
+
+          {/* Section 12: Lifecycle & Target State */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 750, mb: 1 }}>
+              {t("applicationSummary.stateClassification")}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {app.lifecycle?.scenario ? (
+                <Chip size="small" label={`Scenario: ${String(app.lifecycle.scenario)}`} variant="outlined" />
+              ) : null}
+              {app.attributes?.targetState ? (
+                <Chip size="small" label={`Target: ${String(app.attributes.targetState)}`} variant="outlined" />
+              ) : null}
+              <Chip
+                size="small"
+                label={`Phase: ${phase === "notSet" ? "Not Set" : phase.charAt(0).toUpperCase() + phase.slice(1)}`}
+                variant="outlined"
+              />
+            </Box>
+          </Paper>
 
           {relations.length === 0 ? (
             <Alert severity="info">{t("applicationSummary.noRelations")}</Alert>

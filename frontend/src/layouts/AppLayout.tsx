@@ -54,7 +54,7 @@ interface NavItemDef {
   labelKey: string;
   icon: string;
   path?: string;
-  children?: { labelKey: string; icon: string; path: string; permission?: string | string[] }[];
+  children?: { labelKey: string; icon: string; path: string; permission?: string | string[]; dividerLabel?: string }[];
   permission?: string | string[];
 }
 
@@ -62,7 +62,7 @@ interface NavItem {
   label: string;
   icon: string;
   path?: string;
-  children?: { label: string; icon: string; path: string; permission?: string | string[] }[];
+  children?: { label: string; icon: string; path: string; permission?: string | string[]; dividerLabel?: string }[];
   permission?: string | string[];
 }
 
@@ -129,30 +129,22 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.dataFlow", icon: "schema", path: "/reports/data-flow" },
       { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
-      // ═══ ARCHITECTURE & TRANSITION (Phase 5) ═══
-      { labelKey: "reports.currentVsTarget", icon: "compare_arrows", path: "/reports/current-vs-target" },
+      { labelKey: "reports.currentVsTarget", icon: "compare_arrows", path: "/reports/current-vs-target", dividerLabel: "reports.phase5" },
       { labelKey: "reports.gapSummary", icon: "gap_statistics", path: "/reports/gap-summary" },
       { labelKey: "reports.initiativeGaps", icon: "assignment_turned_in", path: "/reports/initiative-gaps" },
       { labelKey: "reports.transitionRoadmap", icon: "map", path: "/reports/transition-roadmap" },
-      // ───
-      // ═══ DATA ARCHITECTURE (Phase 6) ═══
-      { labelKey: "reports.appDataCrud", icon: "grid_3x3", path: "/reports/app-data-crud" },
+      { labelKey: "reports.appDataCrud", icon: "grid_3x3", path: "/reports/app-data-crud", dividerLabel: "reports.phase6" },
       { labelKey: "reports.dataClassification", icon: "label", path: "/reports/data-classification" },
       { labelKey: "reports.dataDomains", icon: "category", path: "/reports/data-domains" },
       { labelKey: "reports.dataOwnership", icon: "person_check", path: "/reports/data-ownership" },
       { labelKey: "reports.dataRelationships", icon: "repo", path: "/reports/data-relationships" },
-      // ───
-      // ═══ TECHNOLOGY & CLOUD (Phase 7) ═══
-      { labelKey: "reports.cloudAdoption", icon: "cloud", path: "/reports/cloud-adoption" },
+      { labelKey: "reports.cloudAdoption", icon: "cloud", path: "/reports/cloud-adoption", dividerLabel: "reports.phase7" },
       { labelKey: "reports.techPortfolio", icon: "storage", path: "/reports/tech-portfolio" },
       { labelKey: "reports.techStack", icon: "stack", path: "/reports/tech-stack" },
-      // ───
-      // ═══ SECURITY & STANDARDS (Phase 8) ═══
-      { labelKey: "reports.exceptionsWaivers", icon: "rule", path: "/reports/exceptions-waivers" },
+      { labelKey: "reports.exceptionsWaivers", icon: "rule", path: "/reports/exceptions-waivers", dividerLabel: "reports.phase8" },
       { labelKey: "reports.principlesTraceability", icon: "rule_folder", path: "/reports/principles-traceability" },
       { labelKey: "reports.securityControls", icon: "lock", path: "/reports/security-controls" },
       { labelKey: "reports.standardsCompliance", icon: "verified", path: "/reports/standards-compliance" },
-      // ═══════════════════════════════════════
       // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
       // is disabled the nav memo below promotes EA Delivery to a top-level
       // nav item (in PPM's old slot) so the surface stays reachable.
@@ -906,32 +898,40 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             open={!!reportsMenu}
             onClose={closeGroupMenu}
           >
-            {menuChildren?.map((child, idx) => {
-              const sectionStarts = [
-                "/reports/current-vs-target",
-                "/reports/app-data-crud",
-                "/reports/cloud-adoption",
-                "/reports/exceptions-waivers",
-                "/reports/saved",
-              ];
-              const needsDivider = sectionStarts.includes(child.path) && idx > 0;
-              return (
-                <Box key={child.path}>
-                  {needsDivider && <Divider sx={{ my: 0.5 }} />}
-                  <MenuItem
-                    component={RouterLink}
-                    to={child.path}
-                    selected={isActive(child.path)}
-                    onClick={closeGroupMenu}
-                  >
-                    <ListItemIcon>
-                      <MaterialSymbol icon={child.icon} size={18} />
-                    </ListItemIcon>
-                    <ListItemText>{child.label}</ListItemText>
-                  </MenuItem>
-                </Box>
-              );
-            })}
+            {menuChildren?.map((child, idx) => (
+              <Box key={child.path}>
+                {child.dividerLabel && idx > 0 && (
+                  <>
+                    <Divider sx={{ my: 0.5 }} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        px: 2,
+                        py: 1,
+                        color: "text.secondary",
+                        fontWeight: 600,
+                        display: "block",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {t(child.dividerLabel)}
+                    </Typography>
+                  </>
+                )}
+                <MenuItem
+                  component={RouterLink}
+                  to={child.path}
+                  selected={isActive(child.path)}
+                  onClick={closeGroupMenu}
+                >
+                  <ListItemIcon>
+                    <MaterialSymbol icon={child.icon} size={18} />
+                  </ListItemIcon>
+                  <ListItemText>{child.label}</ListItemText>
+                </MenuItem>
+              </Box>
+            ))}
           </Menu>
 
 

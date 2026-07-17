@@ -278,8 +278,11 @@
   "reports.strategicHouse": "Стратегический дом",
   "reports.valueChain": "Цепочка ценности",
   "reports.appModules": "Модули приложений",
-  "reports.strategyCascade": "Стратегический каскад"
-,
+  "reports.strategyCascade": "Стратегический каскад",
+  "reports.phase5": "Текущее и целевое пробелы",
+  "reports.phase6": "Архитектура данных",
+  "reports.phase7": "Технологии и облако",
+  "reports.phase8": "Безопасность и стандарты",
   "reports.dataOwnership": "Владение данными",
   "reports.appDataCrud": "Матрица CRUD приложение-данные",
   "reports.exceptionsWaivers": "Исключения и отказы",

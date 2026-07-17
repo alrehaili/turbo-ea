@@ -77,7 +77,35 @@ const ResilienceView = lazy(() => import("@/features/reports/ResilienceView"));
 const ArchitectureReviewBoard = lazy(() => import("@/features/arb/ArchitectureReviewBoard"));
 const ScenarioPlanning = lazy(() => import("@/features/scenarios/ScenarioPlanning"));
 const DataFlowMap = lazy(() => import("@/features/reports/DataFlowMap"));
+const DataOwnershipReport = lazy(() => import("@/features/reports/DataOwnershipReport"));
+const DataDomainLandscape = lazy(() => import("@/features/reports/DataDomainLandscape"));
+const DataClassificationReport = lazy(() => import("@/features/reports/DataClassificationReport"));
+const ApplicationDataCrudMatrix = lazy(() => import("@/features/reports/ApplicationDataCrudMatrix"));
+const DataObjectRelationshipModel = lazy(() => import("@/features/reports/DataObjectRelationshipModel"));
+const CurrentVsTargetComparison = lazy(() => import("@/features/reports/CurrentVsTargetComparison"));
+const GapSummaryReport = lazy(() => import("@/features/reports/GapSummaryReport"));
+const TargetArchitectureLandscape = lazy(() => import("@/features/reports/TargetArchitectureLandscape"));
+const TransitionRoadmap = lazy(() => import("@/features/reports/TransitionRoadmap"));
+const InitiativeGapTraceability = lazy(() => import("@/features/reports/InitiativeGapTraceability"));
 const IntegrationStatusView = lazy(() => import("@/features/reports/IntegrationStatusView"));
+// Phase 7: Technology Deployment & Cloud Views
+const TechnologyPortfolioReport = lazy(() => import("@/features/reports/TechnologyPortfolioReport"));
+const CloudAdoptionView = lazy(() => import("@/features/reports/CloudAdoptionView"));
+const TechnologyStackView = lazy(() => import("@/features/reports/TechnologyStackView"));
+// Phase 8: Standards & Security Traceability
+const SecurityControlsCoverage = lazy(() => import("@/features/reports/SecurityControlsCoverage"));
+const StandardsComplianceMatrix = lazy(() => import("@/features/reports/StandardsComplianceMatrix"));
+const PrinciplesTraceability = lazy(() => import("@/features/reports/PrinciplesTraceability"));
+const ExceptionWaiverMatrix = lazy(() => import("@/features/reports/ExceptionWaiverMatrix"));
+// Phase 9: Beneficiary Experience Views
+const PersonaCatalog = lazy(() => import("@/features/reports/PersonaCatalog"));
+const JourneyMap = lazy(() => import("@/features/reports/JourneyMap"));
+const TouchpointMatrix = lazy(() => import("@/features/reports/TouchpointMatrix"));
+const ExperienceHeatmap = lazy(() => import("@/features/reports/ExperienceHeatmap"));
+const BeneficiaryLandscape = lazy(() => import("@/features/reports/BeneficiaryLandscape"));
+const ServiceTouchpointTraceability = lazy(() => import("@/features/reports/ServiceTouchpointTraceability"));
+const PersonaBeneficiaryMapping = lazy(() => import("@/features/reports/PersonaBeneficiaryMapping"));
+const NEAViewpointsDashboard = lazy(() => import("@/features/reports/NEAViewpointsDashboard"));
 const CostReport = lazy(() => import("@/features/reports/CostReport"));
 const MatrixReport = lazy(() => import("@/features/reports/MatrixReport"));
 const DataQualityReport = lazy(() => import("@/features/reports/DataQualityReport"));
@@ -271,7 +299,35 @@ function AppRoutes() {
                 <Route path="/arb" element={<ArchitectureReviewBoard />} />
                 <Route path="/scenarios" element={<ScenarioPlanning />} />
                 <Route path="/reports/data-flow" element={<DataFlowMap />} />
+                <Route path="/reports/data-ownership" element={<DataOwnershipReport />} />
+                <Route path="/reports/data-domain" element={<DataDomainLandscape />} />
+                <Route path="/reports/data-classification" element={<DataClassificationReport />} />
+                <Route path="/reports/app-data-crud" element={<ApplicationDataCrudMatrix />} />
+                <Route path="/reports/data-relationships" element={<DataObjectRelationshipModel />} />
+                <Route path="/reports/current-vs-target" element={<CurrentVsTargetComparison />} />
+                <Route path="/reports/gap-summary" element={<GapSummaryReport />} />
+                <Route path="/reports/target-landscape" element={<TargetArchitectureLandscape />} />
+                <Route path="/reports/transition-roadmap" element={<TransitionRoadmap />} />
+                <Route path="/reports/initiative-gap-traceability" element={<InitiativeGapTraceability />} />
                 <Route path="/reports/integration-status" element={<IntegrationStatusView />} />
+                {/* Phase 7: Technology Deployment & Cloud Views */}
+                <Route path="/reports/tech-portfolio" element={<TechnologyPortfolioReport />} />
+                <Route path="/reports/cloud-adoption" element={<CloudAdoptionView />} />
+                <Route path="/reports/tech-stack" element={<TechnologyStackView />} />
+                {/* Phase 8: Standards & Security Traceability */}
+                <Route path="/reports/security-controls" element={<SecurityControlsCoverage />} />
+                <Route path="/reports/standards-matrix" element={<StandardsComplianceMatrix />} />
+                <Route path="/reports/principles-traceability" element={<PrinciplesTraceability />} />
+                <Route path="/reports/exceptions-waivers" element={<ExceptionWaiverMatrix />} />
+                {/* Phase 9: Beneficiary Experience Views */}
+                <Route path="/reports/personas" element={<PersonaCatalog />} />
+                <Route path="/reports/journey-map" element={<JourneyMap />} />
+                <Route path="/reports/touchpoint-matrix" element={<TouchpointMatrix />} />
+                <Route path="/reports/experience-heatmap" element={<ExperienceHeatmap />} />
+                <Route path="/reports/beneficiary-landscape" element={<BeneficiaryLandscape />} />
+                <Route path="/reports/service-touchpoints" element={<ServiceTouchpointTraceability />} />
+                <Route path="/reports/persona-beneficiary-mapping" element={<PersonaBeneficiaryMapping />} />
+                <Route path="/reports/nea-viewpoints" element={<NEAViewpointsDashboard />} />
                 <Route path="/reports/cost" element={<CostReport />} />
                 <Route path="/reports/matrix" element={<MatrixReport />} />
                 <Route path="/reports/data-quality" element={<DataQualityReport />} />

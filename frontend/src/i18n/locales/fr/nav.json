@@ -278,8 +278,11 @@
   "reports.strategicHouse": "Maison stratégique",
   "reports.valueChain": "Chaîne de valeur",
   "reports.appModules": "Modules applicatifs",
-  "reports.strategyCascade": "Cascade stratégique"
-,
+  "reports.strategyCascade": "Cascade stratégique",
+  "reports.phase5": "Actuel vs. Cible & Écarts",
+  "reports.phase6": "Architecture des données",
+  "reports.phase7": "Technologie & Cloud",
+  "reports.phase8": "Sécurité & Normes",
   "reports.dataRelationships": "Relations de données",
   "reports.principlesTraceability": "Traçabilité des principes",
   "reports.dataClassification": "Classification des données",
