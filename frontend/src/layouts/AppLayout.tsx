@@ -129,26 +129,30 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.dataFlow", icon: "schema", path: "/reports/data-flow" },
       { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
-      // ──── Current vs Target & Gap Analysis ────
+      // ═══ ARCHITECTURE & TRANSITION (Phase 5) ═══
       { labelKey: "reports.currentVsTarget", icon: "compare_arrows", path: "/reports/current-vs-target" },
       { labelKey: "reports.gapSummary", icon: "gap_statistics", path: "/reports/gap-summary" },
       { labelKey: "reports.initiativeGaps", icon: "assignment_turned_in", path: "/reports/initiative-gaps" },
       { labelKey: "reports.transitionRoadmap", icon: "map", path: "/reports/transition-roadmap" },
-      // ──── Data Architecture ────
+      // ───
+      // ═══ DATA ARCHITECTURE (Phase 6) ═══
       { labelKey: "reports.appDataCrud", icon: "grid_3x3", path: "/reports/app-data-crud" },
       { labelKey: "reports.dataClassification", icon: "label", path: "/reports/data-classification" },
       { labelKey: "reports.dataDomains", icon: "category", path: "/reports/data-domains" },
       { labelKey: "reports.dataOwnership", icon: "person_check", path: "/reports/data-ownership" },
       { labelKey: "reports.dataRelationships", icon: "repo", path: "/reports/data-relationships" },
-      // ──── Technology & Cloud ────
+      // ───
+      // ═══ TECHNOLOGY & CLOUD (Phase 7) ═══
       { labelKey: "reports.cloudAdoption", icon: "cloud", path: "/reports/cloud-adoption" },
       { labelKey: "reports.techPortfolio", icon: "storage", path: "/reports/tech-portfolio" },
       { labelKey: "reports.techStack", icon: "stack", path: "/reports/tech-stack" },
-      // ──── Security & Standards ────
+      // ───
+      // ═══ SECURITY & STANDARDS (Phase 8) ═══
       { labelKey: "reports.exceptionsWaivers", icon: "rule", path: "/reports/exceptions-waivers" },
       { labelKey: "reports.principlesTraceability", icon: "rule_folder", path: "/reports/principles-traceability" },
       { labelKey: "reports.securityControls", icon: "lock", path: "/reports/security-controls" },
       { labelKey: "reports.standardsCompliance", icon: "verified", path: "/reports/standards-compliance" },
+      // ═══════════════════════════════════════
       // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
       // is disabled the nav memo below promotes EA Delivery to a top-level
       // nav item (in PPM's old slot) so the surface stays reachable.
@@ -903,11 +907,17 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             onClose={closeGroupMenu}
           >
             {menuChildren?.map((child, idx) => {
-              const needsDivider =
-                child.path === "/reports/saved" || child.path === "/turbolens";
+              const sectionStarts = [
+                "/reports/current-vs-target",
+                "/reports/app-data-crud",
+                "/reports/cloud-adoption",
+                "/reports/exceptions-waivers",
+                "/reports/saved",
+              ];
+              const needsDivider = sectionStarts.includes(child.path) && idx > 0;
               return (
                 <Box key={child.path}>
-                  {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}
+                  {needsDivider && <Divider sx={{ my: 0.5 }} />}
                   <MenuItem
                     component={RouterLink}
                     to={child.path}
