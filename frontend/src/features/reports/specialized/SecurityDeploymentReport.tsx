@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -34,14 +33,7 @@ interface SecurityFunction {
   attributes?: Record<string, any>;
 }
 
-interface SecurityMetrics {
-  totalFunctions: number;
-  byType: Record<string, number>;
-  coverage: number;
-}
-
 export default function SecurityDeploymentReport() {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [functions, setFunctions] = useState<SecurityFunction[]>([]);
@@ -50,8 +42,12 @@ export default function SecurityDeploymentReport() {
   useEffect(() => {
     (async () => {
       try {
-        const funcResp = await api.get('/cards?type=SecurityFunction&page_size=200');
-        const servResp = await api.get('/cards?type=SecurityService&page_size=200');
+        const funcResp = await api.get<{ data: SecurityFunction[] }>(
+          '/cards?type=SecurityFunction&page_size=200'
+        );
+        const servResp = await api.get<{ data: any[] }>(
+          '/cards?type=SecurityService&page_size=200'
+        );
 
         setFunctions(funcResp.data);
         setServices(servResp.data);
@@ -113,10 +109,7 @@ export default function SecurityDeploymentReport() {
   };
 
   return (
-    <ReportShell
-      title="Security Deployment"
-      description="Security controls and functions across infrastructure"
-    >
+    <ReportShell title="Security Deployment" icon="security" hasTableToggle={false}>
       {/* Security posture overview */}
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
         Security Posture Overview

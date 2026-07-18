@@ -3099,7 +3099,12 @@ PERSONAS = [
         "Manufacturing Operations Manager",
         subtype="employee",
         desc="Manages daily production operations, oversees equipment health, coordinates with engineering and quality teams.",
-        attrs={"demographics": "40-55, 10+ years experience", "goals": "Optimize production, reduce downtime, ensure quality", "painPoints": "Complex dashboards, slow data access", "preferredChannels": "Web portal, mobile app, email"},
+        attrs={
+            "demographics": "40-55, 10+ years experience",
+            "goals": "Optimize production, reduce downtime, ensure quality",
+            "painPoints": "Complex dashboards, slow data access",
+            "preferredChannels": "Web portal, mobile app, email",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3108,7 +3113,12 @@ PERSONAS = [
         "Design Engineer",
         subtype="employee",
         desc="Creates product designs using CAD/PLM tools, collaborates with manufacturing and R&D teams.",
-        attrs={"demographics": "28-45, 3-8 years experience", "goals": "Design innovative products, improve manufacturability", "painPoints": "Tool integration issues, version control", "preferredChannels": "Desktop app, internal wiki, team chat"},
+        attrs={
+            "demographics": "28-45, 3-8 years experience",
+            "goals": "Design innovative products, improve manufacturability",
+            "painPoints": "Tool integration issues, version control",
+            "preferredChannels": "Desktop app, internal wiki, team chat",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3117,7 +3127,12 @@ PERSONAS = [
         "Enterprise Procurement Manager",
         subtype="customer",
         desc="Responsible for sourcing components and products, manages vendor relationships and contracts.",
-        attrs={"demographics": "35-55, corporate buyer", "goals": "Best pricing, reliable supply, technical support", "painPoints": "Manual processes, slow order turnaround", "preferredChannels": "Online portal, email, phone"},
+        attrs={
+            "demographics": "35-55, corporate buyer",
+            "goals": "Best pricing, reliable supply, technical support",
+            "painPoints": "Manual processes, slow order turnaround",
+            "preferredChannels": "Online portal, email, phone",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3126,7 +3141,12 @@ PERSONAS = [
         "Quality Assurance Auditor",
         subtype="employee",
         desc="Conducts quality inspections, maintains compliance documentation, reports on production metrics.",
-        attrs={"demographics": "30-50, quality/compliance specialist", "goals": "Ensure compliance, reduce defects, improve processes", "painPoints": "Outdated inspection tools, data consolidation", "preferredChannels": "Mobile app for inspections, reporting portal"},
+        attrs={
+            "demographics": "30-50, quality/compliance specialist",
+            "goals": "Ensure compliance, reduce defects, improve processes",
+            "painPoints": "Outdated inspection tools, data consolidation",
+            "preferredChannels": "Mobile app for inspections, reporting portal",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3135,7 +3155,12 @@ PERSONAS = [
         "Channel Partner / Distributor",
         subtype="partner",
         desc="Sells NexaTech products to regional markets, manages inventory and customer relationships.",
-        attrs={"demographics": "Business partner, regional distributor", "goals": "Grow sales, manage inventory efficiently", "painPoints": "Limited visibility into product roadmap, slow order confirmation", "preferredChannels": "Partner portal, sales rep contact, email"},
+        attrs={
+            "demographics": "Business partner, regional distributor",
+            "goals": "Grow sales, manage inventory efficiently",
+            "painPoints": "Limited visibility into product roadmap, slow order confirmation",
+            "preferredChannels": "Partner portal, sales rep contact, email",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
 ]
@@ -3152,7 +3177,12 @@ JOURNEYS = [
         subtype="customerJourney",
         parent=None,
         desc="End-to-end flow of manufacturing operations from shift start to completion, including monitoring, adjustments, and quality checks.",
-        attrs={"stages": "Pre-shift prep → Equipment check → Production run → Quality inspection → Post-shift closeout", "touchpoints": "MES dashboard, mobile alerts, email notifications", "satisfaction": "medium", "painAreasDescription": "Slow data refresh, multiple system login"},
+        attrs={
+            "stages": "Pre-shift prep → Equipment check → Production run → Quality inspection → Post-shift closeout",
+            "touchpoints": "MES dashboard, mobile alerts, email notifications",
+            "satisfaction": "medium",
+            "painAreasDescription": "Slow data refresh, multiple system login",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3161,7 +3191,12 @@ JOURNEYS = [
         "Product Design & Review Cycle",
         subtype="customerJourney",
         desc="Complete product design workflow from concept to manufacturing handoff, including reviews and approvals.",
-        attrs={"stages": "Concept → CAD design → Simulation → Design review → Manufacturing feasibility → Sign-off", "touchpoints": "CAD tool, PLM system, email, team meetings", "satisfaction": "medium", "painAreasDescription": "Tool switching overhead, version control complexity"},
+        attrs={
+            "stages": "Concept → CAD design → Simulation → Design review → Manufacturing feasibility → Sign-off",
+            "touchpoints": "CAD tool, PLM system, email, team meetings",
+            "satisfaction": "medium",
+            "painAreasDescription": "Tool switching overhead, version control complexity",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3170,7 +3205,12 @@ JOURNEYS = [
         "Order-to-Delivery Procurement Process",
         subtype="customerJourney",
         desc="Customer procurement journey from product discovery through order, delivery, and support.",
-        attrs={"stages": "Product search → Specification review → Quote request → Order placement → Tracking → Delivery → Support", "touchpoints": "Online catalog, email, customer portal, phone", "satisfaction": "high", "painAreasDescription": "Quote turnaround time, limited order visibility"},
+        attrs={
+            "stages": "Product search → Specification review → Quote request → Order placement → Tracking → Delivery → Support",
+            "touchpoints": "Online catalog, email, customer portal, phone",
+            "satisfaction": "high",
+            "painAreasDescription": "Quote turnaround time, limited order visibility",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3179,7 +3219,12 @@ JOURNEYS = [
         "Quality Compliance & Audit Journey",
         subtype="userExperienceFlow",
         desc="Quality assurance workflow including inspections, documentation, compliance tracking, and reporting.",
-        attrs={"stages": "Plan inspections → Conduct tests → Document results → Analyze trends → Report metrics → Schedule reviews", "touchpoints": "Inspection app, reporting system, compliance dashboard, email", "satisfaction": "medium", "painAreasDescription": "Manual data entry, fragmented documentation systems"},
+        attrs={
+            "stages": "Plan inspections → Conduct tests → Document results → Analyze trends → Report metrics → Schedule reviews",
+            "touchpoints": "Inspection app, reporting system, compliance dashboard, email",
+            "satisfaction": "medium",
+            "painAreasDescription": "Manual data entry, fragmented documentation systems",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
     _fs(
@@ -3188,7 +3233,12 @@ JOURNEYS = [
         "Channel Partner Sales & Support Journey",
         subtype="customerJourney",
         desc="Partner experience from onboarding through ongoing sales support and market development.",
-        attrs={"stages": "Partner qualification → Training → Sales kit provision → Deal registration → Ongoing support → Quarterly reviews", "touchpoints": "Partner portal, sales rep, email, training sessions", "satisfaction": "medium", "painAreasDescription": "Limited real-time product availability, slow deal approval"},
+        attrs={
+            "stages": "Partner qualification → Training → Sales kit provision → Deal registration → Ongoing support → Quarterly reviews",
+            "touchpoints": "Partner portal, sales rep, email, training sessions",
+            "satisfaction": "medium",
+            "painAreasDescription": "Limited real-time product availability, slow deal approval",
+        },
         lifecycle={"active": "2024-01-01"},
     ),
 ]

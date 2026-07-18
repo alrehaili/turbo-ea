@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -16,7 +15,6 @@ import {
   Typography,
   Grid,
 } from '@mui/material';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
 import { api } from '@/api/client';
 import ReportShell from '../ReportShell';
 
@@ -36,8 +34,11 @@ interface Journey {
   stages: JourneyStage[];
 }
 
+interface CardListResponse {
+  data: { id: string; name: string; description?: string }[];
+}
+
 export default function BeneficiaryJourneyMapReport() {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [journeys, setJourneys] = useState<Journey[]>([]);
@@ -46,10 +47,12 @@ export default function BeneficiaryJourneyMapReport() {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get('/cards?type=BeneficiaryJourney&page_size=100');
+        const resp = await api.get<CardListResponse>(
+          '/cards?type=BeneficiaryJourney&page_size=100'
+        );
         if (resp.data.length > 0) {
           // Create mock stages for demo (in production, these would come from nested journey structures)
-          const journeysWithStages = resp.data.map((j) => ({
+          const journeysWithStages: Journey[] = resp.data.map((j) => ({
             ...j,
             stages: [
               { id: '1', name: 'Awareness', order: 1, touchpoints: ['Website', 'Social Media'], painPoints: ['Unclear navigation'] },
@@ -89,10 +92,7 @@ export default function BeneficiaryJourneyMapReport() {
   const stages = selectedJourney.stages.sort((a, b) => a.order - b.order);
 
   return (
-    <ReportShell
-      title="Beneficiary Journey Map"
-      description="Stages, touchpoints, and pain points in the customer experience"
-    >
+    <ReportShell title="Beneficiary Journey Map" icon="route" hasTableToggle={false}>
       <Box sx={{ mb: 3, display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
         {journeys.map((j) => (
           <Chip

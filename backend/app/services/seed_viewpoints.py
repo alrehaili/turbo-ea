@@ -1,7 +1,7 @@
 """Seed all 67 NORA/DGA EA Viewpoints into viewpoint_definitions table."""
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.viewpoint_definition import ViewpointDefinition
 
@@ -63,7 +63,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "قائمة الخدمات الحكومية مع الرمز والاسم والوصف والمنظمة",
         "building_blocks": ["GovService"],
         "target_route": "/inventory?type=GovService",
-        "status": "missing",
+        "status": "available",
         "sort_order": 4,
     },
     {
@@ -119,7 +119,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "قائمة نماذج وقوالب الأعمال المستخدمة من قبل الخدمات والعمليات",
         "building_blocks": ["ModelTemplate"],
         "target_route": "/inventory?type=ModelTemplate",
-        "status": "missing",
+        "status": "available",
         "sort_order": 8,
     },
     {
@@ -189,7 +189,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح الصلاحيات المخصصة لكل منصب في الوحدات التنظيمية",
         "building_blocks": ["Mandate", "Position", "Organization"],
         "target_route": "/reports/matrix?source=Position&target=Mandate",
-        "status": "missing",
+        "status": "available",
         "sort_order": 13,
     },
     {
@@ -273,8 +273,8 @@ NORA_VIEWPOINTS = [
         "description_en": "List of proposed improvements to beneficiary journeys with impact and effort",
         "description_ar": "قائمة بالتحسينات المقترحة لرحلات المستفيد مع التأثير والجهد",
         "building_blocks": ["JourneyImprovement"],
-        "target_route": "/view-library/journey-improvements",
-        "status": "missing",
+        "target_route": "/inventory?type=JourneyImprovement",
+        "status": "available",
         "sort_order": 19,
     },
     {
@@ -427,9 +427,9 @@ NORA_VIEWPOINTS = [
         "type": "list",
         "description_en": "Dictionary of data terms, definitions, and business meanings",
         "description_ar": "قاموس مصطلحات البيانات والتعريفات والمعاني التجارية",
-        "building_blocks": ["DataTerm"],
-        "target_route": "/inventory?type=DataTerm",
-        "status": "missing",
+        "building_blocks": ["DataDictionary", "DataTerm"],
+        "target_route": "/inventory?type=DataDictionary",
+        "status": "available",
         "sort_order": 30,
     },
     {
@@ -964,9 +964,7 @@ async def seed_nora_viewpoints(db: AsyncSession) -> None:
     """
     for vp_data in NORA_VIEWPOINTS:
         existing = await db.execute(
-            select(ViewpointDefinition).where(
-                ViewpointDefinition.code == vp_data["code"]
-            )
+            select(ViewpointDefinition).where(ViewpointDefinition.code == vp_data["code"])
         )
         if existing.scalars().first() is None:
             vp = ViewpointDefinition(**vp_data)

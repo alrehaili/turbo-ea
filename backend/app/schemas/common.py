@@ -269,6 +269,13 @@ class SavedReportUpdate(BaseModel):
     shared_with: list[str] | None = None
 
 
+class PaginatedResponse(BaseModel):
+    data: list = Field(default_factory=list)
+    page: int
+    page_size: int
+    total: int
+
+
 # Fix forward refs
 TagGroupResponse.model_rebuild()
 CommentResponse.model_rebuild()

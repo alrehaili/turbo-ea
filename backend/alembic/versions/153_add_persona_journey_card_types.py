@@ -8,10 +8,6 @@ types are inserted by seed_metamodel() in seed.py, which checks for
 missing keys before adding.
 """
 
-from alembic import op
-import sqlalchemy as sa
-
-
 # revision identifiers, used by Alembic.
 revision = "153"
 down_revision = "152"

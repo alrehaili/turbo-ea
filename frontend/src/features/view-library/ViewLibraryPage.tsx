@@ -3,7 +3,7 @@
  * Grouped by domain → level → type, each card shows progress badge + navigation link.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,7 +19,7 @@ import {
   Typography,
   Alert,
 } from '@mui/material';
-import { MaterialSymbol } from '@/components/MaterialSymbol';
+import MaterialSymbol from '@/components/MaterialSymbol';
 import { api } from '@/api/client';
 
 interface Viewpoint {
@@ -31,6 +31,7 @@ interface Viewpoint {
   type: string;
   description_en?: string;
   description_ar?: string;
+  building_blocks?: string[];
   target_route?: string;
   status: 'available' | 'partial' | 'missing' | 'done';
   sort_order: number;
@@ -121,10 +122,12 @@ export default function ViewLibraryPage() {
   const [filterLevel, setFilterLevel] = useState<string>('');
 
   // Fetch viewpoints on mount
-  React.useEffect(() => {
+  useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get('/viewpoints?page=1&page_size=100');
+        const resp = await api.get<{ data: Viewpoint[] }>(
+          '/viewpoints?page=1&page_size=100'
+        );
         setViewpoints(resp.data);
       } catch (err: any) {
         setError(err.detail || 'Failed to load viewpoints');

@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -37,6 +36,7 @@ interface Datacenter {
   subtype?: string;
   description?: string;
   location_id?: string;
+  attributes?: Record<string, any>;
 }
 
 interface DatacenterDist {
@@ -47,18 +47,20 @@ interface DatacenterDist {
 }
 
 export default function DatacenterDistributionReport() {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datacenters, setDatacenters] = useState<Datacenter[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [distribution, setDistribution] = useState<DatacenterDist[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const dcResp = await api.get('/cards?type=Datacenter&page_size=200');
-        const locResp = await api.get('/cards?type=Location&page_size=200');
+        const dcResp = await api.get<{ data: Datacenter[] }>(
+          '/cards?type=Datacenter&page_size=200'
+        );
+        const locResp = await api.get<{ data: Location[] }>(
+          '/cards?type=Location&page_size=200'
+        );
 
         setDatacenters(dcResp.data);
         setLocations(locResp.data);
@@ -75,7 +77,8 @@ export default function DatacenterDistributionReport() {
 
     datacenters.forEach((dc) => {
       const locId = dc.attributes?.location_id || 'unassigned';
-      const location = locations.find((l) => l.id === locId) || { id: locId, name: 'Unassigned', type: 'region' };
+      const location: Location =
+        locations.find((l) => l.id === locId) || { id: locId, name: 'Unassigned', type: 'region' };
 
       if (!groups[locId]) {
         groups[locId] = { location, datacenters: [], appCount: 0, itComponentCount: 0 };
@@ -105,10 +108,7 @@ export default function DatacenterDistributionReport() {
   };
 
   return (
-    <ReportShell
-      title="Datacenter Distribution"
-      description="Geographic locations and datacenter deployment across regions"
-    >
+    <ReportShell title="Datacenter Distribution" icon="dns" hasTableToggle={false}>
       {/* Summary stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>

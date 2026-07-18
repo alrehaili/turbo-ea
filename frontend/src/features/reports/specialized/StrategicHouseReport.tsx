@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -74,7 +73,6 @@ const LevelBox = ({ title, items, color }: { title: string; items: ObjectiveCard
 );
 
 export default function StrategicHouseReport() {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [objectives, setObjectives] = useState<ObjectiveCard[]>([]);
@@ -83,7 +81,9 @@ export default function StrategicHouseReport() {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get('/cards?type=Objective&page_size=500');
+        const resp = await api.get<{ data: ObjectiveCard[] }>(
+          '/cards?type=Objective&page_size=500'
+        );
         setObjectives(resp.data);
         setLoading(false);
       } catch (err: any) {
@@ -101,7 +101,7 @@ export default function StrategicHouseReport() {
       o.name.toLowerCase().includes('mission')
     );
     const pillars = objectives.filter(
-      (o) => o.parent_id === vision?.id && o.id !== vision.id && o.id !== mission?.id
+      (o) => o.parent_id === vision?.id && o.id !== vision?.id && o.id !== mission?.id
     );
 
     const childMap: Record<string, ObjectiveCard[]> = {};
@@ -132,10 +132,7 @@ export default function StrategicHouseReport() {
     : pillars.slice(0, 4);
 
   return (
-    <ReportShell
-      title="Strategic House"
-      description="Vision → Mission → Pillars → Objectives"
-    >
+    <ReportShell title="Strategic House" icon="architecture" hasTableToggle={false}>
       <Box sx={{ mb: 2 }}>
         <TextField
           select

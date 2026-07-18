@@ -654,8 +654,8 @@ async def lifespan(app: FastAPI):
     logger.info("[startup] Email settings loaded, seeding metamodel...")
     # Seed default metamodel
     from app.services.seed import seed_metamodel
-    from app.services.seed_viewpoints import seed_nora_viewpoints
     from app.services.seed_nora_presets import seed_nora_presets
+    from app.services.seed_viewpoints import seed_nora_viewpoints
 
     async with async_session() as db:
         await seed_metamodel(db)

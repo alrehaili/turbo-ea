@@ -17,7 +17,8 @@ class ViewpointDefinition(Base, UUIDMixin, TimestampMixin):
     name_ar: Mapped[str] = mapped_column(String(200), nullable=False)
 
     domain: Mapped[str] = mapped_column(String(50), nullable=False)
-    # Domains: strategic_alignment, business, beneficiary_experience, data, applications, technology, security
+    # Domains: strategic_alignment, business, beneficiary_experience, data,
+    # applications, technology, security
 
     level: Mapped[str] = mapped_column(String(20), nullable=False)
     # Levels: conceptual, logical, physical
@@ -35,6 +36,7 @@ class ViewpointDefinition(Base, UUIDMixin, TimestampMixin):
     # In-app route: /inventory?type=X, /reports/matrix, /view-library/pending, etc.
 
     status: Mapped[str] = mapped_column(String(20), default="available")
-    # Status: available (engine works, seeding needed), partial (config needed), missing (new blocks/renderer), done (seeded)
+    # Status: available (engine works, seeding needed), partial (config needed),
+    # missing (new blocks/renderer), done (seeded)
 
     sort_order: Mapped[int] = mapped_column(default=0)

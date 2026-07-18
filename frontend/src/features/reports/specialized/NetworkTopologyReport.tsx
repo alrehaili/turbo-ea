@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -33,14 +32,7 @@ interface NetworkCircuit {
   description?: string;
 }
 
-interface Topology {
-  totalCircuits: number;
-  byType: Record<string, number>;
-  averageBandwidth: string;
-}
-
 export default function NetworkTopologyReport() {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [circuits, setCircuits] = useState<NetworkCircuit[]>([]);
@@ -48,7 +40,9 @@ export default function NetworkTopologyReport() {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get('/cards?type=NetworkCircuit&page_size=200');
+        const resp = await api.get<{ data: NetworkCircuit[] }>(
+          '/cards?type=NetworkCircuit&page_size=200'
+        );
         setCircuits(resp.data);
         setLoading(false);
       } catch (err: any) {
@@ -100,10 +94,7 @@ export default function NetworkTopologyReport() {
   };
 
   return (
-    <ReportShell
-      title="Network Topology"
-      description="Network circuits, connectivity, and infrastructure topology"
-    >
+    <ReportShell title="Network Topology" icon="lan" hasTableToggle={false}>
       {/* Summary stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>

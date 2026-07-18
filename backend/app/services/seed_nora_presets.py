@@ -3,12 +3,11 @@ Phase 5: NORA Preset Seeding
 Pre-configured saved views that flip 38 available viewpoints to "done"
 """
 
-import json
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.saved_reports import SavedReport
-from app.models.users import User
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.saved_report import SavedReport
+from app.models.user import User
 
 NORA_PRESETS = [
     # Strategic Alignment (3)
@@ -467,7 +466,12 @@ NORA_PRESETS = [
 
 
 async def seed_nora_presets(db: AsyncSession) -> None:
-    """Seed NORA-configured saved report presets for all available viewpoints."""
+    """Seed NORA-configured saved report presets for all available viewpoints.
+
+    The SavedReport model has no ``code`` column, so presets are deduplicated
+    by ``name`` and stamped with the preset code inside ``config._noraPreset``
+    for traceability.
+    """
 
     # Get admin/first user for ownership
     result = await db.execute(select(User).limit(1))
@@ -475,24 +479,26 @@ async def seed_nora_presets(db: AsyncSession) -> None:
     if not user:
         return
 
+    # Fetch existing preset names once (dedup by name).
+    existing_names = set((await db.execute(select(SavedReport.name))).scalars().all())
+
     for preset in NORA_PRESETS:
-        # Check if already exists
-        existing = await db.execute(
-            select(SavedReport).where(SavedReport.code == preset["code"])
-        )
-        if existing.scalars().first():
+        if preset["name"] in existing_names:
             continue
 
-        # Create saved report
+        config = dict(preset["config"])
+        config["_noraPreset"] = preset["code"]
+        config["_viewpointCode"] = preset.get("viewpoint_code")
+
         report = SavedReport(
-            code=preset["code"],
             name=preset["name"],
             description=preset["description"],
             report_type=preset["report_type"],
-            config=preset["config"],
-            created_by_id=user.id,
-            is_template=False,
+            config=config,
+            owner_id=user.id,
+            visibility="private",
         )
         db.add(report)
+        existing_names.add(preset["name"])
 
     await db.commit()

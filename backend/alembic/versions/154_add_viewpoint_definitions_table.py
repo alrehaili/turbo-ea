@@ -7,9 +7,10 @@ The viewpoint_definitions table tracks all 67 NORA viewpoints with metadata:
 code, bilingual names, domain, level, type, building blocks, target route, status.
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "154"
@@ -31,7 +32,9 @@ def upgrade() -> None:
         sa.Column("type", sa.String(20), nullable=False),
         sa.Column("description_en", sa.String(500), nullable=True),
         sa.Column("description_ar", sa.String(500), nullable=True),
-        sa.Column("building_blocks", postgresql.JSONB(astext_type=sa.Text()), default=[], nullable=True),
+        sa.Column(
+            "building_blocks", postgresql.JSONB(astext_type=sa.Text()), default=[], nullable=True
+        ),
         sa.Column("target_route", sa.String(200), nullable=True),
         sa.Column("status", sa.String(20), default="available", nullable=False),
         sa.Column("sort_order", sa.Integer(), default=0, nullable=False),

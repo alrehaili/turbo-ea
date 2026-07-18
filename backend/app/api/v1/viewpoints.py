@@ -7,19 +7,17 @@ No auth required for public discovery.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.models.viewpoint_definition import ViewpointDefinition
-from app.schemas.common import PaginatedResponse
 
 router = APIRouter(prefix="/viewpoints", tags=["viewpoints"])
 
 
-class ViewpointResponse:
-    """ViewpointDefinition response model."""
-
+class ViewpointResponse(BaseModel):
     code: str
     name_en: str
     name_ar: str
@@ -33,8 +31,10 @@ class ViewpointResponse:
     status: str
     sort_order: int
 
+    model_config = {"from_attributes": True}
 
-@router.get("", response_model=PaginatedResponse)
+
+@router.get("", response_model=dict)
 async def list_viewpoints(
     domain: str | None = None,
     level: str | None = None,
@@ -43,10 +43,7 @@ async def list_viewpoints(
     page_size: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all NORA viewpoints, optionally filtered by domain/level/status.
-
-    Returns paginated list with pagination metadata.
-    """
+    """List all NORA viewpoints, optionally filtered by domain/level/status."""
     query = select(ViewpointDefinition)
 
     if domain:
@@ -56,13 +53,12 @@ async def list_viewpoints(
     if status:
         query = query.where(ViewpointDefinition.status == status)
 
+    # Count total matching
+    count_result = await db.execute(query)
+    total_count = len(count_result.scalars().all())
+
     query = query.order_by(ViewpointDefinition.sort_order)
-
-    # Paginate
     offset = (page - 1) * page_size
-    total = (await db.execute(select(ViewpointDefinition))).scalars().all()
-    total_count = len(total)
-
     result = await db.execute(query.offset(offset).limit(page_size))
     items = result.scalars().all()
 
@@ -93,9 +89,7 @@ async def list_viewpoints(
 @router.get("/{code}", response_model=dict)
 async def get_viewpoint(code: str, db: AsyncSession = Depends(get_db)):
     """Get a single viewpoint by code."""
-    result = await db.execute(
-        select(ViewpointDefinition).where(ViewpointDefinition.code == code)
-    )
+    result = await db.execute(select(ViewpointDefinition).where(ViewpointDefinition.code == code))
     vp = result.scalars().first()
 
     if not vp:
