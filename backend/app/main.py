@@ -655,11 +655,13 @@ async def lifespan(app: FastAPI):
     # Seed default metamodel
     from app.services.seed import seed_metamodel
     from app.services.seed_viewpoints import seed_nora_viewpoints
+    from app.services.seed_nora_presets import seed_nora_presets
 
     async with async_session() as db:
         await seed_metamodel(db)
         await seed_nora_viewpoints(db)
-    logger.info("[startup] Metamodel and viewpoints seed complete")
+        await seed_nora_presets(db)
+    logger.info("[startup] Metamodel, viewpoints, and NORA presets seed complete")
 
     # Apply/upgrade the NORA framework profile when requested ([FORK] WP1.1)
     from app.services.nora_profile import ensure_framework_profile
