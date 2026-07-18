@@ -1,0 +1,14 @@
+Application: armCode, armCategory, automationLevel, sharedService, appLayer, developmentType, sourceType, contractor, appUrl, authenticationMethod, launchDate, architecturePattern, costCapex, accessChannel, developmentTechnology
+BusinessCapability: brmCode, brmLevel, neaAlignment, capabilityType
+BusinessContext: productType, productOwner, productBeneficiary
+BusinessProcess: processClassification, triggerEvent, businessRules, durationDays, processInputs, processOutputs, beneficiaryType, participatingEntities
+DataObject: drmCode, dataClassification, piiFlag, authoritativeSource, retentionPeriod, dataType, structureClassification, dataBusinessRules, securityControls
+GovService: serviceClassification, serviceType, automationLevel, geoCoverage, serviceRequirements, serviceInputs, serviceOutputs, participatingEntities, executionSteps, serviceFee, bxrmCode
+ITComponent: trmCode, hostingModel, securityZone, supportEndDate, supportContractStatus, operationType, initialCost, environment, clusterId, firmwareVersion, inBackupPolicy, inDrPolicy, manufacturer, modelNumber, deviceFunction
+Initiative: projectSponsor, projectManager, executionEntity, priorityLevel, projectDeliverables, scopeOfWork
+Interface: integrationType, authenticationMethod, viaGsb, integrationScope, integrationPlatform, linkType, interfaceInputs, interfaceOutputs
+KPI: indicatorLevel, calculationFormula, dataSource, lastMeasuredDate, baselineDate, targetValueDate
+Objective: nationalAlignment
+Organization: orgUnitType, mandates
+Provider: fieldOfActivity, servicesProvided, providerStatus, geoLocation
+SecurityControl: srmCode

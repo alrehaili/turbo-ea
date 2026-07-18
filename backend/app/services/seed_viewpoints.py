@@ -47,8 +47,8 @@ NORA_VIEWPOINTS = [
         "description_en": "Diagram summarizing strategy including vision, mission, pillars, objectives, and KPIs",
         "description_ar": "رسم توضيحي للاستراتيجية يتضمن الرؤية والرسالة والركائز والأهداف والمؤشرات",
         "building_blocks": ["Vision", "Mission", "Objective", "Pillar", "KPI"],
-        "target_route": "/reports/strategic-house",
-        "status": "missing",
+        "target_route": "/reports/strategic-house-nora",
+        "status": "available",
         "sort_order": 3,
     },
     # Business (14)
@@ -343,8 +343,8 @@ NORA_VIEWPOINTS = [
         "description_en": "Diagram showing beneficiary journey stages, touchpoints, pain points, and channels",
         "description_ar": "رسم توضيحي لمراحل رحلة المستفيد والنقاط التفاعلية والتحديات والقنوات",
         "building_blocks": ["BeneficiaryJourney"],
-        "target_route": "/reports/journey-map",
-        "status": "missing",
+        "target_route": "/reports/journey-map-nora",
+        "status": "available",
         "sort_order": 24,
     },
     {
@@ -682,8 +682,8 @@ NORA_VIEWPOINTS = [
         "description_en": "Diagram showing geographical distribution of data centers and infrastructure",
         "description_ar": "رسم توضيحي لتوزيع مراكز البيانات والبنية التحتية جغرافياً",
         "building_blocks": ["Datacenter", "Location"],
-        "target_route": "/reports/datacenter-map",
-        "status": "partial",
+        "target_route": "/reports/datacenter-distribution",
+        "status": "available",
         "sort_order": 48,
     },
     {
@@ -836,8 +836,8 @@ NORA_VIEWPOINTS = [
         "description_en": "Diagram showing network circuits, endpoints, bandwidth, and redundancy",
         "description_ar": "رسم توضيحي لدوائر الشبكة والنقاط النهائية والنطاق الترددي والتكرار",
         "building_blocks": ["NetworkCircuit"],
-        "target_route": "/reports/network-circuits",
-        "status": "missing",
+        "target_route": "/reports/network-topology",
+        "status": "available",
         "sort_order": 59,
     },
     # Security (8)
@@ -950,7 +950,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي لنشر أجهزة الأمان عبر مراكز البيانات",
         "building_blocks": ["SecurityHardware", "Datacenter"],
         "target_route": "/reports/security-deployment",
-        "status": "missing",
+        "status": "available",
         "sort_order": 67,
     },
 ]

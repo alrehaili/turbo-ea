@@ -1,0 +1,4099 @@
+
+
+===== PAGE 1 =====
+National EA Framework
+The “EA Content Meta Model”
+Document
+December, 2024
+Document type: Guide
+Document classification: Public
+Version No.: 1.0
+Public - ماع
+
+===== PAGE 2 =====
+Contents
+01. Introduction ............................................................................................................................................................................... 2
+02. Objectives................................................................................................................................................................................... 3
+.03 Scope ........................................................................................................................................................................................... 5
+04. Target Audience ....................................................................................................................................................................... 5
+.05 EA Content Meta Model .........................................................................................................................................................6
+5.1 INTRODUCTION TO THE EA CONTENT META MODEL ................................................................................................................... 6
+5.2 GUIDING CONSIDERATIONS FOR PREPARING THE EA CONTENT META MODEL ....................................................................... 8
+5.3 DETAILS OF THE EA CONTENT META MODEL ............................................................................................................................... 9
+5.3.1 Artifacts of the “Strategic Alignment” ...................................................................................................................... 9
+5.3.2 Artifacts of the “Business Architecture” Domain ............................................................................................... 24
+5.3.3 Artifacts of the “Beneficiary Experience Architecture” Domain ................................................................. 46
+5.3.4 Artifacts of the “Data Architecture” Domain ........................................................................................................ 53
+5.3.5 Artifacts of the “Applications Architecture” Domain ....................................................................................... 60
+5.3.6 Artifacts of the “Technology Architecture” Domain ......................................................................................... 72
+5.3.7 Artifacts of the “Security Architecture” Domain ................................................................................................ 115
+.06 Table of definitions ............................................................................................................................................................. 129
+1 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 3 =====
+01. Introduction
+Based on the responsibilities of the Digital Government Authority (DGA) in organizing the digital government
+business and guiding government entities to implement best practices in various fields related to achieving the
+National Digital Government Strategy and enabling and accelerating the pace for implementing sustainable
+digital transformation for government entities in line with the ambitious Vision 2030, DGA has developed the
+National Enterprise Architecture (EA) Framework to reflect the recent developments and trends related to the
+field of enterprise architecture, as part of its continuous efforts to reach the highest levels of maturity in
+adopting the enterprise architecture practice in government entities, national companies and other entities
+seeking to do so.
+The updated National EA Framework is linked to the Digital Government Regulatory Framework, as this
+Regulatory Framework includes a set of policies, controls, standards and guidelines that contain the artifacts
+of the National EA Framework. The National EA Framework contains a set of guidelines and controls for
+implementing the national EA practice as shown in the following figure:
+2 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 4 =====
+Figure (1): National EA Framework
+The “EA Content Meta Model” document is part of the EA Framework documents which provide a definition of
+all artifacts (hereafter known as “building blocks”) of the enterprise architecture domains (business, beneficiary
+experience, data, applications, technology, security). This document shall be considered a reference in building
+EA viewpoints and implementing the National Overall Reference Architecture.
+02. Objectives
+This document aims to provide the necessary guiding artifacts to enable entities to prepare their respective EA
+Content Meta Model and thus develop the entity’s EA artifacts. The following points summarize the objectives
+of this document:
+• Provide a clear and detailed reference for building the EA Content Meta Model at the entity according to
+the best global standards and the national regulatory requirements, which can be used to configure the EA
+Tool and accelerate the digitization of the EA practice.
+3 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 5 =====
+• Accelerate the process of identifying the building blocks needed to document and develop the EA artifacts
+at the entity.
+• Emphasize the importance of defining appropriate connections between EA artifacts from the same
+domain and other artifacts from other EA domains.
+4 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 6 =====
+03. Scope
+This document contains three main sections:
+• Introduction to the “EA Content Meta Model”: This section provides a brief explanation of the “EA Content
+Meta Model” landscape
+• Guiding considerations for preparing the EA Content Meta Model: This section provides an explanation of
+the main considerations for building the EA Content Meta Model in a way that serves the entity’s objectives
+and aspirations
+• Details of the EA Content Meta Model: This section provides an explanation of the EA Content Meta Model
+artifacts
+04. Target Audience
+This document is intended for government and semi-governmental entities wishing to adopt the National
+Overall Reference Architecture.
+5 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 7 =====
+05. EA Content Meta Model
+5.1 Introduction to the EA Content Meta Model
+The EA Content Meta Model represents all the building blocks used to describe the entity from an enterprise
+architecture viewpoint, distributed across the enterprise architecture domains to which each building block
+belongs. The following figure shows all the reference EA building blocks divided across the enterprise
+architecture domains, which, together, form the landscape of EA artifacts; thus, it constitutes the starting point
+for the entity to begin adjusting and developing its own model. The attributes of each of these building blocks
+will be defined and detailed in the following sections of this document, in addition to the key connections
+between these building blocks (the most important direct connections between the various artifacts of the
+enterprise architecture domains have been defined, and additional connections may be defined as needed by
+the entity).
+It is common knowledge that the “strategic alignment” artifacts are not considered part of the EA domains
+entrusted with the mandates of managing the enterprise architecture. However, to ensure the provision of a
+comprehensive view and align EA artifacts with the strategic artifacts at the entity, a number of necessary
+reference artifacts were defined in the EA Content Meta Model.
+6 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 8 =====
+Figure (2): Landscape of the enterprise architecture artifacts
+7 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 9 =====
+5.2 Guiding Considerations for Preparing the EA Content Meta Model
+To ensure achieving the desired benefits from the EA Content Meta Model, the entity must take a set of key
+considerations into account when preparing the meta model, which can be summarized as follows:
+• This document should be considered a reference document only for developing the entity’s EA Metal
+Model. The EA team at the entity must choose/add/adjust the building blocks according to the entity’s
+needs. The EA Content Meta Model must be reviewed and updated periodically.
+• The EA team at the entity shall determine the core building blocks that must be documented (mandatory
+building block or optional building block) when preparing the EA Content Meta Model
+• Each building block shall be defined only once within the EA Content Meta Model and shall be included
+in only one of the EA domains (business, beneficiary experience, applications, data, technology,
+security).
+• When implementing the mandates and phases of the EA Artifacts Development Methodology, the EA
+team must adhere to the EA Content Meta Model to identify the required building blocks for each scope
+of work and the level of documentation (detail) required for developing the relevant enterprise
+architecture viewpoints.
+• The language in which the content of the building blocks and their attributes will be documented in
+various domains must be taken into consideration, with the possibility of adding more than one
+language to the documentation process
+• Fixed values must be identified and documented for some building block attributes, to form predefined
+lists (e.g. list of currencies used, date and time format, list of priorities)
+• When designing EA viewpoints (a visual representation, a matrix, or a catalog of EA artifacts), it is
+important to ensure that all the required artifacts and connections for the viewpoint are available. If they
+are not available, the EA Content Meta Model must be updated to meet the requirements of the new
+viewpoints.
+• It is necessary for the EA Department to coordinate with the relevant departments at the entity to
+develop the artifacts of EA domains related to its business (e.g. Enterprise Excellence Department,
+Cybersecurity Department, Information Technology Department, etc.)
+8 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 10 =====
+Note: The “EA Content Meta Model” was designed to be subject to adjustments and continuous
+improvement in line with the entity’s requirements by defining additional artifacts that allow
+entities to define additional viewpoints and connections in order to respond to the largest
+possible number of stakeholder aspirations and additional EA plans, depending on the need
+and nature of the entity’s business.
+5.3 Details of the EA Content Meta Model
+This section of the document provides a detailed definition of EA artifacts, which were linked based on the
+domain of enterprise architecture to which they belong, and then were detailed as follows:
+• Define the building blocks of the domain, through which a meta description is provided for each
+building block of the enterprise architecture domains.
+• Define the attributes of each building block, through which the attributes of building blocks are
+detailed and the type of each attribute is determined.
+• Define the connections specific to each building block through which the links between the building
+blocks of the EA domains are identified (business, beneficiary experience, data, applications,
+technology, security) and the reciprocal connections that aim to help entities build plans for EA
+artifacts are identified to serve the different viewpoints and interests of stakeholders.
+The following sections provide details of the artifacts by enterprise architecture domain:
+5.3.1 Artifacts of the “Strategic Alignment”
+5.3.1.1 Definition of the “Strategic Alignment” Artifacts
+The following figure illustrates the building blocks of “Strategic Alignment”:
+9 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 11 =====
+Figure (3): Building blocks of Strategic Alignment
+10 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 12 =====
+The following table provides a definition of the building blocks of “strategic alignment”:
+Domain Building Block Definition
+Long-term objective that the entity seeks to achieve, as it describes a
+Vision
+future state or benefit that reflects the entity’s ambition
+Main purpose and object of the entity’s existence, in addition to the
+Mission
+main values and activities of the entity to help realize the vision
+Performance levels, deliverables, and results that the entity seeks to
+Objective achieve within a specified period of time in line with the entity’s
+vision and mission
+Specific domains of interest to support the achievement of the entity’s
+Pillar objectives by identifying business priorities and directing available
+Strategic
+resources and capabilities
+Alignment
+Logical grouping of a set of projects and programs that are relevant to
+Initiative a specific scope within the entity’s strategic directions to achieve its
+strategic objectives
+Set of activities and tasks that are accomplished during a specific
+Project period of time using specific resources such as time, money, and
+human resources, and is executed to achieve a specific objective
+Scale used to assess the extent of success or progress in achieving the
+Key Performance
+approved objectives or to calculate the efficiency of executing a
+Indicator
+specific task based on a mathematical formula and specific inputs
+11 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 13 =====
+5.3.1.2 Attributes of “Strategic Alignment” Artifacts
+The following tables detail the attributes of the building blocks of “strategic alignment”:
+5.3.1.2.1 Building Block - “Vision”
+# Attribute Attribute Description Attribute Type
+Text of the vision statement for the
+organizational unit’s strategy in a
+1 Vision Statement specific domain (e.g.: Business Text
+Strategy, Digital Transformation
+Strategy, Cyber Security Strategy)
+Determine the scope of work that
+the vision seeks to achieve (e.g.:
+2 Scope of the Vision specific domain of work, technical Text
+domain, data domain, business
+domain)
+5.3.1.2.2 Building Block - “Mission”
+# Attribute Attribute Description Attribute Type
+Text of the mission statement for
+the organizational unit’s strategy in
+1 Mission Statement a specific domain (e.g.: Business Text
+Strategy, Digital Transformation
+Strategy, Cyber Security Strategy)
+Determine the scope of work that
+2 Scope of the Mission Text
+the mission seeks to achieve (e.g.:
+12 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 14 =====
+specific domain of work, technical
+domain, data domain, business
+domain)
+5.3.1.2.3 Building Block - “Objective”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the objective Letters and/or numbers
+2 Name Name for the strategic objective Text
+3 Description Brief description of the objective Text
+Description of the type of objective
+4 Type (e.g.: strategic objective, List
+operational objective)
+5.3.1.2.4 Building Block - “Pillar”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the pillar Letters and/or numbers
+2 Name Name for the pillar Text
+3 Description Brief description of the pillar Text
+13 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 15 =====
+5.3.1.2.5 Building Block - “Initiative”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the Initiative Letters and/or numbers
+2 Name Name for the Initiative Text
+Description of the objective and
+3 Description Text
+scope of the initiative
+Description of the initiative type
+4 Type (e.g.: strategic initiative, technical Predefined list
+initiative, operational initiative)
+Organizational unit/ Position that
+5 Owner of the Initiative Text
+owns the initiative
+6 Start Date Initiative execution start date Date
+Initiative execution completion
+7 Completion Date Date
+date
+Financial amount allocated to the
+8 Budget Number
+execution of the initiative
+5.3.1.2.6 Building Block - “Project”
+# Attribute Attribute Description Attribute Type
+14 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 16 =====
+1 Code Approved code for the project Letters and/or numbers
+2 Name Project name Text
+Description of the objective and
+3 Description Text
+scope of the project
+Description of the project scope of
+4 Project Scope of Work Text
+work
+5 Project Sponsor Name of the project sponsor Text
+6 Project Owner Department that owns the project Text
+7 Project Manager Name of the Project Manager Text
+8 Project Deliverables Description of project deliverables Text
+Description of the project execution
+9 Status of the Project status (e.g.: scheduled, active, Predefined list
+suspended, cancelled)
+Determine the type of entity
+responsible for executing the
+10 Entity in Charge of Execution Predefined list
+project (e.g.: in-house execution,
+outsourced execution, etc.)
+11 Start Date Project task execution start date Date
+15 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 17 =====
+Project task execution completion
+12 Completion Date Date
+date
+Financial amount allocated to the
+13 Budget execution of the project scope of Number
+work
+Currency used to define the budget
+14 Currency Predefined list
+(e.g.: Saudi Riyal, US Dollar)
+Determine the project execution
+15 Priority priority (e.g.: high priority, medium Predefined list
+priority, low priority)
+5.3.1.2.7 Building Block - “Key Performance Indicator”
+# Attribute Attribute Description Attribute Type
+Approved code for the key
+1 Code Letters and/or numbers
+performance indicator
+2 Name Indicator name Text
+3 Description Brief description of the indicator Text
+Determine the level that the
+4 Indicator Level indicator measures (e.g.: strategic, Predefined list
+operational)
+5 Calculation Formula Indicator calculation formula Text
+16 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 18 =====
+Source of the data needed to
+6 Data Source Text
+calculate the indicator
+Specify the period over which the
+7 Measurement Periodicity indicator is measured (e.g.: daily, Predefined list
+monthly, quarterly)
+Specify the unit in which the
+8 Measurement Unit indicator value is calculated (e.g.: Predefined list
+percentage, number)
+Specify the desired direction of the
+9 Polarity of Measurement indicator value (ascending, Predefined list
+descending)
+Determine the actual indicator
+10 Actual Indicator Value Number
+value
+Date of the Last Indicator Specify the date of the last indicator
+11 Date
+Measurement measurement
+12 Baseline Value Determine the baseline value Number
+Baseline Value Calculation Specify the baseline value
+13 Date
+Date calculation date
+14 Target Value Determine the target value Number
+Date for Specifying the Target Date for specifying the new target
+15 Date
+Value value for the indicator
+17 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 19 =====
+5.3.1.3 Connections of the “Strategic Alignment” Artifacts
+The following figure illustrates the connections between the building blocks of the “strategic alignment”
+artifacts and the various building blocks in other domains:
+Figure (4): Connections of building blocks of “strategic alignment” artifacts
+The following table explains the details of these connections:
+Building Description of the
+# Domain Connection Building Block Domain
+Block Connection
+Explaining the connection
+1 Leads between the entity’ vision Mission
+and the entity’s mission
+Strategic Strategic
+Vision
+Alignment Alignment
+Defining the vision that
+2 Contributes contributes to realization of Vision
+another vision
+18 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 20 =====
+Identifying the
+organizational unit that Organizational Business
+3 Owned
+supports the realization of Unit Architecture
+the vision
+Determining the mission
+that contributes to the
+4 Contributes Vision
+realization of the entity’s
+approved vision
+Identifying the mission that
+Strategic
+5 Mission Contributes contributes to achieving Mission
+Alignment
+another mission
+Determining the link
+between the entity’s
+6 Translates to Objective
+mission and the objectives
+that embody the mission
+Determining the link
+between the objective and
+7 Belongs to the strategic pillars, where Pillar
+each objective belongs to at
+least one pillar
+Identifying the objective Strategic
+Objective
+that contributes to the Alignment
+8 Contributes Objective
+achievement of another
+objective
+Identifying the initiative
+Achieved
+9 that contributes to Initiative
+through
+achieving an objective
+19 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 21 =====
+Determining the
+relationship between the
+objectives and the entity’s
+10 Contributes mission, as each defined Mission
+objective must contribute to
+achieving the entity’s
+mission
+Identifying the
+organizational units that are Organizational Business
+11 Belongs to
+ultimately accountable for Unit Architecture
+achieving the objective
+Identifying key performance
+indicators related to Key
+Strategic
+12 Measured measuring the success of Performance
+Alignment
+each of the approved Indicator
+objectives
+Identifying a set of
+initiatives that contribute to
+13 Contains Initiative
+building and activating the
+pillar
+Strategic
+Pillar
+Alignment
+Determining the pillar’s
+contribution to achieving
+14 Contains Objective
+one or more of the entity’s
+objectives
+Identifying the projects
+15 Contains Project
+included in the initiative
+Strategic
+Initiative
+Alignment
+Identifying initiatives linked
+16 Contributes to Pillar
+to strategic pillars
+20 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 22 =====
+Determining the objective
+17 Achieves that the initiative seeks to Objective
+achieve
+Identifying the
+organizational unit that Organizational Business
+18 Belongs to
+supervises or owns the Unit Architecture
+approved initiatives
+Measuring the success of
+Key
+each initiative using an Strategic
+19 Measured Performance
+approved key performance Alignment
+Indicator
+indicator
+Identifying the
+organizational unit
+Organizational
+20 Owned responsible for
+Unit
+implementing the project as
+Business
+the project business owner
+Architecture
+Determining if the project is
+Organizational
+21 Executed by executed internally by an
+Unit
+organizational unit
+Project Identifying the strategic
+22 Falls under initiative under which the Initiative
+project falls
+Strategic
+Alignment
+Identifying key performance Key
+23 Measured indicators that measure Performance
+project success Indicator
+Determining if the project is
+Service Business
+24 Executed by being executed by a service
+Provider Architecture
+provider
+21 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 23 =====
+Identifying the objective
+25 Measures associated with the key Objective
+performance indicator
+Identifying the initiative
+whose success or progress
+26 Measures Initiative
+rate is measured by the key
+performance indicator
+Identifying the project
+whose success or progress
+Strategic
+27 Measures Project
+rate is measured by the key
+Alignment
+performance indicator
+Determining the link
+between the operational
+Key indicator and a strategic
+Key
+performance indicator, as each strategic
+28 Linked Performance
+indicator performance indicator must
+Indicator
+be associated with one or
+more operational
+performance indicators
+Specifying the indicator that
+Organizational
+29 Belongs to belongs to a defined
+Unit
+organizational unit
+Determining the indicator
+30 Measures that measures the efficiency Service Business
+of the defined service Architecture
+Identifying the indicator
+that measures the efficiency Business
+31 Measures
+of the defined business Process
+process
+22 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 24 =====
+23 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 25 =====
+5.3.2 Artifacts of the “Business Architecture” Domain
+5.3.2.1 Definition of the “Business Architecture” Artifacts
+The following figure illustrates the building blocks of the “business architecture” domain:
+Figure (5): Building blocks of the business architecture domain
+The following table provides a definition of the building blocks of the “business architecture” domain:
+Domain Building Block Definition
+Strategic and operational capabilities that distinguish the entity and
+enable it to achieve its objectives. Capabilities include an integrated set
+Business Capability
+of aspects such as skills, knowledge, technologies, financial resources,
+and connections
+Part of the entity’s organizational structure and has specific mandates
+to execute, where the group of organizational units represents the
+Organizational Unit
+Business
+final organizational structure of the entity. The organizational unit may
+Architecture
+consist of a number of sub-organizational units
+Any external entity or individual participating in the execution of the
+Service Provider entity’s business or services within a joint business agreement that
+specifies the mandates and responsibilities of each party
+Value that the entity (or the organizational unit) provides to the
+Service
+beneficiary through the execution of a set of activities or processes
+24 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 26 =====
+Logical set of interrelated business processes that serve one or more
+Processes Group
+specific business capabilities
+Series of steps or activities carried out by an individual or a group of
+Business Process individuals in order to achieve a specific objective or result, depending
+on the level of detail, to document the process
+Final deliverable resulting from the successful execution of an activity
+Product or from providing a service successfully. The product may be a tangible
+or digital commodity
+Organizational structure of the mandates and responsibilities of the
+Position
+entity’s employees in the context of their work at the entity
+Behavior that a specific position embodies when contributing to the
+Role execution of a specific process or service. The position can have
+several different roles
+Regulatory framework that defines the principles and controls that
+must be followed when executing the mandates and the business. It
+Policy
+provides illustrative guidelines for the scope of work of an
+organizational unit
+Template used when providing services or executing business
+Model/Template
+processes that is a logical container for collecting the required data
+Activity Details the mechanism for executing a specific process
+25 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 27 =====
+5.3.2.2 Attributes of the Artifacts of the “Business Architecture” Domain
+The following tables detail the attributes of the building blocks of the “business architecture” domain:
+5.3.2.2.1 Building Block - “Business Capability”
+# Attribute Attribute Description Attribute Type
+1 Name Capability name Text
+2 Description Brief description of the capability Text
+Determining the type of capability
+3 Capability Type Predefined list
+(strategic, operational, supporting)
+Determining the level of maturity
+of the capability in terms of its
+4 Capability Maturity Level activation (e.g.: high maturity Predefined list
+capability, medium maturity
+capability, low maturity capability)
+5.3.2.2.2 Building Block - “Organizational Unit”
+# Attribute Attribute Description Attribute Type
+1 Name Organizational unit name Text
+Description of the objective and
+2 Description Text
+scope of the organizational unit
+Determining the administrative
+3 Type Predefined list
+type that the organizational unit
+26 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 28 =====
+represents (e.g.: ministry, authority,
+agency, sector, public
+administration, department)
+Organizational affiliation with the
+4 Organizational Dependency highest organizational unit in the Text
+entity’s organizational structure
+Listing the mandates of the
+5 Mandates Text
+organizational unit
+Describing the geographic location
+6 Geographic Location Text
+of the organizational unit
+5.3.2.2.3 Building Block - “Service Provider”
+# Attribute Attribute Description Attribute Type
+1 Name Service provider name Text
+Description of the service provider’s
+2 Description Text
+objective and scope of work
+Specifying the type of contractual
+relationship (e.g.: external partner,
+authorized service provider, service
+Type of Contractual
+3 provider, technical solutions and Predefined list
+Relationship
+hardware provider, security
+solutions and hardware provider,
+etc.)
+27 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 29 =====
+Listing of all services provided by
+4 Services Provided Text
+the provider to the entity
+Determining the status of
+5 Service Provider Status interaction with the service Predefined list
+provider (e.g.: active, inactive)
+Shows the status of compliance
+with legal and regulatory
+requirements, as well as adherence
+to regulatory policies and
+standards. It also shows any
+6 Compliance and Certifications Predefined list
+certifications or accreditation that
+the provider holds (e.g.: ISO
+certification, industry-specific
+certifications, and compliance
+certifications)
+Defines the provider’s
+specialization classification (e.g.:
+7 Field of Activity technology solutions, security Predefined list
+solutions, hardware provider, or
+service provider)
+Expresses observations about the
+nature and status of relationships
+8 Relationship Status with the supplier, including Predefined list
+strategic partnerships and previous
+dealings
+28 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 30 =====
+Geographic locations of the
+headquarters of the provider or key
+operations, which impact the
+9 Geographic Location Predefined list
+logistical considerations and
+regulatory compliance of technical
+and security solutions.
+5.3.2.2.4 Building Block - “Service”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the service Letters and/or numbers
+2 Name Service name Text
+Description of the objective and
+3 Description Text
+scope of the service
+Determining the service
+4 Classification classification by type (e.g.: core Predefined list
+service, sub-service)
+Determining the type of service
+provided by the entity by business
+5 Service Type Predefined list
+capabilities (e.g.: administrative -
+core - supporting)
+Geographic coverage of service
+provision (e.g.: within specific areas,
+6 Geographic Coverage Predefined list
+all areas of the Kingdom,
+inside/outside the Kingdom)
+29 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 31 =====
+Determining the level of
+automation of the service execution
+7 Automation Level Predefined list
+steps (e.g.: fully automated,
+partially automated, manual)
+Determining the type of service
+8 Type of Beneficiary beneficiary (e.g.: government Predefined list
+entity, private sector, individual)
+Requirements for Obtaining the Requirements for completing
+9 Text
+Service service execution
+Brief description of the service
+10 Service Execution Steps Text
+execution steps
+Number of days required to execute
+11 Service Level Agreement (SLA) Number
+the service
+12 Service Input List of service inputs Text
+13 Service Deliverable List of service deliverables Text
+List of entities participating in or
+Entities Participating in Service
+14 relevant to the execution of service Text
+Provision
+activities
+Determining the status of service
+15 Service Status Predefined list
+provision (e.g.: active, inactive)
+30 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 32 =====
+Measurement KPI associated with
+16 Key Performance Indicator Text
+the defined service
+The specified financial amount in
+17 Service Fees Number
+exchange for providing the service
+Approximate number of
+18 Rate of Applications Number
+applications for the service
+19 Feedback Feedback on the service Text
+5.3.2.2.5 Building Block - “Processes Group”
+# Attribute Attribute Description Attribute Type
+Approved code for the processes
+1 Code Letters and/or numbers
+group
+2 Name Group name Text
+Description of the objective and
+3 Description Text
+scope of the group
+Processes group type (e.g.: core,
+4 Type Predefined list
+administrative, supporting)
+5.3.2.2.6 Building Block - “Business Process”
+# Attribute Attribute Description Attribute Type
+31 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 33 =====
+Approved code for the business
+1 Code Letters and/or numbers
+process
+2 Name Business process name Text
+Description of the objective and
+3 Description Text
+scope of the business process
+Identifying the owner of the
+4 Owner Text
+process
+Determining process classification
+5 Process Classification by type (e.g.: core process, sub- Predefined list
+process)
+Determining the type of business
+process by business capabilities
+6 Type Predefined list
+(e.g.: core, administrative,
+supporting)
+Specifying the type of process
+7 Type of Beneficiary beneficiary (e.g.: government Predefined list
+entity, private sector, individual)
+Agreement on the Timeline for Agreed timeline for executing the Number/unit of measurement
+8
+Process Execution business process of time (e.g.: hour, day)
+Description of the business process
+9 Launch Event Text
+launch event
+List of the execution steps of the
+10 Process Execution Steps Text
+business process
+32 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 34 =====
+11 Process Inputs List of business process inputs Text
+List of business process
+12 Process Deliverables Text
+deliverables
+Requirements for completing the
+13 Business Rules Text
+execution of the business process
+List of entities participating in the
+14 Participating Entities Text
+execution of the business process
+Determining the level of
+automation of the business process
+15 Automation Level execution steps (e.g.: fully Predefined list
+automated, partially automated,
+manual)
+5.3.2.2.7 Building block - “Activity”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the activity Letters and/or numbers
+2 Name Activity name Text
+Description of the objective and
+3 Description Text
+scope of the activity
+Agreement in the Timeline for Agreed timeline for executing the Number/unit of measurement
+4
+Executing the Activity activity of time (e.g.: hour, day)
+5 Activity Inputs List of activity inputs Text
+33 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 35 =====
+6 Activity Deliverables List of activity deliverables Text
+Determining the level of
+automation of activity execution
+7 Automation Level Predefined list
+(e.g.: fully automated, partially
+automated, manual)
+5.3.2.2.8 Building Block - “Product”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the product Letters and/or numbers
+2 Name Product name Text
+Description of the objective and
+3 Description Text
+scope of the product
+Specifying the product type (e.g.:
+4 Product Type physical product, technical product, Predefined list
+document)
+Organizational unit/ Position that
+5 Product Owner Text
+owns the product
+Targeted segment to benefit from
+6 Beneficiary Text
+the product
+5.3.2.2.9 Building Block - “Position”
+# Attribute Attribute Description Attribute Type
+34 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 36 =====
+Name of the position approved at
+1 Name Text
+the entity (position)
+Description of the objective and
+2 Description Text
+scope of work of the position
+Description of the mandates and
+3 Mandates of the Position Text
+responsibilities of the position
+Description of core position
+4 Position Qualifications Text
+qualifications
+Grade related to the defined
+5 Grade Text
+position
+5.3.2.2.10 Building Block - “Role”
+# Attribute Attribute Description Attribute Type
+1 Name Role name Text
+Description of the objective and
+2 Description Text
+scope of the role
+Specifying the role type (e.g.: core
+3 Role Type Predefined list
+role, supporting role)
+5.3.2.2.11 Building Block - “Policy”
+# Attribute Attribute Description Attribute Type
+35 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 37 =====
+1 Code Approved code for the policy Letters and/or numbers
+2 Name Policy name Text
+Description of the objective and
+3 Description Text
+scope of the policy
+Organizational unit/ Position that
+4 Owner Text
+owns the policy
+Specifying the policy type (e.g.:
+5 Type Predefined list
+internal, external (governmental))
+Specifying the policy status (e.g.:
+6 Status Predefined list
+activated, suspended, cancelled)
+7 Policy Activation Date Effective date of the policy Date
+8 Policy Link Specifying the policy file link Link
+5.3.2.2.12 Building Block - “Model/Template”
+# Attribute Attribute Description Attribute Type
+Approved code for the
+1 Code Letters and/or numbers
+model/template
+2 Name Name of the model/template Text
+36 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 38 =====
+Brief description of the
+3 Description Text
+model/template
+Specifying the template type (e.g.:
+service delivery template, data
+4 Type Predefined list
+collection template, guide
+template, policy template)
+Specifying the location for storing
+5 Link Link
+the model
+37 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 39 =====
+5.3.2.3 Connections of the artifacts of the “business architecture” Domain
+The following figure shows the connections of the building blocks of the “business architecture” domain with
+building blocks in various domains:
+Figure (6): Connections of the building blocks of the business architecture domain
+The following table explains the details of these connections:
+Description of the
+# Domain Building Block Connection Building Block Domain
+Connection
+Determining the
+Business Business Achieved business capability Organizational Business
+1
+Architecture Capability Through achieved by a defined Unit Architecture
+organizational unit
+38 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 40 =====
+Determining the
+Implemented business capability that
+2 Processes Group
+Through is implemented through
+a processes group
+Determining the
+Data
+3 Owns business capability that Data Entity
+Architecture
+contains a data entity
+Identifying the unit
+responsible for
+4 Owns Vision
+achieving the defined
+vision
+Identifying the unit
+responsible for
+5 Owns Objective
+achieving the defined
+objective
+Identifying the unit
+responsible for
+6 Organizational Owns Initiative Strategic
+achieving the objective
+Unit Alignment
+of the defined initiative
+Identifying the unit
+responsible for
+7 Owns Project
+achieving the objective
+of the defined project
+Identifying the
+organizational unit
+8 Executed responsible for Project
+executing the defined
+project
+39 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 41 =====
+Identifying the unit
+responsible for the Business Business
+9 Owns
+defined business Capability Architecture
+capability
+Identifying the unit
+responsible for Business
+10 Owns Service
+executing work related Architecture
+to the service
+Identifying the unit
+responsible for Key
+Strategic
+11 Owns measuring the Performance
+Alignment
+performance of the Indicator
+business indicator
+Specifying which
+Data
+12 Owns organizational unit Data Entity
+Architecture
+owns data entities
+Identifying the
+organizational unit that
+13 Contains Position
+contains defined job
+positions
+Identifying the
+Enters Into organizational unit that Business
+14 Contracts enters into contracts Service Provider Architecture
+With with a specific service
+provider
+Identifying the
+Organizational
+15 Interacts With organizational unit that
+Unit
+reports to/or interacts
+40 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 42 =====
+with other
+organizational units
+Identifying the service
+provider linked to the Organizational
+16 Linked
+business of an Unit
+organizational unit
+Business
+Architecture
+Identifying the service
+provider that
+17 Contributes To Service
+Service Provider contributes to the
+provision of the service
+Identifying the service
+provider that
+Strategic
+18 Contributes To contributes to the Project
+Alignment
+execution of project
+mandates
+Specifying a service that
+Organizational
+19 Owned By is owned by an
+Unit
+organizational unit
+Business
+Determining the service
+Architecture
+Provided that is provided through
+20 Business Process
+Through the execution of a
+business process
+Service
+Determining the service Beneficiary
+21 Provided To provided to a Beneficiary Experience
+beneficiary Architecture
+Determining the service
+Provided Business
+22 that is provided by a Service Provider
+Through Architecture
+service provider
+41 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 43 =====
+Specifying which
+23 Uses service uses the defined Model/Template
+model/template
+Determining the service
+Key
+whose efficiency is Strategic
+24 Measured Performance
+measured by a key Alignment
+Indicator
+performance indicator
+Identifying the service Business
+25 Produces Product
+that produces a product Architecture
+26 Defining the service
+Applications
+Automated that is automated using Application
+Architecture
+27
+a defined application
+Defining a processes
+group that consists of
+28 Consists of Business Process
+one or more business
+processes
+Specifying the group Business
+Processes Group
+29 Executed By that is being executed Position Architecture
+by a position
+Identifying a processes
+Business
+30 Achieves group that achieves a
+Capability
+business capability
+Specifying the business
+31 Belongs To process that belongs to Processes Group
+a processes group
+Business
+Business Process
+Architecture
+Specifying the business
+32 Executed process that executes a Service
+service
+42 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 44 =====
+Identifying the business
+33 Uses process that uses a Model/Template
+model/template
+Specifying the business
+34 Executed By process that is executed Role
+by a defined role
+Specifying the process
+Governed
+35 that governs through a Policy
+Through
+defined policy
+Identifying the business
+Key
+process that is Strategic
+36 Measured Performance
+measured by a key Alignment
+Indicator
+performance indicator
+Identifying the business
+37 Produces process that produces a Product
+product
+Business
+Architecture
+Identifying the business
+Provided
+38 process that is provided Activity
+Through
+through an activity
+Defining the business
+process that is Applications
+39 Automated Application
+automated through an Architecture
+application
+Identifying the activity
+Business
+40 Activity Belongs To that belongs to a Business Process
+Architecture
+business process
+43 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 45 =====
+Determining the activity
+41 Executed By that is executed by a Role
+role
+Determining the activity
+Governs
+42 that is governed Policy
+Through
+through a policy
+Specifying the product
+43 Deliverable that is the deliverable of Service
+a service
+Business
+Architecture
+Specifying the product
+44 Deliverable that is the deliverable of Business Process
+a business process
+Determining the Beneficiary
+45 Provided To product that is provided Beneficiary Experience
+Product
+to a beneficiary Architecture
+Specifying the product
+Provided that is provided through Organizational Business
+46
+Through a defined organizational Unit Architecture
+unit
+Determining the
+Provided Applications
+47 product that is provided Application
+Through Architecture
+through an application
+Identifying the position
+48 Provided that provides a Processes Group
+Business
+Position processes group
+Architecture
+Identifying the position
+49 Executed Role
+that has one or more
+44 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 46 =====
+roles in executing the
+process
+Identifying the position
+Organizational
+50 Belongs To that belongs to an
+Unit
+organizational unit
+Determining the role
+Represented
+51 represented by a Position
+By
+position
+Determining the role
+Business
+52 Performs that will perform the Business Process
+Architecture
+business process
+Determining the role
+53 Performs that will perform an Activity
+Role
+activity
+Defining the role
+responsible for data
+entities (through a
+Responsible Data
+54 Business Data Data Entity
+For Architecture
+Administrator and a
+Business Data
+Specialist)
+Determining the policy
+that governs the Business
+55 Governs Business Process
+execution of the Architecture
+business process
+Policy
+Specifying the policy
+Data
+56 Applies To that applies to the data Data Entity
+Architecture
+entity
+45 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 47 =====
+Specifying a
+model/template, which
+Input / shall be an
+57 Service
+Deliverable input/deliverable in the
+completion of the work
+related to the service
+Business
+Architecture
+Specifying a
+Model/Template model/template that is
+Input / the input/deliverable in
+58 Business Process
+Deliverable the execution of
+business process
+activities
+A model/template uses
+Data
+59 Uses one or more data Data Entity
+Architecture
+entities
+5.3.3 Artifacts of the “Beneficiary Experience Architecture” Domain
+5.3.3.1 Definition of the Artifacts of the “Beneficiary Experience Architecture” Domain
+The following figure illustrates the core building blocks of the “beneficiary experience architecture” domain:
+Figure (7): Building blocks of the beneficiary experience architecture
+The following table provides a definition of the building blocks of the “beneficiary experience architecture”
+domain:
+46 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 48 =====
+Domain Building Block Definition
+Any individual or entity that benefits from the services provided by the
+Beneficiary
+entity (or an organizational unit within the entity)
+Mechanism of interaction between the beneficiary and the entity during
+Beneficiary Journey
+all phases of service provision
+Beneficiary Representative sample of a group or segment of beneficiaries who
+Persona
+Experience share common objectives, needs, experiences, and behaviors
+Architecture
+Set of approved steps within a clear time frame that the beneficiary
+Phase goes through while dealing with the entity in order to obtain a service
+or achieve a value
+Step that the beneficiary takes or interacts with during each phase of
+Step
+their journey with the entity
+5.3.3.2 Attributes of the artifacts of the “beneficiary experience architecture” domain
+The following tables detail the attributes of the building blocks of the “beneficiary experience architecture”
+domain:
+5.3.3.2.1 Building Block - “Beneficiary”
+# Attribute Attribute Description Attribute Type
+Name of the beneficiary of the
+1 Name service or added value obtained Text
+from dealing with the entity
+Brief description of the defined
+2 Description Text
+beneficiary
+47 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 49 =====
+Specifying the type of beneficiary
+3 Type (internal beneficiary, government Predefined list
+entity, business sector, individuals)
+5.3.3.2.2 Building Block - “Beneficiary Journey”
+# Attribute Attribute Description Attribute Type
+Approved code for the beneficiary
+1 Code Letters and/or numbers
+journey
+Description of the beneficiary
+2 Description journey and its interaction with the Text
+provided services
+Description of the objective of the
+3 Objective Text
+beneficiary journey
+5.3.3.2.3 Building Block - “Persona”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the persona Letters and/or numbers
+Name that denotes a persona
+2 Name Text
+specific to a group of beneficiaries
+Description of the beneficiaries’
+persona showing their types,
+3 Description Text
+objectives, and common
+characteristics
+48 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 50 =====
+Description of the objectives of the
+4 Objectives Text
+beneficiaries’ persona
+Description of the demographic
+5 Demographic Information information of the beneficiaries’ Text
+persona
+5.3.3.2.4 Building Block - “Phase”
+# Attribute Attribute Description Attribute Type
+Approved code for the phase of the
+1 Code Letters and/or numbers
+beneficiary journey
+Name of the phase of the
+2 Name Text
+beneficiary journey
+High-level explanation of the phase
+3 Description Text
+of the beneficiary journey
+5.3.3.2.5 Building Block - “Step”
+# Attribute Attribute Description Attribute Type
+Approved code for the step within
+1 Code Letters and/or numbers
+the beneficiary journey phase
+Name of the step within the
+2 Name Text
+beneficiary journey phase
+Description of the gaps associated
+3 Associated Gaps with the step within the beneficiary Text
+journey phase
+49 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 51 =====
+Description of opportunities for
+Opportunities for improvement associated with the
+4 Text
+Improvement step within the beneficiary journey
+phase
+Expected impact of implementing
+5 Expected Impact opportunities for improvement on Text
+the beneficiary experience
+Determining the priority level of
+6 Priority Text
+the opportunity for improvement
+Communication channels
+associated with each step (e.g.:
+digital platforms, smartphone apps,
+7 Communication Channel Predefined list
+social media platforms, traditional
+channels such as e-mail, field visits,
+telephone calls)
+50 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 52 =====
+5.3.3.3 Connections of the Artifacts of the “Beneficiary Experience Architecture” Domain
+The following figure shows the connections of the building blocks of the “beneficiary experience” domain
+with building blocks in various domains:
+Figure (8): Connections of the building blocks of the beneficiary experience architecture domain
+The following table explains the details of these connections:
+Building Description of the
+# Domain Connection Building Block Domain
+Block Connection
+Benefits Identifying services related
+1 Service
+From to the beneficiary
+Identifying the service
+Beneficiary Interacts Service
+2 provider and their interaction Business
+Experience Beneficiary With Provider
+with the beneficiary Architecture
+Architecture
+Identifying the organizational
+Interacts Organizational
+3 unit and its interaction with
+With Unit
+the beneficiary
+51 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 53 =====
+Identifying the persona that
+Beneficiary
+represents the type and
+4 Represents Persona Experience
+specifications of a group of
+Architecture
+beneficiaries
+The beneficiary journey
+5 Includes Phase
+includes several phases
+Beneficiary
+Beneficiary
+Experience
+The beneficiary journey
+Journey
+Architecture
+6 Belongs To manages the interactions Persona
+with the persona
+7 Determining the type and
+specifications of the group of
+Represents Beneficiary
+beneficiaries represented by
+8 Beneficiary
+the persona
+Persona Experience
+Architecture
+The persona owns the
+Beneficiary
+9 Owns journey of one or more
+Journey
+beneficiaries
+Identifying the steps involved
+10 Step Part Of in one of the phases of the Phase
+beneficiary journey
+Beneficiary
+Identifying the phases that
+Beneficiary Experience
+11 Constitutes together constitute the
+Journey Architecture
+beneficiary journey
+Phase
+Identifying the phases that
+12 Includes Step
+include a list of steps
+52 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 54 =====
+5.3.4 Artifacts of the “Data Architecture” Domain
+5.3.4.1 Definition of the Artifacts of the “Data Architecture” Domain
+The following figure illustrates the core building blocks of the “data architecture” domain:
+Figure (9): Building blocks of the data architecture domain
+The following table provides a definition of the building blocks of the “data architecture” domain:
+Domain Building Block Definition
+A data entity represents a set of data that share the same characteristics
+Data Entity and have similar behaviors. They are elements used to represent the
+entity’s activity in a service, business, or process
+Information about the storage and saving locations of electronic or
+Data Vault
+paper data, including structured, semi-structured, and unstructured data
+Data Attributes Set of common artifacts that, together, form a data entity
+5.3.4.2 Attributes of the Artifacts of the “Data Architecture” Domain
+The following tables detail the attributes of the building blocks of the “data architecture” domain:
+5.3.4.2.1 Building Block - “Data Entity”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the data entity Letters and/or numbers
+53 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 55 =====
+2 Name Common name for the data entity Text
+Textual description of the data
+3 Description Text
+entity
+Identifying the organizational units
+and applications that benefit from
+4 Key Internal Beneficiaries the data entity within the entity, Text
+whether as an application or as an
+organizational unit
+Identifying the key beneficiaries of
+the data entity outside the entity,
+5 Key External Consumers Text
+whether as an application or an
+external party
+Name of the data source from
+6 Data Source which the core data entity is Text
+created
+Classification for defining the
+parameters of the data entity
+7 Storage Classification Predefined list
+storage location (possibility of
+storing data outside the Kingdom)
+Classification of data entities
+according to their storage structure
+8 Structure Classification Predefined list
+(structured, semi-structured,
+unstructured data)
+54 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 56 =====
+Defining business rules associated
+9 Data Business Rules Text
+with the use of the data entity
+Determining security measures and
+controls in line with the entity’s
+10 Security Controls Text
+approved controls (e.g. data
+encryption, data obfuscation)
+Determining the rules regarding
+the duration of data storage
+11 Data Storage Rules according to the requirements of Text
+the controls for data storage and
+recovery at the entity
+Classification for defining the use of
+a data entity according to the
+policies of the National Data
+12 Data Entity Classification Predefined list
+Management Office (strictly
+confidential, confidential,
+restricted, public)
+5.3.4.2.2 Building Block - “Data Vault”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the data vault Letters and/or numbers
+2 Name Name of data vault Text
+Description of the structure and
+3 Description Text
+functions of the data vault
+55 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 57 =====
+Specifying the data vault type (e.g.:
+4 Type electronic database, digital archive, Predefined list
+paper archive)
+Specifying the structure type of
+5 Structure data entities stored in the data Text
+vault
+5.3.4.2.3 Building Block - “Data Attributes”
+# Attribute Attribute Description Attribute Type
+1 Name Data attribute name Text
+2 Description Data attribute description Text
+Specifying the data attribute type
+according to the main database
+3 Type Predefined list
+design specifications (e.g.: numbers,
+text, image, date)
+Identifying and defining quality
+rules for data attribute values such
+as (mandatory value, custom field
+4 Quality Rules length, field type) and other custom Text
+rules (e.g.: the value must not
+exceed a certain number, and the
+date must not be in the past)
+Classification according to the data
+5 Classification policy and the level of Predefined list
+confidentiality of the data entity
+56 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 58 =====
+attributes according to the
+classification of the Data
+Management and Governance
+Policy and in accordance with the
+level of impact resulting from
+accessing the data (strictly
+confidential, confidential,
+restricted, public)
+5.3.4.3 Connections of the Artifacts of the “Data Architecture” Domain
+The following figure illustrates the connections of the artifacts of the “data architecture” domain with various
+artifacts in other domains:
+Figure (10): Connections of building blocks of the data architecture domain
+The following table explains the details of these connections:
+57 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 59 =====
+Building Description of the
+# Domain Connection Building Block Domain
+Block Connection
+Identifying the core
+Described
+2 attributes that describe Data Attributes
+Through
+the data entity
+Data Architecture
+Specifying the location
+3 Stored In Data Vault
+for storing data entities
+Defining the
+responsibility for
+identifying, managing,
+updating, and
+maintaining data
+4 Responsibility Role
+entities for the role of
+“Business Data
+Data Data Administrator” and
+Architecture Entity “Business Data
+Specialist”
+Business
+Determining the data
+Architecture
+policies that govern
+data entities in
+5 Subject To accordance with the Policy
+terms of the data
+policies and their
+related requirements
+Identifying the
+association of data Business
+6 Linked To
+entities with a specific Capability
+business capability
+58 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 60 =====
+Determining the
+organizational unit’s Organizational
+7 Linked To
+ownership of the data Unit
+entity
+Identifying data entities
+that constitute a model
+8 Constitutes Model/Template
+for business processes
+or services
+Specifying the
+Applications
+9 Used In application that deals Application
+Architecture
+with the data entity
+Identifying the core
+Data data entity attributes
+10 Describes Data Entity Data Architecture
+Attributes that describe data
+entities
+Defining the
+12 Contains association of the data Data Entity Data Architecture
+vault with data entities
+Identifying the
+technical equipment
+13 Hosted In Storage
+Data Vault that hosts the data
+vault
+Technology
+Architecture
+Identifying the
+technical equipment
+14 Hosted Server
+that hosts the data
+vault
+59 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 61 =====
+Identifying the security
+Provided Security
+15 hardware that secures
+Through Hardware
+the data vault
+Identifying the security
+Provided Security
+16 software that secures Security Architecture
+Through Software
+the data vault
+Specifying the security
+Provided
+17 service that secures the Security Service
+Through
+data vault
+5.3.5 Artifacts of the “Applications Architecture” Domain
+5.3.5.1 Definition of the Artifacts of the “Applications Architecture” Domain
+The following figure illustrates the building blocks of the “applications architecture” domain
+Figure (11): Building blocks of the applications architecture domain
+The following table provides a definition of the building blocks of the “applications architecture” domain:
+Domain Building Block Definition
+Software or technical tool designed to perform specific functions
+Applications Application
+directly for the user by executing the stages of the software life cycle
+60 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 62 =====
+Set of basic multi-functional software modules where each module is a
+Application Module distinct and separate unit that can perform a unique function or a set of
+related functions within the application
+More specific and precise task or process performed by the application.
+Application Function It is usually executed as a function in the program. The function is a set
+of software processes that perform a specific task
+Technical interface point that is used by the application to either
+Technical Integration
+exchange data, automate the technical interconnection between
+Interface
+functions and procedures, or manage the flow of events
+61 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 63 =====
+5.3.5.2 Attributes of the Artifacts of the “Applications Architecture” Domain
+The following tables detail the attributes of the building blocks of the “applications architecture” domain:
+5.3.5.2.1 Building Block - “Application”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the application Letters and/or numbers
+The name of the application that is
+2 Name commonly known and used at the Text
+entity
+Description of the objectives and
+3 Description nature of the functions provided by Text
+the application
+Determining the layer to which the
+application belongs (access layer,
+core business applications layer,
+supporting applications layer, data
+4 Layer Predefined list
+applications layer, infrastructure
+applications layer, integration
+applications layer, and information
+security applications layer)
+Identifying the source of
+5 Development Source application development (internal, Predefined list
+external)
+Determining the type of application
+6 Development Type Predefined list
+development (e.g.: commercial of
+62 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 64 =====
+the shelf source code, custom
+source code, open-source code)
+Web address of the browser for
+7 Application Link accessing the application. It is Link
+preceded by protocol identification
+Specifying the method used to
+8 Authentication Type verify the user’s identity before Text
+granting access to the application
+Represents the specific day on
+which the application is officially
+9 Launch Date Date
+made available to users, or the
+application goes live
+Determining the importance of the
+application to the entity’s
+10 Importance Predefined list
+operational priorities (e.g.: critical,
+high, medium, low)
+Determining the application’s
+status in terms of readiness for use
+11 Application Status Predefined list
+(e.g.: under development, newly
+launched, active, locked, planned)
+Defining the pattern of the
+Pattern of the Architecture application’s architecture structure
+12 Predefined list
+Structure (e.g.: n-tier Architecture ،
+client/server ،microservice)
+63 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 65 =====
+Determining the expenses invested
+by the entity in financing the
+13 Capital Cost development of the application, Number
+which become part of the entity’s
+fixed assets
+Determining the annual expenses
+14 Operating Cost required to operate, maintain, and Number
+upgrade the application
+Determining the technology used
+Technology Used for
+15 to develop the application (e.g.: Predefined list
+Development
+Oracle ،Microsoft)
+Identifying the company providing
+Provider of Development and the applications (manufacturer,
+16 Text
+Maintenance Services developer, operator, in-house
+developer)
+Specifying the digital channel for
+providing access to the application
+17 Access Channel Text
+(e.g.: internal portal, external portal,
+mobile app)
+5.3.5.2.2 Building Block - “Application Modules”
+# Attribute Attribute Description Attribute Type
+Name of a software module in an
+1 Name Text
+application that performs a unique
+64 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 66 =====
+function or a set of related
+functions within the application
+Brief description of the application
+2 Description module, explaining the purpose Text
+and nature of the provided function
+5.3.5.2.3 Building Block - “Application Function”
+# Attribute Attribute Description Attribute Type
+Name of the software function that
+represents a set of software
+1 Name Text
+processes that perform a specific
+task
+Brief description of the application
+function, explaining the objective
+2 Description Text
+and nature of the provided
+software processes
+5.3.5.2.4 Building Block - “Technical Integration Interface”
+# Attribute Attribute Description Attribute Type
+Approved code for the technical
+integration point. It is used as an
+identifier to distinguish various
+1 Code Letters and/or numbers
+types of technical points (e.g.:
+internal integration points versus
+external integration points) through
+65 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 67 =====
+a specific numerical sequence that
+makes them easy to access and
+search for
+Name of the technical integration
+2 Name point. It refers to the definition and Text
+specification of its objective
+Very brief description of the
+3 Description technical integration point used at Text
+the entity
+Specifying the names of the
+applications or entities (in the case
+4 Consumer Text
+of external link) used for the
+technical integration point
+Specifying the name of the entity
+5 Product producing the technical integration Text
+point
+Determining the inputs of the
+6 Inputs Text
+interface link
+Determining the deliverables
+7 Deliverables Text
+required from the integration point
+Specifying the scope of the
+8 Scope of the Connection application interface connection Predefined list
+(e.g.: internal, external)
+66 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 68 =====
+Determining the integration
+9 Integration Platform platform through which the Predefined list
+technical connection is made
+Specifying the type of application
+interface connection (e.g.: direct
+connection, via the integration
+10 Connection Pattern Predefined list
+platform, secure government
+network, the Governmental Service
+Bus (GSB))
+Specifying the type of integration
+11 Integration Type used in the application interface Predefined list
+(e.g.: DB Link ،SFTP ،SOAP, REST)
+Data format used in the technical
+interface point, for example (XML,
+12 Data Format JSON, Text, CSV, etc.) in order to Predefined list
+store, process, and exchange data
+efficiently
+67 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 69 =====
+5.3.5.3 Connections of the Artifacts of the “Applications Architecture” Domain
+The following figure illustrates the connections of the building blocks of the “applications architecture”
+domain with various building blocks in other domains:
+Figure (12): Connections of building blocks of the applications architecture domain
+The following table explains the details of these connections:
+Building Description of the
+# Domain Connection Building Block Domain
+Block Connection
+Identifying the functional
+Applications and non-functional Application Applications
+1 Application Contains
+Architecture modules of the Module Architecture
+application
+68 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 70 =====
+Technical
+Defining the application
+2 Provides Integration
+interface points
+Interface
+Identifying beneficiaries
+of the application Beneficiary
+3 Serves services, as each Beneficiary Experience
+application serves a Architecture
+group of beneficiaries
+Identifying the role
+Managed responsible for technical
+4 Role
+by management of the
+application
+Determining the
+Organizational
+5 Owned by organizational unit that
+Unit
+owns the application
+Business
+Architecture
+Defining the business
+Business
+6 Automated processes automated by
+Process
+the application
+Identifying the business
+services or set of services
+7 Provided Service
+provided by the
+application
+Identifying the data
+entities processed or
+8 Handles Data Entity Data Architecture
+handled by the
+application
+69 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 71 =====
+Identifying the security
+Provided Security
+9 software used to protect
+Through Software
+the application
+Identifying the security
+Provided Security
+10 hardware used to protect Security Architecture
+Through Hardware
+the application
+Identifying the security
+Provided Security
+11 service used to protect
+Through Service
+the application
+Specifying the server or
+Technology
+12 Hosted by servers that host the Server
+Architecture
+application
+Identifying the
+application module
+13 Belongs to Application
+which usually belongs to
+one application or more
+Applications
+Architecture
+Defining the set of
+application functions Application
+14 Contains
+provided by a single Function
+Application
+module
+Module
+Identifying the security
+Provided Security
+15 software used to protect
+Through Software
+the application module
+Security Architecture
+Identifying the security
+Provided Security
+16 hardware used to protect
+Through Hardware
+the application module
+70 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 72 =====
+Identifying the security
+Provided Security
+17 service used to protect
+Through Service
+the application module
+Specifying which
+application functions Application
+18 Belongs to
+belong to one application Module
+module or more
+Applications
+Identifying application
+Architecture
+functions that can be Technical
+Provided
+19 delivered through a Integration
+Through
+Technical Integration Interface
+Application
+Interface
+Function
+Identifying the security
+Provided software used to protect Security
+20
+Through a specific application Software
+function
+Security Architecture
+Identifying the security
+Provided service used to protect a Security
+21
+Through specific application Service
+function
+Identifying the consumer
+Consumed application of the
+22 Application
+by Technical Integration
+Technical
+Interface Applications
+Integration
+Architecture
+Interface Specifying one or more
+functions of the Application
+23 Provided
+application that are Function
+provided through the
+71 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 73 =====
+Technical Integration
+Interface
+Specifying the data
+entities provided by the
+Provided /
+24 Technical Integration Data Entity Data Architecture
+Delivered
+Interface for the purpose
+of exchange
+Identifying the security
+Provided software used to protect Security
+25
+Through the Technical Integration Software
+Interface
+Security Architecture
+Identifying the security
+Provided service used to protect Security
+26
+Through the Technical Integration Service
+Interface
+5.3.6 Artifacts of the “Technology Architecture” Domain
+5.3.6.1 Definition of the Artifacts of the “Technology Architecture” Domain
+The following figure illustrates the core building blocks of the “technology architecture” domain:
+Figure (13): Building blocks of the technology architecture domain
+The following table provides a definition of the building blocks of the “technology architecture” domain:
+72 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 74 =====
+Domain Building Block Definition
+Pace used by the entity to host computing modules such as servers,
+storage devices, network devices, applications, and services that the
+Data Center entity uses or provides to its employees or customers, whether the data
+center is owned by the entity or hosted by a cloud computing service
+provider.
+A physical host device represents the hardware owned by the entity,
+which may be in the form of a stand-alone or racked server, part of a
+Hyper-Converged Infrastructure (HCI) cluster, part of blade servers, and
+Physical Host may be used by the entity to host virtual servers. It includes information
+about its manufacturer, the computing resources it contains such as the
+Central Processing Unit (CPU) and Random Access Memory (RAM), and
+the location of the device within the network architecture.
+Technology
+Server used by the entity to host systems, applications, services, and
+Architecture
+databases, be it a physical server or a virtual server. It includes
+Server information about the operating system used, its computing resources,
+and the type of environment to which it belongs, such as (production,
+development, testing, or interim).
+Containerization engines used by the entity. They include information
+about the data center in which it is located, its manufacturer, its location
+Containerization Engine
+within the network architecture layers, the type of environment to
+which it belongs, and the support end date.
+Network devices of various types owned by the entity and used at its
+various locations and data centers. They include information about the
+Network Device
+data center, its location, its manufacturer, its location within the
+network architecture layers, and the type and function of the device.
+73 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 75 =====
+Network link used to connect network devices to each other or to
+connect them to other artifacts of the technical infrastructure or the
+security architecture. It also represents the connectivity circuits used by
+Network Link the entity to connect to the internet or to connect to various branches
+and data centers. It includes information about the types and
+technologies of network links, speeds, network circuit providers, the
+service they provide, bandwidth, and cost.
+Devices and tools used by the entity to store the entity’s systems,
+Storage software, and data. They include information about storage capacities
+and device types and versions.
+Basic services provided by the technical infrastructure and used by the
+entity with the aim of enabling beneficiaries to use the capabilities of
+Infrastructure Service the technical infrastructure effectively, such as the domain name
+service, the active directory system, the network address distribution
+service, and the text, voice, or video communication system.
+Tools or software used by the entity in order to manage, monitor,
+operate, or support artifacts of the technical infrastructure such as the
+Infrastructure
+system for monitoring the performance and availability of network
+Management Tool
+devices and servers. They include information about the provider and
+the support end date.
+Peripheral devices of various types used at the entity, such as desktop
+and portable computers, printers, and scanners. They include
+Peripheral Device
+information about the manufacturer, the operating systems, and the
+location
+Represents a usage agreement for the devices or software used by the
+License
+entity and purchased from suppliers or manufacturers, in the form of
+74 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 76 =====
+permanent licenses and subscriptions. It includes information about
+their number, the date they were obtained, and the expiration date.
+5.3.6.2 Attributes of the Artifacts of the “Technology Architecture” Domain
+The following tables detail the attributes of the building blocks of the “technology architecture” domain:
+5.3.6.2.1 Building Block - “Data Center”
+# Attribute Attribute Description Attribute Type
+1 Code Approved code for the data center Letters and/or numbers
+Represents of the name used for the
+2 Name Text
+data center
+Description of the role of the data
+center in the technical
+3 Role infrastructure business (e.g.: primary Predefined list
+data center, disaster recovery
+center)
+Determining the classification level
+of the data center infrastructure
+4 Classification Level Predefined list
+specifications (e.g.: Level 1, Level 2,
+etc.)
+Determining the physical location of
+the data center, which may be the
+5 Location entity’s headquarters, one of its Predefined list
+branches, or the location of the
+cloud service provider
+75 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 77 =====
+Specifying the type of the data
+6 Type center (e.g.: on-premise, co-located, Text
+cloud)
+Identifying the business
+environments in the data center
+7 Environment (e.g.: production environment, Predefined list
+experimental environment, testing
+environment)
+Determining the operational
+support mechanism for the data
+8 Type of Operation Predefined list
+center (e.g.: in-house team, service
+provider)
+Determining the capital cost of data
+center facilities (e.g.:
+electromechanical equipment and
+9 Capital Cost Numbers
+works, security systems for
+buildings, cabins, network cables,
+installation, and configuration)
+Determining the annual operating
+10 Operating Cost cost of the data center (where Numbers
+applicable)
+5.3.6.2.2 Building Block - “Physical Host”
+# Attribute Attribute Description Attribute Type
+76 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 78 =====
+Specifying the Fully Qualified
+1 Name Domain Name (FQDN) for the Text
+physical host
+Specifying the name of the
+2 Manufacturer manufacturer of the physical host Predefined list
+device
+Determining the model of the
+3 Model physical host as per the Text
+manufacturer’s list
+Determining the type of technology
+used in the physical host device
+4 Technology (stand-alone or racked server, blade Predefined list
+server, Hyper-Converged
+Infrastructure)
+Identifies the code of the vault that
+5 Vault contains the physical host device Predefined list
+within the entity’s data center
+Specifies the Cluster ID to which
+the physical host belongs. If it is not
+6 Cluster ID Predefined list
+associated with a cluster, then is
+shall be classified as stand-alone
+Specifying the type of virtual
+Type of Virtual Machine machine monitor available in the
+7 Predefined list
+Monitor physical host device (e.g. ESXI,
+Hyper-V) (where applicable)
+77 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 79 =====
+Specifying the release version of
+Version of Virtual Machine
+8 the virtual machine monitor (where Text
+Monitor
+applicable)
+Determining the network segment
+9 Network Segment to which the physical host belongs Predefined list
+(e.g.: DMZ ،data center server farm)
+Specifying the number, type, and
+10 Central Processing Unit speed of the central processing unit Text
+(in GHz)
+Determining the total number of
+Total Number of Physical CPU
+11 processor cores available on the Number
+Cores
+physical host device
+Determining the total available
+Physical Random Access
+12 RAM on the physical host device (in Number
+Memory (Ram)
+GB)
+Specifying the total local storage
+13 Local Storage Capacity space available on the physical host Number
+(in GB)
+Specifying the support end date for
+14 Support End Date the physical host device as per the Date
+manufacturer
+Determining the status of the
+15 Support Contract Status support contract for the physical Predefined list
+host device (e.g.: active, expired)
+78 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 80 =====
+Specifying the operational support
+mechanism for a physical host
+16 Type of Operation Predefined list
+device (e.g.: in-house team, service
+provider)
+Determining the capital cost of the
+physical host device upon
+installation, which includes: cost of
+17 Capital Cost Numbers
+the physical host and professional
+services required for installation
+and configuration, if any
+Determining the annual operating
+18 Operating Cost cost of the physical host (where Numbers
+applicable)
+5.3.6.2.3 Building Block - “Server”
+# Attribute Attribute Description Attribute Type
+Specifying the Fully Qualified Domain
+1 Server Name Text
+Name (FQDN) for the server
+Determining the server type (physical
+2 Server Type Predefined list
+server or virtual server)
+Determining the type of operating
+3 Operating System Type system running on this server (e.g.: Predefined list
+Windows ،Linux ،Unix)
+79 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 81 =====
+Determining the version of the
+4 Operating System Version operating system running on this server Predefined list
+(e.g.: Windows Server 2022)
+Specifying the Cluster ID to which the
+5 Cluster ID Predefined list
+server belongs
+Determining the network segment to
+6 Network Segment which the server belongs (e.g.: DMZ ، Predefined list
+data center server farm)
+Specifying the number of CPUs on the
+7 Central Processing Units Number
+server
+Random Access Memory
+8 Specifying the total server RAM (in GB) Number
+(Ram)
+Specifying the total disk capacity of the
+9 Disc Number
+server (in GB)
+Specifying the role of the server, e.g.
+(web server, application server,
+10 Role Predefined list
+database server, integration server,
+infrastructure server, security server)
+Specifying the server’s hosting
+environment (e.g.: production
+11 Environment Predefined list
+environment, preproduction
+environment, testing environment)
+80 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 82 =====
+Specifying if the server is included in the
+12 Backup backup policy (e.g.: yes, no, partially, not Predefined list
+applicable)
+Determining if the server is included in
+13 Disaster Recovery the disaster recovery plan (e.g.: yes, no, Predefined list
+not applicable)
+Determining the server’s operating
+14 Status Predefined list
+status (e.g.: operational, not operational)
+Determining the operational support
+15 Type of Operation mechanism for the server (e.g.: in-house Predefined list
+team, service provider, other)
+Determining the capital cost of the
+server upon installation, which includes:
+16 Capital Cost cost of the server and professional Numbers
+services required for installation and
+configuration if any
+Determining the annual operating cost
+17 Operating Cost Numbers
+of the server (where applicable)
+5.3.6.2.4 Building Block - “Network Device”
+# Attribute Attribute Description Attribute Type
+Name assigned to the network
+1 Name Text
+device (host name)
+81 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 83 =====
+Specifying the name of the network
+2 Manufacturer Predefined list
+device manufacturer
+Determining the model of the
+3 Model network device as per the Text
+manufacturer’s list
+Determining the location where the
+4 Location network device is hosted (e.g.: Text
+headquarter, branch of the entity)
+Determining the network segment
+to which this network device
+5 Network Segment belongs (e.g.: DMZ, Extranet, Predefined list
+Internet, WAN, LAN, Air Gapped,
+data center)
+Specifying the network device type
+6 Type (e.g.: router, switch, access point, Predefined list
+controller)
+Specifying the function of this
+network device (e.g.: core switch,
+7 Function Text
+distribution switch, access switch,
+spine, leaf, internet router)
+Determining the firmware version
+8 Firmware Version Text
+of the network device
+82 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 84 =====
+Network device support end date as
+9 Support End Date Date
+per the manufacturer
+Determining the status of the
+10 Support Contract Status support contract for the network Predefined list
+device (e.g.: active, expired)
+Determining the operational
+support mechanism for the
+11 Type of Operation Predefined list
+network device (e.g.: in-house
+team, service provider)
+Determining the capital cost of the
+network device upon installation,
+which includes: cost of the network
+12 Capital Cost Numbers
+device and professional services
+required for installation and
+configuration, if any
+Determining the annual operating
+13 Operating Cost cost of the network device (where Numbers
+applicable)
+5.3.6.2.5 Building Block - “Network Link”
+# Attribute Attribute Description Attribute Type
+Represents the identification code
+1 Code Letters and/or numbers
+of the network link
+83 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 85 =====
+Determining the location where
+this network link is created, which
+2 Location may be the entity’s headquarters, Predefined list
+one of its branches, or another
+location
+Specifying the bandwidth of the
+3 Bandwidth Numbers
+network link (Mbps)
+Determining the technology used
+4 Technology in this network link, e.g.: fiber, Predefined list
+copper, microwave, satellite
+Determining the service provided
+by this network link (e.g.: Internet
+5 Service Predefined list
+DIA, MPLS, PLL, IP Sec Tunnel, 5G,
+DWDM, IP VPN, SIP)
+Determining the role of the
+6 Role network link (e.g.: primary link, Predefined list
+backup link)
+Determining the operational
+support mechanism for the
+7 Type of Operation Predefined list
+network link (e.g.: in-house team,
+service provider, other)
+Determining the capital cost of the
+network link upon installation,
+8 Capital Cost Numbers
+which includes: cost of the network
+link and professional services
+84 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 86 =====
+required for installation and
+configuration, if any.
+Determining the annual operating
+9 Operating Cost cost of the network link (where Numbers
+applicable)
+Determining the annual
+subscription fee for leased network
+10 Subscription Fees Number
+connectivity circuits (where
+applicable)
+5.3.6.2.6 Building Block - “Storage”
+# Attribute Attribute Description Attribute Type
+Specifying the name assigned to
+1 Name Text
+the storage device
+Specifying the name of the storage
+2 Manufacturer Predefined list
+device manufacturer
+Determining the model of the
+3 Model storage device as per the Text
+manufacturer’s list
+Identifying the firmware version
+4 Firmware Version Text
+installed on the storage device
+Determining the network segment
+5 Network Segment to which this storage device Predefined list
+belongs (e.g.: DMZ, Extranet,
+85 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 87 =====
+Internet, WAN, LAN, Air Gapped,
+data center)
+Specifying the storage capacity
+6 Storage Capacity provided by the storage device (in Number
+GB)
+Support end date for the storage
+7 Support End Date Date
+device as per the source
+Determining the status of the
+8 Support Contract Status support contract for the storage Text
+device (active, expired)
+Identifying the operational support
+mechanism for the containerization
+9 Type of Operation Predefined list
+engine (e.g.: in-house team, service
+provider, other)
+Determining the capital cost of the
+storage device upon installation,
+which includes: cost of the storage
+10 Capital Cost Numbers
+device and professional services
+required for installation and
+configuration, if any
+Determining the annual operating
+11 Operating Cost cost of the storage device (where Numbers
+applicable)
+86 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 88 =====
+5.3.6.2.7 Building Block - “Containerization Engine“
+# Attribute Attribute Description Attribute Type
+Name assigned to the
+1 Name Letters and/or numbers
+containerization engine
+Specifying the name of the
+2 Manufacturer manufacturer of the Predefined list
+containerization engine
+Determining the containerization
+3 Model engine model as per the Text
+manufacturer’s list
+Specifying the network segment to
+which the containerization engine
+4 Network Segment belongs (e.g.: DMZ, Extranet, Predefined list
+Internet, WAN, LAN, Air Gapped,
+data center)
+Determining the hosting
+environment for the
+containerization engine (e.g.:
+5 Environment Predefined list
+production environment,
+development environment, testing
+environment)
+Containerization engine support
+6 Support End Date Text
+end date as per the manufacturer
+87 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 89 =====
+Determining the status of the
+support contract for the
+7 Support Contract Status Text
+containerization engine (active,
+expired)
+Identifying the operational support
+mechanism for the containerization
+8 Type of Operation Predefined list
+engine (e.g.: in-house team, service
+provider, other)
+Determining the capital cost of the
+containerization engine upon
+installation, which includes: cost of
+9 Capital Cost the containerization engine and Numbers
+professional services required for
+installation and configuration, if
+any.
+Determining the annual operating
+10 Operating Cost cost of the containerization engine Numbers
+(where applicable).
+5.3.6.2.8 Building Block - “Infrastructure Management Tool”
+# Attribute Attribute Description Attribute Type
+Name of a tool or software that
+manages, monitors, or supports the
+1 Name artifacts of the technical Text
+infrastructure, according to what is
+customary in the entity
+88 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 90 =====
+Specifying the name of the
+2 Manufacturer manufacturer of the infrastructure Predefined list
+management tool
+Determining the release version of
+the infrastructure management
+3 Version Text
+tool or software according to the
+provider or manufacturer’s list
+Function performed by the
+infrastructure management tool,
+4 Function e.g.: network availability Text
+monitoring, servers’ performance
+monitoring, assets management
+Support end date for the
+5 Support End Date infrastructure management tool as Date
+per the manufacturer
+Determining the status of the
+support contract for the
+6 Support Contract Status List
+infrastructure management tool
+(active, expired)
+Determining the operational
+support mechanism for the
+7 Type of Operation infrastructure management tool Predefined list
+(e.g.: in-house team, service
+provider, other)
+89 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 91 =====
+Determining the capital cost of the
+infrastructure management tool
+upon installation, which includes:
+8 Capital Cost Numbers
+cost of the tool and professional
+services required for installation
+and configuration, if any.
+Determining the annual operating
+cost of the infrastructure
+9 Operating Cost Numbers
+management tool (where
+applicable).
+5.3.6.2.9 Building Block - “License”
+# Attribute Attribute Description Attribute Type
+Approved code for the license at
+1 Code Letters and/or numbers
+the entity
+Name of the license or subscription
+2 License Name as listed by the manufacturer or the Text
+producer
+Specifying the name of the license
+3 Manufacturer Predefined list
+manufacturer or producer
+Specifying the total purchased
+4 Quantity Number
+quantity or number of this license
+Specifying the license type (e.g.:
+5 Type Predefined list
+permanent license, annual
+90 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 92 =====
+subscription, monthly subscription,
+etc.)
+Determining the date on which the
+6 Date of Obtaining Date
+entity obtained the license
+Specifying the license expiry date
+7 Expiry Date Date
+(where applicable)
+Determining the financial cost of
+8 Capital Cost Number
+purchasing a license
+Determining the annual operating
+9 Operating Cost cost of sustaining licenses (where Numbers
+applicable)
+5.3.6.2.10 Building Block - “Infrastructure Service”
+# Attribute Attribute Description Attribute Type
+Approved code for the
+1 Service Code Letters and/or numbers
+infrastructure service at the entity
+Name of the infrastructure service
+2 Name Text
+used at the entity
+Specifying the name of the
+3 Manufacturer manufacturer of the infrastructure Predefined list
+service
+Determining the release version of
+4 Version Text
+the infrastructure service according
+91 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 93 =====
+to the provider or manufacturer’s
+list
+Function performed by the
+infrastructure service, such as: DNS,
+DHCP, NTP, directory service, email
+5 Function Predefined list
+service, communication service,
+collaboration service, backup and
+restore service
+Support end date for the
+6 Support End Date infrastructure service as per the Date
+manufacturer
+Determining the status of the
+support contract for the
+7 Support Contract Status List
+infrastructure service (active,
+expired)
+Determining the operational
+support mechanism for the
+8 Type of Operation Predefined list
+infrastructure service (e.g.: in-house
+team, service provider)
+Determining the capital cost of the
+infrastructure service upon
+9 Capital Cost installation, which includes: cost of Numbers
+the technical service and
+professional services required for
+92 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 94 =====
+installation and configuration, if
+any.
+Determining the annual operating
+10 Operating Cost cost of the infrastructure service Numbers
+(where applicable)
+5.3.6.2.11 Building Block - “Peripheral Device”
+# Attribute Attribute Description Attribute Type
+Approved code for the peripheral
+1 Code Letters and/or numbers
+device at the entity
+Specifies the Fully Qualified
+2 Device Name Domain Name (FQDN) for the Text
+peripheral device, if any
+Specifying the name of the
+3 Manufacturer Predefined list
+peripheral device manufacturer
+The peripheral device model is
+4 Model determined as per the Text
+manufacturer’s list
+Name of the location that hosts this
+peripheral device, which may be
+5 Location Predefined list
+the entity’s headquarters or one of
+its branches
+Specifies the function of this
+6 Function Predefined list
+accessory device or peripheral
+93 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 95 =====
+device (e.g.: laptop, desktop,
+printer, sensor, scanner)
+Identifies the operating system or
+7 Operating System Or Firmware firmware used for this peripheral Text
+device and its version
+Support end date for the peripheral
+8 Support End Date Date
+device as per the manufacturer
+Determining the status of the
+support contract for the
+9 Support Contract Status List
+infrastructure management tool
+(active, expired)
+Determining the operational
+support mechanism for the
+10 Type of Operation Predefined list
+peripheral device (e.g.: in-house
+team, service provider)
+Determining the capital cost of the
+peripheral device upon installation,
+which includes: cost of the device
+11 Capital Cost Numbers
+and professional services required
+for installation and configuration, if
+any.
+Determining the annual operating
+12 Operating Cost cost of the peripheral device Numbers
+(where applicable)
+94 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 96 =====
+5.3.6.3 Connections of the Artifacts of the “Technology Architecture” Domain
+The following figure illustrates the connections of the building blocks of the “technology architecture”
+domain with various building blocks in other domains:
+Figure (14): Connections of the building blocks of the technology architecture domain
+The following table explains the details of these connections:
+Description of the
+# Domain Building Block Connection Building Block Domain
+Connection
+Identifying a data
+center service provider Business
+1 Provided by Service Provider
+and data center Architecture
+Technology
+artifacts
+Data Center
+Architecture
+Identifying the data
+Infrastructure Technology
+2 Hosts center that hosts the
+Service Architecture
+infrastructure service
+95 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 97 =====
+Determining which
+Peripheral
+3 Hosts data center hosts the
+Device
+peripheral device
+Determining which
+4 Hosts data center hosts Physical Host
+physical host devices
+Determining which
+5 Hosts data center hosts the Server
+servers
+Determining which
+6 Hosts data center hosts the Network Device
+network devices
+Determining which
+7 Hosts data center hosts the Storage
+storage devices
+Identifying the data
+center that hosts the Containerization
+8 Hosts
+containerization Engine
+engine
+Identifying the data
+center that hosts Infrastructure
+9 Hosts infrastructure artifacts Management
+management Tool
+applications
+Identifying the data
+center that hosts the
+10 Hosts Network Link
+network connectivity
+circuits
+96 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 98 =====
+Determining the data
+Security
+11 Hosts center that hosts the
+Hardware
+security hardware
+Security
+Architecture
+Identifying the data
+Security
+12 Hosts center that hosts the
+Software
+security software
+Determining the
+13 Hosted in hosting location of the Data Center
+physical host device
+Specifying the physical
+14 Hosts host that hosts the Server
+servers
+Identifying the
+infrastructure artifacts
+management Infrastructure
+15 Managed by applications that Management
+manage and monitor Tool Technology
+Physical Host
+the physical host Architecture
+device
+Specifying the licenses
+used by the physical
+16 Uses host device (specific License
+licenses or
+subscriptions)
+Specifying the network
+Linked link used to link the
+17 Network Link
+Through physical host to the
+network
+97 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 99 =====
+Identifying the service
+provider that provides
+18 Provided by Service Provider
+the physical host
+device
+Business
+Architecture
+Identifying the
+organizational unit Organizational
+19 Owned by
+responsible for the Unit
+physical host
+Identifying the security
+Provided devices and artifacts Security
+20
+Through associated with the Hardware
+physical host device
+Identifying security
+Provided software associated Security Security
+21
+Through with the physical host Software Architecture
+device
+Identifying security
+Provided services associated
+22 Security Service
+Through with the physical host
+device
+Determining where the
+server will be hosted (a
+data center owned by
+Technology
+23 Server Hosted in the entity or a data Data Center
+Architecture
+center owned by a
+hosting service
+provider)
+98 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 100 =====
+Identifying the physical
+24 Hosted in host responsible for Physical Host
+hosting the server
+Determining software
+licenses and
+25 Uses License
+subscriptions by the
+server
+Identifying one or
+more infrastructure
+Infrastructure
+management tools
+26 Managed by Management
+responsible for
+Tool
+managing or
+monitoring the server
+Specifying a provider
+27 Provided by or company to provide Service Provider
+the server
+Business
+Identifying the
+Architecture
+organizational unit Organizational
+28 Owned by
+responsible for the Unit
+server
+Specifying the
+application or Applications
+29 Hosts Application
+applications hosted on Architecture
+the server
+Identifying the data
+Data
+30 Hosts vault hosted on the Data Vault
+Architecture
+server
+99 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 101 =====
+Identifying the security
+Provided Security
+31 hardware responsible
+Through Hardware
+for securing the server
+Identifying security
+Provided Security
+32 software responsible Security
+Through Software
+for securing the server Architecture
+Specifying one or more
+Provided security services
+33 Security Service
+Through responsible for
+securing the server
+Identifying the
+infrastructure Infrastructure
+34 Managed by management tool used Management
+to manage and monitor Tool
+network devices
+Identifying the data
+35 Hosted in center that hosts the Data Center
+network device
+Determining the
+Technology
+Network Device
+licenses and
+Architecture
+36 Uses License
+subscriptions used by
+the network device
+Identifying the
+network link
+responsible for linking
+Linked
+37 the network device to Network Link
+Through
+the rest of the network
+elements or to other
+devices
+100 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 102 =====
+Identifying the
+provider or company
+38 Provided by Service Provider
+that supplied the
+network device
+Business
+Architecture
+Identifying the
+organizational unit Organizational
+39 Owned by
+responsible for the Unit
+network device
+Identifying one or
+Provided more physical security Security
+40
+Through hardware that secure Hardware
+the network device
+Identifying one or
+Provided more security software Security Security
+41
+Through that secure the Software Architecture
+network device
+Identifying one or
+Provided more security services
+42 Security Service
+Through that secure the
+network device
+Identifying the
+organizational unit Organizational
+43 Owned by
+responsible for the Unit
+network link
+Business
+Network Link
+Architecture
+Identifying service
+providers for the
+44 Provided by Service Provider
+network connectivity
+circuits
+101 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 103 =====
+Identifying the data
+center that hosts the
+45 Hosted in network link or Data Center
+network connectivity
+circuits
+Identifying the
+infrastructure
+Infrastructure
+management tool that
+46 Managed by Management
+manages and monitors
+Tool
+the network
+connectivity circuits
+Specifying the network
+link to connect the Peripheral
+47 Links
+peripheral device to Device Technology
+the network Architecture
+Specifying the network
+link responsible for
+48 Links connecting the Physical Host
+peripheral device to
+the network
+Specifying the network
+link responsible for
+49 Links Storage
+connecting the storage
+device to the network
+Identifying the
+network link
+50 Links Network Device
+responsible for
+connecting the
+102 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 104 =====
+network device to the
+network
+Identifying the
+network link for
+Security
+51 Links connecting the security
+Hardware
+hardware to the
+network
+Identifying one or
+more physical security
+Provided Security
+52 hardware that secure
+Through Hardware
+the network
+Security
+connectivity circuit
+Architecture
+Identifying one or
+more security software
+Provided Security
+53 programs that secure
+Through Software
+the network
+connectivity circuit
+Specifying one or more
+Provided security services that
+54 Security Service
+Through secure the network
+connectivity circuit
+Identifying a specific
+data center for the
+entity or for a service Technology
+55 Storage Hosted in Data Center
+provider that hosts the Architecture
+storage equipment and
+tools
+103 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 105 =====
+Identifying the
+infrastructure
+management tool Infrastructure
+56 Managed by responsible for Management
+managing and Tool
+monitoring storage
+equipment and tools
+Identifying the
+network link
+responsible for
+Linked
+57 connecting the storage Network Link
+Through
+device to the rest of
+the network elements
+or to other devices
+Determining the
+licenses and
+58 Uses Licenses
+subscriptions used by
+the storage device
+Identifying the service
+provider supplying
+59 Provided by Service Provider
+storage devices and
+equipment
+Business
+Architecture
+Identifying the
+organizational unit Organizational
+60 Owned by
+responsible for storage Unit
+devices and equipment
+Provided Identifying one or Security Security
+61
+Through more physical security Hardware Architecture
+104 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 106 =====
+hardware that secure
+the storage device
+Identifying one or
+Provided more security software Security
+62
+Through programs that secure Software
+the storage device
+Specifying one or more
+Provided security services that
+63 Security Service
+Through secure the storage
+device
+Identifying the data
+Data
+64 Hosts vault hosted on the Data Vault
+Architecture
+storage device
+Identifying a specific
+data center for the
+entity or cloud service
+65 Hosted in Data Center
+provider to host the
+containerization
+engine
+Identifying the
+Containerization infrastructure Technology
+Engine management tool Architecture
+Infrastructure
+responsible for
+66 Managed by Management
+managing and
+Tool
+monitoring the
+containerization
+engine
+Determining the
+67 Uses Licenses
+licenses and
+105 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 107 =====
+subscriptions used by
+the containerization
+engine
+Identifying the service
+provider or
+68 Provided by manufacturer of the Service Provider
+containerization
+engine
+Business
+Architecture
+Identifying the
+organizational unit
+Organizational
+69 Owned by responsible for the
+Unit
+containerization
+engine
+Identifying one or
+more physical security
+Provided Security
+70 hardware that secure
+Through Hardware
+the containerization
+engine
+Identifying one or
+more security software
+Provided Security Security
+71 programs that secure
+Through Software Architecture
+the containerization
+engine
+Identifying one or
+more security services
+Provided
+72 that secure the Security Service
+Through
+containerization
+engine
+106 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 108 =====
+Identifying the data
+center responsible for
+73 Hosted in hosting the Data Center
+infrastructure
+management tool
+The infrastructure
+management tool
+74 Manages manages or monitors Physical Host
+the physical host
+devices
+Manages Identifying the
+infrastructure
+management tool
+75 Infrastructure Server
+responsible for Technology
+Management
+managing and Architecture
+Tool
+monitoring the servers
+Manages Identifying the
+infrastructure
+management tool
+76 responsible for Network Device
+managing and
+monitoring network
+devices
+Manages Identifying the
+infrastructure
+77 management tool Storage
+responsible for
+managing and
+107 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 109 =====
+monitoring storage
+devices
+Manages Identifying the
+infrastructure
+management tool
+responsible for Containerization
+78
+managing and Engine
+monitoring
+containerization
+engines
+Manages Identifying the
+infrastructure
+management tool
+Peripheral
+79 responsible for
+Device
+managing and
+monitoring a
+peripheral device
+Manages Identifying the
+infrastructure
+management tool
+Infrastructure
+80 responsible for
+Service
+managing and
+monitoring an
+infrastructure service
+Manages Identifying the
+infrastructure
+81 management tool Network Link
+responsible for
+managing and
+108 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 110 =====
+monitoring network
+connectivity circuits
+Determining the
+licenses for the
+82 Uses Licenses
+infrastructure
+management tool
+Identifying the
+organizational unit
+Organizational
+83 Owned by responsible for the
+Unit
+infrastructure
+Business
+management tool
+Architecture
+Identifying the license
+or service provider for
+84 Provided by Service Provider
+the infrastructure
+management tool
+Identifying one or
+more physical security
+Secured Security
+85 hardware that secure
+Through Hardware
+the infrastructure
+management tool
+Identifying one or
+Security
+more security software
+Secured Security Architecture
+86 programs that secure
+Through Software
+the infrastructure
+management tool
+Identifying one or
+Secured
+87 more security services Security Service
+Through
+that secure the
+109 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 111 =====
+infrastructure
+management tool
+Specifying the
+Technical Integration
+Technical
+Interface that is
+88 Supports Integration
+supported by the
+Interface
+infrastructure
+Applications
+management tool
+Architecture
+Determining the
+application that
+89 Supports supports the use of the Application
+infrastructure
+management tool
+Determining the
+90 Used in license installed on Physical Host
+physical host devices
+Determining the
+91 Used in license installed on Server
+server hardware
+Determining the
+Infrastructure Technology
+License license for the
+92 Used in Management Architecture
+infrastructure
+Tool
+management tool
+Determining the
+Infrastructure
+93 Used in license of the
+Service
+infrastructure service
+Specifying the license Containerization
+94 Used in
+used for the Engine
+110 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 112 =====
+containerization
+engine
+Determining the
+95 Used in license used for Network Device
+network devices
+Determining the
+96 Used in license used for Storage
+storage devices
+Determining the
+Peripheral
+97 Used in license used in the
+Device
+peripheral device
+Determining the
+Organizational
+98 Owned by license owned by an
+Unit
+organizational unit
+Business
+Architecture
+Determining the
+99 Provided by license provided by a Service Provider
+provider or a company
+Determining the
+Security
+100 Used in license used in a
+Hardware
+security hardware
+Security
+Architecture
+Determining the
+Security
+101 Used in license used in a
+Software
+security software
+Identifying the
+peripheral device that Infrastructure
+Peripheral Technology
+102 Managed by is managed by an Management
+Device Architecture
+infrastructure Tool
+management tool
+111 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 113 =====
+Specifying the network
+link responsible for
+Linked
+103 connecting the Network Link
+Through
+peripheral device to
+the network
+Determining the
+licenses and
+104 Uses License
+subscriptions used by
+the peripheral device
+Specifying the provider
+105 Provided by of the peripheral Service Provider
+device
+Business
+Identifying the
+Architecture
+organizational unit Organizational
+106 Owned by
+responsible for the Unit
+peripheral device
+Determining the
+Provided peripheral device Security
+107
+Through secured by one or more Hardware
+security hardware
+Determining the
+Provided peripheral device Security Security
+108
+Through secured by one or more Software Architecture
+security software
+Determining the
+Provided peripheral device
+109 Security Service
+Through secured by one or more
+security services
+112 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 114 =====
+Determining the
+110 Hosted in infrastructure service Data Center
+hosted in a data center
+Identifying the
+infrastructure service Infrastructure
+111 Managed by that is managed by an Management
+Technology
+infrastructure Tool
+Architecture
+management tool
+Identifying the
+infrastructure service
+112 Uses that uses specific License
+licenses or
+subscriptions
+Identifying the
+Infrastructure
+infrastructure service
+113 Service Provided by Service Provider
+provided by a provider
+or manufacturer
+Business
+Architecture
+Identifying the
+organizational unit Organizational
+114 Owned by
+responsible for the Unit
+infrastructure service
+Identifying one or
+more physical security
+Secured Security
+115 hardware that secure
+Through Hardware
+the infrastructure Security
+service Architecture
+Identifying one or
+Secured Security
+116 more security software
+Through Software
+programs that secure
+113 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 115 =====
+the infrastructure
+service
+Identifying one or
+Secured more security services
+117 Security Service
+Through that secure an
+infrastructure service
+114 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 116 =====
+5.3.7 Artifacts of the “Security Architecture” Domain
+5.3.7.1 Definition of the Artifacts of the “Security Architecture” Domain
+The following figure illustrates the building blocks of the “security architecture” domain
+Figure (15): Building blocks of the security architecture domain
+The following table provides a definition of the building blocks of the “security architecture” domain
+Domain Building Block Definition
+Security solution hardware used by the entity to achieve information
+security. It includes information about the manufacturer, technical
+Security Hardware
+specifications of the devices, the support end date, and the licenses
+used
+Software or tools used by the entity to achieve information security. It
+Security
+Security Software includes information about the provider company, the licenses used,
+Architecture
+and the support end date
+Agreement between the entity and a security services provider such as
+a managed security operations center or a penetration testing service. It
+Security Service
+provides information about the type and scope of the service, the
+service level agreement, the start and end dates, and the cost.
+115 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 117 =====
+5.3.7.2 Attributes of the Artifacts of the “Security Architecture” Domain
+The following tables detail the attributes of the building blocks of the “security architecture” domain:
+5.3.7.2.1 Building Block - “Security Hardware”
+# Attribute Attribute Description Attribute Type
+Approved code for the security
+1 Code Letters and/or numbers
+hardware
+Specifying the name assigned to the
+2 Name Text
+security hardware
+Specifying the name of the
+3 Manufacturer manufacturer of the security Predefined list
+hardware
+Description of the security
+4 Model hardware model as per the Text
+manufacturer’s list
+Determining the network segment
+to which this security hardware
+5 Network Segment belongs (e.g.: DMZ, Extranet, Predefined list
+Internet, WAN, LAN, Air Gapped,
+data center)
+Determining the function of the
+security hardware in the network
+6 Function (e.g.: internet firewall, WAN Predefined list
+firewall, data center firewall, WAF,
+IPS, IDS)
+116 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 118 =====
+Determining the firmware version
+7 Firmware Version Text
+installed on the security hardware
+Support end date for the security
+9 Support End Date Date
+hardware as per the manufacturer
+Determining the status of the
+10 Support Contract Status support contract for the security List
+hardware (active, expired)
+Determining the operational
+support mechanism for the security
+11 Type of Operation Predefined list
+hardware (e.g.: in-house team,
+service provider, other)
+Determining the capital cost of the
+security hardware upon installation,
+which includes: cost of the security
+12 Capital Cost Numbers
+hardware and professional services
+required for installation and
+configuration, if any
+Determining the annual operating
+13 Operating Cost cost of the infrastructure service Numbers
+(where applicable)
+5.3.7.2.2 Building Block - “Security Software”
+# Attribute Attribute Description Attribute Type
+Approved code for security
+1 Code Letters and/or numbers
+software
+117 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 119 =====
+Specifying the name of the security
+2 Name software according to what is Text
+customary at the entity
+Specifying the name of the
+3 Manufacturer manufacturer of the security Predefined list
+software
+Determining the version of the
+4 Version information security software as Text
+per the manufacturer’s list
+Description of the function of
+information security software (e.g.:
+5 Function Predefined list
+DLP, IAM, PAM, SIEM, vulnerability
+management, endpoint protection)
+Determining the support end date
+6 Support End Date for security software as per the Date
+software source
+Determining the status of the
+7 Support Contract Status support contract for the security Predefined list
+software (e.g.: active, expired)
+Determining the operational
+support mechanism for the security
+8 Type of Operation Predefined list
+software (e.g.: in-house team,
+service provider, other)
+118 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 120 =====
+Determining the capital cost of the
+security software upon installation,
+which includes: cost of the security
+9 Capital Cost Numbers
+software and professional services
+required for installation and
+configuration, if any
+Determining the annual operating
+10 Operating Cost cost of the security software (where Numbers
+applicable).
+5.3.7.2.3 Building Block - “Security Service”
+# Attribute Attribute Description Attribute Type
+Approved code for the security
+1 Code Letters and/or numbers
+service
+Specifying the service name
+2 Service Name according to what is customary at Text
+the entity
+Description of the security service
+function (e.g. penetration test, anti-
+3 Function DDoS as a service, security risk Text
+assessment, SOC as a service,
+security code review, etc.)
+Brief description of the nature of
+4 Description the security service and its scope of Text
+coverage
+119 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 121 =====
+Determining the status of the
+Status of the Service Provision service provision contract that
+5 Predefined list
+Contract covers the security service (e.g.:
+active, expired)
+Determining the operational
+support mechanism for the security
+6 Type of Operation Predefined list
+service (e.g.: in-house team, service
+provider, other)
+Determining the capital cost of the
+security service, which includes:
+cost of the security service and
+7 Capital Cost Numbers
+professional services required for
+installation and configuration, if
+any
+Determining the annual operating
+8 Operating Cost cost of the security service (where Numbers
+applicable).
+120 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 122 =====
+5.3.7.3 Connections of the Artifacts of the “Security Architecture” Domain
+The following figure illustrates the connections of the building blocks of the “security architecture” domain
+with various building blocks in other domains:
+Figure (16): Connections of the building blocks of the security architecture domain
+The following table explains the details of these connections:
+Building Description of the
+# Domain Connection Building Block Domain
+Block Connection
+Determining the hosting
+1 Hosted In location of the security Data Center
+hardware
+Security Security Technology
+Architecture Hardware Architecture
+Determining the licenses
+2 Uses and subscriptions used by License
+the security hardware
+121 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 123 =====
+Secures Identifying one or more
+3 physical security hardware Physical Host
+that secure a physical host
+Secures Identifying one or more
+4 physical security hardware Server
+that secure a server
+Secures Identifying one or more
+physical security hardware
+5 Network Device
+that secure a network
+device
+Secures Identifying one or more
+6 physical security hardware Storage
+that secure a storage device
+Secures Identifying one or more
+physical security hardware Containerization
+7
+that secure a Engine
+containerization engine
+Secures Identifying one or more
+physical security hardware Peripheral
+8
+that secure a peripheral Device
+device
+Secures Identifying one or more
+physical security hardware Infrastructure
+9 that secure the Management
+infrastructure management Tool
+tool
+Secures Identifying one or more Infrastructure
+10
+physical security hardware Service
+122 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 124 =====
+that secure the
+infrastructure service
+Secures Identifying one or more
+11 physical security hardware Network Link
+that secure a network link
+Identifying a service
+12 Provided By provider providing the Service Provider
+security hardware
+Business
+Identifying the
+Architecture
+organizational unit Organizational
+13 Owned By
+responsible for the security Unit
+hardware
+Secures Identifying one or more
+Data
+13 physical security hardware Data Vault
+Architecture
+that secure a data vault
+Identifying one or more
+Technical
+physical security hardware
+14 Secures Integration
+that secure the Technical
+Interface
+Integration Interface
+Secures Identifying one or more
+physical security hardware Application Applications
+15
+that secure the application Function Architecture
+function
+Secures Identifying one or more
+physical security hardware Application
+16
+that secure the application Module
+module
+123 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 125 =====
+Identifying one or more
+17 Secures physical security hardware Application
+that secure an application
+Determining the hosting
+18 Hosted In location of the security Data Center
+software
+Determining the licenses
+19 Uses and subscriptions used by License
+the security software
+Secures Identifying one or more
+20 security software programs Physical Host
+that secure a physical host
+Secures Identifying one or more
+21 security software programs Server
+Security that secure a server Technology
+Software Architecture
+Secures Identifying one or more
+security software programs
+22 Network Device
+that secure a network
+device
+Secures Identifying one or more
+security software programs
+23 Storage
+that secure storage
+equipment and tools
+Secures Identifying one or more
+security software programs Containerization
+24
+that secure a Engine
+containerization engine
+124 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 126 =====
+Secures Identifying one or more
+security software programs Peripheral
+25
+that secure a peripheral Device
+device
+Secures Identifying one or more
+security software programs Infrastructure
+26 that secure the Management
+infrastructure management Tool
+tool
+Secures Identifying one or more
+security software programs Infrastructure
+27
+that secure the Service
+infrastructure service
+Secures Identifying one or more
+28 security software programs Network Link
+that secure a network link
+Identifying a security
+29 Provided By Service Provider
+software service provider
+Business
+Identifying the
+Architecture
+organizational unit Organizational
+27 Owned By
+responsible for the security Unit
+software
+Secures Identifying one or more
+Data
+28 security software programs Data Vault
+Architecture
+that secure a data vault
+Secures Identifying one or more
+Applications
+29 security software programs Application
+Architecture
+that secure an application
+125 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 127 =====
+Secures Identifying one or more
+security software programs Application
+30
+that secure an application Module
+module
+Secures Identifying one or more
+Technical
+security software programs
+31 Integration
+that secure the Technical
+Interface
+Integration Interface
+Secures Identifying one or more
+security software programs Application
+32
+that secure the application Function
+function
+Identifying the data center
+33 Hosted In that hosts the security Data Center
+service
+Identifying specific licenses
+34 Uses or subscriptions used by the License
+security service
+Secures Identifying one or more
+Security Technology
+35 security services that secure Physical Host
+Service Architecture
+a physical host
+Secures Identifying one or more
+36 security services that secure Server
+a server
+Secures Specifying one or more
+37 security services that secure Network Device
+a network device
+126 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 128 =====
+Secures Specifying one or more
+38 security services that secure Storage
+the storage equipment
+Secures Identifying one or more
+Containerization
+39 security services that secure
+Engine
+a containerization engine
+Secures Specifying one or more
+Peripheral
+40 security services that secure
+Device
+a peripheral device
+Secures Identifying one or more
+Infrastructure
+security services that secure
+41 Management
+the infrastructure
+Tool
+management tool
+Secures Identifying one or more
+Infrastructure
+42 security services that secure
+Service
+an infrastructure service
+Secures Specifying one or more
+43 security services that secure Network Link
+a network link
+Determining the provider of
+44 Provided By Service Provider
+the security service
+Business
+Identifying the
+Architecture
+organizational unit Organizational
+45 Owned By
+responsible for the security Unit
+service
+Secures Identifying one or more
+Data
+46 security services that secure Data Vault
+Architecture
+a data vault
+127 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 129 =====
+Secures Identifying one or more
+47 security services that secure Application
+an application
+Secures Identifying one or more
+Application
+48 security services that secure
+Module
+the application module
+Applications
+Secures Identifying one or more
+Architecture
+Application
+49 security services that secure
+Function
+the application function
+Secures Identifying one or more
+Technical
+security services that secure
+50 Integration
+the Technical Integration
+Interface
+Interface
+128 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 130 =====
+06. Table of definitions
+Term Definition
+The Authority Digital Government Authority
+Supporting the administrative, organizational, and operational processes within
+and between government sectors to achieve digital transformation and
+Digital Transformation
+develop, improve, and enable easy and effective access to government digital
+information and services.
+Set of documents that help clarify the mechanisms for adopting the national EA
+EA Framework
+practice for entities by providing a set of controls and guidelines
+National Overall Reference Set of detailed phases and steps for developing the national EA artifacts and
+Architecture managing their requirements
+Mechanism for implementing the EA framework at the entity as a sustainable
+EA Practice
+capability, by creating an organizational unit specialized in this business
+National EA Reference Set of national reference models for the national EA domains, detailing the most
+Models important artifacts for each domain
+Description of the areas used to define the national EA domains, which include
+Enterprise architecture the domains of business architecture, beneficiary experience architecture,
+domains applications architecture, data architecture, technology architecture, and
+security architecture
+Enterprise Architecture Definition of the main considerations that must be followed and complied with
+Principles when documenting and developing the artifacts of various EA domains
+Abstract description of the artifacts that describe the contents of each domain
+EA Content Meta Model
+of the national enterprise architecture
+129 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 131 =====
+Abstract description of a specific block belonging to an EA domain, and the sum
+Building Block
+of building blocks constitutes the EA Content Meta Model
+Enterprise Architecture They are the result of documenting the artifacts of the EA Content Meta Model
+Artifacts in their current or future state at the entity
+Enterprise Architecture Mechanism for presenting the enterprise architecture artifacts (in their current
+Viewpoints or future form) in the form of a visual representation, a matrix, or a catalog
+Enterprise architecture domain that describes the artifacts of the entity’s
+Business Architecture business core (including administrative and organizational business
+capabilities, core capabilities, and support capabilities)
+Enterprise architecture domain that describes the artifacts of the beneficiary
+Beneficiary Experience
+experience domain at the entity (including beneficiary journeys and
+Architecture
+interaction points)
+Enterprise architecture domain that describes the artifacts of the digital
+Applications Architecture applications domain at the entity (including application functions and
+integration points)
+Enterprise architecture domain that describes the artifacts of the data domain
+Data Architecture
+at the entity (including data entities and data storage locations)
+Enterprise architecture domain that describes the artifacts of the technology
+Technology Architecture
+domain at the entity (including data centers and ICT equipment)
+Enterprise architecture domain that describes the artifacts of the security
+Security Architecture
+domain at the entity (including software and technical security services)
+Set of viewpoints that provides a clear and comprehensive vision of the
+Holistic View
+entity’s EA domains, in a way that fulfills stakeholder requirements
+Entities, authorities, public institutions, councils, and any other entity affiliated
+The Entity with the government of the Kingdom of Saudi Arabia, the private sector, semi-
+governmental entities, and non-profit entities
+130 The “EA Content Meta Model” Document
+Public - ماع
+
+===== PAGE 132 =====
+1.
+131 DGA.GOV.SA

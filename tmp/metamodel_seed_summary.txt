@@ -1,0 +1,71 @@
+TYPE|Objective|Objective|Business|hier=False|successors=None|subtypes=|sections=<unnamed>:objectiveType,targetDate,progress|fields=objectiveType,targetDate,progress
+TYPE|Platform|Platform|Business|hier=False|successors=True|subtypes=digital,technical|sections=<unnamed>:platformType|fields=platformType
+TYPE|Initiative|Initiative|Business|hier=True|successors=True|subtypes=idea,program,project,epic|sections=<unnamed>:initiativeStatus,businessValue,effort;<unnamed>:costBudget,costActual,startDate,endDate|fields=initiativeStatus,businessValue,effort,costBudget,costActual,startDate,endDate
+TYPE|Organization|Organization|Business|hier=True|successors=None|subtypes=businessUnit,region,legalEntity,team,customer|sections=<unnamed>:headCount,location|fields=headCount,location
+TYPE|BusinessCapability|Business Capability|Business|hier=True|successors=None|subtypes=|sections=<unnamed>:capabilityLevel,isCoreCapability;<unnamed>:strategicImportance,maturity|fields=capabilityLevel,isCoreCapability,strategicImportance,maturity
+TYPE|BusinessContext|Business Context|Business|hier=True|successors=None|subtypes=process,valueStream,customerJourney,businessProduct,esgCapability|sections=<unnamed>:maturity|fields=maturity
+TYPE|BusinessProcess|Business Process|Business|hier=True|successors=True|subtypes=category,group,process,variant|sections=<unnamed>:processType,maturity,automationLevel,riskLevel;<unnamed>:frequency,documentationUrl,regulatoryRelevance|fields=processType,maturity,automationLevel,riskLevel,frequency,documentationUrl,regulatoryRelevance
+TYPE|Application|Application|Application|hier=True|successors=True|subtypes=businessApplication,microservice,aiAgent,deployment|sections=<unnamed>:hostingType,commercialApplication,hasAiFeatures;<unnamed>:businessCriticality,functionalSuitability,technicalSuitability,timeModel;<unnamed>:costTotalAnnual,numberOfUsers,productName|fields=hostingType,commercialApplication,hasAiFeatures,businessCriticality,functionalSuitability,technicalSuitability,timeModel,costTotalAnnual,numberOfUsers,productName
+TYPE|Interface|Interface|Application|hier=False|successors=True|subtypes=logicalInterface,api,mcpServer|sections=<unnamed>:frequency,dataFormat,protocol|fields=frequency,dataFormat,protocol
+TYPE|DataObject|Data Object|Data|hier=True|successors=True|subtypes=|sections=<unnamed>:dataSensitivity,dataOwner,isPersonalData|fields=dataSensitivity,dataOwner,isPersonalData
+TYPE|ITComponent|IT Component|Technology|hier=True|successors=True|subtypes=software,hardware,saas,paas,iaas,service,aiModel|sections=<unnamed>:technicalSuitability,resourceClassification,version,hasAiFeatures;<unnamed>:costTotalAnnual,licenseType|fields=technicalSuitability,resourceClassification,version,hasAiFeatures,costTotalAnnual,licenseType
+TYPE|TechCategory|Tech Category|Technology|hier=True|successors=None|subtypes=|sections=|fields=
+TYPE|Provider|Provider|Technology|hier=False|successors=None|subtypes=|sections=<unnamed>:providerType,website,contractEnd|fields=providerType,website,contractEnd
+TYPE|Persona|Persona|Business|hier=False|successors=None|subtypes=beneficiary,customer,employee,partner|sections=<unnamed>:demographics,goals,painPoints,preferredChannels|fields=demographics,goals,painPoints,preferredChannels
+TYPE|Journey|Journey|Business|hier=True|successors=None|subtypes=customerJourney,userExperienceFlow,serviceDeliveryPath|sections=<unnamed>:stages,touchpoints,satisfaction,painAreasDescription|fields=stages,touchpoints,satisfaction,painAreasDescription
+---RELATIONS---
+REL|relObjectiveToBC|improves|Objective->BusinessCapability|attrs=
+REL|relPlatformToObjective|supports|Platform->Objective|attrs=
+REL|relPlatformToApp|runs|Platform->Application|attrs=
+REL|relPlatformToITC|implements|Platform->ITComponent|attrs=
+REL|relInitiativeToObjective|supports|Initiative->Objective|attrs=
+REL|relInitiativeToPlatform|affects|Initiative->Platform|attrs=
+REL|relInitiativeToBC|improves|Initiative->BusinessCapability|attrs=
+REL|relInitiativeToApp|affects|Initiative->Application|attrs=
+REL|relInitiativeToInterface|affects|Initiative->Interface|attrs=
+REL|relInitiativeToDataObj|affects|Initiative->DataObject|attrs=
+REL|relInitiativeToITC|affects|Initiative->ITComponent|attrs=
+REL|relOrgToObjective|owns|Organization->Objective|attrs=
+REL|relOrgToInitiative|owns|Organization->Initiative|attrs=
+REL|relOrgToBizCtx|owns|Organization->BusinessContext|attrs=
+REL|relOrgToApp|uses|Organization->Application|attrs=usageType
+REL|relOrgToITC|owns|Organization->ITComponent|attrs=
+REL|relAppToBC|supports|Application->BusinessCapability|attrs=supportType
+REL|relAppToBizCtx|supports|Application->BusinessContext|attrs=
+REL|relAppToInterface|provides / consumes|Application->Interface|attrs=flowDirection
+REL|relAppToDataObj|CRUD|Application->DataObject|attrs=crudCreate,crudRead,crudUpdate,crudDelete
+REL|relAppToITC|uses|Application->ITComponent|attrs=costTotalAnnual
+REL|relITCToTechCat|belongs to|ITComponent->TechCategory|attrs=
+REL|relITCToPlatform|implements|ITComponent->Platform|attrs=
+REL|relInterfaceToDataObj|transfers|Interface->DataObject|attrs=
+REL|relInterfaceToITC|uses|Interface->ITComponent|attrs=
+REL|relProviderToInitiative|supports|Provider->Initiative|attrs=
+REL|relProviderToApp|offers|Provider->Application|attrs=
+REL|relProviderToITC|offers|Provider->ITComponent|attrs=
+REL|relBizCtxToBC|is associated with|BusinessContext->BusinessCapability|attrs=
+REL|relProcessToBC|supports|BusinessProcess->BusinessCapability|attrs=supportType
+REL|relProcessToApp|is supported by|BusinessProcess->Application|attrs=usageType
+REL|relProcessToDataObj|uses|BusinessProcess->DataObject|attrs=crudCreate,crudRead,crudUpdate,crudDelete
+REL|relProcessToITC|uses|BusinessProcess->ITComponent|attrs=
+REL|relProcessDependency|depends on|BusinessProcess->BusinessProcess|attrs=
+REL|relProcessToOrg|is owned by|BusinessProcess->Organization|attrs=
+REL|relProcessToInitiative|is affected by|BusinessProcess->Initiative|attrs=
+REL|relProcessToObjective|supports|BusinessProcess->Objective|attrs=
+REL|relProcessToBizCtx|realizes|BusinessProcess->BusinessContext|attrs=
+REL|relAppSuccessor|succeeds|Application->Application|attrs=
+REL|relITCSuccessor|succeeds|ITComponent->ITComponent|attrs=
+REL|relInitiativeSuccessor|succeeds|Initiative->Initiative|attrs=
+REL|relPlatformSuccessor|succeeds|Platform->Platform|attrs=
+REL|relProcessSuccessor|succeeds|BusinessProcess->BusinessProcess|attrs=
+REL|relInterfaceSuccessor|succeeds|Interface->Interface|attrs=
+REL|relDataObjectSuccessor|succeeds|DataObject->DataObject|attrs=
+REL|relSecCtrlToApp|protects|SecurityControl->Application|attrs=
+REL|relSecCtrlToData|protects|SecurityControl->DataObject|attrs=
+REL|relSecCtrlToITC|secures|SecurityControl->ITComponent|attrs=
+REL|relPersonaToOrg|belongs to|Persona->Organization|attrs=
+REL|relAppToPersona|serves|Application->Persona|attrs=
+REL|relJourneyToCapability|maps to|Journey->BusinessCapability|attrs=
+REL|relJourneyToContext|manifests through|Journey->BusinessContext|attrs=
+REL|relJourneyToPersona|targets|Journey->Persona|attrs=
+REL|relPersonaToCapability|supports|Persona->BusinessCapability|attrs=
+REL|relAppToJourney|supports|Application->Journey|attrs=

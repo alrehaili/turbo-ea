@@ -1,0 +1,29 @@
+NORA_TYPE|GovService|Government Service|Beneficiary Experience|hier=True|successors=None|subtypes=|fields=serviceCode,beneficiaryType,deliveryChannel,serviceMaturity,feeModel,slaDays,monthlyTransactions,sharedServiceConsumer
+NORA_TYPE|DataExchange|Data Exchange|Data|hier=False|successors=None|subtypes=|fields=exchangeMethod,frequency,externalParty,viaGsb,dataClassificationCarried
+NORA_TYPE|KPI|KPI|Business|hier=False|successors=None|subtypes=|fields=unit,baselineValue,targetValue,currentValue,measurementFrequency,direction
+NORA_TYPE|BeneficiaryJourney|Beneficiary Journey|Beneficiary Experience|hier=True|successors=None|subtypes=|fields=journeyStage,persona
+NORA_TYPE|Channel|Channel|Beneficiary Experience|hier=False|successors=None|subtypes=|fields=channelType,channelMaturity
+NORA_TYPE|SecurityControl|Security Control|Security|hier=True|successors=None|subtypes=|fields=controlDomain,implementationStatus,controlFramework
+NORA_TYPE|Persona|Persona|Beneficiary Experience|hier=False|successors=None|subtypes=|fields=personaCode,personaGoals,demographicInfo,painPoints
+NORA_TYPE|Policy|Policy|Business|hier=False|successors=None|subtypes=|fields=policyCode,policyType,policyStatus,activationDate,policyLink
+NORA_TYPE|Pillar|Strategic Pillar|Business|hier=False|successors=None|subtypes=|fields=pillarCode,pillarOrder
+---NORA_RELATIONS---
+NORA_REL|relGovServiceToProcess|is realized by|GovService->BusinessProcess|attrs=
+NORA_REL|relGovServiceToApp|is delivered by|GovService->Application|attrs=
+NORA_REL|relOrgToGovService|provides|Organization->GovService|attrs=
+NORA_REL|relGovServiceToBC|supports|GovService->BusinessCapability|attrs=
+NORA_REL|relGovServiceToDO|uses|GovService->DataObject|attrs=
+NORA_REL|relAppToDataExchange|exchanges via|Application->DataExchange|attrs=direction
+NORA_REL|relDataExchangeToDO|carries|DataExchange->DataObject|attrs=
+NORA_REL|relDataObjectToITC|is stored in|DataObject->ITComponent|attrs=
+NORA_REL|relObjectiveToKPI|is measured by|Objective->KPI|attrs=
+NORA_REL|relKPIToGovService|measures|KPI->GovService|attrs=
+NORA_REL|relInitiativeToKPI|improves|Initiative->KPI|attrs=
+NORA_REL|relPersonaToGovService|uses|Persona->GovService|attrs=
+NORA_REL|relPersonaToJourney|experiences|Persona->BeneficiaryJourney|attrs=
+NORA_REL|relJourneyToGovService|covers|BeneficiaryJourney->GovService|attrs=
+NORA_REL|relJourneyToChannel|uses channel|BeneficiaryJourney->Channel|attrs=
+NORA_REL|relPolicyToBC|governs|Policy->BusinessCapability|attrs=
+NORA_REL|relPolicyToGovService|governs|Policy->GovService|attrs=
+NORA_REL|relPolicyToProcess|governs|Policy->BusinessProcess|attrs=
+NORA_REL|relObjectiveToPillar|supports|Objective->Pillar|attrs=

@@ -63,6 +63,12 @@ const TechnologyLandscapeReport = lazy(
 );
 const StrategicHouseReport = lazy(() => import("@/features/reports/StrategicHouseReport"));
 const StrategyCascadeReport = lazy(() => import("@/features/reports/StrategyCascadeReport"));
+// Phase 4: Specialized NORA Renderers
+const StrategicHouseSpecReport = lazy(() => import("@/features/reports/specialized/StrategicHouseReport"));
+const BeneficiaryJourneyMapReport = lazy(() => import("@/features/reports/specialized/BeneficiaryJourneyMapReport"));
+const DatacenterDistributionReport = lazy(() => import("@/features/reports/specialized/DatacenterDistributionReport"));
+const NetworkTopologyReport = lazy(() => import("@/features/reports/specialized/NetworkTopologyReport"));
+const SecurityDeploymentReport = lazy(() => import("@/features/reports/specialized/SecurityDeploymentReport"));
 const ValueChainReport = lazy(() => import("@/features/reports/ValueChainReport"));
 const AppModulesReport = lazy(() => import("@/features/reports/AppModulesReport"));
 const ChangeImpactWorkbench = lazy(() => import("@/features/reports/ChangeImpactWorkbench"));
@@ -329,6 +335,12 @@ function AppRoutes() {
                 <Route path="/reports/service-touchpoints" element={<ServiceTouchpointTraceability />} />
                 <Route path="/reports/persona-beneficiary-mapping" element={<PersonaBeneficiaryMapping />} />
                 <Route path="/reports/nea-viewpoints" element={<NEAViewpointsDashboard />} />
+                {/* Phase 4: NORA Specialized Renderers */}
+                <Route path="/reports/strategic-house-nora" element={<StrategicHouseSpecReport />} />
+                <Route path="/reports/journey-map-nora" element={<BeneficiaryJourneyMapReport />} />
+                <Route path="/reports/datacenter-distribution" element={<DatacenterDistributionReport />} />
+                <Route path="/reports/network-topology" element={<NetworkTopologyReport />} />
+                <Route path="/reports/security-deployment" element={<SecurityDeploymentReport />} />
                 <Route path="/reports/cost" element={<CostReport />} />
                 <Route path="/reports/matrix" element={<MatrixReport />} />
                 <Route path="/reports/data-quality" element={<DataQualityReport />} />
