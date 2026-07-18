@@ -12,7 +12,7 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 | 🟡 Partial | Generic engine can render it after configuration (relation/subtype/preset work needed) |
 | ❌ Missing | Requires new building blocks (card types/relations) or a new renderer |
 
-**Overall: 0 / 67 done** · 33 available · 12 partial · 22 missing
+**Overall: 0 / 67 done** · 38 available · 11 partial · 18 missing
 
 **Phase 1 Status: ✅ COMPLETE**
 - ViewpointDefinition model & table (migration 154)
@@ -50,8 +50,13 @@ Add `GovService`, `Beneficiary`, `BeneficiaryPersona`, `BeneficiaryJourney` (+ s
 - All types carry bilingual (en/ar) metadata, hierarchies, and subtypes per NORA domain conventions
 - Unblocks Technology (11/12 ✅), Data (4/8 🟢), Security (6/8 🟢) viewpoints for matrix/list rendering
 
-### Phase 4 — Specialized generated diagrams
-New renderers: Strategic House, Beneficiary Journey Map, Datacenter Distribution, Network Topology/Circuits, Security Deployment. Reuse the LDV/React-Flow and report-shell infrastructure; one registry, reusable renderers — no 67 hard-coded pages.
+### Phase 4 — Specialized generated diagrams (✅ COMPLETE)
+- Built 5 specialized React renderers for NORA diagram viewpoints
+- Components: StrategicHouseReport, BeneficiaryJourneyMapReport, DatacenterDistributionReport, NetworkTopologyReport, SecurityDeploymentReport
+- All renderers use ReportShell wrapper for consistent layout + MUI responsive grid components
+- Routes registered in App.tsx: `/reports/strategic-house-nora`, `/reports/journey-map-nora`, `/reports/datacenter-distribution`, `/reports/network-topology`, `/reports/security-deployment`
+- Viewpoint definitions updated to link to new renderers
+- Unblocks 5 more viewpoints (Strategic House, Journey Map, Datacenter Distribution, Network Topology, Security Deployment)
 
 ---
 
@@ -194,7 +199,18 @@ cd backend && alembic upgrade head
 # Filter by domain/level, click cards to navigate or see what's missing
 ```
 
-### What's Left
-- **Phase 2**: Add missing building blocks (GovService, Beneficiary, Persona, Journey, ModelTemplate, Policy, etc.)
-- **Phase 3**: Add infrastructure/data/security subtypes and standardized relations
-- **Phase 4**: Build specialized renderers (Strategic House, Journey Map, Network Topology, Security Deployment, etc.)
+### What's Next — Remaining Viewpoints (18/67 missing)
+
+The remaining 18 viewpoints require a mix of:
+1. **Saved view/preset seeding** (many 🟢 available viewpoints just need NORA-configured saved views/bookmarks to become ✅ done)
+2. **New card types** (Mandate, SoAW-linked types, Compliance-specific types)
+3. **Matrix preset rendering** (many matrices exist but lack NORA-branded presets)
+4. **UI workflow enhancements** (approval workflows, advanced filtering, bulk operations)
+
+**By domain:**
+- Strategic Alignment (1/3): Need Pillar type linking
+- Beneficiary Experience (1/8): Need Improvement type, Journey-based matrices
+- Data (4/8): Need Data Ownership/Steward stakeholder role standardization
+- Applications (1/14): Need Application/Beneficiary relation + matrix
+- Technology (1/12): Need refined Macro capabilities hierarchy + Node type
+- Security (2/8): Mostly needs relation refinements + Security software/hardware linking to applications
