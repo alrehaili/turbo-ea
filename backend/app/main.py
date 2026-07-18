@@ -806,6 +806,30 @@ async def lifespan(app: FastAPI):
         except Exception as exc:  # noqa: BLE001
             logger.exception("[seed_nora_landscape_fill] FAILED: %s", exc)
 
+        # Top-up the viewpoint building-block types added for the 67-viewpoint
+        # completion (Beneficiary, BeneficiaryPersona, ModelTemplate, Position,
+        # Mandate, JourneyImprovement, DataDictionary/Term/Attribute, DataVault,
+        # Location, Datacenter, NetworkCircuit, SecurityService/Function) plus
+        # one ADM governance workspace anchored to the seeded SoAW.
+        from app.services.seed_nora_viewpoint_fill import seed_nora_viewpoint_fill
+
+        try:
+            async with async_session() as db:
+                result = await seed_nora_viewpoint_fill(db)
+            if result.get("skipped"):
+                print(f"[seed_nora_viewpoint_fill] Skipped: {result.get('reason')}")
+            else:
+                # ASCII-only — a "✓" here raises UnicodeEncodeError on Windows
+                # cp1252 consoles, which the except below would then mislabel
+                # as a seed failure even though the commit already succeeded.
+                print(
+                    f"[seed_nora_viewpoint_fill] Seeded {result['cards']} cards, "
+                    f"{result['relations']} relations"
+                    + (", 1 ADM workspace" if result.get("adm_workspace") else "")
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_nora_viewpoint_fill] FAILED: %s", exc)
+
         # Seed public web portals (catalogue per card type + Strategic House hub)
         from app.services.seed_nora_portals import seed_nora_portals
 
