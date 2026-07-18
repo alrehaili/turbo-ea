@@ -12,7 +12,7 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 | 🟡 Partial | Generic engine can render it after configuration (relation/subtype/preset work needed) |
 | ❌ Missing | Requires new building blocks (card types/relations) or a new renderer |
 
-**Overall: 0 / 67 done** · 38 available · 11 partial · 18 missing
+**Overall: 38 / 67 done** · 38 available · 11 partial · 18 missing
 
 **Phase 1 Status: ✅ COMPLETE**
 - ViewpointDefinition model & table (migration 154)
