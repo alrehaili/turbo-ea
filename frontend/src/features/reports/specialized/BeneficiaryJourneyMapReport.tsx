@@ -35,7 +35,7 @@ interface Journey {
 }
 
 interface CardListResponse {
-  data: { id: string; name: string; description?: string }[];
+  items: { id: string; name: string; description?: string }[];
 }
 
 export default function BeneficiaryJourneyMapReport() {
@@ -50,9 +50,10 @@ export default function BeneficiaryJourneyMapReport() {
         const resp = await api.get<CardListResponse>(
           '/cards?type=BeneficiaryJourney&page_size=100'
         );
-        if (resp.data.length > 0) {
+        const cards = resp.items || [];
+        if (cards.length > 0) {
           // Create mock stages for demo (in production, these would come from nested journey structures)
-          const journeysWithStages: Journey[] = resp.data.map((j) => ({
+          const journeysWithStages: Journey[] = cards.map((j) => ({
             ...j,
             stages: [
               { id: '1', name: 'Awareness', order: 1, touchpoints: ['Website', 'Social Media'], painPoints: ['Unclear navigation'] },

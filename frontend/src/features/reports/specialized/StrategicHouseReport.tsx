@@ -81,10 +81,10 @@ export default function StrategicHouseReport() {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get<{ data: ObjectiveCard[] }>(
+        const resp = await api.get<{ items: ObjectiveCard[] }>(
           '/cards?type=Objective&page_size=500'
         );
-        setObjectives(resp.data);
+        setObjectives(resp.items || []);
         setLoading(false);
       } catch (err: any) {
         setError(err.detail || 'Failed to load objectives');

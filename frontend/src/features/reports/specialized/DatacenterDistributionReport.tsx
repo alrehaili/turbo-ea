@@ -55,15 +55,15 @@ export default function DatacenterDistributionReport() {
   useEffect(() => {
     (async () => {
       try {
-        const dcResp = await api.get<{ data: Datacenter[] }>(
+        const dcResp = await api.get<{ items: Datacenter[] }>(
           '/cards?type=Datacenter&page_size=200'
         );
-        const locResp = await api.get<{ data: Location[] }>(
+        const locResp = await api.get<{ items: Location[] }>(
           '/cards?type=Location&page_size=200'
         );
 
-        setDatacenters(dcResp.data);
-        setLocations(locResp.data);
+        setDatacenters(dcResp.items || []);
+        setLocations(locResp.items || []);
         setLoading(false);
       } catch (err: any) {
         setError(err.detail || 'Failed to load datacenters');

@@ -42,15 +42,15 @@ export default function SecurityDeploymentReport() {
   useEffect(() => {
     (async () => {
       try {
-        const funcResp = await api.get<{ data: SecurityFunction[] }>(
+        const funcResp = await api.get<{ items: SecurityFunction[] }>(
           '/cards?type=SecurityFunction&page_size=200'
         );
-        const servResp = await api.get<{ data: any[] }>(
+        const servResp = await api.get<{ items: any[] }>(
           '/cards?type=SecurityService&page_size=200'
         );
 
-        setFunctions(funcResp.data);
-        setServices(servResp.data);
+        setFunctions(funcResp.items || []);
+        setServices(servResp.items || []);
         setLoading(false);
       } catch (err: any) {
         setError(err.detail || 'Failed to load security data');

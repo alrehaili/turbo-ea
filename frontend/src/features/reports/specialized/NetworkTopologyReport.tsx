@@ -40,10 +40,10 @@ export default function NetworkTopologyReport() {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get<{ data: NetworkCircuit[] }>(
+        const resp = await api.get<{ items: NetworkCircuit[] }>(
           '/cards?type=NetworkCircuit&page_size=200'
         );
-        setCircuits(resp.data);
+        setCircuits(resp.items || []);
         setLoading(false);
       } catch (err: any) {
         setError(err.detail || 'Failed to load network circuits');
