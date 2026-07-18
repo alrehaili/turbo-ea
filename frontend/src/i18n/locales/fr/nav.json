@@ -298,5 +298,11 @@
   "reports.dataOwnership": "Propriété des données",
   "reports.initiativeGaps": "Écarts d'initiative",
   "reports.transitionRoadmap": "Feuille de route de transition",
-  "reports.exceptionsWaivers": "Exceptions & Dérogations"
+  "reports.exceptionsWaivers": "Exceptions & Dérogations",
+  "reports.groupDelivery": "Livraison EA",
+  "reports.groupLandscape": "Portefeuille et paysage",
+  "reports.groupStrategy": "Stratégie et transformation",
+  "reports.groupBusiness": "Métier et services",
+  "reports.groupData": "Données et intégration",
+  "reports.groupOps": "Exploitation et coûts"
 }

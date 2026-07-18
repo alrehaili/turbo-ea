@@ -298,5 +298,11 @@
   "reports.principlesTraceability": "Rastreabilidade de princípios",
   "reports.dataDomains": "Domínios de dados",
   "reports.techStack": "Pilha tecnológica",
-  "reports.initiativeGaps": "Lacunas da iniciativa"
+  "reports.initiativeGaps": "Lacunas da iniciativa",
+  "reports.groupDelivery": "Entrega EA",
+  "reports.groupLandscape": "Portfólio e panorama",
+  "reports.groupStrategy": "Estratégia e transformação",
+  "reports.groupBusiness": "Negócios e serviços",
+  "reports.groupData": "Dados e integração",
+  "reports.groupOps": "Operações e custos"
 }

@@ -99,36 +99,42 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
     icon: "analytics",
     permission: "reports.ea_dashboard",
     children: [
-      { labelKey: "reports.admWorkspaces", icon: "account_tree", path: "/ea-delivery/adm", permission: "adm.view" },
-      { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio" },
+      // ── EA Delivery ──
+      { labelKey: "reports.admWorkspaces", icon: "account_tree", path: "/ea-delivery/adm", permission: "adm.view", dividerLabel: "reports.groupDelivery" },
+      // ── Portfolio & Landscape ──
+      { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio", dividerLabel: "reports.groupLandscape" },
       { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
       { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
-      { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
-      { labelKey: "reports.transformationRoadmap", icon: "route", path: "/reports/transformation-roadmap" },
-      { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
-      { labelKey: "reports.gapAnalysis", icon: "compare_arrows", path: "/reports/gap-analysis" },
-      { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart" },
-      { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
-      { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
-      { labelKey: "reports.serviceCatalogue", icon: "assured_workload", path: "/reports/service-catalogue", permission: "inventory.view" },
-      { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
-      { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
-      { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
       { labelKey: "reports.technologyLandscape", icon: "apartment", path: "/reports/technology-landscape" },
-      { labelKey: "reports.strategicHouse", icon: "home_work", path: "/reports/strategic-house" },
-      { labelKey: "reports.strategyCascade", icon: "account_tree", path: "/reports/strategy-cascade" },
-      { labelKey: "reports.valueChain", icon: "linear_scale", path: "/reports/value-chain" },
       { labelKey: "reports.appModules", icon: "widgets", path: "/reports/application-modules" },
+      { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
+      { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
       { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
+      // ── Strategy & Transformation ──
+      { labelKey: "reports.strategicHouse", icon: "home_work", path: "/reports/strategic-house", dividerLabel: "reports.groupStrategy" },
+      { labelKey: "reports.strategyCascade", icon: "account_tree", path: "/reports/strategy-cascade" },
       { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },
-      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
-      { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
-      { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
+      { labelKey: "reports.valueChain", icon: "linear_scale", path: "/reports/value-chain" },
+      { labelKey: "reports.transformationRoadmap", icon: "route", path: "/reports/transformation-roadmap" },
+      { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
+      { labelKey: "reports.gapAnalysis", icon: "compare_arrows", path: "/reports/gap-analysis" },
+      // ── Business & Services ──
+      { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart", dividerLabel: "reports.groupBusiness" },
+      { labelKey: "reports.serviceCatalogue", icon: "assured_workload", path: "/reports/service-catalogue", permission: "inventory.view" },
+      { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
+      { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
+      // ── Data & Integration ──
+      { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality", dividerLabel: "reports.groupData" },
       { labelKey: "reports.freshness", icon: "fact_check", path: "/reports/freshness" },
-      { labelKey: "reports.resilience", icon: "health_and_safety", path: "/reports/resilience" },
       { labelKey: "reports.dataFlow", icon: "schema", path: "/reports/data-flow" },
       { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
+      { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
+      { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
+      // ── Operations & Cost ──
+      { labelKey: "reports.resilience", icon: "health_and_safety", path: "/reports/resilience", dividerLabel: "reports.groupOps" },
+      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
+      { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
       { labelKey: "reports.currentVsTarget", icon: "compare_arrows", path: "/reports/current-vs-target", dividerLabel: "reports.phase5" },
       { labelKey: "reports.gapSummary", icon: "gap_statistics", path: "/reports/gap-summary" },
       { labelKey: "reports.initiativeGaps", icon: "assignment_turned_in", path: "/reports/initiative-gaps" },
@@ -670,17 +676,36 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <Collapse in={drawerReportsOpen}>
                 <List disablePadding sx={{ pl: 2 }}>
                   {item.children.map((child) => (
-                    <ListItemButton
-                      key={child.path}
-                      selected={isActive(child.path)}
-                      onClick={() => drawerNav(child.path)}
-                      sx={{ borderRadius: 1, color: nav.fgMuted, "&.Mui-selected": { color: nav.fg, bgcolor: nav.activeBg } }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 32, color: "inherit" }}>
-                        <MaterialSymbol icon={child.icon} size={18} color="inherit" />
-                      </ListItemIcon>
-                      <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
-                    </ListItemButton>
+                    <Box key={child.path}>
+                      {child.dividerLabel && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            px: 2,
+                            pt: 1.25,
+                            pb: 0.5,
+                            color: nav.fgMuted,
+                            fontWeight: 700,
+                            display: "block",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5,
+                            fontSize: "0.65rem",
+                          }}
+                        >
+                          {t(child.dividerLabel)}
+                        </Typography>
+                      )}
+                      <ListItemButton
+                        selected={isActive(child.path)}
+                        onClick={() => drawerNav(child.path)}
+                        sx={{ borderRadius: 1, color: nav.fgMuted, "&.Mui-selected": { color: nav.fg, bgcolor: nav.activeBg } }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 32, color: "inherit" }}>
+                          <MaterialSymbol icon={child.icon} size={18} color="inherit" />
+                        </ListItemIcon>
+                        <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
+                      </ListItemButton>
+                    </Box>
                   ))}
                 </List>
               </Collapse>
@@ -900,9 +925,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           >
             {menuChildren?.map((child, idx) => (
               <Box key={child.path}>
-                {child.dividerLabel && idx > 0 && (
+                {child.dividerLabel && (
                   <>
-                    <Divider sx={{ my: 0.5 }} />
+                    {idx > 0 && <Divider sx={{ my: 0.5 }} />}
                     <Typography
                       variant="caption"
                       sx={{

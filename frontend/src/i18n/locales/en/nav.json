@@ -303,5 +303,11 @@
   "reports.exceptionsWaivers": "Exceptions & Waivers",
   "reports.principlesTraceability": "Principles Traceability",
   "reports.securityControls": "Security Controls",
-  "reports.standardsCompliance": "Standards Compliance"
+  "reports.standardsCompliance": "Standards Compliance",
+  "reports.groupDelivery": "EA Delivery",
+  "reports.groupLandscape": "Portfolio & Landscape",
+  "reports.groupStrategy": "Strategy & Transformation",
+  "reports.groupBusiness": "Business & Services",
+  "reports.groupData": "Data & Integration",
+  "reports.groupOps": "Operations & Cost"
 }

@@ -298,5 +298,11 @@
   "reports.principlesTraceability": "Principper sporbarhed",
   "reports.dataDomains": "Datadomæner",
   "reports.techStack": "Teknologistak",
-  "reports.initiativeGaps": "Initiativhuller"
+  "reports.initiativeGaps": "Initiativhuller",
+  "reports.groupDelivery": "EA-levering",
+  "reports.groupLandscape": "Portefølje og landskab",
+  "reports.groupStrategy": "Strategi og transformation",
+  "reports.groupBusiness": "Forretning og services",
+  "reports.groupData": "Data og integration",
+  "reports.groupOps": "Drift og omkostninger"
 }

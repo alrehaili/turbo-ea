@@ -298,5 +298,11 @@
   "reports.dataOwnership": "Dateneigentümerschaft",
   "reports.initiativeGaps": "Initiative Lücken",
   "reports.transitionRoadmap": "Übergangspfad",
-  "reports.exceptionsWaivers": "Ausnahmen & Verzichte"
+  "reports.exceptionsWaivers": "Ausnahmen & Verzichte",
+  "reports.groupDelivery": "EA-Lieferung",
+  "reports.groupLandscape": "Portfolio & Landschaft",
+  "reports.groupStrategy": "Strategie & Transformation",
+  "reports.groupBusiness": "Geschäft & Services",
+  "reports.groupData": "Daten & Integration",
+  "reports.groupOps": "Betrieb & Kosten"
 }

@@ -298,5 +298,11 @@
   "reports.principlesTraceability": "原则可追溯性",
   "reports.dataDomains": "数据域",
   "reports.techStack": "技术堆栈",
-  "reports.initiativeGaps": "计划差距"
+  "reports.initiativeGaps": "计划差距",
+  "reports.groupDelivery": "EA 交付",
+  "reports.groupLandscape": "组合与全景",
+  "reports.groupStrategy": "战略与转型",
+  "reports.groupBusiness": "业务与服务",
+  "reports.groupData": "数据与集成",
+  "reports.groupOps": "运营与成本"
 }

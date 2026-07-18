@@ -303,5 +303,11 @@
   "reports.principlesTraceability": "تتبع المبادئ",
   "reports.dataDomains": "مجالات البيانات",
   "reports.techStack": "مكدس التكنولوجيا",
-  "reports.initiativeGaps": "فجوات المبادرة"
+  "reports.initiativeGaps": "فجوات المبادرة",
+  "reports.groupDelivery": "تسليم البنية المؤسسية",
+  "reports.groupLandscape": "المحفظة والمشهد العام",
+  "reports.groupStrategy": "الاستراتيجية والتحول",
+  "reports.groupBusiness": "الأعمال والخدمات",
+  "reports.groupData": "البيانات والتكامل",
+  "reports.groupOps": "التشغيل والتكلفة"
 }

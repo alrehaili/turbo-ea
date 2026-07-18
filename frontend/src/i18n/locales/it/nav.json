@@ -298,5 +298,11 @@
   "reports.principlesTraceability": "Tracciabilità dei principi",
   "reports.dataDomains": "Domini di dati",
   "reports.techStack": "Stack tecnologico",
-  "reports.initiativeGaps": "Gap dell'iniziativa"
+  "reports.initiativeGaps": "Gap dell'iniziativa",
+  "reports.groupDelivery": "Consegna EA",
+  "reports.groupLandscape": "Portfolio e panorama",
+  "reports.groupStrategy": "Strategia e trasformazione",
+  "reports.groupBusiness": "Business e servizi",
+  "reports.groupData": "Dati e integrazione",
+  "reports.groupOps": "Operazioni e costi"
 }

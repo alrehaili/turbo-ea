@@ -298,5 +298,11 @@
   "reports.principlesTraceability": "Отслеживаемость принципов",
   "reports.dataDomains": "Домены данных",
   "reports.techStack": "Технологический стек",
-  "reports.initiativeGaps": "Пробелы инициативы"
+  "reports.initiativeGaps": "Пробелы инициативы",
+  "reports.groupDelivery": "Поставка EA",
+  "reports.groupLandscape": "Портфель и ландшафт",
+  "reports.groupStrategy": "Стратегия и трансформация",
+  "reports.groupBusiness": "Бизнес и услуги",
+  "reports.groupData": "Данные и интеграция",
+  "reports.groupOps": "Эксплуатация и затраты"
 }
