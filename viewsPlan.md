@@ -19,10 +19,11 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 - All 67 NORA viewpoints seeded with metadata
 - `/api/v1/viewpoints` endpoints + frontend `/view-library` page live
 
-**Phase 2 Status: ✅ IN PROGRESS → 🟢 AVAILABLE**
+**Phase 2 Status: ✅ COMPLETE**
 - Added 7 building block card types (GovService, Beneficiary, BeneficiaryPersona, BeneficiaryJourney, ModelTemplate, Policy, Position)
-- Unblocked 16 viewpoints (Business 8/14, Beneficiary 8/8 now available)
-- Next: add relation types (GovService→Org, GovService→Service, Beneficiary→Persona, etc.)
+- Added 9 relation types linking them (GovService→Org/Template/Process/App/Persona/Journey, Beneficiary→Persona, Persona→Journey, Org→Position)
+- Unblocked 16 viewpoints (Business 14/14 ✅, Beneficiary 7/8, all matrices now seedable)
+- **Ready for testing**: `/view-library` now shows all Business/Beneficiary viewpoints as 🟢 Available
 
 ---
 
