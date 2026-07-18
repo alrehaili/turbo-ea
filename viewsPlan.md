@@ -12,7 +12,7 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 | 🟡 Partial | Generic engine can render it after configuration (relation/subtype/preset work needed) |
 | ❌ Missing | Requires new building blocks (card types/relations) or a new renderer |
 
-**Overall: 38 / 67 done** · 38 available · 11 partial · 18 missing
+**Overall: 67 / 67 available (100%)** · 0 partial · 0 missing
 
 **Phase 1 Status: ✅ COMPLETE**
 - ViewpointDefinition model & table (migration 154)
@@ -31,6 +31,22 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 - Added 10 relation types (DataTermToAttribute, DataVaultToLocation, DatacenterToLocation, NetworkCircuitToDatacenter, ITComponentToLocation, SecurityServiceToProvider, SecurityFunctionToApp, SecurityFunctionToITComponent, AppToDataVault, AppToNetworkCircuit, DataVaultToDomain)
 - Unblocks Technology (11/12), Data (4/8), Security (6/8) viewpoints
 - All new types carry bilingual (en/ar) metadata with complete fields_schema
+
+**Phase 4 Status: ✅ COMPLETE**
+- 5 specialized React renderers: Strategic House, Beneficiary Journey Map, Datacenter Distribution, Network Topology, Security Deployment
+- Lazy-loaded routes wired in `App.tsx`; all use `ReportShell` + typed API responses
+
+**Phase 5 Status: ✅ COMPLETE**
+- 40+ NORA-configured `SavedReport` presets seeded on startup (`seed_nora_presets.py`)
+- Deduped by name, stamped with preset/viewpoint codes in `config`
+
+**Phase 6 Status: ✅ COMPLETE — 100%**
+- Added 4 building block card types (Mandate, Pillar, JourneyImprovement, DataDictionary)
+- Added 7 relation types unblocking the last matrices (DataObject→Attribute, App→Beneficiary, Journey→Improvement, SecurityFunction→Location, DataObject→Capability, Datacenter→Provider, Datacenter→App)
+- Fixed 11 Phase 3 relation types that stored label/reverse_label as dicts (broke metamodel seeding)
+- Made `seed_nora_viewpoints` upsert governance metadata so status flips propagate to existing installs
+- Fixed View Library + all 5 specialized renderers (default imports, typed responses, ReportShell `icon` prop)
+- **All 67 viewpoints now reachable and marked Available**
 
 ---
 
