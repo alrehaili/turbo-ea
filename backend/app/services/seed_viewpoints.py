@@ -91,7 +91,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي لسلسلة القيمة مع القدرات والخدمات والعمليات",
         "building_blocks": ["BusinessCapability", "GovService", "BusinessProcess"],
         "target_route": "/value-stream-catalogue",
-        "status": "partial",
+        "status": "available",
         "sort_order": 6,
     },
     {
@@ -133,7 +133,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "قائمة السياسات الحكومية التي تحكم الخدمات والعمليات",
         "building_blocks": ["Policy"],
         "target_route": "/grc?tab=governance",
-        "status": "partial",
+        "status": "available",
         "sort_order": 9,
     },
     {
@@ -147,7 +147,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح الخدمات التي تقدمها كل وحدة تنظيمية",
         "building_blocks": ["Organization", "GovService"],
         "target_route": "/reports/matrix?source=Organization&target=GovService",
-        "status": "missing",
+        "status": "available",
         "sort_order": 10,
     },
     {
@@ -175,7 +175,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي للتفاعلات بين المنظمة والجهات الداخلية والخارجية",
         "building_blocks": ["Organization"],
         "target_route": "/reports/dependencies?type=Organization",
-        "status": "partial",
+        "status": "available",
         "sort_order": 12,
     },
     {
@@ -203,7 +203,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح العلاقة بين الخدمات والنماذج التي تدعمها",
         "building_blocks": ["GovService", "ModelTemplate"],
         "target_route": "/reports/matrix?source=GovService&target=ModelTemplate",
-        "status": "missing",
+        "status": "available",
         "sort_order": 14,
     },
     {
@@ -217,7 +217,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح العمليات التي تنفذ كل خدمة",
         "building_blocks": ["GovService", "BusinessProcess"],
         "target_route": "/reports/matrix?source=GovService&target=BusinessProcess",
-        "status": "missing",
+        "status": "available",
         "sort_order": 15,
     },
     {
@@ -231,7 +231,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح التطبيقات التي تدعم كل خدمة",
         "building_blocks": ["GovService", "Application"],
         "target_route": "/reports/matrix?source=GovService&target=Application",
-        "status": "missing",
+        "status": "available",
         "sort_order": 16,
     },
     {
@@ -260,7 +260,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "بطاقة توضح شخصية المستفيد مع المعلومات الديموغرافية والاحتياجات والأهداف والتحديات",
         "building_blocks": ["BeneficiaryPersona"],
         "target_route": "/inventory?type=BeneficiaryPersona",
-        "status": "missing",
+        "status": "available",
         "sort_order": 18,
     },
     {
@@ -288,7 +288,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح شرائح المستفيدين والشخصيات المرتبطة بها",
         "building_blocks": ["Beneficiary", "BeneficiaryPersona"],
         "target_route": "/reports/matrix?source=Beneficiary&target=BeneficiaryPersona",
-        "status": "missing",
+        "status": "available",
         "sort_order": 20,
     },
     {
@@ -302,7 +302,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح الخدمات التي يستخدمها كل شخصية مستفيد",
         "building_blocks": ["GovService", "BeneficiaryPersona"],
         "target_route": "/reports/matrix?source=GovService&target=BeneficiaryPersona",
-        "status": "missing",
+        "status": "available",
         "sort_order": 21,
     },
     {
@@ -316,7 +316,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح الرحلات التي تتضمن كل خدمة",
         "building_blocks": ["GovService", "BeneficiaryJourney"],
         "target_route": "/reports/matrix?source=GovService&target=BeneficiaryJourney",
-        "status": "missing",
+        "status": "available",
         "sort_order": 22,
     },
     {
@@ -330,7 +330,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح الرحلات التي تمر بها كل شخصية",
         "building_blocks": ["BeneficiaryPersona", "BeneficiaryJourney"],
         "target_route": "/reports/matrix?source=BeneficiaryPersona&target=BeneficiaryJourney",
-        "status": "missing",
+        "status": "available",
         "sort_order": 23,
     },
     {
@@ -358,7 +358,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح أولويات تحسين الرحلة مع الدرجات والمالكين",
         "building_blocks": ["BeneficiaryJourney", "JourneyImprovement"],
         "target_route": "/reports/matrix?source=BeneficiaryJourney&target=JourneyImprovement",
-        "status": "missing",
+        "status": "available",
         "sort_order": 25,
     },
     # Data (8)
@@ -373,7 +373,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي يظهر مجالات البيانات والكيانات والملكية والاستخدام",
         "building_blocks": ["DataObject"],
         "target_route": "/reports/dependencies?type=DataObject",
-        "status": "partial",
+        "status": "available",
         "sort_order": 26,
     },
     {
@@ -387,7 +387,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "قائمة مالكي البيانات والقائمين عليها مع المسؤوليات والمنظمة",
         "building_blocks": ["DataObject"],
         "target_route": "/inventory?type=DataObject&role=Data%20Owner",
-        "status": "partial",
+        "status": "available",
         "sort_order": 27,
     },
     {
@@ -401,7 +401,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح كيانات البيانات المستخدمة من قبل كل قدرة",
         "building_blocks": ["DataObject", "BusinessCapability"],
         "target_route": "/reports/matrix?source=DataObject&target=BusinessCapability",
-        "status": "partial",
+        "status": "available",
         "sort_order": 28,
     },
     {
@@ -443,7 +443,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "قائمة بمواقع تخزين البيانات والتقنيات والسعة",
         "building_blocks": ["DataVault"],
         "target_route": "/inventory?type=DataVault",
-        "status": "missing",
+        "status": "available",
         "sort_order": 31,
     },
     {
@@ -457,7 +457,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح خصائص كل كيان بيانات مع الأنواع والقيود",
         "building_blocks": ["DataObject", "DataAttribute"],
         "target_route": "/reports/matrix?source=DataObject&target=DataAttribute",
-        "status": "missing",
+        "status": "available",
         "sort_order": 32,
     },
     {
@@ -471,7 +471,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح كيانات البيانات المخزنة في كل مستودع",
         "building_blocks": ["DataObject", "DataVault"],
         "target_route": "/reports/matrix?source=DataObject&target=DataVault",
-        "status": "missing",
+        "status": "available",
         "sort_order": 33,
     },
     # Applications (14)
@@ -514,7 +514,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح التطبيقات التي تخدم كل شريحة مستفيد",
         "building_blocks": ["Application", "Beneficiary"],
         "target_route": "/reports/matrix?source=Application&target=Beneficiary",
-        "status": "missing",
+        "status": "available",
         "sort_order": 36,
     },
     {
@@ -542,7 +542,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح التطبيقات التي تدعم كل خدمة حكومية",
         "building_blocks": ["Application", "GovService"],
         "target_route": "/reports/matrix?source=Application&target=GovService",
-        "status": "missing",
+        "status": "available",
         "sort_order": 38,
     },
     {
@@ -570,7 +570,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح نشر التطبيقات على بنية الخادم",
         "building_blocks": ["Application", "ITComponent"],
         "target_route": "/reports/matrix?source=Application&target=ITComponent&subtype=Server",
-        "status": "partial",
+        "status": "available",
         "sort_order": 40,
     },
     {
@@ -584,7 +584,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي لمنظر التطبيقات مرشح حسب الوحدة التنظيمية",
         "building_blocks": ["Application", "Organization"],
         "target_route": "/reports/portfolio?filter=organization",
-        "status": "partial",
+        "status": "available",
         "sort_order": 41,
     },
     {
@@ -598,7 +598,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي لمكونات التطبيق والتسلسل الهرمي للوحدات",
         "building_blocks": ["Application"],
         "target_route": "/inventory?type=Application&view=hierarchy",
-        "status": "partial",
+        "status": "available",
         "sort_order": 42,
     },
     {
@@ -654,7 +654,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح برنامج الأمان الذي يحمي كل تطبيق",
         "building_blocks": ["Application", "ITComponent"],
         "target_route": "/reports/matrix?source=Application&target=ITComponent&subtype=SecuritySoftware",
-        "status": "partial",
+        "status": "available",
         "sort_order": 46,
     },
     {
@@ -668,7 +668,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي يظهر التطبيقات مجمعة حسب نوع التطوير والمصدر",
         "building_blocks": ["Application"],
         "target_route": "/reports/portfolio?groupBy=developmentType",
-        "status": "partial",
+        "status": "available",
         "sort_order": 47,
     },
     # Technology (12)
@@ -697,7 +697,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي للنماذج المرجعية التكنولوجية ومنظر القدرات",
         "building_blocks": ["TechCategory"],
         "target_route": "/reports/capability-map?type=Technology",
-        "status": "partial",
+        "status": "available",
         "sort_order": 49,
     },
     {
@@ -739,7 +739,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح مراكز البيانات ومزودو خدماتهم",
         "building_blocks": ["Datacenter", "Provider"],
         "target_route": "/reports/matrix?source=Datacenter&target=Provider",
-        "status": "partial",
+        "status": "available",
         "sort_order": 52,
     },
     {
@@ -753,7 +753,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح التطبيقات المنشورة في كل مركز بيانات",
         "building_blocks": ["Datacenter", "Application"],
         "target_route": "/reports/matrix?source=Datacenter&target=Application",
-        "status": "partial",
+        "status": "available",
         "sort_order": 53,
     },
     {
@@ -766,8 +766,8 @@ NORA_VIEWPOINTS = [
         "description_en": "Diagram showing network topology, circuits, and connectivity",
         "description_ar": "رسم توضيحي لطوبولوجيا الشبكة والدوائر والاتصالية",
         "building_blocks": ["NetworkCircuit"],
-        "target_route": "/reports/dependencies?type=Network",
-        "status": "partial",
+        "target_route": "/reports/dependencies?type=NetworkCircuit",
+        "status": "available",
         "sort_order": 54,
     },
     {
@@ -852,7 +852,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح خدمات الأمان ومزودوها",
         "building_blocks": ["SecurityService", "Provider"],
         "target_route": "/reports/matrix?source=SecurityService&target=Provider",
-        "status": "partial",
+        "status": "available",
         "sort_order": 60,
     },
     {
@@ -866,7 +866,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "رسم توضيحي لقدرات الأمان والنماذج المرجعية",
         "building_blocks": ["SecurityService"],
         "target_route": "/reports/capability-map?type=Security",
-        "status": "partial",
+        "status": "available",
         "sort_order": 61,
     },
     {
@@ -908,7 +908,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "كتالوج خدمات الأمان (الأمان المدار والاستشارات والمراقبة)",
         "building_blocks": ["SecurityService"],
         "target_route": "/inventory?type=SecurityService",
-        "status": "partial",
+        "status": "available",
         "sort_order": 64,
     },
     {
@@ -922,7 +922,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح وظائف الأمان ومواقع نشرها",
         "building_blocks": ["SecurityFunction", "Location"],
         "target_route": "/reports/matrix?source=SecurityFunction&target=Location",
-        "status": "missing",
+        "status": "available",
         "sort_order": 65,
     },
     {
@@ -936,7 +936,7 @@ NORA_VIEWPOINTS = [
         "description_ar": "مصفوفة توضح وظائف الأمان التي تحمي التطبيقات",
         "building_blocks": ["SecurityFunction", "Application"],
         "target_route": "/reports/matrix?source=SecurityFunction&target=Application",
-        "status": "partial",
+        "status": "available",
         "sort_order": 66,
     },
     {
@@ -960,14 +960,40 @@ async def seed_nora_viewpoints(db: AsyncSession) -> None:
     """Seed all 67 NORA viewpoints into viewpoint_definitions table.
 
     Called on startup to ensure the View Library has complete metadata.
-    Idempotent — skips rows with existing codes.
+    The viewpoint catalogue is fork-governed reference metadata (not user
+    data), so this upserts: new codes are inserted, and existing rows have
+    their mutable governance fields (status, target_route, building_blocks,
+    names, descriptions, level, type, sort_order) refreshed from the seed
+    so status flips propagate to already-seeded installs on next boot.
     """
+    _mutable = (
+        "name_en",
+        "name_ar",
+        "domain",
+        "level",
+        "type",
+        "description_en",
+        "description_ar",
+        "building_blocks",
+        "target_route",
+        "status",
+        "sort_order",
+    )
     for vp_data in NORA_VIEWPOINTS:
-        existing = await db.execute(
-            select(ViewpointDefinition).where(ViewpointDefinition.code == vp_data["code"])
+        existing = (
+            (
+                await db.execute(
+                    select(ViewpointDefinition).where(ViewpointDefinition.code == vp_data["code"])
+                )
+            )
+            .scalars()
+            .first()
         )
-        if existing.scalars().first() is None:
-            vp = ViewpointDefinition(**vp_data)
-            db.add(vp)
+        if existing is None:
+            db.add(ViewpointDefinition(**vp_data))
+        else:
+            for field in _mutable:
+                if field in vp_data:
+                    setattr(existing, field, vp_data[field])
 
     await db.commit()
