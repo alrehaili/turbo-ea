@@ -29,6 +29,7 @@ const CardDetail = lazy(() => import("@/features/cards/CardDetail"));
 const ErrorBoundary = lazy(() => import("@/components/ErrorBoundary"));
 const PortfolioReport = lazy(() => import("@/features/reports/PortfolioReport"));
 const EaViewLibraryPage = lazy(() => import("@/features/reports/EaViewLibraryPage"));
+const ViewLibraryPage = lazy(() => import("@/features/view-library/ViewLibraryPage"));
 const LayerSwimlaneOverview = lazy(() => import("@/features/layers/LayerSwimlaneOverview"));
 const LayersDashboard = lazy(() => import("@/features/layers/LayersDashboard"));
 const TraceabilityView = lazy(() => import("@/features/layers/TraceabilityView"));
@@ -231,7 +232,7 @@ function AppRoutes() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/inventory" element={<InventoryPage />} />
                 <Route path="/cards/:id" element={<ErrorBoundary label="Card Detail"><CardDetail /></ErrorBoundary>} />
-                <Route path="/view-library" element={<EaViewLibraryPage />} />
+                <Route path="/view-library" element={<ViewLibraryPage />} />
                 <Route path="/reports/view-library" element={<Navigate to="/view-library" replace />} />
                 {/* Layers tab — rich per-layer swim-lane overviews (moved off /reports/). */}
                 <Route path="/layers/overview" element={<LayersDashboard />} />

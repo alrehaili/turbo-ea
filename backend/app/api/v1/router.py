@@ -60,6 +60,7 @@ from app.api.v1 import (
     turbolens,
     users,
     value_stream_catalogue,
+    viewpoints,
     web_portals,
     workspace,
 )
@@ -132,3 +133,4 @@ api_router.include_router(tech_standards.router)
 api_router.include_router(arb.router)
 api_router.include_router(scenarios.router)
 api_router.include_router(ops.router)
+api_router.include_router(viewpoints.router)

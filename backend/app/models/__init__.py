@@ -96,6 +96,7 @@ from app.models.turbolens import (
 )
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.models.viewpoint_definition import ViewpointDefinition
 from app.models.web_portal import WebPortal
 from app.models.workspace_transfer import WorkspaceTransfer
 
@@ -204,6 +205,7 @@ __all__ = [
     "SnowStagedRecord",
     "SnowIdentityMap",
     "UserFavorite",
+    "ViewpointDefinition",
     "ResourceType",
     "OpsRequestNonce",
 ]

@@ -654,10 +654,12 @@ async def lifespan(app: FastAPI):
     logger.info("[startup] Email settings loaded, seeding metamodel...")
     # Seed default metamodel
     from app.services.seed import seed_metamodel
+    from app.services.seed_viewpoints import seed_nora_viewpoints
 
     async with async_session() as db:
         await seed_metamodel(db)
-    logger.info("[startup] Metamodel seed complete")
+        await seed_nora_viewpoints(db)
+    logger.info("[startup] Metamodel and viewpoints seed complete")
 
     # Apply/upgrade the NORA framework profile when requested ([FORK] WP1.1)
     from app.services.nora_profile import ensure_framework_profile
