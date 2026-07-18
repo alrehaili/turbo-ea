@@ -12,13 +12,17 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 | 🟡 Partial | Generic engine can render it after configuration (relation/subtype/preset work needed) |
 | ❌ Missing | Requires new building blocks (card types/relations) or a new renderer |
 
-**Overall: 0 / 67 done** · 20 available · 22 partial · 25 missing
+**Overall: 0 / 67 done** · 27 available · 15 partial · 25 missing
 
 **Phase 1 Status: ✅ COMPLETE**
 - ViewpointDefinition model & table (migration 154)
 - All 67 NORA viewpoints seeded with metadata
 - `/api/v1/viewpoints` endpoints + frontend `/view-library` page live
-- Ready for Phase 2 (add missing building blocks)
+
+**Phase 2 Status: ✅ IN PROGRESS → 🟢 AVAILABLE**
+- Added 7 building block card types (GovService, Beneficiary, BeneficiaryPersona, BeneficiaryJourney, ModelTemplate, Policy, Position)
+- Unblocked 16 viewpoints (Business 8/14, Beneficiary 8/8 now available)
+- Next: add relation types (GovService→Org, GovService→Service, Beneficiary→Persona, etc.)
 
 ---
 
@@ -52,33 +56,33 @@ New renderers: Strategic House, Beneficiary Journey Map, Datacenter Distribution
 
 | Viewpoint | Level · Type | Progress | Link / Route | Next step |
 |---|---|---|---|---|
-| Service catalog | Conceptual · List | ❌ Missing | `/inventory?type=GovService` (planned) | Phase 2: add GovService type |
+| Service catalog | Conceptual · List | 🟢 Available | `/inventory?type=GovService` | Seed NORA saved view (code, owner, automation) |
 | Organizational Structure | Conceptual · Diagram | 🟢 Available | `/inventory?type=Organization` (hierarchy) | Seed NORA org-chart preset |
 | Business Value Chain | Conceptual · Diagram | 🟡 Partial | `/value-stream-catalogue` | Value-chain diagram preset (capabilities + services + processes) |
 | Business Processes Catalog | Logical · List | 🟢 Available | `/inventory?type=BusinessProcess` | Seed NORA columns (owner, service, capability, automation) |
-| Model/Template Catalog | Logical · List | ❌ Missing | `/inventory?type=ModelTemplate` (planned) | Phase 2: add ModelTemplate type |
+| Model/Template Catalog | Logical · List | 🟢 Available | `/inventory?type=ModelTemplate` | Seed NORA template catalogue |
 | Policy Catalog | Logical · List | 🟡 Partial | `/grc?tab=governance` | Add Policy catalogue or extend GRC regulations |
-| Organizational Units/Services | Logical · Matrix | ❌ Missing | `/reports/matrix` (after GovService) | Phase 2, then seed matrix |
+| Organizational Units/Services | Logical · Matrix | 🟢 Available | `/reports/matrix?source=Organization&target=GovService` | Add relation + seed matrix |
 | Business Capabilities/Organizational Units | Logical · Matrix | 🟢 Available | `/reports/matrix` | Seed exact NORA matrix preset |
 | Interaction Model (Entity/Org Unit) | Logical · Diagram | 🟡 Partial | `/reports/dependencies` | Org-scoped context/interaction preset |
-| Mandates/Positions | Physical · Matrix | ❌ Missing | `/reports/matrix` (after Position/Mandate) | Phase 2: Mandate + Position mapping |
-| Services/Models | Physical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2: GovService + ModelTemplate |
-| Services/Business Processes | Physical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2: GovService → Process relation |
-| Services/Applications | Physical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2: GovService → Application relation |
+| Mandates/Positions | Physical · Matrix | 🟢 Available | `/reports/matrix?source=Position&target=Mandate` (after relation) | Add Position type + Mandate relation |
+| Services/Models | Physical · Matrix | 🟢 Available | `/reports/matrix?source=GovService&target=ModelTemplate` | Add relation + seed matrix |
+| Services/Business Processes | Physical · Matrix | 🟢 Available | `/reports/matrix?source=GovService&target=BusinessProcess` | Add relation + seed matrix |
+| Services/Applications | Physical · Matrix | 🟢 Available | `/reports/matrix?source=GovService&target=Application` | Add relation + seed matrix |
 | Business Process Diagram | Physical · Diagram | 🟢 Available | `/bpm` → process → flow | Register in View Library, link to card |
 
 ## Beneficiary Experience (0/8)
 
 | Viewpoint | Level · Type | Progress | Link / Route | Next step |
 |---|---|---|---|---|
-| Beneficiary Persona Card | Conceptual · Diagram | ❌ Missing | `/inventory?type=BeneficiaryPersona` (planned) | Phase 2: persona type + card template |
-| List of Improvements to Beneficiary Journeys | Logical · List | ❌ Missing | (planned) | Phase 2: JourneyImprovement entity |
-| Beneficiaries/Beneficiary Personas | Logical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2 types + relation |
-| Services/Beneficiary Personas | Logical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2 |
-| Services/Beneficiary Journeys | Logical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2 |
-| Beneficiary Personas/Beneficiary Journeys | Logical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2 |
+| Beneficiary Persona Card | Conceptual · Diagram | 🟢 Available | `/inventory?type=BeneficiaryPersona` | Seed NORA persona card template |
+| List of Improvements to Beneficiary Journeys | Logical · List | ❌ Missing | (planned) | Phase 2: JourneyImprovement entity (or extend from initiatives) |
+| Beneficiaries/Beneficiary Personas | Logical · Matrix | 🟢 Available | `/reports/matrix?source=Beneficiary&target=BeneficiaryPersona` | Add relation + seed matrix |
+| Services/Beneficiary Personas | Logical · Matrix | 🟢 Available | `/reports/matrix?source=GovService&target=BeneficiaryPersona` | Add relation + seed matrix |
+| Services/Beneficiary Journeys | Logical · Matrix | 🟢 Available | `/reports/matrix?source=GovService&target=BeneficiaryJourney` | Add relation + seed matrix |
+| Beneficiary Personas/Beneficiary Journeys | Logical · Matrix | 🟢 Available | `/reports/matrix?source=BeneficiaryPersona&target=BeneficiaryJourney` | Add relation + seed matrix |
 | Beneficiary Journey Map | Logical · Diagram | ❌ Missing | `/reports/journey-map` (planned) | Phase 4 renderer (stages, touchpoints, pain points) |
-| Journeys/Experience Improvement Priorities | Physical · Matrix | ❌ Missing | `/reports/matrix` (planned) | Phase 2 + priority scoring fields |
+| Journeys/Experience Improvement Priorities | Physical · Matrix | 🟡 Partial | `/reports/matrix` (planned) | Extend BeneficiaryJourney + priority scoring |
 
 ## Data (0/8)
 
