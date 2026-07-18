@@ -405,6 +405,67 @@ RELATIONS: list[tuple[str, str, str]] = [
 ]
 
 # ════════════════════════════════════════════════════════════════════════════
+# DataObject ↔ DataObject hierarchy (Data Object Relationship Model report)
+# Two parent grouping objects with the existing demo DataObjects as children.
+# Runs independently of the main sentinel so it also tops up installs that
+# were seeded before this block existed.
+# ════════════════════════════════════════════════════════════════════════════
+
+_DATAOBJECT_HIERARCHY: list[tuple[str, list[str]]] = [
+    (
+        "Registration Master Data",
+        ["Commercial Registration Record", "Establishment Profile", "Business Licence"],
+    ),
+    (
+        "Inspection Records",
+        ["Inspection Report", "Inspector Profile"],
+    ),
+]
+
+
+async def _ensure_dataobject_hierarchy(db: AsyncSession) -> int:
+    """Create parent DataObjects and attach existing ones as children.
+
+    Idempotent — keyed on the first parent's name. Returns the number of
+    hierarchy edges created (0 when already seeded or no children exist).
+    """
+    marker = _DATAOBJECT_HIERARCHY[0][0]
+    exists = await db.execute(
+        select(Card.id).where(Card.type == "DataObject", Card.name == marker).limit(1)
+    )
+    if exists.scalar_one_or_none() is not None:
+        return 0
+
+    edges = 0
+    for parent_name, child_names in _DATAOBJECT_HIERARCHY:
+        children = (
+            (
+                await db.execute(
+                    select(Card).where(Card.type == "DataObject", Card.name.in_(child_names))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not children:
+            continue
+        parent = Card(
+            type="DataObject",
+            name=parent_name,
+            attributes={},
+            lifecycle={"active": "2024-01-01"},
+        )
+        db.add(parent)
+        await db.flush()
+        for child in children:
+            child.parent_id = parent.id
+            edges += 1
+    if edges:
+        await db.commit()
+    return edges
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # ENTRY POINT
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -413,11 +474,17 @@ _SENTINEL = ("Beneficiary", "Private Sector Establishments")
 
 async def seed_nora_viewpoint_fill(db: AsyncSession) -> dict:
     """Fill the empty viewpoint building-block types + one ADM workspace."""
+    hierarchy_edges = await _ensure_dataobject_hierarchy(db)
+
     exists = await db.execute(
         select(Card.id).where(Card.type == _SENTINEL[0], Card.name == _SENTINEL[1]).limit(1)
     )
     if exists.scalar_one_or_none() is not None:
-        return {"skipped": True, "reason": "NORA viewpoint fill already seeded"}
+        return {
+            "skipped": True,
+            "reason": "NORA viewpoint fill already seeded",
+            "dataobject_hierarchy_edges": hierarchy_edges,
+        }
 
     valid_rel_keys = set((await db.execute(select(RelationType.key))).scalars().all())
 

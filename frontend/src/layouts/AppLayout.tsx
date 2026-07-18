@@ -121,7 +121,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.currentVsTarget", icon: "compare_arrows", path: "/reports/current-vs-target" },
       { labelKey: "reports.gapAnalysis", icon: "compare_arrows", path: "/reports/gap-analysis" },
       { labelKey: "reports.gapSummary", icon: "difference", path: "/reports/gap-summary" },
-      { labelKey: "reports.initiativeGaps", icon: "assignment_turned_in", path: "/reports/initiative-gaps" },
+      { labelKey: "reports.initiativeGaps", icon: "assignment_turned_in", path: "/reports/initiative-gap-traceability" },
       // ── Business & Services ──
       { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart", dividerLabel: "reports.groupBusiness" },
       { labelKey: "reports.serviceCatalogue", icon: "assured_workload", path: "/reports/service-catalogue", permission: "inventory.view" },
@@ -133,7 +133,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.dataFlow", icon: "schema", path: "/reports/data-flow" },
       { labelKey: "reports.dataRelationships", icon: "mediation", path: "/reports/data-relationships" },
       { labelKey: "reports.dataClassification", icon: "label", path: "/reports/data-classification" },
-      { labelKey: "reports.dataDomains", icon: "category", path: "/reports/data-domains" },
+      { labelKey: "reports.dataDomains", icon: "category", path: "/reports/data-domain" },
       { labelKey: "reports.dataOwnership", icon: "person_check", path: "/reports/data-ownership" },
       { labelKey: "reports.appDataCrud", icon: "grid_3x3", path: "/reports/app-data-crud" },
       { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
@@ -150,7 +150,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.exceptionsWaivers", icon: "rule", path: "/reports/exceptions-waivers", dividerLabel: "reports.phase8" },
       { labelKey: "reports.principlesTraceability", icon: "rule_folder", path: "/reports/principles-traceability" },
       { labelKey: "reports.securityControls", icon: "lock", path: "/reports/security-controls" },
-      { labelKey: "reports.standardsCompliance", icon: "verified", path: "/reports/standards-compliance" },
+      { labelKey: "reports.standardsCompliance", icon: "verified", path: "/reports/standards-matrix" },
       // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
       // is disabled the nav memo below promotes EA Delivery to a top-level
       // nav item (in PPM's old slot) so the surface stays reachable.
