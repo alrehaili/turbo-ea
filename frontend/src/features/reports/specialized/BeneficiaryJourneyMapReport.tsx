@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { MaterialSymbol } from '@/components/MaterialSymbol';
 import { api } from '@/api/client';
-import { ReportShell } from '../ReportShell';
+import ReportShell from '../ReportShell';
 
 interface JourneyStage {
   id: string;
@@ -36,7 +36,7 @@ interface Journey {
   stages: JourneyStage[];
 }
 
-export const BeneficiaryJourneyMapReport = () => {
+export default function BeneficiaryJourneyMapReport() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -231,4 +231,4 @@ export const BeneficiaryJourneyMapReport = () => {
       </Paper>
     </ReportShell>
   );
-};
+}

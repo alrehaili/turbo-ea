@@ -28,7 +28,6 @@ const InventoryPage = lazy(() => import("@/features/inventory/InventoryPage"));
 const CardDetail = lazy(() => import("@/features/cards/CardDetail"));
 const ErrorBoundary = lazy(() => import("@/components/ErrorBoundary"));
 const PortfolioReport = lazy(() => import("@/features/reports/PortfolioReport"));
-const EaViewLibraryPage = lazy(() => import("@/features/reports/EaViewLibraryPage"));
 const ViewLibraryPage = lazy(() => import("@/features/view-library/ViewLibraryPage"));
 const LayerSwimlaneOverview = lazy(() => import("@/features/layers/LayerSwimlaneOverview"));
 const LayersDashboard = lazy(() => import("@/features/layers/LayersDashboard"));

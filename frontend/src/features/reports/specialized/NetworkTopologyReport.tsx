@@ -23,7 +23,7 @@ import {
   TableCell,
 } from '@mui/material';
 import { api } from '@/api/client';
-import { ReportShell } from '../ReportShell';
+import ReportShell from '../ReportShell';
 
 interface NetworkCircuit {
   id: string;
@@ -39,7 +39,7 @@ interface Topology {
   averageBandwidth: string;
 }
 
-export const NetworkTopologyReport = () => {
+export default function NetworkTopologyReport() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -279,4 +279,4 @@ export const NetworkTopologyReport = () => {
       </TableContainer>
     </ReportShell>
   );
-};
+}

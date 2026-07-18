@@ -24,7 +24,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { api } from '@/api/client';
-import { ReportShell } from '../ReportShell';
+import ReportShell from '../ReportShell';
 
 interface SecurityFunction {
   id: string;
@@ -40,7 +40,7 @@ interface SecurityMetrics {
   coverage: number;
 }
 
-export const SecurityDeploymentReport = () => {
+export default function SecurityDeploymentReport() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -342,4 +342,4 @@ export const SecurityDeploymentReport = () => {
       )}
     </ReportShell>
   );
-};
+}

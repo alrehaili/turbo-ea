@@ -23,7 +23,7 @@ import {
   TableCell,
 } from '@mui/material';
 import { api } from '@/api/client';
-import { ReportShell } from '../ReportShell';
+import ReportShell from '../ReportShell';
 
 interface Location {
   id: string;
@@ -46,7 +46,7 @@ interface DatacenterDist {
   itComponentCount: number;
 }
 
-export const DatacenterDistributionReport = () => {
+export default function DatacenterDistributionReport() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -251,4 +251,4 @@ export const DatacenterDistributionReport = () => {
       </TableContainer>
     </ReportShell>
   );
-};
+}

@@ -111,7 +111,7 @@ const STATUS_BADGE: Record<
   },
 };
 
-export const ViewLibraryPage = () => {
+export default function ViewLibraryPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [viewpoints, setViewpoints] = useState<Viewpoint[]>([]);
@@ -420,4 +420,4 @@ export const ViewLibraryPage = () => {
       )}
     </Box>
   );
-};
+}

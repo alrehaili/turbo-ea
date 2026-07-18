@@ -16,7 +16,7 @@ import {
   Paper,
 } from '@mui/material';
 import { api } from '@/api/client';
-import { ReportShell } from '../ReportShell';
+import ReportShell from '../ReportShell';
 
 interface ObjectiveCard {
   id: string;
@@ -73,7 +73,7 @@ const LevelBox = ({ title, items, color }: { title: string; items: ObjectiveCard
   </Box>
 );
 
-export const StrategicHouseReport = () => {
+export default function StrategicHouseReport() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,4 +187,4 @@ export const StrategicHouseReport = () => {
       ))}
     </ReportShell>
   );
-};
+}
