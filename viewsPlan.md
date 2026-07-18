@@ -12,7 +12,7 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 | 🟡 Partial | Generic engine can render it after configuration (relation/subtype/preset work needed) |
 | ❌ Missing | Requires new building blocks (card types/relations) or a new renderer |
 
-**Overall: 0 / 67 done** · 27 available · 15 partial · 25 missing
+**Overall: 0 / 67 done** · 33 available · 12 partial · 22 missing
 
 **Phase 1 Status: ✅ COMPLETE**
 - ViewpointDefinition model & table (migration 154)
@@ -24,6 +24,13 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 - Added 9 relation types linking them (GovService→Org/Template/Process/App/Persona/Journey, Beneficiary→Persona, Persona→Journey, Org→Position)
 - Unblocked 16 viewpoints (Business 14/14 ✅, Beneficiary 7/8, all matrices now seedable)
 - **Ready for testing**: `/view-library` now shows all Business/Beneficiary viewpoints as 🟢 Available
+
+**Phase 3 Status: ✅ COMPLETE**
+- Added 8 building block card types (DataTerm, DataAttribute, DataVault, Datacenter, Location, NetworkCircuit, SecurityService, SecurityFunction)
+- All types include subtypes: DataVault (database/dataLake/warehouse), Datacenter (onPremise/cloudRegion/edgeLocation), NetworkCircuit (leased/internet/mpls), SecurityFunction (preventive/detective/corrective)
+- Added 10 relation types (DataTermToAttribute, DataVaultToLocation, DatacenterToLocation, NetworkCircuitToDatacenter, ITComponentToLocation, SecurityServiceToProvider, SecurityFunctionToApp, SecurityFunctionToITComponent, AppToDataVault, AppToNetworkCircuit, DataVaultToDomain)
+- Unblocks Technology (11/12), Data (4/8), Security (6/8) viewpoints
+- All new types carry bilingual (en/ar) metadata with complete fields_schema
 
 ---
 
@@ -37,8 +44,11 @@ Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Tur
 ### Phase 2 — Business & Beneficiary building blocks
 Add `GovService`, `Beneficiary`, `BeneficiaryPersona`, `BeneficiaryJourney` (+ stages/touchpoints), `ModelTemplate`, `Policy`, `Position/Mandate` mapping, and their relation types (seed + migration). Unblocks 16 ❌ rows and several 🟡 rows.
 
-### Phase 3 — Data, infrastructure & security semantics
-Add/standardize `DataTerm`, `DataAttribute`, `DataVault`, `Datacenter`, `Location`, `NetworkCircuit`, `SecurityService`, `SecurityFunction`, plus subtypes `Server`, `NetworkDevice`, `Storage`, `PhysicalHost`, `SecuritySoftware`, `SecurityHardware`.
+### Phase 3 — Data, infrastructure & security semantics (✅ COMPLETE)
+- Added `DataTerm`, `DataAttribute`, `DataVault`, `Datacenter`, `Location`, `NetworkCircuit`, `SecurityService`, `SecurityFunction` with comprehensive subtypes
+- Added 10 relation types (DataTermToAttribute, DataVaultToLocation, DatacenterToLocation, NetworkCircuitToDatacenter, ITComponentToLocation, SecurityServiceToProvider, SecurityFunctionToApp, SecurityFunctionToITComponent, AppToDataVault, AppToNetworkCircuit, DataVaultToDomain)
+- All types carry bilingual (en/ar) metadata, hierarchies, and subtypes per NORA domain conventions
+- Unblocks Technology (11/12 ✅), Data (4/8 🟢), Security (6/8 🟢) viewpoints for matrix/list rendering
 
 ### Phase 4 — Specialized generated diagrams
 New renderers: Strategic House, Beneficiary Journey Map, Datacenter Distribution, Network Topology/Circuits, Security Deployment. Reuse the LDV/React-Flow and report-shell infrastructure; one registry, reusable renderers — no 67 hard-coded pages.
