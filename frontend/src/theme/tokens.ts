@@ -218,7 +218,9 @@ export const spacing = { xs: 0.5, sm: 1, md: 1.5, lg: 2, xl: 3 } as const;
 export const iconSize = { xs: 16, sm: 18, md: 20, lg: 24, xl: 32 } as const;
 
 export const typography = {
-  fontFamily: "'Inter', sans-serif",
+  // Inter (Latin, from index.html) first; Cairo (self-hosted via @fontsource,
+  // imported in main.tsx) supplies the Arabic glyphs Inter lacks.
+  fontFamily: "'Inter', 'Cairo', sans-serif",
   h1: { fontSize: "2rem", fontWeight: 600 },
   h2: { fontSize: "1.5rem", fontWeight: 600 },
   h3: { fontSize: "1.25rem", fontWeight: 600 },
