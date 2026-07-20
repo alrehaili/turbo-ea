@@ -2330,6 +2330,39 @@ export interface ReferenceModelItemWithCounts extends ReferenceModelItem {
   mapped_total: number;
 }
 
+// Cross-model item↔item relationships (RMPlan §10).
+export type ReferenceModelRelationshipType =
+  | "supports"
+  | "consumes"
+  | "realizes"
+  | "depends_on"
+  | "aligns_with";
+
+export interface ReferenceModelRelationshipItemBrief {
+  id: string;
+  code: string;
+  name: string;
+  name_ar: string | null;
+  model_id: string;
+  model_domain: ReferenceModelDomain | null;
+  model_name: string | null;
+}
+
+export interface ReferenceModelRelationship {
+  id: string;
+  relationship_type: ReferenceModelRelationshipType;
+  description: string | null;
+  source_item: ReferenceModelRelationshipItemBrief | null;
+  target_item: ReferenceModelRelationshipItemBrief | null;
+  direction: "outgoing" | "incoming";
+}
+
+export interface ReferenceModelRelationshipList {
+  item: ReferenceModelRelationshipItemBrief | null;
+  outgoing: ReferenceModelRelationship[];
+  incoming: ReferenceModelRelationship[];
+}
+
 export interface ReferenceModelSummaryTotals {
   total_items: number;
   covered_items: number;

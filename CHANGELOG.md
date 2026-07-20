@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.23.0] - 2026-07-20
+
+### Added
+- **KPI/outcome is now a first-class field on Objectives.** The Executive Strategy Map's KPI chip is backed by a real, editable `Key Result / KPI` field instead of a hidden attribute. Existing values are preserved.
+- **Recovery objectives are now first-class Application fields.** `Recovery Time Objective (RTO)`, `Recovery Point Objective (RPO)`, and a `Recovery Tier` (Tier 1–4) field sit alongside Business Criticality; the Resilience / Critical Service view shows the recovery tier per service.
+- **Data Domain is now a first-class Data Object field.** The Data Flow Map's domain grouping is backed by an editable `Data Domain` field.
+- **Promote an RTO/RPO gap straight to a risk.** The Resilience / Critical Service view now lists critical services missing recovery objectives with a one-click **Create risk** action (impact seeded from Business Criticality, affected card linked). It's idempotent — once promoted the row shows **Open R-xxxxxx** instead.
+- **Standards-compliance scan on the Technology Standards Radar.** A new **Compliance** tab flags Applications and IT Components that use a technology governed by a *Sunset* or *Prohibited* standard, following the Application → IT Component → Tech Category chain. Rows covered by an approved, non-expired exception show as **Waived**.
+- **Technology Standards Radar gains a true polar radar view.** The radar tab now offers a Thoughtworks-style radar chart (category sectors × adoption-status rings, clickable standard blips) alongside the existing matrix heatmap, switchable via a Radar/Matrix toggle.
+
+### Changed
+- The Strategy Map, Resilience, and Data Flow views read these first-class fields directly; legacy attribute keys (`outcome` / `targetMetric` / `successMetric`) still render as fallbacks so pre-existing values keep showing.
+- **Application Rationalization Board now uses the shared card picker.** The add-application, successor, and (new) initiative selectors are proper browse-on-open pickers instead of a search-by-name box, the decisions table shows the linked initiative, and the demo dataset links sample migrations to their driving initiatives.
+- **Executive Strategy Map shows delivery health.** Each initiative now carries a RAG chip rolled up from the worst dimension (schedule / cost / scope) of its latest PPM status report, with an on-track / at-risk / off-track summary above the map.
+- **Reference Models — cross-model relationships (RMPlan §10).** Reference-model components can now be linked to each other with typed relationships (supports / consumes / realizes / depends_on / aligns_with), typically across models — e.g. an Applications RM component that *realizes* a Business RM capability. New `reference_model_relationships` table, API (`/reference-models/items/{id}/relationships`), workspace-transfer coverage, and a relationship editor on the component-detail panel of the Reference Model browse page.
+
 ## [2.21.0] - 2026-07-16
 
 ### Added

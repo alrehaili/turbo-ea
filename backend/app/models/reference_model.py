@@ -5,13 +5,17 @@
 The Dec-2024 National EA Framework defines one National Reference Model per
 domain (Business, Beneficiary Experience, Applications, Data, Technology,
 Security) — classification guidance agencies consult to build their own
-taxonomies. Two tables:
+taxonomies. Tables:
 
 * ``reference_models`` — one row per RM (a versioned, governable scheme with a
   domain discriminator). Lifecycle: draft → published → archived. Publishing
   supersedes: at most one *published* RM per domain at a time.
 * ``reference_model_items`` — the classification entries, hierarchical via a
   self-referential ``parent_id``, uniquely coded per model.
+* ``reference_model_mappings`` — explicit item ↔ inventory-card links.
+* ``reference_model_versions`` — frozen snapshots captured at publish time.
+* ``reference_model_relationships`` — typed cross-model item↔item links
+  (RMPlan §10: supports / consumes / realizes / depends_on / aligns_with).
 
 RMs are reference data (like ``tech_standards``), never landscape cards. The
 published RM per domain backs the card-detail code-field pickers
@@ -191,4 +195,56 @@ class ReferenceModelMapping(UUIDMixin, TimestampMixin, Base):
         Index("ix_reference_model_mappings_model", "model_id"),
         Index("ix_reference_model_mappings_item", "item_id"),
         Index("ix_reference_model_mappings_card", "card_id"),
+    )
+
+
+# Cross-model item↔item relationship types (RMPlan §10). These express
+# non-parent links between components, typically *across* models — e.g. an ARM
+# application component that *realizes* a BRM capability, or a TRM technology
+# service that *supports* an ARM component.
+REFERENCE_MODEL_RELATIONSHIP_TYPES = (
+    "supports",
+    "consumes",
+    "realizes",
+    "depends_on",
+    "aligns_with",
+)
+
+
+class ReferenceModelRelationship(UUIDMixin, TimestampMixin, Base):
+    """A typed link between two reference-model items (RMPlan §10).
+
+    Unlike the ``parent_id`` hierarchy (which is intra-model composition), this
+    captures cross-cutting relationships — usually between items of *different*
+    models — so agencies can trace, e.g., which BRM capability an ARM
+    application component realizes. Item deletion cascades the link away.
+    """
+
+    __tablename__ = "reference_model_relationships"
+
+    source_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reference_model_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reference_model_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relationship_type: Mapped[str] = mapped_column(String(32), default="supports")
+    description: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "source_item_id",
+            "target_item_id",
+            "relationship_type",
+            name="uq_reference_model_relationships_triple",
+        ),
+        Index("ix_reference_model_relationships_source", "source_item_id"),
+        Index("ix_reference_model_relationships_target", "target_item_id"),
     )

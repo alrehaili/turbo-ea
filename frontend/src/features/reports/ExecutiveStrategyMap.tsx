@@ -18,8 +18,11 @@ interface CardBrief {
   subtype: string | null;
 }
 
+type Health = "onTrack" | "atRisk" | "offTrack";
+
 interface StrategyInitiative extends CardBrief {
   status: string | null;
+  health: Health | null;
   budget: number | null;
   actual: number | null;
   applications: CardBrief[];
@@ -39,8 +42,15 @@ interface StrategyMap {
     application_count: number;
     total_budget: number;
     total_actual: number;
+    health_breakdown: Record<Health, number>;
   };
 }
+
+const HEALTH_COLOR: Record<Health, "success" | "warning" | "error"> = {
+  onTrack: "success",
+  atRisk: "warning",
+  offTrack: "error",
+};
 
 function CardLink({ card }: { card: CardBrief }) {
   return (
@@ -128,6 +138,26 @@ export default function ExecutiveStrategyMap() {
             />
           </Box>
 
+          {/* Delivery health rollup (from latest PPM status reports) */}
+          {(["onTrack", "atRisk", "offTrack"] as Health[]).some(
+            (h) => data.summary.health_breakdown[h] > 0,
+          ) && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3, flexWrap: "wrap" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                {t("strategyMap.deliveryHealth")}:
+              </Typography>
+              {(["onTrack", "atRisk", "offTrack"] as Health[]).map((h) => (
+                <Chip
+                  key={h}
+                  size="small"
+                  color={HEALTH_COLOR[h]}
+                  variant="outlined"
+                  label={`${t(`strategyMap.health.${h}`)}: ${data.summary.health_breakdown[h]}`}
+                />
+              ))}
+            </Box>
+          )}
+
           {data.objectives.length === 0 && (
             <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
               <MaterialSymbol icon="flag" size={48} />
@@ -196,6 +226,13 @@ export default function ExecutiveStrategyMap() {
                         <CardLink card={init} />
                       </Typography>
                       {init.status && <Chip size="small" label={init.status} />}
+                      {init.health && (
+                        <Chip
+                          size="small"
+                          color={HEALTH_COLOR[init.health]}
+                          label={t(`strategyMap.health.${init.health}`)}
+                        />
+                      )}
                       {init.budget != null && (
                         <Chip
                           size="small"

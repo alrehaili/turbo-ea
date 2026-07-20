@@ -13,6 +13,13 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked.
 
 - **Wave 1 complete (functional + tested):** #1 Change Impact Workbench, #2 Executive Strategy Map, #3 Application Rationalization Campaign. All have backend service + endpoint(s), frontend view, i18n ×10 locales, backend tests passing, OpenAPI + CHANGELOG updated. Remaining polish (docs/screenshots, a few pickers, first-class KPI field) tracked inline.
 - **All four waves built (functional + tested).** Wave 1 (#1–#3), Wave 2 (#4 Freshness, #5 Tech Standards, #6 Resilience, #7 ARB), Wave 3 (#8/#9 Scenario Planning), Wave 4 (#10 Data Flow Map, #11 Integration Hub dashboard). Each: backend service+endpoint(s), frontend view, i18n ×10 locales, backend tests passing, OpenAPI + CHANGELOG updated. **110 backend tests green** across the new suites.
+- **2026-07-20 — first-class fields + follow-on polish pass (v2.23.0).** Cleared five functional "Remaining" bullets across Waves 1–2 & 4:
+  1. **First-class metamodel fields** promoting opportunistic attribute reads — `Objective.kpi`, `Application.rto`/`rpo`/`recoveryTier`, `DataObject.dataDomain` — via `seed.py` + one guarded migration `158_add_first_class_view_fields_fork.py` + 10-locale translations (#1.2, #2.3, #4.1).
+  2. **Resilience promote-gap-to-risk** (#2.3) — `POST /risks/promote/resilience/{card_id}`, idempotent, with a Create/Open-risk action on the RTO/RPO gaps table.
+  3. **Tech Radar standards-compliance scan** (#2.1) — `GET /tech-standards/compliance-scan` + a Compliance tab flagging sunset/prohibited usage.
+  4. **Rationalization pickers + demo data** (#1.3) — shared `CardPicker` for app/successor/initiative + linked demo migrations.
+  5. **Strategy Map PPM RAG rollup** (#1.2) — per-initiative health from the latest status report.
+  Each: backend + endpoint(s) where applicable, frontend, i18n ×10 locales, backend tests, OpenAPI + CHANGELOG updated. Remaining across these five is now docs/screenshots + a few frontend unit tests + the optional true polar-radar visual. **Note:** these backend tests were authored but not executed locally (no Docker/Postgres in the working shell) — pending a CI run.
 - **Deferred by design / environment (tracked inline):** OpenMetadata connector (needs live OM), generalized connector framework (YAGNI until 2nd connector), first-class KPI / RTO-RPO / Data-Domain metamodel fields, LDV graph overlays, and per-feature docs/screenshots + frontend unit tests. The **commercial track** (editions/licensing, SCIM, SOC 2, scale, pricing) is not started — it is the gate to actually selling and should be the next focus.
 - **Known blocker (pre-existing, not from this work):** `frontend/src/features/reports/TransformationRoadmap.tsx` has 3 TS errors that block a full `npm run build`. New code compiles clean in isolation.
 
@@ -70,11 +77,13 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 
 **Foundation that already exists:** full relation chain — `relObjectiveToBC`, `relInitiativeToObjective`, `relInitiativeToBC`, `relInitiativeToApp`, `relProcessToObjective`; PPM; `kpi_snapshots`.
 
-- [~] **Metamodel gap:** KPIs/outcomes not yet first-class. Shipped a pragmatic interim: the map surfaces a KPI/outcome opportunistically from the Objective's attributes (`kpi`/`outcome`/`targetMetric`/`successMetric`). **Remaining:** promote to a first-class field on `Objective` via `seed.py` + guarded migration + `translations`.
+- [x] **Metamodel gap resolved:** `kpi` is now a first-class field on `Objective` (`seed.py` + guarded migration `158_add_first_class_view_fields_fork.py` + 10-locale `translations`). The map still reads the legacy `outcome`/`targetMetric`/`successMetric` attribute keys as fallbacks so pre-existing values keep rendering.
 - [x] Backend: `GET /reports/strategy-map` (`strategy_map_service.py`) — objective → capability → initiative → application chain with per-initiative budget/actual/status read off the Initiative card; summary rollup.
 - [x] Frontend: **Executive Strategy Map** (`ExecutiveStrategyMap.tsx`) — objectives, KPI chip, capabilities, initiatives with budget+status, applications, summary metrics. Drill-through links to each card.
 - [x] Backend tests (2, passing), i18n (all 10 locales), OpenAPI regenerated.
-- [ ] **Remaining:** first-class KPI field + PPM health (RAG) rollup from status reports + docs/screenshots + frontend unit test.
+- [x] **First-class KPI field** — done (migration 158).
+- [x] **PPM health (RAG) rollup** — each initiative carries a RAG rolled up from the worst dimension of its latest `PpmStatusReport` (`strategy_map_service._latest_health_by_initiative`), surfaced as a per-initiative chip + summary strip in `ExecutiveStrategyMap.tsx`; backend tests added.
+- [ ] **Remaining:** docs/screenshots + frontend unit test.
 - [x] **Acceptance:** an executive can trace any objective to the apps delivering it and see budget. ✅ verified by `tests/api/test_reports.py::TestStrategyMap`.
 
 ### 1.3 Application Rationalization Campaign  ·  Value ★★★★ · Effort ★★★
@@ -88,7 +97,9 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 - [x] Workspace Transfer: both tables added to `ENTITY_SECTIONS` (roundtrip test green).
 - [x] Frontend: **Application Rationalization Board** (`ApplicationRationalizationBoard.tsx`) — campaign list, TIME decision per app (inline editable), successor, annual cost, planned savings, progress bars, savings-vs-target rollup.
 - [x] Backend tests (8, passing), i18n (all 10 locales incl. plurals), OpenAPI regenerated.
-- [ ] **Remaining:** successor/initiative pickers in the add-app dialog (currently search-by-name for app only), seed_demo data, docs/screenshots, frontend unit test.
+- [x] **Successor/initiative pickers** — the add-app, successor, and (new) initiative selectors now use the shared `CardPicker` (browse-on-open); the decisions table shows the linked initiative.
+- [x] **seed_demo data** — demo migrate decisions link to their driving Initiative cards (`seed_demo_extended.py`).
+- [ ] **Remaining:** docs/screenshots, frontend unit test.
 - [x] **Acceptance:** run a campaign, record TIME decisions, see total planned savings + per-app progress + elimination count. ✅ verified by `tests/api/test_rationalization.py`.
 
 ---
@@ -106,7 +117,9 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 - [x] Workspace Transfer: both tables wired into `ENTITY_SECTIONS` (roundtrip green); replacement_id self-FK resolves verbatim (module PKs preserved).
 - [x] Frontend: **Technology Standards Radar** (`TechnologyStandardsRadar.tsx`) — radar/heatmap matrix (category rows × status rings, open-exception badges) + exception register tab with approve/reject + new-standard dialog.
 - [x] Backend tests (8, passing), i18n (all 10 locales), OpenAPI regenerated.
-- [ ] **Remaining:** standards-compliance scan (map apps→standards + flag violations), true polar-radar visual, docs/screenshots, frontend unit test.
+- [x] **Standards-compliance scan** — `tech_standards_scan.py` + `GET /tech-standards/compliance-scan` walk Application → ITComponent → TechCategory ← TechStandard and flag cards on a sunset/prohibited standard (waived by an approved, non-expired exception); surfaced as a **Compliance** tab on `TechnologyStandardsRadar.tsx`; backend tests added.
+- [x] **True polar-radar visual** — `TechRadarPolar.tsx`, a Thoughtworks-style SVG radar (category sectors × status rings, clickable blips → edit), with a Radar/Matrix toggle on the radar tab.
+- [ ] **Remaining:** docs/screenshots, frontend unit test.
 - [x] **Acceptance:** classify a technology as Sunset/Prohibited, raise a time-boxed exception with compensating controls, route approval through a separate approver permission. ✅ verified by `tests/api/test_tech_standards.py`.
 
 ### 2.2 Repository Freshness View  ·  Value ★★★ · Effort ★★
@@ -127,12 +140,14 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 
 **Foundation that already exists:** `businessCriticality` field + options, Provider/supplier model, dependency/impact engine, DORA/NIS2 compliance scanner.
 
-- [~] **Metamodel gap:** RTO/RPO read opportunistically from card attributes (`rto`/`rpo`). **Remaining:** first-class RTO/RPO/recovery-tier fields via `seed.py` + migration.
+- [x] **Metamodel gap resolved:** `rto`, `rpo`, and a `recoveryTier` (Tier 1–4) are now first-class `Application` fields (`seed.py` + migration `158` + 10-locale `translations`); the Resilience view shows the recovery tier per service.
 - [x] Backend: SPOF / concentration-risk analysis (`resilience_service.py`, reuses the `impact_service` walk); critical-service chains; supplier-SPOF flag.
 - [x] Backend: `GET /reports/resilience` — critical-service chains, SPOFs, RTO/RPO coverage gaps.
 - [x] Frontend: **Resilience / Critical Service View** (`ResilienceView.tsx`) — SPOF table (concentration + dependents), critical-services table with RTO/RPO + chain size, summary metrics.
 - [x] Backend tests (2, passing), i18n (all 10 locales), OpenAPI regenerated.
-- [ ] **Remaining:** first-class RTO/RPO fields, one-click promote-gap-to-risk, docs/screenshots.
+- [x] **First-class RTO/RPO fields** — done (migration 158).
+- [x] **One-click promote-gap-to-risk** — `POST /risks/promote/resilience/{card_id}` (idempotent, impact seeded from Business Criticality, affected card linked); the Resilience view's RTO/RPO gaps table has a **Create risk** / **Open R-xxxxxx** action (`risk_service.promote_resilience_gap`); backend tests added.
+- [ ] **Remaining:** docs/screenshots.
 - [x] **Acceptance:** see critical services, flagged SPOFs (concentration), and RTO/RPO gaps. ✅ verified by `tests/api/test_reports.py::TestResilience`.
 
 ### 2.4 Architecture Review Board View  ·  Value ★★★ · Effort ★ (near-free aggregation)
@@ -176,7 +191,7 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 ### 4.1 Data Architecture & OpenMetadata Connector  ·  Value ★★★ (★★★★ for your env) · Effort ★★★
 *Model Data Domains, Data Products, critical data entities, system of record, owners/stewards, classifications, retention, sharing, logical data flows. **Integrate OpenMetadata — do not rebuild it.** Let Turbo EA show the business & transformation context around the data.*
 
-- [~] Metamodel: data domain read opportunistically from the Data Object's `dataDomain` attribute (no migration). **Remaining:** first-class Data Domain / Data Product card types + steward/classification/retention/SoR fields via `seed.py` + guarded migration + `translations`.
+- [~] Metamodel: `dataDomain` is now a first-class field on `DataObject` (`seed.py` + migration `158` + 10-locale `translations`); the Data Flow Map reads it directly. **Remaining:** full Data Domain / Data Product card types + steward/classification/retention/SoR fields (a larger follow-up) via `seed.py` + guarded migration + `translations`.
 - [ ] **Deferred:** OpenMetadata connector (read lineage/entities → cards). Needs a live OpenMetadata instance to build/test; tracked for when the environment is available. Build via the migration adapter pattern (`sources/` registry).
 - [x] Backend: `GET /reports/data-flow` (`data_flow_service.py`) — data objects grouped by domain with related applications / interfaces / IT components + orphan detection. Traverses existing `relAppToDataObj` / `relInterfaceToDataObj` (no schema change).
 - [x] Frontend: **Data Domain & Flow Map** (`DataFlowMap.tsx`) — domain groups → data object → applications / interfaces / components, with orphan flags + summary metrics.
@@ -216,15 +231,15 @@ Enterprise EA buyers (the LeanIX/Ardoq/Alfabet procurement crowd) gate on these 
 ## Recommended execution order (single list, for tracking)
 
 1. [~] **1.1** Change Impact Workbench *(also unblocks 2.3 and 3.1)* — backend + endpoint + frontend + i18n + tests done; docs/screenshots pending
-2. [~] **1.2** Strategy-to-Execution / Executive Strategy Map — backend + endpoint + frontend + i18n + tests done; first-class KPI field + PPM RAG + docs pending
-3. [~] **1.3** Application Rationalization Campaign — models + migration + permissions + CRUD + board + i18n + tests + workspace transfer done; demo data/docs/pickers pending
+2. [~] **1.2** Strategy-to-Execution / Executive Strategy Map — backend + endpoint + frontend + i18n + tests + first-class KPI field + PPM RAG rollup done; docs/screenshots + frontend unit test pending
+3. [~] **1.3** Application Rationalization Campaign — models + migration + permissions + CRUD + board + i18n + tests + workspace transfer + successor/initiative pickers + demo data done; docs/screenshots + frontend unit test pending
 4. [~] **2.2** Repository Freshness View — columns + migration + confirm endpoint + freshness report + view + i18n + tests + workspace transfer done; docs/screenshots pending
-5. [~] **2.1** Standards / Technology Radar / Exceptions — clean separate catalogue: models + migration + permissions + CRUD + radar + exception workflow + view + i18n + tests + workspace transfer done; compliance-scan + docs pending
-6. [~] **2.3** Resilience / Critical Service View — service + endpoint + view + i18n + tests done; first-class RTO/RPO fields + promote-to-risk pending
+5. [~] **2.1** Standards / Technology Radar / Exceptions — clean separate catalogue: models + migration + permissions + CRUD + radar + exception workflow + view + i18n + tests + workspace transfer + standards-compliance scan + true polar-radar visual done; docs pending
+6. [~] **2.3** Resilience / Critical Service View — service + endpoint + view + i18n + tests + first-class RTO/RPO/recovery-tier fields + promote-gap-to-risk done; docs/screenshots pending
 7. [~] **2.4** Architecture Review Board View — table + aggregation + view + i18n + tests + workspace transfer done; docs pending
 8. [x] **3.1.0** Scenario Planning architecture spike — copy-on-write overlay + existence-based conflict detection
 9. [~] **3.1.1** Scenario Planning & Transition Architecture — models + migration + permissions + diff + merge + view + i18n + tests + workspace transfer done; relation-level changes/LDV overlay/docs pending
-10. [~] **4.1** Data Architecture + Data Flow Map — flow map + endpoint + view + i18n + tests done; first-class Data Domain/Product types + OpenMetadata connector deferred (needs live OM instance)
+10. [~] **4.1** Data Architecture + Data Flow Map — flow map + endpoint + view + i18n + tests + first-class `dataDomain` field done; full Data Domain/Product card types + OpenMetadata connector deferred (needs live OM instance)
 11. [~] **4.2** Integration Hub — drift/sync-status dashboard shipped (endpoint + view + i18n + tests); generalized connector framework + new connectors deferred by design (YAGNI until 2nd connector)
 
 > Run the **commercial track** continuously alongside waves — it's not a phase, it's the difference between "open-source project" and "product you can sell."

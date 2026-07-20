@@ -51,6 +51,7 @@ from app.models.reference_model import (
     ReferenceModel,
     ReferenceModelItem,
     ReferenceModelMapping,
+    ReferenceModelRelationship,
     ReferenceModelVersion,
 )
 from app.models.risk import Risk, RiskCard
@@ -335,6 +336,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "ReferenceModelVersions",
         ReferenceModelVersion,
         user_fk_columns=("published_by",),
+    ),
+    # Item↔item cross-model links (after items so both FKs resolve verbatim —
+    # module rows keep their source PKs, so item FKs need no remap).
+    EntitySection(
+        "ReferenceModelRelationships",
+        ReferenceModelRelationship,
+        user_fk_columns=("created_by",),
     ),
     # --- Architecture Review Board ---------------------------------------
     EntitySection(

@@ -41,10 +41,12 @@ import type {
   ReferenceModel,
   ReferenceModelItemWithCounts,
   ReferenceModelMappedCard,
+  ReferenceModelRelationshipList,
   ReferenceModelSummary,
 } from "@/types";
 import { RM_DOMAIN_META, isRmDomain } from "./domainMeta";
 import MappingDialog from "./MappingDialog";
+import RelationshipDialog from "./RelationshipDialog";
 import ReferenceModelPoster from "./ReferenceModelPoster";
 import ReferenceModelCoverage from "./ReferenceModelCoverage";
 
@@ -554,6 +556,9 @@ function ItemPanel({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ReferenceModelMappedCard | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [relations, setRelations] = useState<ReferenceModelRelationshipList | null>(null);
+  const [relDialogOpen, setRelDialogOpen] = useState(false);
+  const [relTick, setRelTick] = useState(0);
 
   useEffect(() => {
     if (!item || !modelId) return;
@@ -574,6 +579,33 @@ function ItemPanel({
     };
   }, [item, modelId, mutationTick]);
 
+  useEffect(() => {
+    if (!item) return;
+    let cancelled = false;
+    setRelations(null);
+    api
+      .get<ReferenceModelRelationshipList>(`/reference-models/items/${item.id}/relationships`)
+      .then((res) => {
+        if (!cancelled) setRelations(res);
+      })
+      .catch(() => {
+        if (!cancelled) setRelations({ item: null, outgoing: [], incoming: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item, relTick]);
+
+  const removeRelationship = async (relId: string) => {
+    setBusyId(relId);
+    try {
+      await api.delete(`/reference-models/relationships/${relId}`);
+      setRelTick((n) => n + 1);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const removeMapping = async (mappingId: string) => {
     setBusyId(mappingId);
     try {
@@ -587,6 +619,17 @@ function ItemPanel({
   // Explicit mappings already on this item — hidden from the picker so a card
   // can't be double-mapped to the same item.
   const mappedCardIds = (cards ?? []).filter((c) => c.mapping_id).map((c) => c.id);
+
+  // Items already linked to this one (+ the item itself) — hidden from the
+  // relationship target picker so the same pair can't be re-linked.
+  const relatedItemIds = [
+    ...(item ? [item.id] : []),
+    ...(relations
+      ? [...relations.outgoing, ...relations.incoming].flatMap((r) =>
+          [r.source_item?.id, r.target_item?.id].filter((x): x is string => !!x),
+        )
+      : []),
+  ];
 
   return (
     <Drawer anchor="right" open={!!item} onClose={onClose}>
@@ -706,6 +749,86 @@ function ItemPanel({
                 {t("rmBrowse.includesDescendants", { field: codeField })}
               </Typography>
             )}
+
+            {/* Cross-model relationships (RMPlan §10) */}
+            <Box sx={{ display: "flex", alignItems: "center", mt: 3, mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                {t("rmRel.heading")}
+              </Typography>
+              {canMap && (
+                <Button
+                  size="small"
+                  startIcon={<MaterialSymbol icon="hub" size={18} />}
+                  onClick={() => setRelDialogOpen(true)}
+                >
+                  {t("rmRel.addTitle")}
+                </Button>
+              )}
+            </Box>
+            {relations === null && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                <CircularProgress size={20} />
+              </Box>
+            )}
+            {relations &&
+              relations.outgoing.length === 0 &&
+              relations.incoming.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {t("rmRel.empty")}
+                </Typography>
+              )}
+            {relations &&
+              [...relations.outgoing, ...relations.incoming].map((rel) => {
+                const outgoing = rel.direction === "outgoing";
+                const other = outgoing ? rel.target_item : rel.source_item;
+                if (!other) return null;
+                return (
+                  <Paper
+                    key={rel.id}
+                    variant="outlined"
+                    sx={{ display: "flex", alignItems: "center", gap: 1, p: 1, mb: 0.75 }}
+                  >
+                    <MaterialSymbol
+                      icon={outgoing ? "arrow_forward" : "arrow_back"}
+                      size={16}
+                      color="var(--mui-palette-text-secondary)"
+                    />
+                    <Chip
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      label={t(`rmRel.type.${rel.relationship_type}`)}
+                    />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap>
+                        {other.name}
+                      </Typography>
+                      {rel.description && (
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                          {rel.description}
+                        </Typography>
+                      )}
+                    </Box>
+                    {other.model_domain && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={RM_DOMAIN_META[other.model_domain]?.code ?? other.model_domain}
+                        sx={{ direction: "ltr", fontFamily: "monospace" }}
+                      />
+                    )}
+                    {canMap && (
+                      <IconButton
+                        size="small"
+                        disabled={busyId === rel.id}
+                        onClick={() => removeRelationship(rel.id)}
+                      >
+                        <MaterialSymbol icon="link_off" size={16} />
+                      </IconButton>
+                    )}
+                  </Paper>
+                );
+              })}
           </>
         )}
       </Box>
@@ -718,6 +841,15 @@ function ItemPanel({
           editing={editing}
           onClose={() => setDialogOpen(false)}
           onSaved={onMutated}
+        />
+      )}
+      {item && (
+        <RelationshipDialog
+          open={relDialogOpen}
+          sourceItemId={item.id}
+          excludeTargetIds={relatedItemIds}
+          onClose={() => setRelDialogOpen(false)}
+          onSaved={() => setRelTick((n) => n + 1)}
         />
       )}
     </Drawer>

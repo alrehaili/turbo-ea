@@ -2,9 +2,9 @@
 
 Builds a data-centric view over the existing metamodel: for each Data Object
 (the data entity), which Applications produce/consume it, which Interfaces carry
-it, and which IT Components store it. A "data domain" grouping is read
-opportunistically from the Data Object's ``dataDomain`` attribute (or its parent
-card) until Data Domain / Data Product become first-class card types.
+it, and which IT Components store it. A "data domain" grouping is read from the
+first-class ``dataDomain`` field on the Data Object card type (migration 158).
+(Full Data Domain / Data Product card types remain a larger follow-up.)
 
 No schema change — traverses the built-in ``relAppToDataObj`` /
 ``relInterfaceToDataObj`` (+ app→interface, app→ITC) relations. The

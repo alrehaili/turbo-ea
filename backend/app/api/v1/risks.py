@@ -50,6 +50,7 @@ from app.services.risk_service import (
     link_cards,
     next_reference,
     promote_compliance_finding,
+    promote_resilience_gap,
     risk_to_dict,
     validate_status_transition,
 )
@@ -935,6 +936,39 @@ async def promote_compliance(
     linked = await _linked_card_ids(db, risk.id)
     await _publish_risk_event(
         db, risk, "risk.added", linked, actor_id=user.id, extra={"promoted_from": "compliance"}
+    )
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+@router.post("/promote/resilience/{card_id}", response_model=RiskOut)
+async def promote_resilience(
+    card_id: str,
+    body: RiskPromoteRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    """Promote a critical service's RTO/RPO coverage gap into a tracked risk.
+
+    Idempotent per card — a second call returns the already-promoted risk.
+    """
+    await PermissionService.require_permission(db, user, "risks.manage")
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    try:
+        cid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card id") from exc
+    try:
+        risk = await promote_resilience_gap(
+            db, cid, user.id, overrides=_overrides_from_promote(body)
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
+    linked = await _linked_card_ids(db, risk.id)
+    await _publish_risk_event(
+        db, risk, "risk.added", linked, actor_id=user.id, extra={"promoted_from": "resilience"}
     )
     await db.commit()
     await db.refresh(risk)

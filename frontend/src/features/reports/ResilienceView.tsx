@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Table from "@mui/material/Table";
@@ -21,6 +22,7 @@ interface CriticalService {
   criticality: string | null;
   rto: string | null;
   rpo: string | null;
+  recovery_tier: string | null;
   chain_size: number;
 }
 interface Spof {
@@ -36,6 +38,8 @@ interface Gap {
   id: string;
   name: string;
   missing: string[];
+  risk_id: string | null;
+  risk_reference: string | null;
 }
 interface ResilienceData {
   summary: {
@@ -54,6 +58,7 @@ export default function ResilienceView() {
   const chartRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<ResilienceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [promoting, setPromoting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,6 +68,19 @@ export default function ResilienceView() {
       setLoading(false);
     }
   }, []);
+
+  const promoteGap = useCallback(
+    async (cardId: string) => {
+      setPromoting(cardId);
+      try {
+        await api.post(`/risks/promote/resilience/${cardId}`, {});
+        await load();
+      } finally {
+        setPromoting(null);
+      }
+    },
+    [load],
+  );
 
   useEffect(() => {
     load();
@@ -175,6 +193,7 @@ export default function ResilienceView() {
                   <TableCell>{t("resilience.colService")}</TableCell>
                   <TableCell>{t("resilience.colRto")}</TableCell>
                   <TableCell>{t("resilience.colRpo")}</TableCell>
+                  <TableCell>{t("resilience.colRecoveryTier")}</TableCell>
                   <TableCell align="center">{t("resilience.colChain")}</TableCell>
                 </TableRow>
               </TableHead>
@@ -196,9 +215,82 @@ export default function ResilienceView() {
                     <TableCell>
                       {c.rpo || <Chip size="small" color="warning" label={t("resilience.missing")} />}
                     </TableCell>
+                    <TableCell>{c.recovery_tier || "—"}</TableCell>
                     <TableCell align="center">{c.chain_size}</TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          </Paper>
+
+          {/* RTO/RPO coverage gaps */}
+          <Paper variant="outlined" sx={{ mb: 3 }}>
+            <Box sx={{ px: 2, py: 1, bgcolor: "action.hover" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {t("resilience.gapsHeader")}
+              </Typography>
+            </Box>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t("resilience.colService")}</TableCell>
+                  <TableCell>{t("resilience.colMissing")}</TableCell>
+                  <TableCell align="right">{t("resilience.colAction")}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.rto_rpo_gaps.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      {t("resilience.noGaps")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.rto_rpo_gaps.map((g) => (
+                    <TableRow key={g.id} hover>
+                      <TableCell>
+                        <Box
+                          component="a"
+                          href={`/cards/${g.id}`}
+                          sx={{ color: "primary.main", textDecoration: "none" }}
+                        >
+                          {g.name}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        {g.missing.map((m) => (
+                          <Chip
+                            key={m}
+                            size="small"
+                            color="warning"
+                            label={m.toUpperCase()}
+                            sx={{ mr: 0.5 }}
+                          />
+                        ))}
+                      </TableCell>
+                      <TableCell align="right">
+                        {g.risk_id ? (
+                          <Button
+                            size="small"
+                            variant="text"
+                            href={`/grc/risks/${g.risk_id}`}
+                          >
+                            {t("resilience.openRisk", { ref: g.risk_reference })}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={promoting === g.id}
+                            onClick={() => promoteGap(g.id)}
+                          >
+                            {t("resilience.createRisk")}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Paper>

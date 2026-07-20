@@ -59,6 +59,7 @@ from app.models.reference_model import (
     ReferenceModel,
     ReferenceModelItem,
     ReferenceModelMapping,
+    ReferenceModelRelationship,
     ReferenceModelVersion,
 )
 from app.models.relation import Relation
@@ -196,6 +197,7 @@ __all__ = [
     "ReferenceModel",
     "ReferenceModelItem",
     "ReferenceModelMapping",
+    "ReferenceModelRelationship",
     "ReferenceModelVersion",
     "Survey",
     "SurveyResponse",

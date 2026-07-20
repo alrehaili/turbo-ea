@@ -22,6 +22,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.reference_model import (
+    REFERENCE_MODEL_RELATIONSHIP_TYPES,
     RM_DOMAINS,
     RM_MAPPING_STATUSES,
     RM_MAPPING_TYPES,
@@ -29,6 +30,7 @@ from app.models.reference_model import (
     ReferenceModel,
     ReferenceModelItem,
     ReferenceModelMapping,
+    ReferenceModelRelationship,
     ReferenceModelVersion,
 )
 from app.models.user import User
@@ -118,6 +120,15 @@ class MappingUpdate(BaseModel):
     mapping_status: str | None = Field(default=None, pattern=_MAPPING_STATUS_RE)
     rationale: str | None = None
     confidence: int | None = Field(default=None, ge=0, le=100)
+
+
+_RELATIONSHIP_TYPE_RE = "^(" + "|".join(REFERENCE_MODEL_RELATIONSHIP_TYPES) + ")$"
+
+
+class RelationshipCreate(BaseModel):
+    target_item_id: uuid.UUID
+    relationship_type: str = Field(default="supports", pattern=_RELATIONSHIP_TYPE_RE)
+    description: str | None = None
 
 
 class NarrativePanel(BaseModel):
@@ -579,6 +590,175 @@ async def delete_mapping(
         db=db,
         user_id=user.id,
         card_id=card_id,
+    )
+    await db.commit()
+
+
+async def _item_briefs(db: AsyncSession, item_ids: set[uuid.UUID]) -> dict[uuid.UUID, dict]:
+    """Return {item_id: {id, code, name, model_id, model_domain, model_name}}."""
+    if not item_ids:
+        return {}
+    items = (
+        (await db.execute(select(ReferenceModelItem).where(ReferenceModelItem.id.in_(item_ids))))
+        .scalars()
+        .all()
+    )
+    model_ids = {i.model_id for i in items}
+    models = {}
+    if model_ids:
+        for m in (
+            (await db.execute(select(ReferenceModel).where(ReferenceModel.id.in_(model_ids))))
+            .scalars()
+            .all()
+        ):
+            models[m.id] = {"domain": m.domain, "name": m.name}
+    out: dict[uuid.UUID, dict] = {}
+    for i in items:
+        model = models.get(i.model_id, {})
+        out[i.id] = {
+            "id": str(i.id),
+            "code": i.code,
+            "name": i.name,
+            "name_ar": i.name_ar,
+            "model_id": str(i.model_id),
+            "model_domain": model.get("domain"),
+            "model_name": model.get("name"),
+        }
+    return out
+
+
+def _relationship_dict(r: ReferenceModelRelationship, briefs: dict[uuid.UUID, dict]) -> dict:
+    return {
+        "id": str(r.id),
+        "relationship_type": r.relationship_type,
+        "description": r.description,
+        "source_item": briefs.get(r.source_item_id),
+        "target_item": briefs.get(r.target_item_id),
+    }
+
+
+@router.get("/relationship-types")
+async def relationship_types(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The vocabulary of cross-model relationship types (RMPlan §10)."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    return {"relationship_types": list(REFERENCE_MODEL_RELATIONSHIP_TYPES)}
+
+
+@router.get("/items/{item_id}/relationships")
+async def list_item_relationships(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cross-model relationships where this item is the source or the target."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    item = await _get_item(db, item_id)
+    rows = (
+        (
+            await db.execute(
+                select(ReferenceModelRelationship).where(
+                    or_(
+                        ReferenceModelRelationship.source_item_id == item.id,
+                        ReferenceModelRelationship.target_item_id == item.id,
+                    )
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    ids: set[uuid.UUID] = {item.id}
+    for r in rows:
+        ids.add(r.source_item_id)
+        ids.add(r.target_item_id)
+    briefs = await _item_briefs(db, ids)
+    outgoing = [
+        {**_relationship_dict(r, briefs), "direction": "outgoing"}
+        for r in rows
+        if r.source_item_id == item.id
+    ]
+    incoming = [
+        {**_relationship_dict(r, briefs), "direction": "incoming"}
+        for r in rows
+        if r.target_item_id == item.id and r.source_item_id != item.id
+    ]
+    return {"item": briefs.get(item.id), "outgoing": outgoing, "incoming": incoming}
+
+
+@router.post("/items/{item_id}/relationships", status_code=201)
+async def create_item_relationship(
+    item_id: uuid.UUID,
+    payload: RelationshipCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Link this item to another reference-model item with a typed relationship."""
+    await PermissionService.require_permission(db, user, "reference_models.map")
+    source = await _get_item(db, item_id)
+    if payload.target_item_id == source.id:
+        raise HTTPException(400, "An item cannot be related to itself")
+    target = await _get_item(db, payload.target_item_id)
+    existing = (
+        await db.execute(
+            select(ReferenceModelRelationship).where(
+                ReferenceModelRelationship.source_item_id == source.id,
+                ReferenceModelRelationship.target_item_id == target.id,
+                ReferenceModelRelationship.relationship_type == payload.relationship_type,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(409, "This relationship already exists")
+    rel = ReferenceModelRelationship(
+        source_item_id=source.id,
+        target_item_id=target.id,
+        relationship_type=payload.relationship_type,
+        description=payload.description,
+        created_by=user.id,
+    )
+    db.add(rel)
+    await db.flush()
+    await event_bus.publish(
+        "reference_model_relationship.created",
+        {
+            "id": str(rel.id),
+            "source_item_id": str(source.id),
+            "target_item_id": str(target.id),
+            "relationship_type": rel.relationship_type,
+        },
+        db=db,
+        user_id=user.id,
+    )
+    briefs = await _item_briefs(db, {source.id, target.id})
+    await db.commit()
+    return _relationship_dict(rel, briefs)
+
+
+@router.delete("/relationships/{relationship_id}", status_code=204)
+async def delete_relationship(
+    relationship_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "reference_models.map")
+    rel = (
+        await db.execute(
+            select(ReferenceModelRelationship).where(
+                ReferenceModelRelationship.id == relationship_id
+            )
+        )
+    ).scalar_one_or_none()
+    if rel is None:
+        raise HTTPException(404, "Relationship not found")
+    await db.delete(rel)
+    await event_bus.publish(
+        "reference_model_relationship.deleted",
+        {"id": str(relationship_id)},
+        db=db,
+        user_id=user.id,
     )
     await db.commit()
 

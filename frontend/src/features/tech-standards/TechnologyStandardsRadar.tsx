@@ -23,8 +23,11 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import TechRadarPolar from "./TechRadarPolar";
 
 const CATEGORIES = ["technology", "cloud", "integration", "data", "security", "other"] as const;
 const STATUSES = ["preferred", "allowed", "tolerated", "sunset", "prohibited"] as const;
@@ -100,6 +103,31 @@ interface ExceptionRow {
   approver_id: string | null;
 }
 
+interface ScanViolation {
+  card_id: string;
+  card_name: string;
+  card_type: string;
+  standard_id: string;
+  standard_name: string;
+  standard_status: string;
+  tech_category: { id: string; name: string } | null;
+  via: string;
+  component_name: string | null;
+  waived: boolean;
+  exception_id: string | null;
+  exception_expiry: string | null;
+}
+
+interface ScanData {
+  summary: {
+    violations: number;
+    waived: number;
+    sunset_standards: number;
+    prohibited_standards: number;
+  };
+  violations: ScanViolation[];
+}
+
 const EXC_STATUS_COLOR: Record<string, "default" | "info" | "success" | "error" | "warning"> = {
   requested: "info",
   approved: "success",
@@ -112,6 +140,8 @@ export default function TechnologyStandardsRadar() {
   const [tab, setTab] = useState(0);
   const [radar, setRadar] = useState<RadarData | null>(null);
   const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
+  const [scan, setScan] = useState<ScanData | null>(null);
+  const [radarView, setRadarView] = useState<"chart" | "matrix">("chart");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   // null = creating a new standard; otherwise the id being edited.
@@ -121,12 +151,14 @@ export default function TechnologyStandardsRadar() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [r, e] = await Promise.all([
+      const [r, e, s] = await Promise.all([
         api.get<RadarData>("/tech-standards/radar"),
         api.get<ExceptionRow[]>("/tech-standards/exceptions"),
+        api.get<ScanData>("/tech-standards/compliance-scan"),
       ]);
       setRadar(r);
       setExceptions(e);
+      setScan(s);
     } finally {
       setLoading(false);
     }
@@ -239,12 +271,19 @@ export default function TechnologyStandardsRadar() {
             </Badge>
           }
         />
+        <Tab
+          label={
+            <Badge color="error" badgeContent={scan?.summary.violations || 0}>
+              <Box sx={{ pr: 1 }}>{t("techStandards.complianceTab")}</Box>
+            </Badge>
+          }
+        />
       </Tabs>
 
       {/* --- Radar / heatmap matrix --- */}
       {tab === 0 && radar && (
         <Box>
-          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
             {STATUSES.map((s) => (
               <Chip
                 key={s}
@@ -253,8 +292,46 @@ export default function TechnologyStandardsRadar() {
                 sx={{ bgcolor: STATUS_COLOR[s], color: "#fff" }}
               />
             ))}
+            <Box sx={{ flex: 1 }} />
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={radarView}
+              onChange={(_, v) => v && setRadarView(v)}
+            >
+              <ToggleButton value="chart">
+                <Tooltip title={t("techStandards.viewRadar")}>
+                  <MaterialSymbol icon="radar" size={18} />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="matrix">
+                <Tooltip title={t("techStandards.viewMatrix")}>
+                  <MaterialSymbol icon="grid_on" size={18} />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Box>
 
+          {radarView === "chart" ? (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <TechRadarPolar
+                matrix={radar.matrix}
+                categories={CATEGORIES}
+                statuses={STATUSES}
+                statusColor={STATUS_COLOR}
+                catLabel={(c) => t(`techStandards.category.${c}`)}
+                statusLabel={(s) => t(`techStandards.status.${s}`)}
+                onBlipClick={(b) => {
+                  const std = radar.matrix
+                    ? Object.values(radar.matrix)
+                        .flatMap((byStatus) => Object.values(byStatus).flat())
+                        .find((s) => s.id === b.id)
+                    : undefined;
+                  if (std) openEdit(std);
+                }}
+              />
+            </Paper>
+          ) : (
           <Paper variant="outlined" sx={{ overflowX: "auto" }}>
             <Table size="small" sx={{ minWidth: 900 }}>
               <TableHead>
@@ -310,6 +387,7 @@ export default function TechnologyStandardsRadar() {
               </TableBody>
             </Table>
           </Paper>
+          )}
         </Box>
       )}
 
@@ -385,6 +463,100 @@ export default function TechnologyStandardsRadar() {
             </TableBody>
           </Table>
         </Paper>
+      )}
+
+      {/* --- Standards-compliance scan --- */}
+      {tab === 2 && scan && (
+        <Box>
+          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Chip
+              size="small"
+              color={scan.summary.violations > 0 ? "error" : "success"}
+              label={`${t("techStandards.scanViolations")}: ${scan.summary.violations}`}
+            />
+            <Chip
+              size="small"
+              label={`${t("techStandards.scanWaived")}: ${scan.summary.waived}`}
+            />
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`${t("techStandards.status.sunset")}: ${scan.summary.sunset_standards}`}
+            />
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`${t("techStandards.status.prohibited")}: ${scan.summary.prohibited_standards}`}
+            />
+          </Box>
+          <Paper variant="outlined" sx={{ overflowX: "auto" }}>
+            <Table size="small" sx={{ minWidth: 800 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t("techStandards.colCard")}</TableCell>
+                  <TableCell>{t("techStandards.scanColStandard")}</TableCell>
+                  <TableCell>{t("techStandards.scanColCategory")}</TableCell>
+                  <TableCell>{t("techStandards.scanColVia")}</TableCell>
+                  <TableCell>{t("techStandards.colStatus")}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {scan.violations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      {t("techStandards.scanClean")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  scan.violations.map((v) => (
+                    <TableRow key={`${v.card_id}-${v.standard_id}`} hover>
+                      <TableCell>
+                        <Box
+                          component="a"
+                          href={`/cards/${v.card_id}`}
+                          sx={{ color: "primary.main", textDecoration: "none" }}
+                        >
+                          {v.card_name}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={v.standard_name}
+                          sx={{
+                            bgcolor: STATUS_COLOR[v.standard_status as keyof typeof STATUS_COLOR],
+                            color: "#fff",
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>{v.tech_category?.name || "—"}</TableCell>
+                      <TableCell>
+                        {v.via === "application"
+                          ? t("techStandards.scanViaApp", { component: v.component_name })
+                          : t("techStandards.scanViaComponent")}
+                      </TableCell>
+                      <TableCell>
+                        {v.waived ? (
+                          <Chip
+                            size="small"
+                            color="success"
+                            label={
+                              v.exception_expiry
+                                ? t("techStandards.scanWaivedUntil", { date: v.exception_expiry })
+                                : t("techStandards.scanWaivedLabel")
+                            }
+                          />
+                        ) : (
+                          <Chip size="small" color="error" label={t("techStandards.scanViolation")} />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Box>
       )}
 
       {/* Create / edit standard dialog */}

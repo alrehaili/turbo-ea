@@ -3,9 +3,9 @@
 Maps critical business services down through their dependency chains
 (service → process → app → integration → infrastructure → supplier) and surfaces:
 
-* **Critical services** — cards flagged business-critical, with RTO/RPO read
-  opportunistically from attributes (``rto`` / ``rpo``) until those become
-  first-class metamodel fields.
+* **Critical services** — cards flagged business-critical, with RTO/RPO and
+  recovery tier read from the first-class ``rto`` / ``rpo`` / ``recoveryTier``
+  Application fields (migration 158).
 * **Single points of failure (SPOFs) / concentration risk** — nodes that two or
   more distinct critical services depend on (the more critical services reach a
   node, the higher its blast radius if it fails).
@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
+from app.models.risk import Risk
 from app.services.impact_service import CRITICAL_CRITICALITY
 
 # Card-type keys treated as "suppliers" for supplier-concentration flags.
@@ -93,6 +94,7 @@ async def gather_resilience(db: AsyncSession, *, depth: int = 4) -> dict:
                 "criticality": _attr(root, "businessCriticality"),
                 "rto": rto,
                 "rpo": rpo,
+                "recovery_tier": _attr(root, "recoveryTier"),
                 "chain_size": len(visited) - 1,
             }
         )
@@ -116,12 +118,32 @@ async def gather_resilience(db: AsyncSession, *, depth: int = 4) -> dict:
         )
     spofs.sort(key=lambda s: (-s["concentration"], s["name"].lower()))
 
+    # Already-promoted resilience risks, keyed by the affected card id, so the
+    # UI can offer "Open risk R-xxxxxx" instead of "Create risk".
+    risk_res = await db.execute(
+        select(Risk.id, Risk.reference, Risk.source_ref).where(Risk.source_type == "resilience")
+    )
+    risk_by_card: dict[str, dict[str, str]] = {
+        source_ref: {"risk_id": str(rid), "risk_reference": ref}
+        for rid, ref, source_ref in risk_res.all()
+        if source_ref
+    }
+
     # RTO/RPO coverage gaps among critical services.
     gaps: list[dict] = []
     for row in critical_rows:
         missing = [k for k in ("rto", "rpo") if not row[k]]
         if missing:
-            gaps.append({"id": row["id"], "name": row["name"], "missing": missing})
+            promoted = risk_by_card.get(row["id"])
+            gaps.append(
+                {
+                    "id": row["id"],
+                    "name": row["name"],
+                    "missing": missing,
+                    "risk_id": promoted["risk_id"] if promoted else None,
+                    "risk_reference": promoted["risk_reference"] if promoted else None,
+                }
+            )
 
     return {
         "summary": {

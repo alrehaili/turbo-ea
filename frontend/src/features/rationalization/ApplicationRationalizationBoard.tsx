@@ -19,9 +19,9 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker from "@/components/CardPicker";
 import MetricCard from "@/features/reports/MetricCard";
 import { useCurrency } from "@/hooks/useCurrency";
 import { api } from "@/api/client";
@@ -87,7 +87,6 @@ export default function ApplicationRationalizationBoard() {
   const [newName, setNewName] = useState("");
   const [newTarget, setNewTarget] = useState("");
   const [decisionDialog, setDecisionDialog] = useState(false);
-  const [appOptions, setAppOptions] = useState<CardBrief[]>([]);
   const [decisionCard, setDecisionCard] = useState<CardBrief | null>(null);
   const [decisionType, setDecisionType] = useState<TimeDecision>("undecided");
   // Assessment edit
@@ -98,6 +97,7 @@ export default function ApplicationRationalizationBoard() {
   // Decision edit
   const [editDecision, setEditDecision] = useState<Decision | null>(null);
   const [edSuccessor, setEdSuccessor] = useState<CardBrief | null>(null);
+  const [edInitiative, setEdInitiative] = useState<CardBrief | null>(null);
   const [edCost, setEdCost] = useState("");
   const [edSavings, setEdSavings] = useState("");
   const [edProgress, setEdProgress] = useState("0");
@@ -133,14 +133,6 @@ export default function ApplicationRationalizationBoard() {
     setNewTarget("");
     await loadAssessments();
     await openAssessment(created.id);
-  };
-
-  const searchApps = async (q: string) => {
-    const query = q.trim();
-    const res = await api.get<{ items: CardBrief[] }>(
-      `/cards?type=Application&page_size=20${query ? `&search=${encodeURIComponent(query)}` : ""}`,
-    );
-    setAppOptions(res.items ?? []);
   };
 
   const addDecision = async () => {
@@ -193,6 +185,7 @@ export default function ApplicationRationalizationBoard() {
   const openDecisionEdit = (d: Decision) => {
     setEditDecision(d);
     setEdSuccessor(d.successor);
+    setEdInitiative(d.initiative);
     setEdCost(d.annual_cost != null ? String(d.annual_cost) : "");
     setEdSavings(d.planned_savings != null ? String(d.planned_savings) : "");
     setEdProgress(String(d.progress ?? 0));
@@ -205,6 +198,7 @@ export default function ApplicationRationalizationBoard() {
     if (!active || !editDecision) return;
     await api.patch(`/rationalization/decisions/${editDecision.id}`, {
       successor_id: edSuccessor?.id ?? null,
+      initiative_id: edInitiative?.id ?? null,
       annual_cost: edCost ? Number(edCost) : null,
       planned_savings: edSavings ? Number(edSavings) : null,
       progress: Number(edProgress) || 0,
@@ -388,6 +382,7 @@ export default function ApplicationRationalizationBoard() {
               <TableCell>{t("rationalization.colApp")}</TableCell>
               <TableCell>{t("rationalization.colDecision")}</TableCell>
               <TableCell>{t("rationalization.colSuccessor")}</TableCell>
+              <TableCell>{t("rationalization.colInitiative")}</TableCell>
               <TableCell align="right">{t("rationalization.colAnnualCost")}</TableCell>
               <TableCell align="right">{t("rationalization.colSavings")}</TableCell>
               <TableCell>{t("rationalization.colProgress")}</TableCell>
@@ -518,6 +513,19 @@ export default function ApplicationRationalizationBoard() {
                   </TextField>
                 </TableCell>
                 <TableCell>{d.successor?.name || "—"}</TableCell>
+                <TableCell>
+                  {d.initiative ? (
+                    <Box
+                      component="a"
+                      href={`/cards/${d.initiative.id}`}
+                      sx={{ color: "primary.main", textDecoration: "none" }}
+                    >
+                      {d.initiative.name}
+                    </Box>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
                 <TableCell align="right">
                   {d.annual_cost != null ? fmtShort(d.annual_cost) : "—"}
                 </TableCell>
@@ -561,18 +569,14 @@ export default function ApplicationRationalizationBoard() {
       >
         <DialogTitle>{t("rationalization.addApp")}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <Autocomplete
-            options={appOptions}
+          <CardPicker
+            types="Application"
             value={decisionCard}
-            getOptionLabel={(o) => o.name}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            onChange={(_, v) => setDecisionCard(v)}
-            onOpen={() => searchApps("")}
-            onInputChange={(_, v) => searchApps(v)}
-            filterOptions={(x) => x}
-            renderInput={(p) => (
-              <TextField {...p} label={t("rationalization.colApp")} autoFocus />
-            )}
+            onChange={setDecisionCard}
+            enabled={decisionDialog}
+            label={t("rationalization.colApp")}
+            autoFocus
+            fullWidth
           />
           <TextField
             select
@@ -651,16 +655,22 @@ export default function ApplicationRationalizationBoard() {
           )}
         </DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <Autocomplete
-            options={appOptions}
+          <CardPicker
+            types="Application"
             value={edSuccessor}
-            getOptionLabel={(o) => o.name}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            onChange={(_, v) => setEdSuccessor(v)}
-            onOpen={() => searchApps("")}
-            onInputChange={(_, v) => searchApps(v)}
-            filterOptions={(x) => x}
-            renderInput={(p) => <TextField {...p} label={t("rationalization.colSuccessor")} />}
+            onChange={setEdSuccessor}
+            enabled={!!editDecision}
+            excludeIds={editDecision?.card ? [editDecision.card.id] : undefined}
+            label={t("rationalization.colSuccessor")}
+            fullWidth
+          />
+          <CardPicker
+            types="Initiative"
+            value={edInitiative}
+            onChange={setEdInitiative}
+            enabled={!!editDecision}
+            label={t("rationalization.colInitiative")}
+            fullWidth
           />
           <TextField
             label={t("rationalization.colAnnualCost")}

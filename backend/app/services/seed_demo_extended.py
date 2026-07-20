@@ -770,6 +770,7 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "priority": 2,
         "target_year": 2026,
         "successor": "Power BI",
+        "initiative": "Data Warehouse Consolidation",
         "rationale": (
             "Power BI Pro is already included in every NexaTech Microsoft 365 E5 "
             "seat, while Tableau Server adds ~$70/analyst/month for a 200-analyst "
@@ -803,6 +804,7 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "priority": 2,
         "target_year": 2026,
         "successor": "GitHub Actions",
+        "initiative": "DevOps Pipeline Modernization",
         "rationale": (
             "Every service repo already lives on GitHub Enterprise, so CI can "
             "co-locate with the code, PR review and secrets store instead of "
@@ -835,6 +837,7 @@ RATIONALIZATION_DECISIONS: list[dict[str, Any]] = [
         "priority": 2,
         "target_year": 2026,
         "successor": "Salesforce Sales Cloud",
+        "initiative": "Digital Transformation Program",
         "rationale": (
             "Sales already runs on Salesforce, so every lead captured in "
             "HubSpot round-trips through a nightly Zapier sync that costs "
@@ -940,6 +943,12 @@ _LEGACY_RATIONALES: dict[str, str] = {
 async def _application_name_map(db: AsyncSession) -> dict[str, Card]:
     """Return a ``{name: Card}`` map of all Application cards."""
     rows = (await db.execute(select(Card).where(Card.type == "Application"))).scalars().all()
+    return {c.name: c for c in rows}
+
+
+async def _initiative_name_map(db: AsyncSession) -> dict[str, Card]:
+    """Return a ``{name: Card}`` map of all Initiative cards."""
+    rows = (await db.execute(select(Card).where(Card.type == "Initiative"))).scalars().all()
     return {c.name: c for c in rows}
 
 
@@ -1050,6 +1059,7 @@ async def seed_rationalization_assessment(db: AsyncSession) -> dict:
         return {"skipped": "rationalization_assessment"}
 
     by_name = await _application_name_map(db)
+    initiatives_by_name = await _initiative_name_map(db)
 
     owner = (
         await db.execute(select(User).where(User.email == "abdulrahim@nexatech.demo").limit(1))
@@ -1076,12 +1086,14 @@ async def seed_rationalization_assessment(db: AsyncSession) -> dict:
         if not card:
             continue
         successor = by_name.get(d["successor"]) if d.get("successor") else None
+        initiative = initiatives_by_name.get(d["initiative"]) if d.get("initiative") else None
         db.add(
             AssessmentDecision(
                 assessment_id=assessment.id,
                 card_id=card.id,
                 time_decision=d["time"],
                 successor_id=successor.id if successor else None,
+                initiative_id=initiative.id if initiative else None,
                 annual_cost=float(d["annual_cost"]) if d.get("annual_cost") is not None else None,
                 planned_savings=(
                     float(d["planned_savings"]) if d.get("planned_savings") is not None else None

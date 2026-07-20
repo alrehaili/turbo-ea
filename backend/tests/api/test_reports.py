@@ -448,6 +448,48 @@ class TestStrategyMap:
         assert init["budget"] == 1000
         assert init["applications"][0]["name"] == "NexaCore ERP"
 
+    async def test_strategy_map_rolls_up_ppm_health(self, client, db, strategy_env):
+        """The latest PPM status report's worst dimension becomes the RAG health."""
+        from sqlalchemy import select
+
+        from app.models.card import Card
+        from app.models.ppm_status_report import PpmStatusReport
+
+        admin = strategy_env["admin"]
+        init = (await db.execute(select(Card).where(Card.name == "ERP Rollout"))).scalar_one()
+        # An older green report and a newer one that is at-risk on cost.
+        db.add(
+            PpmStatusReport(
+                initiative_id=init.id,
+                report_date=date(2026, 1, 1),
+                schedule_health="onTrack",
+                cost_health="onTrack",
+                scope_health="onTrack",
+            )
+        )
+        db.add(
+            PpmStatusReport(
+                initiative_id=init.id,
+                report_date=date(2026, 6, 1),
+                schedule_health="onTrack",
+                cost_health="atRisk",
+                scope_health="onTrack",
+            )
+        )
+        await db.commit()
+        resp = await client.get("/api/v1/reports/strategy-map", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["objectives"][0]["initiatives"][0]["health"] == "atRisk"
+        assert data["summary"]["health_breakdown"] == {"onTrack": 0, "atRisk": 1, "offTrack": 0}
+
+    async def test_strategy_map_health_none_without_reports(self, client, db, strategy_env):
+        admin = strategy_env["admin"]
+        resp = await client.get("/api/v1/reports/strategy-map", headers=auth_headers(admin))
+        data = resp.json()
+        assert data["objectives"][0]["initiatives"][0]["health"] is None
+        assert data["summary"]["health_breakdown"] == {"onTrack": 0, "atRisk": 0, "offTrack": 0}
+
     async def test_strategy_map_requires_permission(self, client, db, strategy_env):
         noreports = strategy_env["noreports"]
         resp = await client.get("/api/v1/reports/strategy-map", headers=auth_headers(noreports))

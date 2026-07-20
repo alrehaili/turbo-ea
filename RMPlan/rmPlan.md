@@ -1,5 +1,33 @@
 # Reference Models Implementation Plan
 
+## 0. Implementation Status
+
+> **Status: BUILT (shipped in commit `ed4f9c71` — "full RMPlan build").** The
+> feature is implemented end-to-end and wired into navigation, permissions, and
+> the demo seed. This section tracks the plan against the code as of 2026-07-20.
+
+**Backend**
+- [x] **Data model** (migrations `149`, `155`, `156`, `157`, `159`) — `reference_models`, `reference_model_items` (self-referential `parent_id` component tree, uniquely coded), `reference_model_mappings` (item ↔ inventory card), `reference_model_versions` (frozen snapshots), and `reference_model_relationships` (§10 — typed cross-model item↔item links: supports / consumes / realizes / depends_on / aligns_with).
+- [x] **API** (`api/v1/reference_models.py`, registered in `router.py`) — active/overview/summary, per-item mapped cards, mapping CRUD, unmapped-inventory, gaps/coverage, narrative, versions + version diff, draft→submit→publish/reject workflow, archive, item CRUD, import/export, and (§10) `relationship-types` + per-item relationship list/create/delete.
+- [x] **Permissions** — `reference_models.view` / `.manage` / `.map` (in `core/permissions.py`); relationship writes reuse `.map`.
+- [x] **Seed** (`seed_reference_models.py`) — **six** launch models: **BRM** (8 items), **ARM** (16), **DRM** (9), **TRM** (9), **BXRM** Beneficiary Experience (10), **SRM** Security (10), all bilingual (English + Arabic).
+- [x] **Workspace transfer** — all five RM tables wired into `ENTITY_SECTIONS` (`workspace_io/sections.py`), relationships after items so both item FKs resolve verbatim.
+- [x] **Tests** — `tests/api/test_reference_models.py` incl. the §10 relationship create/list/delete + duplicate/self/permission guards.
+
+**Frontend** (`features/reference-models/`)
+- [x] **Page 1 — Landing** (`browse/ReferenceModelsLanding.tsx`), route `/reference-models`.
+- [x] **Page 2 — Overview** + **Page 3 — Component details** (`browse/ReferenceModelBrowsePage.tsx` incl. view modes), route `/reference-models/:domain`.
+- [x] **Page 4 — Mapped inventory** (`browse/MappingDialog.tsx`) + **Page 5 — Coverage & gaps** (`browse/ReferenceModelCoverage.tsx`), plus `ReferenceModelCapabilityMap.tsx`, `ReferenceModelPoster.tsx`, `NarrativeEditor.tsx`, `VersionsDialog.tsx`.
+- [x] **Page 6 — Administration** (`ReferenceModelsPage.tsx`), route `/reference-models/manage`; report view at `/reports/reference-models`.
+- [x] Nav dropdown + lazy routes in `App.tsx`.
+
+**Remaining / deferred**
+- [ ] Docs (`docs/`) + screenshots (`scripts/screenshots/pages.ts`) across all 8 locales.
+- [x] **Frontend surface for §10 relationships** — the component-detail drawer (`ReferenceModelBrowsePage.tsx`) now lists outgoing + incoming relationships with the related component, its model, and a delete action; **Add relationship** opens `RelationshipDialog.tsx` (target-model → component picker + type + description), gated on `reference_models.map`.
+- [ ] Further models beyond the six launch sets (e.g. an Experience RM variant) — the schema is model-type-agnostic, so these are seed-only additions.
+
+---
+
 ## 1. Purpose
 
 Implement Reference Models as a new functional area in Turbo EA so users can:

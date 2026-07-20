@@ -11513,6 +11513,37 @@
         "title": "RelationUpdate",
         "type": "object"
       },
+      "RelationshipCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "relationship_type": {
+            "default": "supports",
+            "pattern": "^(supports|consumes|realizes|depends_on|aligns_with)$",
+            "title": "Relationship Type",
+            "type": "string"
+          },
+          "target_item_id": {
+            "format": "uuid",
+            "title": "Target Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_item_id"
+        ],
+        "title": "RelationshipCreate",
+        "type": "object"
+      },
       "ReporterOut": {
         "properties": {
           "display_name": {
@@ -12762,7 +12793,8 @@
           "source_type": {
             "enum": [
               "manual",
-              "compliance"
+              "compliance",
+              "resilience"
             ],
             "title": "Source Type",
             "type": "string"
@@ -35143,6 +35175,98 @@
         ]
       }
     },
+    "/api/v1/reference-models/items/{item_id}/relationships": {
+      "get": {
+        "description": "Cross-model relationships where this item is the source or the target.",
+        "operationId": "list_item_relationships_api_v1_reference_models_items__item_id__relationships_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Item Relationships",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "post": {
+        "description": "Link this item to another reference-model item with a typed relationship.",
+        "operationId": "create_item_relationship_api_v1_reference_models_items__item_id__relationships_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationshipCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Item Relationship",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
     "/api/v1/reference-models/mappings/{mapping_id}": {
       "delete": {
         "operationId": "delete_mapping_api_v1_reference_models_mappings__mapping_id__delete",
@@ -35243,6 +35367,62 @@
           }
         },
         "summary": "Browse Overview",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/relationship-types": {
+      "get": {
+        "description": "The vocabulary of cross-model relationship types (RMPlan \u00a710).",
+        "operationId": "relationship_types_api_v1_reference_models_relationship_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Relationship Types",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/relationships/{relationship_id}": {
+      "delete": {
+        "operationId": "delete_relationship_api_v1_reference_models_relationships__relationship_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "relationship_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Relationship Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Relationship",
         "tags": [
           "reference-models"
         ]
@@ -38565,6 +38745,66 @@
           }
         },
         "summary": "Promote Compliance",
+        "tags": [
+          "Risks"
+        ]
+      }
+    },
+    "/api/v1/risks/promote/resilience/{card_id}": {
+      "post": {
+        "description": "Promote a critical service's RTO/RPO coverage gap into a tracked risk.\n\nIdempotent per card \u2014 a second call returns the already-promoted risk.",
+        "operationId": "promote_resilience_api_v1_risks_promote_resilience__card_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RiskPromoteRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Resilience",
         "tags": [
           "Risks"
         ]
@@ -44422,6 +44662,26 @@
           }
         },
         "summary": "Create Standard",
+        "tags": [
+          "tech-standards"
+        ]
+      }
+    },
+    "/api/v1/tech-standards/compliance-scan": {
+      "get": {
+        "description": "Flag cards using a sunset/prohibited standard without an active waiver.\n\nWalks Application \u2192 ITComponent \u2192 TechCategory \u2190 TechStandard and returns\none row per (card, violated standard), marking rows waived by an approved,\nnon-expired exception.",
+        "operationId": "compliance_scan_api_v1_tech_standards_compliance_scan_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Compliance Scan",
         "tags": [
           "tech-standards"
         ]

@@ -285,6 +285,106 @@ async def promote_compliance_finding(
 
 
 # ---------------------------------------------------------------------------
+# Promotion from a Resilience / Critical Service RTO/RPO gap
+# ---------------------------------------------------------------------------
+
+
+# Business criticality (from the Application ``businessCriticality`` field) →
+# risk impact. A missing recovery objective on a mission-critical service is a
+# far bigger risk than on an administrative one.
+_CRITICALITY_TO_IMPACT: dict[str, str] = {
+    "missionCritical": "critical",
+    "businessCritical": "high",
+    "businessOperational": "medium",
+    "administrativeService": "low",
+}
+
+
+async def resilience_risk_for_card(db: AsyncSession, card_id: uuid.UUID) -> Risk | None:
+    """Return the resilience risk already promoted for ``card_id``, if any."""
+    result = await db.execute(
+        select(Risk)
+        .where(Risk.source_type == "resilience")
+        .where(Risk.source_ref == str(card_id))
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
+async def promote_resilience_gap(
+    db: AsyncSession,
+    card_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+    *,
+    overrides: dict[str, Any] | None = None,
+) -> Risk:
+    """Create a Risk from a critical service's RTO/RPO coverage gap.
+
+    Idempotent per card: a second promotion of the same card returns the
+    existing risk (keyed on ``source_type='resilience'`` + ``source_ref=card_id``),
+    mirroring the compliance-finding promotion contract.
+
+    Seeds:
+    * category = ``operational``
+    * source_type = ``resilience`` / source_ref = card id
+    * impact derived from the card's ``businessCriticality``
+    * description listing which recovery objectives are missing
+    * links the affected card
+    """
+    card = await db.get(Card, card_id)
+    if card is None:
+        raise LookupError("Card not found")
+
+    existing = await resilience_risk_for_card(db, card_id)
+    if existing is not None:
+        return existing
+
+    overrides = overrides or {}
+    attrs = card.attributes or {}
+    missing = [k for k in ("rto", "rpo") if not attrs.get(k)]
+
+    impact = _safe_impact(
+        overrides.get("initial_impact")
+        or _CRITICALITY_TO_IMPACT.get(str(attrs.get("businessCriticality")), "medium")
+    )
+    probability = _safe_probability(overrides.get("initial_probability") or "medium")
+
+    missing_labels = {"rto": "RTO", "rpo": "RPO"}
+    if missing:
+        gap_text = " and ".join(missing_labels[k] for k in missing)
+        detail = f"No {gap_text} defined for critical service '{card.name}'."
+    else:
+        detail = f"Recovery objectives for critical service '{card.name}' need review."
+    description = overrides.get("description") or (
+        f"{detail} Undefined recovery objectives leave the service without a "
+        "measurable continuity target (DORA / NIS2 exposure)."
+    )
+    title = overrides.get("title") or f"Recovery objectives undefined: {card.name}"
+
+    risk = Risk(
+        id=uuid.uuid4(),
+        reference=await next_reference(db),
+        title=title[:500],
+        description=description,
+        category=overrides.get("category", "operational"),
+        source_type="resilience",
+        source_ref=str(card_id),
+        initial_probability=probability,
+        initial_impact=impact,
+        initial_level=derive_level(probability, impact) or "medium",
+        owner_id=overrides.get("owner_id"),
+        target_resolution_date=overrides.get("target_resolution_date"),
+        status="identified",
+        created_by=user_id,
+    )
+    db.add(risk)
+    await db.flush()
+    await link_cards(db, risk.id, [card_id])
+    await db.flush()
+    return risk
+
+
+# ---------------------------------------------------------------------------
 # Serialisation helpers used by the API layer
 # ---------------------------------------------------------------------------
 

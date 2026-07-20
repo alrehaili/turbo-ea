@@ -28,6 +28,7 @@ from app.models.tech_standard import (
 )
 from app.models.user import User
 from app.services.permission_service import PermissionService
+from app.services.tech_standards_scan import scan_standard_compliance
 
 router = APIRouter(prefix="/tech-standards", tags=["tech-standards"])
 
@@ -246,6 +247,21 @@ async def radar(
             "open_exceptions": sum(open_exc.values()),
         },
     }
+
+
+@router.get("/compliance-scan")
+async def compliance_scan(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Flag cards using a sunset/prohibited standard without an active waiver.
+
+    Walks Application → ITComponent → TechCategory ← TechStandard and returns
+    one row per (card, violated standard), marking rows waived by an approved,
+    non-expired exception.
+    """
+    await PermissionService.require_permission(db, user, "tech_standards.view")
+    return await scan_standard_compliance(db)
 
 
 @router.get("/exceptions")

@@ -822,3 +822,110 @@ class TestVersioningAndReview:
             f"/api/v1/reference-models/{model['id']}/submit", headers=auth_headers(admin)
         )
         assert r.status_code == 400
+
+
+async def _create_item(client, user, model_id, code, name, **extra):
+    resp = await client.post(
+        f"/api/v1/reference-models/{model_id}/items",
+        json={"code": code, "name": name, **extra},
+        headers=auth_headers(user),
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+class TestReferenceModelRelationships:
+    """Cross-model item↔item relationships (RMPlan §10)."""
+
+    async def test_create_list_delete_relationship(self, client, db, rm_env):
+        admin = rm_env["admin"]
+        brm = await _create_model(client, admin, domain="business", name="BRM")
+        arm = await _create_model(client, admin, domain="application", name="ARM")
+        cap = await _create_item(client, admin, brm["id"], "BRM-1", "Payments Capability")
+        app = await _create_item(client, admin, arm["id"], "ARM-1", "Payments App")
+
+        # ARM component realizes the BRM capability.
+        resp = await client.post(
+            f"/api/v1/reference-models/items/{app['id']}/relationships",
+            json={"target_item_id": cap["id"], "relationship_type": "realizes"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201, resp.text
+        rel = resp.json()
+        assert rel["relationship_type"] == "realizes"
+        assert rel["source_item"]["model_domain"] == "application"
+        assert rel["target_item"]["model_domain"] == "business"
+
+        # Outgoing from the app side.
+        out = (
+            await client.get(
+                f"/api/v1/reference-models/items/{app['id']}/relationships",
+                headers=auth_headers(admin),
+            )
+        ).json()
+        assert len(out["outgoing"]) == 1 and out["incoming"] == []
+
+        # Incoming from the capability side.
+        inc = (
+            await client.get(
+                f"/api/v1/reference-models/items/{cap['id']}/relationships",
+                headers=auth_headers(admin),
+            )
+        ).json()
+        assert inc["outgoing"] == [] and len(inc["incoming"]) == 1
+
+        # Delete it.
+        d = await client.delete(
+            f"/api/v1/reference-models/relationships/{rel['id']}",
+            headers=auth_headers(admin),
+        )
+        assert d.status_code == 204
+        after = (
+            await client.get(
+                f"/api/v1/reference-models/items/{app['id']}/relationships",
+                headers=auth_headers(admin),
+            )
+        ).json()
+        assert after["outgoing"] == []
+
+    async def test_duplicate_relationship_rejected(self, client, db, rm_env):
+        admin = rm_env["admin"]
+        m = await _create_model(client, admin, domain="business", name="BRM")
+        a = await _create_item(client, admin, m["id"], "BRM-1", "A")
+        b = await _create_item(client, admin, m["id"], "BRM-2", "B")
+        body = {"target_item_id": b["id"], "relationship_type": "supports"}
+        first = await client.post(
+            f"/api/v1/reference-models/items/{a['id']}/relationships",
+            json=body,
+            headers=auth_headers(admin),
+        )
+        assert first.status_code == 201
+        dup = await client.post(
+            f"/api/v1/reference-models/items/{a['id']}/relationships",
+            json=body,
+            headers=auth_headers(admin),
+        )
+        assert dup.status_code == 409
+
+    async def test_self_relationship_rejected(self, client, db, rm_env):
+        admin = rm_env["admin"]
+        m = await _create_model(client, admin, domain="business", name="BRM")
+        a = await _create_item(client, admin, m["id"], "BRM-1", "A")
+        resp = await client.post(
+            f"/api/v1/reference-models/items/{a['id']}/relationships",
+            json={"target_item_id": a["id"], "relationship_type": "supports"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_viewer_cannot_create_relationship(self, client, db, rm_env):
+        admin, viewer = rm_env["admin"], rm_env["viewer"]
+        m = await _create_model(client, admin, domain="business", name="BRM")
+        a = await _create_item(client, admin, m["id"], "BRM-1", "A")
+        b = await _create_item(client, admin, m["id"], "BRM-2", "B")
+        resp = await client.post(
+            f"/api/v1/reference-models/items/{a['id']}/relationships",
+            json={"target_item_id": b["id"], "relationship_type": "supports"},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403

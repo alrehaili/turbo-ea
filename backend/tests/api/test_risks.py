@@ -358,3 +358,58 @@ async def test_viewer_cannot_import(client, db, env):
         headers=auth_headers(env["viewer"]),
     )
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Promote a resilience RTO/RPO gap to a risk
+# ---------------------------------------------------------------------------
+
+
+async def test_promote_resilience_gap_creates_risk(client, db, env):
+    card = await create_card(
+        db,
+        name="Payments Gateway",
+        user_id=env["admin"].id,
+        attributes={"businessCriticality": "missionCritical"},
+    )
+    resp = await client.post(
+        f"/api/v1/risks/promote/resilience/{card.id}",
+        json={},
+        headers=auth_headers(env["admin"]),
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["source_type"] == "resilience"
+    assert body["source_ref"] == str(card.id)
+    # Mission-critical → critical impact.
+    assert body["initial_impact"] == "critical"
+    assert body["category"] == "operational"
+    # Affected card is linked.
+    assert any(c["card_id"] == str(card.id) for c in body["cards"])
+
+
+async def test_promote_resilience_gap_is_idempotent(client, db, env):
+    card = await create_card(db, name="Trading Core", user_id=env["admin"].id)
+    first = await client.post(
+        f"/api/v1/risks/promote/resilience/{card.id}",
+        json={},
+        headers=auth_headers(env["admin"]),
+    )
+    second = await client.post(
+        f"/api/v1/risks/promote/resilience/{card.id}",
+        json={},
+        headers=auth_headers(env["admin"]),
+    )
+    assert first.status_code == 200 and second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert await _risk_count(db) == 1
+
+
+async def test_viewer_cannot_promote_resilience_gap(client, db, env):
+    card = await create_card(db, name="Reporting DB", user_id=env["admin"].id)
+    resp = await client.post(
+        f"/api/v1/risks/promote/resilience/{card.id}",
+        json={},
+        headers=auth_headers(env["viewer"]),
+    )
+    assert resp.status_code == 403
