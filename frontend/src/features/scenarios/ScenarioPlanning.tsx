@@ -23,8 +23,16 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
+
+interface RelationRow {
+  id: string;
+  type: string;
+  source: { id: string; name: string } | null;
+  target: { id: string; name: string } | null;
+}
 
 type Op = "add" | "modify" | "retire" | "add_relation" | "remove_relation";
 const OP_COLOR: Record<Op, "success" | "warning" | "error" | "info" | "default"> = {
@@ -89,7 +97,7 @@ interface MergeResult {
 
 export default function ScenarioPlanning() {
   const { t } = useTranslation(["reports", "common"]);
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const [list, setList] = useState<ScenarioSummary[]>([]);
   const [detail, setDetail] = useState<ScenarioDetail | null>(null);
   const [diff, setDiff] = useState<DiffData | null>(null);
@@ -106,6 +114,20 @@ export default function ScenarioPlanning() {
   const [target, setTarget] = useState<CardBrief | null>(null);
   const [options, setOptions] = useState<CardBrief[]>([]);
   const [mergePreview, setMergePreview] = useState<MergeResult | null>(null);
+  // Relation-change authoring state.
+  const [relSource, setRelSource] = useState<CardOption | null>(null);
+  const [relTarget, setRelTarget] = useState<CardOption | null>(null);
+  const [relType, setRelType] = useState("");
+  const [relCard, setRelCard] = useState<CardOption | null>(null);
+  const [relOptions, setRelOptions] = useState<RelationRow[]>([]);
+  const [relToRemove, setRelToRemove] = useState<string>("");
+
+  // Relation types whose endpoints match the picked source/target card types.
+  const eligibleRelTypes = relationTypes.filter(
+    (rt) =>
+      (!relSource || rt.source_type_key === relSource.type) &&
+      (!relTarget || rt.target_type_key === relTarget.type),
+  );
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -167,6 +189,12 @@ export default function ScenarioPlanning() {
     setOptions(res.items ?? []);
   };
 
+  const loadCardRelations = async (cardId: string) => {
+    const rows = await api.get<RelationRow[]>(`/relations?card_id=${cardId}`);
+    setRelOptions(rows);
+    setRelToRemove("");
+  };
+
   const addChange = async () => {
     if (!detail) return;
     const body: Record<string, unknown> = { op };
@@ -174,6 +202,16 @@ export default function ScenarioPlanning() {
       if (!cardType || !name.trim()) return;
       body.card_type = cardType;
       body.name = name;
+    } else if (op === "add_relation") {
+      if (!relSource || !relTarget || !relType) return;
+      body.payload = {
+        relation_type: relType,
+        source_id: relSource.id,
+        target_id: relTarget.id,
+      };
+    } else if (op === "remove_relation") {
+      if (!relToRemove) return;
+      body.payload = { relation_id: relToRemove };
     } else {
       if (!target) return;
       body.target_card_id = target.id;
@@ -182,6 +220,12 @@ export default function ScenarioPlanning() {
     setChangeOpen(false);
     setName("");
     setTarget(null);
+    setRelSource(null);
+    setRelTarget(null);
+    setRelType("");
+    setRelCard(null);
+    setRelOptions([]);
+    setRelToRemove("");
     await refresh();
   };
 
@@ -493,6 +537,8 @@ export default function ScenarioPlanning() {
             <MenuItem value="add">{t("scenarios.op.add")}</MenuItem>
             <MenuItem value="modify">{t("scenarios.op.modify")}</MenuItem>
             <MenuItem value="retire">{t("scenarios.op.retire")}</MenuItem>
+            <MenuItem value="add_relation">{t("scenarios.op.add_relation")}</MenuItem>
+            <MenuItem value="remove_relation">{t("scenarios.op.remove_relation")}</MenuItem>
           </TextField>
           {op === "add" ? (
             <>
@@ -513,6 +559,72 @@ export default function ScenarioPlanning() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </>
+          ) : op === "add_relation" ? (
+            <>
+              <CardPicker
+                value={relSource}
+                onChange={(v) => {
+                  setRelSource(v);
+                  setRelType("");
+                }}
+                enabled={changeOpen}
+                label={t("scenarios.relSource")}
+              />
+              <TextField
+                select
+                label={t("scenarios.relType")}
+                value={relType}
+                onChange={(e) => setRelType(e.target.value)}
+                disabled={!relSource}
+              >
+                {eligibleRelTypes.map((rt) => (
+                  <MenuItem key={rt.key} value={rt.key}>
+                    {rt.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <CardPicker
+                value={relTarget}
+                onChange={(v) => {
+                  setRelTarget(v);
+                  setRelType("");
+                }}
+                enabled={changeOpen}
+                label={t("scenarios.relTarget")}
+              />
+            </>
+          ) : op === "remove_relation" ? (
+            <>
+              <CardPicker
+                value={relCard}
+                onChange={(v) => {
+                  setRelCard(v);
+                  if (v) loadCardRelations(v.id);
+                  else {
+                    setRelOptions([]);
+                    setRelToRemove("");
+                  }
+                }}
+                enabled={changeOpen}
+                label={t("scenarios.relOnCard")}
+              />
+              <TextField
+                select
+                label={t("scenarios.relToRemove")}
+                value={relToRemove}
+                onChange={(e) => setRelToRemove(e.target.value)}
+                disabled={!relCard || relOptions.length === 0}
+                helperText={
+                  relCard && relOptions.length === 0 ? t("scenarios.noRelations") : undefined
+                }
+              >
+                {relOptions.map((r) => (
+                  <MenuItem key={r.id} value={r.id}>
+                    {r.source?.name} → {r.target?.name} ({r.type})
+                  </MenuItem>
+                ))}
+              </TextField>
             </>
           ) : (
             <Autocomplete
