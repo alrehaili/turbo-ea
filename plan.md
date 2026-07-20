@@ -181,7 +181,9 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 - [x] Workspace Transfer: `scenarios` + `scenario_changes` wired into `ENTITY_SECTIONS`.
 - [x] Frontend: **Scenario Planning** (`ScenarioPlanning.tsx`) — list, detail with change table, As-Is/To-Be diff metrics + per-change impact, add-change dialog (add: type+name; modify/retire: card picker), merge with dry-run preview + conflict surfacing.
 - [x] Backend tests (8, passing — incl. diff, merge apply, conflict detection, re-merge guard), i18n (all 10 locales incl. plurals).
-- [ ] **Remaining:** relation-level scenario changes, baseline-drift (field-level) conflict detection, LDV dashed/NEW overlay render, approval-workflow UI polish, docs/screenshots.
+- [x] **Relation-level scenario changes** — `add_relation` / `remove_relation` ops (`scenario_changes.payload` carries the relation triple); merge creates/deletes the relation with existence-conflict detection. Surfaced in the diff (relation counts) and change list.
+- [x] **Baseline-drift (field-level) conflict detection** — a `modify` change snapshots the live values of the fields it touches (`scenario_changes.baseline`, migration 160); `/diff` and `/merge` flag a field that has since moved on the live baseline as a **drift** conflict (skipped by default, `?force=true` overrides). Surfaced with a drift chip + metric + Force-merge button.
+- [ ] **Remaining:** LDV dashed/NEW overlay render, approval-workflow UI polish, a relation-authoring dialog in the UI (relation ops are API-usable today), docs/screenshots.
 - [x] **Acceptance:** branch a scenario, retire a card + add a successor, see As-Is/To-Be diff with impact, dry-run then merge into baseline with conflict handling + audit event. ✅ verified by `tests/api/test_scenarios.py`.
 
 ---
@@ -238,7 +240,7 @@ Enterprise EA buyers (the LeanIX/Ardoq/Alfabet procurement crowd) gate on these 
 6. [~] **2.3** Resilience / Critical Service View — service + endpoint + view + i18n + tests + first-class RTO/RPO/recovery-tier fields + promote-gap-to-risk done; docs/screenshots pending
 7. [~] **2.4** Architecture Review Board View — table + aggregation + view + i18n + tests + workspace transfer done; docs pending
 8. [x] **3.1.0** Scenario Planning architecture spike — copy-on-write overlay + existence-based conflict detection
-9. [~] **3.1.1** Scenario Planning & Transition Architecture — models + migration + permissions + diff + merge + view + i18n + tests + workspace transfer done; relation-level changes/LDV overlay/docs pending
+9. [~] **3.1.1** Scenario Planning & Transition Architecture — models + migration + permissions + diff + merge + view + i18n + tests + workspace transfer + relation-level changes + baseline-drift detection done; LDV dashed/NEW overlay + approval-UI polish + relation-authoring dialog + docs pending
 10. [~] **4.1** Data Architecture + Data Flow Map — flow map + endpoint + view + i18n + tests + first-class `dataDomain` field + full DataDomain/DataProduct card types + relations done; OpenMetadata connector deferred (needs live OM instance)
 11. [~] **4.2** Integration Hub — drift/sync-status dashboard shipped (endpoint + view + i18n + tests); generalized connector framework + new connectors deferred by design (YAGNI until 2nd connector)
 

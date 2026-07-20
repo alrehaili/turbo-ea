@@ -26,11 +26,13 @@ import MetricCard from "@/features/reports/MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 
-type Op = "add" | "modify" | "retire";
-const OP_COLOR: Record<Op, "success" | "warning" | "error"> = {
+type Op = "add" | "modify" | "retire" | "add_relation" | "remove_relation";
+const OP_COLOR: Record<Op, "success" | "warning" | "error" | "info" | "default"> = {
   add: "success",
   modify: "warning",
   retire: "error",
+  add_relation: "info",
+  remove_relation: "default",
 };
 
 interface CardBrief {
@@ -66,14 +68,23 @@ interface DiffData {
     added: number;
     modified: number;
     retired: number;
+    relations_added: number;
+    relations_removed: number;
     impact_affected: number;
+    drift_conflicts: number;
   };
-  changes: { id: string; impact_affected: number | null; missing_target: boolean }[];
+  changes: {
+    id: string;
+    impact_affected: number | null;
+    missing_target: boolean;
+    drift: string[];
+  }[];
 }
 interface MergeResult {
   dry_run: boolean;
   applied: number;
   conflicts: number;
+  results?: { id: string; op: string; name: string | null; outcome: string }[];
 }
 
 export default function ScenarioPlanning() {
@@ -184,9 +195,9 @@ export default function ScenarioPlanning() {
     setMergePreview(await api.post<MergeResult>(`/scenarios/${detail.id}/merge?dry_run=true`, {}));
   };
 
-  const doMerge = async () => {
+  const doMerge = async (force = false) => {
     if (!detail) return;
-    await api.post<MergeResult>(`/scenarios/${detail.id}/merge`, {});
+    await api.post<MergeResult>(`/scenarios/${detail.id}/merge${force ? "?force=true" : ""}`, {});
     setMergePreview(null);
     await refresh();
   };
@@ -338,11 +349,27 @@ export default function ScenarioPlanning() {
           <MetricCard label={t("scenarios.added")} value={diff.summary.added} icon="add_circle" color="#2e7d32" />
           <MetricCard label={t("scenarios.modified")} value={diff.summary.modified} icon="edit" color="#ed6c02" />
           <MetricCard label={t("scenarios.retired")} value={diff.summary.retired} icon="cancel" color="#d32f2f" />
+          {(diff.summary.relations_added > 0 || diff.summary.relations_removed > 0) && (
+            <MetricCard
+              label={t("scenarios.relations")}
+              value={`+${diff.summary.relations_added} / -${diff.summary.relations_removed}`}
+              icon="hub"
+              color="#0288d1"
+            />
+          )}
           <MetricCard
             label={t("scenarios.impactAffected")}
             value={diff.summary.impact_affected}
             icon="electric_bolt"
           />
+          {diff.summary.drift_conflicts > 0 && (
+            <MetricCard
+              label={t("scenarios.driftConflicts")}
+              value={diff.summary.drift_conflicts}
+              icon="warning"
+              color="#ed6c02"
+            />
+          )}
         </Box>
       )}
 
@@ -371,6 +398,16 @@ export default function ScenarioPlanning() {
                     {dr?.missing_target && (
                       <Chip size="small" color="error" label={t("scenarios.missingTarget")} sx={{ ml: 1 }} />
                     )}
+                    {dr?.drift && dr.drift.length > 0 && (
+                      <Chip
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        label={t("scenarios.drift")}
+                        title={dr.drift.join(", ")}
+                        sx={{ ml: 1 }}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>{c.card_type}</TableCell>
                   <TableCell align="center">{dr?.impact_affected ?? "—"}</TableCell>
@@ -386,7 +423,13 @@ export default function ScenarioPlanning() {
                       {c.merge_status && (
                         <Chip
                           size="small"
-                          color={c.merge_status === "conflict" ? "error" : "success"}
+                          color={
+                            c.merge_status === "conflict"
+                              ? "error"
+                              : c.merge_status === "drift"
+                                ? "warning"
+                                : "success"
+                          }
                           label={t(`scenarios.merge.${c.merge_status}`, c.merge_status)}
                         />
                       )}
@@ -406,9 +449,16 @@ export default function ScenarioPlanning() {
             <Alert
               severity={mergePreview.conflicts > 0 ? "warning" : "info"}
               action={
-                <Button color="inherit" size="small" onClick={doMerge}>
-                  {t("scenarios.confirmMerge")}
-                </Button>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button color="inherit" size="small" onClick={() => doMerge(false)}>
+                    {t("scenarios.confirmMerge")}
+                  </Button>
+                  {mergePreview.results?.some((r) => r.outcome === "drift") && (
+                    <Button color="warning" size="small" onClick={() => doMerge(true)}>
+                      {t("scenarios.forceMerge")}
+                    </Button>
+                  )}
+                </Box>
               }
               sx={{ mb: 2 }}
             >

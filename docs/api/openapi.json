@@ -40334,7 +40334,7 @@
     },
     "/api/v1/scenarios/{scenario_id}/merge": {
       "post": {
-        "description": "Apply the scenario's changes to the live repository.\n\nadd \u2192 create card, modify \u2192 patch fields, retire \u2192 archive. Existence-based\nconflict detection: a modify/retire whose target card no longer exists is\nreported as a conflict and skipped. ``dry_run=true`` reports the outcome\nwithout writing.",
+        "description": "Apply the scenario's changes to the live repository.\n\nadd \u2192 create card, modify \u2192 patch fields, retire \u2192 archive,\nadd_relation \u2192 create relation, remove_relation \u2192 delete relation.\n\nConflict detection: (a) **existence** \u2014 a modify/retire whose target card no\nlonger exists, an add_relation whose relation already exists, or a\nremove_relation whose relation is gone; (b) **baseline drift** \u2014 a modify\nwhose target field has moved on the live baseline since the change was\ncaptured. Conflicts are reported and skipped. ``force=true`` overrides drift\n(existence conflicts are never force-applied). ``dry_run=true`` reports the\noutcome without writing.",
         "operationId": "merge_scenario_api_v1_scenarios__scenario_id__merge_post",
         "parameters": [
           {
@@ -40354,6 +40354,16 @@
             "schema": {
               "default": false,
               "title": "Dry Run",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
               "type": "boolean"
             }
           }

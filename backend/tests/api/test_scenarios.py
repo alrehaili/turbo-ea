@@ -10,10 +10,13 @@ from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.card import Card
+from app.models.relation import Relation
 from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_relation,
+    create_relation_type,
     create_role,
     create_user,
 )
@@ -171,3 +174,139 @@ class TestDiffAndMerge:
         assert resp.status_code == 200
         assert resp.json()["conflicts"] == 1
         assert resp.json()["applied"] == 0
+
+
+class TestBaselineDrift:
+    async def test_modify_drift_is_conflict_then_forceable(self, client, db, scn_env):
+        admin = scn_env["admin"]
+        legacy = scn_env["legacy"]
+        sid = await _new_scenario(client, admin)
+        # Modify sets attribute foo=scenario; baseline captures foo's live value.
+        await client.post(
+            f"/api/v1/scenarios/{sid}/changes",
+            json={
+                "op": "modify",
+                "target_card_id": str(legacy.id),
+                "payload": {"attributes": {"foo": "scenario"}},
+            },
+            headers=auth_headers(admin),
+        )
+        # Concurrent edit on the live baseline moves foo away from the captured value.
+        legacy.attributes = {"foo": "concurrent"}
+        await db.commit()
+
+        # Diff flags the drift.
+        diff = (
+            await client.get(f"/api/v1/scenarios/{sid}/diff", headers=auth_headers(admin))
+        ).json()
+        assert diff["summary"]["drift_conflicts"] == 1
+        assert diff["changes"][0]["drift"] == ["attributes.foo"]
+
+        # Merge treats drift as a conflict and skips it.
+        resp = await client.post(f"/api/v1/scenarios/{sid}/merge", headers=auth_headers(admin))
+        body = resp.json()
+        assert body["conflicts"] == 1 and body["applied"] == 0
+        assert body["results"][0]["outcome"] == "drift"
+        fresh = (await db.execute(select(Card).where(Card.id == legacy.id))).scalar_one()
+        assert fresh.attributes["foo"] == "concurrent"  # untouched
+
+    async def test_force_overrides_drift(self, client, db, scn_env):
+        admin = scn_env["admin"]
+        legacy = scn_env["legacy"]
+        sid = await _new_scenario(client, admin)
+        await client.post(
+            f"/api/v1/scenarios/{sid}/changes",
+            json={
+                "op": "modify",
+                "target_card_id": str(legacy.id),
+                "payload": {"attributes": {"foo": "scenario"}},
+            },
+            headers=auth_headers(admin),
+        )
+        legacy.attributes = {"foo": "concurrent"}
+        await db.commit()
+        resp = await client.post(
+            f"/api/v1/scenarios/{sid}/merge?force=true", headers=auth_headers(admin)
+        )
+        assert resp.json()["applied"] == 1
+        fresh = (await db.execute(select(Card).where(Card.id == legacy.id))).scalar_one()
+        assert fresh.attributes["foo"] == "scenario"
+
+
+class TestRelationChanges:
+    @pytest.fixture
+    async def rel_env(self, db, scn_env):
+        await create_relation_type(
+            db, key="relAtoB", source_type_key="Application", target_type_key="Application"
+        )
+        other = await create_card(
+            db, card_type="Application", name="Target", user_id=scn_env["admin"].id
+        )
+        await db.flush()
+        return {**scn_env, "other": other}
+
+    async def test_add_relation_merges_and_conflicts(self, client, db, rel_env):
+        admin, legacy, other = rel_env["admin"], rel_env["legacy"], rel_env["other"]
+        sid = await _new_scenario(client, admin)
+        resp = await client.post(
+            f"/api/v1/scenarios/{sid}/changes",
+            json={
+                "op": "add_relation",
+                "payload": {
+                    "relation_type": "relAtoB",
+                    "source_id": str(legacy.id),
+                    "target_id": str(other.id),
+                },
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["name"] == "Legacy → Target"
+
+        merged = await client.post(f"/api/v1/scenarios/{sid}/merge", headers=auth_headers(admin))
+        assert merged.json()["applied"] == 1
+        rel = (
+            await db.execute(
+                select(Relation).where(
+                    Relation.type == "relAtoB",
+                    Relation.source_id == legacy.id,
+                    Relation.target_id == other.id,
+                )
+            )
+        ).scalar_one_or_none()
+        assert rel is not None
+
+        # A second scenario adding the same relation conflicts (it now exists).
+        sid2 = await _new_scenario(client, admin)
+        await client.post(
+            f"/api/v1/scenarios/{sid2}/changes",
+            json={
+                "op": "add_relation",
+                "payload": {
+                    "relation_type": "relAtoB",
+                    "source_id": str(legacy.id),
+                    "target_id": str(other.id),
+                },
+            },
+            headers=auth_headers(admin),
+        )
+        m2 = await client.post(f"/api/v1/scenarios/{sid2}/merge", headers=auth_headers(admin))
+        assert m2.json()["conflicts"] == 1
+
+    async def test_remove_relation_merges(self, client, db, rel_env):
+        admin, legacy, other = rel_env["admin"], rel_env["legacy"], rel_env["other"]
+        rel = await create_relation(db, type_key="relAtoB", source_id=legacy.id, target_id=other.id)
+        await db.commit()
+        sid = await _new_scenario(client, admin)
+        resp = await client.post(
+            f"/api/v1/scenarios/{sid}/changes",
+            json={"op": "remove_relation", "payload": {"relation_id": str(rel.id)}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        merged = await client.post(f"/api/v1/scenarios/{sid}/merge", headers=auth_headers(admin))
+        assert merged.json()["applied"] == 1
+        gone = (
+            await db.execute(select(Relation).where(Relation.id == rel.id))
+        ).scalar_one_or_none()
+        assert gone is None

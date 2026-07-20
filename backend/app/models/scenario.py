@@ -28,7 +28,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 SCENARIO_STATUSES = ("draft", "review", "approved", "merged", "discarded")
-CHANGE_OPS = ("add", "modify", "retire")
+# Card ops act on a card; relation ops act on a relation (payload carries the
+# relation_type / source_id / target_id, or relation_id for a removal).
+CARD_CHANGE_OPS = ("add", "modify", "retire")
+RELATION_CHANGE_OPS = ("add_relation", "remove_relation")
+CHANGE_OPS = CARD_CHANGE_OPS + RELATION_CHANGE_OPS
 
 
 class Scenario(UUIDMixin, TimestampMixin, Base):
@@ -77,8 +81,15 @@ class ScenarioChange(UUIDMixin, TimestampMixin, Base):
     # Proposed name (add) or display name snapshot (modify/retire).
     name: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # The delta: full field set for add, changed fields for modify, {} for retire.
+    # For relation ops: {relation_type, source_id, target_id, attributes} (add)
+    # or {relation_id, relation_type, source_id, target_id} (remove).
     payload: Mapped[dict | None] = mapped_column(JSONB, default=dict)
-    # Outcome stamped on merge: applied / conflict / skipped.
+    # Snapshot of the live values for the fields this change touches, captured
+    # when the change was added. Powers **baseline-drift** detection: if the
+    # live value has since moved away from this baseline, applying the change
+    # would clobber a concurrent edit. NULL for add / add_relation.
+    baseline: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Outcome stamped on merge: applied / conflict / drift / skipped.
     merge_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     __table_args__ = (
