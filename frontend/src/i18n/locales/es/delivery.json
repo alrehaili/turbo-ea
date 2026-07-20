@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Modelo de interacción",
   "noraTemplate.ea_operating_model.kpis.title": "KPI de AE",
   "noraTemplate.ea_operating_model.vocabulary.title": "Vocabulario",
-  "noraTemplate.ea_operating_model.tools.title": "Herramientas"
+  "noraTemplate.ea_operating_model.tools.title": "Herramientas",
+  "swot.title": "Entradas DAFO",
+  "swot.subtitle": "Filas estructuradas junto a los cuadrantes anteriores. Promueva una debilidad o amenaza al registro de oportunidades de mejora.",
+  "swot.quadrant.strength": "Fortalezas",
+  "swot.quadrant.weakness": "Debilidades",
+  "swot.quadrant.opportunity": "Oportunidades",
+  "swot.quadrant.threat": "Amenazas",
+  "swot.quadrantLabel": "Cuadrante",
+  "swot.entryText": "Entrada",
+  "swot.emptyQuadrant": "Sin entradas.",
+  "swot.promote": "Promover a oportunidad",
+  "swot.promoted": "Promovido",
+  "swot.openOpportunity": "Abrir oportunidad",
+  "swot.openRegistry": "Abrir el registro de oportunidades de mejora",
+  "swot.saveFirst": "Guarde el documento para agregar entradas DAFO estructuradas."
 }

@@ -521,5 +521,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "نموذج التفاعل",
   "noraTemplate.ea_operating_model.kpis.title": "مؤشرات الأداء",
   "noraTemplate.ea_operating_model.vocabulary.title": "المصطلحات",
-  "noraTemplate.ea_operating_model.tools.title": "الأدوات"
+  "noraTemplate.ea_operating_model.tools.title": "الأدوات",
+  "swot.title": "عناصر SWOT",
+  "swot.subtitle": "صفوف منظمة إلى جانب الأرباع أعلاه. رقِّ نقطة ضعف أو تهديدًا إلى سجل فرص التحسين.",
+  "swot.quadrant.strength": "نقاط القوة",
+  "swot.quadrant.weakness": "نقاط الضعف",
+  "swot.quadrant.opportunity": "الفرص",
+  "swot.quadrant.threat": "التهديدات",
+  "swot.quadrantLabel": "الربع",
+  "swot.entryText": "عنصر",
+  "swot.emptyQuadrant": "لا توجد عناصر.",
+  "swot.promote": "ترقية إلى فرصة",
+  "swot.promoted": "تمت الترقية",
+  "swot.openOpportunity": "فتح الفرصة",
+  "swot.openRegistry": "فتح سجل فرص التحسين",
+  "swot.saveFirst": "احفظ المستند لإضافة عناصر SWOT منظمة."
 }

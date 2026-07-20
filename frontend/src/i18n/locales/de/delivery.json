@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Interaktionsmodell",
   "noraTemplate.ea_operating_model.kpis.title": "EA-KPIs",
   "noraTemplate.ea_operating_model.vocabulary.title": "Vokabular",
-  "noraTemplate.ea_operating_model.tools.title": "Werkzeuge"
+  "noraTemplate.ea_operating_model.tools.title": "Werkzeuge",
+  "swot.title": "SWOT-Einträge",
+  "swot.subtitle": "Strukturierte Zeilen neben den Quadranten oben. Fördern Sie eine Schwäche oder Bedrohung in das Verbesserungschancen-Register.",
+  "swot.quadrant.strength": "Stärken",
+  "swot.quadrant.weakness": "Schwächen",
+  "swot.quadrant.opportunity": "Chancen",
+  "swot.quadrant.threat": "Bedrohungen",
+  "swot.quadrantLabel": "Quadrant",
+  "swot.entryText": "Eintrag",
+  "swot.emptyQuadrant": "Keine Einträge.",
+  "swot.promote": "Zur Chance befördern",
+  "swot.promoted": "Befördert",
+  "swot.openOpportunity": "Chance öffnen",
+  "swot.openRegistry": "Verbesserungschancen-Register öffnen",
+  "swot.saveFirst": "Speichern Sie das Dokument, um strukturierte SWOT-Einträge hinzuzufügen."
 }

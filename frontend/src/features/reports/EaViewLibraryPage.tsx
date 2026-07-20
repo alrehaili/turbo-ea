@@ -22,6 +22,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   NEA_DOMAIN_ORDER,
   NEA_VIEWPOINTS,
+  neaViewpointGate,
   type NeaDomain,
 } from "@/features/reports/neaViewpoints";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -399,7 +400,8 @@ function NeaViewpointRegistry() {
                 </TableHead>
                 <TableBody>
                   {rows.map((v) => {
-                    const canView = canLaunch(v.permission) && isModuleEnabled(v.module);
+                    const gate = neaViewpointGate(v);
+                    const canView = canLaunch(gate.permission) && isModuleEnabled(gate.module);
                     return (
                       <TableRow key={v.key} hover sx={{ opacity: canView ? 1 : 0.5 }}>
                         <TableCell>

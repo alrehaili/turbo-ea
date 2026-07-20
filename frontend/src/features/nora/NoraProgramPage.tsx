@@ -48,6 +48,9 @@ import { NORA_DOC_TYPES, PRACTICE_DOC_TYPES } from "@/features/ea-delivery/soawT
 import EaRequirementsPanel from "@/features/nora/EaRequirementsPanel";
 import NeaEvidencePanel from "@/features/nora/NeaEvidencePanel";
 import PlateausSegmentsPanel from "@/features/nora/PlateausSegmentsPanel";
+import EvidencePickerDialog, {
+  type EvidenceValue,
+} from "@/features/nora/EvidencePickerDialog";
 
 interface Evidence {
   kind: string;
@@ -276,8 +279,6 @@ export default function NoraProgramPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [evidenceFor, setEvidenceFor] = useState<Deliverable | null>(null);
-  const [evidenceLabel, setEvidenceLabel] = useState("");
-  const [evidenceRef, setEvidenceRef] = useState("");
   const [addFor, setAddFor] = useState<number | null>(null);
   const [addTitle, setAddTitle] = useState("");
   const [docMenuAnchor, setDocMenuAnchor] = useState<HTMLElement | null>(null);
@@ -324,16 +325,11 @@ export default function NoraProgramPage() {
     }
   };
 
-  const addEvidence = async () => {
-    if (!evidenceFor || !evidenceRef.trim()) return;
-    const next = [
-      ...evidenceFor.evidence,
-      { kind: "link", ref: evidenceRef.trim(), label: evidenceLabel.trim() || null },
-    ];
+  const addEvidence = async (item: EvidenceValue) => {
+    if (!evidenceFor) return;
+    const next = [...evidenceFor.evidence, item];
     await patch(evidenceFor, { evidence: next });
     setEvidenceFor(null);
-    setEvidenceLabel("");
-    setEvidenceRef("");
   };
 
   const removeEvidence = async (d: Deliverable, index: number) => {
@@ -964,30 +960,12 @@ export default function NoraProgramPage() {
       {/* Plateaus (time-slices) + segment scopes (WP5.4) */}
       <PlateausSegmentsPanel canManage={canManage} />
 
-      {/* Add evidence dialog */}
-      <Dialog open={!!evidenceFor} onClose={() => setEvidenceFor(null)} fullWidth maxWidth="sm">
-        <DialogTitle>{t("noraProgram.addEvidence")}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <TextField
-            autoFocus
-            label={t("noraProgram.evidenceLabel")}
-            value={evidenceLabel}
-            onChange={(e) => setEvidenceLabel(e.target.value)}
-          />
-          <TextField
-            label={t("noraProgram.evidenceRef")}
-            placeholder="/reports/gap-analysis · /cards/… · https://…"
-            value={evidenceRef}
-            onChange={(e) => setEvidenceRef(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEvidenceFor(null)}>{t("common:actions.cancel")}</Button>
-          <Button variant="contained" onClick={addEvidence} disabled={!evidenceRef.trim()}>
-            {t("common:actions.save")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Add evidence dialog — structured picker (WP3.1) */}
+      <EvidencePickerDialog
+        open={!!evidenceFor}
+        onClose={() => setEvidenceFor(null)}
+        onAdd={addEvidence}
+      />
 
       {/* Switch to the updated 7-phase methodology (WP6.1) */}
       <Dialog open={switchOpen} onClose={() => setSwitchOpen(false)} fullWidth maxWidth="sm">

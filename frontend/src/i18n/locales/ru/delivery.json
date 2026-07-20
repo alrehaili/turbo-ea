@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Модель взаимодействия",
   "noraTemplate.ea_operating_model.kpis.title": "KPI КА",
   "noraTemplate.ea_operating_model.vocabulary.title": "Словарь",
-  "noraTemplate.ea_operating_model.tools.title": "Инструменты"
+  "noraTemplate.ea_operating_model.tools.title": "Инструменты",
+  "swot.title": "Записи SWOT",
+  "swot.subtitle": "Структурированные строки рядом с квадрантами выше. Продвиньте слабость или угрозу в реестр возможностей улучшения.",
+  "swot.quadrant.strength": "Сильные стороны",
+  "swot.quadrant.weakness": "Слабые стороны",
+  "swot.quadrant.opportunity": "Возможности",
+  "swot.quadrant.threat": "Угрозы",
+  "swot.quadrantLabel": "Квадрант",
+  "swot.entryText": "Запись",
+  "swot.emptyQuadrant": "Нет записей.",
+  "swot.promote": "Продвинуть в возможность",
+  "swot.promoted": "Продвинуто",
+  "swot.openOpportunity": "Открыть возможность",
+  "swot.openRegistry": "Открыть реестр возможностей улучшения",
+  "swot.saveFirst": "Сохраните документ, чтобы добавить структурированные записи SWOT."
 }

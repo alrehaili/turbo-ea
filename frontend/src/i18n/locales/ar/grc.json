@@ -74,7 +74,9 @@
         "high": "عالية",
         "medium": "متوسطة",
         "low": "منخفضة"
-      }
+      },
+      "realizedValue": "القيمة المحققة",
+      "realizedTotal": "{{count}} محققة إجمالاً"
     }
   },
   "compliance": {

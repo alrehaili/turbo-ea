@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Modello di interazione",
   "noraTemplate.ea_operating_model.kpis.title": "KPI di EA",
   "noraTemplate.ea_operating_model.vocabulary.title": "Vocabolario",
-  "noraTemplate.ea_operating_model.tools.title": "Strumenti"
+  "noraTemplate.ea_operating_model.tools.title": "Strumenti",
+  "swot.title": "Voci SWOT",
+  "swot.subtitle": "Righe strutturate accanto ai quadranti sopra. Promuovi una debolezza o minaccia nel registro delle opportunità di miglioramento.",
+  "swot.quadrant.strength": "Punti di forza",
+  "swot.quadrant.weakness": "Debolezze",
+  "swot.quadrant.opportunity": "Opportunità",
+  "swot.quadrant.threat": "Minacce",
+  "swot.quadrantLabel": "Quadrante",
+  "swot.entryText": "Voce",
+  "swot.emptyQuadrant": "Nessuna voce.",
+  "swot.promote": "Promuovi a opportunità",
+  "swot.promoted": "Promosso",
+  "swot.openOpportunity": "Apri opportunità",
+  "swot.openRegistry": "Apri il registro delle opportunità di miglioramento",
+  "swot.saveFirst": "Salva il documento per aggiungere voci SWOT strutturate."
 }

@@ -663,6 +663,18 @@
   "interop.colClassification": "التصنيف",
   "interop.colExternal": "الجهة الخارجية",
   "interop.colApplications": "التطبيقات",
+  "dataExchangeMap.title": "خريطة تبادل البيانات",
+  "dataExchangeMap.subtitle": "تدفق البيانات الشامل لكل عملية تبادل: التطبيقات المصدر وكائنات البيانات المنقولة وتخزينها والتطبيقات الهدف.",
+  "dataExchangeMap.total": "الإجمالي",
+  "dataExchangeMap.viaGsb": "عبر ناقل الخدمة الحكومي",
+  "dataExchangeMap.withStorage": "مع التخزين",
+  "dataExchangeMap.sensitiveOffGsb": "بيانات حساسة خارج ناقل الخدمة الحكومي",
+  "dataExchangeMap.sensitiveHint": "عمليات التبادل التي تحمل بيانات سرية أو سرية للغاية خارج ناقل الخدمة الحكومي: {{count}}. وجّهها عبر الناقل أو سجّل استثناءً.",
+  "dataExchangeMap.empty": "لا توجد عمليات تبادل بيانات بعد.",
+  "dataExchangeMap.colSources": "التطبيقات المصدر",
+  "dataExchangeMap.colExchange": "التبادل",
+  "dataExchangeMap.colDataObjects": "كائنات البيانات / التخزين",
+  "dataExchangeMap.colTargets": "التطبيقات الهدف",
   "orgChart.title": "الهيكل التنظيمي",
   "orgChart.subtitle": "التسلسل الهرمي التنظيمي — أحد مخرجات بنية الأعمال في نورا.",
   "orgChart.empty": "لا توجد بطاقات مؤسسات بعد.",
@@ -1626,22 +1638,22 @@
       "rejected": "مرفوض"
     }
   },
-    "rmRel": {
-      "heading": "العلاقات",
-      "addTitle": "إضافة علاقة",
-      "empty": "لا توجد علاقات بعد.",
-      "relType": "العلاقة",
-      "targetModel": "النموذج الهدف",
-      "targetItem": "المكوّن الهدف",
-      "description": "الوصف",
-      "type": {
-        "supports": "يدعم",
-        "consumes": "يستهلك",
-        "realizes": "يحقّق",
-        "depends_on": "يعتمد على",
-        "aligns_with": "يتوافق مع"
-      }
-    },
+  "rmRel": {
+    "heading": "العلاقات",
+    "addTitle": "إضافة علاقة",
+    "empty": "لا توجد علاقات بعد.",
+    "relType": "العلاقة",
+    "targetModel": "النموذج الهدف",
+    "targetItem": "المكوّن الهدف",
+    "description": "الوصف",
+    "type": {
+      "supports": "يدعم",
+      "consumes": "يستهلك",
+      "realizes": "يحقّق",
+      "depends_on": "يعتمد على",
+      "aligns_with": "يتوافق مع"
+    }
+  },
   "rmPoster": {
     "editTitle": "محتوى الملصق",
     "addPanel": "إضافة لوحة",

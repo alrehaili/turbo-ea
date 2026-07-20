@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -176,7 +177,11 @@ export default function MatrixReport() {
     return () => observer.disconnect();
   }, [measureHeaderOffsets]);
 
-  // Load saved report config
+  // Load saved report config. An explicit ``?row_type=&col_type=`` deep-link
+  // (used by NEA View-Library preset viewpoints, e.g. "Applications by Org
+  // Unit") takes precedence over stale localStorage so the preset renders the
+  // intended axes.
+  const [presetParams] = useSearchParams();
   useEffect(() => {
     const cfg = saved.consumeConfig();
     if (cfg) {
@@ -189,6 +194,10 @@ export default function MatrixReport() {
       if (cfg.rowExpandedDepth !== undefined) setRowExpandedDepth(cfg.rowExpandedDepth as number);
       if (cfg.colExpandedDepth !== undefined) setColExpandedDepth(cfg.colExpandedDepth as number);
     }
+    const presetRow = presetParams.get("row_type");
+    const presetCol = presetParams.get("col_type");
+    if (presetRow) setRowType(presetRow);
+    if (presetCol) setColType(presetCol);
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({

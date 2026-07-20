@@ -851,6 +851,18 @@
   "interop.colClassification": "Classification",
   "interop.colExternal": "External party",
   "interop.colApplications": "Applications",
+  "dataExchangeMap.title": "Data Exchange Map",
+  "dataExchangeMap.subtitle": "The end-to-end data flow for every exchange: source applications, the data objects carried, their storage, and target applications.",
+  "dataExchangeMap.total": "Total",
+  "dataExchangeMap.viaGsb": "Via GSB",
+  "dataExchangeMap.withStorage": "With storage",
+  "dataExchangeMap.sensitiveOffGsb": "Sensitive off GSB",
+  "dataExchangeMap.sensitiveHint": "Exchanges carrying secret or top-secret data outside the Government Service Bus: {{count}}. Route them via GSB or record a waiver.",
+  "dataExchangeMap.empty": "No data exchanges yet.",
+  "dataExchangeMap.colSources": "Source apps",
+  "dataExchangeMap.colExchange": "Exchange",
+  "dataExchangeMap.colDataObjects": "Data objects / storage",
+  "dataExchangeMap.colTargets": "Target apps",
   "orgChart.title": "Organization Chart",
   "orgChart.subtitle": "The organizational hierarchy — the NORA Business Architecture org-chart artifact.",
   "orgChart.empty": "No Organization cards yet.",
@@ -1622,22 +1634,22 @@
       "rejected": "Rejected"
     }
   },
-    "rmRel": {
-      "heading": "Relationships",
-      "addTitle": "Add relationship",
-      "empty": "No relationships yet.",
-      "relType": "Relationship",
-      "targetModel": "Target model",
-      "targetItem": "Target component",
-      "description": "Description",
-      "type": {
-        "supports": "Supports",
-        "consumes": "Consumes",
-        "realizes": "Realizes",
-        "depends_on": "Depends on",
-        "aligns_with": "Aligns with"
-      }
-    },
+  "rmRel": {
+    "heading": "Relationships",
+    "addTitle": "Add relationship",
+    "empty": "No relationships yet.",
+    "relType": "Relationship",
+    "targetModel": "Target model",
+    "targetItem": "Target component",
+    "description": "Description",
+    "type": {
+      "supports": "Supports",
+      "consumes": "Consumes",
+      "realizes": "Realizes",
+      "depends_on": "Depends on",
+      "aligns_with": "Aligns with"
+    }
+  },
   "rmPoster": {
     "editTitle": "Poster content",
     "addPanel": "Add panel",

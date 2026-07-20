@@ -31,6 +31,9 @@ import AdmSoAWSection from "@/features/adm/AdmSoAWSection";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
 import SignatureRequestDialog from "./SignatureRequestDialog";
+import SwotEntriesPanel from "./SwotEntriesPanel";
+import { useAuthContext } from "@/hooks/AuthContext";
+import { hasPermission } from "@/components/RequirePermission";
 import {
   getTemplateSections,
   getTogafPhases,
@@ -50,6 +53,9 @@ import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
 export default function SoAWEditor() {
   const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuthContext();
+  const canManageSoaw = hasPermission(user?.permissions, "soaw.manage");
+  const canPromoteSwot = hasPermission(user?.permissions, "grc.manage");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // NORA governed-document support ([FORK] WP3.2): the doc type drives which
@@ -1055,6 +1061,23 @@ export default function SoAWEditor() {
           </Paper>
         );
       })}
+
+      {/* ── Structured SWOT entries (WP3.3) ─────────────────────────────── */}
+      {docType === "environment_analysis" &&
+        (id ? (
+          <SwotEntriesPanel
+            soawId={id}
+            canManage={canManageSoaw}
+            canPromote={canPromoteSwot}
+            readOnly={isSigned}
+          />
+        ) : (
+          <Box sx={{ my: 3 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t("swot.saveFirst", "Save the document to add structured SWOT entries.")}
+            </Typography>
+          </Box>
+        ))}
 
       {/* ── Add custom section ─────────────────────────────────────────── */}
       {!isSigned && (

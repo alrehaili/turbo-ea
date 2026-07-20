@@ -63,6 +63,7 @@ const ReferenceModelsReport = lazy(
 );
 const ProcessMapReport = lazy(() => import("@/features/reports/ProcessMapReport"));
 const InteroperabilityReport = lazy(() => import("@/features/reports/InteroperabilityReport"));
+const DataExchangeMapReport = lazy(() => import("@/features/reports/DataExchangeMapReport"));
 const TechnologyLandscapeReport = lazy(
   () => import("@/features/reports/TechnologyLandscapeReport"),
 );
@@ -296,6 +297,7 @@ function AppRoutes() {
                 />
                 <Route path="/reports/process-map" element={<ModuleGate module="bpm"><ProcessMapReport /></ModuleGate>} />
                 <Route path="/reports/interoperability" element={<InteroperabilityReport />} />
+                <Route path="/reports/data-exchange-map" element={<DataExchangeMapReport />} />
                 <Route
                   path="/reports/technology-landscape"
                   element={<TechnologyLandscapeReport />}

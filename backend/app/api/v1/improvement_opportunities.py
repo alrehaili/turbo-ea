@@ -9,6 +9,7 @@ permissions (grc.view / grc.manage).
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -143,6 +144,64 @@ async def list_opportunities(
         | {c for ids in links.values() for c in ids},
     )
     return [_opp_dict(o, links.get(o.id, []), briefs) for o in opps]
+
+
+@router.get("/realized-value")
+async def realized_value(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    quarters: int = Query(8, ge=1, le=20),
+):
+    """Realized-value widget (WP3.3): count of improvement opportunities that
+    reached ``realized`` per calendar quarter, most recent ``quarters`` buckets.
+
+    Note: opportunities carry no dedicated ``realized_at``; ``updated_at`` is
+    used as the realisation timestamp (an opportunity reaches ``realized`` via
+    a status update), which is accurate for the common single-transition case.
+    [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "grc.view")
+
+    rows = (
+        await db.execute(
+            select(ImprovementOpportunity.updated_at).where(
+                ImprovementOpportunity.status == "realized"
+            )
+        )
+    ).all()
+
+    # Build the last `quarters` (year, quarter) buckets ending this quarter.
+    today = date.today()
+    cur_q = (today.month - 1) // 3 + 1
+    buckets: list[tuple[int, int]] = []
+    y, q = today.year, cur_q
+    for _ in range(quarters):
+        buckets.append((y, q))
+        q -= 1
+        if q == 0:
+            q = 4
+            y -= 1
+    buckets.reverse()
+    counts: dict[tuple[int, int], int] = {b: 0 for b in buckets}
+
+    total_realized = 0
+    for (updated_at,) in rows:
+        total_realized += 1
+        if updated_at is None:
+            continue
+        bq = (updated_at.month - 1) // 3 + 1
+        key = (updated_at.year, bq)
+        if key in counts:
+            counts[key] += 1
+
+    series = [
+        {"label": f"{yy} Q{qq}", "year": yy, "quarter": qq, "count": counts[(yy, qq)]}
+        for (yy, qq) in buckets
+    ]
+    return {
+        "total_realized": total_realized,
+        "in_window": sum(s["count"] for s in series),
+        "series": series,
+    }
 
 
 @router.post("", status_code=201)

@@ -75,7 +75,9 @@
         "high": "Høj",
         "medium": "Mellem",
         "low": "Lav"
-      }
+      },
+      "realizedValue": "Realiseret værdi",
+      "realizedTotal": "{{count}} realiseret i alt"
     },
     "sources": {
       "label": "Kilder"

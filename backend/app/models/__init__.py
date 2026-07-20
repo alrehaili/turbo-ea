@@ -88,6 +88,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.standard import Standard, StandardPrinciple
 from app.models.survey import Survey, SurveyResponse
+from app.models.swot_entry import SwotEntry
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.tech_standard import StandardException, TechStandard
 from app.models.todo import Todo
@@ -170,6 +171,7 @@ __all__ = [
     "DiagramGroup",
     "diagram_group_members",
     "SoAW",
+    "SwotEntry",
     "KpiSnapshot",
     "IdentityMap",
     "Migration",

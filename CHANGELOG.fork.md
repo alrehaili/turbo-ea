@@ -2,6 +2,25 @@
 
 Changes specific to this fork. For upstream changes, see [CHANGELOG.md](CHANGELOG.md).
 
+## [2.24.0] - 2026-07-20
+
+### Added
+- **Data Exchange Map report (WP6.3 / WP4.1).** New `GET /reports/data-exchange-map` + `/reports/data-exchange-map` page render the end-to-end data flow for every Data Exchange — source applications → exchange → the Data Objects it carries and their storage IT components → target applications — with GSB routing and NDMO classification surfaced and secret/top-secret off-GSB flows flagged. Complements the Service Traceability view for the Data domain. Nav entry under Data; translated ×10.
+- **DGA data-collection template exporter (WP6.6).** The `nora_xlsx` migration source gains the reverse of its importer: `GET /migration/export/nora-template?domain=` streams a filled DGA حصر البيانات workbook for one domain (business / applications / data / technology / security), and an **Export NORA template** menu on the Migration admin (shown only when the NORA profile is active). The exporter reuses the parser's `_SHEET_SPECS` as the single source of truth, so import and export never drift; round-trip verified. Translated ×10.
+- **Structured evidence pickers on the NORA program (WP3.1).** The "add evidence" dialog on `/nora-program` deliverables is replaced by a structured picker: choose an evidence type (link / card / diagram / architecture document / ADR / saved report) and pick the entity, producing a well-formed evidence link with a real in-app path instead of a hand-typed URL. Translated ×10.
+- **Structured SWOT entries + promote-to-opportunity (WP3.3).** Environment-Analysis governed documents gain a structured SWOT panel (`swot_entries` table, migration 161) alongside the rich-text quadrants; a weakness or threat can be **promoted into the Improvement-Opportunity registry** (idempotent, `soaw.manage` + `grc.manage`), mirroring the compliance-finding → risk bridge. Transfers with the workspace. Translated ×10.
+- **Realized-value widget (WP3.3).** `GET /improvement-opportunities/realized-value` buckets realized opportunities per calendar quarter; the GRC → Governance → Opportunities panel renders a quarterly bar widget + total. Translated ×10.
+- **Linked-KPI progress on the PPM overview (WP4.2).** An initiative's overview tab lists its linked KPI cards with direction-aware progress bars, on/off-track chips and a deep-link to the KPI Scorecard. Translated ×10.
+
+### Changed
+- **Strategy Cascade shows each objective's owning organizational unit (WP100.2).** `GET /reports/strategy-cascade` resolves the owning Organization via the `relOrgToObjective` relation (pair-key lookup, never hardcoded) and the report renders a clickable org chip beside each objective.
+- **Plateau time-scrubbing on the Dependencies report (WP5.4).** The Dependencies report gains a `TimelineSlider` for scrubbing across plateau dates (alongside the existing plateau chips), with year marks derived from plateau target dates.
+- **Organization chart hierarchy cues (WP6.3).** The Org Chart report renders per-subtype icons (sector / general department / department / section-unit) and a blue-to-navy depth gradient.
+- **NEA viewpoint registry is launch-gate aware (EA_VIEWS Phase 0).** A new `neaViewpointGate()` helper derives each viewpoint's required permission/module from its destination path, wiring the View Library's previously-inert permission/module gating so viewpoints a user can't open are greyed out / "Locked". The two remaining `planned` viewpoints (Applications by Org Unit, Interaction Model by Org Unit) are now built as preset deep-links (`/reports/matrix?row_type=&col_type=` and `/reports/dependencies?type=`), backed by new URL-preset reading in the Matrix and Dependency reports that wins over stale localStorage.
+
+### Fixed
+- **Duplicate `journey-map` key in the NEA viewpoint registry.** Two distinct viewpoints shared one key (silently shipping); the inventory-list variant is renamed `beneficiary-journey-list`. A new real route-integrity test (`neaViewpoints.test.ts`) now asserts every non-descoped registry path resolves to a declared `App.tsx` route, so a renamed route can no longer turn a View-Library row into a 404.
+
 ## [2.22.0] - 2026-07-20
 
 ### Added

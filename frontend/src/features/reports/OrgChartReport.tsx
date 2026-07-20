@@ -22,6 +22,22 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+// Mapping of Organization subtypes to Material Symbols icons (WP100.2 UI Polish)
+const ORG_SUBTYPE_ICONS: Record<string, string> = {
+  sector: "account_balance", // Sector level
+  generalDepartment: "domain", // General Department
+  department: "apartment", // Department
+  sectionUnit: "work", // Section/Unit
+};
+
+// Color mapping for org hierarchy levels (business layer colors)
+const ORG_LEVEL_COLORS: Record<number, string> = {
+  0: "#2889ff", // Root (Sector) — primary blue
+  1: "#1565c0", // Level 1 — darker blue
+  2: "#0d47a1", // Level 2 — even darker
+  3: "#1a237e", // Level 3+ — navy
+};
+
 function buildTree(cards: Card[]): TreeNode[] {
   const nodes = new Map<string, TreeNode>(cards.map((c) => [c.id, { card: c, children: [] }]));
   const roots: TreeNode[] = [];
@@ -62,6 +78,13 @@ export default function OrgChartReport() {
 
   const renderNode = (node: TreeNode, level: number) => {
     const subtypeDef = orgType?.subtypes?.find((s) => s.key === node.card.subtype);
+    // Use subtype-specific icon, or fallback to corporate_fare
+    const icon = node.card.subtype
+      ? ORG_SUBTYPE_ICONS[node.card.subtype] || "corporate_fare"
+      : "corporate_fare";
+    // Use hierarchical color or fallback to grey for deep levels
+    const color = ORG_LEVEL_COLORS[level] || "#546e7a";
+
     return (
       <Box key={node.card.id}>
         <Box
@@ -75,11 +98,7 @@ export default function OrgChartReport() {
             borderColor: "divider",
           }}
         >
-          <MaterialSymbol
-            icon="corporate_fare"
-            size={18}
-            color={level === 0 ? "#2889ff" : "#78909c"}
-          />
+          <MaterialSymbol icon={icon} size={18} color={color} />
           <Link
             component={RouterLink}
             to={`/cards/${node.card.id}`}

@@ -247,6 +247,41 @@ async def list_sources(
     ]
 
 
+@router.get("/export/nora-template")
+async def export_nora_template(
+    domain: str = Query(
+        ...,
+        description="One of: business, applications, data, technology, security",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    """Export the live landscape back into a DGA حصر البيانات template workbook
+    for one domain (the reverse of the ``nora_xlsx`` importer). Lets an agency
+    submit its filled files or round-trip-validate an import.
+    [FORK FEATURE] — noraPlan.md WP6.6."""
+    await PermissionService.require_permission(db, user, "admin.migrate")
+
+    from app.services.migration.sources.nora_xlsx.xlsx_exporter import (
+        DOMAIN_NATIVE_TYPES,
+        build_template_workbook,
+    )
+
+    if domain not in DOMAIN_NATIVE_TYPES:
+        raise HTTPException(
+            400,
+            f"Unknown domain '{domain}'. Expected one of: {', '.join(DOMAIN_NATIVE_TYPES)}",
+        )
+
+    data = await build_template_workbook(db, domain)
+    filename = f"nora-{domain}-template.xlsx"
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/upload", response_model=MigrationOut, status_code=201)
 async def upload_snapshot(
     background_tasks: BackgroundTasks,

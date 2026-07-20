@@ -1,5 +1,22 @@
 # Turbo EA — NORA-Oriented EA Views Implementation Plan
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20**. The current-state reconciliation in this file shows the view platform is mostly implemented: the registry and View Library exist, Application Summary exists but needs depth/polish, and the NEA registry reports **59 available, 4 planned, 10 descoped** viewpoints. Excluding descoped items, actual view availability is **94%**.
+
+> **Update 2026-07-20 — registry metadata + planned viewpoints closed.** The two remaining `planned` viewpoints were built as preset deep-links (no duplicate pages): **Applications by Org Unit** → `/reports/matrix?row_type=Application&col_type=Organization` and **Interaction Model by Org Unit** → `/reports/dependencies?type=Organization`, backed by new URL-preset reading in `MatrixReport` (`row_type`/`col_type`) and `DependencyReport` (`type`) that wins over stale localStorage. The registry is now **launch-gate aware**: a new `neaViewpointGate(v)` helper in `neaViewpoints.ts` derives `permission`/`module` from each destination path (inventory→`inventory.view`, `/bpm`→bpm, `/grc`→grc, `/reports/*`→`reports.ea_dashboard`), wired into the View Library's existing `canView`/"Locked" gating (previously inert because no entry populated those fields). A real **route-integrity test** now asserts every non-descoped path resolves to a declared `App.tsx` route (it caught + fixed a pre-existing duplicate `journey-map` key). Current counts: **84 available, 0 planned, 8 descoped**.
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| NEA viewpoint availability | **100%** (excl. descoped) | Available | 84 available, 0 planned, 8 descoped after the 2026-07-20 pass | Keep descoped entries blocked unless decisions change |
+| Phase 0 — view registry | **100%** | Done | `neaViewpoints.ts` + `neaViewpointGate()` launch-gate helper + route-integrity test (`neaViewpoints.test.ts`, 10 tests) | — |
+| Phase 1 — EA View Library | **100%** | Done, enhance only | `/view-library` exists as top-level tab | Search, favorites/recents, stakeholder-question browsing, permission-aware launchability |
+| Phase 2 — Application Summary | **~70%** | Partially done | `ApplicationSummaryReport.tsx` exists at `/layers/application-summary` | Audit/fill 12 sections; add Application-card Visualize action |
+| Phases 3-8 | **Partial** | Mixed existing coverage and missing overlays | Current-state reconciliation lists many existing reports and real remaining gaps | Data CRUD/ownership/classification views; deployment/hosting grouping; exception/waiver view; explicit current-vs-target overlay |
+| Phase 9 — Beneficiary Experience | **Blocked/descoped** | Do not implement yet | Section 2.5 and Phase 9 both cite descoped persona/journey/beneficiary registry decisions | Only resume if descope decision is reversed |
+
+**Percentage basis:** `59 available / (59 available + 4 planned) = 93.7%`, rounded to **94%**. The 10 descoped entries are excluded from the denominator because the file says not to implement them under the current decision.
+
 ## 1. Purpose
 
 This plan guides an AI coding agent or development team in extending the `alrehaili/turbo-ea` fork with a coherent, NORA-oriented Enterprise Architecture view experience.

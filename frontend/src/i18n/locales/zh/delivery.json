@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "互动模型",
   "noraTemplate.ea_operating_model.kpis.title": "关键绩效指标",
   "noraTemplate.ea_operating_model.vocabulary.title": "词汇表",
-  "noraTemplate.ea_operating_model.tools.title": "工具"
+  "noraTemplate.ea_operating_model.tools.title": "工具",
+  "swot.title": "SWOT 条目",
+  "swot.subtitle": "与上方象限并列的结构化行。将劣势或威胁提升到改进机会登记册。",
+  "swot.quadrant.strength": "优势",
+  "swot.quadrant.weakness": "劣势",
+  "swot.quadrant.opportunity": "机会",
+  "swot.quadrant.threat": "威胁",
+  "swot.quadrantLabel": "象限",
+  "swot.entryText": "条目",
+  "swot.emptyQuadrant": "无条目。",
+  "swot.promote": "提升为机会",
+  "swot.promoted": "已提升",
+  "swot.openOpportunity": "打开机会",
+  "swot.openRegistry": "打开改进机会登记册",
+  "swot.saveFirst": "保存文档以添加结构化 SWOT 条目。"
 }

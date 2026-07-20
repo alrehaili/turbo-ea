@@ -14853,6 +14853,27 @@
         "title": "SurveyUpdate",
         "type": "object"
       },
+      "SwotEntryCreate": {
+        "properties": {
+          "quadrant": {
+            "maxLength": 16,
+            "title": "Quadrant",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quadrant",
+          "text"
+        ],
+        "title": "SwotEntryCreate",
+        "type": "object"
+      },
       "SyncRunOut": {
         "properties": {
           "completed_at": {
@@ -28170,6 +28191,50 @@
         ]
       }
     },
+    "/api/v1/improvement-opportunities/realized-value": {
+      "get": {
+        "description": "Realized-value widget (WP3.3): count of improvement opportunities that\nreached ``realized`` per calendar quarter, most recent ``quarters`` buckets.\n\nNote: opportunities carry no dedicated ``realized_at``; ``updated_at`` is\nused as the realisation timestamp (an opportunity reaches ``realized`` via\na status update), which is accurate for the common single-transition case.\n[FORK FEATURE]",
+        "operationId": "realized_value_api_v1_improvement_opportunities_realized_value_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "quarters",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Quarters",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Realized Value",
+        "tags": [
+          "improvement-opportunities"
+        ]
+      }
+    },
     "/api/v1/improvement-opportunities/{opportunity_id}": {
       "delete": {
         "operationId": "delete_opportunity_api_v1_improvement_opportunities__opportunity_id__delete",
@@ -30586,6 +30651,49 @@
           }
         },
         "summary": "List Migrations",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/export/nora-template": {
+      "get": {
+        "description": "Export the live landscape back into a DGA \u062d\u0635\u0631 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a template workbook\nfor one domain (the reverse of the ``nora_xlsx`` importer). Lets an agency\nsubmit its filled files or round-trip-validate an import.\n[FORK FEATURE] \u2014 noraPlan.md WP6.6.",
+        "operationId": "export_nora_template_api_v1_migration_export_nora_template_get",
+        "parameters": [
+          {
+            "description": "One of: business, applications, data, technology, security",
+            "in": "query",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "description": "One of: business, applications, data, technology, security",
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Nora Template",
         "tags": [
           "Migration"
         ]
@@ -37074,6 +37182,26 @@
         ]
       }
     },
+    "/api/v1/reports/data-exchange-map": {
+      "get": {
+        "description": "Data Exchange Map (NORA \u2014 noraPlan.md WP6.3/WP4.1): the end-to-end data\nflow chain for every DataExchange \u2014 the source/target applications, the\nDataObjects it carries, and the IT components those objects are stored in.\nComplements the Service Traceability view for the Data domain. GSB routing\nand NDMO classification are surfaced so off-GSB sensitive flows stand out.\n[FORK FEATURE]",
+        "operationId": "data_exchange_map_report_api_v1_reports_data_exchange_map_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Data Exchange Map Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/data-flow": {
       "get": {
         "description": "Data Domain & Flow Map: data objects with the apps/interfaces/components\naround them, grouped by data domain.",
@@ -43178,6 +43306,82 @@
         ]
       }
     },
+    "/api/v1/soaw/swot/{entry_id}": {
+      "delete": {
+        "operationId": "delete_swot_entry_api_v1_soaw_swot__entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Swot Entry",
+        "tags": [
+          "soaw"
+        ]
+      }
+    },
+    "/api/v1/soaw/swot/{entry_id}/promote": {
+      "post": {
+        "description": "Promote a weakness/threat SWOT entry to an Improvement Opportunity.\n\nIdempotent \u2014 if the entry was already promoted, returns the existing\nopportunity id. Requires both ``soaw.manage`` (the source document) and\n``grc.manage`` (the opportunity registry), mirroring the compliance \u2192\nrisk bridge's dual-permission model.",
+        "operationId": "promote_swot_entry_api_v1_soaw_swot__entry_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Swot Entry",
+        "tags": [
+          "soaw"
+        ]
+      }
+    },
     "/api/v1/soaw/{soaw_id}": {
       "delete": {
         "operationId": "delete_soaw_api_v1_soaw__soaw_id__delete",
@@ -43560,6 +43764,94 @@
           }
         },
         "summary": "Sign Soaw",
+        "tags": [
+          "soaw"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/swot": {
+      "get": {
+        "operationId": "list_swot_entries_api_v1_soaw__soaw_id__swot_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Swot Entries",
+        "tags": [
+          "soaw"
+        ]
+      },
+      "post": {
+        "operationId": "create_swot_entry_api_v1_soaw__soaw_id__swot_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwotEntryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Swot Entry",
         "tags": [
           "soaw"
         ]

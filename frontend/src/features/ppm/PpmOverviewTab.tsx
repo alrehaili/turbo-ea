@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Grid from "@mui/material/Grid";
+import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -19,6 +21,57 @@ const RAG_COLORS: Record<string, string> = {
   atRisk: "#ed6c02",
   offTrack: "#d32f2f",
 };
+
+/** A relation with just the ends we need to spot KPI links. */
+interface RelationLite {
+  type: string;
+  source?: { id: string; type: string; name: string };
+  target?: { id: string; type: string; name: string };
+}
+
+/** A KPI card reduced to what the overview renders. */
+interface LinkedKpi {
+  id: string;
+  name: string;
+  unit: string | null;
+  progressPct: number | null; // direction-aware, clamped 0–100
+  onTrack: boolean | null;
+}
+
+function _num(v: unknown): number | null {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Reduce a KPI card to direction-aware progress toward its target. */
+function toLinkedKpi(c: Card): LinkedKpi {
+  const a = c.attributes || {};
+  const baseline = _num(a.baselineValue);
+  const target = _num(a.targetValue);
+  const current = _num(a.currentValue);
+  const higherBetter = a.direction !== "lowerIsBetter";
+
+  let progressPct: number | null = null;
+  let onTrack: boolean | null = null;
+  if (target !== null && current !== null) {
+    const base = baseline ?? 0;
+    const span = target - base;
+    if (span !== 0) {
+      const pct = ((current - base) / span) * 100;
+      progressPct = Math.max(0, Math.min(100, pct));
+    } else {
+      progressPct = current === target ? 100 : 0;
+    }
+    onTrack = higherBetter ? current >= target : current <= target;
+  }
+  return {
+    id: c.id,
+    name: c.name,
+    unit: (a.unit as string) || null,
+    progressPct,
+    onTrack,
+  };
+}
 
 interface Props {
   card: Card;
@@ -111,6 +164,44 @@ export default function PpmOverviewTab({
       .get<{ completion: number }>(`/ppm/initiatives/${card.id}/completion`)
       .then((r) => setCompletionPct(r.completion))
       .catch(() => {});
+  }, [card.id]);
+
+  // Linked KPIs (WP4.2): initiatives that "improve" KPI cards surface them
+  // here with live progress, and deep-link to the KPI Scorecard.
+  const [kpis, setKpis] = useState<LinkedKpi[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<RelationLite[]>(`/relations?card_id=${card.id}`)
+      .then(async (rels) => {
+        // Collect KPI card ids on either end of a KPI relation.
+        const kpiIds = new Set<string>();
+        for (const r of rels) {
+          if (r.target?.type === "KPI") kpiIds.add(r.target.id);
+          if (r.source?.type === "KPI") kpiIds.add(r.source.id);
+        }
+        if (kpiIds.size === 0) {
+          if (!cancelled) setKpis([]);
+          return;
+        }
+        const cards = await Promise.all(
+          [...kpiIds].map((id) =>
+            api.get<Card>(`/cards/${id}`).catch(() => null),
+          ),
+        );
+        if (cancelled) return;
+        setKpis(
+          cards
+            .filter((c): c is Card => c !== null)
+            .map((c) => toLinkedKpi(c)),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setKpis([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [card.id]);
 
   // Budget totals (from budget lines)
@@ -258,6 +349,70 @@ export default function PpmOverviewTab({
           )}
         </Paper>
       </Grid>
+
+      {/* Linked KPIs (WP4.2) */}
+      {kpis.length > 0 && (
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2.5 }}>
+            <Box
+              sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}
+            >
+              <Typography variant="subtitle1" fontWeight={600}>
+                {t("linkedKpis", "Linked KPIs")}
+              </Typography>
+              <Link component={RouterLink} to="/reports/kpi-scorecard" underline="hover" variant="body2">
+                {t("kpiScorecard", "KPI Scorecard")}
+              </Link>
+            </Box>
+            <Grid container spacing={2}>
+              {kpis.map((k) => (
+                <Grid item xs={12} sm={6} md={4} key={k.id}>
+                  <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 1.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+                      <Link
+                        component={RouterLink}
+                        to={`/cards/${k.id}`}
+                        underline="hover"
+                        sx={{ fontWeight: 600, flex: 1, minWidth: 0 }}
+                        noWrap
+                      >
+                        {k.name}
+                      </Link>
+                      {k.onTrack !== null && (
+                        <Chip
+                          size="small"
+                          label={k.onTrack ? t("onTrack", "On track") : t("offTrack", "Off track")}
+                          sx={{
+                            bgcolor: k.onTrack ? RAG_COLORS.onTrack : RAG_COLORS.offTrack,
+                            color: "#fff",
+                            height: 20,
+                          }}
+                        />
+                      )}
+                    </Box>
+                    {k.progressPct !== null ? (
+                      <>
+                        <LinearProgress
+                          variant="determinate"
+                          value={k.progressPct}
+                          sx={{ height: 8, borderRadius: 4, my: 0.5 }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {Math.round(k.progressPct)}%{k.unit ? ` · ${k.unit}` : ""}
+                        </Typography>
+                      </>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        {t("kpiNoValues", "No target/current values yet")}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </Grid>
+      )}
 
       {/* Financials — KPIs + Budget Bars combined */}
       <Grid item xs={12} md={6}>
