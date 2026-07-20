@@ -15,6 +15,7 @@ import {
   IconButton,
   InputLabel,
   LinearProgress,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -306,6 +307,40 @@ export default function MigrationAdmin() {
     }
   };
 
+  // NORA template export (WP6.6) — reverse of the nora_xlsx importer. Only
+  // surfaced when the nora_xlsx adapter is registered (NORA profile active).
+  const noraExportEnabled = useMemo(
+    () => sources.some((s) => s.key === "nora_xlsx"),
+    [sources],
+  );
+  const [exportAnchor, setExportAnchor] = useState<null | HTMLElement>(null);
+  const [exportingDomain, setExportingDomain] = useState<string | null>(null);
+
+  const handleNoraExport = async (domain: string) => {
+    setExportAnchor(null);
+    setExportingDomain(domain);
+    setError(null);
+    try {
+      const res = await api.getRaw(`/migration/export/nora-template?domain=${domain}`);
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : `nora-${domain}-template.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExportingDomain(null);
+    }
+  };
+
   // Pending migration to apply once the conflict-confirmation dialog
   // resolves. Null means no pending confirmation (i.e. handleApply
   // fired directly because there was nothing to confirm).
@@ -489,14 +524,42 @@ export default function MigrationAdmin() {
             )}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="upload" />}
-          onClick={() => setUploadOpen(true)}
-          disabled={sources.length === 0}
-        >
-          {t("migration.newButton", "New migration")}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {noraExportEnabled && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<MaterialSymbol icon="download" />}
+                endIcon={<MaterialSymbol icon="arrow_drop_down" />}
+                onClick={(e) => setExportAnchor(e.currentTarget)}
+                disabled={exportingDomain !== null}
+              >
+                {exportingDomain
+                  ? t("migration.noraExport.exporting", "Exporting…")
+                  : t("migration.noraExport.button", "Export NORA template")}
+              </Button>
+              <Menu
+                anchorEl={exportAnchor}
+                open={Boolean(exportAnchor)}
+                onClose={() => setExportAnchor(null)}
+              >
+                {["business", "applications", "data", "technology", "security"].map((d) => (
+                  <MenuItem key={d} onClick={() => handleNoraExport(d)}>
+                    {t(`migration.noraExport.domain.${d}`, d)}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="upload" />}
+            onClick={() => setUploadOpen(true)}
+            disabled={sources.length === 0}
+          >
+            {t("migration.newButton", "New migration")}
+          </Button>
+        </Stack>
       </Stack>
 
       {error && (

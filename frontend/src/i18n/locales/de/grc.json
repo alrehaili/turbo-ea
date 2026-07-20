@@ -75,7 +75,9 @@
         "high": "Hoch",
         "medium": "Mittel",
         "low": "Niedrig"
-      }
+      },
+      "realizedValue": "Realisierter Wert",
+      "realizedTotal": "{{count}} insgesamt realisiert"
     },
     "sources": {
       "label": "Quellen"

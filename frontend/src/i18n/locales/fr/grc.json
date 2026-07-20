@@ -75,7 +75,9 @@
         "high": "Élevée",
         "medium": "Moyenne",
         "low": "Faible"
-      }
+      },
+      "realizedValue": "Valeur réalisée",
+      "realizedTotal": "{{count}} réalisées au total"
     },
     "sources": {
       "label": "Sources"

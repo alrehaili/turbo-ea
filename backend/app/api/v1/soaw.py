@@ -11,7 +11,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.improvement_opportunity import ImprovementOpportunity
 from app.models.soaw import SoAW
+from app.models.swot_entry import (
+    PROMOTABLE_QUADRANTS,
+    SWOT_QUADRANTS,
+    SwotEntry,
+)
 from app.models.todo import Todo
 from app.models.user import User
 from app.services import notification_service
@@ -19,6 +25,11 @@ from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/soaw", tags=["soaw"])
+
+# Which architecture domain a promoted SWOT weakness/threat lands in by
+# default. SWOT is strategic, so Business Architecture is the safe default;
+# the user re-classifies in the Opportunities registry.
+_SWOT_DEFAULT_DOMAIN = "BA"
 
 
 # ---------------------------------------------------------------------------
@@ -607,3 +618,141 @@ async def list_revisions(
         current_id = child.id
 
     return revisions
+
+
+# ---------------------------------------------------------------------------
+# Structured SWOT entries ([FORK] noraPlan.md WP3.3)
+#
+# The Environment-Analysis document's four quadrants carry structured,
+# promotable rows alongside their rich text. A weakness or threat can be
+# promoted into the Improvement-Opportunity registry (mirrors the
+# compliance-finding → risk bridge), with an idempotent back-link.
+# ---------------------------------------------------------------------------
+
+
+class SwotEntryCreate(BaseModel):
+    quadrant: str = Field(max_length=16)
+    text: str = Field(min_length=1, max_length=2000)
+
+
+def _swot_dict(e: SwotEntry) -> dict:
+    return {
+        "id": str(e.id),
+        "soaw_id": str(e.soaw_id),
+        "quadrant": e.quadrant,
+        "text": e.text,
+        "sort_order": e.sort_order,
+        "opportunity_id": str(e.opportunity_id) if e.opportunity_id else None,
+        "promotable": e.quadrant in PROMOTABLE_QUADRANTS,
+    }
+
+
+async def _get_swot_entry(db: AsyncSession, entry_id: str) -> SwotEntry:
+    e = await db.get(SwotEntry, uuid.UUID(entry_id))
+    if e is None:
+        raise HTTPException(404, "SWOT entry not found")
+    return e
+
+
+@router.get("/{soaw_id}/swot")
+async def list_swot_entries(
+    soaw_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "soaw.view")
+    await _get_soaw(db, soaw_id)  # 404 if the document is missing
+    rows = (
+        (
+            await db.execute(
+                select(SwotEntry)
+                .where(SwotEntry.soaw_id == uuid.UUID(soaw_id))
+                .order_by(SwotEntry.quadrant, SwotEntry.sort_order, SwotEntry.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [_swot_dict(e) for e in rows]
+
+
+@router.post("/{soaw_id}/swot", status_code=201)
+async def create_swot_entry(
+    soaw_id: str,
+    body: SwotEntryCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "soaw.manage")
+    await _get_soaw(db, soaw_id)
+    if body.quadrant not in SWOT_QUADRANTS:
+        raise HTTPException(422, f"Invalid quadrant. Expected one of {SWOT_QUADRANTS}")
+    e = SwotEntry(
+        soaw_id=uuid.UUID(soaw_id),
+        quadrant=body.quadrant,
+        text=body.text.strip(),
+        created_by=user.id,
+    )
+    db.add(e)
+    await db.commit()
+    await db.refresh(e)
+    return _swot_dict(e)
+
+
+@router.delete("/swot/{entry_id}", status_code=204)
+async def delete_swot_entry(
+    entry_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "soaw.manage")
+    e = await _get_swot_entry(db, entry_id)
+    await db.delete(e)
+    await db.commit()
+
+
+@router.post("/swot/{entry_id}/promote", status_code=201)
+async def promote_swot_entry(
+    entry_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Promote a weakness/threat SWOT entry to an Improvement Opportunity.
+
+    Idempotent — if the entry was already promoted, returns the existing
+    opportunity id. Requires both ``soaw.manage`` (the source document) and
+    ``grc.manage`` (the opportunity registry), mirroring the compliance →
+    risk bridge's dual-permission model."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
+    await PermissionService.require_permission(db, user, "grc.manage")
+    e = await _get_swot_entry(db, entry_id)
+
+    if e.quadrant not in PROMOTABLE_QUADRANTS:
+        raise HTTPException(
+            400,
+            f"Only {' / '.join(PROMOTABLE_QUADRANTS)} entries can be promoted to an opportunity.",
+        )
+
+    # Idempotent: an already-promoted entry returns its opportunity.
+    if e.opportunity_id is not None:
+        existing = await db.get(ImprovementOpportunity, e.opportunity_id)
+        if existing is not None:
+            return {"opportunity_id": str(existing.id), "created": False}
+
+    title = e.text.strip()
+    if len(title) > 300:
+        title = title[:297] + "…"
+    opp = ImprovementOpportunity(
+        title=title,
+        description=e.text.strip(),
+        domain=_SWOT_DEFAULT_DOMAIN,
+        source="swot",
+        priority="medium",
+        status="proposed",
+        created_by=user.id,
+    )
+    db.add(opp)
+    await db.flush()
+    e.opportunity_id = opp.id
+    await db.commit()
+    return {"opportunity_id": str(opp.id), "created": True}

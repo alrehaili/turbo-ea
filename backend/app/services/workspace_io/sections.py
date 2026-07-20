@@ -62,6 +62,7 @@ from app.models.scenario import Scenario, ScenarioChange
 from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
+from app.models.swot_entry import SwotEntry
 from app.models.tech_standard import StandardException, TechStandard
 from app.models.todo import Todo
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
@@ -303,6 +304,17 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "ImprovementOpportunityCards",
         ImprovementOpportunityCard,
         card_fk_columns=("card_id",),
+    ),
+    # --- Structured SWOT entries (WP3.3) -----------------------------------
+    # ``soaw_id`` (SoAW) and ``opportunity_id`` (ImprovementOpportunity) are
+    # intra-module FKs: both target tables preserve their source UUIDs on
+    # import, so they resolve verbatim — no card-FK remap. Only ``created_by``
+    # needs the email remap. Placed *after* ImprovementOpportunities so the
+    # ``opportunity_id`` FK target already exists on apply.
+    EntitySection(
+        "SwotEntries",
+        SwotEntry,
+        user_fk_columns=("created_by",),
     ),
     # --- EA maturity self-assessment (WP5.2, dimension → assessment → score) ---
     EntitySection("MaturityDimensions", MaturityDimension),

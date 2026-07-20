@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Interaktionsmodel",
   "noraTemplate.ea_operating_model.kpis.title": "EA-KPI'er",
   "noraTemplate.ea_operating_model.vocabulary.title": "Ordliste",
-  "noraTemplate.ea_operating_model.tools.title": "Værktøjer"
+  "noraTemplate.ea_operating_model.tools.title": "Værktøjer",
+  "swot.title": "SWOT-poster",
+  "swot.subtitle": "Strukturerede rækker ved siden af kvadranterne ovenfor. Forfrem en svaghed eller trussel til registret over forbedringsmuligheder.",
+  "swot.quadrant.strength": "Styrker",
+  "swot.quadrant.weakness": "Svagheder",
+  "swot.quadrant.opportunity": "Muligheder",
+  "swot.quadrant.threat": "Trusler",
+  "swot.quadrantLabel": "Kvadrant",
+  "swot.entryText": "Post",
+  "swot.emptyQuadrant": "Ingen poster.",
+  "swot.promote": "Forfrem til mulighed",
+  "swot.promoted": "Forfremmet",
+  "swot.openOpportunity": "Åbn mulighed",
+  "swot.openRegistry": "Åbn registret over forbedringsmuligheder",
+  "swot.saveFirst": "Gem dokumentet for at tilføje strukturerede SWOT-poster."
 }

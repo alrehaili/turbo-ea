@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -22,6 +23,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import ArchitectureStateFilter from "@/components/ArchitectureStateFilter";
+import TimelineSlider from "@/components/TimelineSlider";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { resolveRevealIds } from "./layeredDependencyLayout";
 import { useTheme } from "@mui/material/styles";
@@ -443,7 +445,11 @@ export default function DependencyReport() {
     setNavIndex(-1);
   }, []);
 
-  // Load saved report config
+  // Load saved report config. An explicit ``?type=`` deep-link (used by the
+  // NEA View-Library "Interaction Model by Org Unit" preset, ?type=Organization)
+  // takes precedence over stale localStorage so the preset scopes to the
+  // intended card type.
+  const [presetParams] = useSearchParams();
   useEffect(() => {
     const cfg = saved.consumeConfig();
     if (cfg) {
@@ -452,6 +458,8 @@ export default function DependencyReport() {
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.chartMode) setChartMode(cfg.chartMode as "tree" | "c4");
     }
+    const presetType = presetParams.get("type");
+    if (presetType) setCardTypeKey(presetType);
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({ cardTypeKey, center, view, chartMode });
@@ -476,6 +484,41 @@ export default function DependencyReport() {
   useEffect(() => {
     api.get<Plateau[]>("/nora-plateaus").then(setPlateaus).catch(() => setPlateaus([]));
   }, []);
+
+  // Build year marks for the timeline slider (from plateau target dates)
+  const plateauTimeline = useMemo(() => {
+    if (!plateaus.length) return { marks: [], dateRange: { min: 0, max: 0 } };
+
+    const now = Date.now();
+    const yearMs = 365.25 * 24 * 60 * 60 * 1000;
+
+    // Collect plateau dates + current date
+    const dates = plateaus
+      .map(p => p.target_date ? new Date(p.target_date).getTime() : now)
+      .filter(d => d > 0);
+
+    if (!dates.length) return { marks: [], dateRange: { min: 0, max: 0 } };
+
+    const minDate = Math.min(...dates, now);
+    const maxDate = Math.max(...dates, now);
+
+    // Generate marks for 5-year windows
+    const marks = [];
+    for (let year = Math.floor(minDate / yearMs); year <= Math.ceil(maxDate / yearMs) + 1; year++) {
+      const ts = year * yearMs;
+      if (ts >= minDate && ts <= maxDate + yearMs) {
+        marks.push({
+          value: ts,
+          label: new Date(ts).getFullYear().toString(),
+        });
+      }
+    }
+
+    return {
+      marks: marks.length > 0 ? marks : [{ value: minDate, label: new Date(minDate).getFullYear().toString() }],
+      dateRange: { min: minDate, max: maxDate + yearMs },
+    };
+  }, [plateaus]);
 
   // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
   useEffect(() => {
@@ -767,8 +810,8 @@ export default function DependencyReport() {
             <Box
               sx={{
                 display: "flex",
-                flexWrap: "wrap",
-                gap: 1,
+                flexDirection: "column",
+                gap: 1.5,
                 py: 1,
                 px: 1,
                 borderTop: 1,
@@ -776,24 +819,56 @@ export default function DependencyReport() {
                 my: 1,
               }}
             >
-              <Typography variant="caption" sx={{ width: "100%", mb: -0.5, fontWeight: 600 }}>
-                {t("common:plateau")}:
-              </Typography>
-              <Chip
-                label={t("common:current")}
-                onClick={() => setSelectedPlateauId(null)}
-                variant={selectedPlateauId === null ? "filled" : "outlined"}
-                size="small"
-              />
-              {plateaus.map((p) => (
-                <Chip
-                  key={p.id}
-                  label={p.name}
-                  onClick={() => setSelectedPlateauId(p.id)}
-                  variant={selectedPlateauId === p.id ? "filled" : "outlined"}
-                  size="small"
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.75 }}>
+                  {t("common:plateau")}:
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                  <Chip
+                    label={t("common:current")}
+                    onClick={() => setSelectedPlateauId(null)}
+                    variant={selectedPlateauId === null ? "filled" : "outlined"}
+                    size="small"
+                  />
+                  {plateaus.map((p) => (
+                    <Chip
+                      key={p.id}
+                      label={p.name}
+                      onClick={() => setSelectedPlateauId(p.id)}
+                      variant={selectedPlateauId === p.id ? "filled" : "outlined"}
+                      size="small"
+                    />
+                  ))}
+                </Box>
+              </Box>
+
+              {/* Timeline slider for scrubbing through plateaus (WP5.4 UI Polish) */}
+              {plateauTimeline.marks.length > 0 && (
+                <TimelineSlider
+                  value={
+                    selectedPlateauId
+                      ? (() => {
+                          const p = plateaus.find(x => x.id === selectedPlateauId);
+                          return p?.target_date ? new Date(p.target_date).getTime() : Date.now();
+                        })()
+                      : Date.now()
+                  }
+                  onChange={(timestamp) => {
+                    // Find the closest plateau by target_date
+                    const closest = plateaus.reduce<Plateau | null>((best, p) => {
+                      if (!p.target_date) return best;
+                      const pTime = new Date(p.target_date).getTime();
+                      if (!best) return p;
+                      const bestTime = new Date(best.target_date!).getTime();
+                      return Math.abs(pTime - timestamp) < Math.abs(bestTime - timestamp) ? p : best;
+                    }, null);
+
+                    setSelectedPlateauId(closest?.id ?? null);
+                  }}
+                  dateRange={plateauTimeline.dateRange}
+                  yearMarks={plateauTimeline.marks}
                 />
-              ))}
+              )}
             </Box>
           )}
 

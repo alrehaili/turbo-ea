@@ -143,6 +143,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.appDataCrud", icon: "grid_3x3", path: "/reports/app-data-crud" },
       { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
       { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
+      { labelKey: "reports.dataExchangeMap", icon: "swap_horiz", path: "/reports/data-exchange-map" },
       { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
       // ── Operations & Cost ──
       { labelKey: "reports.resilience", icon: "health_and_safety", path: "/reports/resilience", dividerLabel: "reports.groupOps" },

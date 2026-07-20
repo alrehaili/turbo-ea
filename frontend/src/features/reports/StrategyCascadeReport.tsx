@@ -34,9 +34,15 @@ interface InitiativeNode {
   children: InitiativeNode[];
 }
 
+interface OwnerRef {
+  id: string;
+  name: string;
+}
+
 interface ObjectiveEntry {
   id: string;
   name: string;
+  owner?: OwnerRef | null;
   initiatives: InitiativeNode[];
 }
 
@@ -135,7 +141,7 @@ export default function StrategyCascadeReport() {
 
   const renderObjective = (o: ObjectiveEntry) => (
     <Box key={o.id} sx={{ mb: 1.5 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <MaterialSymbol icon="flag" size={18} color={PILLAR_COLOR} />
         <Link
           component={RouterLink}
@@ -145,6 +151,18 @@ export default function StrategyCascadeReport() {
         >
           {o.name}
         </Link>
+        {o.owner && (
+          <Chip
+            size="small"
+            variant="outlined"
+            component={RouterLink}
+            to={`/cards/${o.owner.id}`}
+            clickable
+            icon={<MaterialSymbol icon="corporate_fare" size={14} />}
+            label={o.owner.name}
+            sx={{ height: 22 }}
+          />
+        )}
       </Box>
       {o.initiatives.length === 0 ? (
         <Typography variant="caption" color="text.secondary" sx={{ pl: 3.5 }}>

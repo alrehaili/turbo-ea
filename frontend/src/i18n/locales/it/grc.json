@@ -75,7 +75,9 @@
         "high": "Alta",
         "medium": "Media",
         "low": "Bassa"
-      }
+      },
+      "realizedValue": "Valore realizzato",
+      "realizedTotal": "{{count}} realizzate in totale"
     },
     "sources": {
       "label": "Fonti"

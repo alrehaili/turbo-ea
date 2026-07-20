@@ -2731,6 +2731,154 @@ async def interoperability_report(
     }
 
 
+@router.get("/data-exchange-map")
+async def data_exchange_map_report(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Data Exchange Map (NORA — noraPlan.md WP6.3/WP4.1): the end-to-end data
+    flow chain for every DataExchange — the source/target applications, the
+    DataObjects it carries, and the IT components those objects are stored in.
+    Complements the Service Traceability view for the Data domain. GSB routing
+    and NDMO classification are surfaced so off-GSB sensitive flows stand out.
+    [FORK FEATURE]"""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    # All non-archived DataExchange cards.
+    exchanges = (
+        (
+            await db.execute(
+                select(Card).where(
+                    Card.type == "DataExchange",
+                    Card.status != "ARCHIVED",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    exchange_ids = {c.id for c in exchanges}
+
+    # Gather relations touching those exchanges in one pass:
+    #   Application --relAppToDataExchange(direction)--> DataExchange
+    #   DataExchange --relDataExchangeToDO--> DataObject
+    apps_by_exchange: dict[uuid.UUID, list[dict]] = {}
+    dataobjects_by_exchange: dict[uuid.UUID, set[uuid.UUID]] = {}
+    dataobject_ids: set[uuid.UUID] = set()
+
+    if exchange_ids:
+        app_rels = await db.execute(
+            select(Relation).where(
+                Relation.type == "relAppToDataExchange",
+                Relation.target_id.in_(exchange_ids),
+            )
+        )
+        app_source_ids: set[uuid.UUID] = set()
+        pending_apps: list[tuple[uuid.UUID, uuid.UUID, str | None]] = []
+        for rel in app_rels.scalars():
+            direction = (rel.attributes or {}).get("direction")
+            pending_apps.append((rel.target_id, rel.source_id, direction))
+            app_source_ids.add(rel.source_id)
+
+        app_names = dict(
+            (await db.execute(select(Card.id, Card.name).where(Card.id.in_(app_source_ids)))).all()
+        )
+        for exch_id, app_id, direction in pending_apps:
+            name = app_names.get(app_id)
+            if name is None:
+                continue
+            apps_by_exchange.setdefault(exch_id, []).append(
+                {"id": str(app_id), "name": name, "direction": direction}
+            )
+
+        do_rels = await db.execute(
+            select(Relation).where(
+                Relation.type == "relDataExchangeToDO",
+                Relation.source_id.in_(exchange_ids),
+            )
+        )
+        for rel in do_rels.scalars():
+            dataobjects_by_exchange.setdefault(rel.source_id, set()).add(rel.target_id)
+            dataobject_ids.add(rel.target_id)
+
+    # DataObject --relDataObjectToITC--> ITComponent (storage).
+    storage_by_dataobject: dict[uuid.UUID, list[dict]] = {}
+    dataobject_names: dict[uuid.UUID, str] = {}
+    if dataobject_ids:
+        dataobject_names = dict(
+            (await db.execute(select(Card.id, Card.name).where(Card.id.in_(dataobject_ids)))).all()
+        )
+        store_rels = await db.execute(
+            select(Relation).where(
+                Relation.type == "relDataObjectToITC",
+                Relation.source_id.in_(dataobject_ids),
+            )
+        )
+        itc_ids: set[uuid.UUID] = set()
+        pending_storage: list[tuple[uuid.UUID, uuid.UUID]] = []
+        for rel in store_rels.scalars():
+            pending_storage.append((rel.source_id, rel.target_id))
+            itc_ids.add(rel.target_id)
+        itc_names = dict(
+            (await db.execute(select(Card.id, Card.name).where(Card.id.in_(itc_ids)))).all()
+        )
+        for do_id, itc_id in pending_storage:
+            name = itc_names.get(itc_id)
+            if name is None:
+                continue
+            storage_by_dataobject.setdefault(do_id, []).append({"id": str(itc_id), "name": name})
+
+    def flow(c: Card) -> dict:
+        attrs = c.attributes or {}
+        sources = sorted(
+            (a for a in apps_by_exchange.get(c.id, []) if a["direction"] != "receives"),
+            key=lambda a: a["name"].lower(),
+        )
+        targets = sorted(
+            (a for a in apps_by_exchange.get(c.id, []) if a["direction"] != "sends"),
+            key=lambda a: a["name"].lower(),
+        )
+        objects = []
+        for do_id in dataobjects_by_exchange.get(c.id, set()):
+            objects.append(
+                {
+                    "id": str(do_id),
+                    "name": dataobject_names.get(do_id, "?"),
+                    "storage": sorted(
+                        storage_by_dataobject.get(do_id, []), key=lambda s: s["name"].lower()
+                    ),
+                }
+            )
+        objects.sort(key=lambda o: o["name"].lower())
+        classification = attrs.get("dataClassificationCarried")
+        via_gsb = bool(attrs.get("viaGsb"))
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "exchange_method": attrs.get("exchangeMethod"),
+            "frequency": attrs.get("frequency"),
+            "via_gsb": via_gsb,
+            "classification": classification,
+            "external_party": attrs.get("externalParty"),
+            "sources": sources,
+            "targets": targets,
+            "data_objects": objects,
+            "flagged": classification in ("secret", "topSecret") and not via_gsb,
+        }
+
+    flows = sorted((flow(c) for c in exchanges), key=lambda f: f["name"].lower())
+    flagged = [f for f in flows if f["flagged"]]
+    return {
+        "items": flows,
+        "summary": {
+            "total": len(flows),
+            "via_gsb": sum(1 for f in flows if f["via_gsb"]),
+            "with_storage": sum(1 for f in flows if any(o["storage"] for o in f["data_objects"])),
+            "sensitive_off_gsb": len(flagged),
+        },
+    }
+
+
 # NORA reference-model explorer ([FORK] noraPlan.md WP1.1 companion feature).
 # Reads live counts of cards per classification bucket for each of the four
 # NORA reference models (BRM / ARM / DRM / TRM). Options come from the card
@@ -3051,6 +3199,40 @@ async def strategy_cascade_report(
             elif rel.target_id in obj_ids and rel.source_id in pillar_card_ids:
                 pillar_links.setdefault(rel.source_id, []).append(rel.target_id)
 
+    # Owning organizational unit per objective (WP100.2) — the Organization
+    # that "owns" the objective via whatever Org↔Objective relation the install
+    # models (never hardcode the key). First owner wins for the chip.
+    owner_by_obj: dict[uuid.UUID, dict] = {}
+    org_obj_keys = await _pair_link_keys("Organization", "Objective")
+    if org_obj_keys and obj_ids:
+        org_rel_rows = await db.execute(select(Relation).where(Relation.type.in_(org_obj_keys)))
+        org_of_obj: dict[uuid.UUID, uuid.UUID] = {}
+        needed_org_ids: set[uuid.UUID] = set()
+        for rel in org_rel_rows.scalars().all():
+            obj_id = None
+            org_id = None
+            if rel.source_id in obj_ids:
+                obj_id, org_id = rel.source_id, rel.target_id
+            elif rel.target_id in obj_ids:
+                obj_id, org_id = rel.target_id, rel.source_id
+            if obj_id is not None and obj_id not in org_of_obj:
+                org_of_obj[obj_id] = org_id
+                needed_org_ids.add(org_id)
+        if needed_org_ids:
+            org_cards = (
+                await db.execute(
+                    select(Card.id, Card.name).where(
+                        Card.id.in_(needed_org_ids),
+                        Card.type == "Organization",
+                        Card.status != "ARCHIVED",
+                    )
+                )
+            ).all()
+            org_names = {oid: name for oid, name in org_cards}
+            for obj_id, org_id in org_of_obj.items():
+                if org_id in org_names:
+                    owner_by_obj[obj_id] = {"id": str(org_id), "name": org_names[org_id]}
+
     init_children: dict[uuid.UUID, list[Card]] = {}
     for c in initiatives:
         if c.parent_id is not None:
@@ -3084,6 +3266,7 @@ async def strategy_cascade_report(
         return {
             "id": str(o.id),
             "name": o.name,
+            "owner": owner_by_obj.get(o.id),
             "initiatives": [init_node(c) for c in linked],
         }
 

@@ -517,5 +517,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Modelo de interação",
   "noraTemplate.ea_operating_model.kpis.title": "KPIs de AE",
   "noraTemplate.ea_operating_model.vocabulary.title": "Vocabulário",
-  "noraTemplate.ea_operating_model.tools.title": "Ferramentas"
+  "noraTemplate.ea_operating_model.tools.title": "Ferramentas",
+  "swot.title": "Entradas SWOT",
+  "swot.subtitle": "Linhas estruturadas ao lado dos quadrantes acima. Promova uma fraqueza ou ameaça para o registo de oportunidades de melhoria.",
+  "swot.quadrant.strength": "Forças",
+  "swot.quadrant.weakness": "Fraquezas",
+  "swot.quadrant.opportunity": "Oportunidades",
+  "swot.quadrant.threat": "Ameaças",
+  "swot.quadrantLabel": "Quadrante",
+  "swot.entryText": "Entrada",
+  "swot.emptyQuadrant": "Sem entradas.",
+  "swot.promote": "Promover a oportunidade",
+  "swot.promoted": "Promovido",
+  "swot.openOpportunity": "Abrir oportunidade",
+  "swot.openRegistry": "Abrir o registo de oportunidades de melhoria",
+  "swot.saveFirst": "Guarde o documento para adicionar entradas SWOT estruturadas."
 }

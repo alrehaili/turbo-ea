@@ -521,5 +521,19 @@
   "noraTemplate.ea_operating_model.interaction.title": "Interaction model",
   "noraTemplate.ea_operating_model.kpis.title": "EA KPIs",
   "noraTemplate.ea_operating_model.vocabulary.title": "Vocabulary",
-  "noraTemplate.ea_operating_model.tools.title": "Tools"
+  "noraTemplate.ea_operating_model.tools.title": "Tools",
+  "swot.title": "SWOT entries",
+  "swot.subtitle": "Structured rows alongside the quadrants above. Promote a weakness or threat into the Improvement-Opportunity registry.",
+  "swot.quadrant.strength": "Strengths",
+  "swot.quadrant.weakness": "Weaknesses",
+  "swot.quadrant.opportunity": "Opportunities",
+  "swot.quadrant.threat": "Threats",
+  "swot.quadrantLabel": "Quadrant",
+  "swot.entryText": "Entry",
+  "swot.emptyQuadrant": "No entries.",
+  "swot.promote": "Promote to opportunity",
+  "swot.promoted": "Promoted",
+  "swot.openOpportunity": "Open opportunity",
+  "swot.openRegistry": "Open the Improvement-Opportunity registry",
+  "swot.saveFirst": "Save the document to add structured SWOT entries."
 }

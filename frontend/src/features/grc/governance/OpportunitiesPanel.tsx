@@ -92,6 +92,12 @@ interface AiSuggestion {
   source: string;
 }
 
+interface RealizedValue {
+  total_realized: number;
+  in_window: number;
+  series: { label: string; year: number; quarter: number; count: number }[];
+}
+
 export default function OpportunitiesPanel() {
   const { t } = useTranslation(["grc", "common"]);
   const { user } = useAuthContext();
@@ -114,6 +120,9 @@ export default function OpportunitiesPanel() {
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
   const [aiSelected, setAiSelected] = useState<Set<number>>(new Set());
 
+  // Realized-value widget (WP3.3): opportunities realized per quarter.
+  const [realized, setRealized] = useState<RealizedValue | null>(null);
+
   const load = useCallback(async () => {
     try {
       setRows(await api.get<Opportunity[]>("/improvement-opportunities"));
@@ -122,9 +131,24 @@ export default function OpportunitiesPanel() {
     }
   }, []);
 
+  const loadRealized = useCallback(async () => {
+    try {
+      setRealized(await api.get<RealizedValue>("/improvement-opportunities/realized-value"));
+    } catch {
+      setRealized(null);
+    }
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  // Refresh the realized-value widget whenever the opportunity list changes
+  // (any create/edit/delete/status change reloads `rows`), so a status flip to
+  // "realized" is reflected without editing every mutation site.
+  useEffect(() => {
+    loadRealized();
+  }, [rows, loadRealized]);
 
   const save = async () => {
     if (!form.title.trim()) return;
@@ -248,6 +272,49 @@ export default function OpportunitiesPanel() {
           </Button>
         )}
       </Box>
+
+      {realized && realized.total_realized > 0 && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, mb: 1.5 }}>
+            <MaterialSymbol icon="trending_up" size={18} color="#2e7d32" />
+            <Typography variant="subtitle2" fontWeight={700}>
+              {t("governance.opportunities.realizedValue")}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {t("governance.opportunities.realizedTotal", { count: realized.total_realized })}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, height: 90 }}>
+            {realized.series.map((s) => {
+              const max = Math.max(1, ...realized.series.map((x) => x.count));
+              const h = s.count === 0 ? 2 : Math.round((s.count / max) * 70) + 4;
+              return (
+                <Box
+                  key={s.label}
+                  sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 600, lineHeight: 1 }}>
+                    {s.count || ""}
+                  </Typography>
+                  <Box
+                    title={`${s.label}: ${s.count}`}
+                    sx={{
+                      width: "70%",
+                      minWidth: 8,
+                      height: h,
+                      borderRadius: "3px 3px 0 0",
+                      bgcolor: s.count > 0 ? "#2e7d32" : "divider",
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.62rem", lineHeight: 1 }}>
+                    {s.label.replace(" ", " ")}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        </Paper>
+      )}
 
       {rows.length === 0 ? (
         <Alert severity="info">{t("governance.opportunities.empty")}</Alert>

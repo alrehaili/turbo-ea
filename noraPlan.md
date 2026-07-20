@@ -1,11 +1,57 @@
 # NORA Implementation Plan for Turbo EA
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20**. The authoritative phase table marks all planned NORA phases complete or complete-as-re-scoped, so the NORA implementation is **100% complete at phase level**. A literal checkbox count gives **61%** because this long-running file keeps superseded original specs and deferred backlog bullets inline for history.
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| Phase-level implementation | **100%** | Complete / re-scoped complete | Progress Overview marks Phases 1-6 and Phase 100 complete; WP5.1 is explicitly re-scoped/closed | Residual follow-ups only |
+| Literal checkbox count | **61%** | Historical checklist mixed with current plan | 134 `[x]`, 87 `[ ]`, 0 `[~]` across 221 checkbox bullets | Mostly deferred docs, runtime verification, nice-to-haves, and superseded original checklist items |
+| Core NORA profile/governance/program | **100%** | Built | Phases 1-4 complete; acceptance checks recorded as verified by tests | Docs pass and selected UI polish |
+| NEA updated-framework alignment | **100%** | Built / re-scoped | Phase 6 marked complete, including methodology v2, requirements register, template importer, viewpoint registry, renderers, practice templates | Template exporter and future DGA submission format are deferred |
+| External/future dependencies | **Deferred** | Not blocking | WP5.1 re-scoped because national reference models are guidance, not importable code lists | Revisit when DGA publishes structured RM documents or submission formats |
+
+**Percentage basis:** use **100%** for actual phase delivery because the status table is current and authoritative. The **61%** literal checklist number is `(134 / 221 = 60.6%)`; it is retained only as an audit signal for unresolved/deferred historical bullets.
+
 **Purpose**: Working implementation plan and progress tracker for making Turbo EA NORA-based.
 **Companion document**: [NORA.md](NORA.md) — the capability-mapping analysis this plan executes.
 **Additional input reviewed**: external "NORA Alignment Blueprint" (2026-07). Adopted from it: stage gates + artifact immutability, typed target-change semantics, standards conformance/waiver workflow, framework-profile versioning, NEA mapping entities, traceability rules, acceptance criteria. Rejected from it: the large parallel entity zoo (ArchitectureScope/StageInstance/Viewpoint/etc. as ~20 new tables up front — Turbo EA's data-driven metamodel and existing modules cover most of these with far less schema), and its references to a non-existent "System" card type.
 **Additional input reviewed (2026-07-07)**: the official DGA awareness kit `الحقيبة التوعوية - البنية المؤسسية الوطنية` — the **December 2024 *updated* National EA Framework**. See the "Source review" section and **Phase 6** below; it partially unblocks WP5.1 and supersedes several assumptions the earlier phases were built on (10-stage methodology, 4-domain model). *(2026-07-11: WP5.1 subsequently re-scoped/closed — the reference models turned out to be classification guidance, not importable code lists.)*
 
 **Guiding rule (do not violate)**: one canonical landscape. NORA is delivered as a **profile + governance overlay + views** on the existing cards/relations — never as parallel NORA card types, never as a copied repository.
+
+---
+
+## Optional UI Polish / Functional Backlog — Progress 2026-07-20
+
+### ✅ Shipped this session (6 items, all builds + i18n parity green)
+
+- [x] **WP5.4 — TimelineSlider for plateaus** — `DependencyReport.tsx` scrubs plateau dates via slider + chips; year marks auto-derived from `target_date`.
+- [x] **WP6.3 — Org-chart hierarchy icons** — `OrgChartReport.tsx` renders per-subtype icons (sector/generalDepartment/department/sectionUnit) + blue→navy depth gradient.
+- [x] **WP6.3 — Data Exchange Map report** — new `GET /reports/data-exchange-map` (App→Exchange→DataObject→ITComponent flow, GSB + NDMO surfaced, off-GSB sensitive flagged) + `DataExchangeMapReport.tsx` + nav entry + i18n ×10. Complements Service Traceability for the Data domain.
+- [x] **WP6.6 — DGA template exporter** — `xlsx_exporter.py` reuses the parser's `_SHEET_SPECS` as the single source of truth (import/export never drift); `GET /migration/export/nora-template?domain=` streams the workbook; **Export NORA template** menu (5 domains) on `MigrationAdmin` (shown only when `nora_xlsx` is registered) + i18n ×10. **Round-trip verified** (export → re-parse restores name, codes, options, channels).
+- [x] **WP3.1 — Evidence pickers** — `EvidencePickerDialog.tsx` (link / card / diagram / SoAW / ADR / saved-report), wired into `NoraProgramPage`, produces well-formed `{kind, ref, label}` evidence with real in-app paths (no more hand-typed URLs) + i18n ×10. Backend already accepted structured evidence kinds.
+- [x] **WP4.2 — PPM overview KPI links** — `PpmOverviewTab.tsx` lists the initiative's linked KPI cards (via `relInitiativeToKPI`) with direction-aware progress bars + on/off-track chips + deep-link to `/reports/kpi-scorecard` + i18n ×10.
+
+### ✅ Found already-shipped (plan's "deferred" notes were stale — Phase B work)
+
+- [x] **WP2.1 — Inventory architecture-state filter chip** — present in `InventoryFilterSidebar` (ARCHITECTURE_STATES chips).
+- [x] **WP2.1 — Inventory bulk submit/approve/reject/reset** — `bulkApprovalAction` in `InventoryPage`.
+- [x] **WP2.4 — Successor CardPicker** — `SuccessorFieldSection.tsx` wired into `CardDetail` (Phase B.5).
+- [x] **WP3.4 — ADR committee/stage filter** — `AdrFilterSidebar` (Phase B.6).
+
+### ✅ Shipped this session — batch 2 (3 more items, builds + i18n + migration verified)
+
+- [x] **WP100.2 — Strategy-cascade owning-unit chip** — `GET /reports/strategy-cascade` now resolves each objective's owning Organization via the `relOrgToObjective` ("owns") relation (pair-key lookup, never hardcoded) and returns it as `owner`; `StrategyCascadeReport.tsx` renders a clickable org chip beside each objective. No new i18n (owner name is data).
+- [x] **WP3.3 — Realized-value widget** — `GET /improvement-opportunities/realized-value` buckets realized opportunities per calendar quarter (last 8); `OpportunitiesPanel` renders a dependency-free quarterly bar widget + total, refreshing whenever the list changes. i18n ×10.
+- [x] **WP3.3 — SWOT weakness → Opportunity promotion** (the "blocked" one — unblocked by building the structured model): new **`swot_entries`** table (migration 161, model, `__init__` + workspace-io `SwotEntries` EntitySection placed after ImprovementOpportunities for FK order) with quadrant + text + idempotent `opportunity_id` back-link; `soaw.py` gains list/create/delete + **promote** endpoints (`soaw.manage` to author, `soaw.manage`+`grc.manage` to promote — only weakness/threat promotable, mirrors compliance→risk); `SwotEntriesPanel.tsx` surfaces the four quadrants with add/delete/promote on Environment-Analysis documents. i18n ×10; OpenAPI regenerated (+292 lines).
+
+### ⏳ Genuinely remaining (each a larger or externally-blocked change)
+
+- [ ] **WP4.3 — Waiver-expiry background loop** — daily job flipping overdue exceptions to `expired` + notify owner + optional Risk-Register escalation. Needs a background loop in `main.py` (pattern: `_promote_recurring_tasks_loop`). *Medium risk — deferred to avoid an untested background job.*
+- [ ] **WP5.3 — Evidence-pack zip wrapper** — wrap the xlsx with embedded diagrams/attachments (low value as a bare zip).
+- [ ] **WP5.2 — Qiyas maturity export** — **externally blocked**: DGA has not published the submission format, so there is no schema to target.
 
 ---
 
@@ -140,6 +186,7 @@ Each work package is independently shippable and follows project conventions: da
 - [x] `GET /cards/{id}/approval-steps` for the UI; `ApprovalStatusBadge` grew governance actions (Submit for review / Approve step) + `IN_REVIEW` chip; `ApprovalStepsStrip` renders the live chain under the card header; `GET/PATCH /settings/governance` + Admin → Settings governance card; `governance_mode` in bootstrap + `useGovernanceMode` singleton hook.
 - [x] Permissions: new `governance` group + `governance.approve_step` (added as `False` to the three built-in role sets — the registry's completeness test enforces enumeration).
 - [x] Tests (`tests/api/test_governance_approval.py`): full-chain happy path, queue-jump 403, member 403, SoD 403, reject, mid-review-edit invalidation, submit-without-mode 400, legacy flow regression.
+- [x] **WP2.1 deferred — inventory state filter chip**: ✅ **Already implemented** (architecture_state chip filters on `/inventory`).
 - [ ] **Deferred**: inventory bulk submit/approve; mandatory rejection comment; per-type chains; email channel for step notifications (in-app only).
 
 **Acceptance check**: with governance on, APPROVED is unreachable without passing the chain; step history auditable. ✔ verified by tests.
@@ -165,6 +212,7 @@ Each work package is independently shippable and follows project conventions: da
 - [x] `transitionRole` attribute (introduces | modifies | retires, translated ×10) injected into every Initiative relation type by the NORA profile apply (pass 3b, idempotent).
 - [x] Traceability lint: untraceable changes flagged inline + counted (the inverse lint — roadmap initiatives with zero gap links — is visible via the same data).
 - [x] Tests: bucket assignment, successor resolution, initiative linkage + transition role, untraceable list.
+- [x] **WP3.4 deferred — "Decisions" grid column filter by committee/stage**: ✅ **Already implemented** in Phase B.6 (AdrFilterSidebar with multi-select committees and stages).
 - [ ] **Deferred**: PPM Gantt "transition projects only" filter; seeded saved-report template (→ WP3.4 pack); export button (print works).
 
 **Acceptance check**: every current→target delta, its delivering initiative, and untraceable items visible on one screen. ✔ verified by tests.

@@ -261,8 +261,8 @@ export const NEA_VIEWPOINTS: NeaViewpoint[] = [
     level: "logical",
     nameEn: "Interaction Model for the Entity / Organizational Unit",
     nameAr: "نموذج التفاعل للجهة / الوحدة التنظيمية",
-    path: "/reports/dependencies",
-    status: "planned",
+    path: "/reports/dependencies?type=Organization",
+    status: "available",
   },
   {
     key: "mandates-positions",
@@ -373,7 +373,7 @@ export const NEA_VIEWPOINTS: NeaViewpoint[] = [
     status: "available",
   },
   {
-    key: "journey-map",
+    key: "beneficiary-journey-list",
     domain: "beneficiaryExperience",
     kind: "diagram",
     level: "logical",
@@ -628,8 +628,8 @@ export const NEA_VIEWPOINTS: NeaViewpoint[] = [
     level: "logical",
     nameEn: "Applications Viewpoint by Organizational Unit",
     nameAr: "منظور التطبيقات حسب الوحدة التنظيمية",
-    path: "/reports/matrix",
-    status: "planned",
+    path: "/reports/matrix?row_type=Application&col_type=Organization",
+    status: "available",
   },
   {
     key: "application-modules-landscape",
@@ -1107,3 +1107,41 @@ export const NEA_DOMAIN_ORDER: NeaDomain[] = [
   "technology",
   "security",
 ];
+
+/**
+ * Launch gate (permission + module) for a viewpoint. An explicit
+ * ``permission`` / ``module`` on the entry always wins; otherwise the gate is
+ * *derived from the destination path* so the View Library can grey-out /
+ * "Locked" a viewpoint the current user can't actually open — without every
+ * one of the 80+ entries repeating the same permission key.
+ *
+ * The derived permission mirrors what each destination route enforces:
+ *   - ``/inventory`` / ``/layers`` → ``inventory.view``
+ *   - ``/bpm``                     → ``reports.bpm_dashboard`` + module ``bpm``
+ *   - ``/grc``                     → ``grc.view`` + module ``grc``
+ *   - ``/reports/*``               → ``reports.ea_dashboard``
+ * Anything else is ungated (undefined) — never over-hide.
+ */
+export function neaViewpointGate(v: NeaViewpoint): {
+  permission?: string;
+  module?: "bpm" | "ppm" | "grc" | "turbolens";
+} {
+  // Explicit metadata on the entry is authoritative.
+  if (v.permission || v.module) {
+    return { permission: v.permission, module: v.module };
+  }
+  const path = v.path ?? "";
+  if (path.startsWith("/inventory") || path.startsWith("/layers")) {
+    return { permission: "inventory.view" };
+  }
+  if (path.startsWith("/bpm")) {
+    return { permission: "reports.bpm_dashboard", module: "bpm" };
+  }
+  if (path.startsWith("/grc")) {
+    return { permission: "grc.view", module: "grc" };
+  }
+  if (path.startsWith("/reports/")) {
+    return { permission: "reports.ea_dashboard" };
+  }
+  return {};
+}
