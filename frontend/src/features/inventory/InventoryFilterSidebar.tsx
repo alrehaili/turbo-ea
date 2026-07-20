@@ -803,6 +803,7 @@ export default function InventoryFilterSidebar({
                 <List dense disablePadding sx={{ mb: 1 }}>
                   {types
                     .filter((t) => !t.is_hidden)
+                    .sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)))
                     .map((t) => (
                       <ListItemButton
                         key={t.key}
@@ -844,7 +845,7 @@ export default function InventoryFilterSidebar({
                   />
                   <Collapse in={expandedSections.subtypes}>
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
-                      {subtypeOptions.map((st) => (
+                      {subtypeOptions.sort((a, b) => stLabel(a).localeCompare(stLabel(b))).map((st) => (
                         <Chip
                           key={st.key}
                           label={stLabel(st)}
@@ -1023,9 +1024,9 @@ export default function InventoryFilterSidebar({
                           const selected = (filters.attributes[field.key] ?? []) as string[];
                           const optionMap = new Map(field.options.map((o) => [o.key, o]));
                           const searchTerm = (dropdownSearch[field.key] || "").toLowerCase();
-                          const filteredOpts = searchTerm
+                          const filteredOpts = (searchTerm
                             ? field.options.filter((o) => optLabel(o).toLowerCase().includes(searchTerm))
-                            : field.options;
+                            : field.options).sort((a, b) => optLabel(a).localeCompare(optLabel(b)));
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
                               <InputLabel sx={{ fontSize: 14 }}>{fieldLabel(field)}</InputLabel>
@@ -1045,6 +1046,7 @@ export default function InventoryFilterSidebar({
                                       return (
                                         <Chip
                                           key={v}
+                                          icon={opt?.icon ? <MaterialSymbol icon={opt.icon} size={12} /> : undefined}
                                           label={isEmpty ? t("filter.emptyValue") : opt ? optLabel(opt) : v}
                                           size="small"
                                           sx={{
@@ -1091,9 +1093,11 @@ export default function InventoryFilterSidebar({
                                   <MenuItem key={opt.key} value={opt.key}>
                                     <Checkbox size="small" checked={selected.includes(opt.key)} sx={{ p: 0, mr: 1 }} />
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                      {opt.color && (
+                                      {opt.icon ? (
+                                        <MaterialSymbol icon={opt.icon} size={14} color={opt.color} />
+                                      ) : opt.color ? (
                                         <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
-                                      )}
+                                      ) : null}
                                       {optLabel(opt)}
                                     </Box>
                                   </MenuItem>
@@ -1185,9 +1189,9 @@ export default function InventoryFilterSidebar({
                         const selected = (filters.relations || {})[rt.key] || [];
                         const searchKey = `rel_${rt.key}`;
                         const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
-                        const filteredOpts = searchTerm
+                        const filteredOpts = (searchTerm
                           ? options.filter((n) => n.toLowerCase().includes(searchTerm))
-                          : options;
+                          : options).sort((a, b) => a.localeCompare(b));
                         return (
                           <FormControl key={rt.key} size="small" fullWidth>
                             <InputLabel sx={{ fontSize: 14 }}>{label}</InputLabel>
@@ -1307,9 +1311,9 @@ export default function InventoryFilterSidebar({
                           ];
                           const searchKey = `tag_${group.id}`;
                           const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
-                          const filteredTags = searchTerm
+                          const filteredTags = (searchTerm
                             ? group.tags.filter((tg) => tg.name.toLowerCase().includes(searchTerm))
-                            : group.tags;
+                            : group.tags).sort((a, b) => a.name.localeCompare(b.name));
                           return (
                             <FormControl key={group.id} size="small" fullWidth>
                               <InputLabel sx={{ fontSize: 14 }}>{group.name}</InputLabel>
