@@ -1,5 +1,19 @@
 # NORA Views Implementation Plan (viewsPlan.md)
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20**. The authoritative status at the top of this file says the NORA/DGA viewpoint delivery is **100% available**: **67 / 67 viewpoints available**, **0 partial**, **0 missing**, and Phases 1-6 are marked complete. The older per-domain tables later in the file still contain stale partial/missing rows and should be treated as historical planning detail until reconciled.
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| Overall viewpoint availability | **100%** | Complete | Header states `67 / 67 available`; Phase 6 states all viewpoints reachable and marked Available | Reconcile stale lower-domain tables |
+| Implementation phases | **100%** | Complete | Phases 1-6 are each marked `COMPLETE` | None for availability |
+| View library foundation | **100%** | Complete | `ViewpointDefinition`, migration 154, seed, `/api/v1/viewpoints`, `/view-library` listed as implemented | Ongoing test/run validation as needed |
+| Specialized renderers | **100%** | Complete | Strategic House, Beneficiary Journey Map, Datacenter Distribution, Network Topology, Security Deployment listed as implemented | None in this file's current top status |
+| Document consistency | **Needs cleanup** | Stale detail below | Lower per-domain sections still show 0/n headings and old 🟡/❌ rows | Update domain tables to match the 67/67 top summary |
+
+**Percentage basis:** the file's own authoritative status line: `67 / 67 available = 100%`. The lower tables conflict with that status and should not be used for the current percentage until they are refreshed.
+
 Tracker for implementing the 67 NORA/DGA EA viewpoints in Turbo EA.
 Source analysis: [NORA_DGA_Viewpoints_vs_Turbo_EA.md](NORA_DGA_Viewpoints_vs_Turbo_EA.md) (DGA *The EA Viewpoints Document* v2.0, Dec 2024).
 

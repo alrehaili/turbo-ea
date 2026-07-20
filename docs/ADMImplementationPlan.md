@@ -1,5 +1,20 @@
 # ADM Governance Workspace — Implementation Plan
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20**. This document describes a completed v1 architecture rather than a checkbox backlog. Based on the sections present, the documented ADM Governance Workspace MVP is **100% implemented**, with Phase 2 hardening items tracked as known limitations.
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| ADM v1 MVP | **100%** | Built | Final architecture, workflow, permissions, API endpoints, migration, workspace transfer, frontend files, and tests are documented as implemented | None for v1 MVP scope |
+| Data model and migration | **100%** | Built | Three tables in migration `132_add_adm_workspace_fork.py`; model file listed | None |
+| API and permissions | **100%** | Built | `/api/v1/adm` endpoint table and `adm.view/manage/approve_gate` permissions listed | Add richer per-kind resolvers later |
+| Frontend | **100%** | Built | Feature folder, list/detail pages, SoAW section, dashboard widget, dialogs, test file listed | Live pickers for artefact linking deferred |
+| Workspace transfer | **Partial** | Built with limitation | ADM sections are wired into `ENTITY_SECTIONS` | Card-kind artefact `ref_id` remap is a known Phase 2 gap |
+| Product hardening backlog | **Open** | Deferred | Seven known limitations listed in section 8 | Polymorphic ref remap, per-kind existence checks, comments, live pickers, locale backfill, changelog/version |
+
+**Percentage basis:** **100%** for the documented v1 MVP because every required architecture/API/frontend/test section is present. No single overall percentage is assigned to Phase 2 hardening; it is tracked as the seven known limitations in section 8.
+
 *Branch: `feature/adm-governance-workspace`*
 
 ## 1. Purpose

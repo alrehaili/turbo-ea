@@ -1,10 +1,28 @@
 # Reference Models Implementation Plan
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20** against the current workspace. The core Reference Models product surface is implemented; the full plan is **86% complete** when the status checklist below is counted literally (**12 of 14** checklist items done).
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| Overall full plan | **86%** | Mostly complete | 12/14 status checkboxes are `[x]`; backend, frontend, seed, routes, permissions, workspace transfer, and tests are present | Docs/screenshots; further seed-only models beyond the six launch sets |
+| Core MVP / product surface | **100%** | Built | Navigation/routes, landing, per-domain browse page, hierarchy/map/table/coverage/unmapped views, mapping UI, admin UI, report view | None for MVP acceptance |
+| Backend | **100%** | Built | Models, migrations `149`/`155`/`156`/`157`/`159`, API router registration, permissions, seed data, workspace transfer sections, API tests | None found in plan scope |
+| Frontend | **100%** | Built | `features/reference-models/`, lazy routes, nav dropdown, management page, dialogs, coverage, relationship surface | No dedicated frontend unit tests listed for this RM plan |
+| Governance, versioning, relationships | **100%** | Built | Publish/reject/archive flow, frozen versions + diff, narrative, import/export, component relationships API and UI | None found in plan scope |
+| Documentation and screenshots | **0%** | Open | No Reference Models docs pages or screenshot entries found under `docs/` / `scripts/screenshots/pages.ts` | Add docs in all required locales and screenshot automation |
+| Future model expansion | **0%** | Deferred | Six launch sets exist: BRM, ARM, DRM, TRM, BXRM, SRM | Add additional seed-only models if needed |
+
+**Percentage basis:** equal-weight count of the explicit status checklist in section 0: `(12 done / 14 total) * 100 = 85.7%`, rounded to **86%**. If deferred future model expansion is excluded from the delivery scope, the remaining gap is documentation/screenshots only and the plan is **92% complete** by the same checklist method.
+
 ## 0. Implementation Status
 
-> **Status: BUILT (shipped in commit `ed4f9c71` — "full RMPlan build").** The
-> feature is implemented end-to-end and wired into navigation, permissions, and
-> the demo seed. This section tracks the plan against the code as of 2026-07-20.
+> **Status: CORE BUILT; FULL PLAN 86% COMPLETE (shipped in commit `ed4f9c71` —
+> "full RMPlan build").** The feature is implemented end-to-end and wired into
+> navigation, permissions, and the demo seed. The remaining gap is productization
+> collateral plus optional future model expansion. This section tracks the plan
+> against the code as of 2026-07-20.
 
 **Backend**
 - [x] **Data model** (migrations `149`, `155`, `156`, `157`, `159`) — `reference_models`, `reference_model_items` (self-referential `parent_id` component tree, uniquely coded), `reference_model_mappings` (item ↔ inventory card), `reference_model_versions` (frozen snapshots), and `reference_model_relationships` (§10 — typed cross-model item↔item links: supports / consumes / realizes / depends_on / aligns_with).

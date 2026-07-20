@@ -1,5 +1,19 @@
 # Turbo EA — Change Governance Roadmap
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20** against the current workspace and this roadmap's explicit checkboxes. The functional roadmap is largely built, but the full roadmap is **68% complete** when every remaining docs, test, deferred, optional, and commercial-track checkbox is counted literally (**70 done + 1 in progress out of 103 checklist items**).
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| Overall full roadmap | **68%** | Partially complete | 70 `[x]`, 1 `[~]`, 32 `[ ]` items in this file | Docs/screenshots, frontend unit tests, LDV/scenario polish, OpenMetadata/new connectors, commercial track |
+| Functional EA waves 1-4 | **~90%** | Mostly built | All 11 recommended feature rows are built or substantially built; many remaining bullets are polish/deferred environment work | OpenMetadata connector, generalized connector framework, scenario visual overlay, docs/screenshots |
+| Backend/API surface | **High** | Built for core waves | Roadmap notes list endpoints, services, migrations, permissions, OpenAPI, backend tests for the wave features | Some authored backend tests still need CI/local DB confirmation per log |
+| Frontend product surface | **High** | Built for core waves | Roadmap notes list implemented report/governance views across Waves 1-4 | Frontend unit tests and visual polish remain in several feature rows |
+| Commercial readiness track | **0%** | Not started | All commercial-track bullets remain unchecked | Editions/licensing, SCIM, SOC 2/ISO readiness, scale validation, packaging, observability, security review |
+
+**Percentage basis:** literal equal-weight checklist count: `(70 done + 0.5 * 1 in-progress) / 103 = 68.4%`, rounded to **68%**. This understates the shipped product surface because it counts docs, future connectors, and commercial-readiness work as equal to delivered feature implementation.
+
 > **Goal:** Make Turbo EA enterprise-grade at governing change from **current state → target state**, closing the clearest gaps against Ardoq, Avolution, Essential, Orbus, ADOIT, LeanIX, Alfabet, and HOPEX — and turning it into a sellable commercial product.
 >
 > **Sequencing principle:** Priority ≠ build order. Front-load cheap, high-ROI view-layer wins that ride existing data, generate executive-visible value, and de-risk/fund the big architectural bet (Scenario Planning). Build the impact engine *before* scenarios that depend on it.
@@ -21,7 +35,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked.
   5. **Strategy Map PPM RAG rollup** (#1.2) — per-initiative health from the latest status report.
   Each: backend + endpoint(s) where applicable, frontend, i18n ×10 locales, backend tests, OpenAPI + CHANGELOG updated. Remaining across these five is now docs/screenshots + a few frontend unit tests + the optional true polar-radar visual. **Note:** these backend tests were authored but not executed locally (no Docker/Postgres in the working shell) — pending a CI run.
 - **Deferred by design / environment (tracked inline):** OpenMetadata connector (needs live OM), generalized connector framework (YAGNI until 2nd connector), first-class KPI / RTO-RPO / Data-Domain metamodel fields, LDV graph overlays, and per-feature docs/screenshots + frontend unit tests. The **commercial track** (editions/licensing, SCIM, SOC 2, scale, pricing) is not started — it is the gate to actually selling and should be the next focus.
-- **Known blocker (pre-existing, not from this work):** `frontend/src/features/reports/TransformationRoadmap.tsx` has 3 TS errors that block a full `npm run build`. New code compiles clean in isolation.
+- **~~Known blocker~~ (RESOLVED 2026-07-20):** the 3 TS errors in `frontend/src/features/reports/TransformationRoadmap.tsx` are fixed — `npm run build` now completes clean (tsc + Vite, exit 0).
 
 ---
 

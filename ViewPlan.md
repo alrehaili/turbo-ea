@@ -1,5 +1,19 @@
 # Essential Viewer Inspired EA Views Plan
 
+## Actual Progress Summary
+
+Reviewed on **2026-07-20**. This branch plan had one implemented delivery target, **Process Landscape Map**, and seven broader candidate views left as plan-only/deferred ideas. On that basis, the branch objective is **100% complete**, while the broader idea backlog is **13% implemented** (**1 of 8 ranked views**).
+
+| Area | Actual progress | Status | Evidence checked | Open work |
+|------|----------------:|--------|------------------|-----------|
+| Branch delivery objective | **100%** | Complete | Section 1 names Process Landscape Map as the primary implemented change; section 6.1 says status implemented | None for this branch objective |
+| Ranked broader view backlog | **13%** | Mostly plan-only | Section 5 has 8 ranked views: 1 implemented, 7 plan-only/deferred | EA View Library, Application Summary, Footprint Comparison, Technology Alignment, Value Stream Canvas, Supplier Impact, Vulnerability Analysis |
+| Backend/schema impact | **100%** | No backend change required | Plan states existing BPM report endpoint/API is reused and no schema/API change is needed | None |
+| Frontend route/nav work | **100%** | Implemented by plan statement | Plan calls out `/reports/process-map` route and Reports menu item as implemented | Build/manual route smoke test if not already run |
+| Future low-priority/integration views | **0%** | Deferred | Supplier and vulnerability views require future data/integration work | Supplier/license model; vulnerability feed/product-version normalization |
+
+**Percentage basis:** branch scope uses the single implemented change and is **100%**. Broad backlog uses the ranked view table: `1 implemented / 8 candidate views = 12.5%`, rounded to **13%**.
+
 ## 1. Executive Summary
 
 This branch explores Enterprise Architecture views inspired by Essential Viewer and implements only the safest high-priority view that can be delivered with existing Turbo EA data, APIs, permissions, and frontend architecture.

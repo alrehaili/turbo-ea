@@ -82,9 +82,9 @@ export default function ReferenceModelBrowsePage() {
   const canMap = canManage || hasPermission(user?.permissions, "reference_models.map");
   const rawView = searchParams.get("view");
   const view =
-    rawView === "table" || rawView === "unmapped" || rawView === "map" || rawView === "coverage"
+    rawView === "table" || rawView === "unmapped" || rawView === "tree" || rawView === "coverage"
       ? rawView
-      : "tree";
+      : "map";
   const query = searchParams.get("q") ?? "";
   const selectedId = searchParams.get("selected");
 
@@ -312,7 +312,7 @@ export default function ReferenceModelBrowsePage() {
               size="small"
               exclusive
               value={view}
-              onChange={(_e, v) => v && setParam("view", v === "tree" ? null : v)}
+              onChange={(_e, v) => v && setParam("view", v === "map" ? null : v)}
             >
               <ToggleButton value="map">
                 <MaterialSymbol icon="grid_view" size={18} />
