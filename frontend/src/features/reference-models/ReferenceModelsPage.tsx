@@ -38,6 +38,8 @@ import { hasPermission } from "@/components/RequirePermission";
 import { api, ApiError } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { invalidateActiveReferenceModels } from "@/hooks/useActiveReferenceModels";
+import NarrativeEditor from "@/features/reference-models/browse/NarrativeEditor";
+import VersionsDialog from "@/features/reference-models/browse/VersionsDialog";
 import type {
   ReferenceModel,
   ReferenceModelDomain,
@@ -55,8 +57,9 @@ const DOMAINS: ReferenceModelDomain[] = [
 
 const SOURCES = ["national", "sectoral", "agency"] as const;
 
-const STATUS_COLOR: Record<string, "default" | "success" | "warning"> = {
+const STATUS_COLOR: Record<string, "default" | "success" | "warning" | "info"> = {
   draft: "default",
+  in_review: "info",
   published: "success",
   archived: "warning",
 };
@@ -133,6 +136,8 @@ export default function ReferenceModelsPage() {
   const [modelEdit, setModelEdit] = useState<ModelEdit | null>(null);
   const [itemEdit, setItemEdit] = useState<ItemEdit | null>(null);
   const [publishFor, setPublishFor] = useState<ReferenceModel | null>(null);
+  const [narrativeFor, setNarrativeFor] = useState<ReferenceModel | null>(null);
+  const [versionsFor, setVersionsFor] = useState<ReferenceModel | null>(null);
   const [importNewOpen, setImportNewOpen] = useState(false);
   const [importName, setImportName] = useState("");
   const importIntoRef = useRef<HTMLInputElement>(null);
@@ -257,6 +262,26 @@ export default function ReferenceModelsPage() {
     try {
       await api.post(`/reference-models/${m.id}/archive`, {});
       invalidateActiveReferenceModels();
+      await refresh();
+    } catch (e) {
+      handleError(e);
+    }
+  };
+
+  const submitForReview = async (m: ReferenceModel) => {
+    setError("");
+    try {
+      await api.post(`/reference-models/${m.id}/submit`, {});
+      await refresh();
+    } catch (e) {
+      handleError(e);
+    }
+  };
+
+  const reject = async (m: ReferenceModel) => {
+    setError("");
+    try {
+      await api.post(`/reference-models/${m.id}/reject`, {});
       await refresh();
     } catch (e) {
       handleError(e);
@@ -518,8 +543,29 @@ export default function ReferenceModelsPage() {
                         <MaterialSymbol icon="download" size={16} />
                       </IconButton>
                     </Tooltip>
+                    {m.status === "published" && (
+                      <Tooltip title={t("rmVersion.title")}>
+                        <IconButton size="small" onClick={() => setVersionsFor(m)}>
+                          <MaterialSymbol icon="history" size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     {canManage && (
                       <>
+                        {m.status === "draft" && (
+                          <Tooltip title={t("rmReview.submit")}>
+                            <IconButton size="small" onClick={() => void submitForReview(m)}>
+                              <MaterialSymbol icon="send" size={16} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {m.status === "in_review" && canPublish && (
+                          <Tooltip title={t("rmReview.reject")}>
+                            <IconButton size="small" color="error" onClick={() => void reject(m)}>
+                              <MaterialSymbol icon="cancel" size={16} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         {m.status !== "published" && (
                           <Tooltip
                             title={
@@ -547,6 +593,11 @@ export default function ReferenceModelsPage() {
                             </IconButton>
                           </Tooltip>
                         )}
+                        <Tooltip title={t("rmPoster.editTitle")}>
+                          <IconButton size="small" onClick={() => setNarrativeFor(m)}>
+                            <MaterialSymbol icon="dashboard_customize" size={16} />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title={t("common:actions.edit")}>
                           <IconButton
                             size="small"
@@ -902,6 +953,22 @@ export default function ReferenceModelsPage() {
           <Button onClick={() => setImportNewOpen(false)}>{t("common:actions.cancel")}</Button>
         </DialogActions>
       </Dialog>
+
+      <NarrativeEditor
+        open={!!narrativeFor}
+        model={narrativeFor}
+        onClose={() => setNarrativeFor(null)}
+        onSaved={(updated) => {
+          setModels((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+          setNotice(t("rmPoster.saved"));
+        }}
+      />
+
+      <VersionsDialog
+        open={!!versionsFor}
+        model={versionsFor}
+        onClose={() => setVersionsFor(null)}
+      />
     </Box>
   );
 }

@@ -14,31 +14,47 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
-from sqlalchemy import select
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card import Card
 from app.models.reference_model import (
     RM_DOMAINS,
+    RM_MAPPING_STATUSES,
+    RM_MAPPING_TYPES,
     RM_SOURCES,
     ReferenceModel,
     ReferenceModelItem,
+    ReferenceModelMapping,
+    ReferenceModelVersion,
 )
 from app.models.user import User
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.reference_models import (
+    RM_DOMAIN_CARD_TYPES,
     build_rm_workbook,
+    compute_model_coverage,
+    diff_snapshots,
+    explicit_mappings_for_model,
+    is_retiring,
     item_counts,
     item_dict,
     items_for,
+    leaf_item_ids,
+    mapping_dict,
     model_dict,
     parse_rm_workbook,
     resolve_active_model,
+    scan_domain_card_codes,
+    snapshot_items,
     sort_items,
     upsert_items,
+    version_dict,
+    versions_for,
 )
 
 router = APIRouter(prefix="/reference-models", tags=["reference-models"])
@@ -83,6 +99,48 @@ class ItemUpdate(BaseModel):
     parent_id: uuid.UUID | None = None
     clear_parent: bool = False
     sort_order: int | None = None
+
+
+_MAPPING_TYPE_RE = "^(" + "|".join(RM_MAPPING_TYPES) + ")$"
+_MAPPING_STATUS_RE = "^(" + "|".join(RM_MAPPING_STATUSES) + ")$"
+
+
+class MappingCreate(BaseModel):
+    card_id: uuid.UUID
+    mapping_type: str = Field(default="primary", pattern=_MAPPING_TYPE_RE)
+    mapping_status: str = Field(default="confirmed", pattern=_MAPPING_STATUS_RE)
+    rationale: str | None = None
+    confidence: int | None = Field(default=None, ge=0, le=100)
+
+
+class MappingUpdate(BaseModel):
+    mapping_type: str | None = Field(default=None, pattern=_MAPPING_TYPE_RE)
+    mapping_status: str | None = Field(default=None, pattern=_MAPPING_STATUS_RE)
+    rationale: str | None = None
+    confidence: int | None = Field(default=None, ge=0, le=100)
+
+
+class NarrativePanel(BaseModel):
+    """One editable poster panel (RMPlan Phase 3 / §18)."""
+
+    id: str = Field(min_length=1, max_length=48)
+    title: str = Field(default="", max_length=120)
+    title_ar: str = Field(default="", max_length=120)
+    kind: str = Field(default="text", pattern="^(text|list)$")
+    text: str = Field(default="", max_length=4000)
+    text_ar: str = Field(default="", max_length=4000)
+    items: list[str] = Field(default_factory=list)
+    items_ar: list[str] = Field(default_factory=list)
+    placement: str = Field(default="grid", pattern="^(header|grid)$")
+
+    @field_validator("items", "items_ar")
+    @classmethod
+    def _clamp_items(cls, v: list[str]) -> list[str]:
+        return [str(s)[:300] for s in v[:30]]
+
+
+class NarrativePayload(BaseModel):
+    panels: list[NarrativePanel] = Field(default_factory=list, max_length=24)
 
 
 # --------------------------------------------------------------------------- #
@@ -186,6 +244,483 @@ async def get_active(
     return {
         "model": model_dict(model, item_count=len(items)),
         "items": [item_dict(i) for i in sort_items(items)],
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Browse (RMPlan Phase 1) — landing overview + per-model summary + item cards.
+# Counts merge the card-detail code field (implicit *primary* classification)
+# with the explicit reference_model_mappings rows (Phase 2), deduped by card.
+# --------------------------------------------------------------------------- #
+def _descendant_item_ids(items: list[ReferenceModelItem], root_id: uuid.UUID) -> set[uuid.UUID]:
+    children: dict[uuid.UUID, list[ReferenceModelItem]] = {}
+    for i in items:
+        if i.parent_id:
+            children.setdefault(i.parent_id, []).append(i)
+    out = {root_id}
+    stack = [root_id]
+    while stack:
+        for child in children.get(stack.pop(), []):
+            if child.id not in out:
+                out.add(child.id)
+                stack.append(child.id)
+    return out
+
+
+@router.get("/overview")
+async def browse_overview(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Landing-page metrics: per domain, the active RM + mapped-inventory KPIs."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    out = []
+    for domain in RM_DOMAINS:
+        card_type, code_field = RM_DOMAIN_CARD_TYPES[domain]
+        entry: dict = {
+            "domain": domain,
+            "card_type": card_type,
+            "code_field": code_field,
+            "model": None,
+        }
+        model = await resolve_active_model(db, domain)
+        if model is not None:
+            items = await items_for(db, model.id)
+            card_codes = await scan_domain_card_codes(db, domain)
+            mappings = await explicit_mappings_for_model(db, model.id)
+            cov = compute_model_coverage(items, card_codes, mappings)
+            entry["model"] = model_dict(model, item_count=len(items))
+            entry.update(
+                {
+                    "covered_items": cov["covered_items"],
+                    "total_cards": cov["total_cards"],
+                    "mapped_cards": cov["mapped_cards"],
+                    "unmatched_cards": cov["unmatched_cards"],
+                    "uncoded_cards": cov["uncoded_cards"],
+                }
+            )
+        out.append(entry)
+    return {"models": out}
+
+
+@router.get("/{model_id}/summary")
+async def model_summary(
+    model_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The model with its item tree annotated with mapped-inventory counts."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    model = await _get_model(db, model_id)
+    card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
+    items = await items_for(db, model_id)
+    card_codes = await scan_domain_card_codes(db, model.domain)
+    mappings = await explicit_mappings_for_model(db, model.id)
+    cov = compute_model_coverage(items, card_codes, mappings)
+    per_item = cov["per_item"]
+    out_items = []
+    for i in sort_items(items):
+        d = item_dict(i)
+        own, total = per_item.get(i.id, (set(), set()))
+        d["mapped_direct"] = len(own)
+        d["mapped_total"] = len(total)
+        out_items.append(d)
+    return {
+        "model": model_dict(model, item_count=len(items)),
+        "card_type": card_type,
+        "code_field": code_field,
+        "items": out_items,
+        "totals": {
+            "total_items": len(items),
+            "covered_items": cov["covered_items"],
+            "total_cards": cov["total_cards"],
+            "mapped_cards": cov["mapped_cards"],
+            "unmatched_cards": cov["unmatched_cards"],
+            "uncoded_cards": cov["uncoded_cards"],
+        },
+    }
+
+
+@router.get("/{model_id}/items/{item_id}/cards")
+async def item_mapped_cards(
+    model_id: uuid.UUID,
+    item_id: uuid.UUID,
+    include_descendants: bool = True,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Inventory cards mapped to one item — via the RM code field or an
+    explicit mapping row. Explicit mappings carry type/status/rationale; a
+    code-only match surfaces as an implicit ``primary`` mapping."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    model = await _get_model(db, model_id)
+    items = await items_for(db, model_id)
+    by_id = {i.id: i for i in items}
+    item = by_id.get(item_id)
+    if item is None or item.model_id != model.id:
+        raise HTTPException(404, "Item not found")
+
+    scope_ids = _descendant_item_ids(items, item.id) if include_descendants else {item.id}
+    scope_codes = {by_id[i].code for i in scope_ids if i in by_id}
+
+    _card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
+
+    # Explicit mappings to items in scope (keyed by card; prefer the one on the
+    # selected item itself over a descendant's for the surfaced metadata).
+    mappings = await explicit_mappings_for_model(db, model.id)
+    explicit_by_card: dict[uuid.UUID, ReferenceModelMapping] = {}
+    for m in mappings:
+        if m.item_id in scope_ids and m.mapping_status != "rejected":
+            cur = explicit_by_card.get(m.card_id)
+            if cur is None or (cur.item_id != item.id and m.item_id == item.id):
+                explicit_by_card[m.card_id] = m
+
+    # Code-matched cards of the domain type.
+    rows = await db.execute(select(Card).where(Card.status != "ARCHIVED"))
+    all_cards = {c.id: c for c in rows.scalars().all()}
+
+    result: list[dict] = []
+    seen: set[uuid.UUID] = set()
+
+    def _emit(card: Card, code: str | None, m: ReferenceModelMapping | None) -> None:
+        result.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "type": card.type,
+                "subtype": card.subtype,
+                "status": card.status,
+                "approval_status": card.approval_status,
+                "data_quality": card.data_quality,
+                "code": code,
+                "source": "explicit" if m else "code",
+                "mapping_id": str(m.id) if m else None,
+                "mapping_type": m.mapping_type if m else "primary",
+                "mapping_status": m.mapping_status if m else None,
+                "rationale": m.rationale if m else None,
+                "confidence": m.confidence if m else None,
+            }
+        )
+
+    for card in all_cards.values():
+        code = (card.attributes or {}).get(code_field)
+        code = code.strip() if isinstance(code, str) and code.strip() else None
+        m = explicit_by_card.get(card.id)
+        if (code and code in scope_codes) or m is not None:
+            seen.add(card.id)
+            _emit(card, code, m)
+        if len(result) >= 500:
+            break
+    # Explicit mappings whose card isn't of the domain type still surface.
+    for cid, m in explicit_by_card.items():
+        if cid not in seen and cid in all_cards and len(result) < 500:
+            card = all_cards[cid]
+            code = (card.attributes or {}).get(code_field)
+            code = code.strip() if isinstance(code, str) and code.strip() else None
+            _emit(card, code, m)
+
+    result.sort(key=lambda c: (c["code"] or "~", c["name"].lower()))
+    return {"item": item_dict(item), "code_field": code_field, "cards": result}
+
+
+# --------------------------------------------------------------------------- #
+# Explicit mappings (RMPlan Phase 2) — M:N card↔item with metadata
+# --------------------------------------------------------------------------- #
+@router.get("/items/{item_id}/mappings")
+async def list_item_mappings(
+    item_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Explicit mappings on one item, with the linked card's name/type."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    item = await _get_item(db, item_id)
+    rows = (
+        (
+            await db.execute(
+                select(ReferenceModelMapping).where(ReferenceModelMapping.item_id == item.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    card_ids = {m.card_id for m in rows}
+    cards = {}
+    if card_ids:
+        for c in (await db.execute(select(Card).where(Card.id.in_(card_ids)))).scalars().all():
+            cards[c.id] = {"id": str(c.id), "name": c.name, "type": c.type, "subtype": c.subtype}
+    names = await _user_names(db, {m.reviewed_by for m in rows})
+    return {
+        "mappings": [{**mapping_dict(m, names=names), "card": cards.get(m.card_id)} for m in rows]
+    }
+
+
+@router.post("/items/{item_id}/mappings")
+async def create_item_mapping(
+    item_id: uuid.UUID,
+    payload: MappingCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Map an inventory card to a reference-model item."""
+    await PermissionService.require_permission(db, user, "reference_models.map")
+    item = await _get_item(db, item_id)
+    card = (await db.execute(select(Card).where(Card.id == payload.card_id))).scalar_one_or_none()
+    if card is None:
+        raise HTTPException(404, "Card not found")
+    existing = (
+        await db.execute(
+            select(ReferenceModelMapping).where(
+                ReferenceModelMapping.item_id == item.id,
+                ReferenceModelMapping.card_id == payload.card_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(409, "This card is already mapped to this item")
+    now = datetime.now(timezone.utc)
+    mapping = ReferenceModelMapping(
+        model_id=item.model_id,
+        item_id=item.id,
+        card_id=payload.card_id,
+        mapping_type=payload.mapping_type,
+        mapping_status=payload.mapping_status,
+        rationale=payload.rationale,
+        confidence=payload.confidence,
+        reviewed_at=now if payload.mapping_status == "confirmed" else None,
+        reviewed_by=user.id if payload.mapping_status == "confirmed" else None,
+        created_by=user.id,
+    )
+    db.add(mapping)
+    await db.flush()
+    await event_bus.publish(
+        "reference_model_mapping.created",
+        {
+            "id": str(mapping.id),
+            "model_id": str(item.model_id),
+            "item_id": str(item.id),
+            "item_code": item.code,
+            "card_id": str(payload.card_id),
+            "card_name": card.name,
+            "mapping_type": mapping.mapping_type,
+        },
+        db=db,
+        user_id=user.id,
+        card_id=payload.card_id,
+    )
+    await db.commit()
+    return mapping_dict(mapping)
+
+
+@router.patch("/mappings/{mapping_id}")
+async def update_mapping(
+    mapping_id: uuid.UUID,
+    payload: MappingUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "reference_models.map")
+    mapping = (
+        await db.execute(
+            select(ReferenceModelMapping).where(ReferenceModelMapping.id == mapping_id)
+        )
+    ).scalar_one_or_none()
+    if mapping is None:
+        raise HTTPException(404, "Mapping not found")
+    data = payload.model_dump(exclude_unset=True)
+    if "mapping_type" in data:
+        mapping.mapping_type = data["mapping_type"]
+    if "rationale" in data:
+        mapping.rationale = data["rationale"]
+    if "confidence" in data:
+        mapping.confidence = data["confidence"]
+    if "mapping_status" in data and data["mapping_status"] != mapping.mapping_status:
+        mapping.mapping_status = data["mapping_status"]
+        if mapping.mapping_status == "confirmed":
+            mapping.reviewed_at = datetime.now(timezone.utc)
+            mapping.reviewed_by = user.id
+    await event_bus.publish(
+        "reference_model_mapping.updated",
+        {
+            "id": str(mapping.id),
+            "item_id": str(mapping.item_id),
+            "card_id": str(mapping.card_id),
+            "mapping_type": mapping.mapping_type,
+            "mapping_status": mapping.mapping_status,
+        },
+        db=db,
+        user_id=user.id,
+        card_id=mapping.card_id,
+    )
+    await db.commit()
+    return mapping_dict(mapping)
+
+
+@router.delete("/mappings/{mapping_id}", status_code=204)
+async def delete_mapping(
+    mapping_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "reference_models.map")
+    mapping = (
+        await db.execute(
+            select(ReferenceModelMapping).where(ReferenceModelMapping.id == mapping_id)
+        )
+    ).scalar_one_or_none()
+    if mapping is None:
+        raise HTTPException(404, "Mapping not found")
+    card_id = mapping.card_id
+    item_id = mapping.item_id
+    await db.delete(mapping)
+    await event_bus.publish(
+        "reference_model_mapping.deleted",
+        {"id": str(mapping_id), "item_id": str(item_id), "card_id": str(card_id)},
+        db=db,
+        user_id=user.id,
+        card_id=card_id,
+    )
+    await db.commit()
+
+
+@router.get("/{model_id}/unmapped-inventory")
+async def unmapped_inventory(
+    model_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cards of the model's domain type not mapped to any of its items —
+    neither via a resolving code field nor an explicit mapping."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    model = await _get_model(db, model_id)
+    card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
+    items = await items_for(db, model.id)
+    item_codes = {i.code for i in items}
+    mappings = await explicit_mappings_for_model(db, model.id)
+    mapped_card_ids = {m.card_id for m in mappings if m.mapping_status != "rejected"}
+
+    rows = await db.execute(select(Card).where(Card.type == card_type, Card.status != "ARCHIVED"))
+    cards = []
+    for card in rows.scalars().all():
+        if card.id in mapped_card_ids:
+            continue
+        code = (card.attributes or {}).get(code_field)
+        code = code.strip() if isinstance(code, str) and code.strip() else None
+        if code and code in item_codes:
+            continue  # classified via code
+        cards.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "type": card.type,
+                "subtype": card.subtype,
+                "status": card.status,
+                "approval_status": card.approval_status,
+                "data_quality": card.data_quality,
+                "code": code,  # a non-resolving code, or None (truly unclassified)
+            }
+        )
+    cards.sort(key=lambda c: c["name"].lower())
+    return {"card_type": card_type, "code_field": code_field, "cards": cards}
+
+
+@router.get("/{model_id}/gaps")
+async def coverage_gaps(
+    model_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Coverage + gap analysis (RMPlan Phase 4 / §8).
+
+    Classifies the model's leaf capabilities into: uncovered (no mapped card),
+    duplicate support (≥2 mapped cards — possible redundancy), and retiring-only
+    (every mapped card is phasing out / end-of-life). Returns KPI totals, the
+    flagged gap rows, and a per-leaf coverage matrix.
+    """
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    model = await _get_model(db, model_id)
+    card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
+    items = await items_for(db, model.id)
+    card_codes = await scan_domain_card_codes(db, model.domain)
+    mappings = await explicit_mappings_for_model(db, model.id)
+    cov = compute_model_coverage(items, card_codes, mappings)
+    per_item = cov["per_item"]  # {item_id: (own_set, total_set)}
+    leaves = leaf_item_ids(items)
+    by_id = {i.id: i for i in items}
+
+    # Card meta (name + lifecycle) for every card that could be mapped.
+    explicit_ids = {m.card_id for m in mappings if m.mapping_status != "rejected"}
+    where = Card.type == card_type
+    if explicit_ids:
+        where = or_(where, Card.id.in_(explicit_ids))
+    rows = await db.execute(
+        select(Card.id, Card.name, Card.lifecycle).where(where, Card.status != "ARCHIVED")
+    )
+    meta = {cid: (name, lifecycle) for cid, name, lifecycle in rows.all()}
+
+    gaps: list[dict] = []
+    matrix: list[dict] = []
+    uncovered = duplicate = retiring = 0
+
+    for iid in leaves:
+        item = by_id.get(iid)
+        if item is None:
+            continue
+        own = per_item.get(iid, (set(), set()))[0]
+        card_names = [meta.get(cid, ("", None))[0] for cid in own if cid in meta]
+        retiring_flag = bool(own) and all(is_retiring(meta.get(cid, ("", None))[1]) for cid in own)
+        coverage = "covered" if own else "none"
+        matrix.append(
+            {
+                "item_id": str(iid),
+                "code": item.code,
+                "name": item.name,
+                "name_ar": item.name_ar,
+                "mapped": len(own),
+                "coverage": coverage,
+                "lifecycle_risk": retiring_flag,
+                "duplicate": len(own) >= 2,
+            }
+        )
+        base = {
+            "item_id": str(iid),
+            "code": item.code,
+            "name": item.name,
+            "name_ar": item.name_ar,
+            "mapped": len(own),
+            "cards": sorted(n for n in card_names if n),
+        }
+        if not own:
+            uncovered += 1
+            gaps.append({**base, "kind": "no_mapping"})
+        else:
+            if len(own) >= 2:
+                duplicate += 1
+                gaps.append({**base, "kind": "duplicate"})
+            if retiring_flag:
+                retiring += 1
+                gaps.append({**base, "kind": "retiring_only"})
+
+    matrix.sort(key=lambda r: r["code"])
+    gap_order = {"no_mapping": 0, "duplicate": 1, "retiring_only": 2}
+    gaps.sort(key=lambda g: (gap_order.get(g["kind"], 9), g["code"]))
+    total_leaves = len(leaves)
+    covered_leaves = total_leaves - uncovered
+
+    return {
+        "model": model_dict(model, item_count=len(items)),
+        "totals": {
+            "total_items": len(items),
+            "total_leaves": total_leaves,
+            "covered_leaves": covered_leaves,
+            "uncovered_leaves": uncovered,
+            "duplicate_leaves": duplicate,
+            "retiring_leaves": retiring,
+            "unmapped_cards": cov["unmatched_cards"] + cov["uncoded_cards"],
+            "coverage_pct": round(covered_leaves / total_leaves * 100) if total_leaves else 0,
+        },
+        "gaps": gaps,
+        "matrix": matrix,
     }
 
 
@@ -298,6 +833,28 @@ async def update_model(
     return model_dict(model)
 
 
+@router.patch("/{model_id}/narrative")
+async def update_narrative(
+    model_id: uuid.UUID,
+    payload: NarrativePayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Replace the model's poster narrative (RMPlan Phase 3)."""
+    await PermissionService.require_permission(db, user, "reference_models.manage")
+    model = await _get_model(db, model_id)
+    model.narrative = payload.model_dump()
+    await event_bus.publish(
+        "reference_model.narrative_updated",
+        {"id": str(model.id), "panels": len(payload.panels)},
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    items = await items_for(db, model.id)
+    return model_dict(model, item_count=len(items))
+
+
 @router.delete("/{model_id}")
 async def delete_model(
     model_id: uuid.UUID,
@@ -316,13 +873,75 @@ async def delete_model(
 # --------------------------------------------------------------------------- #
 # Lifecycle
 # --------------------------------------------------------------------------- #
-@router.post("/{model_id}/publish")
-async def publish_model(
+class SubmitPayload(BaseModel):
+    change_summary: str | None = Field(default=None, max_length=2000)
+
+
+class RejectPayload(BaseModel):
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/{model_id}/submit")
+async def submit_for_review(
     model_id: uuid.UUID,
+    payload: SubmitPayload | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Publish a model (supersedes the previously published RM of its domain)."""
+    """Move a draft into review (the governance gate before publishing)."""
+    await PermissionService.require_permission(db, user, "reference_models.manage")
+    model = await _get_model(db, model_id)
+    if model.status not in ("draft",):
+        raise HTTPException(400, "Only a draft can be submitted for review")
+    model.status = "in_review"
+    await event_bus.publish(
+        "reference_model.submitted",
+        {"id": str(model.id), "domain": model.domain, "name": model.name},
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    return model_dict(model)
+
+
+@router.post("/{model_id}/reject")
+async def reject_model(
+    model_id: uuid.UUID,
+    payload: RejectPayload | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reject a model in review, sending it back to draft (governance action)."""
+    await PermissionService.require_permission(db, user, "reference_models.manage")
+    await PermissionService.require_permission(db, user, "governance.approve_step")
+    model = await _get_model(db, model_id)
+    if model.status != "in_review":
+        raise HTTPException(400, "Only a model in review can be rejected")
+    model.status = "draft"
+    await event_bus.publish(
+        "reference_model.rejected",
+        {
+            "id": str(model.id),
+            "domain": model.domain,
+            "name": model.name,
+            "reason": (payload.reason if payload else None),
+        },
+        db=db,
+        user_id=user.id,
+    )
+    await db.commit()
+    return model_dict(model)
+
+
+@router.post("/{model_id}/publish")
+async def publish_model(
+    model_id: uuid.UUID,
+    payload: SubmitPayload | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Publish a model (supersedes the previously published RM of its domain)
+    and snapshot its item tree as a preserved version."""
     await PermissionService.require_permission(db, user, "reference_models.manage")
     await PermissionService.require_permission(db, user, "governance.approve_step")
     model = await _get_model(db, model_id)
@@ -333,22 +952,118 @@ async def publish_model(
     if superseded is not None and superseded.id != model.id:
         superseded.status = "archived"
 
+    now = datetime.now(timezone.utc)
     model.status = "published"
     model.published_by = user.id
-    model.published_at = datetime.now(timezone.utc)
+    model.published_at = now
+
+    items = await items_for(db, model.id)
+    db.add(
+        ReferenceModelVersion(
+            model_id=model.id,
+            version=model.version,
+            change_summary=(payload.change_summary if payload else None),
+            snapshot=snapshot_items(items),
+            item_count=len(items),
+            published_by=user.id,
+            published_at=now,
+        )
+    )
     await event_bus.publish(
         "reference_model.published",
         {
             "id": str(model.id),
             "domain": model.domain,
             "name": model.name,
+            "version": model.version,
             "superseded_id": str(superseded.id) if superseded else None,
         },
         db=db,
         user_id=user.id,
     )
     await db.commit()
-    return model_dict(model)
+    return model_dict(model, item_count=len(items))
+
+
+@router.get("/{model_id}/versions")
+async def list_versions(
+    model_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Preserved publish snapshots for a model, newest first."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    model = await _get_model(db, model_id)
+    versions = await versions_for(db, model.id)
+    names = await _user_names(db, {v.published_by for v in versions})
+    return {"versions": [version_dict(v, names=names) for v in versions]}
+
+
+@router.get("/{model_id}/versions/{version_id}")
+async def get_version(
+    model_id: uuid.UUID,
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    version = (
+        await db.execute(
+            select(ReferenceModelVersion).where(
+                ReferenceModelVersion.id == version_id,
+                ReferenceModelVersion.model_id == model_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if version is None:
+        raise HTTPException(404, "Version not found")
+    names = await _user_names(db, {version.published_by})
+    return version_dict(version, names=names, include_snapshot=True)
+
+
+@router.get("/{model_id}/versions/{version_id}/diff")
+async def diff_version(
+    model_id: uuid.UUID,
+    version_id: uuid.UUID,
+    against: str = "current",
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Diff a version against the live model (``against=current``) or another
+    version (``against=<version_id>``), by item code."""
+    await PermissionService.require_permission(db, user, "reference_models.view")
+    model = await _get_model(db, model_id)
+
+    async def _load(vid: uuid.UUID) -> ReferenceModelVersion:
+        v = (
+            await db.execute(
+                select(ReferenceModelVersion).where(
+                    ReferenceModelVersion.id == vid,
+                    ReferenceModelVersion.model_id == model_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if v is None:
+            raise HTTPException(404, "Version not found")
+        return v
+
+    base = await _load(version_id)
+    if against == "current":
+        after = snapshot_items(await items_for(db, model.id))
+        after_label = "current"
+    else:
+        try:
+            other_id = uuid.UUID(against)
+        except ValueError as exc:
+            raise HTTPException(422, "against must be 'current' or a version id") from exc
+        other = await _load(other_id)
+        after = other.snapshot or []
+        after_label = str(other.id)
+    return {
+        "base": {"version_id": str(base.id), "version": base.version},
+        "against": after_label,
+        "diff": diff_snapshots(base.snapshot or [], after),
+    }
 
 
 @router.post("/{model_id}/archive")

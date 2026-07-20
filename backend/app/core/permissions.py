@@ -268,6 +268,10 @@ APP_PERMISSIONS: dict[str, dict] = {
                 "Create, edit, import and archive reference models and their items. "
                 "Publishing a model additionally requires governance.approve_step."
             ),
+            "reference_models.map": (
+                "Map inventory cards to reference-model items (create, edit and "
+                "remove mappings with type, rationale and confidence)"
+            ),
         },
     },
     "ai": {
@@ -477,6 +481,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "maturity.manage": False,
     "reference_models.view": True,
     "reference_models.manage": False,
+    "reference_models.map": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -576,6 +581,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "maturity.manage": False,
     "reference_models.view": True,
     "reference_models.manage": False,
+    "reference_models.map": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -675,6 +681,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "maturity.manage": False,
     "reference_models.view": True,
     "reference_models.manage": False,
+    "reference_models.map": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,

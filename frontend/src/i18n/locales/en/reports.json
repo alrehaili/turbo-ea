@@ -1510,6 +1510,7 @@
     },
     "status": {
       "draft": "Draft",
+      "in_review": "In review",
       "published": "Published",
       "archived": "Archived"
     },
@@ -1525,6 +1526,133 @@
     "parent": "Parent item",
     "noParent": "None (root item)",
     "export": "Export (.xlsx)"
+  },
+  "rmBrowse": {
+    "title": "Reference Models",
+    "subtitle": "Browse each domain's published reference model, its hierarchy, and how your architecture inventory maps to it.",
+    "manage": "Manage models",
+    "openModel": "Open model",
+    "items": "Items",
+    "mappedCards": "Mapped cards",
+    "coverage": "Coverage",
+    "unmatched": "Unmatched codes",
+    "uncoded": "Unclassified cards",
+    "noPublished": "No published reference model in this domain yet.",
+    "unknownDomain": "Unknown reference model domain.",
+    "backToModels": "All reference models",
+    "viewMap": "Map",
+    "viewTree": "Tree",
+    "viewTable": "Table",
+    "searchPlaceholder": "Search code or name…",
+    "noItems": "No items match your search.",
+    "colLevel": "Level",
+    "colMappedDirect": "Mapped (direct)",
+    "colMappedTotal": "Mapped (incl. children)",
+    "covered": "Mapped",
+    "partial": "Via children",
+    "notMapped": "Not mapped",
+    "mappedTotalHint": "Mapped inventory cards, including child components",
+    "mappedInventory_one": "Mapped inventory ({{count}})",
+    "mappedInventory_other": "Mapped inventory ({{count}})",
+    "mappedInventoryEmpty": "No inventory cards are mapped to this component yet.",
+    "includesDescendants": "Includes cards mapped to child components via the {{field}} attribute.",
+    "viewCoverage": "Coverage",
+    "viewUnmapped": "Unmapped",
+    "unmappedHint": "{{count}} card(s) of this type are not mapped to any component of this model.",
+    "unmappedEmpty": "Every card of this type is mapped."
+  },
+  "rmMap": {
+    "addTitle": "Map a card",
+    "editTitle": "Edit mapping",
+    "card": "Inventory card",
+    "mappingType": "Mapping type",
+    "mappingStatus": "Status",
+    "rationale": "Mapping rationale",
+    "confidence": "Confidence",
+    "confidenceHint": "Optional 0–100 confidence score.",
+    "type": {
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "supporting": "Supporting",
+      "candidate": "Candidate",
+      "historical": "Historical"
+    },
+    "status": {
+      "proposed": "Proposed",
+      "confirmed": "Confirmed",
+      "rejected": "Rejected"
+    }
+  },
+  "rmPoster": {
+    "editTitle": "Poster content",
+    "addPanel": "Add panel",
+    "loadStarter": "Load starter panels",
+    "empty": "No poster panels yet. Add one, or load the starter set.",
+    "saved": "Poster content saved",
+    "kind": "Kind",
+    "kindText": "Text",
+    "kindList": "List",
+    "placement": "Placement",
+    "placementHeader": "Header band",
+    "placementGrid": "Grid",
+    "title": "Title",
+    "titleAr": "Title (Arabic)",
+    "text": "Text",
+    "textAr": "Text (Arabic)",
+    "itemsHint": "Items (one per line)",
+    "itemsArHint": "Items — Arabic (one per line)",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
+  },
+  "rmGap": {
+    "gapsTitle": "Gaps ({{count}})",
+    "noGaps": "No coverage gaps — every capability is mapped, singly supported and current.",
+    "matrixTitle": "Coverage matrix",
+    "colMapped": "Mapped",
+    "colLifecycleRisk": "Risk",
+    "tile": {
+      "coverage": "Coverage",
+      "covered": "Covered",
+      "uncovered": "Uncovered",
+      "duplicate": "Duplicate support",
+      "retiring": "Retiring only",
+      "unmapped": "Unmapped cards"
+    },
+    "kind": {
+      "no_mapping": "No mapping",
+      "duplicate": "Duplicate support",
+      "retiring_only": "Retiring only"
+    },
+    "coverage": {
+      "covered": "Covered",
+      "none": "Not mapped"
+    }
+  },
+  "rmVersion": {
+    "title": "Version history",
+    "empty": "No published versions yet. Publishing a model records a snapshot here.",
+    "history": "Published versions",
+    "noSummary": "(no change summary)",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "compare": "Compare versions",
+    "base": "Base version",
+    "against": "Compare with",
+    "current": "Current (live)",
+    "runCompare": "Compare",
+    "added_one": "{{count}} added",
+    "added_other": "{{count}} added",
+    "removed_one": "{{count}} removed",
+    "removed_other": "{{count}} removed",
+    "changed_one": "{{count}} changed",
+    "changed_other": "{{count}} changed",
+    "unchanged_one": "{{count}} unchanged",
+    "unchanged_other": "{{count}} unchanged",
+    "identical": "The two versions are identical."
+  },
+  "rmReview": {
+    "submit": "Submit for review",
+    "reject": "Reject (back to draft)"
   },
   "personaBeneficiaryMapping": {
     "title": "Persona→Beneficiary Mapping",

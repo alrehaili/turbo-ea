@@ -216,6 +216,8 @@
   "reports.securitySummary": "ملخص الأمن",
   "governance.maturity": "نضج البنية المؤسسية",
   "governance.referenceModels": "النماذج المرجعية",
+  "referenceModels": "النماذج المرجعية",
+  "referenceModels.all": "جميع النماذج",
   "userMenu.noraProfile": "ملف نورا",
   "userMenu.noraActivated": "تم تفعيل ملف نورا — أنواع البطاقات والحقول وأدوات البرنامج الخاصة بنورا متاحة الآن.",
   "userMenu.noraActivationFailed": "تعذر تفعيل ملف نورا. تحقق من صلاحياتك وحاول مرة أخرى.",

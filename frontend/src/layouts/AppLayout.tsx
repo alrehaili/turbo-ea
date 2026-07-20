@@ -40,6 +40,11 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
+import { useActiveReferenceModels } from "@/hooks/useActiveReferenceModels";
+import {
+  RM_DOMAIN_META,
+  RM_DOMAIN_ORDER,
+} from "@/features/reference-models/browse/domainMeta";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { useNavbarStyle } from "@/hooks/useNavbarStyle";
@@ -158,6 +163,21 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
     ],
   },
   {
+    // Reference Models browse (RMPlan Phase 1) — NORA-only, filtered below.
+    // Per-domain children are injected dynamically from the published-model
+    // probe so only domains with an active model appear.
+    labelKey: "referenceModels",
+    icon: "schema",
+    permission: "reference_models.view",
+    children: [
+      {
+        labelKey: "referenceModels.all",
+        icon: "apps",
+        path: "/reference-models",
+      },
+    ],
+  },
+  {
     // Change-governance workflow tools (full CRUD), kept distinct from the
     // read-only analytics under Reports.
     labelKey: "governance",
@@ -199,8 +219,8 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       {
         labelKey: "governance.referenceModels",
         icon: "schema",
-        path: "/reference-models",
-        permission: "reference_models.view",
+        path: "/reference-models/manage",
+        permission: "reference_models.manage",
       },
     ],
   },
@@ -263,6 +283,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   }, [frameworkProfile, invalidateProfile, invalidateMetamodel]);
   const { sponsorButtonEnabled } = useSponsorButtonEnabled();
   const { turboLensReady } = useTurboLensReady();
+  const { summary: rmSummary } = useActiveReferenceModels();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
   const appTitle = useAppTitle();
@@ -329,7 +350,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
     if (!grcEnabled) items = items.filter((item) => item.labelKey !== "grc");
     if (frameworkProfile !== "nora") {
-      items = items.filter((item) => item.labelKey !== "noraProgram");
+      items = items.filter(
+        (item) => item.labelKey !== "noraProgram" && item.labelKey !== "referenceModels",
+      );
       // EA Maturity + Reference Models live under Governance but are
       // NORA-methodology tools.
       const noraOnly = ["governance.maturity", "governance.referenceModels"];
@@ -357,6 +380,25 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       const insertAt = diagramsIdx >= 0 ? diagramsIdx : items.length;
       items = [...items.slice(0, insertAt), eaDeliveryItem, ...items.slice(insertAt)];
     }
+
+    // Reference Models dropdown: append one entry per domain that currently
+    // has a *published* model (probe is cached + permission-gated; before it
+    // resolves — or when nothing is published — only the landing entry shows).
+    items = items.map((item) =>
+      item.labelKey === "referenceModels" && item.children
+        ? {
+            ...item,
+            children: [
+              ...item.children,
+              ...RM_DOMAIN_ORDER.filter((d) => rmSummary[d]).map((d) => ({
+                labelKey: `noraProgram.domain.${d}`,
+                icon: RM_DOMAIN_META[d].icon,
+                path: `/reference-models/${d}`,
+              })),
+            ],
+          }
+        : item,
+    );
 
     // Append single TurboLens entry to Reports dropdown when AI is configured
     if (turboLensReady && can("turbolens.view")) {
@@ -428,7 +470,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     });
 
     return items.filter((item) => hasPerm(item.permission)).map(resolve);
-  }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, uiExtensions, can, t]);
+  }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, rmSummary, uiExtensions, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {

@@ -34,7 +34,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -49,7 +49,17 @@ RM_DOMAINS = (
     "security",
 )
 RM_SOURCES = ("national", "sectoral", "agency")
-RM_STATUSES = ("draft", "published", "archived")
+# draft → in_review → published → archived. in_review is the governance gate
+# (submit for review; a governance.approve_step holder publishes or rejects).
+RM_STATUSES = ("draft", "in_review", "published", "archived")
+
+# Explicit card↔item mapping metadata (WP100.3 Phase 2 / RMPlan §6-7, §11).
+# The lightweight card-detail *code field* (brmCode/…) expresses a card's single
+# primary classification; this table adds the M:N richer mappings — secondary /
+# supporting / candidate / historical — with a rationale, a confidence and a
+# review status. Coverage/browse counts merge both (dedup by card).
+RM_MAPPING_TYPES = ("primary", "secondary", "supporting", "candidate", "historical")
+RM_MAPPING_STATUSES = ("proposed", "confirmed", "rejected")
 
 
 class ReferenceModel(UUIDMixin, TimestampMixin, Base):
@@ -74,6 +84,11 @@ class ReferenceModel(UUIDMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Poster narrative (RMPlan Phase 3 / §18) — editable panels (mission, vision,
+    # objectives, stakeholders, principles, KPIs, value, …) rendered around the
+    # capability map. Shape: {"panels": [NarrativePanel, ...]}. Generic on
+    # purpose so admins add/reorder panels without a schema change per model type.
+    narrative: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_reference_models_domain", "domain"),
@@ -106,4 +121,74 @@ class ReferenceModelItem(UUIDMixin, TimestampMixin, Base):
         UniqueConstraint("model_id", "code", name="uq_reference_model_items_model_code"),
         Index("ix_reference_model_items_model", "model_id"),
         Index("ix_reference_model_items_parent", "parent_id"),
+    )
+
+
+class ReferenceModelVersion(UUIDMixin, TimestampMixin, Base):
+    """A preserved snapshot of a reference model captured at publish time.
+
+    Published models are never silently overwritten — each publish records the
+    item tree as it was approved, so history is preserved and any two versions
+    (or a version vs. the live model) can be compared. [FORK] RMPlan Phase 5.
+    """
+
+    __tablename__ = "reference_model_versions"
+
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reference_models.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version: Mapped[str] = mapped_column(String(32), default="1.0")
+    change_summary: Mapped[str | None] = mapped_column(Text)
+    # Frozen item tree: list of {code, parent_code, name, name_ar, description,
+    # sort_order}. Codes are stable, so this is directly diff-able by code.
+    snapshot: Mapped[list | None] = mapped_column(JSONB, default=list)
+    item_count: Mapped[int] = mapped_column(Integer, default=0)
+    published_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (Index("ix_reference_model_versions_model", "model_id"),)
+
+
+class ReferenceModelMapping(UUIDMixin, TimestampMixin, Base):
+    """One explicit mapping between a reference-model item and an inventory card."""
+
+    __tablename__ = "reference_model_mappings"
+
+    model_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reference_models.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reference_model_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    mapping_type: Mapped[str] = mapped_column(String(16), default="primary")
+    mapping_status: Mapped[str] = mapped_column(String(16), default="confirmed")
+    rationale: Mapped[str | None] = mapped_column(Text)
+    # 0-100 human/AI confidence (Phase 6 assisted mapping fills this in).
+    confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("item_id", "card_id", name="uq_reference_model_mappings_item_card"),
+        Index("ix_reference_model_mappings_model", "model_id"),
+        Index("ix_reference_model_mappings_item", "item_id"),
+        Index("ix_reference_model_mappings_card", "card_id"),
     )

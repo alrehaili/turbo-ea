@@ -130,6 +130,7 @@ export interface FieldOption {
   key: string;
   label: string;
   color?: string;
+  icon?: string;
   translations?: TranslationMap;
   // Relation "type" values (e.g. usageType owner/user) carry these. Built-in
   // values ship from the seed and are locked-but-hideable; custom values are
@@ -2233,7 +2234,64 @@ export type ReferenceModelDomain =
   | "technology"
   | "security";
 export type ReferenceModelSource = "national" | "sectoral" | "agency";
-export type ReferenceModelStatus = "draft" | "published" | "archived";
+export type ReferenceModelStatus = "draft" | "in_review" | "published" | "archived";
+
+// Versioning & governance (RMPlan Phase 5).
+export interface ReferenceModelVersion {
+  id: string;
+  model_id: string;
+  version: string;
+  change_summary: string | null;
+  item_count: number;
+  published_by: string | null;
+  published_by_display_name?: string | null;
+  published_at: string | null;
+  created_at: string | null;
+  snapshot?: ReferenceModelVersionSnapshotRow[];
+}
+
+export interface ReferenceModelVersionSnapshotRow {
+  code: string;
+  parent_code: string | null;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  sort_order: number;
+}
+
+export interface ReferenceModelVersionDiff {
+  base: { version_id: string; version: string };
+  against: string;
+  diff: {
+    added: ReferenceModelVersionSnapshotRow[];
+    removed: ReferenceModelVersionSnapshotRow[];
+    changed: {
+      code: string;
+      fields: string[];
+      before: ReferenceModelVersionSnapshotRow;
+      after: ReferenceModelVersionSnapshotRow;
+    }[];
+    unchanged: number;
+    counts: { added: number; removed: number; changed: number; unchanged: number };
+  };
+}
+
+// Poster narrative (RMPlan Phase 3 / §18) — editable panels around the map.
+export interface ReferenceModelNarrativePanel {
+  id: string;
+  title: string;
+  title_ar: string;
+  kind: "text" | "list";
+  text: string;
+  text_ar: string;
+  items: string[];
+  items_ar: string[];
+  placement: "header" | "grid";
+}
+
+export interface ReferenceModelNarrative {
+  panels: ReferenceModelNarrativePanel[];
+}
 
 export interface ReferenceModel {
   id: string;
@@ -2252,6 +2310,7 @@ export interface ReferenceModel {
   published_at: string | null;
   created_at: string | null;
   item_count?: number;
+  narrative?: ReferenceModelNarrative;
 }
 
 export interface ReferenceModelItem {
@@ -2263,4 +2322,121 @@ export interface ReferenceModelItem {
   name_ar: string | null;
   description: string | null;
   sort_order: number;
+}
+
+// Browse pages (RMPlan Phase 1) — /reference-models landing + per-domain views.
+export interface ReferenceModelItemWithCounts extends ReferenceModelItem {
+  mapped_direct: number;
+  mapped_total: number;
+}
+
+export interface ReferenceModelSummaryTotals {
+  total_items: number;
+  covered_items: number;
+  total_cards: number;
+  mapped_cards: number;
+  unmatched_cards: number;
+  uncoded_cards: number;
+}
+
+export interface ReferenceModelSummary {
+  model: ReferenceModel;
+  card_type: string;
+  code_field: string;
+  items: ReferenceModelItemWithCounts[];
+  totals: ReferenceModelSummaryTotals;
+}
+
+export interface ReferenceModelOverviewEntry {
+  domain: ReferenceModelDomain;
+  card_type: string;
+  code_field: string;
+  model: ReferenceModel | null;
+  covered_items?: number;
+  total_cards?: number;
+  mapped_cards?: number;
+  unmatched_cards?: number;
+  uncoded_cards?: number;
+}
+
+export type ReferenceModelMappingType =
+  | "primary"
+  | "secondary"
+  | "supporting"
+  | "candidate"
+  | "historical";
+export type ReferenceModelMappingStatus = "proposed" | "confirmed" | "rejected";
+
+// Coverage & gap analysis (RMPlan Phase 4).
+export interface ReferenceModelGap {
+  item_id: string;
+  code: string;
+  name: string;
+  name_ar: string | null;
+  mapped: number;
+  cards: string[];
+  kind: "no_mapping" | "duplicate" | "retiring_only";
+}
+
+export interface ReferenceModelCoverageRow {
+  item_id: string;
+  code: string;
+  name: string;
+  name_ar: string | null;
+  mapped: number;
+  coverage: "covered" | "none";
+  lifecycle_risk: boolean;
+  duplicate: boolean;
+}
+
+export interface ReferenceModelGapsResponse {
+  model: ReferenceModel;
+  totals: {
+    total_items: number;
+    total_leaves: number;
+    covered_leaves: number;
+    uncovered_leaves: number;
+    duplicate_leaves: number;
+    retiring_leaves: number;
+    unmapped_cards: number;
+    coverage_pct: number;
+  };
+  gaps: ReferenceModelGap[];
+  matrix: ReferenceModelCoverageRow[];
+}
+
+export interface ReferenceModelMappedCard {
+  id: string;
+  name: string;
+  type: string;
+  subtype: string | null;
+  status: string;
+  approval_status: string | null;
+  data_quality: number | null;
+  code: string | null;
+  // Phase 2 — how the card is mapped. "code" = implicit primary from the card's
+  // code attribute; "explicit" = a reference_model_mappings row.
+  source: "code" | "explicit";
+  mapping_id: string | null;
+  mapping_type: ReferenceModelMappingType;
+  mapping_status: ReferenceModelMappingStatus | null;
+  rationale: string | null;
+  confidence: number | null;
+}
+
+export interface ReferenceModelMapping {
+  id: string;
+  model_id: string;
+  item_id: string;
+  card_id: string;
+  mapping_type: ReferenceModelMappingType;
+  mapping_status: ReferenceModelMappingStatus;
+  rationale: string | null;
+  confidence: number | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  reviewed_by_display_name?: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  card?: { id: string; name: string; type: string; subtype: string | null } | null;
 }

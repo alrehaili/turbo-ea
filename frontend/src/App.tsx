@@ -44,6 +44,12 @@ const GapAnalysisReport = lazy(() => import("@/features/reports/GapAnalysisRepor
 const NoraProgramPage = lazy(() => import("@/features/nora/NoraProgramPage"));
 const MaturityPage = lazy(() => import("@/features/maturity/MaturityPage"));
 const ReferenceModelsPage = lazy(() => import("@/features/reference-models/ReferenceModelsPage"));
+const ReferenceModelsLanding = lazy(
+  () => import("@/features/reference-models/browse/ReferenceModelsLanding"),
+);
+const ReferenceModelBrowsePage = lazy(
+  () => import("@/features/reference-models/browse/ReferenceModelBrowsePage"),
+);
 const OrgChartReport = lazy(() => import("@/features/reports/OrgChartReport"));
 const ServiceTraceabilityReport = lazy(
   () => import("@/features/reports/ServiceTraceabilityReport"),
@@ -277,7 +283,9 @@ function AppRoutes() {
                 <Route path="/reports/gap-analysis" element={<GapAnalysisReport />} />
                 <Route path="/nora-program" element={<NoraProgramPage />} />
                 <Route path="/maturity" element={<MaturityPage />} />
-                <Route path="/reference-models" element={<ReferenceModelsPage />} />
+                <Route path="/reference-models" element={<ReferenceModelsLanding />} />
+                <Route path="/reference-models/manage" element={<ReferenceModelsPage />} />
+                <Route path="/reference-models/:domain" element={<ReferenceModelBrowsePage />} />
                 <Route path="/reports/org-chart" element={<OrgChartReport />} />
                 <Route path="/reports/service-traceability" element={<ServiceTraceabilityReport />} />
                 <Route path="/reports/kpi-scorecard" element={<KpiScorecardReport />} />

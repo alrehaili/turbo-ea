@@ -10,6 +10,7 @@ unit-testable without a request.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from io import BytesIO
 
 from openpyxl import Workbook, load_workbook
@@ -17,9 +18,28 @@ from openpyxl.styles import Font
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.reference_model import ReferenceModel, ReferenceModelItem
+from app.models.card import Card
+from app.models.reference_model import (
+    ReferenceModel,
+    ReferenceModelItem,
+    ReferenceModelMapping,
+    ReferenceModelVersion,
+)
 
 _HEADER_FONT = Font(bold=True)
+
+# Domain → (card type key, card-attribute code field) that carries the RM
+# classification of inventory cards. The same wiring backs the card-detail
+# code pickers and the Reference Models report; browse pages count mapped
+# inventory through it.
+RM_DOMAIN_CARD_TYPES: dict[str, tuple[str, str]] = {
+    "business": ("BusinessCapability", "brmCode"),
+    "beneficiaryExperience": ("GovService", "bxrmCode"),
+    "applications": ("Application", "armCode"),
+    "data": ("DataObject", "drmCode"),
+    "technology": ("ITComponent", "trmCode"),
+    "security": ("SecurityControl", "srmCode"),
+}
 
 RM_EXPORT_HEADERS = ["Code", "Parent Code", "Name", "Name (Arabic)", "Description", "Sort Order"]
 
@@ -88,6 +108,7 @@ def model_dict(m: ReferenceModel, item_count: int | None = None, names: dict | N
         "published_by_display_name": names.get(m.published_by),
         "published_at": m.published_at.isoformat() if m.published_at else None,
         "created_at": m.created_at.isoformat() if m.created_at else None,
+        "narrative": m.narrative or {"panels": []},
     }
     if item_count is not None:
         out["item_count"] = item_count
@@ -151,6 +172,264 @@ async def item_counts(db: AsyncSession, model_ids: list[uuid.UUID]) -> dict[uuid
         .group_by(ReferenceModelItem.model_id)
     )
     return dict(res.all())
+
+
+async def scan_domain_card_codes(
+    db: AsyncSession, domain: str
+) -> list[tuple[uuid.UUID, str | None]]:
+    """``(card_id, code_or_None)`` for every non-archived card of the domain type."""
+    wiring = RM_DOMAIN_CARD_TYPES.get(domain)
+    if wiring is None:
+        return []
+    card_type, code_field = wiring
+    rows = await db.execute(
+        select(Card.id, Card.attributes).where(Card.type == card_type, Card.status != "ARCHIVED")
+    )
+    out: list[tuple[uuid.UUID, str | None]] = []
+    for cid, attributes in rows.all():
+        code = (attributes or {}).get(code_field)
+        code = code.strip() if isinstance(code, str) and code.strip() else None
+        out.append((cid, code))
+    return out
+
+
+async def explicit_mappings_for_model(
+    db: AsyncSession, model_id: uuid.UUID
+) -> list[ReferenceModelMapping]:
+    return list(
+        (
+            await db.execute(
+                select(ReferenceModelMapping).where(ReferenceModelMapping.model_id == model_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def subtree_id_sets(
+    items: list[ReferenceModelItem], direct: dict[uuid.UUID, set[uuid.UUID]]
+) -> dict[uuid.UUID, tuple[set[uuid.UUID], set[uuid.UUID]]]:
+    """Per-item ``(own_card_ids, descendant-inclusive_card_ids)``.
+
+    ``direct`` maps *item id* → set of directly-mapped card ids. Cycle-safe.
+    """
+    children: dict[uuid.UUID | None, list[ReferenceModelItem]] = {}
+    known = {i.id for i in items}
+    for item in items:
+        parent = item.parent_id if item.parent_id in known else None
+        children.setdefault(parent, []).append(item)
+
+    out: dict[uuid.UUID, tuple[set[uuid.UUID], set[uuid.UUID]]] = {}
+
+    def walk(item: ReferenceModelItem, seen: set[uuid.UUID]) -> set[uuid.UUID]:
+        if item.id in seen:
+            return set()
+        seen.add(item.id)
+        own = set(direct.get(item.id, set()))
+        total = set(own)
+        for child in children.get(item.id, []):
+            total |= walk(child, seen)
+        out[item.id] = (own, total)
+        return total
+
+    for root in children.get(None, []):
+        walk(root, set())
+    for item in items:  # defensive: any node a cycle excluded still gets a row
+        d = set(direct.get(item.id, set()))
+        out.setdefault(item.id, (d, set(d)))
+    return out
+
+
+def compute_model_coverage(
+    items: list[ReferenceModelItem],
+    card_codes: list[tuple[uuid.UUID, str | None]],
+    mappings: list[ReferenceModelMapping],
+) -> dict:
+    """Merge code-attribute classification with explicit mappings (dedup by card).
+
+    A card maps to an item if its code equals ``item.code`` OR a non-rejected
+    explicit mapping row links the two. Model-level KPIs partition the domain's
+    cards into mapped / unmatched (a code that resolves to no item) / uncoded.
+    Returns ``{per_item, total_cards, mapped_cards, unmatched_cards,
+    uncoded_cards, covered_items}``.
+    """
+    item_codes = {i.code for i in items}
+    code_ids: dict[str, set[uuid.UUID]] = {}
+    for cid, code in card_codes:
+        if code:
+            code_ids.setdefault(code, set()).add(cid)
+
+    direct: dict[uuid.UUID, set[uuid.UUID]] = {
+        i.id: set(code_ids.get(i.code, set())) for i in items
+    }
+    explicit_card_ids: set[uuid.UUID] = set()
+    for m in mappings:
+        if m.mapping_status != "rejected":
+            direct.setdefault(m.item_id, set()).add(m.card_id)
+            explicit_card_ids.add(m.card_id)
+
+    per_item = subtree_id_sets(items, direct)
+    covered_items = sum(1 for _own, total in per_item.values() if total)
+
+    mapped = {
+        cid for cid, code in card_codes if (code and code in item_codes) or cid in explicit_card_ids
+    }
+    unmatched = {cid for cid, code in card_codes if cid not in mapped and code}
+    uncoded = {cid for cid, code in card_codes if cid not in mapped and not code}
+
+    return {
+        "per_item": per_item,
+        "total_cards": len(card_codes),
+        "mapped_cards": len(mapped),
+        "unmatched_cards": len(unmatched),
+        "uncoded_cards": len(uncoded),
+        "covered_items": covered_items,
+    }
+
+
+_RETIRING_PHASES = {"phaseOut", "endOfLife"}
+
+
+def current_lifecycle_phase(lifecycle: dict | None) -> str | None:
+    """The card's current lifecycle phase from its dated phases (latest ≤ today)."""
+    if not lifecycle:
+        return None
+    today = datetime.now(timezone.utc).date()
+    for phase in ("endOfLife", "phaseOut", "active", "phaseIn", "plan"):
+        raw = lifecycle.get(phase)
+        if not raw:
+            continue
+        try:
+            d = (
+                datetime.fromisoformat(str(raw)).date()
+                if "T" in str(raw)
+                else datetime.strptime(str(raw), "%Y-%m-%d").date()
+            )
+        except (ValueError, TypeError):
+            continue
+        if d <= today:
+            return phase
+    for phase in ("plan", "phaseIn", "active", "phaseOut", "endOfLife"):
+        if lifecycle.get(phase):
+            return phase
+    return None
+
+
+def is_retiring(lifecycle: dict | None) -> bool:
+    return current_lifecycle_phase(lifecycle) in _RETIRING_PHASES
+
+
+def leaf_item_ids(items: list[ReferenceModelItem]) -> set[uuid.UUID]:
+    """Item ids that have no children (the mappable capabilities)."""
+    parents = {i.parent_id for i in items if i.parent_id is not None}
+    return {i.id for i in items if i.id not in parents}
+
+
+def snapshot_items(items: list[ReferenceModelItem]) -> list[dict]:
+    """Freeze the item tree into a code-keyed, diff-able snapshot list."""
+    by_id = {i.id: i for i in items}
+    out = []
+    for i in sort_items(items):
+        parent = by_id.get(i.parent_id) if i.parent_id else None
+        out.append(
+            {
+                "code": i.code,
+                "parent_code": parent.code if parent else None,
+                "name": i.name,
+                "name_ar": i.name_ar,
+                "description": i.description,
+                "sort_order": i.sort_order,
+            }
+        )
+    return out
+
+
+_DIFF_FIELDS = ("name", "name_ar", "description", "parent_code", "sort_order")
+
+
+def diff_snapshots(before: list[dict], after: list[dict]) -> dict:
+    """Diff two snapshots by code → added / removed / changed / unchanged."""
+    a = {r["code"]: r for r in (before or [])}
+    b = {r["code"]: r for r in (after or [])}
+    added = [b[c] for c in b if c not in a]
+    removed = [a[c] for c in a if c not in b]
+    changed = []
+    unchanged = 0
+    for code in a.keys() & b.keys():
+        fields = [f for f in _DIFF_FIELDS if a[code].get(f) != b[code].get(f)]
+        if fields:
+            changed.append({"code": code, "before": a[code], "after": b[code], "fields": fields})
+        else:
+            unchanged += 1
+    added.sort(key=lambda r: r["code"])
+    removed.sort(key=lambda r: r["code"])
+    changed.sort(key=lambda r: r["code"])
+    return {
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+        "unchanged": unchanged,
+        "counts": {
+            "added": len(added),
+            "removed": len(removed),
+            "changed": len(changed),
+            "unchanged": unchanged,
+        },
+    }
+
+
+def version_dict(
+    v: ReferenceModelVersion, names: dict | None = None, include_snapshot: bool = False
+) -> dict:
+    names = names or {}
+    out = {
+        "id": str(v.id),
+        "model_id": str(v.model_id),
+        "version": v.version,
+        "change_summary": v.change_summary,
+        "item_count": v.item_count,
+        "published_by": str(v.published_by) if v.published_by else None,
+        "published_by_display_name": names.get(v.published_by),
+        "published_at": v.published_at.isoformat() if v.published_at else None,
+        "created_at": v.created_at.isoformat() if v.created_at else None,
+    }
+    if include_snapshot:
+        out["snapshot"] = v.snapshot or []
+    return out
+
+
+async def versions_for(db: AsyncSession, model_id: uuid.UUID) -> list[ReferenceModelVersion]:
+    return list(
+        (
+            await db.execute(
+                select(ReferenceModelVersion)
+                .where(ReferenceModelVersion.model_id == model_id)
+                .order_by(ReferenceModelVersion.published_at.desc().nulls_last())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def mapping_dict(m: ReferenceModelMapping, names: dict | None = None) -> dict:
+    names = names or {}
+    return {
+        "id": str(m.id),
+        "model_id": str(m.model_id),
+        "item_id": str(m.item_id),
+        "card_id": str(m.card_id),
+        "mapping_type": m.mapping_type,
+        "mapping_status": m.mapping_status,
+        "rationale": m.rationale,
+        "confidence": m.confidence,
+        "reviewed_at": m.reviewed_at.isoformat() if m.reviewed_at else None,
+        "reviewed_by": str(m.reviewed_by) if m.reviewed_by else None,
+        "reviewed_by_display_name": names.get(m.reviewed_by),
+        "created_by": str(m.created_by) if m.created_by else None,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
 
 
 # --------------------------------------------------------------------------- #

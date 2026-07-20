@@ -47,7 +47,12 @@ from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.rationalization import AssessmentDecision, RationalizationAssessment
-from app.models.reference_model import ReferenceModel, ReferenceModelItem
+from app.models.reference_model import (
+    ReferenceModel,
+    ReferenceModelItem,
+    ReferenceModelMapping,
+    ReferenceModelVersion,
+)
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
 from app.models.roadmap import Roadmap, RoadmapMilestone
@@ -319,6 +324,17 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "ReferenceModelItems",
         ReferenceModelItem,
         self_parent_column="parent_id",
+    ),
+    EntitySection(
+        "ReferenceModelMappings",
+        ReferenceModelMapping,
+        card_fk_columns=("card_id",),
+        user_fk_columns=("reviewed_by", "created_by"),
+    ),
+    EntitySection(
+        "ReferenceModelVersions",
+        ReferenceModelVersion,
+        user_fk_columns=("published_by",),
     ),
     # --- Architecture Review Board ---------------------------------------
     EntitySection(

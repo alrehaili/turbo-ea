@@ -6615,72 +6615,6 @@
         "title": "LoginRequest",
         "type": "object"
       },
-      "MappingCreate": {
-        "properties": {
-          "card_type_key": {
-            "title": "Card Type Key",
-            "type": "string"
-          },
-          "connection_id": {
-            "title": "Connection Id",
-            "type": "string"
-          },
-          "field_mappings": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/FieldMappingIn"
-            },
-            "title": "Field Mappings",
-            "type": "array"
-          },
-          "filter_query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Filter Query"
-          },
-          "max_deletion_ratio": {
-            "default": 0.5,
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Max Deletion Ratio",
-            "type": "number"
-          },
-          "skip_staging": {
-            "default": false,
-            "title": "Skip Staging",
-            "type": "boolean"
-          },
-          "snow_table": {
-            "title": "Snow Table",
-            "type": "string"
-          },
-          "sync_direction": {
-            "default": "snow_to_turbo",
-            "pattern": "^(snow_to_turbo|turbo_to_snow|bidirectional)$",
-            "title": "Sync Direction",
-            "type": "string"
-          },
-          "sync_mode": {
-            "default": "conservative",
-            "pattern": "^(additive|conservative|strict)$",
-            "title": "Sync Mode",
-            "type": "string"
-          }
-        },
-        "required": [
-          "connection_id",
-          "card_type_key",
-          "snow_table"
-        ],
-        "title": "MappingCreate",
-        "type": "object"
-      },
       "MappingOut": {
         "properties": {
           "card_type_key": {
@@ -6773,114 +6707,6 @@
           "is_active"
         ],
         "title": "MappingOut",
-        "type": "object"
-      },
-      "MappingUpdate": {
-        "properties": {
-          "card_type_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Card Type Key"
-          },
-          "field_mappings": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/FieldMappingIn"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Field Mappings"
-          },
-          "filter_query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Filter Query"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active"
-          },
-          "max_deletion_ratio": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Deletion Ratio"
-          },
-          "skip_staging": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Skip Staging"
-          },
-          "snow_table": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Snow Table"
-          },
-          "sync_direction": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sync Direction"
-          },
-          "sync_mode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sync Mode"
-          }
-        },
-        "title": "MappingUpdate",
         "type": "object"
       },
       "MarkReadyRequest": {
@@ -8209,6 +8035,86 @@
           "committed_at"
         ],
         "title": "MutationBatchOut",
+        "type": "object"
+      },
+      "NarrativePanel": {
+        "description": "One editable poster panel (RMPlan Phase 3 / \u00a718).",
+        "properties": {
+          "id": {
+            "maxLength": 48,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "items_ar": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Items Ar",
+            "type": "array"
+          },
+          "kind": {
+            "default": "text",
+            "pattern": "^(text|list)$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "placement": {
+            "default": "grid",
+            "pattern": "^(header|grid)$",
+            "title": "Placement",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Text",
+            "type": "string"
+          },
+          "text_ar": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Text Ar",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Title",
+            "type": "string"
+          },
+          "title_ar": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Title Ar",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "NarrativePanel",
+        "type": "object"
+      },
+      "NarrativePayload": {
+        "properties": {
+          "panels": {
+            "items": {
+              "$ref": "#/components/schemas/NarrativePanel"
+            },
+            "maxItems": 24,
+            "title": "Panels",
+            "type": "array"
+          }
+        },
+        "title": "NarrativePayload",
         "type": "object"
       },
       "NavbarStylePayload": {
@@ -11198,6 +11104,24 @@
           "enabled"
         ],
         "title": "RegistrationPayload",
+        "type": "object"
+      },
+      "RejectPayload": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "RejectPayload",
         "type": "object"
       },
       "RejectRequest": {
@@ -14705,6 +14629,24 @@
         "title": "StructuredInsight",
         "type": "object"
       },
+      "SubmitPayload": {
+        "properties": {
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          }
+        },
+        "title": "SubmitPayload",
+        "type": "object"
+      },
       "SubmitResponse": {
         "properties": {
           "responses": {
@@ -17525,6 +17467,284 @@
           }
         },
         "title": "AssessmentUpdate",
+        "type": "object"
+      },
+      "app__api__v1__reference_models__MappingCreate": {
+        "properties": {
+          "card_id": {
+            "format": "uuid",
+            "title": "Card Id",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "mapping_status": {
+            "default": "confirmed",
+            "pattern": "^(proposed|confirmed|rejected)$",
+            "title": "Mapping Status",
+            "type": "string"
+          },
+          "mapping_type": {
+            "default": "primary",
+            "pattern": "^(primary|secondary|supporting|candidate|historical)$",
+            "title": "Mapping Type",
+            "type": "string"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          }
+        },
+        "required": [
+          "card_id"
+        ],
+        "title": "MappingCreate",
+        "type": "object"
+      },
+      "app__api__v1__reference_models__MappingUpdate": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "mapping_status": {
+            "anyOf": [
+              {
+                "pattern": "^(proposed|confirmed|rejected)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapping Status"
+          },
+          "mapping_type": {
+            "anyOf": [
+              {
+                "pattern": "^(primary|secondary|supporting|candidate|historical)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapping Type"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          }
+        },
+        "title": "MappingUpdate",
+        "type": "object"
+      },
+      "app__api__v1__servicenow__MappingCreate": {
+        "properties": {
+          "card_type_key": {
+            "title": "Card Type Key",
+            "type": "string"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "field_mappings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FieldMappingIn"
+            },
+            "title": "Field Mappings",
+            "type": "array"
+          },
+          "filter_query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter Query"
+          },
+          "max_deletion_ratio": {
+            "default": 0.5,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Max Deletion Ratio",
+            "type": "number"
+          },
+          "skip_staging": {
+            "default": false,
+            "title": "Skip Staging",
+            "type": "boolean"
+          },
+          "snow_table": {
+            "title": "Snow Table",
+            "type": "string"
+          },
+          "sync_direction": {
+            "default": "snow_to_turbo",
+            "pattern": "^(snow_to_turbo|turbo_to_snow|bidirectional)$",
+            "title": "Sync Direction",
+            "type": "string"
+          },
+          "sync_mode": {
+            "default": "conservative",
+            "pattern": "^(additive|conservative|strict)$",
+            "title": "Sync Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "card_type_key",
+          "snow_table"
+        ],
+        "title": "MappingCreate",
+        "type": "object"
+      },
+      "app__api__v1__servicenow__MappingUpdate": {
+        "properties": {
+          "card_type_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Type Key"
+          },
+          "field_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldMappingIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Mappings"
+          },
+          "filter_query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter Query"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "max_deletion_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Deletion Ratio"
+          },
+          "skip_staging": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Staging"
+          },
+          "snow_table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snow Table"
+          },
+          "sync_direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Direction"
+          },
+          "sync_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync Mode"
+          }
+        },
+        "title": "MappingUpdate",
         "type": "object"
       },
       "app__api__v1__servicenow__StagedRecordOut": {
@@ -34831,6 +35051,203 @@
         ]
       }
     },
+    "/api/v1/reference-models/items/{item_id}/mappings": {
+      "get": {
+        "description": "Explicit mappings on one item, with the linked card's name/type.",
+        "operationId": "list_item_mappings_api_v1_reference_models_items__item_id__mappings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Item Mappings",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "post": {
+        "description": "Map an inventory card to a reference-model item.",
+        "operationId": "create_item_mapping_api_v1_reference_models_items__item_id__mappings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__reference_models__MappingCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Item Mapping",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/mappings/{mapping_id}": {
+      "delete": {
+        "operationId": "delete_mapping_api_v1_reference_models_mappings__mapping_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mapping_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mapping Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Mapping",
+        "tags": [
+          "reference-models"
+        ]
+      },
+      "patch": {
+        "operationId": "update_mapping_api_v1_reference_models_mappings__mapping_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mapping_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mapping Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__reference_models__MappingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Mapping",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/overview": {
+      "get": {
+        "description": "Landing-page metrics: per domain, the active RM + mapped-inventory KPIs.",
+        "operationId": "browse_overview_api_v1_reference_models_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Browse Overview",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
     "/api/v1/reference-models/{model_id}": {
       "delete": {
         "operationId": "delete_model_api_v1_reference_models__model_id__delete",
@@ -35042,6 +35459,48 @@
         ]
       }
     },
+    "/api/v1/reference-models/{model_id}/gaps": {
+      "get": {
+        "description": "Coverage + gap analysis (RMPlan Phase 4 / \u00a78).\n\nClassifies the model's leaf capabilities into: uncovered (no mapped card),\nduplicate support (\u22652 mapped cards \u2014 possible redundancy), and retiring-only\n(every mapped card is phasing out / end-of-life). Returns KPI totals, the\nflagged gap rows, and a per-leaf coverage matrix.",
+        "operationId": "coverage_gaps_api_v1_reference_models__model_id__gaps_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Coverage Gaps",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
     "/api/v1/reference-models/{model_id}/import": {
       "post": {
         "description": "Upsert items by code from an xlsx file in the exchange layout.",
@@ -35145,10 +35604,301 @@
         ]
       }
     },
+    "/api/v1/reference-models/{model_id}/items/{item_id}/cards": {
+      "get": {
+        "description": "Inventory cards mapped to one item \u2014 via the RM code field or an\nexplicit mapping row. Explicit mappings carry type/status/rationale; a\ncode-only match surfaces as an implicit ``primary`` mapping.",
+        "operationId": "item_mapped_cards_api_v1_reference_models__model_id__items__item_id__cards_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_descendants",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Descendants",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Item Mapped Cards",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/narrative": {
+      "patch": {
+        "description": "Replace the model's poster narrative (RMPlan Phase 3).",
+        "operationId": "update_narrative_api_v1_reference_models__model_id__narrative_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NarrativePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Narrative",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
     "/api/v1/reference-models/{model_id}/publish": {
       "post": {
-        "description": "Publish a model (supersedes the previously published RM of its domain).",
+        "description": "Publish a model (supersedes the previously published RM of its domain)\nand snapshot its item tree as a preserved version.",
         "operationId": "publish_model_api_v1_reference_models__model_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SubmitPayload"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/reject": {
+      "post": {
+        "description": "Reject a model in review, sending it back to draft (governance action).",
+        "operationId": "reject_model_api_v1_reference_models__model_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RejectPayload"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Model",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/submit": {
+      "post": {
+        "description": "Move a draft into review (the governance gate before publishing).",
+        "operationId": "submit_for_review_api_v1_reference_models__model_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SubmitPayload"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit For Review",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/summary": {
+      "get": {
+        "description": "The model with its item tree annotated with mapped-inventory counts.",
+        "operationId": "model_summary_api_v1_reference_models__model_id__summary_get",
         "parameters": [
           {
             "in": "path",
@@ -35181,7 +35931,204 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Publish Model",
+        "summary": "Model Summary",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/unmapped-inventory": {
+      "get": {
+        "description": "Cards of the model's domain type not mapped to any of its items \u2014\nneither via a resolving code field nor an explicit mapping.",
+        "operationId": "unmapped_inventory_api_v1_reference_models__model_id__unmapped_inventory_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unmapped Inventory",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/versions": {
+      "get": {
+        "description": "Preserved publish snapshots for a model, newest first.",
+        "operationId": "list_versions_api_v1_reference_models__model_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Versions",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/versions/{version_id}": {
+      "get": {
+        "operationId": "get_version_api_v1_reference_models__model_id__versions__version_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Version",
+        "tags": [
+          "reference-models"
+        ]
+      }
+    },
+    "/api/v1/reference-models/{model_id}/versions/{version_id}/diff": {
+      "get": {
+        "description": "Diff a version against the live model (``against=current``) or another\nversion (``against=<version_id>``), by item code.",
+        "operationId": "diff_version_api_v1_reference_models__model_id__versions__version_id__diff_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Model Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "against",
+            "required": false,
+            "schema": {
+              "default": "current",
+              "title": "Against",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Diff Version",
         "tags": [
           "reference-models"
         ]
@@ -39644,7 +40591,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MappingCreate"
+                "$ref": "#/components/schemas/app__api__v1__servicenow__MappingCreate"
               }
             }
           },
@@ -39777,7 +40724,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MappingUpdate"
+                "$ref": "#/components/schemas/app__api__v1__servicenow__MappingUpdate"
               }
             }
           },
