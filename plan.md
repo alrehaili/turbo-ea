@@ -191,7 +191,7 @@ Per the project conventions in `CLAUDE.md`, a feature is **not** done until all 
 ### 4.1 Data Architecture & OpenMetadata Connector  ·  Value ★★★ (★★★★ for your env) · Effort ★★★
 *Model Data Domains, Data Products, critical data entities, system of record, owners/stewards, classifications, retention, sharing, logical data flows. **Integrate OpenMetadata — do not rebuild it.** Let Turbo EA show the business & transformation context around the data.*
 
-- [~] Metamodel: `dataDomain` is now a first-class field on `DataObject` (`seed.py` + migration `158` + 10-locale `translations`); the Data Flow Map reads it directly. **Remaining:** full Data Domain / Data Product card types + steward/classification/retention/SoR fields (a larger follow-up) via `seed.py` + guarded migration + `translations`.
+- [x] Metamodel: `dataDomain` first-class field on `DataObject` (migration `158`) **and** full **DataDomain** + **DataProduct** built-in card types with steward/classification/retention/system-of-record + product-owner/maturity/SLA/consumers fields, plus `relDataObjToDataDomain` / `relDataProductToDataObj` / `relDataProductToBC` relations — all in `seed.py` (new types/relations are inserted on existing installs by `seed_metamodel` at boot, so no migration needed). 10-locale translations; tests in `test_data_layer_types.py`.
 - [ ] **Deferred:** OpenMetadata connector (read lineage/entities → cards). Needs a live OpenMetadata instance to build/test; tracked for when the environment is available. Build via the migration adapter pattern (`sources/` registry).
 - [x] Backend: `GET /reports/data-flow` (`data_flow_service.py`) — data objects grouped by domain with related applications / interfaces / IT components + orphan detection. Traverses existing `relAppToDataObj` / `relInterfaceToDataObj` (no schema change).
 - [x] Frontend: **Data Domain & Flow Map** (`DataFlowMap.tsx`) — domain groups → data object → applications / interfaces / components, with orphan flags + summary metrics.
@@ -239,7 +239,7 @@ Enterprise EA buyers (the LeanIX/Ardoq/Alfabet procurement crowd) gate on these 
 7. [~] **2.4** Architecture Review Board View — table + aggregation + view + i18n + tests + workspace transfer done; docs pending
 8. [x] **3.1.0** Scenario Planning architecture spike — copy-on-write overlay + existence-based conflict detection
 9. [~] **3.1.1** Scenario Planning & Transition Architecture — models + migration + permissions + diff + merge + view + i18n + tests + workspace transfer done; relation-level changes/LDV overlay/docs pending
-10. [~] **4.1** Data Architecture + Data Flow Map — flow map + endpoint + view + i18n + tests + first-class `dataDomain` field done; full Data Domain/Product card types + OpenMetadata connector deferred (needs live OM instance)
+10. [~] **4.1** Data Architecture + Data Flow Map — flow map + endpoint + view + i18n + tests + first-class `dataDomain` field + full DataDomain/DataProduct card types + relations done; OpenMetadata connector deferred (needs live OM instance)
 11. [~] **4.2** Integration Hub — drift/sync-status dashboard shipped (endpoint + view + i18n + tests); generalized connector framework + new connectors deferred by design (YAGNI until 2nd connector)
 
 > Run the **commercial track** continuously alongside waves — it's not a phase, it's the difference between "open-source project" and "product you can sell."
