@@ -109,10 +109,10 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_8(self):
+    def test_profile_version_is_9(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 8
+        assert NORA_PROFILE_VERSION == 9
 
     def test_v8_rm_code_fields_defined(self):
         """Profile v8 — every one of the six domains has an RM code field."""

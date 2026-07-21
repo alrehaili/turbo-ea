@@ -22,15 +22,16 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~50%** — Phase 1 COMPLETE: all 45 building blocks realised as independent card types (60 total in
-`seed.TYPES`). Focus now shifts to relations (Phase 2) and profile presentation (Phase 3).
+**~58%** — Phase 1 (all 45 building blocks) + Phase 3 (hide superseded generics on NORA activation)
+complete. Focus now shifts to the remaining relation catalogues (Phase 2) and module rewiring
+(Phase 4).
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
 | 0 | Plan & decisions | ✅ Done | 100% |
 | 1 | Author 45 building-block card types (attributes + 9 locales) | ✅ Done | 100% |
 | 2 | Author connection catalogue (~120 relations) | 🟡 In progress | 20% |
-| 3 | Hide generic tool types when NORA active | ⬜ Not started | 0% |
+| 3 | Hide generic tool types when NORA active | ✅ Done | 100% |
 | 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ⬜ Not started | 0% |
 | 5 | Tests + docs + seed-demo alignment | ⬜ Not started | 0% |
 
@@ -125,7 +126,7 @@ Status key: ✅ exists standalone · 🟡 exists but overloaded (must split to n
 | 28 | Application | `Application` | standalone | ✅ |
 | 29 | Application Module | `ApplicationModule` | **built** | ✅ |
 | 30 | Application Function | `ApplicationFunction` | **built** | ✅ |
-| 31 | Technical Integration Interface | `Interface` | **attrs backfilled** (§5.3.5.2.4) | ✅ |
+| 31 | Technical Integration Interface | `Interface` | **attrs via `nora_profile`** (§5.3.5.2.4) | ✅ |
 
 ### 1F · Technology Architecture (11)
 
@@ -176,11 +177,19 @@ Encode the document's connection tables into `relation_types` (one relation type
 
 ---
 
-## Phase 3 — Hide generic tool types
+## Phase 3 — Hide generic tool types ✅
 
-Set `is_hidden=True` on generics superseded by NORA-native types when profile = `nora`:
-`Organization`, `Provider`, `BusinessContext` (product), `Interface` (if fully replaced),
-`ITComponent` + tech subtypes, `SecurityFunction`. Reversible on switch back to TOGAF.
+Done in `nora_profile.py` (`NORA_PROFILE_VERSION` 8 → 9). `apply_nora_profile` sets `is_hidden=True`
+on the generics the exact model supersedes; `set_togaf_profile` un-hides them. Non-destructive —
+only the flag flips; cards/relations are preserved.
+
+Hidden when NORA active (`NORA_SUPERSEDED_GENERIC_TYPE_KEYS`):
+`Organization` → `OrganizationalUnit`, `Provider` → `ServiceProvider`, `ITComponent` → the 9 tech
+types, `SecurityFunction` → `SecurityHardware`/`SecuritySoftware`.
+
+**Deferred (judgment calls):** `BusinessContext` is *not* hidden — beyond its Product subtype it also
+carries Value Stream / Customer Journey / ESG subtypes that have no 1:1 NORA-doc block; hiding it
+needs a product decision. `Location` (tool-only helper type) likewise left visible.
 
 ---
 

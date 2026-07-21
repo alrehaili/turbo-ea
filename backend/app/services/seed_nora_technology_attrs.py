@@ -2,12 +2,13 @@
 
 [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md, Phase 1 🟡 backfills).
 
-``Datacenter`` (= Data Center, §5.3.6.2.1), ``NetworkCircuit`` (= Network Link,
-§5.3.6.2.5) and ``Interface`` (= Technical Integration Interface, §5.3.5.2.4)
-already exist inline in ``seed.TYPES`` but as near-empty shells. Rather than
-editing the giant inline literals, this module carries their document attribute
-sets and a ``apply_nora_attribute_backfills`` patcher that appends the missing
-fields (deduped by key) to the matching section after ``seed.TYPES`` is built.
+``Datacenter`` (= Data Center, §5.3.6.2.1) and ``NetworkCircuit`` (= Network
+Link, §5.3.6.2.5) already exist inline in ``seed.TYPES`` but as near-empty
+shells. Rather than editing the giant inline literals, this module carries their
+document attribute sets and a ``apply_nora_attribute_backfills`` patcher that
+appends the missing fields (deduped by key) to the matching section after
+``seed.TYPES`` is built. (Interface / Technical Integration Interface §5.3.5.2.4
+is handled separately by ``nora_profile.NORA_TYPE_FIELDS`` on profile apply.)
 
 Reuses the field helpers + option constants from ``seed_nora_technology``.
 """
@@ -151,39 +152,6 @@ _CIRCUIT_ROLE_OPTIONS = [
             ru="Резервный канал",
             da="Backup-link",
             ar="وصلة احتياطية",
-        ),
-    },
-]
-
-_SCOPE_OF_CONNECTION_OPTIONS = [
-    {
-        "key": "internal",
-        "label": "Internal",
-        "translations": _tx(
-            de="Intern",
-            fr="Interne",
-            es="Interno",
-            it="Interno",
-            pt="Interno",
-            zh="内部",
-            ru="Внутренний",
-            da="Intern",
-            ar="داخلي",
-        ),
-    },
-    {
-        "key": "external",
-        "label": "External",
-        "translations": _tx(
-            de="Extern",
-            fr="Externe",
-            es="Externo",
-            it="Esterno",
-            pt="Externo",
-            zh="外部",
-            ru="Внешний",
-            da="Ekstern",
-            ar="خارجي",
         ),
     },
 ]
@@ -356,137 +324,14 @@ _NETWORK_CIRCUIT_FIELDS = [
     *_cost_fields(20),
 ]
 
-_INTERFACE_FIELDS = [
-    _text(
-        "consumer",
-        "Consumer",
-        _tx(
-            de="Verbraucher",
-            fr="Consommateur",
-            es="Consumidor",
-            it="Consumatore",
-            pt="Consumidor",
-            zh="消费方",
-            ru="Потребитель",
-            da="Forbruger",
-            ar="المستهلك",
-        ),
-    ),
-    _text(
-        "producer",
-        "Producer",
-        _tx(
-            de="Erzeuger",
-            fr="Producteur",
-            es="Productor",
-            it="Produttore",
-            pt="Produtor",
-            zh="生产方",
-            ru="Поставщик",
-            da="Producent",
-            ar="المنتِج",
-        ),
-    ),
-    _text(
-        "inputs",
-        "Inputs",
-        _tx(
-            de="Eingaben",
-            fr="Entrées",
-            es="Entradas",
-            it="Input",
-            pt="Entradas",
-            zh="输入",
-            ru="Входы",
-            da="Input",
-            ar="المدخلات",
-        ),
-    ),
-    _text(
-        "deliverables",
-        "Deliverables",
-        _tx(
-            de="Ergebnisse",
-            fr="Livrables",
-            es="Entregables",
-            it="Deliverable",
-            pt="Entregáveis",
-            zh="交付物",
-            ru="Результаты",
-            da="Leverancer",
-            ar="المخرجات",
-        ),
-    ),
-    _field(
-        "scopeOfConnection",
-        "Scope of the Connection",
-        "single_select",
-        1,
-        _tx(
-            de="Umfang der Verbindung",
-            fr="Portée de la connexion",
-            es="Alcance de la conexión",
-            it="Ambito della connessione",
-            pt="Âmbito da ligação",
-            zh="连接范围",
-            ru="Область соединения",
-            da="Forbindelsens omfang",
-            ar="نطاق الاتصال",
-        ),
-        options=_SCOPE_OF_CONNECTION_OPTIONS,
-    ),
-    _text(
-        "integrationPlatform",
-        "Integration Platform",
-        _tx(
-            de="Integrationsplattform",
-            fr="Plateforme d'intégration",
-            es="Plataforma de integración",
-            it="Piattaforma di integrazione",
-            pt="Plataforma de integração",
-            zh="集成平台",
-            ru="Платформа интеграции",
-            da="Integrationsplatform",
-            ar="منصة التكامل",
-        ),
-    ),
-    _text(
-        "connectionPattern",
-        "Connection Pattern",
-        _tx(
-            de="Verbindungsmuster",
-            fr="Modèle de connexion",
-            es="Patrón de conexión",
-            it="Modello di connessione",
-            pt="Padrão de ligação",
-            zh="连接模式",
-            ru="Шаблон соединения",
-            da="Forbindelsesmønster",
-            ar="نمط الاتصال",
-        ),
-    ),
-    _text(
-        "integrationType",
-        "Integration Type",
-        _tx(
-            de="Integrationstyp",
-            fr="Type d'intégration",
-            es="Tipo de integración",
-            it="Tipo di integrazione",
-            pt="Tipo de integração",
-            zh="集成类型",
-            ru="Тип интеграции",
-            da="Integrationstype",
-            ar="نوع التكامل",
-        ),
-    ),
-]
-
 # (type_key -> (section_name, fields_to_append))
+# NB: Interface (Technical Integration Interface, §5.3.5.2.4) is intentionally
+# NOT backfilled here — nora_profile.NORA_TYPE_FIELDS already injects its
+# integration attributes (integrationType, integrationScope, integrationPlatform,
+# linkType, interfaceInputs/outputs, …) when the NORA profile is applied.
 _BACKFILLS: dict[str, tuple[str, list[dict]]] = {
     "Datacenter": ("Datacenter Information", _DATACENTER_FIELDS),
     "NetworkCircuit": ("Circuit Details", _NETWORK_CIRCUIT_FIELDS),
-    "Interface": ("Interface Information", _INTERFACE_FIELDS),
 }
 
 
