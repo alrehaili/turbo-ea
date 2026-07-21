@@ -75,24 +75,48 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
 # national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
 # `srmCode` on SecurityControl) so all six domains have a landing field.
-NORA_PROFILE_VERSION = 9
+NORA_PROFILE_VERSION = 10
 
-# [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). Generic tool
-# card types that the exact NORA Content Meta Model supersedes with dedicated
-# building blocks. When the NORA profile is active these are hidden (is_hidden)
-# so the inventory / create-card picker shows ONLY the NORA-native model; the
-# generics and any data on them are preserved and un-hidden when switching back
-# to the TOGAF profile. Mapping (hidden generic → NORA-native replacement):
-#   Organization    → OrganizationalUnit
-#   Provider        → ServiceProvider
-#   ITComponent     → Server / PhysicalHost / NetworkDevice / Storage / …
-#   SecurityFunction→ SecurityHardware / SecuritySoftware
+# [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
+# profile is active the inventory / create-card picker shows ONLY the exact NORA
+# Content Meta Model (the 45 building blocks). Every non-NORA card type is hidden
+# (is_hidden); nothing is deleted — the types and any data on them are preserved
+# and un-hidden when switching back to the TOGAF profile.
+#
+# Group 1 — generics superseded 1:1 by a NORA-native building block:
+#   Organization → OrganizationalUnit,  Provider → ServiceProvider,
+#   ITComponent → Server/PhysicalHost/NetworkDevice/Storage/…,
+#   SecurityFunction → SecurityHardware/SecuritySoftware
 NORA_SUPERSEDED_GENERIC_TYPE_KEYS = [
     "Organization",
     "Provider",
     "ITComponent",
     "SecurityFunction",
 ]
+
+# Group 2 — types with no 1:1 NORA-doc building block: base tool generics
+# (Platform, BusinessContext, TechCategory, Location), pre-canonical duplicates
+# of NORA blocks (Journey → BeneficiaryJourney, BeneficiaryPersona → Persona),
+# and fork extensions beyond the doc (Mandate, the Data* governance layer,
+# JourneyImprovement). Hidden under the exact-NORA profile; un-hide individually
+# via the admin metamodel editor if an entity wants to keep one.
+NORA_NON_DOC_TYPE_KEYS = [
+    "Platform",
+    "BusinessContext",
+    "TechCategory",
+    "Location",
+    "Journey",
+    "BeneficiaryPersona",
+    "Mandate",
+    "DataDomain",
+    "DataProduct",
+    "DataDictionary",
+    "DataTerm",
+    "JourneyImprovement",
+]
+
+# The full set hidden when the NORA profile is active.
+NORA_HIDDEN_TYPE_KEYS = NORA_SUPERSEDED_GENERIC_TYPE_KEYS + NORA_NON_DOC_TYPE_KEYS
 
 # Old→new category rewrites for the v3 six-layer model, keyed by card-type
 # key. Guarded: a type is only moved while its category still equals the old
@@ -8377,14 +8401,13 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
 
     summary["reference_models_created"] = await seed_reference_model_starters(db)
 
-    # ── Pass 8: hide generic types superseded by NORA-native building blocks ─
-    # (Phase 3). Non-destructive: only flips is_hidden; cards + relations on the
-    # generics are preserved and restored by set_togaf_profile.
+    # ── Pass 8: hide every non-NORA card type so the picker shows only the ──
+    # exact NORA model (Phase 3). Non-destructive: only flips is_hidden; cards +
+    # relations on the hidden types are preserved and restored by
+    # set_togaf_profile.
     hidden_types: list[str] = []
-    superseded = await db.execute(
-        select(CardType).where(CardType.key.in_(NORA_SUPERSEDED_GENERIC_TYPE_KEYS))
-    )
-    for card_type in superseded.scalars().all():
+    to_hide = await db.execute(select(CardType).where(CardType.key.in_(NORA_HIDDEN_TYPE_KEYS)))
+    for card_type in to_hide.scalars().all():
         if not card_type.is_hidden:
             card_type.is_hidden = True
             hidden_types.append(card_type.key)
@@ -8409,11 +8432,9 @@ async def set_togaf_profile(db: AsyncSession) -> None:
     Restores visibility of the generic types the NORA profile hid (Phase 3) so
     the TOGAF model is whole again; NORA-native types stay in place too.
     """
-    # Un-hide the generic types the NORA profile hid (reversible presentation).
-    superseded = await db.execute(
-        select(CardType).where(CardType.key.in_(NORA_SUPERSEDED_GENERIC_TYPE_KEYS))
-    )
-    for card_type in superseded.scalars().all():
+    # Un-hide the types the NORA profile hid (reversible presentation).
+    to_unhide = await db.execute(select(CardType).where(CardType.key.in_(NORA_HIDDEN_TYPE_KEYS)))
+    for card_type in to_unhide.scalars().all():
         if card_type.is_hidden:
             card_type.is_hidden = False
 

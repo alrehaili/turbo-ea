@@ -109,10 +109,10 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_9(self):
+    def test_profile_version_is_10(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 9
+        assert NORA_PROFILE_VERSION == 10
 
     def test_v8_rm_code_fields_defined(self):
         """Profile v8 — every one of the six domains has an RM code field."""
@@ -421,8 +421,16 @@ class TestNoraCardTypeDefinitions:
                 assert sr["translations"]["label"].get(locale), f"{sr['key']} missing {locale}"
 
     def test_type_keys_do_not_collide_with_seed(self):
+        # The fork promoted several NORA types (GovService, Pillar, Policy,
+        # Persona, BeneficiaryJourney) into the base seed metamodel while their
+        # richer field/stakeholder definitions still live in NORA_CARD_TYPES;
+        # apply_nora_profile skips creating a type the seed already owns. Those
+        # overlaps are intentional and allow-listed here so the guard still
+        # catches any NEW accidental collision.
+        allowed = {"GovService", "Pillar", "Policy", "Persona", "BeneficiaryJourney"}
         seed_keys = {t["key"] for t in TYPES}
-        assert not seed_keys & {t["key"] for t in NORA_CARD_TYPES}
+        collisions = (seed_keys & {t["key"] for t in NORA_CARD_TYPES}) - allowed
+        assert not collisions, f"unexpected type-key collisions with seed: {collisions}"
 
 
 class TestNoraRelationTypeDefinitions:
@@ -433,10 +441,22 @@ class TestNoraRelationTypeDefinitions:
                 assert rel["translations"][prop].get(locale), f"{prop} missing {locale}"
 
     def test_relation_pairs_do_not_collide_with_seed(self):
-        """One relation type per ordered (source, target) pair — including seed."""
+        """One relation type per ordered (source, target) pair — including seed.
+
+        A few GovService relations were promoted into the base seed while their
+        definitions remain in NORA_RELATION_TYPES (apply skips occupied pairs);
+        those overlaps are intentional and allow-listed so the guard still
+        catches any NEW accidental collision.
+        """
+        allowed_pairs = {
+            ("GovService", "BusinessProcess"),
+            ("GovService", "Application"),
+            ("Organization", "GovService"),
+        }
         seed_pairs = {(r["source_type_key"], r["target_type_key"]) for r in RELATIONS}
         nora_pairs = [(r["source_type_key"], r["target_type_key"]) for r in NORA_RELATION_TYPES]
-        assert not seed_pairs & set(nora_pairs)
+        collisions = (seed_pairs & set(nora_pairs)) - allowed_pairs
+        assert not collisions, f"unexpected relation-pair collisions with seed: {collisions}"
         assert len(nora_pairs) == len(set(nora_pairs))
 
     def test_relation_endpoints_exist(self):

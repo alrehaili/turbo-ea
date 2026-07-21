@@ -22,9 +22,9 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~58%** — Phase 1 (all 45 building blocks) + Phase 3 (hide superseded generics on NORA activation)
-complete. Focus now shifts to the remaining relation catalogues (Phase 2) and module rewiring
-(Phase 4).
+**~60%** — Phase 1 (all 45 building blocks) + Phase 3 (fully-NORA picker: all 16 non-NORA types
+hidden on activation) complete, and the pre-existing `test_nora_profile` failures fixed. Focus now
+shifts to the remaining relation catalogues (Phase 2) and module rewiring (Phase 4).
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
@@ -177,19 +177,25 @@ Encode the document's connection tables into `relation_types` (one relation type
 
 ---
 
-## Phase 3 — Hide generic tool types ✅
+## Phase 3 — Hide non-NORA types (fully-NORA picker) ✅
 
-Done in `nora_profile.py` (`NORA_PROFILE_VERSION` 8 → 9). `apply_nora_profile` sets `is_hidden=True`
-on the generics the exact model supersedes; `set_togaf_profile` un-hides them. Non-destructive —
-only the flag flips; cards/relations are preserved.
+Done in `nora_profile.py` (`NORA_PROFILE_VERSION` 8 → 10). `apply_nora_profile` sets `is_hidden=True`
+on **every** non-NORA card type so the inventory / create-card picker shows only the exact 45-block
+model; `set_togaf_profile` un-hides them. Non-destructive — only the flag flips; cards/relations are
+preserved. Any single type can be un-hidden from the admin metamodel editor.
 
-Hidden when NORA active (`NORA_SUPERSEDED_GENERIC_TYPE_KEYS`):
-`Organization` → `OrganizationalUnit`, `Provider` → `ServiceProvider`, `ITComponent` → the 9 tech
-types, `SecurityFunction` → `SecurityHardware`/`SecuritySoftware`.
+Hidden set (`NORA_HIDDEN_TYPE_KEYS`, 16 types):
+- **Superseded 1:1** — `Organization`→`OrganizationalUnit`, `Provider`→`ServiceProvider`,
+  `ITComponent`→the 9 tech types, `SecurityFunction`→`SecurityHardware`/`SecuritySoftware`.
+- **No NORA-doc block** — base generics (`Platform`, `BusinessContext`, `TechCategory`, `Location`),
+  pre-canonical duplicates (`Journey`→`BeneficiaryJourney`, `BeneficiaryPersona`→`Persona`), and
+  fork extensions beyond the doc (`Mandate`, `DataDomain`, `DataProduct`, `DataDictionary`,
+  `DataTerm`, `JourneyImprovement`).
 
-**Deferred (judgment calls):** `BusinessContext` is *not* hidden — beyond its Product subtype it also
-carries Value Stream / Customer Journey / ESG subtypes that have no 1:1 NORA-doc block; hiding it
-needs a product decision. `Location` (tool-only helper type) likewise left visible.
+**Test debt fixed:** the two pre-existing `test_nora_profile` collision failures (which also failed on
+`main`) are resolved — `nora_profile`'s type/relation defs legitimately overlap the base seed for
+types the fork promoted (`GovService`, `Pillar`, `Policy`, `Persona`, `BeneficiaryJourney` + 3
+GovService relations); the guards now allow-list those and still catch new accidental collisions.
 
 ---
 
