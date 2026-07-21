@@ -43,6 +43,7 @@ from app.models.risk import Risk
 from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.turbolens import TurboLensComplianceFinding
+from app.services.type_groups import INFRASTRUCTURE_TYPE_KEYS
 
 # Suggested-level bands over the 0–100 indicator average.
 _LEVEL_BANDS: tuple[tuple[float, int], ...] = (
@@ -114,8 +115,11 @@ async def _count(db: AsyncSession, q) -> int:
     return int((await db.execute(q)).scalar() or 0)
 
 
-async def _cards_with_lifecycle(db: AsyncSession, type_key: str | None = None) -> tuple[int, int]:
-    """(cards with a non-empty lifecycle, total cards) — optionally for one type."""
+async def _cards_with_lifecycle(
+    db: AsyncSession, type_key: str | list[str] | None = None
+) -> tuple[int, int]:
+    """(cards with a non-empty lifecycle, total cards) — optionally for one or
+    more types."""
     has_lc = case(
         (
             and_(Card.lifecycle.isnot(None), cast(Card.lifecycle, Text) != "{}"),
@@ -123,7 +127,9 @@ async def _cards_with_lifecycle(db: AsyncSession, type_key: str | None = None) -
         )
     )
     q = select(func.count(Card.id), func.count(has_lc)).where(_ACTIVE)
-    if type_key:
+    if isinstance(type_key, list):
+        q = q.where(Card.type.in_(type_key))
+    elif type_key:
         q = q.where(Card.type == type_key)
     total, with_lc = (await db.execute(q)).one()
     return int(with_lc or 0), int(total or 0)
@@ -188,7 +194,11 @@ async def compute_indicators(db: AsyncSession) -> dict[str, dict]:
     caps = await type_count("BusinessCapability")
     processes = await type_count("BusinessProcess")
     data_objects = await type_count("DataObject")
-    it_components = await type_count("ITComponent")
+    # Technology layer: the generic ITComponent plus the NORA-native tech types,
+    # so the maturity score reflects the technology estate under either profile.
+    it_components = await _count(
+        db, select(func.count(Card.id)).where(_ACTIVE, Card.type.in_(INFRASTRUCTURE_TYPE_KEYS))
+    )
     initiatives = await type_count("Initiative")
 
     out: dict[str, dict] = {}
@@ -265,7 +275,9 @@ async def compute_indicators(db: AsyncSession) -> dict[str, dict]:
     )
 
     # ── technology_architecture ──────────────────────────────────────────
-    tech_lc, _ = await _cards_with_lifecycle(db, "ITComponent")
+    tech_lc, _ = await _cards_with_lifecycle(db, INFRASTRUCTURE_TYPE_KEYS)
+    # TechCategory linkage is a TOGAF-profile concept (TechCategory is hidden and
+    # unused under NORA), so this naturally reads 0 there.
     tech_categorised = (
         await _linked_count(db, "ITComponent", "TechCategory") if it_components else 0
     )

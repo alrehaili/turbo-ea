@@ -22,10 +22,9 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~80%** — Phase 1 (45 building blocks), Phase 2 (120 relations), Phase 3 (fully-NORA picker) complete;
-Phase 4 (module rewiring) underway — EOL, compliance, cost, layer-colours and BPM now work on the
-NORA tech types; tech-landscape/TurboLens/maturity deferred. Remaining: finish Phase 4 + Phase 5
-(tests/docs/demo).
+**~90%** — Phases 1–4 complete. All tool modules (EOL, compliance, cost, layer-colours, BPM,
+tech-landscape, TurboLens, maturity, data-flow) now work on the NORA tech types; only tech_standards
+is N/A under NORA (no TechCategory). Remaining: Phase 5 (tests/docs/demo cards).
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
@@ -33,7 +32,7 @@ NORA tech types; tech-landscape/TurboLens/maturity deferred. Remaining: finish P
 | 1 | Author 45 building-block card types (attributes + 9 locales) | ✅ Done | 100% |
 | 2 | Author connection catalogue (120 relations) | ✅ Done | 100% |
 | 3 | Hide generic tool types when NORA active | ✅ Done | 100% |
-| 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | 🟡 In progress | 60% |
+| 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ✅ Done | 100% |
 | 5 | Tests + docs + seed-demo alignment | ⬜ Not started | 0% |
 
 **Done so far:**
@@ -208,7 +207,7 @@ GovService relations); the guards now allow-list those and still catch new accid
 
 ---
 
-## Phase 4 — Module rewiring 🟡
+## Phase 4 — Module rewiring ✅
 
 Shared source of truth added: `backend/app/services/type_groups.py`
 (`NORA_TECH_COMPONENT_TYPE_KEYS`, `INFRASTRUCTURE_TYPE_KEYS` = ITComponent + the 9 NORA tech types,
@@ -223,11 +222,15 @@ Shared source of truth added: `backend/app/services/type_groups.py`
 | EOL linking endpoint (`eol.py`) | `["Application","ITComponent"]` | ✅ rewired to `EOL_TYPE_KEYS` |
 | EOL report (`reports.py`) | `["Application","ITComponent"]` + `== "ITComponent"` | ✅ rewired to `EOL_TYPE_KEYS` / `INFRASTRUCTURE_TYPE_KEYS`; app-impact flows through the NORA `hosts` relations |
 | Compliance scanner | `["Application","ITComponent"]` | ✅ rewired to include NORA tech types |
-| Tech landscape report (`reports.py`) | `ITComponent` hierarchy + subtypes | ⬜ deferred — builds a DC⊃host⊃VM hierarchy off ITComponent subtypes; needs structural rewire to the NORA `hosts` relations |
-| TurboLens vendor/domain (`turbolens.py`) | `ITComponent` target_type | ⬜ deferred — vendor analysis + TA/AA domain split keyed to ITComponent |
-| Maturity indicators / tech_standards / data_flow | `ITComponent` | ⬜ deferred — specialised, field/relation-structure dependent |
+| Tech landscape report (`reports.py`) | `ITComponent` hierarchy + subtypes | ✅ rewired — fetches `TECH_LANDSCAPE_TYPE_KEYS`; DC roots by `type=="Datacenter"`; containment built from **both** `parent_id` (TOGAF) and the NORA `hosts` relations (`TECH_CONTAINMENT_RELATION_KEYS`); security by type or subtype |
+| TurboLens domain split (`turbolens.py`) | `ITComponent` target_type | ✅ rewired — TA/AA split uses `INFRASTRUCTURE_TYPE_KEYS` |
+| Maturity indicators (`maturity_indicators.py`) | `ITComponent` count/lifecycle | ✅ rewired — technology-layer count + lifecycle span `INFRASTRUCTURE_TYPE_KEYS` (`_cards_with_lifecycle` now takes a list) |
+| Data-flow service (`data_flow_service.py`) | `ITComponent` neighbour type | ✅ rewired — component neighbours matched against `INFRASTRUCTURE_TYPE_KEYS` |
+| tech_standards (`tech_standards.py`) | `App → ITComponent → TechCategory` | ➖ N/A under NORA — the chain ends at `TechCategory`/`TechStandard`, which have no NORA-doc equivalent (both hidden); degrades gracefully to empty |
 
-Tests: `test_eol`, `test_reports`, `test_compliance_scanner` green; `ruff` clean; app imports.
+Tests: `test_eol`, `test_reports`, `test_reports_extended`, `test_compliance_scanner`,
+`test_technology_landscape`, `test_maturity`, `test_turbolens_ai`, `test_nora_landscape` green;
+`ruff` clean; app imports.
 
 ---
 

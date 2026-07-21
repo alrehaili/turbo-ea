@@ -22,11 +22,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
+from app.services.type_groups import INFRASTRUCTURE_TYPE_KEYS
 
 DATA_OBJECT_TYPE = "DataObject"
 APP_TYPE = "Application"
 INTERFACE_TYPE = "Interface"
 ITC_TYPE = "ITComponent"
+# Technology-component types a Data Object can sit on — the generic ITComponent
+# plus the NORA-native tech types (Server, Storage, …). Under the NORA profile
+# ITComponent is hidden and the data sits on the split types instead.
+_COMPONENT_TYPES = frozenset(INFRASTRUCTURE_TYPE_KEYS)
 
 
 def _domain(card: Card) -> str | None:
@@ -69,7 +74,7 @@ async def gather_data_flow(db: AsyncSession) -> dict:
         neighbours = adj.get(do.id, set())
         apps = [n for n in neighbours if card_map[n].type == APP_TYPE]
         interfaces = [n for n in neighbours if card_map[n].type == INTERFACE_TYPE]
-        components = [n for n in neighbours if card_map[n].type == ITC_TYPE]
+        components = [n for n in neighbours if card_map[n].type in _COMPONENT_TYPES]
         apps_touching.update(apps)
         if not apps and not interfaces:
             orphan_count += 1

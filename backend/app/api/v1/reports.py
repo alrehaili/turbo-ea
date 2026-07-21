@@ -41,7 +41,13 @@ from app.services.nora_landscape import get_segment_card_ids, phase_as_of  # noq
 from app.services.permission_service import PermissionService
 from app.services.resilience_service import gather_resilience
 from app.services.strategy_map_service import gather_strategy_map
-from app.services.type_groups import EOL_TYPE_KEYS, INFRASTRUCTURE_TYPE_KEYS
+from app.services.type_groups import (
+    EOL_TYPE_KEYS,
+    INFRASTRUCTURE_TYPE_KEYS,
+    SECURITY_TYPE_KEYS,
+    TECH_CONTAINMENT_RELATION_KEYS,
+    TECH_LANDSCAPE_TYPE_KEYS,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -3039,44 +3045,80 @@ async def technology_landscape_report(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """ITComponents grouped by data-center containment and network segment.
-    [FORK FEATURE]"""
+    """Technology cards grouped by data-center containment and network segment.
+
+    Works under both profiles: the classic ITComponent hierarchy (containment via
+    ``parent_id`` + the ``dataCenter`` subtype) and the exact NORA metamodel
+    (dedicated Datacenter / Server / … types, containment via the ``hosts``
+    relations). [FORK FEATURE]"""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
     rows = (
         (
             await db.execute(
-                select(Card).where(Card.type == "ITComponent", Card.status != "ARCHIVED")
+                select(Card).where(
+                    Card.type.in_(TECH_LANDSCAPE_TYPE_KEYS), Card.status != "ARCHIVED"
+                )
             )
         )
         .scalars()
         .all()
     )
+    row_ids = {c.id for c in rows}
+
+    def is_dc(c: Card) -> bool:
+        return c.type == "Datacenter" or c.subtype == "dataCenter"
+
+    def is_security(c: Card) -> bool:
+        return c.type in SECURITY_TYPE_KEYS or c.subtype in _SECURITY_SUBTYPES
 
     def entry(c: Card, depth: int = 0) -> dict:
         attrs = c.attributes or {}
         return {
             "id": str(c.id),
             "name": c.name,
-            "subtype": c.subtype,
-            "security": c.subtype in _SECURITY_SUBTYPES,
+            # NORA-native tech types have no subtype — surface the type so the UI
+            # still has a group/label to show.
+            "subtype": c.subtype or c.type,
+            "security": is_security(c),
             "network_segment": attrs.get("networkSegment") or attrs.get("securityZone"),
             "architecture_state": c.architecture_state or "current",
             "depth": depth,
         }
 
     children: dict = {}
+    # Legacy ITComponent containment via parent_id.
     for c in rows:
-        if c.parent_id is not None:
+        if c.parent_id is not None and c.parent_id in row_ids:
             children.setdefault(c.parent_id, []).append(c)
+    # NORA containment via the `hosts` relations (data-center ⊃ component,
+    # physical-host ⊃ server).
+    card_by_id = {c.id: c for c in rows}
+    contain_rels = (
+        (
+            await db.execute(
+                select(Relation).where(
+                    Relation.type.in_(TECH_CONTAINMENT_RELATION_KEYS),
+                    Relation.source_id.in_(row_ids),
+                    Relation.target_id.in_(row_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for r in contain_rels:
+        child = card_by_id.get(r.target_id)
+        if child is not None and child not in children.get(r.source_id, []):
+            children.setdefault(r.source_id, []).append(child)
     for kids in children.values():
-        kids.sort(key=lambda c: ((c.subtype or ""), c.name.lower()))
+        kids.sort(key=lambda c: ((c.subtype or c.type or ""), c.name.lower()))
 
     # Data-center containment: each DC root lists its descendants (depth-first
     # with depth markers so the UI can indent the chain DC ⊃ host ⊃ VM ⊃ …).
     data_centers = []
     assigned: set = set()
-    dcs = sorted((c for c in rows if c.subtype == "dataCenter"), key=lambda c: c.name.lower())
+    dcs = sorted((c for c in rows if is_dc(c)), key=lambda c: c.name.lower())
     for dc in dcs:
         assigned.add(dc.id)
         components: list[dict] = []
@@ -3109,7 +3151,7 @@ async def technology_landscape_report(
 
     by_subtype: dict = {}
     for c in rows:
-        key = c.subtype or "unspecified"
+        key = c.subtype or c.type or "unspecified"
         by_subtype[key] = by_subtype.get(key, 0) + 1
 
     return {
@@ -3119,7 +3161,7 @@ async def technology_landscape_report(
         "summary": {
             "total": len(rows),
             "data_centers": len(dcs),
-            "security_components": sum(1 for c in rows if c.subtype in _SECURITY_SUBTYPES),
+            "security_components": sum(1 for c in rows if is_security(c)),
             "segments": len(segment_list),
             "unsegmented": unsegmented,
             "by_subtype": by_subtype,

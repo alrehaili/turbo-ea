@@ -60,6 +60,7 @@ from app.schemas.turbolens import (
 )
 from app.services.permission_service import PermissionService
 from app.services.turbolens_ai import get_ai_config, is_ai_configured
+from app.services.type_groups import INFRASTRUCTURE_TYPE_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -526,7 +527,7 @@ async def promote_modernization_to_opportunity(
         raise HTTPException(404, "Assessment not found")
 
     subject = m.card_name or m.target_type
-    domain = "TA" if m.target_type == "ITComponent" else "AA"
+    domain = "TA" if m.target_type in INFRASTRUCTURE_TYPE_KEYS else "AA"
     priority = m.priority if m.priority in ("low", "medium", "high") else "medium"
     opp = ImprovementOpportunity(
         title=f"Modernize: {subject}"[:300],

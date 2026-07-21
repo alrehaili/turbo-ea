@@ -42,3 +42,28 @@ INFRASTRUCTURE_TYPE_KEYS: list[str] = ["ITComponent", *NORA_TECH_COMPONENT_TYPE_
 
 # Types eligible for End-of-Life tracking: Applications plus all infrastructure.
 EOL_TYPE_KEYS: list[str] = ["Application", *INFRASTRUCTURE_TYPE_KEYS]
+
+# NORA-native security building blocks (§5.3.7).
+SECURITY_TYPE_KEYS: list[str] = ["SecurityHardware", "SecuritySoftware", "SecurityService"]
+
+# All types shown in the technology-landscape report, across both profiles.
+TECH_LANDSCAPE_TYPE_KEYS: list[str] = [
+    "ITComponent",
+    "Datacenter",
+    "NetworkCircuit",
+    *NORA_TECH_COMPONENT_TYPE_KEYS,
+    *SECURITY_TYPE_KEYS,
+]
+
+# The data-center hosts these directly (License is a usage agreement, not hosted
+# hardware, so it is excluded from physical containment).
+_DATACENTER_HOSTED_TYPE_KEYS: list[str] = [
+    k for k in NORA_TECH_COMPONENT_TYPE_KEYS if k != "License"
+]
+
+# Relation-type keys that express physical containment in the technology
+# landscape (data-center ⊃ component, physical-host ⊃ server). Mirrors the key
+# format produced by seed_nora_technology_relations (``relNora{src}{tgt}``).
+TECH_CONTAINMENT_RELATION_KEYS: list[str] = [
+    f"relNoraDatacenter{k}" for k in _DATACENTER_HOSTED_TYPE_KEYS
+] + ["relNoraPhysicalHostServer"]
