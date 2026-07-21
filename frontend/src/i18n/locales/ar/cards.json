@@ -657,5 +657,6 @@
   "portfolioDecisions.riskNote": "ظ…ظ„ط§ط­ط¸ط© ط§ظ„ظ…ط®ط§ط·ط±",
   "portfolioDecisions.notes": "ظ…ظ„ط§ط­ط¸ط§طھ ط§ظ„طھظ†ظپظٹط°",
   "utils.cardId.tooltip": "ط§ظ†ظ‚ط± ظ„ظ„ظ†ط³ط®",
-  "utils.cardId.copied": "طھظ… ط§ظ„ظ†ط³ط®!"
+  "utils.cardId.copied": "طھظ… ط§ظ„ظ†ط³ط®!",
+  "detail.unsavedLeaveConfirm": "لديك تغييرات غير محفوظة. هل تريد المغادرة دون حفظ؟"
 }

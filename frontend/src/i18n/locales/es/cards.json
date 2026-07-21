@@ -652,5 +652,6 @@
   "detail.succeeds.search": "Buscar {{type}}",
   "detail.succeeds.modifiedAs": "Modificado como",
   "utils.cardId.tooltip": "Clic para copiar",
-  "utils.cardId.copied": "آ،Copiado!"
+  "utils.cardId.copied": "آ،Copiado!",
+  "detail.unsavedLeaveConfirm": "Tiene cambios sin guardar. ¿Salir sin guardar?"
 }

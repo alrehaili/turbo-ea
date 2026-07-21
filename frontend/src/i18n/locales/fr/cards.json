@@ -652,5 +652,6 @@
   "detail.succeeds.search": "Rechercher {{type}}",
   "detail.succeeds.modifiedAs": "Modifiأ© comme",
   "utils.cardId.tooltip": "Cliquer pour copier",
-  "utils.cardId.copied": "Copiأ© !"
+  "utils.cardId.copied": "Copiأ© !",
+  "detail.unsavedLeaveConfirm": "Vous avez des modifications non enregistrées. Quitter sans enregistrer ?"
 }

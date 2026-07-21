@@ -377,5 +377,13 @@
   "changeType.replace": "استبدال",
   "changeType.retire": "إيقاف",
   "changeType.consolidate": "دمج",
-  "labels.show": "إظهار"
+  "labels.show": "إظهار",
+  "colorPicker.contrastWarning": "تباين منخفض: قد يصعب رؤية هذا اللون في الوضع الفاتح أو الداكن",
+  "colorPicker.previewLight": "فاتح",
+  "colorPicker.previewDark": "داكن",
+  "portal.signInHint": "هذه البوابة مقيّدة. سجّل الدخول باستخدام حساب مؤسستك لعرضها.",
+  "portal.signInButton": "تسجيل الدخول عبر {{provider}}",
+  "portal.ssoUnavailable": "الدخول الموحّد غير متاح لهذه البوابة حاليًا. يرجى الاتصال بمسؤول البوابة.",
+  "portal.signInError": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+  "portal.signingIn": "جارٍ تسجيل دخولك…"
 }

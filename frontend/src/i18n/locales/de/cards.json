@@ -652,5 +652,6 @@
   "detail.succeeds.search": "{{type}} durchsuchen",
   "detail.succeeds.modifiedAs": "Geأ¤ndert als",
   "utils.cardId.tooltip": "Zum Kopieren klicken",
-  "utils.cardId.copied": "Kopiert!"
+  "utils.cardId.copied": "Kopiert!",
+  "detail.unsavedLeaveConfirm": "Sie haben ungespeicherte Änderungen. Ohne Speichern verlassen?"
 }

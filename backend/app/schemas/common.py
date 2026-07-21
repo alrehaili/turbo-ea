@@ -235,6 +235,8 @@ class WebPortalCreate(BaseModel):
     card_config: dict | None = None
     tiles: list | None = None
     is_published: bool = False
+    access_mode: str | None = None  # "public" | "sso"; None → "public"
+    allowed_email_domains: list[str] | None = None
 
 
 class WebPortalUpdate(BaseModel):
@@ -248,6 +250,8 @@ class WebPortalUpdate(BaseModel):
     card_config: dict | None = None
     tiles: list | None = None
     is_published: bool | None = None
+    access_mode: str | None = None
+    allowed_email_domains: list[str] | None = None
 
 
 class SavedReportCreate(BaseModel):

@@ -1892,5 +1892,16 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "ذںر€ذ¸رپذ²ذ¾ذ¸ر‚رŒ ID {{count}} رپرƒر‰ذµرپر‚ذ²رƒرژر‰ذ¸ذ¼ ذ؛ذ°ر€ر‚ذ¾ر‡ذ؛ذ°ذ¼? ID ذ؟ذ¾رپر‚ذ¾رڈذ½ذ½ر‹ ذ¸ ذ½ذµ ذ¼ذ¾ذ³رƒر‚ ذ±ر‹ر‚رŒ ذ¸ذ·ذ¼ذµذ½ذµذ½ر‹.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "ذ،ذ³ذµذ½ذµر€ذ¸ر€ذ¾ذ²ذ°ر‚رŒ",
   "metamodel.typeDrawer.cardId.generated_one": "ذ،ذ³ذµذ½ذµر€ذ¸ر€ذ¾ذ²ذ°ذ½ {{count}} ID",
-  "metamodel.typeDrawer.cardId.generated_other": "ذ،ذ³ذµذ½ذµر€ذ¸ر€ذ¾ذ²ذ°ذ½ذ¾ {{count}} ID"
+  "metamodel.typeDrawer.cardId.generated_other": "ذ،ذ³ذµذ½ذµر€ذ¸ر€ذ¾ذ²ذ°ذ½ذ¾ {{count}} ID",
+  "metamodel.typeDrawer.resetColor": "Сбросить цвет по умолчанию",
+  "webPortals.access.title": "Защита доступа",
+  "webPortals.access.modeLabel": "Кто может просматривать этот портал",
+  "webPortals.access.modePublic": "Любой, у кого есть ссылка",
+  "webPortals.access.modeSso": "Войти через SSO",
+  "webPortals.access.publicHint": "После публикации портал доступен для чтения всем — любой, у кого есть ссылка, может его просматривать.",
+  "webPortals.access.ssoHint": "Посетители должны войти через поставщик удостоверений вашей организации. Учётная запись не создаётся и лицензия не расходуется.",
+  "webPortals.access.ssoNotConfigured": "Прежде чем ограничивать портал через SSO, необходимо настроить единый вход.",
+  "webPortals.access.domainsLabel": "Разрешённые почтовые домены (необязательно)",
+  "webPortals.access.domainsPlaceholder": "company.com",
+  "webPortals.access.domainsHint": "Ограничивает доступ этими почтовыми доменами. Оставьте пустым, чтобы разрешить любого пользователя, прошедшего аутентификацию в поставщике удостоверений. Нажмите Enter, чтобы добавить."
 }

@@ -652,5 +652,6 @@
   "detail.succeeds.search": "Cerca {{type}}",
   "detail.succeeds.modifiedAs": "Modificato come",
   "utils.cardId.tooltip": "Clicca per copiare",
-  "utils.cardId.copied": "Copiato!"
+  "utils.cardId.copied": "Copiato!",
+  "detail.unsavedLeaveConfirm": "Ci sono modifiche non salvate. Uscire senza salvare?"
 }

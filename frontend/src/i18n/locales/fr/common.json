@@ -368,5 +368,13 @@
   "changeType.retire": "Retirer",
   "changeType.consolidate": "Consolider",
   "labels.show": "Afficher",
-  "portal.hubEmpty": "Ce portail n’a pas encore de tuiles."
+  "portal.hubEmpty": "Ce portail n’a pas encore de tuiles.",
+  "colorPicker.contrastWarning": "Contraste faible : cette couleur peut être difficile à voir en mode clair ou sombre",
+  "colorPicker.previewLight": "Clair",
+  "colorPicker.previewDark": "Sombre",
+  "portal.signInHint": "Ce portail est restreint. Connectez-vous avec votre compte professionnel pour le consulter.",
+  "portal.signInButton": "Se connecter avec {{provider}}",
+  "portal.ssoUnavailable": "L'authentification unique n'est pas disponible pour ce portail actuellement. Veuillez contacter l'administrateur du portail.",
+  "portal.signInError": "Échec de la connexion. Veuillez réessayer.",
+  "portal.signingIn": "Connexion en cours…"
 }

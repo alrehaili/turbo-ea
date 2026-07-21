@@ -652,5 +652,6 @@
   "detail.succeeds.search": "وگœç´¢ {{type}}",
   "detail.succeeds.modifiedAs": "ن؟®و”¹ن¸؛",
   "utils.cardId.tooltip": "ç‚¹ه‡»ه¤چهˆ¶",
-  "utils.cardId.copied": "ه·²ه¤چهˆ¶"
+  "utils.cardId.copied": "ه·²ه¤چهˆ¶",
+  "detail.unsavedLeaveConfirm": "您有未保存的更改。不保存就离开吗？"
 }

@@ -377,5 +377,13 @@
   "dashboard.attention.lowQuality": "Cards with low data quality",
   "dashboard.attention.eol": "End-of-life cards",
   "dashboard.attention.draft": "Cards still in draft",
-  "portal.hubEmpty": "This portal has no tiles yet."
+  "portal.hubEmpty": "This portal has no tiles yet.",
+  "colorPicker.contrastWarning": "Low contrast: this color may be hard to see in light or dark mode",
+  "colorPicker.previewLight": "Light",
+  "colorPicker.previewDark": "Dark",
+  "portal.signInHint": "This portal is restricted. Sign in with your organization account to view it.",
+  "portal.signInButton": "Sign in with {{provider}}",
+  "portal.ssoUnavailable": "Single sign-on isn't available for this portal right now. Please contact the portal administrator.",
+  "portal.signInError": "Sign-in failed. Please try again.",
+  "portal.signingIn": "Signing you in…"
 }

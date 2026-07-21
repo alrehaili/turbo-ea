@@ -652,5 +652,6 @@
   "detail.succeeds.search": "Sأ¸g {{type}}",
   "detail.succeeds.modifiedAs": "أ†ndret som",
   "utils.cardId.tooltip": "Klik for at kopiere",
-  "utils.cardId.copied": "Kopieret!"
+  "utils.cardId.copied": "Kopieret!",
+  "detail.unsavedLeaveConfirm": "Du har ugemte ændringer. Vil du forlade siden uden at gemme?"
 }

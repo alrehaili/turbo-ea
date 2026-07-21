@@ -1892,5 +1892,16 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "طھط¹ظٹظٹظ† ظ…ط¹ط±ظ‘ظپط§طھ ظ„ظ€ {{count}} ط¨ط·ط§ظ‚ط© ظ…ظˆط¬ظˆط¯ط©طں ط§ظ„ظ…ط¹ط±ظ‘ظپط§طھ ط¯ط§ط¦ظ…ط© ظˆظ„ط§ ظٹظ…ظƒظ† طھط؛ظٹظٹط±ظ‡ط§.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "طھظˆظ„ظٹط¯",
   "metamodel.typeDrawer.cardId.generated_one": "طھظ… طھظˆظ„ظٹط¯ {{count}} ظ…ط¹ط±ظ‘ظپ",
-  "metamodel.typeDrawer.cardId.generated_other": "طھظ… طھظˆظ„ظٹط¯ {{count}} ظ…ط¹ط±ظ‘ظپ"
+  "metamodel.typeDrawer.cardId.generated_other": "طھظ… طھظˆظ„ظٹط¯ {{count}} ظ…ط¹ط±ظ‘ظپ",
+  "metamodel.typeDrawer.resetColor": "إعادة التعيين إلى اللون الافتراضي",
+  "webPortals.access.title": "حماية الوصول",
+  "webPortals.access.modeLabel": "من يمكنه عرض هذه البوابة",
+  "webPortals.access.modePublic": "أي شخص لديه الرابط",
+  "webPortals.access.modeSso": "تسجيل الدخول عبر SSO",
+  "webPortals.access.publicHint": "تصبح البوابة قابلة للقراءة للجميع بمجرد نشرها — يمكن لأي شخص لديه الرابط عرضها.",
+  "webPortals.access.ssoHint": "يجب على الزوار تسجيل الدخول عبر موفّر الهوية الخاص بمؤسستك. لا يتم إنشاء أي حساب ولا استخدام أي ترخيص.",
+  "webPortals.access.ssoNotConfigured": "يجب تكوين الدخول الموحّد قبل أن تتمكن من قصر البوابة على SSO.",
+  "webPortals.access.domainsLabel": "نطاقات البريد الإلكتروني المسموح بها (اختياري)",
+  "webPortals.access.domainsPlaceholder": "company.com",
+  "webPortals.access.domainsHint": "يقصر الوصول على نطاقات البريد الإلكتروني هذه. اتركه فارغًا للسماح لأي مستخدم يوثّقه موفّر الهوية. اضغط Enter للإضافة."
 }

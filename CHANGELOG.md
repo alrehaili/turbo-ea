@@ -5,36 +5,58 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.23.0] - 2026-07-20
+## [2.23.1] - 2026-07-17
+
+### Security
+- **Frontend build toolchain upgraded from End-of-Life Node.js 20 to Node.js 24 LTS.** The `frontend-build` Docker stage now uses `node:24-alpine` and the frontend CI jobs run on Node 24. Node.js 20 reached End of Life on April 30, 2026; Node 24 is the Active LTS line, supported until April 2028. Node is build-time only — the shipped frontend image (nginx + static assets) is unchanged. (#853)
+
+## [2.23.0] - 2026-07-17
 
 ### Added
-- **KPI/outcome is now a first-class field on Objectives.** The Executive Strategy Map's KPI chip is backed by a real, editable `Key Result / KPI` field instead of a hidden attribute. Existing values are preserved.
-- **Recovery objectives are now first-class Application fields.** `Recovery Time Objective (RTO)`, `Recovery Point Objective (RPO)`, and a `Recovery Tier` (Tier 1–4) field sit alongside Business Criticality; the Resilience / Critical Service view shows the recovery tier per service.
-- **Data Domain is now a first-class Data Object field.** The Data Flow Map's domain grouping is backed by an editable `Data Domain` field.
-- **Scenario Planning — relation-level changes and baseline-drift detection.** Scenarios can now add or remove relations (not just cards), and a `modify` change captures a baseline of the fields it touches so the merge flags a **drift conflict** when a card was edited on the live baseline since the change was captured (skipped by default; a **Force merge** applies anyway). The diff surfaces relation counts, a drift metric, and per-change drift chips. Relation changes are authorable in the scenario dialog — add a relation (source → type → target pickers) or remove an existing one from a card.
-- **Data Domain and Data Product card types.** Two new built-in Data-layer card types: **Data Domain** (steward, classification, retention policy, system of record; hierarchical) and **Data Product** (product owner, maturity, SLA, consumers), with relation types linking Data Objects to their domain and Data Products to the objects they expose and the capabilities they support. Existing installs pick them up automatically on startup.
-- **Promote an RTO/RPO gap straight to a risk.** The Resilience / Critical Service view now lists critical services missing recovery objectives with a one-click **Create risk** action (impact seeded from Business Criticality, affected card linked). It's idempotent — once promoted the row shows **Open R-xxxxxx** instead.
-- **Standards-compliance scan on the Technology Standards Radar.** A new **Compliance** tab flags Applications and IT Components that use a technology governed by a *Sunset* or *Prohibited* standard, following the Application → IT Component → Tech Category chain. Rows covered by an approved, non-expired exception show as **Waived**.
-- **Technology Standards Radar gains a true polar radar view.** The radar tab now offers a Thoughtworks-style radar chart (category sectors × adoption-status rings, clickable standard blips) alongside the existing matrix heatmap, switchable via a Radar/Matrix toggle.
+- **Card type colors are now fully customizable — including the built-in types** (discussion #740). The metamodel admin's color picker is no longer locked for built-in types, so you can align Turbo EA with TOGAF/ArchiMate visual conventions (business elements in yellow/orange, applications in blue, …). A **reset to default color** button appears whenever a built-in type's color differs from the standard palette, and the picker warns (without blocking) when a chosen color would be nearly invisible against light or dark backgrounds. The API now validates type colors as `#rrggbb` hex values.
+- **The type color picker shows a live preview in both themes.** Beside the palette, sample renderings of the type name, chip, card icon, subtype, card ID pill, and a dependency-view node update as you pick — once on a light background and once on a dark one — so you can see exactly how a color will look before saving.
+- **Text on colored chips and diagram shapes now picks black or white automatically for readability.** Card-type, tag, select-option, and related-card chips across the inventory, card detail, reports, and filter sidebars — as well as newly inserted DrawIO card shapes — compute their text color from the background instead of always using white, so pale custom colors stay legible in both light and dark mode. Dark mode no longer washes out pale type colors in the dependency views.
 
-### Changed
-- The Strategy Map, Resilience, and Data Flow views read these first-class fields directly; legacy attribute keys (`outcome` / `targetMetric` / `successMetric`) still render as fallbacks so pre-existing values keep showing.
-- **Application Rationalization Board now uses the shared card picker.** The add-application, successor, and (new) initiative selectors are proper browse-on-open pickers instead of a search-by-name box, the decisions table shows the linked initiative, and the demo dataset links sample migrations to their driving initiatives.
-- **Executive Strategy Map shows delivery health.** Each initiative now carries a RAG chip rolled up from the worst dimension (schedule / cost / scope) of its latest PPM status report, with an on-track / at-risk / off-track summary above the map.
-- **Reference Models — cross-model relationships (RMPlan §10).** Reference-model components can now be linked to each other with typed relationships (supports / consumes / realizes / depends_on / aligns_with), typically across models — e.g. an Applications RM component that *realizes* a Business RM capability. New `reference_model_relationships` table, API (`/reference-models/items/{id}/relationships`), workspace-transfer coverage, and a relationship editor on the component-detail panel of the Reference Model browse page.
+### Fixed
+- The Compliance filter sidebar, Capability Map, and Process Map now use the metamodel colors for Application, IT Component, Data Object, and Business Capability instead of hardcoded defaults, so admin color customizations show up consistently.
+- **The notification bell now inherits the custom navigation bar text color** (#852). With a light custom navbar the bell was hardcoded white and nearly invisible; it now follows the configured text color like every other top-bar icon, while the red unread badge keeps its status color.
+
+## [2.22.4] - 2026-07-17
+
+### Fixed
+- **PPM status reports now label each health indicator.** In an Initiative's Status Reports tab, the three colored dots (Schedule, Cost, Scope) now show their dimension name next to each dot, with the RAG status (On Track / At Risk / Off Track) in the tooltip. Previously the indicators relied on color and position alone, which was ambiguous and inaccessible to users with color-vision deficiencies. (#849)
+
+## [2.22.3] - 2026-07-17
+
+### Fixed
+- **Email sending now works with SMTP servers that require implicit TLS/SSL on port 465.** Previously the SMTP backends always opened a plain connection (upgraded via STARTTLS), which servers expecting an immediate TLS handshake dropped before authentication ("Connection unexpectedly closed"). Port 465 now connects with implicit TLS automatically — for both the password and OAuth2 SMTP methods; port 587 with STARTTLS is unchanged.
+
+## [2.22.2] - 2026-07-17
+
+### Fixed
+- **The Matrix report no longer misaligns rows that have children.** When a card type with a parent/child hierarchy is used for the matrix rows and **Sort Rows** is set to **Hierarchy**, the data cells of the nested child rows now line up correctly under their column headers instead of drifting out of the grid.
+
+## [2.22.1] - 2026-07-17
+
+### Fixed
+- **Exporting a dependency diagram (Layered Dependency View) to PNG or SVG no longer shows `expand_less` / `expand_more` as raw text.** The small up/down hierarchy hint chevrons (shown when a card has a hidden parent or hidden children) now render as real chevrons in the exported image instead of leaking through as their icon names.
+
+## [2.22.0] - 2026-07-16
+
+### Fixed
+- **Editing several card sections at once no longer loses your work.** When you had the edit pencil open on more than one section of a card and typed into each, saving one section used to silently clear the unsaved text in the others. Each section now keeps its in-progress edits until you save or cancel it. (#843)
+
+### Added
+- **Turbo EA now warns you before leaving a card with unsaved edits.** If you try to reload, close the tab, click to another page, or use the browser Back button while a card section (or the card title) is still being edited, you'll be asked to confirm so you don't accidentally lose your changes.
 
 ## [2.21.0] - 2026-07-16
 
 ### Added
-- **NORA landscape seed now populates every card type.** Seeds at least 5 cards each for Platform, Provider, Tech Category, Channel, Persona, Beneficiary Journey, Policy, Security Control, and Business Context, plus 5 Business Processes each with a ready-to-view BPMN process flow — all cross-linked into the existing landscape (77 relations).
-- **Security Control relationships.** Security Controls can now be linked to the Applications and Data Objects they protect and the IT Components they secure, via three new built-in relation types (`protects` / `secures`). Existing installs get them through a migration.
-- **Public web portals are seeded out of the box** — one catalogue portal per card type plus a Strategic House hub landing page.
-- **Saudi regulations now carry example compliance findings.** PDPL, NCA ECC, NDMO, and DGA Policy show real findings in the GRC Compliance tab instead of empty grids.
+- **Web portals can now be protected with single sign-on.** Each portal now has an access mode: **Anyone with the link** (the previous behaviour) or **Sign in with SSO**. In SSO mode, visitors must authenticate with your organization's identity provider before they can see any portal data — but they are never provisioned as Turbo EA users, so there is no account to manage, no role to assign, and no license consumed. Sign-in is transparent: a visitor already signed in with your identity provider lands on the portal with no prompt, and the flow reuses your existing SSO login configuration, so **no identity-provider changes are needed**. You can optionally restrict an SSO-gated portal to specific email domains. Configure it per portal in Admin → Settings → Web Portals.
 
-### Fixed
-- **GRC Risk tab no longer returns a 500.** A seeded risk with an invalid `source_type` broke the entire risk list and metrics; the value is corrected and the seed hardened.
-- **Compliance regulations with no findings show "Not scanned" instead of a misleading 100%.** The score and grid now agree — an unscanned regulation reads as unscanned, not fully compliant.
-- **Strategic House vision text no longer overflows the roof.** The roof is a flat banner with a decorative gable so multi-sentence vision statements wrap cleanly, and the pillars and objectives are enclosed within the house body.
+### Security
+- **Published web portals are no longer unavoidably world-readable.** SSO-gated portals return no card data until the visitor completes sign-in; the visitor session is a short-lived, per-portal, account-less cookie, and unpublishing a portal instantly revokes access in every mode.
+
 ## [2.20.0] - 2026-07-15
 
 ### Changed

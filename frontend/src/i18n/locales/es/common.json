@@ -368,5 +368,13 @@
   "changeType.retire": "Retirar",
   "changeType.consolidate": "Consolidar",
   "labels.show": "Mostrar",
-  "portal.hubEmpty": "Este portal aún no tiene mosaicos."
+  "portal.hubEmpty": "Este portal aún no tiene mosaicos.",
+  "colorPicker.contrastWarning": "Contraste bajo: este color puede ser difícil de ver en modo claro u oscuro",
+  "colorPicker.previewLight": "Claro",
+  "colorPicker.previewDark": "Oscuro",
+  "portal.signInHint": "Este portal está restringido. Inicia sesión con tu cuenta de la organización para verlo.",
+  "portal.signInButton": "Iniciar sesión con {{provider}}",
+  "portal.ssoUnavailable": "El inicio de sesión único no está disponible para este portal en este momento. Ponte en contacto con el administrador del portal.",
+  "portal.signInError": "Error al iniciar sesión. Inténtalo de nuevo.",
+  "portal.signingIn": "Iniciando sesión…"
 }

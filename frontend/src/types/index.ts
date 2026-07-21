@@ -258,6 +258,9 @@ export interface CardType {
   is_hidden: boolean;
   sort_order: number;
   translations?: MetamodelTranslations;
+  /** Seed default color for built-in types (null for custom types) — powers
+   * the admin "reset to default color" affordance (discussion #740). */
+  default_color?: string | null;
 }
 
 /** Per-type human-readable card ID config (discussion #811). When enabled
@@ -949,6 +952,8 @@ export interface PortalTileSection {
   tiles: PortalTile[];
 }
 
+export type PortalAccessMode = "public" | "sso";
+
 export interface WebPortal {
   id: string;
   name: string;
@@ -961,9 +966,27 @@ export interface WebPortal {
   card_config?: Record<string, unknown>;
   tiles?: PortalTileSection[];
   is_published: boolean;
+  access_mode: PortalAccessMode;
+  allowed_email_domains?: string[] | null;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// Always-public gate metadata returned by GET /web-portals/public/{slug}/gate.
+// Carries only the access mode + (for SSO) the config needed to start the IdP
+// redirect — never the portal's data.
+export interface PortalGate {
+  access_mode: PortalAccessMode;
+  name: string;
+  sso?: {
+    provider?: string;
+    provider_name?: string;
+    client_id?: string;
+    authorization_endpoint?: string;
+    scopes?: string;
+    extra_auth_params?: Record<string, string>;
+  };
 }
 
 export interface PortalTypeInfo {

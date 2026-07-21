@@ -368,5 +368,13 @@
   "changeType.retire": "停用",
   "changeType.consolidate": "合并",
   "labels.show": "显示",
-  "portal.hubEmpty": "此门户尚无磁贴。"
+  "portal.hubEmpty": "此门户尚无磁贴。",
+  "colorPicker.contrastWarning": "对比度低：此颜色在浅色或深色模式下可能难以看清",
+  "colorPicker.previewLight": "浅色",
+  "colorPicker.previewDark": "深色",
+  "portal.signInHint": "此门户受限。请使用您的组织账户登录以查看。",
+  "portal.signInButton": "使用 {{provider}} 登录",
+  "portal.ssoUnavailable": "此门户目前无法使用单点登录。请联系门户管理员。",
+  "portal.signInError": "登录失败。请重试。",
+  "portal.signingIn": "正在登录…"
 }

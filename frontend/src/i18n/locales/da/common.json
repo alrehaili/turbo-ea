@@ -368,5 +368,13 @@
   "changeType.retire": "Tilbagetrække",
   "changeType.consolidate": "Konsolidere",
   "labels.show": "Vis",
-  "portal.hubEmpty": "Denne portal har endnu ingen fliser."
+  "portal.hubEmpty": "Denne portal har endnu ingen fliser.",
+  "colorPicker.contrastWarning": "Lav kontrast: denne farve kan være svær at se i lys eller mørk tilstand",
+  "colorPicker.previewLight": "Lys",
+  "colorPicker.previewDark": "Mørk",
+  "portal.signInHint": "Denne portal er begrænset. Log ind med din organisationskonto for at se den.",
+  "portal.signInButton": "Log ind med {{provider}}",
+  "portal.ssoUnavailable": "Single sign-on er ikke tilgængelig for denne portal lige nu. Kontakt portaladministratoren.",
+  "portal.signInError": "Login mislykkedes. Prøv igen.",
+  "portal.signingIn": "Logger dig ind…"
 }

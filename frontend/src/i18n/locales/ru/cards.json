@@ -652,5 +652,6 @@
   "detail.succeeds.search": "ذںذ¾ذ¸رپذ؛ {{type}}",
   "detail.succeeds.modifiedAs": "ذکذ·ذ¼ذµذ½ذµذ½ذ¾ ذ؛ذ°ذ؛",
   "utils.cardId.tooltip": "ذ‌ذ°ذ¶ذ¼ذ¸ر‚ذµ, ر‡ر‚ذ¾ذ±ر‹ رپذ؛ذ¾ذ؟ذ¸ر€ذ¾ذ²ذ°ر‚رŒ",
-  "utils.cardId.copied": "ذ،ذ؛ذ¾ذ؟ذ¸ر€ذ¾ذ²ذ°ذ½ذ¾!"
+  "utils.cardId.copied": "ذ،ذ؛ذ¾ذ؟ذ¸ر€ذ¾ذ²ذ°ذ½ذ¾!",
+  "detail.unsavedLeaveConfirm": "Есть несохранённые изменения. Уйти без сохранения?"
 }

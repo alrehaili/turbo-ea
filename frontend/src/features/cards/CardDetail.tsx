@@ -43,6 +43,7 @@ import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill, SuccessorFieldSection } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import type {
   Card,
   CardEffectivePermissions,
@@ -108,6 +109,16 @@ export default function CardDetail() {
   const [nameDraft, setNameDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+
+  // Warn before leaving the page with unsaved edits (#843). Sections report
+  // their dirty state up through CardDetailContent; combine that with the
+  // inline title edit for the page-level unsaved-changes flag.
+  const [sectionsDirty, setSectionsDirty] = useState(false);
+  const titleDirty = editingName && nameDraft !== (card?.name ?? "");
+  useUnsavedChangesGuard(
+    sectionsDirty || titleDirty,
+    t("cards:detail.unsavedLeaveConfirm"),
+  );
 
   // Inline subtype editing
   const [subtypeAnchor, setSubtypeAnchor] = useState<HTMLElement | null>(null);
@@ -907,9 +918,11 @@ export default function CardDetail() {
       />
 
       <CardDetailContent
+        key={card.id}
         card={card}
         perms={perms}
         onCardUpdate={setCard}
+        onDirtyChange={setSectionsDirty}
         initialTab={initialTab}
         initialSubTab={initialSubTab}
         autoFieldKeys={ppmAutoFieldKeys}
