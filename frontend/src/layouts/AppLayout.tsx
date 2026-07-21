@@ -256,7 +256,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const location = useLocation();
   const { t, i18n } = useTranslation("nav");
   const isMobile = useMediaQuery("(max-width:767px)");
-  const isCompact = useMediaQuery("(max-width:1023px)");
+  // Collapse nav items to icon-only below 1280px so the labelled buttons +
+  // right-side controls fit; the nav container also scrolls as a safety net.
+  const isCompact = useMediaQuery("(max-width:1279px)");
   const isCondensed = useMediaQuery("(max-width:1279px)");
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
@@ -896,9 +898,24 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             />
           </Box>
 
-          {/* Desktop / tablet nav items */}
+          {/* Desktop / tablet nav items — allowed to shrink + scroll so a long
+              nav never pushes the right-side controls (create / notifications /
+              user menu) off-screen. */}
           {!isMobile && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                flexShrink: 1,
+                minWidth: 0,
+                overflowX: "auto",
+                overflowY: "hidden",
+                // hide the horizontal scrollbar chrome (still scrollable)
+                scrollbarWidth: "none",
+                "&::-webkit-scrollbar": { display: "none" },
+              }}
+            >
               {navItems.map((item) =>
                 item.children ? (
                   isCompact ? (
@@ -1009,7 +1026,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           {!isMobile && (
             <Tooltip title={t("search.tooltip", { shortcut: /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? "\u2318K" : "Ctrl+K" })}>
               <IconButton
-                sx={{ color: nav.fgMuted }}
+                sx={{ color: nav.fgMuted, flexShrink: 0 }}
                 onClick={() => setSearchDialogOpen(true)}
               >
                 <MaterialSymbol icon="search" size={22} />
