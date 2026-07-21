@@ -22,15 +22,15 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~72%** — Phase 1 (45 building blocks), Phase 2 (117 relations across all 7 domains), and Phase 3
-(fully-NORA picker) done. Remaining: KPI relations follow-up + Phase 4 (module rewiring) and Phase 5
+**~75%** — Phase 1 (45 building blocks), Phase 2 (120 relations across all 7 domains, incl. KPI), and
+Phase 3 (fully-NORA picker) all complete. Remaining: Phase 4 (module rewiring) and Phase 5
 (tests/docs/demo).
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
 | 0 | Plan & decisions | ✅ Done | 100% |
 | 1 | Author 45 building-block card types (attributes + 9 locales) | ✅ Done | 100% |
-| 2 | Author connection catalogue (117 relations) | 🟡 Nearly done | 90% |
+| 2 | Author connection catalogue (120 relations) | ✅ Done | 100% |
 | 3 | Hide generic tool types when NORA active | ✅ Done | 100% |
 | 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ⬜ Not started | 0% |
 | 5 | Tests + docs + seed-demo alignment | ⬜ Not started | 0% |
@@ -172,7 +172,7 @@ pair already owned by the base seed, the technology backbone, or `nora_profile`)
 
 | Doc section | Domain | Status |
 |-------------|--------|--------|
-| 5.3.1.3 | Strategic Alignment | ✅ (Vision/Mission/Project/Objective/Pillar/Initiative wiring; KPI edges deferred*) |
+| 5.3.1.3 | Strategic Alignment | ✅ (Vision/Mission/Project/Objective/Pillar/Initiative + KPI edges) |
 | 5.3.2.3 | Business Architecture | ✅ (OrgUnit/ServiceProvider/GovService/ProcessesGroup/Role/Activity/Product/Position/Policy/ModelTemplate) |
 | 5.3.3.3 | Beneficiary Experience | ✅ (Beneficiary/Journey/Persona/Phase/Step) |
 | 5.3.4.3 | Data Architecture | ✅ (DataObject/DataVault/DataAttribute + security) |
@@ -180,8 +180,8 @@ pair already owned by the base seed, the technology backbone, or `nora_profile`)
 | 5.3.6.3 | Technology | ✅ (backbone, 51 relations) |
 | 5.3.7.3 | Security | ✅ (secured-through edges for Application/Interface/DataVault/Server) |
 
-*KPI relations are deferred: `KPI` is defined in `nora_profile` (not `seed.TYPES`), so its
-measured-by edges belong alongside its type definition — a small follow-up in `nora_profile`.
+KPI relations live in `nora_profile.NORA_RELATION_TYPES` alongside the `KPI` type definition
+(6 edges: Objective/Initiative/Project → KPI, and KPI → GovService/BusinessProcess/OrganizationalUnit).
 
 ---
 

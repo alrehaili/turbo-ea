@@ -7878,6 +7878,90 @@ NORA_RELATION_TYPES: list[dict] = [
             ),
         },
     },
+    # [FORK] Phase 2 completion — remaining KPI measured-by edges (§5.3.1.3).
+    {
+        "key": "relProjectToKPI",
+        "label": "is measured by",
+        "reverse_label": "measures",
+        "source_type_key": "Project",
+        "target_type_key": "KPI",
+        "cardinality": "n:m",
+        "sort_order": 260,
+        "translations": {
+            "label": _tr(
+                "wird gemessen durch",
+                "est mesuré par",
+                "se mide mediante",
+                "è misurato da",
+                "é medido por",
+                "由…衡量",
+                "измеряется",
+                "måles af",
+                "يُقاس بواسطة",
+            ),
+            "reverse_label": _tr(
+                "misst", "mesure", "mide", "misura", "mede", "衡量", "измеряет", "måler", "يقيس"
+            ),
+        },
+    },
+    {
+        "key": "relKPIToBusinessProcess",
+        "label": "measures",
+        "reverse_label": "is measured by",
+        "source_type_key": "KPI",
+        "target_type_key": "BusinessProcess",
+        "cardinality": "n:m",
+        "sort_order": 261,
+        "translations": {
+            "label": _tr(
+                "misst", "mesure", "mide", "misura", "mede", "衡量", "измеряет", "måler", "يقيس"
+            ),
+            "reverse_label": _tr(
+                "wird gemessen durch",
+                "est mesuré par",
+                "se mide mediante",
+                "è misurato da",
+                "é medido por",
+                "由…衡量",
+                "измеряется",
+                "måles af",
+                "يُقاس بواسطة",
+            ),
+        },
+    },
+    {
+        "key": "relKPIToOrgUnit",
+        "label": "belongs to",
+        "reverse_label": "owns",
+        "source_type_key": "KPI",
+        "target_type_key": "OrganizationalUnit",
+        "cardinality": "n:1",
+        "sort_order": 262,
+        "translations": {
+            "label": _tr(
+                "gehört zu",
+                "appartient à",
+                "pertenece a",
+                "appartiene a",
+                "pertence a",
+                "属于",
+                "относится к",
+                "hører til",
+                "ينتمي إلى",
+            ),
+            "reverse_label": _tr(
+                "besitzt",
+                "possède",
+                "posee",
+                "possiede",
+                "possui",
+                "拥有",
+                "владеет",
+                "ejer",
+                "يملك",
+            ),
+        },
+    },
 ]
 
 
