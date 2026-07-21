@@ -22,15 +22,15 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~60%** — Phase 1 (all 45 building blocks) + Phase 3 (fully-NORA picker: all 16 non-NORA types
-hidden on activation) complete, and the pre-existing `test_nora_profile` failures fixed. Focus now
-shifts to the remaining relation catalogues (Phase 2) and module rewiring (Phase 4).
+**~72%** — Phase 1 (45 building blocks), Phase 2 (117 relations across all 7 domains), and Phase 3
+(fully-NORA picker) done. Remaining: KPI relations follow-up + Phase 4 (module rewiring) and Phase 5
+(tests/docs/demo).
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
 | 0 | Plan & decisions | ✅ Done | 100% |
 | 1 | Author 45 building-block card types (attributes + 9 locales) | ✅ Done | 100% |
-| 2 | Author connection catalogue (~120 relations) | 🟡 In progress | 20% |
+| 2 | Author connection catalogue (117 relations) | 🟡 Nearly done | 90% |
 | 3 | Hide generic tool types when NORA active | ✅ Done | 100% |
 | 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ⬜ Not started | 0% |
 | 5 | Tests + docs + seed-demo alignment | ⬜ Not started | 0% |
@@ -43,16 +43,16 @@ shifts to the remaining relation catalogues (Phase 2) and module rewiring (Phase
 - **Phase 1A (Strategic):** 3 new types in `backend/app/services/seed_nora_strategic.py` — Vision,
   Mission, Project. (KPI already exists via `nora_profile`; reused key `KPI`.)
 - **Phase 1B (Business):** 5 new types in `backend/app/services/seed_nora_business.py` —
-  OrganizationalUnit, ServiceProvider (split from generic `Organization` / `Provider`, §5.3.2.2.2–3;
-  generics to be hidden in Phase 3) plus ProcessesGroup, Role, Activity (§5.3.2.2.5/10/7).
+  OrganizationalUnit, ServiceProvider (split from generic `Organization` / `Provider`, 5.3.2.2.2–3;
+  generics to be hidden in Phase 3) plus ProcessesGroup, Role, Activity (5.3.2.2.5/10/7).
 - **Phase 1E (Applications):** `seed_nora_applications.py` — ApplicationModule, ApplicationFunction
-  (§5.3.5.2.2–3).
-- **Phase 1C (Beneficiary):** `seed_nora_beneficiary.py` — Phase, Step (§5.3.3.2.4–5).
+  (5.3.5.2.2–3).
+- **Phase 1C (Beneficiary):** `seed_nora_beneficiary.py` — Phase, Step (5.3.3.2.4–5).
 - **Phase 1G (Security split):** `seed_nora_security.py` — SecurityHardware, SecuritySoftware
-  (split from combined `SecurityFunction`, §5.3.7). Plus `Product` (§5.3.2.2.8) added to
+  (split from combined `SecurityFunction`, 5.3.7). Plus `Product` (5.3.2.2.8) added to
   `seed_nora_business.py` (split from the `BusinessContext` subtype).
 - **Phase 2 (Technology relations):** 51 relations in
-  `backend/app/services/seed_nora_technology_relations.py` — §5.3.6.3 hosts / manages / uses-license
+  `backend/app/services/seed_nora_technology_relations.py` — 5.3.6.3 hosts / manages / uses-license
   / linked-through / owned-by / provided-by backbone, one-per-pair enforced. `ownedBy` / `providedBy`
   now point at the NORA-native `OrganizationalUnit` / `ServiceProvider`.
 
@@ -126,18 +126,18 @@ Status key: ✅ exists standalone · 🟡 exists but overloaded (must split to n
 | 28 | Application | `Application` | standalone | ✅ |
 | 29 | Application Module | `ApplicationModule` | **built** | ✅ |
 | 30 | Application Function | `ApplicationFunction` | **built** | ✅ |
-| 31 | Technical Integration Interface | `Interface` | **attrs via `nora_profile`** (§5.3.5.2.4) | ✅ |
+| 31 | Technical Integration Interface | `Interface` | **attrs via `nora_profile`** (5.3.5.2.4) | ✅ |
 
 ### 1F · Technology Architecture (11)
 
 | # | Building block | Target key | Current | Status |
 |---|----------------|-----------|---------|--------|
-| 32 | Data Center | `Datacenter` | **attrs backfilled** (§5.3.6.2.1) | ✅ |
+| 32 | Data Center | `Datacenter` | **attrs backfilled** (5.3.6.2.1) | ✅ |
 | 33 | Physical Host | `PhysicalHost` | **built** | ✅ |
 | 34 | Server | `Server` | **built** | ✅ |
 | 35 | Containerization Engine | `ContainerizationEngine` | **built** | ✅ |
 | 36 | Network Device | `NetworkDevice` | **built** | ✅ |
-| 37 | Network Link | `NetworkCircuit` | **attrs backfilled** (§5.3.6.2.5) | ✅ |
+| 37 | Network Link | `NetworkCircuit` | **attrs backfilled** (5.3.6.2.5) | ✅ |
 | 38 | Storage | `Storage` | **built** | ✅ |
 | 39 | Infrastructure Service | `InfrastructureService` | **built** | ✅ |
 | 40 | Infrastructure Management Tool | `InfrastructureManagementTool` | **built** | ✅ |
@@ -165,15 +165,23 @@ in-place via `seed_nora_technology_attrs.py` (existing fields preserved).
 Encode the document's connection tables into `relation_types` (one relation type per ordered
 `(source, target)` pair; variants as relation attributes). Source sections:
 
-| Doc section | Domain | Approx. connections | Status |
-|-------------|--------|--------------------|--------|
-| §5.3.1.3 | Strategic Alignment | 31 | ⬜ |
-| §5.3.2.3 | Business Architecture | 59 | ⬜ |
-| §5.3.3.3 | Beneficiary Experience | 12 | ⬜ |
-| §5.3.4.3 | Data Architecture | 16 | ⬜ |
-| §5.3.5.3 | Applications | 26 | ⬜ |
-| §5.3.6.3 | Technology | 117 | ⬜ |
-| §5.3.7.3 | Security | — | ⬜ |
+Two modules, both merged **collision-safe** into `seed.RELATIONS` (skip any ordered `(source,target)`
+pair already owned by the base seed, the technology backbone, or `nora_profile`):
+`seed_nora_technology_relations.py` (§5.3.6.3 backbone, 51) and `seed_nora_domain_relations.py`
+(the other six domains, 66 landed). **117 NORA relations total.**
+
+| Doc section | Domain | Status |
+|-------------|--------|--------|
+| 5.3.1.3 | Strategic Alignment | ✅ (Vision/Mission/Project/Objective/Pillar/Initiative wiring; KPI edges deferred*) |
+| 5.3.2.3 | Business Architecture | ✅ (OrgUnit/ServiceProvider/GovService/ProcessesGroup/Role/Activity/Product/Position/Policy/ModelTemplate) |
+| 5.3.3.3 | Beneficiary Experience | ✅ (Beneficiary/Journey/Persona/Phase/Step) |
+| 5.3.4.3 | Data Architecture | ✅ (DataObject/DataVault/DataAttribute + security) |
+| 5.3.5.3 | Applications | ✅ (Application/Module/Function/Interface + security) |
+| 5.3.6.3 | Technology | ✅ (backbone, 51 relations) |
+| 5.3.7.3 | Security | ✅ (secured-through edges for Application/Interface/DataVault/Server) |
+
+*KPI relations are deferred: `KPI` is defined in `nora_profile` (not `seed.TYPES`), so its
+measured-by edges belong alongside its type definition — a small follow-up in `nora_profile`.
 
 ---
 

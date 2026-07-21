@@ -9555,6 +9555,26 @@ from app.services.seed_nora_technology_relations import NORA_TECHNOLOGY_RELATION
 
 RELATIONS += NORA_TECHNOLOGY_RELATIONS
 
+# [FORK] NORA exact-fidelity metamodel — cross-domain connection catalogue
+# (noraPlanMeta.md Phase 2). Merged collision-safe: only pairs not already
+# defined above (base metamodel + technology backbone) are appended, preserving
+# the one-relation-type-per-ordered-pair rule.
+from app.services.nora_profile import NORA_RELATION_TYPES as _NORA_PROFILE_RELATIONS  # noqa: E402
+from app.services.seed_nora_domain_relations import NORA_DOMAIN_RELATIONS  # noqa: E402
+
+# Skip pairs already defined by the base metamodel + technology backbone AND any
+# owned by nora_profile (applied on profile activation), so no ordered pair ever
+# has two relation types across the three sources.
+_nora_existing_pairs = {(r["source_type_key"], r["target_type_key"]) for r in RELATIONS}
+_nora_existing_pairs |= {
+    (r["source_type_key"], r["target_type_key"]) for r in _NORA_PROFILE_RELATIONS
+}
+for _nora_rel in NORA_DOMAIN_RELATIONS:
+    _nora_pair = (_nora_rel["source_type_key"], _nora_rel["target_type_key"])
+    if _nora_pair not in _nora_existing_pairs:
+        RELATIONS.append(_nora_rel)
+        _nora_existing_pairs.add(_nora_pair)
+
 
 def _inject_english_translations_type(type_def: dict) -> dict:
     """Copy English labels into the translations JSONB so ``en`` is a locale like any other.
