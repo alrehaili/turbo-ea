@@ -6394,6 +6394,50 @@ TYPES = [
     },
 ]
 
+# [FORK] NORA exact-fidelity metamodel — Technology Architecture building blocks
+# (noraPlanMeta.md Phase 1F). The National EA Framework "EA Content Meta Model"
+# document (§5.3.6) defines the Technology domain as 11 independent building
+# blocks; the stock tool collapsed most into ITComponent. Appending them here
+# means the standard seed insert/merge loop and test_i18n_seed both pick them up
+# with no extra wiring. Datacenter (= Data Center) and NetworkCircuit
+# (= Network Link) already exist above, so this adds the remaining nine.
+from app.services.seed_nora_technology import NORA_TECHNOLOGY_TYPES  # noqa: E402
+
+TYPES += NORA_TECHNOLOGY_TYPES
+
+# [FORK] NORA exact-fidelity metamodel — Strategic Alignment building blocks
+# (noraPlanMeta.md Phase 1A). Adds Vision, Mission, and Project as independent
+# types (Objective/Pillar/Initiative already exist above; KPI is created by
+# nora_profile on profile activation).
+from app.services.seed_nora_strategic import NORA_STRATEGIC_TYPES  # noqa: E402
+
+TYPES += NORA_STRATEGIC_TYPES
+
+# [FORK] NORA exact-fidelity metamodel — Business Architecture split types
+# (noraPlanMeta.md Phase 1B). Adds OrganizationalUnit and ServiceProvider as
+# independent types (the document treats them as their own building blocks; the
+# stock tool overloaded them onto generic Organization / Provider).
+from app.services.seed_nora_business import NORA_BUSINESS_TYPES  # noqa: E402
+
+TYPES += NORA_BUSINESS_TYPES
+
+# [FORK] NORA exact-fidelity metamodel — Applications + Beneficiary Experience
+# decomposition blocks (noraPlanMeta.md Phase 1E/1C). ApplicationModule,
+# ApplicationFunction, Phase, Step.
+from app.services.seed_nora_applications import NORA_APPLICATION_TYPES  # noqa: E402
+from app.services.seed_nora_beneficiary import NORA_BENEFICIARY_TYPES  # noqa: E402
+
+TYPES += NORA_APPLICATION_TYPES
+TYPES += NORA_BENEFICIARY_TYPES
+
+# [FORK] NORA exact-fidelity metamodel — Security Architecture split types
+# (noraPlanMeta.md Phase 1G). SecurityHardware + SecuritySoftware split from the
+# combined SecurityFunction (kept, hidden in Phase 3); SecurityService already
+# exists above.
+from app.services.seed_nora_security import NORA_SECURITY_TYPES  # noqa: E402
+
+TYPES += NORA_SECURITY_TYPES
+
 # Canonical default color per built-in card type, derived from TYPES so it can
 # never drift from the seed. Serialized as `default_color` on metamodel types to
 # power the admin "reset to default color" affordance (custom types have none).
@@ -9494,6 +9538,14 @@ RELATIONS = [
         },
     },
 ]
+
+
+# [FORK] NORA exact-fidelity metamodel — Technology Architecture connections
+# (noraPlanMeta.md Phase 2). §5.3.6.3 hosts / manages / uses-license /
+# linked-through / owned-by / provided-by backbone for the new tech types.
+from app.services.seed_nora_technology_relations import NORA_TECHNOLOGY_RELATIONS  # noqa: E402
+
+RELATIONS += NORA_TECHNOLOGY_RELATIONS
 
 
 def _inject_english_translations_type(type_def: dict) -> dict:
