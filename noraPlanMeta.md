@@ -22,8 +22,9 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~75%** — Phase 1 (45 building blocks), Phase 2 (120 relations across all 7 domains, incl. KPI), and
-Phase 3 (fully-NORA picker) all complete. Remaining: Phase 4 (module rewiring) and Phase 5
+**~80%** — Phase 1 (45 building blocks), Phase 2 (120 relations), Phase 3 (fully-NORA picker) complete;
+Phase 4 (module rewiring) underway — EOL, compliance, cost, layer-colours and BPM now work on the
+NORA tech types; tech-landscape/TurboLens/maturity deferred. Remaining: finish Phase 4 + Phase 5
 (tests/docs/demo).
 
 | Phase | Scope | Status | % |
@@ -32,7 +33,7 @@ Phase 3 (fully-NORA picker) all complete. Remaining: Phase 4 (module rewiring) a
 | 1 | Author 45 building-block card types (attributes + 9 locales) | ✅ Done | 100% |
 | 2 | Author connection catalogue (120 relations) | ✅ Done | 100% |
 | 3 | Hide generic tool types when NORA active | ✅ Done | 100% |
-| 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ⬜ Not started | 0% |
+| 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | 🟡 In progress | 60% |
 | 5 | Tests + docs + seed-demo alignment | ⬜ Not started | 0% |
 
 **Done so far:**
@@ -207,14 +208,26 @@ GovService relations); the guards now allow-list those and still catch new accid
 
 ---
 
-## Phase 4 — Module rewiring
+## Phase 4 — Module rewiring 🟡
 
-| Module | Assumes generic key | Action | Status |
-|--------|--------------------|--------|--------|
-| BPM | `BusinessProcess` | already native — verify | ⬜ |
-| Cost / EOL reports | `ITComponent` attrs | teach NORA tech types | ⬜ |
-| TurboLens / dependency views | `Application`, `Interface` | teach NORA keys | ⬜ |
-| Inventory / reports layer colors | layer categories | map new types to 7 domains | ⬜ |
+Shared source of truth added: `backend/app/services/type_groups.py`
+(`NORA_TECH_COMPONENT_TYPE_KEYS`, `INFRASTRUCTURE_TYPE_KEYS` = ITComponent + the 9 NORA tech types,
+`EOL_TYPE_KEYS` = Application + infrastructure). Modules import from it instead of hardcoding
+`"ITComponent"`, so they work under both the NORA and TOGAF profiles.
+
+| Module | Assumed generic key | Status |
+|--------|--------------------|--------|
+| Inventory / reports layer colors | layer categories | ✅ no change — colours are category-driven (`LAYER_COLORS`); new types carry the right `category` + colour |
+| BPM | `BusinessProcess` | ✅ no change — `BusinessProcess` is NORA-native |
+| Cost reports | cost fields | ✅ no change — aggregates cost-typed fields generically; new types carry `capitalCost`/`operatingCost` |
+| EOL linking endpoint (`eol.py`) | `["Application","ITComponent"]` | ✅ rewired to `EOL_TYPE_KEYS` |
+| EOL report (`reports.py`) | `["Application","ITComponent"]` + `== "ITComponent"` | ✅ rewired to `EOL_TYPE_KEYS` / `INFRASTRUCTURE_TYPE_KEYS`; app-impact flows through the NORA `hosts` relations |
+| Compliance scanner | `["Application","ITComponent"]` | ✅ rewired to include NORA tech types |
+| Tech landscape report (`reports.py`) | `ITComponent` hierarchy + subtypes | ⬜ deferred — builds a DC⊃host⊃VM hierarchy off ITComponent subtypes; needs structural rewire to the NORA `hosts` relations |
+| TurboLens vendor/domain (`turbolens.py`) | `ITComponent` target_type | ⬜ deferred — vendor analysis + TA/AA domain split keyed to ITComponent |
+| Maturity indicators / tech_standards / data_flow | `ITComponent` | ⬜ deferred — specialised, field/relation-structure dependent |
+
+Tests: `test_eol`, `test_reports`, `test_compliance_scanner` green; `ruff` clean; app imports.
 
 ---
 

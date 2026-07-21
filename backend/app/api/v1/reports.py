@@ -41,6 +41,7 @@ from app.services.nora_landscape import get_segment_card_ids, phase_as_of  # noq
 from app.services.permission_service import PermissionService
 from app.services.resilience_service import gather_resilience
 from app.services.strategy_map_service import gather_strategy_map
+from app.services.type_groups import EOL_TYPE_KEYS, INFRASTRUCTURE_TYPE_KEYS
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -2267,11 +2268,12 @@ async def eol_report(
     ``endOfLife`` lifecycle date.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    # 1. Fetch all active Applications and ITComponents
+    # 1. Fetch all active Applications and infrastructure (ITComponent + the
+    # NORA-native technology types), which are the EOL-eligible card types.
     result = await db.execute(
         select(Card).where(
             Card.status == "ACTIVE",
-            Card.type.in_(["Application", "ITComponent"]),
+            Card.type.in_(EOL_TYPE_KEYS),
         )
     )
     all_sheets = result.scalars().all()
@@ -2320,7 +2322,7 @@ async def eol_report(
 
     # 3. Get relations between ITComponent and Application for impact mapping
     all_eol_sheets = api_sheets + manual_sheets
-    it_ids = [card.id for card in all_eol_sheets if card.type == "ITComponent"]
+    it_ids = [card.id for card in all_eol_sheets if card.type in INFRASTRUCTURE_TYPE_KEYS]
     app_map = {str(card.id): card for card in all_sheets if card.type == "Application"}
     it_to_apps: dict[str, list[dict]] = {}
 
@@ -2382,7 +2384,7 @@ async def eol_report(
 
         # Impact: affected apps
         affected_apps = it_to_apps.get(str(card.id), [])
-        if card.type == "ITComponent":
+        if card.type in INFRASTRUCTURE_TYPE_KEYS:
             for app in affected_apps:
                 if status == "eol":
                     eol_impacted_app_ids.add(app["id"])
@@ -2416,7 +2418,7 @@ async def eol_report(
 
         # Impact: affected apps
         affected_apps = it_to_apps.get(str(card.id), [])
-        if card.type == "ITComponent":
+        if card.type in INFRASTRUCTURE_TYPE_KEYS:
             for app in affected_apps:
                 if status == "eol":
                     eol_impacted_app_ids.add(app["id"])

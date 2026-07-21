@@ -36,6 +36,7 @@ from app.services.turbolens_ai import (
     is_ai_configured,
     parse_json,
 )
+from app.services.type_groups import INFRASTRUCTURE_TYPE_KEYS
 
 logger = logging.getLogger("turboea.turbolens.security")
 
@@ -130,7 +131,9 @@ def _extract_lifecycle_phase(raw: Any) -> str | None:
 
 
 async def load_scan_targets(db: AsyncSession, include_itc: bool = True) -> list[ScanCard]:
-    types = ["Application"] + (["ITComponent"] if include_itc else [])
+    # "ITComponent" here means the technology layer generally — under the NORA
+    # profile that is the split NORA-native tech types, so scan them all.
+    types = ["Application"] + (INFRASTRUCTURE_TYPE_KEYS if include_itc else [])
     result = await db.execute(select(Card).where(Card.type.in_(types), Card.status != "ARCHIVED"))
     out: list[ScanCard] = []
     for card in result.scalars().all():

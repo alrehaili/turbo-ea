@@ -22,6 +22,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
 from app.services.permission_service import PermissionService
+from app.services.type_groups import EOL_TYPE_KEYS
 
 logger = logging.getLogger("turboea.eol")
 
@@ -285,10 +286,10 @@ async def mass_eol_search(
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
-    if type_key not in ("Application", "ITComponent"):
+    if type_key not in EOL_TYPE_KEYS:
         raise HTTPException(
             status_code=400,
-            detail="Only Application and ITComponent types support EOL linking",
+            detail="Only Application and infrastructure (technology) types support EOL linking",
         )
 
     # Fetch all active cards of the given type
