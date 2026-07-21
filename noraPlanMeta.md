@@ -22,13 +22,13 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~45%** — All net-new + split building-block types authored (60 card types); only 3 attribute
-backfills of existing types remain in Phase 1.
+**~50%** — Phase 1 COMPLETE: all 45 building blocks realised as independent card types (60 total in
+`seed.TYPES`). Focus now shifts to relations (Phase 2) and profile presentation (Phase 3).
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
 | 0 | Plan & decisions | ✅ Done | 100% |
-| 1 | Author 45 building-block card types (attributes + 9 locales) | 🟡 In progress | 93% |
+| 1 | Author 45 building-block card types (attributes + 9 locales) | ✅ Done | 100% |
 | 2 | Author connection catalogue (~120 relations) | 🟡 In progress | 20% |
 | 3 | Hide generic tool types when NORA active | ⬜ Not started | 0% |
 | 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ⬜ Not started | 0% |
@@ -125,18 +125,18 @@ Status key: ✅ exists standalone · 🟡 exists but overloaded (must split to n
 | 28 | Application | `Application` | standalone | ✅ |
 | 29 | Application Module | `ApplicationModule` | **built** | ✅ |
 | 30 | Application Function | `ApplicationFunction` | **built** | ✅ |
-| 31 | Technical Integration Interface | `Interface` | standalone (reused) | 🟡 |
+| 31 | Technical Integration Interface | `Interface` | **attrs backfilled** (§5.3.5.2.4) | ✅ |
 
 ### 1F · Technology Architecture (11)
 
 | # | Building block | Target key | Current | Status |
 |---|----------------|-----------|---------|--------|
-| 32 | Data Center | `Datacenter` | standalone (shell, attrs pending) | 🟡 |
+| 32 | Data Center | `Datacenter` | **attrs backfilled** (§5.3.6.2.1) | ✅ |
 | 33 | Physical Host | `PhysicalHost` | **built** | ✅ |
 | 34 | Server | `Server` | **built** | ✅ |
 | 35 | Containerization Engine | `ContainerizationEngine` | **built** | ✅ |
 | 36 | Network Device | `NetworkDevice` | **built** | ✅ |
-| 37 | Network Link | `NetworkCircuit` | standalone (shell, attrs pending) | 🟡 |
+| 37 | Network Link | `NetworkCircuit` | **attrs backfilled** (§5.3.6.2.5) | ✅ |
 | 38 | Storage | `Storage` | **built** | ✅ |
 | 39 | Infrastructure Service | `InfrastructureService` | **built** | ✅ |
 | 40 | Infrastructure Management Tool | `InfrastructureManagementTool` | **built** | ✅ |
@@ -151,14 +151,11 @@ Status key: ✅ exists standalone · 🟡 exists but overloaded (must split to n
 | 44 | Security Software | `SecuritySoftware` | **built** (split from `SecurityFunction`) | ✅ |
 | 45 | Security Service | `SecurityService` | standalone | ✅ |
 
-> Technology domain: 9/11 built this pass. `Datacenter` and `NetworkCircuit` already existed as
-> shells — flagged 🟡 to backfill the document's full attribute set (currently near-empty).
+**Phase 1 tally:** 45 ✅ · 0 🟡 · 0 ⬜ = **45 — COMPLETE** ✅
 
-**Phase 1 tally:** 42 ✅ · 3 🟡 (attrs pending) · 0 ⬜ (build new) = **45**
-
-Remaining 🟡 (attribute enrichment of existing inline `seed.py` types, not net-new): `Datacenter` +
-`NetworkCircuit` (backfill the document's full §5.3.6.2.1/5 attribute set) and `Interface` (align to
-Technical Integration Interface §5.3.5.2.4 attrs).
+All 45 NORA building blocks are realised as independent card types with the document's attributes and
+full 9-locale translations. `Datacenter` / `NetworkCircuit` / `Interface` attribute backfills applied
+in-place via `seed_nora_technology_attrs.py` (existing fields preserved).
 
 ---
 

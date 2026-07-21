@@ -6438,6 +6438,14 @@ from app.services.seed_nora_security import NORA_SECURITY_TYPES  # noqa: E402
 
 TYPES += NORA_SECURITY_TYPES
 
+# [FORK] NORA exact-fidelity metamodel — backfill the document's attribute set
+# onto the three pre-existing shell types (Datacenter §5.3.6.2.1, NetworkCircuit
+# §5.3.6.2.5, Interface §5.3.5.2.4). Done as an in-place patch so the giant
+# inline TYPES literals stay untouched; idempotent (skips keys already present).
+from app.services.seed_nora_technology_attrs import apply_nora_attribute_backfills  # noqa: E402
+
+apply_nora_attribute_backfills(TYPES)
+
 # Canonical default color per built-in card type, derived from TYPES so it can
 # never drift from the seed. Serialized as `default_color` on metamodel types to
 # power the admin "reset to default color" affordance (custom types have none).
