@@ -5,8 +5,8 @@ EA maturity self-assessment (Qiyas-style) — noraPlan.md WP5.2.
 
 [FORK FEATURE]
 
-Revision ID: 133
-Revises: 132
+Revision ID: 1141
+Revises: 1140
 Create Date: 2026-07-06
 """
 

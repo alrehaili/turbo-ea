@@ -8,8 +8,8 @@ it's idempotent and won't clash with an admin-created key).
 
 [FORK FEATURE] — NORA.
 
-Revision ID: 151
-Revises: 150
+Revision ID: 1151
+Revises: 1150
 Create Date: 2026-07-16
 """
 

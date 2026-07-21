@@ -8,8 +8,8 @@ already fits) — validation lives in the model constants.
 
 [FORK FEATURE]
 
-Revision ID: 140
-Revises: 139
+Revision ID: 1148
+Revises: 1147
 Create Date: 2026-07-11
 """
 

@@ -7,8 +7,8 @@ not need to be bound to a single card type. Existing portals default to
 
 [FORK FEATURE]
 
-Revision ID: 118
-Revises: 117
+Revision ID: 1132
+Revises: 1131
 Create Date: 2026-06-28
 """
 

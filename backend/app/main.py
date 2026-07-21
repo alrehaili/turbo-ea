@@ -20,12 +20,33 @@ configure_logging(environment=settings.ENVIRONMENT)
 logger = logging.getLogger(__name__)
 
 
-def _alembic_stamp_sync(sync_connection, alembic_cfg):
-    """Stamp alembic_version using an existing sync connection."""
-    from alembic import command
+async def _stamp_head_direct(conn, alembic_cfg):
+    """Stamp alembic_version to head with a plain SQL write.
 
-    alembic_cfg.attributes["connection"] = sync_connection
-    command.stamp(alembic_cfg, "head")
+    Resolves the head revision purely from the on-disk migration scripts
+    (no DB round-trip) and writes it into ``alembic_version`` on the *same*
+    async connection/transaction as the surrounding ``create_all``. This
+    deliberately avoids ``command.stamp()`` on a second, greenlet-bridged
+    connection, which could deadlock during startup (see the RESET_DB /
+    fresh-DB paths in the lifespan). Returns the stamped head revision.
+    """
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import text
+
+    head_rev = ScriptDirectory.from_config(alembic_cfg).get_current_head()
+    await conn.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS alembic_version ("
+            "version_num VARCHAR(32) NOT NULL, "
+            "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+        )
+    )
+    await conn.execute(text("DELETE FROM alembic_version"))
+    await conn.execute(
+        text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+        {"v": head_rev},
+    )
+    return head_rev
 
 
 def _alembic_upgrade_sync(sync_connection, alembic_cfg):
@@ -562,15 +583,14 @@ async def lifespan(app: FastAPI):
     logger.info("[startup] RESET_DB=%s, checking database state...", settings.RESET_DB)
 
     if settings.RESET_DB:
-        # Full reset: drop everything and recreate
+        # Full reset: drop everything, recreate, and stamp head — all in one
+        # transaction with a direct SQL version write (no greenlet-bridged
+        # command.stamp, which could hang during startup).
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
-        # Stamp in a separate connection so Alembic can manage its own
-        # transaction (avoids SAVEPOINT deadlock through greenlet bridge).
-        async with engine.connect() as conn:
-            await conn.run_sync(lambda sc: _alembic_stamp_sync(sc, alembic_cfg))
-        logger.info("[startup] RESET_DB complete")
+            head_rev = await _stamp_head_direct(conn, alembic_cfg)
+        logger.info("[startup] RESET_DB complete (stamped %s)", head_rev)
     else:
         # Determine DB state before touching anything
         async with engine.connect() as conn:
@@ -591,13 +611,12 @@ async def lifespan(app: FastAPI):
 
         if not has_alembic or alembic_version is None:
             # Fresh DB or pre-Alembic: create tables from models, then stamp
+            # head with a direct SQL write in the same transaction.
             logger.info("[startup] Fresh DB — running create_all + stamp...")
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-            logger.info("[startup] create_all done, stamping head...")
-            async with engine.connect() as conn:
-                await conn.run_sync(lambda sc: _alembic_stamp_sync(sc, alembic_cfg))
-            logger.info("[startup] Stamp complete")
+                head_rev = await _stamp_head_direct(conn, alembic_cfg)
+            logger.info("[startup] Stamp complete (%s)", head_rev)
         else:
             # Existing DB: run migrations, then create_all for new tables.
             # Use engine.connect() (not engine.begin()) so Alembic manages

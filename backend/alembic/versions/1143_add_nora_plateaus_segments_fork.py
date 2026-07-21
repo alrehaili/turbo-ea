@@ -4,8 +4,8 @@ Plateaus (time-slices) + segment scopes — noraPlan.md WP5.4.
 
 [FORK FEATURE]
 
-Revision ID: 135
-Revises: 134
+Revision ID: 1143
+Revises: 1142
 Create Date: 2026-07-07
 """
 

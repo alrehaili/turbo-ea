@@ -10,8 +10,8 @@ This migration adds a nullable ``rationale`` Text column for the strategic
 reasoning, distinct from ``notes`` and ``risk_note``. Backfill happens in
 the seed on the next boot; existing decisions get ``NULL`` (safe, editable).
 
-Revision ID: 131
-Revises: 130
+Revision ID: 1139
+Revises: 1138
 Create Date: 2026-07-04
 """
 

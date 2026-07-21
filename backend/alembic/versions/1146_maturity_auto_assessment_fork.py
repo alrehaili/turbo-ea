@@ -6,8 +6,8 @@ evidence: each dimension score carries an advisory ``suggested_level``
 JSONB snapshot of the indicators it was derived from. The assessor always
 confirms the actual ``level`` — the suggestion is never binding.
 
-Revision ID: 138
-Revises: 137
+Revision ID: 1146
+Revises: 1145
 Create Date: 2026-07-09
 """
 

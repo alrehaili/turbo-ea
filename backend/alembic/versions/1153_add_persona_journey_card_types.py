@@ -1,7 +1,7 @@
 """Add Persona & Journey card types to seed.
 
-Revision ID: 153
-Revises: 152
+Revision ID: 1153
+Revises: 1152
 
 This migration is documentation-only; the actual Persona & Journey card
 types are inserted by seed_metamodel() in seed.py, which checks for

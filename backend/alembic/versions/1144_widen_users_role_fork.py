@@ -7,8 +7,8 @@ longer than 20 characters (e.g. the NORA governance pack's
 
 [FORK FEATURE] — noraPlan.md WP2.3 defect, surfaced by the WP6.2 test run.
 
-Revision ID: 136
-Revises: 135
+Revision ID: 1144
+Revises: 1143
 Create Date: 2026-07-07
 """
 

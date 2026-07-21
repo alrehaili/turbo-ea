@@ -4,8 +4,8 @@ NORA stage-gate approval chains — noraPlan.md WP2.2.
 
 [FORK FEATURE]
 
-Revision ID: 127
-Revises: 126
+Revision ID: 1135
+Revises: 1134
 Create Date: 2026-07-02
 """
 

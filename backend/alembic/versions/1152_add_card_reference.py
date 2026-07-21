@@ -13,8 +13,8 @@ No backfill runs here: at migration time no type has the feature enabled, so
 there is nothing to number. Backfill happens at the application layer when an
 admin switches a type into ``auto`` mode (``backfill_references_for_type``).
 
-Revision ID: 152
-Revises: 151
+Revision ID: 1152
+Revises: 1151
 
 Renumbered from upstream's 124 on merge: our fork already uses revision 124
 (124_add_standards_fork). Rechained onto the fork head (151) to keep a single

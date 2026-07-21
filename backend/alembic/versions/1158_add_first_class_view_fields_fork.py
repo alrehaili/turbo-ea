@@ -21,8 +21,8 @@ The downgrade removes the fields if (and only if) they are still in place.
 
 [FORK FEATURE]
 
-Revision ID: 158
-Revises: 157
+Revision ID: 1158
+Revises: 1157
 Create Date: 2026-07-20
 """
 

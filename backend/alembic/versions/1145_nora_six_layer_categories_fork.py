@@ -11,8 +11,8 @@ strings) are never rewritten. Mirrors the guarded Pass 4e in
 ``nora_profile.py`` (profile v3) — both are idempotent, whichever runs
 first wins. Pattern: 072_restore_business_process_color.py.
 
-Revision ID: 137
-Revises: 136
+Revision ID: 1145
+Revises: 1144
 Create Date: 2026-07-08
 """
 

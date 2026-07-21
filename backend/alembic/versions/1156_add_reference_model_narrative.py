@@ -1,7 +1,7 @@
 """Add narrative JSONB to reference_models (poster content — RMPlan Phase 3).
 
-Revision ID: 156
-Revises: 155
+Revision ID: 1156
+Revises: 1155
 
 Editable poster panels (mission / vision / objectives / stakeholders /
 principles / KPIs / value …) rendered around the capability map. Generic

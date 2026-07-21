@@ -1,7 +1,7 @@
 """Add viewpoint_definitions table for NORA/DGA EA Viewpoints registry.
 
-Revision ID: 154
-Revises: 153
+Revision ID: 1154
+Revises: 1153
 
 The viewpoint_definitions table tracks all 67 NORA viewpoints with metadata:
 code, bilingual names, domain, level, type, building blocks, target route, status.

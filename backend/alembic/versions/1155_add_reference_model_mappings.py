@@ -1,7 +1,7 @@
 """Add reference_model_mappings table (Reference Models Phase 2 — RMPlan).
 
-Revision ID: 155
-Revises: 154
+Revision ID: 1155
+Revises: 1154
 
 Explicit M:N card↔item mappings with type / status / rationale / confidence /
 review metadata. Complements the lightweight card-detail code field, which

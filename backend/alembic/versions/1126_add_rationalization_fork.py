@@ -7,8 +7,8 @@ initiative, and progress per application.
 
 [FORK FEATURE]
 
-Revision ID: 112
-Revises: 111
+Revision ID: 1126
+Revises: 1125
 Create Date: 2026-06-27
 """
 

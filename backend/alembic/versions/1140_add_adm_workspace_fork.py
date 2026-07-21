@@ -14,8 +14,8 @@ are unaffected; the SoAW model gains no new columns.
 
 [FORK FEATURE]
 
-Revision ID: 132
-Revises: 131
+Revision ID: 1140
+Revises: 1139
 Create Date: 2026-07-04
 """
 
