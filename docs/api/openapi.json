@@ -38237,7 +38237,7 @@
     },
     "/api/v1/reports/technology-landscape": {
       "get": {
-        "description": "ITComponents grouped by data-center containment and network segment.\n[FORK FEATURE]",
+        "description": "Technology cards grouped by data-center containment and network segment.\n\nWorks under both profiles: the classic ITComponent hierarchy (containment via\n``parent_id`` + the ``dataCenter`` subtype) and the exact NORA metamodel\n(dedicated Datacenter / Server / \u2026 types, containment via the ``hosts``\nrelations). [FORK FEATURE]",
         "operationId": "technology_landscape_report_api_v1_reports_technology_landscape_get",
         "responses": {
           "200": {
