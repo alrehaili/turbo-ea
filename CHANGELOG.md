@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.25.0] - 2026-07-22
+
+### Added
+- **Exact NORA Content Meta Model.** The National Enterprise Architecture "EA Content Meta Model" (National EA Framework, Dec 2024) is now realised faithfully: every one of the **45 building blocks** across the 7 architecture domains is its own independent card type — the technology layer is split out of the generic *IT Component* into dedicated **Server, Physical Host, Network Device, Storage, Containerization Engine, Infrastructure Service, Infrastructure Management Tool, Peripheral Device, License** types (plus Data Center and Network Circuit); **Organizational Unit** and **Service Provider** are split from the generic Organization/Provider; **Vision, Mission, Project, KPI, Processes Group, Role, Activity, Product, Application Module, Application Function, Phase, Step, Security Hardware** and **Security Software** all become first-class types. Each carries the document's attributes with full translations in all 9 non-English locales (including Arabic).
+- **120 NORA cross-domain relations** wire the building blocks together following the document's §5.3.x.3 connection tables (hosts / manages / owned-by / provided-by / measured-by / …), respecting the one-relation-type-per-pair rule.
+- **Sample NORA cards** in the `SEED_NORA` demo dataset exercising the new building-block types and their relations.
+
+### Changed
+- **Activating the NORA framework profile now shows only the exact NORA model.** When the NORA profile is active, the inventory and create-card pickers hide every non-NORA card type (the generic tool types they supersede plus fork extensions with no NORA-doc equivalent). This is non-destructive and fully reversible — switching back to the TOGAF profile restores them, and any individual type can be un-hidden from the metamodel admin.
+- **Technology-layer features now recognise the NORA tech types.** End-of-Life tracking, the compliance scanner, the technology-landscape report, cost reporting, TurboLens, maturity indicators, and the data-flow view all work on the split NORA technology types as well as the classic IT Component, under either profile.
+
+### Fixed
+- The top navigation bar no longer pushes the Create / notifications / user-menu controls off-screen when many nav items are present: the nav row now shrinks and scrolls, and its labels collapse to icons below 1280px, keeping the controls always reachable.
+
 ## [2.23.1] - 2026-07-17
 
 ### Security

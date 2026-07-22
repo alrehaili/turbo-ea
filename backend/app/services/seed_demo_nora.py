@@ -624,6 +624,210 @@ DEMO_CARDS: list[dict] = [
         "subtype": "project",
         "attributes": {},
     },
+    # ── NORA exact-metamodel sample building blocks (noraPlanMeta.md Phase 5) ──
+    # A small cluster exercising the new NORA-native types so the demo shows the
+    # exact Content Meta Model, not just the generic tool types.
+    {
+        "ref": "nora_orgunit_it",
+        "type": "OrganizationalUnit",
+        "name": "IT Infrastructure Unit",
+        "attributes": {
+            "unitType": "department",
+            "mandates": "Operate and maintain the ministry's IT infrastructure",
+            "geographicLocation": "Riyadh HQ",
+        },
+    },
+    {
+        "ref": "nora_sp_cloud",
+        "type": "ServiceProvider",
+        "name": "National Cloud Provider",
+        "attributes": {
+            "contractualRelationship": "techProvider",
+            "providerStatus": "active",
+            "servicesProvided": "Cloud hosting and managed infrastructure",
+            "geographicLocation": "Riyadh",
+        },
+    },
+    {
+        "ref": "nora_dc_primary",
+        "type": "Datacenter",
+        "subtype": "onPremise",
+        "name": "Primary Data Center",
+        "attributes": {
+            "role": "primary",
+            "classificationLevel": "Tier III",
+            "location": "Riyadh HQ",
+            "environment": "production",
+            "typeOfOperation": "inHouse",
+        },
+    },
+    {
+        "ref": "nora_host_01",
+        "type": "PhysicalHost",
+        "name": "HCI Host 01",
+        "attributes": {
+            "manufacturer": "Dell",
+            "model": "PowerEdge R750",
+            "technology": "Hyper-Converged Infrastructure",
+            "networkSegment": "dataCenter",
+            "physicalCpuCores": 64,
+            "physicalRam": 512,
+        },
+    },
+    {
+        "ref": "nora_srv_app01",
+        "type": "Server",
+        "subtype": "virtual",
+        "name": "APP-SRV-01",
+        "attributes": {
+            "operatingSystemType": "Linux",
+            "operatingSystemVersion": "RHEL 9",
+            "networkSegment": "dataCenter",
+            "centralProcessingUnits": 8,
+            "ram": 32,
+            "disk": 500,
+            "role": "application server",
+            "environment": "production",
+            "typeOfOperation": "inHouse",
+        },
+    },
+    {
+        "ref": "nora_stor_01",
+        "type": "Storage",
+        "name": "SAN Array 01",
+        "attributes": {
+            "manufacturer": "NetApp",
+            "model": "AFF A400",
+            "networkSegment": "dataCenter",
+            "storageCapacity": 100000,
+        },
+    },
+    {
+        "ref": "nora_net_01",
+        "type": "NetworkDevice",
+        "name": "Core Switch 01",
+        "attributes": {
+            "manufacturer": "Cisco",
+            "model": "Nexus 9300",
+            "networkSegment": "dataCenter",
+            "deviceType": "switch",
+            "function": "core switch",
+        },
+    },
+    {
+        "ref": "nora_lic_rhel",
+        "type": "License",
+        "name": "RHEL Subscription",
+        "attributes": {
+            "manufacturer": "Red Hat",
+            "quantity": 50,
+            "licenseType": "annual subscription",
+        },
+    },
+    {
+        "ref": "nora_secfw_edge",
+        "type": "SecurityHardware",
+        "name": "Perimeter Firewall",
+        "attributes": {
+            "manufacturer": "Palo Alto",
+            "model": "PA-5450",
+            "networkSegment": "internet",
+            "function": "internet firewall",
+        },
+    },
+    {
+        "ref": "nora_secsw_edr",
+        "type": "SecuritySoftware",
+        "name": "Endpoint Protection",
+        "attributes": {
+            "manufacturer": "CrowdStrike",
+            "function": "Endpoint Detection and Response",
+        },
+    },
+    {
+        "ref": "nora_vis_2030",
+        "type": "Vision",
+        "name": "Digital Ministry 2030",
+        "attributes": {
+            "visionStatement": "A fully digital, beneficiary-centric ministry by 2030",
+            "scopeOfVision": "Digital Transformation Strategy",
+        },
+    },
+    {
+        "ref": "nora_mis_digital",
+        "type": "Mission",
+        "name": "Seamless Digital Services",
+        "attributes": {
+            "missionStatement": "Deliver seamless, reliable digital services to businesses",
+            "scopeOfMission": "Business domain",
+        },
+    },
+    {
+        "ref": "nora_prj_licensing",
+        "type": "Project",
+        "name": "Licensing Platform Rebuild",
+        "attributes": {
+            "scopeOfWork": "Replace the legacy licensing system with a unified platform",
+            "status": "active",
+            "executionEntity": "inHouse",
+            "priority": "high",
+            "currency": "sar",
+        },
+    },
+    {
+        "ref": "nora_pg_licensing",
+        "type": "ProcessesGroup",
+        "name": "Licensing Processes Group",
+        "attributes": {"groupType": "core"},
+    },
+    {
+        "ref": "nora_role_registrar",
+        "type": "Role",
+        "name": "Licensing Registrar",
+        "attributes": {"roleType": "core"},
+    },
+    {
+        "ref": "nora_act_verify",
+        "type": "Activity",
+        "name": "Verify Application Documents",
+        "attributes": {"automationLevel": "partiallyAutomated"},
+    },
+    {
+        "ref": "nora_prod_certificate",
+        "type": "Product",
+        "name": "Commercial License Certificate",
+        "attributes": {"productType": "document", "beneficiary": "Businesses"},
+    },
+    {
+        "ref": "nora_mod_licensing",
+        "type": "ApplicationModule",
+        "name": "Licensing Module",
+        "attributes": {},
+    },
+    {
+        "ref": "nora_func_issue",
+        "type": "ApplicationFunction",
+        "name": "Issue License Function",
+        "attributes": {},
+    },
+    {
+        "ref": "nora_bj_licensing",
+        "type": "BeneficiaryJourney",
+        "name": "Obtain a Commercial License",
+        "attributes": {},
+    },
+    {
+        "ref": "nora_phase_apply",
+        "type": "Phase",
+        "name": "Application Phase",
+        "attributes": {},
+    },
+    {
+        "ref": "nora_step_submit",
+        "type": "Step",
+        "name": "Submit Application",
+        "attributes": {"communicationChannel": "digitalPlatform", "priority": "High"},
+    },
 ]
 
 # (relation_type_key, source_ref, target_ref, attributes)
@@ -736,6 +940,27 @@ DEMO_RELATIONS: list[tuple[str, str, str, dict]] = [
     ("relObjectiveToPillar", "obj_digital", "pil_digital", {}),
     ("relObjectiveToPillar", "obj_consolidate", "pil_efficiency", {}),
     ("relInitiativeToKPI", "ini_modernization", "kpi_retired_systems", {}),
+    # ── NORA exact-metamodel sample wiring (noraPlanMeta.md Phase 5) ──
+    # Technology containment + ownership (Phase 2 / §5.3.6.3 backbone).
+    ("relNoraDatacenterServer", "nora_dc_primary", "nora_srv_app01", {}),
+    ("relNoraDatacenterStorage", "nora_dc_primary", "nora_stor_01", {}),
+    ("relNoraDatacenterNetworkDevice", "nora_dc_primary", "nora_net_01", {}),
+    ("relNoraPhysicalHostServer", "nora_host_01", "nora_srv_app01", {}),
+    ("relNoraServerLicense", "nora_srv_app01", "nora_lic_rhel", {}),
+    ("relNoraServerOrganizationalUnit", "nora_srv_app01", "nora_orgunit_it", {}),
+    ("relNoraServerServiceProvider", "nora_srv_app01", "nora_sp_cloud", {}),
+    # Strategic + business + application + beneficiary wiring (§5.3.x.3).
+    ("relNora2VisionMission", "nora_vis_2030", "nora_mis_digital", {}),
+    ("relNora2InitiativeProject", "ini_modernization", "nora_prj_licensing", {}),
+    ("relNora2ProcessesGroupBusinessProcess", "nora_pg_licensing", "proc_issue_cr", {}),
+    ("relNora2BusinessProcessRole", "proc_issue_cr", "nora_role_registrar", {}),
+    ("relNora2BusinessProcessProduct", "proc_issue_cr", "nora_prod_certificate", {}),
+    ("relNora2BusinessProcessActivity", "proc_issue_cr", "nora_act_verify", {}),
+    ("relNora2ApplicationApplicationModule", "app_cr_core", "nora_mod_licensing", {}),
+    ("relNora2ApplicationModuleApplicationFunction", "nora_mod_licensing", "nora_func_issue", {}),
+    ("relNora2ApplicationSecurityHardware", "app_cr_core", "nora_secfw_edge", {}),
+    ("relNora2BeneficiaryJourneyPhase", "nora_bj_licensing", "nora_phase_apply", {}),
+    ("relNora2StepPhase", "nora_step_submit", "nora_phase_apply", {}),
 ]
 
 # Program-tracker progress: (deliverable_key, status, evidence). Keys target

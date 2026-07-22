@@ -22,9 +22,8 @@ with the document's exact attributes and connections.
 
 ## Overall progress
 
-**~90%** — Phases 1–4 complete. All tool modules (EOL, compliance, cost, layer-colours, BPM,
-tech-landscape, TurboLens, maturity, data-flow) now work on the NORA tech types; only tech_standards
-is N/A under NORA (no TechCategory). Remaining: Phase 5 (tests/docs/demo cards).
+**~95%** — Phases 1–4 complete; Phase 5 nearly done (demo cards + tests + CHANGELOG/VERSION landed).
+Only the user-manual/`docs/` translation pass remains.
 
 | Phase | Scope | Status | % |
 |-------|-------|--------|---|
@@ -33,7 +32,7 @@ is N/A under NORA (no TechCategory). Remaining: Phase 5 (tests/docs/demo cards).
 | 2 | Author connection catalogue (120 relations) | ✅ Done | 100% |
 | 3 | Hide generic tool types when NORA active | ✅ Done | 100% |
 | 4 | Rewire tool modules (BPM, reports, TurboLens) to NORA keys | ✅ Done | 100% |
-| 5 | Tests + docs + seed-demo alignment | ⬜ Not started | 0% |
+| 5 | Tests + docs + seed-demo alignment | 🟡 In progress | 80% |
 
 **Done so far:**
 - **Phase 1F (Technology):** 9 new independent types in
@@ -234,13 +233,14 @@ Tests: `test_eol`, `test_reports`, `test_reports_extended`, `test_compliance_sca
 
 ---
 
-## Phase 5 — Tests, docs, demo
+## Phase 5 — Tests, docs, demo 🟡
 
-- [ ] `test_i18n_seed.py` — 9-locale completeness for all new types.
-- [ ] Registry/seed tests for new types + relations.
-- [ ] `seed_demo_nora.py` — sample cards for the new types.
-- [ ] User-manual + `docs/` updates (all 8 locales).
-- [ ] CHANGELOG + VERSION bump.
+- [x] `test_i18n_seed.py` — 9-locale completeness for all new types (green throughout).
+- [x] Registry/seed tests for new types + relations (`test_seed_demo`, `test_nora_profile`).
+- [x] `seed_demo_nora.py` — sample cards + relations for the new NORA types (23 cards, 18 relations;
+      `test_seed_demo_nora` green).
+- [x] CHANGELOG `[2.25.0]` + VERSION bump (2.24.0 → 2.25.0).
+- [ ] User-manual + `docs/` updates (all 8 locales) — outstanding.
 
 ---
 
