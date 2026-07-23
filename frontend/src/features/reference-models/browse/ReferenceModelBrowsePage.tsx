@@ -660,10 +660,25 @@ function ItemPanel({
               <HeaderMetric label={t("rmBrowse.colMappedTotal")} value={item.mapped_total} />
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0 }}>
                 {t("rmBrowse.mappedInventory", { count: cards?.length ?? 0 })}
               </Typography>
+              {/* Open the inventory pre-filtered to this component's code, so the
+                  full grid (columns, sorting, export, bulk edit) is available
+                  instead of just this read-only panel list. */}
+              {cardType && codeField && (
+                <Button
+                  size="small"
+                  component={Link}
+                  to={`/inventory?type=${encodeURIComponent(cardType)}&attr_${encodeURIComponent(
+                    codeField,
+                  )}=${encodeURIComponent(item.code)}`}
+                  startIcon={<MaterialSymbol icon="table_view" size={18} />}
+                >
+                  {t("rmBrowse.viewInInventory")}
+                </Button>
+              )}
               {canMap && (
                 <Button
                   size="small"

@@ -1610,7 +1610,8 @@
     "viewCoverage": "Coverage",
     "viewUnmapped": "Unmapped",
     "unmappedHint": "{{count}} card(s) of this type are not mapped to any component of this model.",
-    "unmappedEmpty": "Every card of this type is mapped."
+    "unmappedEmpty": "Every card of this type is mapped.",
+    "viewInInventory": "View in inventory"
   },
   "rmMap": {
     "addTitle": "Map a card",

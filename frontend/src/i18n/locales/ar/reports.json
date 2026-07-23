@@ -1614,7 +1614,8 @@
     "viewCoverage": "التغطية",
     "viewUnmapped": "غير مرتبط",
     "unmappedHint": "{{count}} بطاقة من هذا النوع غير مرتبطة بأي مكوّن في هذا النموذج.",
-    "unmappedEmpty": "جميع بطاقات هذا النوع مرتبطة."
+    "unmappedEmpty": "جميع بطاقات هذا النوع مرتبطة.",
+    "viewInInventory": "عرض في السجل"
   },
   "rmMap": {
     "addTitle": "ربط بطاقة",
