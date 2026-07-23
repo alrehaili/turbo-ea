@@ -1,233 +1,293 @@
 /**
- * Beneficiary Journey Map Renderer
- * Visualizes customer/beneficiary journey with stages, touchpoints, and pain points
+ * Beneficiary Journey Map Renderer (NORA)
+ * Visualizes beneficiary journeys from their REAL card data: each root
+ * BeneficiaryJourney (subtype `journeyPhase`) with its "Journey Mapping"
+ * attributes (stage, objective, improvement opportunity, expected impact,
+ * priority) and any child `journeyStep` cards as an ordered timeline.
+ *
+ * The earlier version discarded the real cards and injected identical
+ * hardcoded mock stages/touchpoints for every journey — this reads the actual
+ * hierarchy + attributes and resolves select-option labels from the metamodel.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
+  Alert,
   Box,
   Card,
   CardContent,
-  CircularProgress,
-  Alert,
-  Paper,
   Chip,
-  Typography,
+  CircularProgress,
   Grid,
-} from '@mui/material';
-import { api } from '@/api/client';
-import ReportShell from '../ReportShell';
+  Link,
+  Paper,
+  Typography,
+} from "@mui/material";
+import { api } from "@/api/client";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import ReportShell from "../ReportShell";
 
-interface JourneyStage {
+interface JourneyCard {
   id: string;
   name: string;
+  subtype?: string | null;
+  parent_id?: string | null;
   description?: string;
-  order: number;
-  touchpoints: string[];
-  painPoints: string[];
+  attributes?: Record<string, unknown>;
 }
 
-interface Journey {
-  id: string;
-  name: string;
-  description?: string;
-  stages: JourneyStage[];
-}
-
-interface CardListResponse {
-  items: { id: string; name: string; description?: string }[];
-}
+const PRIORITY_COLORS: Record<string, string> = {
+  high: "#c7527d",
+  medium: "#ed6c02",
+  low: "#0288d1",
+};
 
 export default function BeneficiaryJourneyMapReport() {
+  const { types } = useMetamodel();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [journeys, setJourneys] = useState<Journey[]>([]);
-  const [selectedJourney, setSelectedJourney] = useState<Journey | null>(null);
+  const [cards, setCards] = useState<JourneyCard[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const resp = await api.get<CardListResponse>(
-          '/cards?type=BeneficiaryJourney&page_size=100'
+        const resp = await api.get<{ items: JourneyCard[] }>(
+          "/cards?type=BeneficiaryJourney&page_size=500",
         );
-        const cards = resp.items || [];
-        if (cards.length > 0) {
-          // Create mock stages for demo (in production, these would come from nested journey structures)
-          const journeysWithStages: Journey[] = cards.map((j) => ({
-            ...j,
-            stages: [
-              { id: '1', name: 'Awareness', order: 1, touchpoints: ['Website', 'Social Media'], painPoints: ['Unclear navigation'] },
-              { id: '2', name: 'Engagement', order: 2, touchpoints: ['Application', 'Support Chat'], painPoints: ['Long wait times'] },
-              { id: '3', name: 'Decision', order: 3, touchpoints: ['Comparison Tool', 'Reviews'], painPoints: ['Too many options'] },
-              { id: '4', name: 'Service', order: 4, touchpoints: ['Portal', 'Mobile App'], painPoints: ['Technical issues'] },
-              { id: '5', name: 'Support', order: 5, touchpoints: ['Help Center', 'Contact Center'], painPoints: ['Limited hours'] },
-            ],
-          }));
-          setJourneys(journeysWithStages);
-          setSelectedJourney(journeysWithStages[0]);
-        }
-        setLoading(false);
-      } catch (err: any) {
-        setError(err.detail || 'Failed to load journeys');
+        setCards(resp.items || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load journeys");
+      } finally {
         setLoading(false);
       }
     })();
   }, []);
 
+  // Resolve a select field's stored key to its metamodel option label.
+  const optionLabel = useMemo(() => {
+    const bt = types.find((t) => t.key === "BeneficiaryJourney");
+    const map: Record<string, Record<string, string>> = {};
+    for (const section of bt?.fields_schema ?? []) {
+      for (const f of section.fields ?? []) {
+        if (f.options?.length) {
+          map[f.key] = Object.fromEntries(f.options.map((o) => [o.key, o.label]));
+        }
+      }
+    }
+    return (fieldKey: string, value: unknown): string => {
+      if (value == null || value === "") return "";
+      const s = String(value);
+      return map[fieldKey]?.[s] ?? s;
+    };
+  }, [types]);
+
+  const ids = useMemo(() => new Set(cards.map((c) => c.id)), [cards]);
+  const roots = useMemo(
+    () => cards.filter((c) => !c.parent_id || !ids.has(c.parent_id)),
+    [cards, ids],
+  );
+  const childrenOf = useMemo(() => {
+    const m: Record<string, JourneyCard[]> = {};
+    for (const c of cards) {
+      if (c.parent_id && ids.has(c.parent_id)) (m[c.parent_id] ??= []).push(c);
+    }
+    return m;
+  }, [cards, ids]);
+
+  const selected = roots.find((r) => r.id === selectedId) ?? roots[0] ?? null;
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 6 }}>
         <CircularProgress />
       </Box>
     );
   }
-
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
+  if (error) return <Alert severity="error">{error}</Alert>;
+  if (!selected) {
+    return (
+      <Alert severity="info">
+        No beneficiary journeys yet. Create a BeneficiaryJourney card first.
+      </Alert>
+    );
   }
 
-  if (!selectedJourney) {
-    return <Alert severity="info">No journeys found. Create a BeneficiaryJourney card first.</Alert>;
-  }
+  const a = selected.attributes ?? {};
+  const steps = childrenOf[selected.id] ?? [];
+  const priority = String(a.improvementPriority ?? "").toLowerCase();
 
-  const stages = selectedJourney.stages.sort((a, b) => a.order - b.order);
+  const attrRow = (label: string, fieldKey: string) => {
+    const v = optionLabel(fieldKey, a[fieldKey]);
+    if (!v) return null;
+    return (
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 600 }}>
+          {label}
+        </Typography>
+        <Typography variant="body2">{v}</Typography>
+      </Box>
+    );
+  };
 
   return (
     <ReportShell title="Beneficiary Journey Map" icon="route" hasTableToggle={false}>
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
-        {journeys.map((j) => (
+      {/* Journey selector */}
+      <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
+        {roots.map((j) => (
           <Chip
             key={j.id}
             label={j.name}
-            onClick={() => setSelectedJourney(j)}
-            color={selectedJourney.id === j.id ? 'primary' : 'default'}
-            variant={selectedJourney.id === j.id ? 'filled' : 'outlined'}
+            onClick={() => setSelectedId(j.id)}
+            color={selected.id === j.id ? "primary" : "default"}
+            variant={selected.id === j.id ? "filled" : "outlined"}
           />
         ))}
       </Box>
 
-      {/* Timeline visualization */}
-      <Box sx={{ position: 'relative', mb: 4 }}>
-        {/* Timeline connector line */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '40px',
-            left: '0',
-            right: '0',
-            height: '4px',
-            backgroundColor: '#e0e0e0',
-            zIndex: 0,
-          }}
-        />
+      {/* Selected journey header */}
+      <Paper sx={{ p: 2.5, mb: 3, borderLeft: `4px solid ${PRIORITY_COLORS[priority] || "#2889ff"}` }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 1 }}>
+          <Link
+            component={RouterLink}
+            to={`/cards/${selected.id}`}
+            underline="hover"
+            variant="h6"
+            sx={{ fontWeight: 700 }}
+          >
+            {selected.name}
+          </Link>
+          {a.journeyCode ? (
+            <Chip size="small" variant="outlined" label={String(a.journeyCode)} />
+          ) : null}
+          {a.journeyStage ? (
+            <Chip size="small" variant="outlined" label={optionLabel("journeyStage", a.journeyStage)} />
+          ) : null}
+          {priority ? (
+            <Chip
+              size="small"
+              label={optionLabel("improvementPriority", a.improvementPriority)}
+              sx={{ bgcolor: PRIORITY_COLORS[priority] || "#9e9e9e", color: "white" }}
+            />
+          ) : null}
+        </Box>
+        {selected.description && (
+          <Typography variant="body2" color="text.secondary">
+            {selected.description}
+          </Typography>
+        )}
+      </Paper>
 
-        {/* Stages */}
-        <Grid container spacing={2} sx={{ position: 'relative', zIndex: 1 }}>
-          {stages.map((stage, idx) => (
-            <Grid item xs={12} sm={6} md={4} lg={2.4} key={stage.id}>
-              <Card
-                sx={{
-                  backgroundColor: `hsl(${(idx * 60) % 360}, 70%, 90%)`,
-                  borderTop: `4px solid hsl(${(idx * 60) % 360}, 70%, 50%)`,
-                  textAlign: 'center',
-                  minHeight: 200,
-                  position: 'relative',
-                }}
-              >
-                {/* Stage number circle */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: '-20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    backgroundColor: `hsl(${(idx * 60) % 360}, 70%, 50%)`,
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 600,
-                    boxShadow: 2,
-                  }}
-                >
-                  {idx + 1}
-                </Box>
-
-                <CardContent sx={{ pt: 4 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {stage.name}
+      <Grid container spacing={2}>
+        {/* Objective + improvement (the real Journey-Mapping fields) */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: "100%" }}>
+            <CardContent>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                Objective & Improvement
+              </Typography>
+              {attrRow("Journey objective", "journeyObjective")}
+              {attrRow("Improvement opportunity", "improvementOpportunity")}
+              {attrRow("Expected impact", "expectedImpact")}
+              {attrRow("Associated gaps", "associatedGaps")}
+              {!a.journeyObjective &&
+                !a.improvementOpportunity &&
+                !a.expectedImpact &&
+                !a.associatedGaps && (
+                  <Typography variant="caption" color="text.secondary">
+                    No journey-mapping details captured yet.
                   </Typography>
+                )}
+            </CardContent>
+          </Card>
+        </Grid>
 
-                  {/* Touchpoints */}
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" sx={{ display: 'block', fontWeight: 500, mb: 0.5 }}>
-                      💬 Touchpoints
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      {stage.touchpoints.map((tp, i) => (
-                        <Chip key={i} label={tp} size="small" variant="outlined" />
-                      ))}
-                    </Box>
-                  </Box>
-
-                  {/* Pain points */}
-                  {stage.painPoints.length > 0 && (
-                    <Box>
-                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 500, mb: 0.5, color: '#c7527d' }}>
-                        ⚠️ Pain Points
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        {stage.painPoints.map((pp, i) => (
-                          <Chip
-                            key={i}
-                            label={pp}
-                            size="small"
-                            sx={{ backgroundColor: '#fce4ec', color: '#c7527d' }}
-                          />
-                        ))}
+        {/* Child steps timeline (real journeyStep cards, if any) */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: "100%" }}>
+            <CardContent>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                Steps ({steps.length})
+              </Typography>
+              {steps.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  No steps linked to this journey. Add child cards (subtype “Journey step”) to build
+                  the timeline.
+                </Typography>
+              ) : (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  {steps.map((s, idx) => (
+                    <Box key={s.id} sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
+                      <Box
+                        sx={{
+                          flexShrink: 0,
+                          width: 26,
+                          height: 26,
+                          borderRadius: "50%",
+                          bgcolor: "primary.main",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {idx + 1}
+                      </Box>
+                      <Box>
+                        <Link
+                          component={RouterLink}
+                          to={`/cards/${s.id}`}
+                          underline="hover"
+                          sx={{ fontWeight: 600 }}
+                        >
+                          {s.name}
+                        </Link>
+                        {s.attributes?.journeyObjective ? (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            {String(s.attributes.journeyObjective)}
+                          </Typography>
+                        ) : null}
                       </Box>
                     </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                  ))}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
-      </Box>
+      </Grid>
 
-      {/* Summary */}
-      <Paper sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+      {/* Summary across all journeys */}
+      <Paper sx={{ p: 2, mt: 3, backgroundColor: "action.hover", borderRadius: 1 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-          Journey Summary
+          Portfolio summary
         </Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ p: 1, backgroundColor: 'white', borderRadius: 1, textAlign: 'center' }}>
+          <Grid item xs={6} sm={3}>
+            <Box sx={{ textAlign: "center" }}>
               <Typography variant="h6" color="primary">
-                {stages.length}
+                {roots.length}
               </Typography>
-              <Typography variant="caption">Stages</Typography>
+              <Typography variant="caption">Journeys</Typography>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ p: 1, backgroundColor: 'white', borderRadius: 1, textAlign: 'center' }}>
-              <Typography variant="h6" color="primary">
-                {stages.reduce((sum, s) => sum + s.touchpoints.length, 0)}
-              </Typography>
-              <Typography variant="caption">Touchpoints</Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box sx={{ p: 1, backgroundColor: 'white', borderRadius: 1, textAlign: 'center' }}>
-              <Typography variant="h6" color="error">
-                {stages.reduce((sum, s) => sum + s.painPoints.length, 0)}
-              </Typography>
-              <Typography variant="caption">Pain Points</Typography>
-            </Box>
-          </Grid>
+          {(["high", "medium", "low"] as const).map((p) => (
+            <Grid item xs={6} sm={3} key={p}>
+              <Box sx={{ textAlign: "center" }}>
+                <Typography variant="h6" sx={{ color: PRIORITY_COLORS[p] }}>
+                  {roots.filter(
+                    (r) => String(r.attributes?.improvementPriority ?? "").toLowerCase() === p,
+                  ).length}
+                </Typography>
+                <Typography variant="caption" sx={{ textTransform: "capitalize" }}>
+                  {p} priority
+                </Typography>
+              </Box>
+            </Grid>
+          ))}
         </Grid>
       </Paper>
     </ReportShell>
