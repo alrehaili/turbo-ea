@@ -12,7 +12,7 @@
  * [FORK FEATURE] — Reference Models capability map (RMPlan/rmPlan.md §18).
  */
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";

@@ -115,6 +115,17 @@ export interface StakeholderRoleDef {
   translations?: MetamodelTranslations;
 }
 
+/**
+ * Minimal stakeholder-role payload returned by
+ * `GET /stakeholder-roles?type_key=…` — powers the per-role
+ * "Stakeholders: <role>" inventory columns.
+ */
+export interface StakeholderRoleOption {
+  key: string;
+  label: string;
+  translations?: MetamodelTranslations;
+}
+
 /** Locale-keyed translations for a single property (e.g., label). */
 export type TranslationMap = Record<string, string>;
 
@@ -345,11 +356,50 @@ export interface Calculation {
   formula: string;
   is_active: boolean;
   execution_order: number;
+  /** Treat an empty numeric field as 0 instead of failing. Opt-in per calculation. */
+  blanks_as_zero?: boolean;
+  /** Advisory: things the formula will do that are probably not intended, and
+   *  that raise no error at runtime (e.g. a PLUCK key missing `attributes.`). */
+  warnings?: string[];
   last_error?: string;
   last_run_at?: string;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface CalculationRunCardRef {
+  id: string;
+  name: string;
+}
+
+/** One distinct error message from a manual run, and the cards it was raised on.
+ *  Grouped rather than one row per card: a wrong formula fails the same way on
+ *  every card, so the count is what matters, not a repeated list. */
+export interface CalculationRunFailureGroup {
+  error: string;
+  count: number;
+  cards: CalculationRunCardRef[];
+  /** More cards hit this error than `cards` lists. */
+  cards_truncated: boolean;
+}
+
+export interface CalculationRunCalculation {
+  calculation_id: string;
+  name: string;
+  target_field: string;
+  succeeded: number;
+  failed: number;
+  failures: CalculationRunFailureGroup[];
+}
+
+/** Result of POST /calculations/recalculate/{type_key}. */
+export interface CalculationRunReport {
+  cards_processed: number;
+  calculations_succeeded: number;
+  calculations_failed: number;
+  /** Only calculations that actually ran, in execution order. */
+  calculations: CalculationRunCalculation[];
 }
 
 export interface EAPrinciple {
@@ -456,6 +506,40 @@ export interface Relation {
   attributes?: Record<string, unknown>;
   description?: string;
   created_at?: string;
+}
+
+/**
+ * Descendant relation roll-up (discussion #863) — cards related to this
+ * card's descendants rather than to the card itself. Surfaced read-only in a
+ * drawer behind the "+N in sub-items" chip on the Relations section; these
+ * rows are deliberately absent from the inventory grid, matrix report and
+ * exports, where they would double counts.
+ */
+export interface DescendantRelationSummaryEntry {
+  relation_type_key: string;
+  count: number;
+}
+
+export interface DescendantRelationVia {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface DescendantRelationRow {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string | null;
+  lifecycle?: Record<string, string>;
+  via: DescendantRelationVia[];
+}
+
+export interface DescendantRelationsResponse {
+  rows: DescendantRelationRow[];
+  total: number;
+  /** Distinct sub-items across the whole result set, not just this page. */
+  via_total: number;
 }
 
 export interface Comment {
@@ -743,6 +827,80 @@ export interface FileAttachment {
   created_by: string | null;
   creator_name?: string | null;
   created_at: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Repository-wide resources (Admin → Settings → Resources)
+//
+// The union of the two card-owned resource kinds: `file` rows come from
+// `file_attachments`, `link` rows from `documents`. Served by `GET /resources`.
+// ---------------------------------------------------------------------------
+
+export type ResourceKind = "file" | "link";
+
+export interface RepositoryResource {
+  id: string;
+  kind: ResourceKind;
+  card_id: string;
+  card_name: string;
+  card_type: string;
+  card_archived: boolean;
+  name: string;
+  /** File category (files) or link type (links) — both are `resource_types` keys. */
+  category: string | null;
+  /** Files only. */
+  mime_type: string | null;
+  /** Files only, in bytes. */
+  size: number | null;
+  /** Links only. */
+  url: string | null;
+  created_by: string | null;
+  creator_name: string | null;
+  created_at: string | null;
+}
+
+export interface ResourceListPage {
+  items: RepositoryResource[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ResourceBucket {
+  key: string | null;
+  count: number;
+  bytes: number;
+}
+
+export interface ResourceCardTypeBucket {
+  key: string;
+  file_count: number;
+  link_count: number;
+  bytes: number;
+}
+
+export interface ResourceLargestFile {
+  id: string;
+  name: string;
+  size: number;
+  card_id: string;
+  card_name: string;
+}
+
+export interface ResourceStats {
+  file_count: number;
+  link_count: number;
+  total_bytes: number;
+  card_count: number;
+  by_category: ResourceBucket[];
+  by_link_type: ResourceBucket[];
+  by_card_type: ResourceCardTypeBucket[];
+  largest_files: ResourceLargestFile[];
+}
+
+export interface ResourceBulkDeleteResult {
+  deleted: number;
+  skipped: { id: string; kind: ResourceKind; reason: string }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1094,6 +1252,8 @@ export interface ProcessElement {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
+  /** M:N — a step can be linked to several Organization cards. */
+  organizations?: { id: string; name: string }[];
   custom_fields?: Record<string, unknown>;
 }
 
@@ -1157,6 +1317,7 @@ export interface ProcessFlowVersion {
     application_id?: string;
     data_object_id?: string;
     it_component_id?: string;
+    organization_ids?: string[];
     custom_fields?: Record<string, unknown>;
   }>;
 }

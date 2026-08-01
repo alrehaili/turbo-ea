@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -59,8 +59,15 @@ export default function SsoCallback({ onSsoCallback }: Props) {
     }
 
     // ---- normal user login callback ----
+    // Single-use CSRF state, stored by LoginPage just before redirecting (#860).
+    const storedState = sessionStorage.getItem("sso_login_state");
+    sessionStorage.removeItem("sso_login_state");
     if (errorParam) {
       setError(errorDesc || errorParam);
+      return;
+    }
+    if (!storedState || storedState !== searchParams.get("state")) {
+      setError(t("sso.stateMismatch"));
       return;
     }
     if (!code) {

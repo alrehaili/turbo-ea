@@ -52,7 +52,7 @@ from app.models.ppm_task_comment import PpmTaskComment
 from app.models.ppm_wbs import PpmWbs
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
-from app.models.process_element import ProcessElement
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.rationalization import AssessmentDecision, RationalizationAssessment
 from app.models.reference_model import (
@@ -206,6 +206,7 @@ __all__ = [
     "ProcessDiagram",
     "ProcessElement",
     "ProcessAssessment",
+    "ProcessElementOrganization",
     "ProcessFlowVersion",
     "SsoInvitation",
     "WebPortal",

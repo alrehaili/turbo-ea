@@ -2,7 +2,7 @@
 
 **Metamodellen** definerer hele platformens datastruktur — hvilke typer kort der findes, hvilke felter de har, hvordan de relaterer til hinanden, og hvordan kortdetaljesider er opbygget. Alt er **datadrevet**: du konfigurerer metamodellen gennem admin-UI'et, ikke ved at ændre kode.
 
-![Metamodel-konfiguration](../assets/img/en/20_admin_metamodel.png)
+![Metamodel-konfiguration](../assets/img/da/20_admin_metamodel.png)
 
 Naviger til **Admin > Metamodel** for at få adgang til metamodel-editoren. Den har otte faneblade: **Korttyper**, **Relationstyper**, **Beregninger**, **Tags**, **Metamodel-graf**, **EA-principper**, **Standarder** og **Compliance-reguleringer**.
 
@@ -221,7 +221,7 @@ Standarder kan **aktiveres** eller **deaktiveres** enkeltvis med kontakten på h
 
 ## Metamodel-graf
 
-![Metamodel-grafvisualisering](../assets/img/en/38_metamodel_graph.png)
+![Metamodel-grafvisualisering](../assets/img/da/38_metamodel_graph.png)
 
 Fanebladet **Metamodel-graf** viser et visuelt SVG-diagram over alle korttyper og deres relationstyper. Dette er en skrivebeskyttet visualisering, der hjælper dig med at forstå forbindelserne i din metamodel ved et blik.
 
@@ -251,7 +251,7 @@ Compliance-scanneren og risiko-forfremmelsesflowet fungerer, **selv når ingen A
 
 For hver korttype styrer afsnittet **Layout** i typepanelet, hvordan kortdetaljesiden er struktureret:
 
-- **Sektionsrækkefølge** — Træk sektioner (Beskrivelse, EOL, Livscyklus, Hierarki, Relationer og brugerdefinerede sektioner) for at omarrangere dem
+- **Sektionsrækkefølge** — Træk sektioner (Beskrivelse, EOL, Livscyklus, Hierarki, Tags, Relationer og brugerdefinerede sektioner) for at omarrangere dem
 - **Synlighed** — Skjul sektioner, der ikke er relevante for en type
 - **Standardudvidelse** — Vælg, om hver sektion starter udvidet eller sammenklappet
 - **Kolonnelayout** — Indstil 1 eller 2 kolonner pr. brugerdefineret sektion

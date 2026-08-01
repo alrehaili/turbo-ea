@@ -18,9 +18,10 @@ import CircularProgress from "@mui/material/CircularProgress";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -229,7 +230,7 @@ export default function PpmPortfolio() {
   // ── Report hover popover state ──
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
-  const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // After every render / resize, hide quarter labels that overlap
@@ -290,20 +291,27 @@ export default function PpmPortfolio() {
     api.get<PpmGroupOption[]>("/reports/ppm/group-options").then(setGroupOptions);
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ group_by: groupBy });
-    if (transitionOnly) params.append("architecture_state", "transition");
-    Promise.all([
-      api.get<PpmGanttItem[]>(`/reports/ppm/gantt?${params.toString()}`),
-      api.get<PpmDashboardData>("/reports/ppm/dashboard"),
-    ])
-      .then(([g, d]) => {
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      setLoading(true);
+      const params = new URLSearchParams({ group_by: groupBy });
+      if (transitionOnly) params.append("architecture_state", "transition");
+      try {
+        const [g, d] = await Promise.all([
+          api.get<PpmGanttItem[]>(`/reports/ppm/gantt?${params.toString()}`, { signal }),
+          api.get<PpmDashboardData>("/reports/ppm/dashboard", { signal }),
+        ]);
+        if (!isCurrent()) return;
         setItems(g);
         setDashboard(d);
-      })
-      .finally(() => setLoading(false));
-  }, [groupBy, transitionOnly]);
+      } finally {
+        // Only the winner owns the spinner — changing grouping twice quickly
+        // used to let the first response settle the UI (#882).
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [groupBy, transitionOnly],
+  );
 
 
   const typeConfig = getType("Initiative");

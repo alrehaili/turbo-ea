@@ -33,6 +33,7 @@ import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveL
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import type { CardType, FieldDef, RelationType } from "@/types";
 
 interface CostItem {
@@ -335,42 +336,63 @@ export default function CostReport() {
   // cards linked to the parent of the deepest frame.
   const drillFrame = drillStack.length > 0 ? drillStack[drillStack.length - 1] : null;
 
-  useEffect(() => {
-    if (!canViewCostsGlobally) {
-      setRawItems([]);
-      setDrillPanels(null);
-      return;
-    }
-    if (drillFrame) {
-      // One round-trip per source so the panels render independently.
-      const sources = drillFrame.sources;
-      const parentId = drillFrame.cardId;
-      Promise.all(sources.map((s) => {
-        const p = new URLSearchParams({
-          type: s.typeKey,
-          cost_field: s.fieldKey,
-          parent_card_id: parentId,
-        });
-        if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
-        return api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`);
-      })).then((rs) => {
+  // Two branches writing two different states, one of them a fan-out — drilling
+  // in and back out quickly used to let the slower branch land last and show
+  // the wrong panels (#882). The same signal aborts every leg of the fan-out.
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!canViewCostsGlobally) {
+        setRawItems([]);
+        setDrillPanels(null);
+        return;
+      }
+      if (drillFrame) {
+        // One round-trip per source so the panels render independently.
+        const sources = drillFrame.sources;
+        const parentId = drillFrame.cardId;
+        const rs = await Promise.all(
+          sources.map((s) => {
+            const p = new URLSearchParams({
+              type: s.typeKey,
+              cost_field: s.fieldKey,
+              parent_card_id: parentId,
+            });
+            if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
+            return api.get<{ items: CostItem[]; total: number }>(
+              `/reports/cost-treemap?${p}`,
+              { signal },
+            );
+          }),
+        );
+        if (!isCurrent()) return;
         setDrillPanels(rs.map((r, i) => ({ source: sources[i], items: r.items })));
         setRawItems(null);
-      });
-    } else {
-      const p = new URLSearchParams({ type: cardTypeKey });
-      if (activeAggregates.length > 0) {
-        for (const a of activeAggregates) p.append("aggregate", a.value);
       } else {
-        p.set("cost_field", costField);
-      }
-      if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
-      api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
+        const p = new URLSearchParams({ type: cardTypeKey });
+        if (activeAggregates.length > 0) {
+          for (const a of activeAggregates) p.append("aggregate", a.value);
+        } else {
+          p.set("cost_field", costField);
+        }
+        if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
+        const r = await api.get<{ items: CostItem[]; total: number }>(
+          `/reports/cost-treemap?${p}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         setRawItems(r.items);
         setDrillPanels(null);
-      });
-    }
-  }, [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally, selectedSegmentId]);
+      }
+    },
+    [
+      cardTypeKey,
+      costField,
+      activeAggregates,
+      drillFrame,
+      canViewCostsGlobally,
+      selectedSegmentId,
+    ],
+  );
 
   // Unify root and drilled data into a list of panels: depth-0 has one
   // anonymous panel; drilled levels have one labelled panel per source.

@@ -24,6 +24,7 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { readableTextColor } from "@/lib/color";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -733,25 +734,27 @@ export default function CapabilityMapReport() {
     return keys;
   }, [fieldsSchema]);
 
-  useEffect(() => {
-    const p = new URLSearchParams({ metric });
-    if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
-    api
-      .get<{
+  // Four setStates, three of them conditional — `useAbortableEffect` rather
+  // than `useApiQuery`, so switching metric can't let the previous metric's
+  // response land last (#882).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      const p = new URLSearchParams({ metric });
+      if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
+      const r = await api.get<{
         items: CapItem[];
         filterable_types?: Record<string, FilterableTypeRef[]>;
         fields_schema?: SectionDef[];
         tag_groups?: TagGroupDef[];
-      }>(
-        `/reports/capability-heatmap?${p}`,
-      )
-      .then((r) => {
-        setData(r.items);
-        if (r.filterable_types) setFilterableTypes(r.filterable_types);
-        if (r.fields_schema) setFieldsSchema(r.fields_schema);
-        if (r.tag_groups) setTagGroupsData(r.tag_groups);
-      });
-  }, [metric, selectedSegmentId]);
+      }>(`/reports/capability-heatmap?${p}`, { signal });
+      if (!isCurrent()) return;
+      setData(r.items);
+      if (r.filterable_types) setFilterableTypes(r.filterable_types);
+      if (r.fields_schema) setFieldsSchema(r.fields_schema);
+      if (r.tag_groups) setTagGroupsData(r.tag_groups);
+    },
+    [metric, selectedSegmentId],
+  );
 
   // Compute date range from all app lifecycle dates
   const { dateRange, yearMarks } = useMemo(() => {

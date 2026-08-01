@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";

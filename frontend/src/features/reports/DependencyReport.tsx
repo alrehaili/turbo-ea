@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -36,6 +36,7 @@ import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveL
 import { useSegments } from "@/hooks/useSegments";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import type { CardType } from "@/types";
 
 interface Plateau {
@@ -521,20 +522,29 @@ export default function DependencyReport() {
   }, [plateaus]);
 
   // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
-  useEffect(() => {
-    setLoading(true);
-    const p = new URLSearchParams();
-    if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
-    if (selectedPlateauId) p.set("plateau_id", selectedPlateauId);
-    if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
-    api
-      .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
-      .then((r) => {
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      setLoading(true);
+      const p = new URLSearchParams();
+      if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
+      if (selectedPlateauId) p.set("plateau_id", selectedPlateauId);
+      if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
+      try {
+        const r = await api.get<{ nodes: GNode[]; edges: GEdge[] }>(
+          `/reports/dependencies?${p}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         setNodes(r.nodes);
         setEdges(r.edges);
-        setLoading(false);
-      });
-  }, [cardTypeKey, chartMode, selectedPlateauId, selectedSegmentId]);
+      } finally {
+        // Previously only cleared inside `.then`, so a failed request span
+        // forever; and only the winner may clear it (#882).
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [cardTypeKey, chartMode, selectedPlateauId, selectedSegmentId],
+  );
 
   // Filter nodes and edges by architecture_state
   const { filteredNodes, filteredEdges } = useMemo(() => {

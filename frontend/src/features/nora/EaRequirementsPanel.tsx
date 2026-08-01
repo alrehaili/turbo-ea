@@ -27,7 +27,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { api, ApiError } from "@/api/client";

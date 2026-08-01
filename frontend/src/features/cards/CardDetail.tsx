@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";

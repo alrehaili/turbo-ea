@@ -11,7 +11,7 @@
  * [FORK FEATURE] — Reference Models browse (RMPlan/rmPlan.md).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";

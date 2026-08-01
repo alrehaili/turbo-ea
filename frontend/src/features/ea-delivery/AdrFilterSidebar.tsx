@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
@@ -17,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { ADR_COLUMN_DEFS, ADR_LOCKED_COLUMN_KEYS } from "./adrGridPrefs";
 
 /* ------------------------------------------------------------------ */
@@ -67,6 +69,9 @@ interface Props {
   availableStages?: number[];
   /** colIds hidden in the grid (column chooser state, owned by the panel). */
   hiddenColumns: Set<string>;
+  /** Grid colIds frozen to the leading edge; the pin on each row toggles one. */
+  frozenColumns: Set<string>;
+  onToggleFrozen: (colId: string) => void;
   onHiddenColumnsChange: (next: Set<string>) => void;
   /** Extension-contributed grid columns, choosable like built-in ones. */
   extensionColumns: { colId: string; label: string }[];
@@ -125,10 +130,14 @@ function SectionHeader({
 function ColumnsTab({
   hiddenColumns,
   onHiddenColumnsChange,
+  frozenColumns,
+  onToggleFrozen,
   extensionColumns,
 }: {
   hiddenColumns: Set<string>;
   onHiddenColumnsChange: (next: Set<string>) => void;
+  frozenColumns: Set<string>;
+  onToggleFrozen: (colId: string) => void;
   extensionColumns: { colId: string; label: string }[];
 }) {
   const { t } = useTranslation("delivery");
@@ -169,12 +178,15 @@ function ColumnsTab({
   const renderRow = (col: { key: string; label: string }) => {
     const locked = ADR_LOCKED_COLUMN_KEYS.has(col.key);
     return (
+      // The pin is a sibling of the row button, never a child: a locked row
+      // disables its button (which would swallow the click), and a locked
+      // column is exactly the one worth freezing.
+      <Box key={col.key} sx={{ display: "flex", alignItems: "center" }}>
       <ListItemButton
-        key={col.key}
         dense
         disabled={locked}
         onClick={() => toggleColumn(col.key)}
-        sx={{ py: 0, borderRadius: 1 }}
+        sx={{ py: 0, borderRadius: 1, flex: 1, minWidth: 0 }}
       >
         <ListItemIcon sx={{ minWidth: 32 }}>
           <Checkbox
@@ -193,6 +205,11 @@ function ColumnsTab({
           secondaryTypographyProps={{ fontSize: 11 }}
         />
       </ListItemButton>
+      <ColumnFreezeToggle
+        frozen={frozenColumns.has(col.key)}
+        onToggle={() => onToggleFrozen(col.key)}
+      />
+      </Box>
     );
   };
 
@@ -267,6 +284,8 @@ export default function AdrFilterSidebar({
   availableStages = [],
   hiddenColumns,
   onHiddenColumnsChange,
+  frozenColumns,
+  onToggleFrozen,
   extensionColumns,
 }: Props) {
   // delivery namespace — keys: adr.filter.* / adr.columns.*
@@ -523,6 +542,8 @@ export default function AdrFilterSidebar({
             <ColumnsTab
               hiddenColumns={hiddenColumns}
               onHiddenColumnsChange={onHiddenColumnsChange}
+              frozenColumns={frozenColumns}
+              onToggleFrozen={onToggleFrozen}
               extensionColumns={extensionColumns}
             />
           </Box>
@@ -854,23 +875,19 @@ export default function AdrFilterSidebar({
           />
           <Collapse in={expandedSections.dateCreated}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.from")}
                 value={filters.dateCreatedFrom}
-                onChange={(e) => setDateField("dateCreatedFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateCreatedFrom", v)}
               />
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.to")}
                 value={filters.dateCreatedTo}
-                onChange={(e) => setDateField("dateCreatedTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateCreatedTo", v)}
               />
             </Box>
           </Collapse>
@@ -886,23 +903,19 @@ export default function AdrFilterSidebar({
           />
           <Collapse in={expandedSections.dateModified}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.from")}
                 value={filters.dateModifiedFrom}
-                onChange={(e) => setDateField("dateModifiedFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateModifiedFrom", v)}
               />
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.to")}
                 value={filters.dateModifiedTo}
-                onChange={(e) => setDateField("dateModifiedTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateModifiedTo", v)}
               />
             </Box>
           </Collapse>
@@ -918,23 +931,19 @@ export default function AdrFilterSidebar({
           />
           <Collapse in={expandedSections.dateSigned}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.from")}
                 value={filters.dateSignedFrom}
-                onChange={(e) => setDateField("dateSignedFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateSignedFrom", v)}
               />
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.to")}
                 value={filters.dateSignedTo}
-                onChange={(e) => setDateField("dateSignedTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateSignedTo", v)}
               />
             </Box>
           </Collapse>
