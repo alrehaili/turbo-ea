@@ -43,6 +43,7 @@ Chaque fiche Processus Métier peut avoir un **diagramme de flux de processus BP
 - **Modélisation visuelle** -- Glisser-déposer des éléments BPMN : tâches, événements, passerelles, couloirs et sous-processus
 - **Modèles de démarrage** -- Choisir parmi 6 modèles BPMN préconstruits pour des schémas de processus courants (ou commencer à partir d'un canevas vierge)
 - **Extraction d'éléments** -- Lorsque vous sauvegardez un diagramme, le système extrait automatiquement toutes les tâches, événements, passerelles et couloirs pour analyse
+- **Couleurs des éléments** -- Sélectionnez un ou plusieurs éléments et utilisez le bouton pot de peinture de la palette contextuelle pour appliquer une couleur. Les couleurs sont enregistrées dans le fichier BPMN lui-même : elles apparaissent donc aussi dans la visionneuse en lecture seule, les exports et les impressions
 
 ### Liaison d'éléments
 
@@ -58,16 +59,41 @@ La colonne *Organisation* du tableau des étapes lie les étapes à des fiches O
 
 ### Workflow d'approbation
 
-Les diagrammes de flux de processus suivent un workflow d'approbation avec contrôle de version :
+Les diagrammes de flux de processus suivent un workflow d'approbation versionné :
 
 | Statut | Description |
 |--------|-------------|
-| **Brouillon** | En cours d'édition, pas encore soumis pour examen |
-| **En attente** | Soumis pour approbation, en attente d'examen |
-| **Publié** | Approuvé et visible comme version actuelle |
-| **Archivé** | Version précédemment publiée, conservée pour l'historique |
+| **Brouillon** | En cours de modification, pas encore soumis |
+| **En attente** | Soumis pour approbation, en attente de revue |
+| **Publié** | Approuvé et visible comme version courante |
+| **Archivé** | Version publiée précédemment, remplacée par une approbation plus récente |
+| **Retiré** | Version publiée précédemment, dépubliée volontairement |
 
-Soumettre un brouillon crée un instantané de version. Les approbateurs peuvent approuver (publier) ou rejeter (avec commentaires) la soumission.
+Soumettre un brouillon crée un instantané de version. Les approbateurs peuvent approuver (publier) ou rejeter la soumission.
+
+#### Qui peut approuver
+
+Approuver ou rejeter une révision soumise exige la permission **Approuver ou rejeter les versions de flux BPMN soumises**, ou le rôle de partie prenante **Propriétaire du processus** sur le processus lui-même. Pouvoir modifier des brouillons ne suffit pas.
+
+!!! warning "Modifié dans la version 2.43.0"
+    Les versions antérieures acceptaient ici la permission générale de modification BPM : n'importe quel membre pouvait donc approuver n'importe quel flux de processus — y compris une révision qu'il venait lui-même de soumettre. Si, dans votre instance, des personnes approuvent aujourd'hui avec de simples droits de modification BPM, accordez-leur la permission **Approuver ou rejeter les versions de flux BPMN soumises** dans Administration → Rôles, ou désignez-les comme **Propriétaire du processus** sur les processus qu'elles valident.
+
+#### Retirer une version publiée
+
+Une approbation donnée par erreur peut être annulée sans supprimer le processus. Le retrait exige la permission **Retirer (dépublier) une version de flux BPMN publiée**, qu'**aucun rôle ne détient par défaut** — un administrateur l'accorde dans Administration → Rôles, ou sur le rôle de partie prenante **Propriétaire du processus** dans Administration → Métamodèle.
+
+Une fois la permission accordée, la version publiée affiche un bouton **Retirer**. Le retrait demande un motif écrit, puis :
+
+- fait passer la révision à **Retiré** — elle n'est jamais supprimée, ni renvoyée à l'état de brouillon ;
+- conserve l'approbation d'origine : l'onglet *Archivé* affiche la révision, qui l'a approuvée et quand, à côté de qui l'a retirée et pourquoi ;
+- enregistre le retrait, avec son motif, dans l'onglet **Historique** de la fiche ;
+- **ouvre une copie en nouveau brouillon** au numéro de révision suivant, pour que vous puissiez corriger le diagramme et le repasser par soumission → approbation ;
+- laisse le processus sans flux *approuvé* jusqu'à ce que ce brouillon soit approuvé ;
+- laisse intactes les étapes de processus extraites et leurs liens vers les fiches.
+
+Conserver la révision retirée et modifier une copie est délibéré : le diagramme exact qu'un approbateur a validé reste consultable, ce qu'attend un système qualité, tout en vous donnant immédiatement une copie de travail.
+
+Toute version archivée ou retirée peut être reprise à tout moment via **Créer un nouveau brouillon à partir de celle-ci** dans l'onglet *Archivé*, qui la clone en brouillon à la révision suivante.
 
 ## Évaluations de processus
 

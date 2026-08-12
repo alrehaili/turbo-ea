@@ -10,7 +10,7 @@ The **Inventory** is the heart of Turbo EA. Here all **cards** (components) of t
 
 The left sidebar panel allows you to **filter** cards by different criteria:
 
-- **Search** — Free text search across card names
+- **Search** — Free text search across card names, from the very first letter. Best matches come first: exact names, then names starting with what you typed, then names where it starts a word, then the rest. Every search box in Turbo EA orders results this way — the global search (**Ctrl+K** / **⌘K**), each card picker, the Risk Register, Decisions and published portals — unless you have chosen a sort of your own, which always wins
 - **Types** — Filter by one or more card types: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
@@ -69,7 +69,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 | **Lifecycle** | Current lifecycle state |
 | **Approval Status** | Review status badge |
 | **Data Quality** | Completeness percentage with visual ring |
-| **Relations** | Relation counts with clickable popover showing related cards |
+| **Relations** | Related card names, listed alphabetically, with a clickable popover to add or remove relations — cards already linked are hidden from its picker |
 
 **Table features:**
 
@@ -192,7 +192,7 @@ The same precedence drives card-update matching: rows with a UUID in the `id` co
 
 #### Sibling-name uniqueness
 
-Because cards are identified by name + path, **two cards of the same type cannot share both a parent and a name**. New cards that would create such a collision are rejected at creation time (in the Create Card dialog, in the inline rename, and during spreadsheet import). Cards already in the database that share a name with a sibling — from earlier seed data or imports — are left untouched; you can edit any of their fields, but renaming one back into the collision (or creating a third) is blocked. The check is case- and whitespace-insensitive to match the importer's resolver.
+Because cards are identified by name + path, **two cards of the same type cannot share both a parent and a name**. New cards that would create such a collision are rejected at creation time (in the Create Card dialog, in the inline rename, and during spreadsheet import). Cards already in the database that share a name with a sibling — from earlier seed data or imports — are left untouched; you can edit any of their fields, but renaming one back into the collision (or creating a third) is blocked. The check is case- and whitespace-insensitive to match the importer's resolver. When the Create Card dialog rejects a duplicate, the warning names the existing card and includes a **View existing card** link that takes you straight to it.
 
 ### Inline relation cells
 
@@ -217,6 +217,10 @@ On every card sheet, `stakeholder:<role_key>` columns carry the users assigned t
 stakeholder:responsible  →  ada@corp.com; bob@corp.com
 stakeholder:observer     →  carol@corp.com
 ```
+
+!!! note "Sheets exported before role keys became camelCase"
+    Stakeholder role keys use the same camelCase convention as every other metamodel key. A sheet exported before that change carries headers such as `stakeholder:technical_application_owner`; those still import — the header is matched to its camelCase role when no role matches literally. Newly exported sheets use the camelCase form.
+
 
 The **email address is the only accepted user reference** — display names can collide, so they are never used for matching. A `Name <email>` entry is tolerated in hand-authored files (the bracketed email is used); a bare display name produces a warning and is skipped.
 

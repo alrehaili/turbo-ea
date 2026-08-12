@@ -10,7 +10,7 @@ Das **Inventar** ist das Herzstück von Turbo EA. Hier werden alle **Karten** (K
 
 Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien zu **filtern**:
 
-- **Suche** — Freitextsuche über Kartennamen
+- **Suche** — Freitextsuche über Kartennamen, schon ab dem ersten Buchstaben. Die besten Treffer stehen oben: exakte Namen, dann Namen, die mit Ihrer Eingabe beginnen, dann Namen, in denen sie ein Wort beginnt, dann der Rest. Jedes Suchfeld in Turbo EA sortiert so — die globale Suche (**Strg+K** / **⌘K**), jede Kartenauswahl, das Risikoregister, Entscheidungen und veröffentlichte Portale — sofern Sie keine eigene Sortierung gewählt haben, die immer Vorrang hat
 - **Typen** — Filtern nach einem oder mehreren Kartentypen: Ziel, Plattform, Initiative, Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess, Anwendung, Schnittstelle, Datenobjekt, IT-Komponente, Technologiekategorie, Anbieter, System
 - **Subtypen** — Wenn ein Typ ausgewählt ist, können Sie weiter nach Subtyp filtern (z.B. Anwendung -> Geschäftsanwendung, Microservice, AI Agent, Deployment)
 - **Genehmigungsstatus** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
@@ -68,7 +68,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 | **Lebenszyklus** | Aktueller Lebenszyklusstatus |
 | **Genehmigungsstatus** | Badge des Prüfstatus |
 | **Datenqualität** | Vollständigkeitsprozentsatz mit visuellem Ring |
-| **Beziehungen** | Beziehungsanzahl mit klickbarem Popover, das verwandte Karten anzeigt |
+| **Beziehungen** | Namen der verwandten Karten, alphabetisch sortiert, mit klickbarem Popover zum Hinzufügen oder Entfernen von Beziehungen — bereits verknüpfte Karten werden in dessen Auswahlliste ausgeblendet |
 
 **Tabellenfunktionen:**
 
@@ -186,7 +186,7 @@ Karten werden über den **Namen** identifiziert, sofern dieser innerhalb des Typ
 
 #### Eindeutigkeit unter Geschwistern
 
-Da Karten über Name + Pfad identifiziert werden, **dürfen zwei Karten desselben Typs nicht gleichzeitig denselben Elternknoten und denselben Namen haben**. Neue Karten, die eine solche Kollision erzeugen würden, werden bei der Erstellung abgelehnt (im Dialog "Karte erstellen", beim Inline-Umbenennen und beim Tabellenkalkulations-Import). Bereits in der Datenbank vorhandene Duplikate aus früheren Seeds oder Importen bleiben unberührt — Sie können alle ihre Felder bearbeiten, aber das erneute Erzeugen oder Zurückbenennen in den Kollisionszustand wird blockiert. Die Prüfung ist groß-/kleinschreibungs- und whitespace-unempfindlich, passend zum Resolver des Importers.
+Da Karten über Name + Pfad identifiziert werden, **dürfen zwei Karten desselben Typs nicht gleichzeitig denselben Elternknoten und denselben Namen haben**. Neue Karten, die eine solche Kollision erzeugen würden, werden bei der Erstellung abgelehnt (im Dialog "Karte erstellen", beim Inline-Umbenennen und beim Tabellenkalkulations-Import). Bereits in der Datenbank vorhandene Duplikate aus früheren Seeds oder Importen bleiben unberührt — Sie können alle ihre Felder bearbeiten, aber das erneute Erzeugen oder Zurückbenennen in den Kollisionszustand wird blockiert. Die Prüfung ist groß-/kleinschreibungs- und whitespace-unempfindlich, passend zum Resolver des Importers. Lehnt der Dialog "Karte erstellen" ein Duplikat ab, nennt die Warnung die vorhandene Karte und enthält einen Link **Vorhandene Karte anzeigen**, der Sie direkt dorthin führt.
 
 ### Inline-Beziehungszellen
 
@@ -195,6 +195,10 @@ Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten ausgehende Beziehun
 ### Stakeholder-Zellen
 
 Auf jedem Kartenblatt enthalten `stakeholder:<rollen_key>`-Spalten die den Stakeholder-Rollen zugewiesenen Benutzer als **semikolongetrennte E-Mail-Adressen** (dieselbe Konvention wie LeanIX' `subscriptions:<RoleType>`-Spalten), z. B. `ada@corp.com; bob@corp.com`. Die **E-Mail-Adresse ist die einzige akzeptierte Benutzerreferenz** — Anzeigenamen können kollidieren und werden nie zum Abgleich verwendet; ein Eintrag der Form `Name <email>` wird toleriert (die E-Mail in spitzen Klammern zählt), ein bloßer Anzeigename erzeugt eine Warnung und wird übersprungen. Wie Beziehungszellen sind Stakeholder-Zellen **deklarativ pro Rolle**: Die aufgeführten Benutzer werden nach dem Import zur vollständigen Zuweisungsmenge dieser Rolle. Das Entfernen eines Benutzers hebt die Zuweisung auf; eine leere Zelle leert die Rolle; das Weglassen der Spalte lässt die Zuweisungen unberührt. Einträge ohne passenden Benutzer erzeugen eine Warnung und werden übersprungen — sie blockieren den Import nie.
+
+!!! note "Vor der camelCase-Umstellung exportierte Tabellen"
+    Stakeholder-Rollenschlüssel folgen derselben camelCase-Konvention wie alle anderen Metamodell-Schlüssel. Eine zuvor exportierte Tabelle enthält Spalten wie `stakeholder:technical_application_owner`; diese lassen sich weiterhin importieren — der Spaltenkopf wird der camelCase-Rolle zugeordnet, wenn keine Rolle wörtlich passt. Neu exportierte Tabellen verwenden die camelCase-Form.
+
 
 ### `Relations`-Blatt
 

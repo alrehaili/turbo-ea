@@ -52,6 +52,14 @@ When an entitlement passes its expiry it enters a **grace window** (30 days by d
 
 Licenses bought through the Store renew themselves on connected instances: after each successful payment, your instance fetches the extended license automatically — nothing to paste. Renewal on an air-gapped instance is: paste the updated license file from the renewal email (or request one from your vendor) — nothing else.
 
+### Auto-renew status and cancelling
+
+Each entitlement chip states what happens on its date: **Renews on {date}** for an active subscription, or **Expires {date} — will not renew** after a cancellation. This comes from the signed license itself, so it is accurate on air-gapped instances too — the license file emailed after any subscription change carries the updated status; paste it and the chip is current.
+
+To see the renewal date, cancel or restore auto-renew, change the payment method, or download invoices, use **Manage subscription** next to the licensee name (shown for store-bought licenses). It opens your billing portal in a new tab — no account needed. On an air-gapped instance the button cannot reach the store; use the **Manage subscription** link included in every license email instead (your browser only needs internet access, your Turbo EA instance does not).
+
+Cancelling never switches anything off immediately: the extension keeps working until the end of the paid period, then the normal grace + soft-disable flow applies. **Your data is never deleted**, and resubscribing restores everything.
+
 ## Enabling, disabling, and uninstalling
 
 - The **Enabled** switch soft-disables an extension immediately (no restart) and can be flipped back at any time. For content packs this hides their card types from the metamodel — cards stay where they are.
@@ -69,6 +77,16 @@ Some extensions unlock advanced ways to describe your data that the core does no
 - **Custom field types** — new kinds of field beyond the built-in set (for example a configurable rating from 1–5 or 0–10).
 
 These options appear in the metamodel field editor **only while the extension that provides them is installed and licensed**. If such an extension is later disabled or its license lapses, the values you already captured keep displaying as plain read-only text — nothing is blanked or deleted — and the authoring options simply disappear until the extension is active again.
+
+## Data access grants
+
+Most extensions only work with their own data. An extension that integrates with core data — for example a connector that syncs todos with an external task tracker such as Jira or MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — must declare **grants** in its signed manifest:
+
+- `core.todos.read` / `core.todos.write` — read or change todos through the extension SDK. Write implies read. On system todos (such as sign-off requests) a sync extension can only set the external reference shown as a chip — it can never complete, edit, reassign or delete them, and it can never touch todos owned by another extension.
+- `core.events.todo` — receive todo change events, so a connector reacts to a completed todo immediately instead of on its next polling cycle.
+- `core.users.read` — look up users (name, email, active flag only) so a connector can match assignees with accounts in the external tool. No role, login or preference data is exposed, and extensions can never change users.
+
+Grants ride inside the vendor-signed bundle, so they are fixed at packaging time and visible before you install. They only apply while the extension is installed, enabled and licensed — disabling it or letting the license lapse revokes access immediately, no restart needed. Every change an extension makes is recorded in **Admin → Audit log** under the **Extension** origin, and a todo mirrored from an external tracker shows a chip linking to the external item.
 
 ## Where extension pages appear
 

@@ -10,7 +10,7 @@ L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (c
 
 Il pannello laterale sinistro consente di **filtrare** le card secondo diversi criteri:
 
-- **Ricerca** — Ricerca libera per testo nel nome delle card
+- **Ricerca** — Ricerca libera per testo nel nome delle card, già dalla prima lettera. Le corrispondenze migliori compaiono per prime: nomi esatti, poi quelli che iniziano con quanto digitato, poi quelli in cui inizia una parola, poi il resto. Ogni campo di ricerca in Turbo EA ordina così — la ricerca globale (**Ctrl+K** / **⌘K**), ogni selettore di card, il registro dei rischi, le decisioni e i portali pubblicati — a meno che non abbiate scelto un ordinamento vostro, che ha sempre la precedenza
 - **Tipi** — Filtra per uno o più tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected
@@ -68,7 +68,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |
 | **Qualità dei dati** | Percentuale di completezza con anello visivo |
-| **Relazioni** | Conteggio delle relazioni con popover cliccabile che mostra le card correlate |
+| **Relazioni** | Nomi delle carte correlate, in ordine alfabetico, con un popover cliccabile per aggiungere o rimuovere relazioni: le carte già collegate sono nascoste dal suo selettore |
 
 **Funzionalità della tabella:**
 
@@ -186,7 +186,7 @@ Le schede sono identificate per **nome** quando è univoco nel suo tipo, altrime
 
 #### Univocità tra fratelli
 
-Poiché le schede sono identificate per nome + percorso, **due schede dello stesso tipo non possono condividere contemporaneamente lo stesso genitore e lo stesso nome**. Le nuove schede che provocherebbero una collisione vengono rifiutate alla creazione (nella finestra di dialogo Crea, nel rinominamento in linea e durante l'importazione Excel). Eventuali duplicati già presenti nel database — ereditati da seed o import precedenti — restano intatti: potete modificarne qualsiasi campo, ma creare un terzo duplicato o rinominare una scheda riportandola in collisione viene bloccato. Il controllo è case- e whitespace-insensitive, come il risolutore dell'importatore.
+Poiché le schede sono identificate per nome + percorso, **due schede dello stesso tipo non possono condividere contemporaneamente lo stesso genitore e lo stesso nome**. Le nuove schede che provocherebbero una collisione vengono rifiutate alla creazione (nella finestra di dialogo Crea, nel rinominamento in linea e durante l'importazione Excel). Eventuali duplicati già presenti nel database — ereditati da seed o import precedenti — restano intatti: potete modificarne qualsiasi campo, ma creare un terzo duplicato o rinominare una scheda riportandola in collisione viene bloccato. Il controllo è case- e whitespace-insensitive, come il risolutore dell'importatore. Quando la finestra di dialogo Crea rifiuta un duplicato, l'avviso indica la scheda esistente e include un collegamento **Vedi la scheda esistente** che vi porta direttamente ad essa.
 
 ### Celle di relazione in linea
 
@@ -195,6 +195,10 @@ Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenc
 ### Celle stakeholder
 
 Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli utenti assegnati a ciascun ruolo stakeholder, come **indirizzi email separati da punto e virgola** (la stessa convenzione delle colonne `subscriptions:<RoleType>` di LeanIX), ad es. `ada@corp.com; bob@corp.com`. L'**indirizzo email è l'unico riferimento utente accettato** — i nomi visualizzati possono coincidere e non vengono mai usati per la risoluzione; una voce `Nome <email>` è tollerata (viene usata l'email tra parentesi angolari), un nome da solo produce un avviso e viene ignorato. Come le celle di relazione, le celle stakeholder sono **dichiarative per ruolo**: gli utenti elencati diventano l'insieme completo delle assegnazioni di quel ruolo dopo l'importazione. Rimuovere un utente lo disassegna; svuotare la cella svuota il ruolo; omettere la colonna lascia intatte le assegnazioni. Le voci senza utente corrispondente producono un avviso e vengono ignorate — non bloccano mai l'importazione.
+
+!!! note "Fogli esportati prima del passaggio a chiavi camelCase"
+    Le chiavi dei ruoli stakeholder seguono la stessa convenzione camelCase di ogni altra chiave del metamodello. Un foglio esportato prima di quel cambiamento contiene intestazioni come `stakeholder:technical_application_owner`; vengono comunque importate — l'intestazione viene associata al ruolo camelCase quando nessun ruolo corrisponde letteralmente. I fogli esportati ora usano la forma camelCase.
+
 
 ### Foglio `Relations`
 

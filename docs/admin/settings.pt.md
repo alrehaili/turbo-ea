@@ -140,6 +140,12 @@ Alterne o módulo de **Business Process Management** ligado ou desligado. Quando
 
 Isso é útil para organizações que não usam BPM e desejam uma experiência de navegação mais limpa.
 
+### Exigir um aprovador distinto
+
+Desativado por predefinição. Quando ativado, quem submete uma revisão de um fluxo de processo não pode ser quem a aprova — segregação de funções, tal como esperam sistemas de qualidade como BPx e ISO 9001.
+
+Deixe-o desativado numa equipa pequena onde a mesma pessoa redige e aprova. Ativá-lo não altera o que fica registado: submissões, aprovações, rejeições e retiradas ficam no separador **Histórico** do cartão em qualquer caso.
+
 ## Módulo PPM
 
 Alterne o módulo de **Gestão de Portfólio de Projetos** (PPM) ligado ou desligado. Quando desabilitado:

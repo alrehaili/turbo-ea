@@ -52,6 +52,14 @@ Quand un droit dépasse son échéance, il entre dans un **délai de grâce** (3
 
 Les licences achetées via la Boutique se renouvellent d'elles-mêmes sur les instances connectées : après chaque paiement réussi, votre instance récupère automatiquement la licence prolongée — rien à coller. Sur une instance isolée, le renouvellement se résume à coller le fichier de licence mis à jour reçu par e-mail (ou à le demander à votre éditeur) — rien de plus.
 
+### Statut de renouvellement automatique et résiliation
+
+Chaque pastille d'entitlement indique ce qui se passe à sa date : **Se renouvelle le {date}** pour un abonnement actif, ou **Expire le {date} — ne sera pas renouvelé** après une résiliation. L'information provient de la licence signée elle-même : elle est donc exacte aussi sur les instances isolées — le fichier de licence envoyé par e-mail après tout changement d'abonnement porte le statut à jour ; collez-le et la pastille est actuelle.
+
+Pour voir la date de renouvellement, résilier ou rétablir le renouvellement automatique, changer le moyen de paiement ou télécharger les factures, utilisez **Gérer l'abonnement** à côté du nom du licencié (affiché pour les licences achetées via la Boutique). Le bouton ouvre votre portail de facturation dans un nouvel onglet — aucun compte requis. Sur une instance isolée, le bouton ne peut pas joindre la boutique ; utilisez plutôt le lien **Gérer l'abonnement** présent dans chaque e-mail de licence (seul votre navigateur a besoin d'Internet, pas votre instance Turbo EA).
+
+Résilier ne coupe jamais rien immédiatement : l'extension continue de fonctionner jusqu'à la fin de la période payée, puis le déroulé normal grâce + désactivation douce s'applique. **Vos données ne sont jamais supprimées**, et un réabonnement restaure tout.
+
 ## Activer, désactiver et désinstaller
 
 - L'interrupteur **Activée** désactive une extension immédiatement en douceur (sans redémarrage) et peut être rebasculé à tout moment. Pour les packs de contenu, cela masque leurs types de cartes du métamodèle — les cartes restent en place.
@@ -69,6 +77,16 @@ Certaines extensions débloquent des façons avancées de décrire vos données 
 - **Types de champ personnalisés** — de nouveaux types au-delà de l'ensemble intégré (par exemple une note configurable de 1 à 5 ou de 0 à 10).
 
 Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant que l'extension qui les fournit est installée et sous licence**. Si une telle extension est ensuite désactivée ou que sa licence expire, les valeurs déjà saisies continuent de s'afficher en texte simple, en lecture seule — rien n'est effacé ni supprimé — et les options d'édition disparaissent simplement jusqu'à ce que l'extension soit de nouveau active.
+
+## Autorisations d'accès aux données
+
+La plupart des extensions ne travaillent qu'avec leurs propres données. Une extension qui s'intègre aux données du cœur — par exemple un connecteur qui synchronise les todos avec un outil de suivi externe comme Jira ou MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — doit déclarer des **grants** dans son manifeste signé :
+
+- `core.todos.read` / `core.todos.write` — lire ou modifier les todos via le SDK d'extension. L'écriture inclut la lecture. Sur les todos système (comme les demandes de signature), une extension de synchronisation ne peut définir que la référence externe affichée en pastille — elle ne peut jamais les terminer, les modifier, les réassigner ni les supprimer, et les todos appartenant à une autre extension restent hors de portée.
+- `core.events.todo` — recevoir les événements de changement des todos, afin qu'un connecteur réagisse immédiatement au lieu d'attendre son prochain cycle d'interrogation.
+- `core.users.read` — consulter les utilisateurs (nom, e-mail et statut actif uniquement) afin qu'un connecteur puisse faire correspondre les responsables avec les comptes de l'outil externe. Aucune donnée de rôle, de connexion ou de préférence n'est exposée, et les extensions ne peuvent jamais modifier les utilisateurs.
+
+Les grants font partie du bundle signé par l'éditeur : ils sont figés à l'empaquetage et visibles avant l'installation. Ils ne s'appliquent que tant que l'extension est installée, activée et sous licence — la désactiver ou laisser la licence expirer révoque l'accès immédiatement, sans redémarrage. Chaque modification effectuée par une extension est consignée dans **Admin → Journal d'audit** sous l'origine **Extension**, et un todo miroité depuis un outil externe affiche une puce pointant vers l'élément externe.
 
 ## Où apparaissent les pages d'extension
 

@@ -4394,7 +4394,6 @@
         "title": "DateFormatPayload",
         "type": "object"
       },
-<<<<<<< HEAD
       "DecisionCreate": {
         "properties": {
           "annual_cost": {
@@ -4426,27 +4425,6 @@
             "title": "Initiative Id"
           },
           "notes": {
-=======
-      "DescendantRelationRow": {
-        "description": "One rolled-up peer card, deduped across every descendant that links it.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "lifecycle": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Lifecycle",
-            "type": "object"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "subtype": {
->>>>>>> upstream/main
             "anyOf": [
               {
                 "type": "string"
@@ -4455,7 +4433,6 @@
                 "type": "null"
               }
             ],
-<<<<<<< HEAD
             "title": "Notes"
           },
           "planned_savings": {
@@ -4752,7 +4729,35 @@
           }
         },
         "title": "DeliverableUpdate",
-=======
+        "type": "object"
+      },
+      "DescendantRelationRow": {
+        "description": "One rolled-up peer card, deduped across every descendant that links it.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Lifecycle",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Subtype"
           },
           "type": {
@@ -4843,7 +4848,6 @@
           "total"
         ],
         "title": "DescendantRelationsResponse",
->>>>>>> upstream/main
         "type": "object"
       },
       "DiagramCreate": {
@@ -4912,6 +4916,31 @@
         "title": "DiagramGroupsUpdate",
         "type": "object"
       },
+      "DiagramPublishRequest": {
+        "properties": {
+          "access_mode": {
+            "default": "public",
+            "title": "Access Mode",
+            "type": "string"
+          },
+          "allowed_email_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Email Domains"
+          }
+        },
+        "title": "DiagramPublishRequest",
+        "type": "object"
+      },
       "DiagramSave": {
         "properties": {
           "bpmn_xml": {
@@ -4939,6 +4968,24 @@
           "bpmn_xml"
         ],
         "title": "DiagramSave",
+        "type": "object"
+      },
+      "DiagramSsoCallbackRequest": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "redirect_uri": {
+            "title": "Redirect Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "redirect_uri"
+        ],
+        "title": "DiagramSsoCallbackRequest",
         "type": "object"
       },
       "DiagramUpdate": {
@@ -5394,6 +5441,17 @@
       },
       "EntitlementOut": {
         "properties": {
+          "auto_renew": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Renew"
+          },
           "expires_at": {
             "anyOf": [
               {
@@ -6702,6 +6760,11 @@
               }
             ],
             "title": "Problem"
+          },
+          "store_managed": {
+            "default": false,
+            "title": "Store Managed",
+            "type": "boolean"
           },
           "uploaded_at": {
             "anyOf": [
@@ -11199,7 +11262,22 @@
         "title": "ProcessFlowVersionUpdate",
         "type": "object"
       },
-<<<<<<< HEAD
+      "ProcessFlowVersionWithdraw": {
+        "description": "Withdraw (unpublish) a published process flow.\n\nThe reason is mandatory and is stored verbatim on the version: a withdrawal\nwithout a recorded justification is not auditable. ``min_length`` only stops\nan empty submission \u2014 the endpoint additionally rejects whitespace-only\ninput, mirroring the risk-acceptance rationale check in ``risks.py``.",
+        "properties": {
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ProcessFlowVersionWithdraw",
+        "type": "object"
+      },
       "PromoteOpportunity": {
         "properties": {
           "domain": {
@@ -11234,7 +11312,15 @@
         "properties": {
           "reason": {
             "title": "Reason",
-=======
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonRequest",
+        "type": "object"
+      },
       "RecalcCalculationReport": {
         "properties": {
           "calculation_id": {
@@ -11262,16 +11348,10 @@
           },
           "target_field": {
             "title": "Target Field",
->>>>>>> upstream/main
             "type": "string"
           }
         },
         "required": [
-<<<<<<< HEAD
-          "reason"
-        ],
-        "title": "ReasonRequest",
-=======
           "calculation_id",
           "name",
           "target_field",
@@ -11358,7 +11438,6 @@
           "calculations_failed"
         ],
         "title": "RecalcReport",
->>>>>>> upstream/main
         "type": "object"
       },
       "RegisterRequest": {
@@ -14514,6 +14593,19 @@
         "title": "SegmentIn",
         "type": "object"
       },
+      "SeparateApproverPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SeparateApproverPayload",
+        "type": "object"
+      },
       "SetPasswordRequest": {
         "properties": {
           "password": {
@@ -15227,6 +15319,19 @@
             ],
             "title": "Description"
           },
+          "key": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
           "label": {
             "anyOf": [
               {
@@ -15454,6 +15559,19 @@
           "name"
         ],
         "title": "StoreItemOut",
+        "type": "object"
+      },
+      "StorePortalOut": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "StorePortalOut",
         "type": "object"
       },
       "StoreRefreshOut": {
@@ -20305,6 +20423,28 @@
         ]
       }
     },
+    "/api/v1/admin/extensions/store/billing-portal": {
+      "post": {
+        "description": "Mint a store billing-portal session for this instance's subscription.\n\nBacks the \"Manage subscription\" button: the customer sees the renewal\ndate, cancels or restores auto-renew, updates the payment method, and\ndownloads invoices \u2014 all on the store's hosted portal. The renewal\ncredential authenticating the request lives inside the active license's\nsigned payload and is forwarded server-side only; it never reaches the\nbrowser. Only store-issued licenses carry one \u2014 for manual/offline\nlicenses this returns 404 and the UI shows no button.",
+        "operationId": "open_billing_portal_api_v1_admin_extensions_store_billing_portal_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorePortalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Billing Portal",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/admin/extensions/store/catalog": {
       "get": {
         "operationId": "store_catalog_api_v1_admin_extensions_store_catalog_get",
@@ -23155,7 +23295,7 @@
     },
     "/api/v1/bpm/processes/{process_id}/flow/archived": {
       "get": {
-        "description": "List archived process flow versions (most recent first).",
+        "description": "List superseded and withdrawn process flow versions (most recent first).\n\nWithdrawn versions live here too \u2014 they are history, and hiding them would\ndefeat the point of recording the withdrawal.",
         "operationId": "list_archived_api_v1_bpm_processes__process_id__flow_archived_get",
         "parameters": [
           {
@@ -23783,6 +23923,66 @@
           }
         },
         "summary": "Submit For Approval",
+        "tags": [
+          "bpm-workflow"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/flow/versions/{version_id}/withdraw": {
+      "post": {
+        "description": "Withdraw (unpublish) the published process flow \u2014 discussion #916.\n\nForward-only. The version moves ``published`` \u2192 ``withdrawn``; it is never\nrewound to ``draft`` and never deleted, and ``revision`` / ``bpmn_xml`` /\n``approved_by`` / ``approved_at`` are all left exactly as they were. What is\nadded is the withdrawal itself: who, when, and a mandatory written reason.\nThat is what keeps this compliant with 21 CFR 11.10(e) (\"record changes\nshall not obscure previously recorded information\") and what ISO 9001:2015\n\u00a77.5.3.2 asks for when documented information becomes obsolete.\n\nThe extracted ``process_elements``, their organization links, and the\nelement-derived card relations are deliberately **left untouched**, matching\nthe additive-only contract ``sync_element_relations`` already has. A\nwithdrawal must not become a covert delete. BPM reports already filter on\n``status == \"published\"``, so diagram-coverage figures self-correct.\n\nThe process is left with no *published* flow, but not empty-handed: the\nwithdrawn content is cloned into a fresh draft at the next revision so the\nowner can correct it and put it back through submit \u2192 approve. The withdrawn\nrow itself is untouched and stays in the Archived tab, which is what keeps\nthe approved artefact retrievable \u2014 mutating it into the draft instead would\nlet the very BPMN an approver signed off be edited away.\n\nPreviously-archived versions are still not auto-reinstated: re-publishing an\nolder revision is itself an approval and goes through the same cycle.\n\nGated on the ``bpm.withdraw_flows`` / ``card.bpm_withdraw`` permission\nalone. There is no instance-level switch for this: whether withdrawal is\n*offered* is a permission question, while the part the standards actually\ncare about \u2014 recording who withdrew what, when and why \u2014 happens\nunconditionally below.",
+        "operationId": "withdraw_version_api_v1_bpm_processes__process_id__flow_versions__version_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessFlowVersionWithdraw"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Version",
         "tags": [
           "bpm-workflow"
         ]
@@ -24630,23 +24830,39 @@
             }
           },
           {
+            "description": "Sort column. Defaults to `name` ascending. When omitted together with `sort_dir` and a `search` term is given, results are ordered by search relevance first (exact, then starts-with, then starts-a-word, then contains) and alphabetically within each tier.",
             "in": "query",
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "name",
-              "title": "Sort By",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sort column. Defaults to `name` ascending. When omitted together with `sort_dir` and a `search` term is given, results are ordered by search relevance first (exact, then starts-with, then starts-a-word, then contains) and alphabetically within each tier.",
+              "title": "Sort By"
             }
           },
           {
+            "description": "`asc` (default) or `desc`.",
             "in": "query",
             "name": "sort_dir",
             "required": false,
             "schema": {
-              "default": "asc",
-              "title": "Sort Dir",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`asc` (default) or `desc`.",
+              "title": "Sort Dir"
             }
           }
         ],
@@ -25767,17 +25983,10 @@
         ]
       }
     },
-<<<<<<< HEAD
     "/api/v1/cards/{card_id}/confirm": {
       "post": {
         "description": "Stamp a card as freshly confirmed (Repository Freshness View).\n\nSets ``last_confirmed_at`` to now and optionally records the system of record\nand a data-confidence marker. Requires inventory edit rights on the card.",
         "operationId": "confirm_card_api_v1_cards__card_id__confirm_post",
-=======
-    "/api/v1/cards/{card_id}/descendant-relations": {
-      "get": {
-        "description": "The rolled-up peer cards for one relation type, with provenance.\n\nEach row is a distinct peer card plus the descendants that link it, so a\ncard reachable through two sub-capabilities appears once with two `via`\nentries. Read-only by design \u2014 there is no matching write route.",
-        "operationId": "descendant_relations_api_v1_cards__card_id__descendant_relations_get",
->>>>>>> upstream/main
         "parameters": [
           {
             "in": "path",
@@ -25789,7 +25998,6 @@
             }
           },
           {
-<<<<<<< HEAD
             "in": "query",
             "name": "source_system",
             "required": false,
@@ -25804,21 +26012,10 @@
                 }
               ],
               "title": "Source System"
-=======
-            "description": "Relation type key to roll up",
-            "in": "query",
-            "name": "relation_type",
-            "required": true,
-            "schema": {
-              "description": "Relation type key to roll up",
-              "title": "Relation Type",
-              "type": "string"
->>>>>>> upstream/main
             }
           },
           {
             "in": "query",
-<<<<<<< HEAD
             "name": "confidence",
             "required": false,
             "schema": {
@@ -25832,7 +26029,62 @@
                 }
               ],
               "title": "Confidence"
-=======
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Card",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/descendant-relations": {
+      "get": {
+        "description": "The rolled-up peer cards for one relation type, with provenance.\n\nEach row is a distinct peer card plus the descendants that link it, so a\ncard reachable through two sub-capabilities appears once with two `via`\nentries. Read-only by design \u2014 there is no matching write route.",
+        "operationId": "descendant_relations_api_v1_cards__card_id__descendant_relations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Relation type key to roll up",
+            "in": "query",
+            "name": "relation_type",
+            "required": true,
+            "schema": {
+              "description": "Relation type key to roll up",
+              "title": "Relation Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "page",
             "required": false,
             "schema": {
@@ -25852,7 +26104,6 @@
               "minimum": 1,
               "title": "Page Size",
               "type": "integer"
->>>>>>> upstream/main
             }
           }
         ],
@@ -25860,13 +26111,9 @@
           "200": {
             "content": {
               "application/json": {
-<<<<<<< HEAD
-                "schema": {}
-=======
                 "schema": {
                   "$ref": "#/components/schemas/DescendantRelationsResponse"
                 }
->>>>>>> upstream/main
               }
             },
             "description": "Successful Response"
@@ -25882,9 +26129,6 @@
             "description": "Validation Error"
           }
         },
-<<<<<<< HEAD
-        "summary": "Confirm Card",
-=======
         "summary": "Descendant Relations",
         "tags": [
           "cards"
@@ -25933,7 +26177,6 @@
           }
         },
         "summary": "Descendant Relation Summary",
->>>>>>> upstream/main
         "tags": [
           "cards"
         ]
@@ -27772,6 +28015,139 @@
         ]
       }
     },
+    "/api/v1/diagrams/public/{slug}": {
+      "get": {
+        "description": "Return the published picture: a name and sanitised DrawIO XML.\n\nDeliberately narrow. No card ids, no relations, no description, no\nlifecycle \u2014 see ``sanitise_public_xml``. The XML is enough for the DrawIO\nlightbox to render, pan and zoom it, and nothing more.",
+        "operationId": "get_public_diagram_api_v1_diagrams_public__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Diagram",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/public/{slug}/gate": {
+      "get": {
+        "description": "Always-public gate metadata: the access mode and, for SSO, the config the\nembed page needs to start the IdP redirect. Returns the name and nothing\nelse \u2014 never the XML, and never anything about the cards behind it.",
+        "operationId": "get_diagram_gate_api_v1_diagrams_public__slug__gate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Diagram Gate",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/public/{slug}/sso/callback": {
+      "post": {
+        "description": "Exchange an SSO authorization code for an account-less diagram session.\n\nCreates NO user account \u2014 it mints a cookie scoped to this one diagram.",
+        "operationId": "diagram_sso_callback_api_v1_diagrams_public__slug__sso_callback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagramSsoCallbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Diagram Sso Callback",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
     "/api/v1/diagrams/{diagram_id}": {
       "delete": {
         "operationId": "delete_diagram_api_v1_diagrams__diagram_id__delete",
@@ -28112,6 +28488,96 @@
           }
         },
         "summary": "Set Diagram Groups",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/{diagram_id}/publish": {
+      "delete": {
+        "description": "Withdraw a diagram from public view, effective immediately.\n\nThe slug is retained (not cleared) so re-publishing restores the same URL.\nAccess stops regardless: every public route filters on ``is_published``, so\nan already-issued SSO cookie stops working the moment this returns.",
+        "operationId": "unpublish_diagram_api_v1_diagrams__diagram_id__publish_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unpublish Diagram",
+        "tags": [
+          "diagrams"
+        ]
+      },
+      "post": {
+        "description": "Publish a diagram as a read-only link, or update how it is shared.\n\nGated on ``diagrams.publish`` rather than ``diagrams.manage``: making\ninternal architecture readable outside the instance is a different\nauthority from editing it, and most installs will want to grant it far\nmore narrowly.",
+        "operationId": "publish_diagram_api_v1_diagrams__diagram_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagramPublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Diagram",
         "tags": [
           "diagrams"
         ]
@@ -31309,7 +31775,7 @@
     },
     "/api/v1/metamodel/types/{type_key}/stakeholder-roles": {
       "get": {
-        "description": "List stakeholder roles for a card type.",
+        "description": "List stakeholder roles for a card type, each with its assignment count.",
         "operationId": "list_stakeholder_roles_api_v1_metamodel_types__type_key__stakeholder_roles_get",
         "parameters": [
           {
@@ -31407,6 +31873,49 @@
       }
     },
     "/api/v1/metamodel/types/{type_key}/stakeholder-roles/{role_key}": {
+      "delete": {
+        "description": "Permanently delete an **unused** stakeholder role.\n\nRefused (409) while anyone holds the role on a card of this type, while a\nsurvey targets it, or when it is the type's last active role \u2014 archive is the\nanswer in those cases. Deleting an in-use role would silently strip the\ncard-level permissions it grants from real users, unrecoverably, and\n``stakeholders.role`` has no foreign key to make that visible.",
+        "operationId": "delete_stakeholder_role_api_v1_metamodel_types__type_key__stakeholder_roles__role_key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_key",
+            "required": true,
+            "schema": {
+              "title": "Type Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_key",
+            "required": true,
+            "schema": {
+              "title": "Role Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Stakeholder Role",
+        "tags": [
+          "stakeholder-roles"
+        ]
+      },
       "get": {
         "description": "Get a single stakeholder role with permissions.",
         "operationId": "get_stakeholder_role_api_v1_metamodel_types__type_key__stakeholder_roles__role_key__get",
@@ -31606,6 +32115,56 @@
           }
         },
         "summary": "Restore Stakeholder Role",
+        "tags": [
+          "stakeholder-roles"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{type_key}/stakeholder-roles/{role_key}/usage": {
+      "get": {
+        "description": "Report what would block deleting or re-keying this role.\n\nMirrors ``GET /metamodel/types/{key}/field-usage`` so the admin UI can show\nthe impact before offering a destructive action.",
+        "operationId": "stakeholder_role_usage_api_v1_metamodel_types__type_key__stakeholder_roles__role_key__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_key",
+            "required": true,
+            "schema": {
+              "title": "Type Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_key",
+            "required": true,
+            "schema": {
+              "title": "Role Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stakeholder Role Usage",
         "tags": [
           "stakeholder-roles"
         ]
@@ -38716,11 +39275,7 @@
     },
     "/api/v1/reports/matrix": {
       "get": {
-<<<<<<< HEAD
-        "description": "Matrix report: cross-reference grid. Optionally filtered by segment scope.",
-=======
         "description": "Matrix report: cross-reference grid between two card types.\n\nEach intersection carries the relations behind it \u2014 their relation type,\ntheir orientation relative to the row axis, and their attribute values \u2014 so\nthe grid can show what the link *means*, not merely that one exists.\n\n``direction`` is structural: ``forward`` keeps relations whose source is the\nrow card, ``reverse`` those whose target is. Semantic notions of direction\nthat a metamodel may express as a relation attribute are just attribute\nvalues, filtered through ``attr`` like any other.\n\nOnly the *edges* are filtered server-side; the row and column card lists are\nalways complete. Pruning cards here would break their ``parent_id`` chains\nand silently flatten the hierarchy the client rebuilds \u2014 the client already\nhides cards with no surviving edge, and can do so without a refetch.",
->>>>>>> upstream/main
         "operationId": "matrix_api_v1_reports_matrix_get",
         "parameters": [
           {
@@ -38744,15 +39299,9 @@
             }
           },
           {
-<<<<<<< HEAD
             "description": "Optional segment ID for scope filtering by segment membership.",
             "in": "query",
             "name": "segment_id",
-=======
-            "description": "Comma-separated relation-type keys to restrict the grid to",
-            "in": "query",
-            "name": "relation_types",
->>>>>>> upstream/main
             "required": false,
             "schema": {
               "anyOf": [
@@ -38763,10 +39312,24 @@
                   "type": "null"
                 }
               ],
-<<<<<<< HEAD
               "description": "Optional segment ID for scope filtering by segment membership.",
               "title": "Segment Id"
-=======
+            }
+          },
+          {
+            "description": "Comma-separated relation-type keys to restrict the grid to",
+            "in": "query",
+            "name": "relation_types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "Comma-separated relation-type keys to restrict the grid to",
               "title": "Relation Types"
             }
@@ -38794,7 +39357,6 @@
               "pattern": "^(any|forward|reverse)$",
               "title": "Direction",
               "type": "string"
->>>>>>> upstream/main
             }
           }
         ],
@@ -39249,12 +39811,66 @@
         ]
       }
     },
-<<<<<<< HEAD
     "/api/v1/reports/strategy-cascade": {
       "get": {
         "description": "Pillars \u2192 objectives \u2192 programs \u2192 initiatives \u2192 projects. [FORK FEATURE]",
         "operationId": "strategy_cascade_report_api_v1_reports_strategy_cascade_get",
-=======
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Strategy Cascade Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/strategy-map": {
+      "get": {
+        "description": "Executive Strategy Map: objective \u2192 capability \u2192 initiative \u2192 application.\n\nReturns one traceable chain per strategic Objective, with PPM budget/actual\nand lifecycle status read opportunistically off each Initiative card.",
+        "operationId": "strategy_map_api_v1_reports_strategy_map_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Strategy Map",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/technology-landscape": {
+      "get": {
+        "description": "Technology cards grouped by data-center containment and network segment.\n\nWorks under both profiles: the classic ITComponent hierarchy (containment via\n``parent_id`` + the ``dataCenter`` subtype) and the exact NORA metamodel\n(dedicated Datacenter / Server / \u2026 types, containment via the ``hosts``\nrelations). [FORK FEATURE]",
+        "operationId": "technology_landscape_report_api_v1_reports_technology_landscape_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Technology Landscape Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/resources": {
       "get": {
         "description": "Every file attachment and document link in the repository, paginated.\n\nReturns the ``{items, total, page, page_size}`` envelope used by the\nother paginated read endpoints. Binary payloads are never included \u2014\nfetch a file from ``GET /file-attachments/{id}/download``.",
@@ -39485,29 +40101,10 @@
             }
           }
         ],
->>>>>>> upstream/main
         "responses": {
           "200": {
             "content": {
               "application/json": {
-<<<<<<< HEAD
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Strategy Cascade Report",
-        "tags": [
-          "reports"
-        ]
-      }
-    },
-    "/api/v1/reports/strategy-map": {
-      "get": {
-        "description": "Executive Strategy Map: objective \u2192 capability \u2192 initiative \u2192 application.\n\nReturns one traceable chain per strategic Objective, with PPM budget/actual\nand lifecycle status read opportunistically off each Initiative card.",
-        "operationId": "strategy_map_api_v1_reports_strategy_map_get",
-=======
                 "schema": {
                   "$ref": "#/components/schemas/ResourceListPage"
                 }
@@ -39546,29 +40143,10 @@
           },
           "required": true
         },
->>>>>>> upstream/main
         "responses": {
           "200": {
             "content": {
               "application/json": {
-<<<<<<< HEAD
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Strategy Map",
-        "tags": [
-          "reports"
-        ]
-      }
-    },
-    "/api/v1/reports/technology-landscape": {
-      "get": {
-        "description": "Technology cards grouped by data-center containment and network segment.\n\nWorks under both profiles: the classic ITComponent hierarchy (containment via\n``parent_id`` + the ``dataCenter`` subtype) and the exact NORA metamodel\n(dedicated Datacenter / Server / \u2026 types, containment via the ``hosts``\nrelations). [FORK FEATURE]",
-        "operationId": "technology_landscape_report_api_v1_reports_technology_landscape_get",
-=======
                 "schema": {
                   "$ref": "#/components/schemas/ResourceBulkDeleteResult"
                 }
@@ -39771,22 +40349,10 @@
             }
           }
         ],
->>>>>>> upstream/main
         "responses": {
           "200": {
             "content": {
               "application/json": {
-<<<<<<< HEAD
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Technology Landscape Report",
-        "tags": [
-          "reports"
-=======
                 "schema": {
                   "$ref": "#/components/schemas/ResourceStats"
                 }
@@ -39808,7 +40374,6 @@
         "summary": "Resource Stats",
         "tags": [
           "resources"
->>>>>>> upstream/main
         ]
       }
     },
@@ -40001,9 +40566,15 @@
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "updated_at",
-              "title": "Sort By",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort By"
             }
           },
           {
@@ -40011,9 +40582,15 @@
             "name": "sort_dir",
             "required": false,
             "schema": {
-              "default": "desc",
-              "title": "Sort Dir",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort Dir"
             }
           }
         ],
@@ -43539,6 +44116,64 @@
           }
         },
         "summary": "Update Bpm Row Order",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/bpm-separate-approver": {
+      "get": {
+        "description": "Public endpoint \u2014 whether a process flow needs a second person to approve it.\n\nOff by default so upgrading changes nothing for a team where one person both\nsubmits and approves; regulated instances turn it on deliberately.",
+        "operationId": "get_bpm_separate_approver_api_v1_settings_bpm_separate_approver_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Bpm Separate Approver",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 require a separate approver for BPMN flow revisions.",
+        "operationId": "update_bpm_separate_approver_api_v1_settings_bpm_separate_approver_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeparateApproverPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Bpm Separate Approver",
         "tags": [
           "settings"
         ]

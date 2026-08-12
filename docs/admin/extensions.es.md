@@ -52,6 +52,14 @@ Cuando un derecho supera su caducidad entra en un **periodo de gracia** (30 día
 
 Las licencias compradas en la Tienda se renuevan solas en las instancias conectadas: tras cada pago correcto, tu instancia obtiene automáticamente la licencia ampliada — nada que pegar. En una instancia aislada, la renovación consiste en pegar el archivo de licencia actualizado del correo de renovación (o pedirlo al proveedor) — nada más.
 
+### Estado de renovación automática y cancelación
+
+Cada chip de titularidad indica qué ocurre en su fecha: **Se renueva el {fecha}** para una suscripción activa, o **Expira el {fecha} — no se renovará** tras una cancelación. La información procede de la propia licencia firmada, por lo que también es exacta en instancias aisladas — el archivo de licencia enviado por correo tras cualquier cambio de suscripción lleva el estado actualizado; péguelo y el chip queda al día.
+
+Para ver la fecha de renovación, cancelar o restaurar la renovación automática, cambiar el método de pago o descargar facturas, use **Gestionar suscripción** junto al nombre del licenciatario (visible en licencias compradas en la Tienda). Abre su portal de facturación en una pestaña nueva — sin necesidad de cuenta. En una instancia aislada el botón no puede llegar a la tienda; use en su lugar el enlace **Gestionar suscripción** incluido en cada correo de licencia (solo su navegador necesita Internet, su instancia de Turbo EA no).
+
+Cancelar nunca apaga nada de inmediato: la extensión sigue funcionando hasta el final del periodo pagado y después se aplica el flujo normal de gracia + desactivación suave. **Sus datos nunca se eliminan**, y volver a suscribirse lo restaura todo.
+
 ## Habilitar, deshabilitar y desinstalar
 
 - El interruptor **Habilitada** desactiva una extensión inmediatamente de forma suave (sin reinicio) y puede revertirse en cualquier momento. Para los paquetes de contenido, esto oculta sus tipos de tarjeta del metamodelo — las tarjetas se quedan donde están.
@@ -69,6 +77,16 @@ Algunas extensiones habilitan formas avanzadas de describir tus datos que el nú
 - **Tipos de campo personalizados** — nuevos tipos más allá del conjunto integrado (por ejemplo, una valoración configurable de 1 a 5 o de 0 a 10).
 
 Estas opciones aparecen en el editor de campos del metamodelo **solo mientras la extensión que las proporciona esté instalada y con licencia**. Si dicha extensión se deshabilita más tarde o su licencia caduca, los valores que ya capturaste se siguen mostrando como texto de solo lectura — nada se borra ni se elimina — y las opciones de edición simplemente desaparecen hasta que la extensión vuelva a estar activa.
+
+## Permisos de acceso a datos
+
+La mayoría de las extensiones solo trabajan con sus propios datos. Una extensión que se integra con los datos del núcleo — por ejemplo, un conector que sincroniza los todos con un gestor de tareas externo como Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — debe declarar **grants** en su manifiesto firmado:
+
+- `core.todos.read` / `core.todos.write` — leer o modificar todos a través del SDK de extensiones. La escritura incluye la lectura. En los todos del sistema (como las solicitudes de firma), una extensión de sincronización solo puede establecer la referencia externa mostrada como chip — nunca puede completarlos, editarlos, reasignarlos ni eliminarlos, y los todos de otra extensión siguen fuera de su alcance.
+- `core.events.todo` — recibir los eventos de cambio de los todos, para que un conector reaccione de inmediato en lugar de esperar al siguiente ciclo de sondeo.
+- `core.users.read` — consultar usuarios (solo nombre, correo y estado activo) para que un conector pueda emparejar responsables con cuentas de la herramienta externa. No se expone ningún dato de rol, inicio de sesión o preferencias, y las extensiones nunca pueden modificar usuarios.
+
+Los grants forman parte del paquete firmado por el proveedor: quedan fijados al empaquetar y son visibles antes de instalar. Solo se aplican mientras la extensión está instalada, habilitada y con licencia — deshabilitarla o dejar caducar la licencia revoca el acceso de inmediato, sin reinicio. Cada cambio hecho por una extensión se registra en **Admin → Registro de auditoría** bajo el origen **Extensión**, y un todo reflejado desde un gestor externo muestra un chip con enlace al elemento externo.
 
 ## Dónde aparecen las páginas de extensión
 

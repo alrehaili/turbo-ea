@@ -52,6 +52,14 @@ Quando um direito ultrapassa a validade entra num **período de tolerância** (3
 
 As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: após cada pagamento bem-sucedido, a sua instância obtém automaticamente a licença prolongada — nada a colar. Numa instância isolada, a renovação resume-se a colar o ficheiro de licença atualizado do e-mail de renovação (ou pedi-lo ao fornecedor) — nada mais.
 
+### Estado da renovação automática e cancelamento
+
+Cada chip de titularidade indica o que acontece na sua data: **Renova em {data}** para uma subscrição ativa, ou **Expira em {data} — não será renovado** após um cancelamento. A informação vem da própria licença assinada, pelo que também é exata em instâncias isoladas — o ficheiro de licença enviado por e-mail após qualquer alteração da subscrição traz o estado atualizado; cole-o e o chip fica atual.
+
+Para ver a data de renovação, cancelar ou restaurar a renovação automática, alterar o método de pagamento ou descarregar faturas, use **Gerir subscrição** junto ao nome do licenciado (visível em licenças compradas na Loja). Abre o seu portal de faturação num novo separador — sem necessidade de conta. Numa instância isolada o botão não consegue chegar à loja; use antes o link **Gerir subscrição** incluído em cada e-mail de licença (só o seu navegador precisa de Internet, a sua instância Turbo EA não).
+
+Cancelar nunca desliga nada de imediato: a extensão continua a funcionar até ao fim do período pago e depois aplica-se o fluxo normal de tolerância + desativação suave. **Os seus dados nunca são eliminados**, e voltar a subscrever restaura tudo.
+
 ## Ativar, desativar e desinstalar
 
 - O interruptor **Ativada** desativa uma extensão imediatamente de forma suave (sem reinício) e pode ser revertido a qualquer momento. Para pacotes de conteúdo, isto oculta os seus tipos de cartão do metamodelo — os cartões ficam onde estão.
@@ -69,6 +77,16 @@ Algumas extensões desbloqueiam maneiras avançadas de descrever seus dados que 
 - **Tipos de campo personalizados** — novos tipos além do conjunto integrado (por exemplo, uma avaliação configurável de 1 a 5 ou de 0 a 10).
 
 Essas opções aparecem no editor de campos do metamodelo **somente enquanto a extensão que as fornece estiver instalada e licenciada**. Se essa extensão for posteriormente desativada ou sua licença expirar, os valores que você já registrou continuam sendo exibidos como texto somente leitura — nada é apagado ou excluído — e as opções de edição simplesmente desaparecem até que a extensão esteja ativa novamente.
+
+## Concessões de acesso a dados
+
+A maioria das extensões trabalha apenas com os seus próprios dados. Uma extensão que se integra com os dados do núcleo — por exemplo, um conector que sincroniza os todos com um gestor de tarefas externo como o Jira ou o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — precisa declarar **grants** no seu manifesto assinado:
+
+- `core.todos.read` / `core.todos.write` — ler ou alterar todos através do SDK de extensões. Escrever inclui ler. Nos todos de sistema (como pedidos de assinatura), uma extensão de sincronização só pode definir a referência externa mostrada como chip — nunca pode concluí-los, editá-los, reatribuí-los ou eliminá-los, e os todos de outra extensão continuam fora do seu alcance.
+- `core.events.todo` — receber os eventos de alteração dos todos, para que um conector reaja de imediato em vez de esperar pelo próximo ciclo de sondagem.
+- `core.users.read` — consultar utilizadores (apenas nome, e-mail e estado ativo) para que um conector possa fazer corresponder responsáveis a contas da ferramenta externa. Não são expostos dados de função, início de sessão ou preferências, e as extensões nunca podem alterar utilizadores.
+
+Os grants fazem parte do pacote assinado pelo fornecedor: ficam fixados no empacotamento e são visíveis antes da instalação. Só se aplicam enquanto a extensão está instalada, ativada e licenciada — desativá-la ou deixar a licença expirar revoga o acesso imediatamente, sem reinício. Cada alteração feita por uma extensão fica registada em **Admin → Registo de auditoria** sob a origem **Extensão**, e um todo espelhado de um gestor externo mostra um chip com ligação ao item externo.
 
 ## Onde as páginas de extensão aparecem
 

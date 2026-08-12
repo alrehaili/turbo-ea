@@ -28,17 +28,36 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 
 import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
+
+// Tab state rides the URL (and localStorage) so a refresh on the Installed
+// tab does not bounce back to the Store — same pattern as GrcPage.
+const TAB_KEYS = ["store", "installed"] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+const TAB_STORAGE_KEY = "turboea.extensions.tab";
+
+function readStoredTab(): TabKey | null {
+  try {
+    const v = localStorage.getItem(TAB_STORAGE_KEY);
+    return v && TAB_KEYS.includes(v as TabKey) ? (v as TabKey) : null;
+  } catch {
+    return null;
+  }
+}
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 
 interface EntitlementInfo {
   state: "active" | "grace" | "expired" | "unlicensed" | "free";
   expires_at?: string | null;
   grace_until?: string | null;
+  // Whether the backing store subscription renews at period end; null/absent
+  // on manual/offline licenses and licenses issued before the flag existed.
+  auto_renew?: boolean | null;
 }
 
 interface ExtensionInfo {
@@ -59,11 +78,15 @@ interface LicenseInfo {
   entitlements: {
     extension_key: string;
     expires_at?: string | null;
+    auto_renew?: boolean | null;
   }[];
   uploaded_at?: string | null;
   // Why the stored license is not in effect (bound to another instance,
   // failed verification) — null/absent when everything is fine.
   problem?: string | null;
+  // True when the subscription can be managed via the store billing portal
+  // (store-issued license). The credential itself never reaches the browser.
+  store_managed?: boolean;
 }
 
 interface InstallReport {
@@ -164,7 +187,33 @@ function makeClaimToken(): string {
 export default function ExtensionsAdmin() {
   const { t } = useTranslation("admin");
 
-  const [tab, setTab] = useState<"store" | "installed">("store");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramTab = searchParams.get("tab") as TabKey | null;
+  const validParam = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : null;
+  // Priority: valid URL param > localStorage > default. localStorage is read
+  // only once (lazy initializer) so it never fights a subsequent tab click.
+  const [tab, setTab] = useState<TabKey>(() => validParam ?? readStoredTab() ?? "store");
+
+  useEffect(() => {
+    if (validParam && validParam !== tab) setTab(validParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validParam]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab);
+    } catch {
+      /* private mode etc. — the URL param still covers refreshes */
+    }
+  }, [tab]);
+
+  const handleTabChange = (_: React.SyntheticEvent, val: string) => {
+    const next = val as TabKey;
+    setTab(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === "store") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
@@ -212,6 +261,7 @@ export default function ExtensionsAdmin() {
 
   const [uninstallKey, setUninstallKey] = useState<string | null>(null);
   const [renewBusy, setRenewBusy] = useState(false);
+  const [manageBusy, setManageBusy] = useState(false);
   const [removeLicenseOpen, setRemoveLicenseOpen] = useState(false);
   const [removeLicenseBusy, setRemoveLicenseBusy] = useState(false);
   // When a file-uploaded extension can't be applied for lack of a license,
@@ -585,6 +635,28 @@ export default function ExtensionsAdmin() {
     }
   };
 
+  // Open the store's billing portal (renewal date, cancel/restore
+  // auto-renew, payment method, invoices) in a new tab. The backend proxies
+  // the request so the license's renewal credential never reaches the
+  // browser. Air-gapped instances get a friendly hint instead — they manage
+  // via the link in their license emails.
+  const handleManageSubscription = async () => {
+    setManageBusy(true);
+    try {
+      const res = await api.post<{ url: string }>("/admin/extensions/store/billing-portal");
+      window.open(res.url, "_blank", "noopener");
+    } catch {
+      setError(
+        t(
+          "extensions.license.manageUnreachable",
+          "The extension store could not be reached. On an offline instance, use the Manage subscription link in your license email instead.",
+        ),
+      );
+    } finally {
+      setManageBusy(false);
+    }
+  };
+
   const needsRestart = extensions.some((x) => x.status === "needs_restart");
   const isWorking = install ? !TERMINAL.has(install.status) : false;
   // During a one-click store install the "previewed" state is transient
@@ -601,6 +673,31 @@ export default function ExtensionsAdmin() {
   const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   const entitlementChip = (ent: EntitlementInfo) => {
+    // Active + a known auto-renew state: say what actually happens on the
+    // date — "renews" vs "will not renew" — instead of the ambiguous
+    // "active until". Unknown (manual/offline licenses) keeps today's label.
+    if (ent.state === "active" && ent.expires_at && ent.auto_renew === true) {
+      return (
+        <Chip
+          size="small"
+          color="success"
+          label={t("extensions.entitlement.renewsOn", "Renews on {{date}}", {
+            date: fmtDate(ent.expires_at),
+          })}
+        />
+      );
+    }
+    if (ent.state === "active" && ent.expires_at && ent.auto_renew === false) {
+      return (
+        <Chip
+          size="small"
+          color="warning"
+          label={t("extensions.entitlement.willNotRenew", "Expires {{date}} — will not renew", {
+            date: fmtDate(ent.expires_at),
+          })}
+        />
+      );
+    }
     const label =
       ent.state === "free"
         ? t("extensions.entitlement.free", "Free")
@@ -788,7 +885,7 @@ export default function ExtensionsAdmin() {
 
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={handleTabChange}
         sx={{ borderBottom: 1, borderColor: "divider" }}
       >
         <Tab value="store" label={t("extensions.tabs.store", "Store")} />
@@ -1023,6 +1120,16 @@ export default function ExtensionsAdmin() {
                   date: fmtDate(license.uploaded_at),
                 })}
               </Typography>
+              {license.store_managed && (
+                <Button
+                  size="small"
+                  startIcon={<MaterialSymbol icon="manage_accounts" size={18} />}
+                  disabled={manageBusy}
+                  onClick={() => void handleManageSubscription()}
+                >
+                  {t("extensions.license.manage", "Manage subscription")}
+                </Button>
+              )}
               <Button
                 size="small"
                 onClick={() => {

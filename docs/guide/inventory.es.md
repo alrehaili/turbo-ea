@@ -10,7 +10,7 @@ El **Inventario** es el corazón de Turbo EA. Aquí se listan todas las **fichas
 
 El panel lateral izquierdo permite **filtrar** las fichas por diferentes criterios:
 
-- **Buscar** — Búsqueda de texto libre en los nombres de las fichas
+- **Buscar** — Búsqueda de texto libre en los nombres de las tarjetas, desde la primera letra. Las mejores coincidencias aparecen primero: nombres exactos, luego los que empiezan por lo que escribió, luego aquellos donde inicia una palabra y después el resto. Todos los campos de búsqueda de Turbo EA ordenan así — la búsqueda global (**Ctrl+K** / **⌘K**), cada selector de tarjetas, el registro de riesgos, las decisiones y los portales publicados — salvo que haya elegido un orden propio, que siempre prevalece
 - **Tipos** — Filtrar por uno o más tipos de ficha: Objetivo, Plataforma, Iniciativa, Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio, Aplicación, Interfaz, Objeto de Datos, Componente TI, Categoría Tecnológica, Proveedor, Sistema
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
@@ -68,7 +68,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 | **Ciclo de Vida** | Estado actual del ciclo de vida |
 | **Estado de Aprobación** | Insignia de estado de revisión |
 | **Calidad de Datos** | Porcentaje de completitud con anillo visual |
-| **Relaciones** | Conteo de relaciones con popover interactivo que muestra las fichas relacionadas |
+| **Relaciones** | Nombres de las tarjetas relacionadas, en orden alfabético, con un popover interactivo para añadir o quitar relaciones: las tarjetas ya vinculadas se ocultan de su selector |
 
 **Funciones de la tabla:**
 
@@ -186,7 +186,7 @@ Las fichas se identifican por **nombre** cuando es único dentro de su tipo, y e
 
 #### Unicidad entre hermanos
 
-Como las fichas se identifican por nombre + ruta, **dos fichas del mismo tipo no pueden compartir a la vez el mismo padre y el mismo nombre**. Las fichas nuevas que provocarían una colisión se rechazan al crearse (en el diálogo Crear ficha, al renombrar en línea y durante la importación de Excel). Los duplicados ya existentes en la base de datos, heredados de importaciones o seeds antiguos, se mantienen intactos: puede editar cualquier campo, pero crear un tercer duplicado o renombrar una ficha de vuelta a la colisión está bloqueado. La comprobación es insensible a mayúsculas y espacios, igual que el resolutor del importador.
+Como las fichas se identifican por nombre + ruta, **dos fichas del mismo tipo no pueden compartir a la vez el mismo padre y el mismo nombre**. Las fichas nuevas que provocarían una colisión se rechazan al crearse (en el diálogo Crear ficha, al renombrar en línea y durante la importación de Excel). Los duplicados ya existentes en la base de datos, heredados de importaciones o seeds antiguos, se mantienen intactos: puede editar cualquier campo, pero crear un tercer duplicado o renombrar una ficha de vuelta a la colisión está bloqueado. La comprobación es insensible a mayúsculas y espacios, igual que el resolutor del importador. Cuando el diálogo Crear ficha rechaza un duplicado, el aviso indica la ficha existente e incluye un enlace **Ver la ficha existente** que le lleva directamente a ella.
 
 ### Celdas de relación en línea
 
@@ -195,6 +195,10 @@ Cada columna `rel:<tipo_de_relación>` expresa las relaciones salientes como una
 ### Celdas de partes interesadas
 
 En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usuarios asignados a cada rol de parte interesada, como **direcciones de correo separadas por punto y coma** (la misma convención que las columnas `subscriptions:<RoleType>` de LeanIX), p. ej. `ada@corp.com; bob@corp.com`. La **dirección de correo es la única referencia de usuario aceptada** — los nombres pueden coincidir entre personas y nunca se usan para la resolución; una entrada `Nombre <email>` se tolera (se usa el correo entre corchetes angulares), un nombre solo produce una advertencia y se omite. Como las celdas de relaciones, las celdas de partes interesadas son **declarativas por rol**: los usuarios listados se convierten en el conjunto completo de asignaciones de ese rol tras la importación. Quitar un usuario lo desasigna; vaciar la celda vacía el rol; omitir la columna deja las asignaciones intactas. Las entradas sin usuario coincidente producen una advertencia y se omiten — nunca bloquean la importación.
+
+!!! note "Hojas exportadas antes de que las claves fueran camelCase"
+    Las claves de los roles de partes interesadas siguen la misma convención camelCase que cualquier otra clave del metamodelo. Una hoja exportada antes de ese cambio contiene encabezados como `stakeholder:technical_application_owner`; siguen importándose — el encabezado se asocia a su rol en camelCase cuando ningún rol coincide literalmente. Las hojas nuevas usan la forma camelCase.
+
 
 ### Hoja `Relations`
 

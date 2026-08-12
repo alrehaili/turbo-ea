@@ -105,7 +105,9 @@ async function publicGet<T>(path: string): Promise<T> {
 const PORTAL_SSO_REDIRECT_PATH = "/auth/callback";
 
 function portalSilentKey(slug: string): string {
-  return `portal_silent_${slug}`;
+  // Keyed by resource kind as well as slug — SsoCallback now serves both
+  // portals and published diagrams and writes the same key on failure.
+  return `portal_silent_portal_${slug}`;
 }
 
 // Send the browser to the IdP to authenticate a portal visitor. `silent` adds
@@ -162,8 +164,8 @@ function Icon({
 const ROLE_LABEL_KEYS: Record<string, string> = {
   responsible: "portal.roles.responsible",
   observer: "portal.roles.observer",
-  technical_application_owner: "portal.roles.technical_application_owner",
-  business_application_owner: "portal.roles.business_application_owner",
+  technicalApplicationOwner: "portal.roles.technicalApplicationOwner",
+  businessApplicationOwner: "portal.roles.businessApplicationOwner",
 };
 
 function initials(name: string): string {

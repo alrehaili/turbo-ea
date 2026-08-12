@@ -52,6 +52,14 @@ Quando un diritto supera la scadenza entra in un **periodo di tolleranza** (30 g
 
 Le licenze acquistate tramite lo Store si rinnovano da sole sulle istanze connesse: dopo ogni pagamento andato a buon fine, l'istanza recupera automaticamente la licenza estesa — niente da incollare. Su un'istanza isolata il rinnovo è: incollare il file di licenza aggiornato ricevuto via e-mail (o richiederlo al fornitore) — nient'altro.
 
+### Stato del rinnovo automatico e disdetta
+
+Ogni chip di entitlement dice cosa accade alla sua data: **Si rinnova il {data}** per un abbonamento attivo, oppure **Scade il {data} — non sarà rinnovato** dopo una disdetta. L'informazione proviene dalla licenza firmata stessa, quindi è corretta anche sulle istanze isolate — il file di licenza inviato via e-mail dopo ogni modifica dell'abbonamento porta lo stato aggiornato; incollalo e il chip è attuale.
+
+Per vedere la data di rinnovo, disdire o ripristinare il rinnovo automatico, cambiare il metodo di pagamento o scaricare le fatture, usa **Gestisci abbonamento** accanto al nome del licenziatario (visibile per le licenze acquistate nello Store). Apre il tuo portale di fatturazione in una nuova scheda — nessun account necessario. Su un'istanza isolata il pulsante non può raggiungere lo store; usa invece il link **Gestisci abbonamento** presente in ogni e-mail di licenza (serve Internet solo al tuo browser, non alla tua istanza Turbo EA).
+
+La disdetta non spegne mai nulla immediatamente: l'estensione continua a funzionare fino alla fine del periodo pagato, poi si applica il normale flusso di tolleranza + disattivazione morbida. **I tuoi dati non vengono mai eliminati**, e riabbonarsi ripristina tutto.
+
 ## Abilitare, disabilitare e disinstallare
 
 - L'interruttore **Abilitata** disattiva subito l'estensione (senza riavvio) e può essere riattivato in qualsiasi momento. Per i pacchetti di contenuto questo nasconde i loro tipi di scheda dal metamodello — le schede restano dove sono.
@@ -69,6 +77,16 @@ Alcune estensioni sbloccano modi avanzati di descrivere i tuoi dati che il core 
 - **Tipi di campo personalizzati** — nuovi tipi oltre a quelli integrati (ad esempio una valutazione configurabile da 1 a 5 o da 0 a 10).
 
 Queste opzioni compaiono nell'editor dei campi del metamodello **solo finché l'estensione che le fornisce è installata e provvista di licenza**. Se tale estensione viene in seguito disattivata o la sua licenza scade, i valori già inseriti continuano a essere mostrati come testo di sola lettura — nulla viene svuotato o eliminato — e le opzioni di modifica scompaiono semplicemente finché l'estensione non è di nuovo attiva.
+
+## Grant di accesso ai dati
+
+La maggior parte delle estensioni lavora solo con i propri dati. Un'estensione che si integra con i dati del core — ad esempio un connettore che sincronizza i todo con un task tracker esterno come Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — deve dichiarare dei **grant** nel proprio manifest firmato:
+
+- `core.todos.read` / `core.todos.write` — leggere o modificare i todo tramite l'SDK delle estensioni. La scrittura include la lettura. Sui todo di sistema (come le richieste di firma) un'estensione di sincronizzazione può solo impostare il riferimento esterno mostrato come chip — non può mai completarli, modificarli, riassegnarli o eliminarli, e i todo di un'altra estensione restano intoccabili.
+- `core.events.todo` — ricevere gli eventi di modifica dei todo, così un connettore reagisce subito invece di attendere il prossimo ciclo di polling.
+- `core.users.read` — consultare gli utenti (solo nome, e-mail e stato attivo) così che un connettore possa abbinare gli assegnatari agli account dello strumento esterno. Nessun dato su ruoli, accessi o preferenze viene esposto, e le estensioni non possono mai modificare gli utenti.
+
+I grant fanno parte del bundle firmato dal fornitore: sono fissati al momento del confezionamento e visibili prima dell'installazione. Valgono solo finché l'estensione è installata, abilitata e con licenza — disabilitarla o lasciar scadere la licenza revoca l'accesso immediatamente, senza riavvio. Ogni modifica fatta da un'estensione è registrata in **Admin → Log di audit** con origine **Estensione**, e un todo replicato da un tracker esterno mostra un chip che rimanda all'elemento esterno.
 
 ## Dove compaiono le pagine delle estensioni
 

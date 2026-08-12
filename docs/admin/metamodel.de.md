@@ -119,6 +119,15 @@ Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen ha
 
 Definieren Sie benutzerdefinierte Rollen für diesen Typ (z.B. «Anwendungseigner», «Technischer Eigner»). Jede Rolle hat **kartenebene Berechtigungen**, die beim Zugriff auf eine Karte mit der anwendungsweiten Rolle des Benutzers kombiniert werden. Siehe [Benutzer & Rollen](users.md) für mehr zum Berechtigungsmodell.
 
+Jede Rolle hat einen **Schlüssel** (die auf Karten gespeicherte Kennung, die auch von den `stakeholder:<Rollenschlüssel>`-Import-/Exportspalten verwendet wird) und eine **Bezeichnung** (was Benutzer sehen). Der Schlüssel folgt derselben Konvention wie jeder andere Metamodell-Schlüssel — nur Buchstaben und Ziffern, beginnend mit einem Buchstaben, 3–50 Zeichen, üblicherweise camelCase wie `businessArchitect`. Er wird automatisch aus der Bezeichnung abgeleitet, sodass Sie ihn selten selbst eingeben müssen.
+
+Rollen lassen sich auf zwei Arten entfernen:
+
+- **Archivieren** — die Rolle bleibt auf Karten erhalten, die sie bereits verwenden, kann aber nicht mehr zugewiesen werden und gewährt keine Berechtigungen auf Kartenebene mehr. Archivierte Rollen erscheinen über den Schalter **Archivierte anzeigen** und können jederzeit wiederhergestellt werden. Das ist die richtige Wahl für eine Rolle, die tatsächlich verwendet wurde.
+- **Löschen** — dauerhaft und nur möglich, solange die Rolle nicht verwendet wird. Turbo EA verweigert das Löschen einer Rolle, die jemand auf einer Karte dieses Typs innehat, die von einer Umfrage verwendet wird oder die letzte aktive Rolle des Typs ist; der Bestätigungsdialog nennt den Grund und bietet stattdessen das Archivieren an. So räumen Sie eine versehentlich angelegte Rolle auf.
+
+Der Schlüssel einer Rolle lässt sich korrigieren, solange **niemand die Rolle innehat** — Umfragen, die sie verwenden, folgen der Umbenennung automatisch, und auch die einzige Rolle eines Typs lässt sich umbenennen, da die Rolle dabei erhalten bleibt. Sobald jemand die Rolle innehat, ist der Schlüssel gesperrt und das Feld erklärt warum. Rollen, die vor dieser Konvention angelegt wurden, behalten ihren bestehenden Schlüssel und funktionieren weiterhin; geprüft wird nur ein neuer oder geänderter Schlüssel.
+
 #### Übersetzungen
 
 Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Drawers, um den **Übersetzungsdialog** zu öffnen. Hier können Sie Übersetzungen für alle Metamodell-Bezeichnungen in jeder unterstützten Sprache angeben:
@@ -150,6 +159,10 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 | **Kardinalität** | n:m (viele-zu-viele) oder 1:n (eins-zu-viele) |
 
 Klicken Sie auf **+ Neuer Beziehungstyp**, um eine Beziehung zu erstellen, oder klicken Sie auf einen bestehenden, um dessen Bezeichnungen und Attribute zu bearbeiten.
+
+Die Felder **Bezeichnung** und **Umgekehrte Bezeichnung** werden in der Sprache erfasst, die Sie gerade verwenden — die Feldbeschriftung zeigt an, welche (zum Beispiel *Bezeichnung (Deutsch)*). Beim Umbenennen einer Beziehung wird diese Sprache überall aktualisiert, wo das Verb erscheint: im Abschnitt **Beziehungen** einer Karte, in den Beziehungsspalten des Inventars, in Berichten, Portalen und Diagrammen. Andere Sprachen behalten ihre eigene Formulierung, bis Sie sie übersetzen.
+
+Mit **Übersetzungen verwalten** oben im Reiter Beziehungstypen übersetzen Sie die Verben aller Beziehungen in einem Durchgang in jede aktivierte Sprache. Wählen Sie einen Sprachreiter, tragen Sie die Formulierung neben dem englischen Original ein und speichern Sie — der Zähler auf jedem Reiter zeigt, wie viele Verben in dieser Sprache noch fehlen. Englisch erscheint hier nicht, denn es ist die Formulierung an der Beziehung selbst; ein nicht übersetztes Verb fällt darauf zurück.
 
 ### Beziehungsattribute
 

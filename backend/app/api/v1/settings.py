@@ -230,6 +230,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "navbar_bg": general.get("navbarBg", DEFAULT_NAVBAR_BG),
         "navbar_fg": general.get("navbarFg", DEFAULT_NAVBAR_FG),
         "bpm_enabled": general.get("bpmEnabled", True),
+        "bpm_require_separate_approver": general.get("bpmRequireSeparateApprover", False),
         "ppm_enabled": general.get("ppmEnabled", False),
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
@@ -922,6 +923,41 @@ async def update_sponsor_button_enabled(
     return {"ok": True}
 
 
+class SeparateApproverPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/bpm-separate-approver")
+async def get_bpm_separate_approver(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — whether a process flow needs a second person to approve it.
+
+    Off by default so upgrading changes nothing for a team where one person both
+    submits and approves; regulated instances turn it on deliberately.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("bpmRequireSeparateApprover", False)}
+
+
+@router.patch("/bpm-separate-approver")
+async def update_bpm_separate_approver(
+    body: SeparateApproverPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — require a separate approver for BPMN flow revisions."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["bpmRequireSeparateApprover"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
 class TurboLensEnabledPayload(BaseModel):
     enabled: bool
 
@@ -1074,8 +1110,16 @@ async def update_archive_retention_days(
 @router.get("/logo")
 async def get_logo(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the current logo (custom or default)."""
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
+    # `custom_logo` is deferred on the model; select the two columns directly
+    # rather than loading the ORM row, so this is the only settings read that
+    # transfers the blob.
+    row = (
+        await db.execute(
+            select(AppSettings.custom_logo, AppSettings.custom_logo_mime).where(
+                AppSettings.id == "default"
+            )
+        )
+    ).one_or_none()
 
     if row and row.custom_logo:
         return Response(
@@ -1100,8 +1144,14 @@ async def get_favicon(db: AsyncSession = Depends(get_db)):
 
     Priority: custom favicon → default favicon.
     """
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
+    # Column-level select — see get_logo above.
+    row = (
+        await db.execute(
+            select(AppSettings.custom_favicon, AppSettings.custom_favicon_mime).where(
+                AppSettings.id == "default"
+            )
+        )
+    ).one_or_none()
 
     if row and row.custom_favicon:
         return Response(
@@ -1126,10 +1176,18 @@ async def get_logo_info(
 ):
     """Admin endpoint — returns metadata about the current logo."""
     await PermissionService.require_permission(db, user, "admin.settings")
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
+    # Ask Postgres whether the blob is there instead of fetching it to call
+    # bool() on it — this endpoint only ever needed the answer, not the bytes.
+    row = (
+        await db.execute(
+            select(
+                AppSettings.custom_logo.is_not(None).label("has_custom"),
+                AppSettings.custom_logo_mime,
+            ).where(AppSettings.id == "default")
+        )
+    ).one_or_none()
 
-    has_custom = bool(row and row.custom_logo)
+    has_custom = bool(row and row.has_custom)
     return {
         "has_custom_logo": has_custom,
         "mime_type": (row.custom_logo_mime if has_custom else "image/png"),
@@ -1192,10 +1250,17 @@ async def get_favicon_info(
 ):
     """Admin endpoint — returns metadata about the current favicon."""
     await PermissionService.require_permission(db, user, "admin.settings")
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
+    # Presence check in SQL — see get_logo_info above.
+    row = (
+        await db.execute(
+            select(
+                AppSettings.custom_favicon.is_not(None).label("has_custom"),
+                AppSettings.custom_favicon_mime,
+            ).where(AppSettings.id == "default")
+        )
+    ).one_or_none()
 
-    has_custom = bool(row and row.custom_favicon)
+    has_custom = bool(row and row.has_custom)
     return {
         "has_custom_favicon": has_custom,
         "mime_type": (row.custom_favicon_mime if has_custom else "image/png"),

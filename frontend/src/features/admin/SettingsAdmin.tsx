@@ -144,6 +144,26 @@ interface EmailSettings {
   configured: boolean;
 }
 
+/** The subset of `/settings/bootstrap` this page reads. */
+interface GeneralSettingsBootstrap {
+  currency: string;
+  date_format: string;
+  app_title: string;
+  bpm_enabled: boolean;
+  bpm_require_separate_approver: boolean;
+  ppm_enabled: boolean;
+  grc_enabled: boolean;
+  sponsor_button_enabled: boolean;
+  file_uploads_enabled: boolean;
+  enabled_locales: string[];
+  fiscal_year_start: number;
+  archive_retention_days: number;
+  login_tagline: string;
+  login_tagline_hidden: boolean;
+  login_help_text: string;
+  login_help_link: string;
+}
+
 interface LogoInfo {
   has_custom_logo: boolean;
   mime_type: string;
@@ -299,6 +319,8 @@ function GeneralTab() {
   // BPM toggle state
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
+  const [requireSeparateApprover, setRequireSeparateApprover] = useState(false);
+  const [savingSeparateApprover, setSavingSeparateApprover] = useState(false);
 
   // PPM toggle state
   const [ppmEnabled, setPpmEnabled] = useState(false);
@@ -365,29 +387,19 @@ function GeneralTab() {
   }, [cachedLocales]);
 
   useEffect(() => {
+    // One aggregated read instead of the twelve per-setting GETs this page used
+    // to fire. `/settings/bootstrap` already returns every scalar below from a
+    // single query against the singleton row; twelve separate calls meant
+    // twelve round-trips *and* twelve reads of that row. Called directly rather
+    // than via `primeBootstrap()`, which memoises for the session — this page
+    // must see values fresh after an admin edit.
     Promise.all([
+      api.get<GeneralSettingsBootstrap>("/settings/bootstrap"),
       api.get<EmailSettings>("/settings/email"),
       api.get<LogoInfo>("/settings/logo/info"),
       api.get<FaviconInfo>("/settings/favicon/info"),
-      api.get<{ currency: string }>("/settings/currency"),
-      api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
-      api.get<{ locales: string[] }>("/settings/enabled-locales"),
-      api.get<{ enabled: boolean }>("/settings/ppm-enabled"),
-      api.get<{ month: number }>("/settings/fiscal-year-start"),
-      api.get<{ days: number }>("/settings/archive-retention-days"),
-      api.get<{ app_title: string }>("/settings/app-title"),
-      api.get<{ date_format: string }>("/settings/date-format"),
-      api.get<{ enabled: boolean }>("/settings/grc-enabled"),
-      api.get<{ enabled: boolean }>("/settings/file-uploads-enabled"),
-      api.get<{
-        login_tagline: string;
-        login_tagline_hidden: boolean;
-        login_help_text: string;
-        login_help_link: string;
-      }>("/settings/login-branding"),
-      api.get<{ enabled: boolean }>("/settings/sponsor-button-enabled"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, archiveRetentionData, appTitleData, dateFormatData, grcData, fileUploadsData, loginBrandingData, sponsorButtonData]) => {
+      .then(([general, emailData, logoData, faviconData]) => {
         setEmailMethod(emailData.method ?? "smtp_basic");
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
@@ -407,29 +419,31 @@ function GeneralTab() {
         setConfigured(emailData.configured);
         setHasCustomLogo(logoData.has_custom_logo);
         setHasCustomFavicon(faviconData.has_custom_favicon);
-        setSelectedCurrency(currencyData.currency);
-        setBpmEnabled(bpmData.enabled);
-        setPpmEnabled(ppmData.enabled);
-        setGrcEnabled(grcData.enabled);
-        setSponsorButtonEnabled(sponsorButtonData.enabled);
-        setFileUploadsEnabled(fileUploadsData.enabled);
-        setFiscalYearStart(fiscalData.month);
-        setArchiveRetentionDays(archiveRetentionData.days);
-        setArchiveRetentionInput(String(archiveRetentionData.days));
-        setAppTitle(appTitleData.app_title || DEFAULT_APP_TITLE);
-        const fmt = (DATE_FORMAT_OPTIONS as string[]).includes(dateFormatData.date_format)
-          ? (dateFormatData.date_format as DateFormatKey)
+        setSelectedCurrency(general.currency);
+        setBpmEnabled(general.bpm_enabled);
+        setRequireSeparateApprover(Boolean(general.bpm_require_separate_approver));
+        setPpmEnabled(general.ppm_enabled);
+        setGrcEnabled(general.grc_enabled);
+        setSponsorButtonEnabled(general.sponsor_button_enabled);
+        setFileUploadsEnabled(general.file_uploads_enabled);
+        setFiscalYearStart(general.fiscal_year_start);
+        setArchiveRetentionDays(general.archive_retention_days);
+        setArchiveRetentionInput(String(general.archive_retention_days));
+        setAppTitle(general.app_title || DEFAULT_APP_TITLE);
+        const fmt = (DATE_FORMAT_OPTIONS as string[]).includes(general.date_format)
+          ? (general.date_format as DateFormatKey)
           : DEFAULT_DATE_FORMAT;
         setCurrentDateFormat(fmt);
         setSelectedDateFormat(fmt);
-        const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
-          (SUPPORTED_LOCALES as readonly string[]).includes(l),
+        const validLocales = (general.enabled_locales || []).filter(
+          (l: string): l is SupportedLocale =>
+            (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
         if (validLocales.length > 0) setEnabledLocales(validLocales);
-        setLoginTagline(loginBrandingData.login_tagline || "");
-        setLoginTaglineHidden(Boolean(loginBrandingData.login_tagline_hidden));
-        setLoginHelpText(loginBrandingData.login_help_text || "");
-        setLoginHelpLink(loginBrandingData.login_help_link || "");
+        setLoginTagline(general.login_tagline || "");
+        setLoginTaglineHidden(Boolean(general.login_tagline_hidden));
+        setLoginHelpText(general.login_help_text || "");
+        setLoginHelpLink(general.login_help_link || "");
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
@@ -599,6 +613,20 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
+    }
+  };
+
+  const handleSeparateApproverToggle = async (enabled: boolean) => {
+    setSavingSeparateApprover(true);
+    setError("");
+    try {
+      await api.patch("/settings/bpm-separate-approver", { enabled });
+      setRequireSeparateApprover(enabled);
+      setSnack(t("settings.bpm.separateApproverSaved"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingSeparateApprover(false);
     }
   };
 
@@ -1665,6 +1693,25 @@ function GeneralTab() {
           }
           label={bpmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
         />
+
+        {/* Segregation of duties for process-flow approvals (discussion #916).
+            Lives in the BPM block because that is the module it governs. Off by
+            default: turning it on is an explicit organisational choice, not a
+            prerequisite for the audit trail, which is recorded either way. */}
+        <Divider sx={{ my: 2 }} />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={requireSeparateApprover}
+              onChange={(e) => handleSeparateApproverToggle(e.target.checked)}
+              disabled={savingSeparateApprover || !bpmEnabled}
+            />
+          }
+          label={t("settings.bpm.separateApprover")}
+        />
+        <Typography variant="caption" color="text.secondary" display="block">
+          {t("settings.bpm.separateApproverHint")}
+        </Typography>
       </Paper>
 
       {/* PPM Module Toggle */}

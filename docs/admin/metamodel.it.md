@@ -119,6 +119,15 @@ Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi),
 
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
 
+Ogni ruolo ha una **chiave** (l'identificatore memorizzato sulle schede, usato dalle colonne di importazione/esportazione `stakeholder:<chiave_ruolo>`) e un'**etichetta** (ciò che vedono gli utenti). La chiave segue la stessa convenzione di ogni altra chiave del metamodello: solo lettere e cifre, con iniziale alfabetica, da 3 a 50 caratteri, per convenzione in camelCase come `businessArchitect`. Viene compilata automaticamente dall'etichetta, quindi raramente dovrai digitarla.
+
+I ruoli possono essere rimossi in due modi:
+
+- **Archivia** — il ruolo rimane sulle schede che già lo usano ma non può più essere assegnato e smette di concedere i permessi a livello di scheda. I ruoli archiviati compaiono dietro l'interruttore **Mostra archiviati** e possono essere ripristinati in qualsiasi momento. È la scelta giusta per un ruolo realmente utilizzato.
+- **Elimina** — permanente e offerto solo finché il ruolo non è utilizzato. Turbo EA rifiuta di eliminare un ruolo ricoperto da qualcuno su una scheda di questo tipo, utilizzato da un sondaggio, o che è l'ultimo ruolo attivo del tipo; la finestra di conferma indica il motivo e propone invece l'archiviazione. È così che si ripulisce un ruolo creato per errore.
+
+La chiave di un ruolo può essere corretta finché **nessuno ricopre il ruolo**: i sondaggi che lo utilizzano seguono automaticamente la rinomina, e rinominare l'unico ruolo di un tipo non è un problema perché il ruolo sopravvive. Appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
+
 #### Traduzioni
 
 Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tipo per aprire il **Dialogo delle traduzioni**. Qui potete fornire traduzioni per tutte le etichette del metamodello in ogni lingua supportata:
@@ -150,6 +159,10 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 | **Cardinalità** | n:m (molti-a-molti) o 1:n (uno-a-molti) |
 
 Cliccate su **+ Nuovo tipo di relazione** per creare una relazione, o cliccate su una esistente per modificare le etichette e gli attributi.
+
+I campi **Etichetta** ed **Etichetta inversa** vengono scritti nella lingua che state usando in quel momento — la didascalia del campo indica quale (ad esempio *Etichetta (Italiano)*). Rinominare una relazione aggiorna quella lingua ovunque compaia il verbo: la sezione **Relazioni** di una card, le colonne di relazione dell'inventario, i report, i portali e i diagrammi. Le altre lingue mantengono la propria formulazione finché non le traducete.
+
+Usate **Gestisci traduzioni** in cima alla scheda Tipi di relazione per tradurre i verbi di tutte le relazioni in ogni lingua abilitata in un'unica passata. Scegliete una scheda lingua, inserite la formulazione accanto all'originale inglese e salvate: il contatore su ogni scheda mostra quanti verbi mancano ancora in quella lingua. L'inglese non compare qui perché è la formulazione sulla relazione stessa; un verbo non tradotto vi ricade.
 
 ### Attributi della relazione
 

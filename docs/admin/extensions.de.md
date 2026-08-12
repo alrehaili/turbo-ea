@@ -52,6 +52,14 @@ Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text 
 
 Über den Store gekaufte Lizenzen verlängern sich auf verbundenen Instanzen von selbst: Nach jeder erfolgreichen Zahlung holt Ihre Instanz die verlängerte Lizenz automatisch — nichts einzufügen. Auf einer abgeschotteten Instanz gilt: die aktualisierte Lizenzdatei aus der Verlängerungs-E-Mail einfügen (oder beim Anbieter anfordern) — fertig.
 
+### Auto-Verlängerungsstatus und Kündigung
+
+Jeder Berechtigungs-Chip sagt, was am jeweiligen Datum passiert: **Verlängert sich am {Datum}** bei einem aktiven Abonnement oder **Läuft am {Datum} ab — wird nicht verlängert** nach einer Kündigung. Diese Angabe stammt aus der signierten Lizenz selbst und stimmt daher auch auf abgeschotteten Instanzen — die nach jeder Abonnementänderung per E-Mail verschickte Lizenzdatei trägt den aktuellen Status; nach dem Einfügen ist der Chip aktuell.
+
+Um das Verlängerungsdatum zu sehen, die automatische Verlängerung zu kündigen oder wiederherzustellen, die Zahlungsmethode zu ändern oder Rechnungen herunterzuladen, nutzen Sie **Abonnement verwalten** neben dem Lizenznehmernamen (bei über den Store gekauften Lizenzen sichtbar). Es öffnet Ihr Abrechnungsportal in einem neuen Tab — kein Konto nötig. Auf einer abgeschotteten Instanz erreicht der Button den Store nicht; verwenden Sie stattdessen den Link **Abonnement verwalten** in jeder Lizenz-E-Mail (nur Ihr Browser braucht Internetzugang, Ihre Turbo-EA-Instanz nicht).
+
+Eine Kündigung schaltet nie sofort etwas ab: Die Erweiterung funktioniert bis zum Ende des bezahlten Zeitraums weiter, danach greift der normale Kulanz- und Soft-Disable-Ablauf. **Ihre Daten werden nie gelöscht**, und ein erneutes Abonnement stellt alles wieder her.
+
 ## Aktivieren, Deaktivieren und Deinstallieren
 
 - Der Schalter **Aktiviert** deaktiviert eine Erweiterung sofort weich (ohne Neustart) und lässt sich jederzeit zurückschalten. Bei Inhaltspaketen werden dabei ihre Kartentypen im Metamodell ausgeblendet — Karten bleiben, wo sie sind.
@@ -69,6 +77,16 @@ Manche Erweiterungen schalten erweiterte Möglichkeiten frei, Ihre Daten zu besc
 - **Benutzerdefinierte Feldtypen** — neue Feldarten über den eingebauten Satz hinaus (zum Beispiel eine konfigurierbare Bewertung von 1–5 oder 0–10).
 
 Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die bereitstellende Erweiterung installiert und lizenziert ist**. Wird eine solche Erweiterung später deaktiviert oder läuft ihre Lizenz ab, werden bereits erfasste Werte weiterhin als einfacher, schreibgeschützter Text angezeigt — nichts wird geleert oder gelöscht — und die Bearbeitungsoptionen verschwinden einfach, bis die Erweiterung wieder aktiv ist.
+
+## Datenzugriffs-Grants
+
+Die meisten Erweiterungen arbeiten nur mit ihren eigenen Daten. Eine Erweiterung, die Kerndaten integriert — zum Beispiel ein Konnektor, der Todos mit einem externen Task-Tracker wie Jira oder MS Planner synchronisiert ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — muss in ihrem signierten Manifest **Grants** deklarieren:
+
+- `core.todos.read` / `core.todos.write` — Todos über das Erweiterungs-SDK lesen oder ändern. Schreiben schließt Lesen ein. Bei System-Todos (etwa Signaturanfragen) kann eine Sync-Erweiterung nur die als Chip angezeigte externe Referenz setzen — sie kann sie niemals erledigen, bearbeiten, neu zuweisen oder löschen, und Todos einer anderen Erweiterung bleiben ebenfalls tabu.
+- `core.events.todo` — Todo-Änderungsereignisse empfangen, damit ein Konnektor sofort reagiert statt erst beim nächsten Abfragezyklus.
+- `core.users.read` — Benutzer nachschlagen (nur Name, E-Mail und Aktiv-Status), damit ein Konnektor Zuständige mit Konten im externen Tool abgleichen kann. Rollen-, Anmelde- oder Einstellungsdaten werden nicht offengelegt, und Erweiterungen können Benutzer niemals ändern.
+
+Grants sind Teil des vom Anbieter signierten Bundles, stehen also beim Paketieren fest und sind vor der Installation sichtbar. Sie gelten nur, solange die Erweiterung installiert, aktiviert und lizenziert ist — Deaktivieren oder ein Lizenzablauf entzieht den Zugriff sofort, ohne Neustart. Jede Änderung einer Erweiterung wird in **Admin → Audit-Log** unter der Herkunft **Erweiterung** aufgezeichnet, und ein aus einem externen Tracker gespiegeltes Todo zeigt einen Chip mit Link auf das externe Element.
 
 ## Wo Erweiterungsseiten erscheinen
 

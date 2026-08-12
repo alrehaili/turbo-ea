@@ -140,6 +140,12 @@ Active o desactive el módulo de **Gestión de Procesos de Negocio** (BPM). Cuan
 
 Esto es útil para organizaciones que no utilizan BPM y desean una experiencia de navegación más limpia.
 
+### Exigir un aprobador distinto
+
+Desactivado de forma predeterminada. Cuando se activa, quien envía una revisión de un flujo de proceso no puede ser quien la aprueba: segregación de funciones, tal como esperan sistemas de calidad como GxP e ISO 9001.
+
+Déjelo desactivado en equipos pequeños donde la misma persona redacta y aprueba. Activarlo no cambia lo que se registra: los envíos, las aprobaciones, los rechazos y los retiros quedan en la pestaña **Historial** de la tarjeta en cualquier caso.
+
 ## Módulo PPM
 
 Active o desactive el módulo de **Gestión de Portafolio de Proyectos** (PPM). Cuando está desactivado:

@@ -65,6 +65,21 @@ MANIFEST_NAME = "manifest.json"
 SIGNATURE_NAME = "manifest.sig"
 SOURCE_MANIFEST = "extension.json"
 VALID_CAPABILITIES = {"content", "backend", "frontend", "metamodel"}
+# Core capability / data-scope strings a manifest may declare under `grants`.
+# Deliberately duplicated from backend/app/services/extensions/bundle.py
+# (VALID_GRANTS) — teax stays stdlib-vendorable into private repos.
+VALID_GRANTS = {
+    "metamodel.field_help",
+    "metamodel.custom_field_types",
+    "core.todos.read",
+    "core.todos.write",
+    "core.events.todo",
+    "core.users.read",
+}
+# Grants that require SDK 1.2+ surfaces at runtime.
+SDK_1_2_GRANT_PREFIXES = ("core.",)
+# Grants that require the SDK 1.3 users bridge specifically.
+SDK_1_3_GRANTS = {"core.users.read"}
 BUILTIN_FIELD_TYPES = {
     "text",
     "multiline_text",
@@ -299,6 +314,31 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
     if "free" in manifest and not isinstance(manifest["free"], bool):
         problems.append("free must be a boolean (true = no license required to run)")
 
+    grants = manifest.get("grants")
+    if grants is not None:
+        if not isinstance(grants, list) or not all(isinstance(g, str) for g in grants):
+            problems.append("grants must be a list of strings")
+        else:
+            for g in sorted(set(grants) - VALID_GRANTS):
+                problems.append(f"unknown grant {g!r} (valid: {sorted(VALID_GRANTS)})")
+            declared_sdk = str(manifest.get("sdk_version", ""))
+            needs_1_2 = any(g.startswith(SDK_1_2_GRANT_PREFIXES) for g in grants)
+            needs_1_3 = bool(set(grants) & SDK_1_3_GRANTS)
+            if (needs_1_2 or needs_1_3) and declared_sdk:
+                try:
+                    major, minor = (int(x) for x in declared_sdk.split(".")[:2])
+                    if needs_1_3 and (major, minor) < (1, 3):
+                        warnings.append(
+                            f"core.users.* grants require SDK 1.3+ but sdk_version "
+                            f"is {declared_sdk}"
+                        )
+                    elif needs_1_2 and (major, minor) < (1, 2):
+                        warnings.append(
+                            f"core.* grants require SDK 1.2+ but sdk_version is {declared_sdk}"
+                        )
+                except ValueError:
+                    problems.append(f"sdk_version {declared_sdk!r} must look like `1.2`")
+
     for rel in files:
         if not _safe_member(rel):
             problems.append(f"unsafe file path: {rel}")
@@ -312,9 +352,7 @@ def cmd_lint(args) -> int:
         print(f"lint: warning: {w}")
     for p in problems:
         print(f"lint: {p}")
-    print(
-        f"{len(files)} file(s) scanned, {len(problems)} problem(s), {len(warnings)} warning(s)"
-    )
+    print(f"{len(files)} file(s) scanned, {len(problems)} problem(s), {len(warnings)} warning(s)")
     return 1 if problems else 0
 
 
@@ -335,7 +373,10 @@ def cmd_pack(args) -> int:
         **{k: v for k, v in manifest.items() if k not in ("schema", "files")},
     }
     manifest.setdefault("entitlement_key", manifest["key"])
-    manifest.setdefault("sdk_version", "1.0")
+    # Default to the SDK this teax ships with. The loader's compatibility
+    # check is major-only, so a 1.4 default still loads on a 1.1 core (with
+    # a newer-minor warning there).
+    manifest.setdefault("sdk_version", "1.4")
     if args.key_id:
         manifest["key_id"] = args.key_id
     manifest["files"] = {

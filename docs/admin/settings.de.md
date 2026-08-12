@@ -140,6 +140,12 @@ Schalten Sie das **Business Process Management**-Modul ein oder aus. Wenn deakti
 
 Dies ist nützlich für Organisationen, die BPM nicht nutzen und eine übersichtlichere Navigation wünschen.
 
+### Getrennten Freigebenden verlangen
+
+Standardmäßig deaktiviert. Ist die Option aktiv, darf die Person, die eine Revision eines Prozessablaufs einreicht, diese nicht selbst freigeben — Funktionstrennung, wie sie Qualitätssysteme wie GxP und ISO 9001 erwarten.
+
+Für kleine Teams, in denen dieselbe Person erstellt und freigibt, bleibt die Option aus. Das Aktivieren ändert nichts an dem, was aufgezeichnet wird: Einreichung, Freigabe, Ablehnung und Zurückziehen landen in jedem Fall im Reiter **Verlauf** der Karte.
+
 ## PPM-Modul
 
 Schalten Sie das **Projektportfoliomanagement**-Modul (PPM) ein oder aus. Wenn deaktiviert:

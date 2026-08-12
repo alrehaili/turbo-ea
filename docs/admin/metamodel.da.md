@@ -119,6 +119,15 @@ Når der ikke er valgt nogen undertype på et kort (eller typen ikke har nogen u
 
 Definer brugerdefinerede roller for denne type (f.eks. "Application Owner", "Technical Owner"). Hver rolle bærer **tilladelser på kortniveau**, der kombineres med brugerens applikationsrolle, når der tilgås et kort. Se [Brugere og roller](users.md) for mere om tilladelsesmodellen.
 
+Hver rolle har en **nøgle** (den identifikator der gemmes på kort, og som bruges af `stakeholder:<rollenøgle>`-import/eksportkolonnerne) og en **etiket** (det brugerne ser). Nøglen følger samme konvention som enhver anden metamodelnøgle — kun bogstaver og cifre, begyndende med et bogstav, 3–50 tegn, efter konvention camelCase som `businessArchitect`. Den udfyldes automatisk ud fra etiketten, så du sjældent selv skal skrive en.
+
+Roller kan fjernes på to måder:
+
+- **Arkivér** — rollen bliver på de kort der allerede bruger den, men kan ikke længere tildeles, og den giver ikke længere sine rettigheder på kortniveau. Arkiverede roller vises bag **Vis arkiverede**-kontakten og kan gendannes når som helst. Det er det rigtige valg for en rolle der reelt har været brugt.
+- **Slet** — permanent, og tilbydes kun så længe rollen ikke er i brug. Turbo EA nægter at slette en rolle som nogen har på et kort af denne type, som en undersøgelse bruger, eller som er typens sidste aktive rolle; bekræftelsesdialogen oplyser hvilken af delene der gælder og tilbyder at arkivere den i stedet. Sådan rydder du op i en rolle der blev oprettet ved en fejl.
+
+En rolles nøgle kan rettes, så længe **ingen har rollen** — undersøgelser der bruger den følger automatisk med omdøbningen, og det er også i orden at omdøbe en types eneste rolle, da rollen overlever det. Så snart nogen har rollen, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
+
 #### Oversættelser
 
 Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Oversættelsesdialogen**. Her kan du levere oversættelser for alle metamodel-etiketter i hvert understøttet sprog:
@@ -150,6 +159,10 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 | **Kardinalitet** | n:m (mange-til-mange) eller 1:n (en-til-mange) |
 
 Klik på **+ Ny relationstype** for at oprette en relation, eller klik på en eksisterende for at redigere dens etiketter og egenskaber.
+
+Felterne **Etiket** og **Omvendt etiket** skrives på det sprog, du bruger lige nu — feltets betegnelse viser hvilket (for eksempel *Etiket (Dansk)*). Når du omdøber en relation, opdateres det sprog alle steder, hvor udsagnsordet optræder: afsnittet **Relationer** på et kort, inventarets relationskolonner, rapporter, portaler og diagrammer. Andre sprog beholder deres egen ordlyd, indtil du oversætter dem.
+
+Brug **Administrér oversættelser** øverst på fanen Relationstyper til at oversætte alle relationers udsagnsord til hvert aktiveret sprog på én gang. Vælg en sprogfane, udfyld ordlyden ved siden af den engelske kilde, og gem — tælleren på hver fane viser, hvor mange udsagnsord det sprog stadig mangler. Engelsk står ikke her, fordi det er ordlyden på selve relationen; et uoversat udsagnsord falder tilbage til den.
 
 ### Relationsegenskaber
 

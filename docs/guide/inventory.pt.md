@@ -10,7 +10,7 @@ O **Inventário** é o coração do Turbo EA. Aqui todos os **cards** (component
 
 O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 
-- **Pesquisa** — Busca de texto livre nos nomes dos cards
+- **Pesquisa** — Busca de texto livre nos nomes dos cards, desde a primeira letra. As melhores correspondências aparecem primeiro: nomes exatos, depois os que começam pelo que você digitou, depois aqueles em que inicia uma palavra e então os restantes. Todos os campos de busca do Turbo EA ordenam assim — a busca global (**Ctrl+K** / **⌘K**), cada seletor de cards, o registo de riscos, as decisões e os portais publicados — a não ser que você tenha escolhido uma ordenação própria, que prevalece sempre
 - **Tipos** — Filtrar por um ou mais tipos de card: Objetivo, Plataforma, Iniciativa, Organização, Capacidade de Negócio, Contexto de Negócio, Processo de Negócio, Aplicação, Interface, Objeto de Dados, Componente de TI, Categoria Tecnológica, Fornecedor, Sistema
 - **Subtipos** — Quando um tipo é selecionado, filtre ainda mais por subtipo (ex.: Aplicação -> Aplicação de Negócio, Microsserviço, Agente de IA, Implantação)
 - **Status de Aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
@@ -68,7 +68,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 | **Ciclo de Vida** | Estado atual do ciclo de vida |
 | **Status de Aprovação** | Badge de status de revisão |
 | **Qualidade dos Dados** | Porcentagem de completude com anel visual |
-| **Relacionamentos** | Contagem de relacionamentos com popover clicável mostrando cards relacionados |
+| **Relacionamentos** | Nomes dos cartões relacionados, em ordem alfabética, com um popover clicável para adicionar ou remover relacionamentos — os cartões já ligados ficam ocultos do seu seletor |
 
 **Recursos da tabela:**
 
@@ -186,7 +186,7 @@ Os cards são identificados pelo **nome** quando este é único dentro do tipo, 
 
 #### Unicidade entre irmãos
 
-Como os cards são identificados por nome + caminho, **dois cards do mesmo tipo não podem partilhar simultaneamente o mesmo pai e o mesmo nome**. Novos cards que provocariam uma colisão são rejeitados na criação (na caixa Criar card, no renomear em linha e durante a importação de Excel). Duplicados já presentes na base de dados — herdados de seeds ou imports anteriores — permanecem intactos: pode editar qualquer campo, mas criar um terceiro duplicado ou renomear um card de volta à colisão é bloqueado. A verificação é insensível a maiúsculas/minúsculas e espaços, igual ao resolvedor do importador.
+Como os cards são identificados por nome + caminho, **dois cards do mesmo tipo não podem partilhar simultaneamente o mesmo pai e o mesmo nome**. Novos cards que provocariam uma colisão são rejeitados na criação (na caixa Criar card, no renomear em linha e durante a importação de Excel). Duplicados já presentes na base de dados — herdados de seeds ou imports anteriores — permanecem intactos: pode editar qualquer campo, mas criar um terceiro duplicado ou renomear um card de volta à colisão é bloqueado. A verificação é insensível a maiúsculas/minúsculas e espaços, igual ao resolvedor do importador. Quando a caixa Criar card rejeita um duplicado, o aviso indica o card existente e inclui uma ligação **Ver a ficha existente** que o leva diretamente até ele.
 
 ### Células de relação em linha
 
@@ -195,6 +195,10 @@ Cada coluna `rel:<tipo_de_relação>` expressa as relações de saída como uma 
 ### Células de partes interessadas
 
 Em cada planilha de fichas, as colunas `stakeholder:<chave_do_papel>` carregam os utilizadores atribuídos a cada papel de parte interessada, como **endereços de email separados por ponto e vírgula** (a mesma convenção das colunas `subscriptions:<RoleType>` do LeanIX), por ex. `ada@corp.com; bob@corp.com`. O **endereço de email é a única referência de utilizador aceite** — os nomes podem colidir e nunca são usados na resolução; uma entrada `Nome <email>` é tolerada (usa-se o email entre parênteses angulares), um nome sozinho produz um aviso e é ignorado. Como as células de relação, as células de partes interessadas são **declarativas por papel**: os utilizadores listados tornam-se o conjunto completo de atribuições desse papel após a importação. Remover um utilizador retira a atribuição; esvaziar a célula limpa o papel; omitir a coluna deixa as atribuições intactas. Entradas sem utilizador correspondente produzem um aviso e são ignoradas — nunca bloqueiam a importação.
+
+!!! note "Folhas exportadas antes de as chaves passarem a camelCase"
+    As chaves dos papéis de partes interessadas seguem a mesma convenção camelCase de qualquer outra chave do metamodelo. Uma folha exportada antes dessa mudança contém cabeçalhos como `stakeholder:technical_application_owner`; continuam a ser importados — o cabeçalho é associado ao papel em camelCase quando nenhum papel corresponde literalmente. As folhas novas usam a forma camelCase.
+
 
 ### Planilha `Relations`
 

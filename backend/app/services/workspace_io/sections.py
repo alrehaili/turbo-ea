@@ -113,6 +113,18 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         # the thumbnail / view / card_refs keys stay inline as JSON.
         json_asset_columns=(("data", "xml", "drawio"),),
         filename_column="name",
+        # Publication state never travels. A diagram imported into another
+        # instance lands unpublished with no slug, so cloning a workspace can
+        # never silently re-expose a public link on the target — the operator
+        # there has to make that decision themselves. Excluded rather than
+        # exported-and-reset because `public_slug` is unique: carrying it would
+        # also collide the moment two instances shared a bundle.
+        exclude_columns=(
+            "is_published",
+            "public_slug",
+            "access_mode",
+            "allowed_email_domains",
+        ),
     ),
     # Diagram groups (shared) + per-user favorites. After Diagrams so the
     # favorites' diagram_id (an intra-module FK, preserved verbatim) resolves.
@@ -142,7 +154,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "ProcessFlowVersions",
         ProcessFlowVersion,
         card_fk_columns=("process_id",),
-        user_fk_columns=("created_by", "submitted_by", "approved_by"),
+        user_fk_columns=("created_by", "submitted_by", "approved_by", "withdrawn_by"),
         self_parent_column="based_on_id",
         asset_columns=(("bpmn_xml", "text", "bpmn"), ("svg_thumbnail", "text", "svg")),
     ),

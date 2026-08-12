@@ -55,6 +55,8 @@ Cada tarjeta sincronizada lleva un pequeño chevrón. Un clic abre un menú con 
 
 Las filas con contador a cero aparecen en gris, y los vecinos / hijos ya presentes en el lienzo se omiten automáticamente.
 
+Una tarjeta desplegada muestra un icono `−` para volver a contraerla. Al contraer se quitan del lienzo las tarjetas desplegadas, así que Turbo EA pide confirmación si has movido o cambiado el formato de alguna; al volver a desplegarlas aparecen exactamente donde las dejaste.
+
 ### La jerarquía en el lienzo
 
 Los contenedores corresponden al `parent_id` de una tarjeta:
@@ -85,6 +87,33 @@ El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del 
 
 Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
 
+### Cómo se dibujan las aristas de relación
+
+Toda relación de Turbo EA se ve igual en el lienzo, sin importar cómo llegó allí — dibujada a mano con el selector de relaciones o traída del inventario con **+** / el menú de expansión:
+
+- **Una única línea gris oscuro neutra**, no el color de la tarjeta del otro extremo. Una arista *es* una relación; teñirla por tipo de tarjeta solo repite lo que el nodo ya dice.
+- **Una punta de flecha en el extremo destino**, para que la dirección se lea de un vistazo sin leer el verbo. Si traes una relación que apunta *hacia* la tarjeta expandida, la punta se sitúa en el otro extremo.
+- **El verbo se lee en el sentido de la flecha.** Como la punta marca el destino de la relación, la etiqueta siempre completa la frase *origen → verbo → destino*. Así, un vínculo se lee igual sea cual sea la tarjeta que hayas expandido: expande una Organización y verás *usa*; expande una de sus Aplicaciones y las organizaciones que aparecen siguen mostrando *usa*, con la flecha apuntando al revés.
+- **Una línea discontinua** mientras la relación sigue pendiente; pasa a continua en cuanto se envía al inventario.
+
+#### Proveedor y consumidor
+
+Algunas relaciones llevan un **sentido de flujo** — sobre todo el vínculo entre una Aplicación y una Interfaz, donde una aplicación *provee* la interfaz y otras la *consumen*. Indícalo en el diálogo de relación al trazar el vínculo (o después desde la sección Relaciones de la tarjeta), y la punta de flecha seguirá los datos en lugar de la relación:
+
+| Sentido de flujo | Punta de flecha |
+|---|---|
+| **Proveedor** (origen → destino) | apunta a la Interfaz |
+| **Consumidor** (destino → origen) | apunta de vuelta a la Aplicación |
+| **Bidireccional** | puntas en ambos extremos |
+
+Coincide con lo que la [Layered Dependency View](reports.md) ya dibuja, así que el diagrama y el informe de dependencias concuerdan. Los vínculos sin sentido de flujo definido conservan la flecha de dirección de la relación: la información debe estar en el modelo antes de que un diagrama pueda mostrarla.
+
+### Ocultar las etiquetas de relación
+
+Cada arista de relación lleva su verbo — *proporciona*, *consume*, *da soporte*. En un paisaje denso eso se convierte enseguida en más ruido que información, así que el menú **⋮** ofrece **Ocultar etiquetas de relación** (y **Mostrar** para recuperarlas).
+
+Solo afecta a la visualización: la relación en sí no se modifica, así que ocultarla es reversible. El ajuste se guarda con el diagrama, de modo que el visor de solo lectura, cualquier diagrama publicado y las exportaciones PNG/SVG coinciden con lo que has preparado. Las aristas que dibujes después siguen el ajuste actual. Las aristas de anotación que hayas etiquetado tú quedan intactas: solo se ven afectadas las de relación de Turbo EA.
+
 ### Panel de Sync
 
 El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo que está en cola para la próxima sincronización:
@@ -93,10 +122,46 @@ El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo
 - **Nuevas relaciones** -- aristas dibujadas entre tarjetas, listas para crearse en el inventario.
 - **Relaciones eliminadas** -- aristas de relación borradas del lienzo, en cola para `DELETE /relations/{id}`. *Mantener en inventario* reinserta la arista.
 - **Cambios de jerarquía** -- movimientos arrastrar-dentro / arrastrar-fuera de contenedores confirmados, en cola como actualizaciones de `parent_id`.
-- **Inventario cambiado** -- tarjetas actualizadas en el inventario desde la apertura del diagrama, listas para volver al lienzo.
+- **Inventario cambiado** -- cambios realizados en el inventario desde que se guardó el diagrama, listos para volver al lienzo. Cada fila ofrece la acción correspondiente, y **Aceptar todo** resuelve todas las filas de una vez:
+    - una tarjeta **renombrada** -- *Aceptar actualización* reescribe la etiqueta de la celda;
+    - una tarjeta **eliminada** o **archivada** -- *Quitar del diagrama* retira la celda (y sus aristas) del lienzo;
+    - una **relación eliminada** -- *Quitar la arista del diagrama* retira la arista obsoleta del lienzo;
+    - una relación cuya **dirección del flujo** cambió -- *Aceptar actualización* alinea la flecha con el inventario.
+
+Turbo EA **comprueba automáticamente los cambios del inventario cada vez que abre un diagrama** -- una insignia azul en el botón Sync de la barra de herramientas cuenta los cambios pendientes de revisión. Nada se aplica sin su confirmación; la insignia solo le invita a abrir el panel. El botón **Comprobar actualizaciones** del panel vuelve a ejecutar la misma comprobación bajo demanda.
 
 El botón Sync de la barra de herramientas muestra una pastilla pulsante «N sin sincronizar» mientras haya trabajo pendiente. Salir de la pestaña con cambios sin sincronizar dispara un aviso del navegador, y el lienzo se autoguarda en almacenamiento local cada cinco segundos para poder restaurarse tras un refresco accidental.
 
 ### Vincular diagramas a tarjetas
 
 Los diagramas pueden vincularse a **cualquier tarjeta** desde la pestaña **Recursos** de la tarjeta (ver [Detalle de tarjetas](card-details.es.md#pestaña-recursos)). Cuando un diagrama está vinculado a una tarjeta **Iniciativa**, también aparece en el módulo [EA Delivery](delivery.md) junto a los documentos SoAW.
+
+## Compartir un diagrama fuera de Turbo EA
+
+Un diagrama puede publicarse como un **enlace de solo lectura que se abre sin iniciar sesión**, para insertarlo en una página wiki como Confluence.
+
+Abre el menú **⋮** del diagrama en la galería y elige **Compartir / insertar…**. Publicar requiere el permiso *Publicar diagramas*, distinto del permiso para editarlos: un administrador lo concede de forma deliberada.
+
+El diálogo ofrece dos opciones y dos cadenas para copiar:
+
+- **Cualquiera con el enlace** — sin inicio de sesión. Trata el enlace como una contraseña: cualquiera a quien se le reenvíe podrá ver el diagrama.
+- **Solo personas que inicien sesión** — los visitantes se autentican con tu proveedor de identidad, opcionalmente restringido a dominios de correo concretos. No se crea ninguna cuenta de Turbo EA para ellos.
+
+La página publicada muestra solo la imagen. Permite desplazarse y hacer zoom, pero no hay acceso a los detalles de las tarjetas, y los identificadores de las tarjetas tras las formas se eliminan antes de que el diagrama salga del servidor. Dejar de publicar surte efecto de inmediato, incluso para quien lo esté viendo. Volver a publicarlo más tarde restaura el mismo enlace, así que las URL ya pegadas siguen funcionando.
+
+!!! warning "La inserción requiere un paso del administrador"
+    Por seguridad, ningún otro sitio web puede colocar Turbo EA en un marco salvo que lo autorice un administrador. Define `TURBO_EA_EMBED_ALLOWED_ORIGINS` en `.env` con los sitios autorizados a insertar diagramas y reinicia la pila:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://tuempresa.atlassian.net
+    ```
+
+    Hasta entonces, los enlaces publicados siguen funcionando al abrirlos directamente; simplemente no pueden insertarse en otro sitio.
+
+### Insertar en Confluence
+
+1. Publica el diagrama y copia el **código de inserción** del diálogo de compartir.
+2. Pide a un administrador que añada la URL base de tu Confluence a `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. En Confluence, inserta una macro **HTML** (o *Iframe* / *HTML include*, según lo que permita tu instancia) y pega el código.
+
+Si tu Confluence no permite macros HTML, pega en su lugar el **enlace** simple: abre la misma vista en una pestaña nueva.

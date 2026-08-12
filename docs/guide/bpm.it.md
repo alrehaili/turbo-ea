@@ -43,6 +43,7 @@ Ogni card Business Process può avere un **diagramma del flusso di processo BPMN
 - **Modellazione visiva** — Trascinate elementi BPMN: attività, eventi, gateway, corsie e sotto-processi
 - **Template iniziali** — Scegliete tra 6 template BPMN predefiniti per i pattern di processo comuni (o iniziate da una tela bianca)
 - **Estrazione degli elementi** — Quando salvate un diagramma, il sistema estrae automaticamente tutte le attività, gli eventi, i gateway e le corsie per l'analisi
+- **Colori degli elementi** — Selezionate uno o più elementi e usate il pulsante con il secchiello di vernice nel pannello contestuale per applicare un colore. I colori vengono salvati nel file BPMN stesso, quindi compaiono anche nel visualizzatore di sola lettura, nelle esportazioni e nelle stampe
 
 ### Collegamento degli elementi
 
@@ -58,16 +59,41 @@ La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle c
 
 ### Workflow di approvazione
 
-I diagrammi del flusso di processo seguono un workflow di approvazione con controllo delle versioni:
+I diagrammi di flusso di processo seguono un workflow di approvazione con versionamento:
 
 | Stato | Descrizione |
 |-------|-------------|
-| **Draft** | In fase di modifica, non ancora inviato per la revisione |
-| **Pending** | Inviato per l'approvazione, in attesa di revisione |
-| **Published** | Approvato e visibile come versione corrente |
-| **Archived** | Versione precedentemente pubblicata, conservata per la cronologia |
+| **Bozza** | In modifica, non ancora inviata per la revisione |
+| **In attesa** | Inviata per l'approvazione, in attesa di revisione |
+| **Pubblicata** | Approvata e visibile come versione corrente |
+| **Archiviata** | Versione pubblicata in precedenza, sostituita da un'approvazione più recente |
+| **Ritirata** | Versione pubblicata in precedenza, ritirata intenzionalmente |
 
-L'invio di una bozza crea uno snapshot della versione. I revisori possono approvare (pubblicare) o rifiutare (con commenti) l'invio.
+L'invio di una bozza crea uno snapshot di versione. Gli approvatori possono approvare (pubblicare) o rifiutare l'invio.
+
+#### Chi può approvare
+
+Approvare o rifiutare una revisione inviata richiede il permesso **Approva o rifiuta le versioni di flusso BPMN inviate**, oppure il ruolo di stakeholder **Responsabile del processo** sul processo stesso. Poter modificare le bozze non basta.
+
+!!! warning "Modificato nella versione 2.43.0"
+    Le versioni precedenti accettavano qui il permesso generale di modifica BPM, per cui qualsiasi membro poteva approvare qualsiasi flusso di processo, inclusa una revisione appena inviata da lui stesso. Se nella vostra istanza approvano oggi persone con i soli diritti di modifica BPM, concedete loro il permesso **Approva o rifiuta le versioni di flusso BPMN inviate** in Amministrazione → Ruoli, oppure assegnatele come **Responsabile del processo** sui processi che convalidano.
+
+#### Ritirare una versione pubblicata
+
+Un'approvazione data per errore può essere annullata senza eliminare il processo. Il ritiro richiede il permesso **Ritira (annulla la pubblicazione di) una versione di flusso BPMN pubblicata**, che **nessun ruolo possiede per impostazione predefinita**: un amministratore lo assegna in Amministrazione → Ruoli, oppure al ruolo di stakeholder **Responsabile del processo** in Amministrazione → Metamodello.
+
+Una volta concesso il permesso, la versione pubblicata mostra un pulsante **Ritira**. Il ritiro richiede una motivazione scritta e quindi:
+
+- porta la revisione a **Ritirata**: non viene mai eliminata né riportata a bozza;
+- mantiene a registro l'approvazione originale: la scheda *Archiviate* mostra la revisione, chi l'ha approvata e quando, accanto a chi l'ha ritirata e perché;
+- registra il ritiro, con la sua motivazione, nella scheda **Cronologia** della card;
+- **apre una copia come nuova bozza** al numero di revisione successivo, così potete correggere il diagramma e rifarlo passare da invio → approvazione;
+- lascia il processo senza flusso *approvato* finché quella bozza non viene approvata;
+- lascia intatti i passi di processo estratti e i loro collegamenti alle card.
+
+Conservare la revisione ritirata e modificarne una copia è voluto: il diagramma esatto che un approvatore ha firmato resta recuperabile, come si aspetta un sistema qualità, e voi ottenete comunque subito una copia di lavoro.
+
+Qualsiasi versione archiviata o ritirata può essere ripresa in qualsiasi momento con **Crea una nuova bozza da questa** nella scheda *Archiviate*, che la clona in una bozza alla revisione successiva.
 
 ## Valutazioni dei processi
 

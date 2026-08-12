@@ -85,6 +85,7 @@ from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.lifecycle import lifecycle_rank
 from app.services.nora_landscape import get_segment_card_ids
 from app.services.permission_service import PermissionService
+from app.services.search_rank import search_filter, search_rank
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
 _PPM_MANAGED_FIELDS = {"costBudget", "costActual"}
@@ -546,8 +547,16 @@ async def list_cards(
     ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
+    sort_by: str | None = Query(
+        None,
+        description=(
+            "Sort column. Defaults to `name` ascending. When omitted together "
+            "with `sort_dir` and a `search` term is given, results are ordered "
+            "by search relevance first (exact, then starts-with, then "
+            "starts-a-word, then contains) and alphabetically within each tier."
+        ),
+    ),
+    sort_dir: str | None = Query(None, description="`asc` (default) or `desc`."),
 ):
     await PermissionService.require_permission(db, user, "inventory.view")
     q = select(Card)
@@ -597,9 +606,9 @@ async def list_cards(
         q = q.where(Card.status == "ACTIVE")
         count_q = count_q.where(Card.status == "ACTIVE")
     if search:
-        like = f"%{search}%"
-        q = q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
-        count_q = count_q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
+        match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
+        q = q.where(match)
+        count_q = count_q.where(match)
     if parent_id:
         q = q.where(Card.parent_id == uuid.UUID(parent_id))
         count_q = count_q.where(Card.parent_id == uuid.UUID(parent_id))
@@ -648,10 +657,17 @@ async def list_cards(
             return CardListResponse(items=[], total=0, page=page, page_size=page_size)
 
     # Sorting — H9: whitelist sort columns
-    if sort_by not in _ALLOWED_SORT_COLUMNS:
-        sort_by = "name"
-    sort_col = getattr(Card, sort_by, Card.name)
-    q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
+    effective_sort = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "name"
+    sort_col = getattr(Card, effective_sort, Card.name)
+    order = [sort_col.desc() if sort_dir == "desc" else sort_col.asc()]
+    # Relevance first, but only when the caller expressed no sort preference of
+    # their own — an explicit `sort_by`/`sort_dir` always wins (#918).
+    if search and sort_by is None and sort_dir is None:
+        order.insert(0, search_rank(Card.name, search).asc())
+    # Stable tiebreaker: without it two same-named cards can be duplicated or
+    # skipped across pages, which corrupts any paged consumer's append.
+    order.append(Card.id.asc())
+    q = q.order_by(*order)
     q = q.offset((page - 1) * page_size).limit(page_size)
 
     total_result = await db.execute(count_q)
@@ -1183,8 +1199,14 @@ async def bulk_create_cards(
                 )
         except HTTPException as exc:
             await row_sp.rollback()
+            # `CardBulkCreateResult.error` is a plain string; the sibling-name
+            # collision raises an object-shaped detail, so flatten it here.
+            detail = exc.detail
+            error_str = (
+                detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+            )
             by_index[r.row_index] = CardBulkCreateResult(
-                row_index=r.row_index, status="failed", error=exc.detail
+                row_index=r.row_index, status="failed", error=error_str
             )
         except Exception as exc:  # noqa: BLE001 — surface anything to the user
             await row_sp.rollback()

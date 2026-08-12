@@ -10,7 +10,7 @@
 
 Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
-- **Søg** — Friform tekstsøgning på tværs af kortnavne
+- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K**), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder
 - **Typer** — Filtrer efter en eller flere korttyper: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
@@ -69,7 +69,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 | **Lifecycle** | Aktuel livscyklus-tilstand |
 | **Approval Status** | Gennemgangs-status-badge |
 | **Data Quality** | Fuldstændigheds-procent med visuel ring |
-| **Relations** | Relations-tællere med klikbar popover, der viser relaterede kort |
+| **Relations** | Navne på relaterede kort, sorteret alfabetisk, med en klikbar popover til at tilføje eller fjerne relationer — kort, der allerede er tilknyttet, skjules fra dens vælger |
 
 **Tabel-funktioner:**
 
@@ -192,7 +192,7 @@ Det samme prioritetsforhold styrer kort-opdaterings-matchning: rækker med en UU
 
 #### Søskende-navne-entydighed
 
-Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele både en forælder og et navn**. Nye kort, der ville skabe en sådan kollision, afvises ved oprettelses­tidspunktet (i Opret kort-dialogen, i inline-omdøbningen og under regneark-import). Kort, der allerede er i databasen, og som deler et navn med en søskende — fra tidligere seed-data eller importer — efterlades urørt; du kan redigere et hvilket som helst af deres felter, men at omdøbe ét tilbage til kollisionen (eller oprette et tredje) blokeres. Kontrollen er case- og whitespace-uafhængig for at matche importørens resolver.
+Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele både en forælder og et navn**. Nye kort, der ville skabe en sådan kollision, afvises ved oprettelses­tidspunktet (i Opret kort-dialogen, i inline-omdøbningen og under regneark-import). Kort, der allerede er i databasen, og som deler et navn med en søskende — fra tidligere seed-data eller importer — efterlades urørt; du kan redigere et hvilket som helst af deres felter, men at omdøbe ét tilbage til kollisionen (eller oprette et tredje) blokeres. Kontrollen er case- og whitespace-uafhængig for at matche importørens resolver. Når Opret kort-dialogen afviser en dublet, nævner advarslen det eksisterende kort og indeholder et **Vis eksisterende kort**-link, der fører dig direkte derhen.
 
 ### Inline relations-celler
 
@@ -212,6 +212,10 @@ For bagudkompatibilitet accepterer importøren også komma-separerede celler (pr
 ### Interessent-celler
 
 På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er tildelt hver interessentrolle, som **semikolon-separerede e-mailadresser** (samme konvention som LeanIX' `subscriptions:<RoleType>`-kolonner), f.eks. `ada@corp.com; bob@corp.com`. **E-mailadressen er den eneste accepterede brugerreference** — visningsnavne kan kollidere og bruges aldrig til opslag; en post på formen `Navn <email>` tolereres (e-mailen i vinkelparenteser bruges), et navn alene giver en advarsel og springes over. Ligesom relations-celler er interessent-celler **deklarative pr. rolle**: De anførte brugere bliver det komplette sæt af tildelinger for rollen efter importen. Fjernes en bruger fra listen, fjernes tildelingen; en tom celle rydder rollen; udelades kolonnen helt, forbliver tildelingerne urørte. Poster uden matchende bruger giver en advarsel og springes over — de blokerer aldrig importen.
+
+!!! note "Ark eksporteret før rollenøgler blev camelCase"
+    Interessentrollenøgler følger samme camelCase-konvention som alle andre metamodelnøgler. Et ark eksporteret før den ændring har kolonneoverskrifter som `stakeholder:technical_application_owner`; de kan stadig importeres — overskriften matches til sin camelCase-rolle, når ingen rolle matcher bogstaveligt. Nyeksporterede ark bruger camelCase-formen.
+
 
 ### Relations-ark
 

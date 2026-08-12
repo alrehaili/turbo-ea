@@ -140,6 +140,12 @@ Toggle the **Business Process Management** module on or off. When disabled:
 
 This is useful for organizations that do not use BPM and want a cleaner navigation experience.
 
+### Require a separate approver
+
+Off by default. When enabled, the person who submits a process flow revision cannot be the one who approves it — segregation of duties, as quality systems such as GxP and ISO 9001 expect.
+
+Leave it off for a small team where the same person drafts and signs off. Turning it on does not change what is recorded: every submission, approval, rejection and withdrawal is written to the card's **History** tab either way.
+
 ## PPM Module
 
 Toggle the **Project Portfolio Management** module on or off. When disabled:

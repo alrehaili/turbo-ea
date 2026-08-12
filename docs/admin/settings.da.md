@@ -140,6 +140,12 @@ Slå **Business Process Management**-modulet til eller fra. Når det er deaktive
 
 Dette er nyttigt for organisationer, der ikke bruger BPM og ønsker en renere navigationsoplevelse.
 
+### Kræv en separat godkender
+
+Slået fra som standard. Når den er slået til, kan den, der indsender en revision af et procesflow, ikke selv godkende den — funktionsadskillelse, sådan som kvalitetssystemer som GxP og ISO 9001 forventer.
+
+Lad den være slået fra i et lille team, hvor den samme person udarbejder og godkender. At slå den til ændrer ikke, hvad der registreres: indsendelse, godkendelse, afvisning og tilbagetrækning havner i kortets fane **Historik** under alle omstændigheder.
+
 ## PPM-modul
 
 Slå **Project Portfolio Management**-modulet til eller fra. Når det er deaktiveret:

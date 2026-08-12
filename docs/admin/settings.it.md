@@ -140,6 +140,12 @@ Attivate/disattivate il modulo **Business Process Management**. Quando disabilit
 
 Questo è utile per le organizzazioni che non utilizzano il BPM e desiderano un'esperienza di navigazione più pulita.
 
+### Richiedi un approvatore distinto
+
+Disattivo per impostazione predefinita. Quando è attivo, chi invia una revisione di un flusso di processo non può essere chi la approva: separazione dei compiti, come previsto da sistemi qualità quali GxP e ISO 9001.
+
+Lasciatelo disattivo in un piccolo team in cui la stessa persona redige e approva. Attivarlo non cambia ciò che viene registrato: invii, approvazioni, rifiuti e ritiri finiscono comunque nella scheda **Cronologia** della card.
+
 ## Modulo PPM
 
 Attivate/disattivate il modulo **Project Portfolio Management** (PPM). Quando disabilitato:

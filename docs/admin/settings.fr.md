@@ -140,6 +140,12 @@ Activez ou désactivez le module **Gestion des processus métier**. Lorsqu'il es
 
 Ceci est utile pour les organisations qui n'utilisent pas le BPM et souhaitent une expérience de navigation plus épurée.
 
+### Exiger un approbateur distinct
+
+Désactivé par défaut. Lorsque l'option est active, la personne qui soumet une révision d'un flux de processus ne peut pas être celle qui l'approuve — séparation des tâches, telle que l'attendent les systèmes qualité comme les BPx et l'ISO 9001.
+
+Laissez-la désactivée pour une petite équipe où la même personne rédige et valide. L'activer ne change rien à ce qui est enregistré : soumission, approbation, rejet et retrait sont consignés dans l'onglet **Historique** de la fiche dans tous les cas.
+
 ## Module PPM
 
 Activez ou désactivez le module **Gestion de portefeuille de projets** (PPM). Lorsqu'il est désactivé :

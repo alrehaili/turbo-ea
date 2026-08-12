@@ -27,7 +27,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 [`ci.yml`](workflows/ci.yml) (path-filtered — workflow-only PRs skip app jobs):
 - **Backend lint / unit tests / integration tests / type check**
 - **Backend Security Scan** — `pip-audit --strict` against generated `requirements.txt`. Fails on any open CVE in production dependencies.
-- **Frontend Security Scan** — `npm audit --omit=dev`. Fails on any open CVE in production dependencies.
+- **Frontend Security Scan** — `audit-ci` (config: [`.github/audit-ci.jsonc`](audit-ci.jsonc)). Fails on any open CVE in production dependencies, except advisory ids explicitly allowlisted in the config — the npm counterpart of the Trivy allowlist, same rules: documented rationale per entry, quarterly re-evaluation, entry removed the moment upstream ships a patch.
 - **Migration Rollback Test** — exercises Alembic up→down→up so a broken downgrade can't ship.
 - **CodeQL** — GitHub's default-setup, languages `actions / javascript / javascript-typescript / python / typescript`, query suite `default`, threat model `remote`. Findings land in the Security tab; CRITICAL/HIGH alerts require dismissal or a fix.
 
@@ -53,12 +53,19 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 >    publishes `:latest`, a release could otherwise ship `:latest` with a stale
 >    apk layer. The build step therefore also sets
 >    `no-cache-filters: backend,db,frontend,nginx,mcp-server` (plural — the
->    singular form is silently ignored), which forces just the runtime stages
->    (the ones running `apk upgrade --no-cache`) to rebuild against the live
->    alpine repos on **every** build, cached ones included, while the expensive
->    `frontend-build` / `backend-build` stages stay cached. This closes the curl
->    8.19.0-r0 → 8.20.0-r0 gap seen in July 2026, where `:latest` kept shipping a
->    cached, unpatched curl.
+>    singular form is silently ignored) **on `push` events only**, which forces
+>    just the runtime stages (the ones running `apk upgrade --no-cache`) to
+>    rebuild against the live alpine repos on every cached build, while the
+>    expensive `frontend-build` / `backend-build` stages stay cached. This
+>    closes the curl 8.19.0-r0 → 8.20.0-r0 gap seen in July 2026, where
+>    `:latest` kept shipping a cached, unpatched curl.
+>
+>    The `push`-only condition is **not** cosmetic: buildx hard-rejects
+>    `--no-cache` and `--no-cache-filter` in the same invocation (*"cannot
+>    currently be used together"*). Emitting both killed every `schedule` and
+>    `workflow_dispatch` run for three weeks in 2026-07. Scheduled and manual
+>    runs don't need the filters anyway — their full `--no-cache` already
+>    rebuilds every stage.
 >
 > To force a fresh `:latest` on demand (e.g. right after an alpine CVE fix lands
 > in the repo), run `docker-publish.yml` via **`workflow_dispatch` from `main`**
@@ -84,7 +91,7 @@ Why this exists: CVEs disclosed *after* the last image build would otherwise go 
 
 ### Monthly + on-demand
 - **GitHub Security tab** — review aggregated Trivy + Scout + CodeQL + Dependabot alerts. Dismiss with reason for known-not-applicable findings.
-- **Trivy allowlist quarterly review** — re-evaluate every entry in `.github/trivy-allowlist`. Remove anything an upstream patch now fixes.
+- **Allowlist quarterly review** — re-evaluate every entry in `.github/trivy-allowlist` **and** `.github/audit-ci.jsonc`. Remove anything an upstream patch now fixes.
 
 ## Operational runbook
 
@@ -108,7 +115,7 @@ have. To get the open alerts (CodeQL + Trivy + Scout) as a plain table:
 2. Decide which path applies:
    - **Upstream patch exists** → bump the base image (most CVEs in alpine packages are fixed by the next pinned `nginx:1.30.x-alpine` etc.). Open a PR with the bump.
    - **Patch exists but adoption needs a major bump** → file an issue, ship the major bump as a separate PR.
-   - **No patch, not exploitable in our usage path** → allowlist in `.github/trivy-allowlist`. **Required**: a comment block above the CVE explaining package, why it isn't exploitable for us, reviewer initials, date. Re-evaluate next quarter.
+   - **No patch, not exploitable in our usage path** → allowlist in `.github/trivy-allowlist` (image CVEs) or `.github/audit-ci.jsonc` (npm advisories). **Required**: a comment block above the CVE/GHSA id explaining package, why it isn't exploitable for us, reviewer initials, date. Re-evaluate next quarter.
    - **No patch, exploitable** → don't ship. Mitigate at the nginx / app layer if possible; otherwise the workflow stays red until upstream fixes.
 3. Re-run the workflow.
 
@@ -124,12 +131,13 @@ you republish the image.
    the **installed** version is still the old one, the image itself is stale —
    go to step 2. If it already shows the fixed version, the alert is just stale
    in the tab — skip to step 3.
-2. **Republish so `:latest` carries the fix.** Since the build step sets
-   `no-cache-filter` on the runtime stages, any publish (a merge to `main`, or a
-   `workflow_dispatch` run of `docker-publish.yml`) now rebuilds `apk upgrade`
-   against the live alpine repos, so `:latest` picks up the fix and stays patched
-   across subsequent pushes. (Before that filter existed, a cached push would
-   overwrite the patched `:latest` right back to the stale layer.)
+2. **Republish so `:latest` carries the fix.** Any publish rebuilds `apk
+   upgrade` against the live alpine repos, so `:latest` picks up the fix and
+   stays patched across subsequent pushes — a cached push via the
+   `no-cache-filters` on the runtime stages, a `workflow_dispatch` run of
+   `docker-publish.yml` via its full `no-cache`. (Before those filters existed,
+   a cached push would overwrite the patched `:latest` right back to the stale
+   layer.)
 3. **Close stale `<=medium` alerts.** The routine observe scans are
    `HIGH,CRITICAL` only, so a MEDIUM alert created by an earlier all-severity
    scan never auto-closes on rebuild. Run `trivy-reconcile.yml` with

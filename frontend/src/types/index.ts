@@ -347,6 +347,17 @@ export interface Card {
   stakeholders: StakeholderRef[];
 }
 
+/** Structured 409 detail raised on a sibling-name collision (card create /
+ *  rename / re-parent). `message` carries the legacy English prose; the
+ *  other fields let the UI link to the existing card (#927). */
+export interface SiblingNameConflictDetail {
+  code: "sibling_name_conflict";
+  message: string;
+  existing_card_id: string;
+  existing_card_name: string;
+  type_key: string;
+}
+
 export interface Calculation {
   id: string;
   name: string;
@@ -574,6 +585,11 @@ export interface Todo {
   recurrence_unit?: RecurrenceUnit;
   recurrence_interval?: number;
   lead_time_days?: number;
+  // External-tracker mirror (extension todos bridge). Read-only over REST —
+  // set only by vendor-signed extensions holding the core.todos.write grant.
+  external_ref?: string;
+  external_url?: string;
+  external_source?: string;
 }
 
 export interface TagGroup {
@@ -1298,7 +1314,7 @@ export interface BpmnTemplate {
 export interface ProcessFlowVersion {
   id: string;
   process_id: string;
-  status: "draft" | "pending" | "published" | "archived";
+  status: "draft" | "pending" | "published" | "archived" | "withdrawn";
   revision: number;
   bpmn_xml?: string;
   svg_thumbnail?: string;
@@ -1312,6 +1328,13 @@ export interface ProcessFlowVersion {
   approved_by_name?: string;
   approved_at?: string;
   archived_at?: string;
+  withdrawn_by?: string;
+  withdrawn_by_name?: string;
+  withdrawn_at?: string;
+  withdrawal_reason?: string;
+  /** Set on a draft that was opened by withdrawing that revision — drives the
+   *  Withdrawn pill and the provenance caption in the Drafts tab. */
+  from_withdrawn_revision?: number | null;
   based_on_id?: string;
   draft_element_links?: Record<string, {
     application_id?: string;
@@ -1326,6 +1349,9 @@ export interface ProcessFlowPermissions {
   can_view_drafts: boolean;
   can_edit_draft: boolean;
   can_approve: boolean;
+  /** Both gates already applied server-side: controlled publishing on AND the
+   *  bpm.withdraw_flows / card.bpm_withdraw permission held. */
+  can_withdraw: boolean;
 }
 
 // ---------------------------------------------------------------------------

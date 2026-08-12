@@ -5,6 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.27.0] - 2026-08-13
+
+### Added
+- Merged upstream Turbo EA **v2.37.0 → v2.51.0** into the fork.
+- **Diagram publishing and sharing** — diagrams can be published to a public link, with a stale-inventory check and sync badge when the underlying cards have changed since the diagram was last synced.
+- **Process flow withdrawal** — a published BPMN flow can now be withdrawn with a reason, and the approval gate no longer lets an unapproved flow slip through.
+- **Relation add flow** — batch add of several relations at once, alphabetical sorting, and search ranking in the picker.
+- **Unified search ranking** across every search box, answering from the first letter typed.
+- **BPMN element colouring** in the process flow editor.
+- **Relation translation dialog** in the metamodel admin, so relation verbs are translated without drifting from the label column.
+- **Extension SDK 1.2 → 1.4** — todos bridge, users bridge, event hooks, encrypted extension secrets, batch settings, external refs on system todos, auto-renew status and subscription management on the Extensions page.
+
+### Fixed
+- Duplicate-name warnings now link straight to the existing card.
+- Demo data no longer returns after being removed; duplicate relations are de-duplicated; diagram data loss on save is fixed.
+- Backend no longer holds DB connections across slow work, the event stream no longer holds a connection per open browser tab, and settings reads no longer fetch the branding blobs.
+- Stakeholder role keys accept manual entry again, and unused roles can be deleted.
+
+### Security
+- Removed the vulnerable `image-size` package from the frontend dependency tree via a local stub.
+- Backend and MCP dependencies bounded to tested major versions.
+
 ## [2.25.0] - 2026-07-22
 
 ### Added

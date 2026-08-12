@@ -119,6 +119,15 @@ Quando nenhum subtipo é selecionado num card (ou o tipo não possui subtipos), 
 
 Defina papéis personalizados para este tipo (ex.: "Proprietário da Aplicação", "Proprietário Técnico"). Cada papel carrega **permissões em nível de card** que são combinadas com o papel em nível de aplicação do usuário ao acessar um card. Veja [Usuários e Papéis](users.md) para mais informações sobre o modelo de permissões.
 
+Cada papel tem uma **chave** (o identificador armazenado nos cartões, usado pelas colunas de importação/exportação `stakeholder:<chave_do_papel>`) e um **rótulo** (o que os utilizadores veem). A chave segue a mesma convenção de qualquer outra chave do metamodelo: apenas letras e dígitos, começando por uma letra, de 3 a 50 caracteres, por convenção em camelCase como `businessArchitect`. É preenchida automaticamente a partir do rótulo, pelo que raramente precisará de a escrever.
+
+Os papéis podem ser removidos de duas formas:
+
+- **Arquivar** — o papel permanece nos cartões que já o utilizam, mas deixa de poder ser atribuído e deixa de conceder as suas permissões ao nível do cartão. Os papéis arquivados aparecem atrás do interruptor **Mostrar arquivados** e podem ser restaurados a qualquer momento. É a escolha certa para um papel que foi realmente utilizado.
+- **Excluir** — permanente, e só é oferecido enquanto o papel não estiver em uso. O Turbo EA recusa excluir um papel que alguém detenha num cartão deste tipo, que um inquérito utilize, ou que seja o último papel ativo do tipo; a caixa de confirmação indica o motivo e propõe arquivá-lo em alternativa. É assim que se limpa um papel criado por engano.
+
+A chave de um papel pode ser corrigida enquanto **ninguém detiver o papel** — os inquéritos que o utilizam acompanham a mudança de nome automaticamente, e renomear o único papel de um tipo não é problema, pois o papel sobrevive. Assim que alguém o detém, a chave fica bloqueada e o campo explica porquê. Os papéis criados antes desta convenção mantêm a chave que já tinham e continuam a funcionar; só é verificada uma chave nova ou alterada.
+
 #### Traduções
 
 Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abrir o **Diálogo de Traduções**. Aqui você pode fornecer traduções para todos os rótulos do metamodelo em cada idioma suportado:
@@ -150,6 +159,10 @@ Tipos de relacionamento definem as conexões permitidas entre tipos de card. Cad
 | **Cardinalidade** | n:m (muitos-para-muitos) ou 1:n (um-para-muitos) |
 
 Clique em **+ Novo Tipo de Relacionamento** para criar um relacionamento, ou clique em um existente para editar seus rótulos e atributos.
+
+Os campos **Rótulo** e **Rótulo Inverso** são escritos no idioma que está a utilizar no momento — a legenda do campo indica qual (por exemplo, *Rótulo (Português)*). Renomear uma relação atualiza esse idioma em todos os locais onde o verbo aparece: a secção **Relações** de um card, as colunas de relação do inventário, os relatórios, os portais e os diagramas. Os restantes idiomas mantêm a sua própria redação até que os traduza.
+
+Use **Gerir traduções** no topo do separador Tipos de Relacionamento para traduzir os verbos de todas as relações para cada idioma ativado de uma só vez. Escolha um separador de idioma, escreva a redação ao lado do original em inglês e guarde — o contador em cada separador mostra quantos verbos faltam ainda nesse idioma. O inglês não aparece aqui porque é a redação da própria relação; um verbo não traduzido recorre a ela.
 
 ### Atributos de relação
 

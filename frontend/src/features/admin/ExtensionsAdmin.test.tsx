@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ExtensionsAdmin from "./ExtensionsAdmin";
@@ -76,14 +77,26 @@ async function openInstalledTab() {
   await userEvent.click(screen.getByRole("tab", { name: "Installed" }));
 }
 
+// The page reads its tab from the URL (useSearchParams), so every render
+// needs a router context.
+function renderPage(initialPath = "/admin/extensions") {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <ExtensionsAdmin />
+    </MemoryRouter>,
+  );
+}
+
 describe("ExtensionsAdmin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The tab is also remembered per browser — isolate tests from each other.
+    localStorage.clear();
   });
 
   it("shows the empty state and the no-license hint on the Installed tab", async () => {
     primeInitialLoad();
-    render(<ExtensionsAdmin />);
+    renderPage();
     await openInstalledTab();
     await waitFor(() =>
       expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
@@ -91,15 +104,133 @@ describe("ExtensionsAdmin", () => {
     expect(screen.getByText(/No license installed/)).toBeInTheDocument();
   });
 
+  it("opens on the Installed tab when the URL says ?tab=installed (refresh keeps the tab)", async () => {
+    primeInitialLoad();
+    renderPage("/admin/extensions?tab=installed");
+    await waitFor(() =>
+      expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("tab", { name: "Installed" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("falls back to the Store tab on an unknown ?tab= value", async () => {
+    primeInitialLoad();
+    renderPage("/admin/extensions?tab=bogus");
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Store" })).toHaveAttribute("aria-selected", "true"),
+    );
+  });
+
   it("lists installed extensions with entitlement chips and licensee summary", async () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await openInstalledTab();
     await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
     expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     // Active entitlement → no Renew button on the row.
     expect(screen.queryByText("Renew", { selector: "button" })).not.toBeInTheDocument();
+  });
+
+  it("says whether an active entitlement renews or runs out when the flag is known", async () => {
+    primeInitialLoad({
+      extensions: [
+        {
+          ...SAMPLE_EXT,
+          entitlement: {
+            state: "active",
+            expires_at: "2027-07-01T00:00:00Z",
+            grace_until: null,
+            auto_renew: true,
+          },
+        },
+        {
+          ...SAMPLE_EXT,
+          key: "other-ext",
+          name: "Other Extension",
+          entitlement: {
+            state: "active",
+            expires_at: "2027-07-01T00:00:00Z",
+            grace_until: null,
+            auto_renew: false,
+          },
+        },
+        {
+          ...SAMPLE_EXT,
+          key: "manual-ext",
+          name: "Manual Extension",
+          entitlement: {
+            state: "active",
+            expires_at: "2027-07-01T00:00:00Z",
+            grace_until: null,
+            // No auto_renew → manual/pre-field license keeps today's caption.
+          },
+        },
+      ],
+      license: LICENSE,
+    });
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    expect(screen.getByText(/Renews on/)).toBeInTheDocument();
+    expect(screen.getByText(/will not renew/)).toBeInTheDocument();
+    expect(screen.getByText(/Active until/)).toBeInTheDocument();
+  });
+
+  it("offers Manage subscription only on store-managed licenses and opens the portal", async () => {
+    primeInitialLoad({
+      extensions: [SAMPLE_EXT],
+      license: { ...LICENSE, store_managed: true },
+    });
+    mockPost.mockResolvedValue({ url: "https://billing.stripe.test/p/session_1" });
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Manage subscription/ }));
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/billing-portal"),
+    );
+    await waitFor(() =>
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://billing.stripe.test/p/session_1",
+        "_blank",
+        "noopener",
+      ),
+    );
+    openSpy.mockRestore();
+  });
+
+  it("hides Manage subscription on manual licenses and hints when the store is unreachable", async () => {
+    primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE }); // no store_managed
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+    expect(
+      screen.queryByRole("button", { name: /Manage subscription/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the offline hint when the billing portal cannot be reached", async () => {
+    primeInitialLoad({
+      extensions: [SAMPLE_EXT],
+      license: { ...LICENSE, store_managed: true },
+    });
+    mockPost.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Manage subscription/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/extension store could not be reached/i),
+      ).toBeInTheDocument(),
+    );
   });
 
   it("offers Renew on rows without an active entitlement and refreshes from the store", async () => {
@@ -113,7 +244,7 @@ describe("ExtensionsAdmin", () => {
       license: LICENSE,
     });
     mockPost.mockResolvedValue({ refreshed: true });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await openInstalledTab();
     await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
 
@@ -137,7 +268,7 @@ describe("ExtensionsAdmin", () => {
       license: LICENSE,
     });
     mockPost.mockResolvedValue({ refreshed: false });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await openInstalledTab();
     await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
 
@@ -148,7 +279,7 @@ describe("ExtensionsAdmin", () => {
   it("applies a pasted license through the dialog", async () => {
     primeInitialLoad();
     mockPut.mockResolvedValue(LICENSE);
-    render(<ExtensionsAdmin />);
+    renderPage();
     await openInstalledTab();
     await waitFor(() =>
       expect(screen.getByText(/No license installed/)).toBeInTheDocument(),
@@ -203,7 +334,7 @@ describe("ExtensionsAdmin", () => {
       throw new Error(`unexpected GET ${path}`);
     });
 
-    const { container } = render(<ExtensionsAdmin />);
+    const { container } = renderPage();
     await waitFor(() =>
       expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
     );
@@ -239,7 +370,7 @@ describe("ExtensionsAdmin", () => {
       throw new Error(`unexpected GET ${path}`);
     });
 
-    const { container } = render(<ExtensionsAdmin />);
+    const { container } = renderPage();
     await waitFor(() =>
       expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
     );
@@ -255,7 +386,7 @@ describe("ExtensionsAdmin", () => {
 
   it("asks for confirmation before uninstalling", async () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await openInstalledTab();
     await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
     await userEvent.click(screen.getByText("Uninstall", { selector: "button" }));
@@ -267,7 +398,7 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({
       catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
     });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
 
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
@@ -286,7 +417,7 @@ describe("ExtensionsAdmin", () => {
     });
     mockPut.mockResolvedValue(LICENSE);
     mockPost.mockResolvedValue({ id: "s1", filename: "esg.teax", status: "verifying" });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
 
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
@@ -351,7 +482,7 @@ describe("ExtensionsAdmin", () => {
       throw new Error(`unexpected GET ${path}`);
     });
 
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
     expect(screen.queryByText("Buy", { selector: "button" })).not.toBeInTheDocument();
 
@@ -380,7 +511,7 @@ describe("ExtensionsAdmin", () => {
         ],
       },
     });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() => expect(screen.getByText("No Demo Pack")).toBeInTheDocument());
 
     const demoLinks = screen.getAllByText("See it in action");
@@ -395,7 +526,7 @@ describe("ExtensionsAdmin", () => {
     });
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
 
     await userEvent.click(screen.getByText("Buy", { selector: "button" }));
@@ -409,7 +540,7 @@ describe("ExtensionsAdmin", () => {
 
   it("shows the not-configured hint on the Store tab by default", async () => {
     primeInitialLoad();
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText(/No extension store is configured/)).toBeInTheDocument(),
     );
@@ -419,7 +550,7 @@ describe("ExtensionsAdmin", () => {
     primeInitialLoad({
       catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
     });
-    render(<ExtensionsAdmin />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText(/store could not be reached/)).toBeInTheDocument(),
     );

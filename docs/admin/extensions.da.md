@@ -52,6 +52,14 @@ Når en rettighed passerer sin udløbsdato, starter en **henstandsperiode** (30 
 
 Licenser købt via Butikken fornyer sig selv på forbundne instanser: efter hver gennemført betaling henter din instans automatisk den forlængede licens — intet at indsætte. På en isoleret installation er fornyelse: indsæt den opdaterede licensfil fra fornyelses-e-mailen (eller anmod leverandøren om en) — intet andet.
 
+### Status for automatisk fornyelse og opsigelse
+
+Hver rettigheds-chip fortæller, hvad der sker på datoen: **Fornyes den {dato}** for et aktivt abonnement eller **Udløber den {dato} — fornyes ikke** efter en opsigelse. Oplysningen kommer fra selve den signerede licens og er derfor også korrekt på isolerede installationer — licensfilen, der sendes pr. e-mail efter enhver abonnementsændring, bærer den opdaterede status; indsæt den, og chippen er aktuel.
+
+For at se fornyelsesdatoen, opsige eller genoprette automatisk fornyelse, ændre betalingsmetode eller hente fakturaer skal du bruge **Administrér abonnement** ved siden af licenstagerens navn (vises for licenser købt i Butikken). Knappen åbner din faktureringsportal i en ny fane — ingen konto nødvendig. På en isoleret installation kan knappen ikke nå butikken; brug i stedet linket **Administrér abonnement** i enhver licens-e-mail (kun din browser behøver internetadgang, ikke din Turbo EA-installation).
+
+En opsigelse slukker aldrig for noget med det samme: Udvidelsen fungerer indtil udgangen af den betalte periode, hvorefter det normale forløb med henstandsperiode + blød deaktivering gælder. **Dine data slettes aldrig**, og et nyt abonnement genopretter alt.
+
 ## Aktivér, deaktivér og afinstaller
 
 - Kontakten **Aktiveret** deaktiverer en udvidelse blødt med det samme (ingen genstart) og kan slås til igen når som helst. For indholdspakker skjuler dette deres korttyper fra metamodellen — kort bliver, hvor de er.
@@ -69,6 +77,16 @@ Nogle udvidelser låser op for avancerede måder at beskrive dine data på, som 
 - **Brugerdefinerede felttyper** — nye felttyper ud over det indbyggede sæt (for eksempel en konfigurerbar bedømmelse fra 1–5 eller 0–10).
 
 Disse valgmuligheder vises i metamodellens felteditor **kun, mens den udvidelse, der leverer dem, er installeret og licenseret**. Hvis en sådan udvidelse senere deaktiveres, eller dens licens udløber, vises de værdier, du allerede har indtastet, fortsat som almindelig skrivebeskyttet tekst — intet tømmes eller slettes — og redigeringsmulighederne forsvinder blot, indtil udvidelsen er aktiv igen.
+
+## Dataadgangs-grants
+
+De fleste udvidelser arbejder kun med deres egne data. En udvidelse, der integrerer med kernedata — for eksempel en connector, der synkroniserer todos med et eksternt opgavesystem som Jira eller MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — skal deklarere **grants** i sit signerede manifest:
+
+- `core.todos.read` / `core.todos.write` — læs eller ændr todos gennem udvidelses-SDK'et. Skriveadgang omfatter læseadgang. På system-todos (såsom underskriftsanmodninger) kan en synkroniseringsudvidelse kun sætte den eksterne reference, der vises som en chip — den kan aldrig fuldføre, redigere, omfordele eller slette dem, og todos, der ejes af en anden udvidelse, forbliver urørlige.
+- `core.events.todo` — modtag hændelser om todo-ændringer, så en connector reagerer med det samme i stedet for at vente på næste polling-cyklus.
+- `core.users.read` — slå brugere op (kun navn, e-mail og aktiv-status), så en connector kan matche ansvarlige med konti i det eksterne værktøj. Ingen data om roller, login eller præferencer eksponeres, og udvidelser kan aldrig ændre brugere.
+
+Grants er en del af det leverandørsignerede bundle: de fastlægges ved pakningen og er synlige før installation. De gælder kun, mens udvidelsen er installeret, aktiveret og licenseret — deaktivering eller en udløbet licens tilbagekalder adgangen med det samme, uden genstart. Enhver ændring foretaget af en udvidelse registreres i **Admin → Auditlog** under oprindelsen **Udvidelse**, og en todo, der spejles fra et eksternt system, viser en chip med link til det eksterne element.
 
 ## Hvor udvidelsessider vises
 

@@ -55,6 +55,8 @@ Hvert synkroniseret kort bærer en lille chevron-overlejring. Når du klikker p�
 
 Rækker med tæller = 0 er nedtonede, og naboer / børn, der allerede er på lærredet, springes automatisk over.
 
+Et udfoldet kort viser et `−`-ikon, som klapper det sammen igen. Sammenklapning fjerner de udfoldede kort fra lærredet, så Turbo EA spørger først, hvis du har flyttet eller omformateret nogen af dem; udfolder du igen, står de præcis, hvor du forlod dem.
+
 ### Hierarki på lærredet
 
 Containere svarer til et korts `parent_id`:
@@ -85,6 +87,33 @@ Dropdownen **View** i værktøjslinjen omfarver hvert kort på lærredet efter e
 
 En flydende forklaring nederst til venstre på lærredet viser den aktive tilknytning. Den valgte visning gemmes med diagrammet.
 
+### Hvordan relationskanter tegnes
+
+Enhver Turbo EA-relation ser ens ud på lærredet, uanset hvordan den kom derhen — tegnet i hånden med relationsvælgeren eller hentet ind fra inventaret med **+** / Expand-menuen:
+
+- **Én neutral mørkegrå linje**, ikke farven på kortet i den anden ende. En kant *er* en relation; at farve den efter korttype gentager blot det, noden allerede siger.
+- **En pilespids i målenden**, så retningen kan aflæses på et øjeblik uden at læse udsagnsordet. Henter du en relation, der peger *mod* det kort, du udvidede, sidder pilespidsen i den anden ende.
+- **Udsagnsordet læses i pilens retning.** Da pilespidsen markerer relationens mål, fuldender etiketten altid sætningen *start → udsagnsord → slut*. En forbindelse læses derfor ens, uanset hvilket kort du udvidede fra: udvid en Organisation, og du ser *bruger*; udvid en af dens Applikationer, og organisationerne, der kommer tilbage, viser stadig *bruger* — blot med pilen den anden vej.
+- **En stiplet linje**, så længe relationen endnu ikke er sendt til inventaret; den bliver massiv, når den er.
+
+#### Leverandør og forbruger
+
+Nogle relationer bærer en **flowretning** — først og fremmest forbindelsen mellem en Applikation og en Grænseflade, hvor én applikation *leverer* grænsefladen, og andre *forbruger* den. Angiv den i relationsdialogen, når du tegner forbindelsen (eller bagefter fra kortets Relationer-sektion), så følger pilespidsen data i stedet for relationen:
+
+| Flowretning | Pilespids |
+|---|---|
+| **Leverandør** (kilde → mål) | peger på Grænsefladen |
+| **Forbruger** (mål → kilde) | peger tilbage på Applikationen |
+| **Bidirektional** | pilespidser i begge ender |
+
+Det svarer til det, [Layered Dependency View](reports.md) allerede tegner, så diagrammet og afhængighedsrapporten stemmer overens. Forbindelser uden angivet flowretning beholder den almindelige relationspil — informationen skal findes i modellen, før et diagram kan vise den.
+
+### Skjul relationsetiketter
+
+Hver relationskant viser sit udsagnsord — *leverer*, *forbruger*, *understøtter*. På et tæt landskab bliver det hurtigt mere støj end information, så **⋮**-menuen tilbyder **Skjul relationsetiketter** (og **Vis relationsetiketter** for at hente dem tilbage).
+
+Det gælder kun visningen: selve relationen røres ikke, så det kan altid fortrydes. Indstillingen gemmes sammen med diagrammet, så den skrivebeskyttede fremviser, ethvert udgivet diagram og PNG-/SVG-eksport svarer til det, du har arrangeret. Kanter, du tegner bagefter, følger den aktuelle indstilling. Annoteringskanter, du selv har mærket, lades i fred — kun Turbo EA's relationskanter berøres.
+
 ### Synkroniseringsskuffe
 
 Knappen **Sync** i værktøjslinjen åbner sideskuffen med alt, der er kø-stillet til næste synkronisering:
@@ -93,10 +122,46 @@ Knappen **Sync** i værktøjslinjen åbner sideskuffen med alt, der er kø-still
 - **New Relations** — kanter tegnet mellem kort, klar til at blive oprettet i lageret.
 - **Removed Relations** — relationskanter slettet fra lærredet, kø-stillet til `DELETE /relations/{id}`. *Keep in inventory* genindsætter kanten.
 - **Hierarchy Changes** — bekræftede træk-ind / træk-ud container-flytninger, kø-stillet som `parent_id`-opdateringer.
-- **Inventory Changed** — kort opdateret i lageret, siden diagrammet blev åbnet, klar til at blive trukket tilbage på lærredet.
+- **Inventory Changed** — ændringer foretaget i lageret, siden diagrammet blev gemt, klar til at blive trukket tilbage på lærredet. Hver række tilbyder den tilhørende handling, og **Acceptér alle** løser alle rækker på én gang:
+    - et **omdøbt** kort — *Acceptér opdatering* omskriver cellens etiket;
+    - et **slettet** eller **arkiveret** kort — *Fjern fra diagrammet* fjerner cellen (og dens kanter) fra lærredet;
+    - en **slettet relation** — *Fjern kanten fra diagrammet* fjerner den forældede kant fra lærredet;
+    - en relation med ændret **flowretning** — *Acceptér opdatering* retter pilespidsen ind efter lageret.
+
+Turbo EA **tjekker automatisk for lagerændringer, hver gang du åbner et diagram** — et blåt badge på værktøjslinjens Sync-knap tæller de ændringer, der afventer gennemgang. Intet anvendes uden din bekræftelse; badget inviterer dig blot ind i panelet. Knappen **Tjek opdateringer** i panelet kører det samme tjek igen efter behov.
 
 Synkroniseringsknappen i værktøjslinjen viser en pulserende "N usynkroniseret"-pille, når der findes afventende arbejde. At forlade fanen med usynkroniserede ændringer udløser en browseradvarsel, og lærredet gemmes automatisk i lokalt lager hvert femte sekund, så en utilsigtet opdatering kan gendannes ved genåbning.
 
 ### Linke diagrammer til kort
 
 Diagrammer kan linkes til **et hvilket som helst kort** fra kortets fane **Resources** (se [Kortdetaljer](card-details.md#resources-tab)). Når et diagram er linket til et **Initiative**-kort, vises det også i [EA Delivery](delivery.md)-modulet sammen med SoAW-dokumenter.
+
+## Del et diagram uden for Turbo EA
+
+Et diagram kan udgives som et **skrivebeskyttet link, der åbnes uden login**, så det kan indlejres på en wiki-side som Confluence.
+
+Åbn diagrammets **⋮**-menu i galleriet, og vælg **Del / indlejr…**. Udgivelse kræver rettigheden *Udgiv diagrammer*, som er adskilt fra rettigheden til at redigere dem — en administrator tildeler den bevidst.
+
+Dialogen giver dig to valg og to strenge at kopiere:
+
+- **Alle med linket** — intet login. Behandl linket som en adgangskode: alle, det videresendes til, kan se diagrammet.
+- **Kun personer, der logger ind** — besøgende godkendes hos din identitetsudbyder, eventuelt begrænset til bestemte e-maildomæner. Der oprettes ingen Turbo EA-konto til dem.
+
+Den udgivne side viser kun billedet. Du kan panorere og zoome, men der er ingen adgang til kortdetaljer, og kort-id'erne bag figurerne fjernes, før diagrammet forlader serveren. At slå udgivelsen fra virker med det samme, også for dem der er i gang med at se. Udgiver du igen senere, gendannes det samme link, så URL'er, der allerede er indsat, bliver ved med at virke.
+
+!!! warning "Indlejring kræver ét administratortrin"
+    Af sikkerhedshensyn må ingen andre websteder placere Turbo EA i en ramme, medmindre en administrator tillader det. Sæt `TURBO_EA_EMBED_ALLOWED_ORIGINS` i `.env` til de websteder, der må indlejre diagrammer, og genstart stakken:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://dinvirksomhed.atlassian.net
+    ```
+
+    Indtil da virker udgivne links stadig, når de åbnes direkte — de kan bare ikke indlejres af et andet websted.
+
+### Indlejring i Confluence
+
+1. Udgiv diagrammet, og kopiér **indlejringskoden** fra deledialogen.
+2. Bed en administrator om at tilføje din Confluence-basis-URL til `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. Indsæt en **HTML**-makro i Confluence (eller *Iframe* / *HTML include*, afhængigt af hvad din instans tillader), og indsæt koden.
+
+Hvis dit Confluence ikke tillader HTML-makroer, kan du i stedet indsætte det almindelige **link** — det åbner den samme visning i en ny fane.

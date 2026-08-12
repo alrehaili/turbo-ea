@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -314,6 +314,21 @@ async def list_relations(
             return []
         q = q.where(or_(Relation.source_id.in_(id_list), Relation.target_id.in_(id_list)))
 
+    # Deterministic order (#918). The card-detail case (`card_id=`) is ordered
+    # by the *other* end's name so the payload already arrives in display order
+    # and the section doesn't reorder on first paint. Every other caller — the
+    # inventory's `card_type=` / `card_ids=` batches, which are unpaginated and
+    # can run to thousands of rows — gets the cheap stable key only; those
+    # callers join and sort names client-side anyway.
+    #
+    # The client sort in `RelationsSection` stays authoritative: PostgreSQL's
+    # collation and JS `Intl.Collator` disagree on accents, case and CJK.
+    if card_id:
+        other_name = case((Relation.source_id == uuid.UUID(card_id), tgt.name), else_=src.name)
+        q = q.order_by(Relation.type.asc(), other_name.asc(), Relation.id.asc())
+    else:
+        q = q.order_by(Relation.id.asc())
+
     result = await db.execute(q)
     rows = result.all()
     rels = [row[0] for row in rows]
@@ -336,32 +351,71 @@ async def create_relation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "relations.manage")
-    rel = Relation(
-        type=body.type,
-        source_id=uuid.UUID(body.source_id),
-        target_id=uuid.UUID(body.target_id),
-        attributes=body.attributes or {},
-        description=body.description,
+    source_uuid = uuid.UUID(body.source_id)
+    target_uuid = uuid.UUID(body.target_id)
+
+    # Reuse an existing (type, source, target) relation instead of inserting a
+    # second identical row. Drawing an edge on a diagram between two cards that
+    # are already related must not fork the repository into duplicates
+    # (discussion #905) — the bulk endpoint has always upserted on this key, and
+    # the single-relation path now matches it. Supplied attributes / description
+    # are merged onto the survivor so the relation-picker's values still land.
+    existing = await db.execute(
+        select(Relation).where(
+            Relation.type == body.type,
+            Relation.source_id == source_uuid,
+            Relation.target_id == target_uuid,
+        )
     )
-    db.add(rel)
+    rel = existing.scalar_one_or_none()
+    reused = rel is not None
+    changed: list[str] = []
+
+    if rel is None:
+        rel = Relation(
+            type=body.type,
+            source_id=source_uuid,
+            target_id=target_uuid,
+            attributes=body.attributes or {},
+            description=body.description,
+        )
+        db.add(rel)
+    else:
+        if body.attributes is not None and body.attributes != (rel.attributes or {}):
+            rel.attributes = body.attributes
+            changed.append("attributes")
+        if body.description is not None and body.description != rel.description:
+            rel.description = body.description
+            changed.append("description")
     await db.flush()
 
     # Run calculated fields for both source and target cards
-    source_card = await db.get(Card, uuid.UUID(body.source_id))
-    target_card = await db.get(Card, uuid.UUID(body.target_id))
+    source_card = await db.get(Card, source_uuid)
+    target_card = await db.get(Card, target_uuid)
     if source_card:
         await run_calculations_for_card(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
 
-    await _emit_relation_events(
-        db,
-        event_type="relation.created",
-        rel=rel,
-        source_card=source_card,
-        target_card=target_card,
-        actor_id=user.id,
-    )
+    if not reused:
+        await _emit_relation_events(
+            db,
+            event_type="relation.created",
+            rel=rel,
+            source_card=source_card,
+            target_card=target_card,
+            actor_id=user.id,
+        )
+    elif changed:
+        await _emit_relation_events(
+            db,
+            event_type="relation.updated",
+            rel=rel,
+            source_card=source_card,
+            target_card=target_card,
+            actor_id=user.id,
+            extra={"fields": changed},
+        )
 
     await db.commit()
     result = await db.execute(
