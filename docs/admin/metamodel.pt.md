@@ -55,9 +55,11 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 | **Rótulo** | Nome de exibição |
 | **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select ou multiple_select |
 | **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais |
-| **Obrigatório** | Se o campo deve ser preenchido para pontuação de qualidade dos dados |
+| **Obrigatório** | Se o campo é obrigatório — veja as regras de aplicação abaixo |
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |
 | **Somente leitura** | Impede edição manual (útil para campos calculados) |
+
+**Como os campos obrigatórios são aplicados.** Criar um cartão nunca exige esses campos — os cartões podem ser criados rapidamente e completados depois. Enquanto algum campo obrigatório estiver vazio, a pontuação de qualidade dos dados do cartão permanece em **0** e a página de detalhes mostra um aviso listando o que deve ser preenchido. Ao editar uma seção do cartão, ela não pode ser salva até que seus campos obrigatórios estejam preenchidos, e a API rejeita esvaziar um campo obrigatório que já tem valor. Campos booleanos e somente leitura (calculados) estão isentos.
 
 Clique em **+ Adicionar Campo** para criar um novo campo, ou clique em um campo existente para editá-lo no **Diálogo de Editor de Campo**.
 
@@ -87,6 +89,8 @@ Os IDs são **globalmente únicos, somente leitura e nunca reutilizados ou alter
 
 A pontuação de **qualidade dos dados** de um card mede de forma ponderada o quão completo ele está. Cada fator que contribui — cada campo e cinco fatores integrados — é gerido em um único lugar: a aba **Qualidade dos dados** do editor de tipo de card. (O editor é organizado em abas — Geral, Relações, Papéis das partes interessadas e Qualidade dos dados — as traduções estão disponíveis no ícone do cabeçalho.)
 
+**Os campos obrigatórios prevalecem sobre a pontuação.** Enquanto algum campo obrigatório de um card estiver vazio, sua pontuação permanece em **0** independentemente dos pesos — o cálculo ponderado só se aplica quando todos os campos obrigatórios estiverem preenchidos (campos booleanos e somente leitura estão isentos; veja a configuração **Obrigatório** acima).
+
 A importância de cada fator é definida com um controle deslizante simples de quatro níveis, que também mostra o número subjacente:
 
 - **Ignorar (0)** — excluído totalmente da pontuação.
@@ -94,7 +98,7 @@ A importância de cada fator é definida com um controle deslizante simples de q
 - **Importante (2)** — conta o dobro.
 - **Crítico (3)** — conta o triplo.
 
-O painel lista os cinco **fatores integrados** — **Descrição**, **Ciclo de vida** (se alguma data de ciclo de vida estiver definida), **Relações obrigatórias**, **Etiquetas obrigatórias** e **Papéis das partes interessadas** (cada papel definido para o tipo é satisfeito quando uma parte interessada lhe é atribuída) — seguidos de cada campo agrupado pela sua seção, cada um com o mesmo controle deslizante. Por exemplo, defina o **Ciclo de vida** como *Ignorar* para um tipo cujos cards legitimamente nunca têm datas, para que não sejam penalizados.
+O painel lista os cinco **fatores integrados** — **Descrição**, **Ciclo de vida** (se alguma data de ciclo de vida estiver definida), **Relações obrigatórias**, **Etiquetas obrigatórias** e **Papéis das partes interessadas** (uma única posição, satisfeita assim que alguém é atribuído ao card num papel que conta para a qualidade dos dados) — seguidos de cada campo agrupado pela sua seção, cada um com o mesmo controle deslizante. Por exemplo, defina o **Ciclo de vida** como *Ignorar* para um tipo cujos cards legitimamente nunca têm datas, para que não sejam penalizados.
 
 Uma barra de **composição da pontuação** no topo do painel mostra a parcela de cada fator na pontuação máxima possível, para ver rapidamente quais fatores dominam. No layout do card da aba **Principal**, cada campo — e as seções integradas Descrição, Ciclo de vida e Relações — mostra um pequeno selo com o seu nível atual, para ver a ponderação sem sair dessa aba.
 
@@ -120,6 +124,8 @@ Quando nenhum subtipo é selecionado num card (ou o tipo não possui subtipos), 
 Defina papéis personalizados para este tipo (ex.: "Proprietário da Aplicação", "Proprietário Técnico"). Cada papel carrega **permissões em nível de card** que são combinadas com o papel em nível de aplicação do usuário ao acessar um card. Veja [Usuários e Papéis](users.md) para mais informações sobre o modelo de permissões.
 
 Cada papel tem uma **chave** (o identificador armazenado nos cartões, usado pelas colunas de importação/exportação `stakeholder:<chave_do_papel>`) e um **rótulo** (o que os utilizadores veem). A chave segue a mesma convenção de qualquer outra chave do metamodelo: apenas letras e dígitos, começando por uma letra, de 3 a 50 caracteres, por convenção em camelCase como `businessArchitect`. É preenchida automaticamente a partir do rótulo, pelo que raramente precisará de a escrever.
+
+Cada papel tem também um interruptor **Conta para a qualidade dos dados**. A pontuação de qualidade tem uma única posição para partes interessadas, satisfeita assim que alguém é atribuído ao card num papel com este interruptor ativo. Desative-o para papéis puramente passivos — o **Observador** integrado vem desativado, para que observar um card nunca equivalha a ser responsável por ele. Um tipo cujos papéis estejam todos desativados não contribui com posição alguma. Alterar o interruptor volta a pontuar de imediato todos os cards do tipo.
 
 Os papéis podem ser removidos de duas formas:
 

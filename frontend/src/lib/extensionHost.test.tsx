@@ -16,6 +16,7 @@ import {
   getExtensionAdrPanels,
   getExtensionFieldTypes,
   getExtensionFieldVisibilityProviders,
+  getExtensionIntegrationPanels,
   getExtensionLoadErrors,
   getExtensionRoutes,
   getExtensionRoutesForGroup,
@@ -66,6 +67,13 @@ describe("extensionHost", () => {
     // SDK 1.9 — theme-aware chart chrome
     expect(typeof sdk.useChartTheme).toBe("function");
     expect(typeof sdk.useThumbnailCapture).toBe("function");
+    // SDK 1.14 — shared card scope picker
+    expect(sdk.CardScopeDialog).toBeDefined();
+    expect(typeof sdk.dedupeScopeRoots).toBe("function");
+    // SDK 1.15 — the rest of the report-scoping kit
+    expect(sdk.CardScopeFilter).toBeDefined();
+    expect(typeof sdk.useCardScope).toBe("function");
+    expect(typeof sdk.applyScope).toBe("function");
   });
 
   it("registers a plugin and lists its routes", () => {
@@ -216,6 +224,38 @@ describe("extensionHost", () => {
     expect(getExtensionSurveyTemplates()).toEqual([]);
   });
 
+  it("aggregates integration panels in order and drops invalid ones (SDK 1.16)", () => {
+    const Panel = () => <div>integration panel</div>;
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("conn", {
+      key: "conn",
+      sdkVersion: UI_SDK_VERSION,
+      integrationPanels: [
+        {
+          id: "settings",
+          label: "Tracker sync",
+          icon: "sync",
+          permission: "ext.conn.admin",
+          component: Panel,
+        },
+        // invalid: no component
+        { id: "bad", label: "Bad" } as never,
+        // invalid: no label
+        { id: "worse", component: Panel } as never,
+      ],
+    });
+    spy.mockRestore();
+    const panels = getExtensionIntegrationPanels();
+    expect(panels).toHaveLength(1);
+    expect(panels[0].extKey).toBe("conn");
+    expect(panels[0].contribution.id).toBe("settings");
+    expect(panels[0].contribution.permission).toBe("ext.conn.admin");
+    // Stable snapshot until the registry changes (useSyncExternalStore contract).
+    expect(getExtensionIntegrationPanels()).toBe(getExtensionIntegrationPanels());
+    resetExtensionHost();
+    expect(getExtensionIntegrationPanels()).toEqual([]);
+  });
+
   it("aggregates field-visibility providers in registration order and drops invalid ones", () => {
     const ProviderA = () => null;
     const ProviderB = () => null;
@@ -328,7 +368,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.13");
+    expect(UI_SDK_VERSION).toBe("1.16");
   });
 
   it("aggregates generic slots (component + data), sorts by order, drops invalid ones", () => {

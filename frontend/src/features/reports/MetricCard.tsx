@@ -23,6 +23,9 @@ interface Props {
    * gets read as a single fact.
    */
   ariaLabel?: string;
+  /** Makes the tile a drill-down affordance (e.g. opening the cards behind
+   * the number). Left unset the tile stays a plain read-only KPI. */
+  onClick?: () => void;
 }
 
 export default function MetricCard({
@@ -33,17 +36,24 @@ export default function MetricCard({
   subtitle,
   color,
   ariaLabel,
+  onClick,
 }: Props) {
   return (
     <Paper
       variant="outlined"
       role="group"
       aria-label={ariaLabel ?? `${label}: ${value}`}
+      onClick={onClick}
       sx={{
         p: 2,
         minWidth: 150,
         flex: "1 1 150px",
         borderLeft: color ? `4px solid ${color}` : undefined,
+        ...(onClick && {
+          cursor: "pointer",
+          transition: "background-color 120ms",
+          "&:hover": { bgcolor: "action.hover" },
+        }),
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>

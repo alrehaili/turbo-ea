@@ -21,6 +21,10 @@ Dies ist ideal für Portfolioanalysen — zum Beispiel Anwendungen nach Geschäf
 
 Wenn KI konfiguriert und Portfolio-Erkenntnisse von einem Administrator aktiviert sind, zeigt der Portfoliobericht eine Schaltfläche **KI-Erkenntnisse**. Ein Klick sendet eine Zusammenfassung der aktuellen Ansicht an den KI-Anbieter, der strategische Erkenntnisse über Konzentrationsrisiken, Modernisierungsmöglichkeiten, Lebenszyklus-Bedenken und Portfolio-Ausgewogenheit liefert. Das Erkenntnispanel ist zusammenklappbar und kann nach Änderung von Filtern oder Gruppierung neu generiert werden.
 
+### Vom Bericht ins Inventar
+
+Ein Klick auf eine Gruppe öffnet eine Seitenleiste mit den Karten der Gruppe. Deren Schaltfläche **Im Inventar anzeigen** öffnet das Inventar genau auf diesem Ausschnitt. Ist der Bericht nach einem eigenen Feld des Kartentyps gruppiert, kommt das Inventar nach demselben Feld gruppiert an: die angeklickte Gruppe ist ausgeklappt, alle anderen sind eingeklappt (die Anzahlen bleiben sichtbar), und Suche, Attribut-, Beziehungs- und Tag-Filter des Berichts werden übernommen — bereit für „alle auswählen“ und die [Massenbearbeitung](inventory.md#mass-edit). Bei Gruppierung nach einem verknüpften Kartentyp (etwa Organisation) kommt das Inventar stattdessen auf diese verknüpfte Karte gefiltert an. Bei aktiven *verschachtelten Gruppen* ist die Schaltfläche ausgeblendet: Für einen aufsummierten Teilbaum gibt es keinen einzelnen Inventarfilter.
+
 ## Flexibles Portfolio
 
 ![Flexibles Portfolio — Datenobjekt-Portfolio gruppiert nach Anwendung, gefärbt nach Datensensibilität](../assets/img/de/57_bericht_flexibles_portfolio.png)
@@ -41,6 +45,9 @@ Beim Gruppieren nach einem verknüpften Kartentyp mit Hierarchie (z. B. Geschäf
 
 ## Fähigkeitskarte
 
+Ein Klick auf eine Fähigkeit öffnet ein Seitenpanel mit allen Anwendungen ihres Teilbaums. Auf der untersten Ebene bietet das Panel **In Inventar anzeigen**, was zu den damit verknüpften Anwendungen führt.
+
+
 ![Geschäftsfähigkeitskarte](../assets/img/de/11_faehigkeiten_karte.png)
 
 Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfähigkeiten der Organisation. Jeder Block repräsentiert eine Fähigkeit, mit:
@@ -48,6 +55,8 @@ Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfäh
 - **Hierarchie** — Hauptfähigkeiten enthalten ihre Unterfähigkeiten
 - **Heatmap-Einfärbung** — Blöcke werden basierend auf einer ausgewählten Metrik eingefärbt (z.B. Anzahl unterstützender Anwendungen, durchschnittliche Datenqualität oder Risikoniveau)
 - **Zum Erkunden klicken** — Klicken Sie auf eine beliebige Fähigkeit, um in deren Details und unterstützende Anwendungen einzutauchen
+
+**Auf bestimmte Fähigkeiten eingrenzen** — Standardmäßig zeigt die Karte alle Fähigkeiten. Über den Fähigkeits-Chip in der Symbolleiste öffnen Sie eine Auswahl und wählen eine oder mehrere Fähigkeiten aus; die Karte zeigt dann nur diese und alles darunter. Unterfähigkeiten werden automatisch einbezogen — die Auswahl einer obersten Fähigkeit liefert also ihren gesamten Zweig. Die **Anzeigetiefe** zählt ab den ausgewählten Fähigkeiten, *Ebene 2* bedeutet also stets zwei Stufen unterhalb dessen, was Sie gerade betrachten. Der Bereich wird mit dem Bericht gespeichert, sodass ein gespeicherter Bericht wieder im selben Zweig öffnet.
 
 ## Lebenszyklus-Bericht
 
@@ -60,6 +69,8 @@ Der **Lebenszyklus-Bericht** zeigt eine **Zeitleisten-Visualisierung** darüber,
 - **Migrationskoordination** — Überlappende Einführungs- und Auslaufperioden visualisieren
 
 Komponenten werden als horizontale Balken dargestellt, die ihre Lebenszyklusphasen umspannen: Planung, Einführung, Aktiv, Auslauf und Lebensende.
+
+**Auf bestimmte Karten eingrenzen** — Sobald ein Kartentyp gewählt ist, öffnet der Chip daneben eine Auswahl: Wählen Sie eine oder mehrere Karten, und die Zeitachse zeigt nur diese und alles darunter. Unterkarten werden automatisch einbezogen. Solange *Alle Typen* eingestellt ist, bleibt der Chip deaktiviert, da eine Eingrenzung eine einzelne Hierarchie benötigt.
 
 ## Abhängigkeitsbericht
 
@@ -145,6 +156,8 @@ Sobald mindestens eine Kostenquelle aktiv ist, sind die Treemap-Rechtecke **ankl
 
 Der Zeitleisten-Schieberegler, die Kostenquellen-Auswahl und andere Filter bleiben beim Drilldown erhalten, und die Drilldown-Ebene ist Teil der gespeicherten Berichtskonfiguration — wer einen Bericht im hineingezoomten Zustand speichert, öffnet ihn direkt auf dieser Ebene wieder. Wenn **keine** Kostenquelle aktiv ist, öffnet ein Klick auf ein Rechteck stattdessen das Karten-Seitenpanel (es gibt nichts aufzuschlüsseln).
 
+**Auf bestimmte Karten eingrenzen** — Der Chip neben der Kartentyp-Auswahl öffnet eine Auswahl: Wählen Sie eine oder mehrere Karten, und Treemap, Summen und Tabelle zeigen nur diese und alles darunter. Während Sie in ein Rechteck hineingezoomt haben, wird der Chip ausgeblendet, da eine Detailansicht bereits zu einem anderen Kartentyp gewechselt ist; verlassen Sie sie, ist die Eingrenzung weiterhin aktiv.
+
 ## Matrixbericht
 
 ![Matrixbericht](../assets/img/de/35_bericht_matrix.png)
@@ -198,6 +211,8 @@ Zwei Kacheln zählen die Karten je Achse, die überhaupt keine Beziehung haben. 
 
 Der Excel-Export erzeugt zwei Blätter: das Raster wie auf dem Bildschirm und eine Zeile je Beziehung mit ihren Werten in Spalten — das Blatt zum Pivotieren. Der PowerPoint-Export erfasst das Bild.
 
+**Beide Achsen eingrenzen** — Jede Achse hat ihren eigenen Chip neben ihrer Typ-Auswahl, sodass Sie *diese Fähigkeiten × diese Anwendungen* abfragen können. Die Kennzahlen über dem Raster folgen der Eingrenzung, sodass die Zahlen immer das Gezeigte beschreiben. Ein Wechsel des Kartentyps einer Achse löscht deren Eingrenzung; beim Transponieren tauschen die beiden Eingrenzungen mit den Achsen.
+
 ## Datenqualitätsbericht
 
 ![Datenqualitätsbericht](../assets/img/de/33_bericht_datenqualitaet.png)
@@ -207,6 +222,19 @@ Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeig
 - **Gesamtbewertung** — Durchschnittliche Datenqualität über alle Karten
 - **Nach Typ** — Aufschlüsselung, die zeigt, welche Kartentypen die beste/schlechteste Vollständigkeit haben
 - **Einzelne Karten** — Liste der Karten mit der niedrigsten Datenqualität, priorisiert zur Verbesserung
+
+Karten mit einem leeren **Pflichtfeld** erhalten immer **0 %** — die gewichtete Berechnung greift erst wieder, wenn alle Pflichtfelder ausgefüllt sind — die Liste der schlechtesten Werte zeigt also genau die Karten, deren Pflichtangaben noch fehlen.
+
+### In eine Zahl hineinnavigieren
+
+Jede Kennzahl im Bericht ist ein Einstiegspunkt, nicht nur eine Anzeige:
+
+- **Klicken Sie auf ein Balkensegment** in *Vollständigkeit nach Typ* — rechts öffnet sich ein Panel mit den Karten dieses Typs in diesem Band (Vollständig, Teilweise oder Minimal).
+- **Klicken Sie auf einen Balken** in *Durchschnittliche Vollständigkeit nach Typ* oder auf eine Zeile in der Tabellenansicht, um alle Karten dieses Typs aufzulisten.
+- **Klicken Sie auf die Kachel Verwaist oder Veraltet**, um die Karten hinter dieser Zahl aufzulisten.
+
+Klicken Sie im Panel auf eine Karte, um deren Detailbereich zu öffnen, oder auf **In Inventar anzeigen**, um im [Inventar](inventory.md) weiterzuarbeiten — dieses erscheint nach Datenqualität gruppiert, mit dem angeklickten Band aufgeklappt und den übrigen daneben eingeklappt, sodass Sie sofort mit der Korrektur beginnen können. Die Panels Verwaist und Veraltet führen in den passenden Inventarfilter — über alle Kartentypen hinweg.
+
 
 ## End-of-Life-Bericht (EOL)
 
@@ -236,3 +264,5 @@ Beim Export aktive Filter- und Gruppierungseinstellungen werden auf der Titelfol
 ## Prozesskarte
 
 Die **Prozesskarte** visualisiert die Geschäftsprozesslandschaft der Organisation als strukturierte Karte und zeigt Prozesskategorien (Management, Kern, Unterstützung) und ihre hierarchischen Beziehungen.
+
+**Auf bestimmte Prozesse eingrenzen** — Der Chip neben *Anzeigetiefe* öffnet eine Auswahl: Wählen Sie einen oder mehrere Prozesse, und die Karte zeigt nur diese und alles darunter. Teilprozesse werden automatisch einbezogen, und die **Anzeigetiefe** zählt ab Ihrer Auswahl. Das Hineinzoomen per Klick funktioniert weiterhin — nun innerhalb der Eingrenzung. Dies ist ein anderes Bedienelement als die Zeile **Bereich** darunter, die nach verknüpfter Organisation oder Geschäftskontext filtert.

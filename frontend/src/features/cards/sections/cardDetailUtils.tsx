@@ -8,6 +8,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
+import FormHelperText from "@mui/material/FormHelperText";
 import InputLabel from "@mui/material/InputLabel";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
@@ -29,6 +30,7 @@ import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, ReferenceModelItem, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
+import { bandColor } from "@/lib/dataQualityBands";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -154,6 +156,44 @@ export function FieldHelp({ text }: { text: string }) {
   );
 }
 
+// ── Mandatory (required) fields ─────────────────────────────────
+// Shared semantics with the backend (_is_empty_attr / the data-quality gate):
+// empty means null / "" / []; boolean fields are exempt (a switch always has a
+// value) and so are readonly (calculated) fields.
+export function isEmptyAttrValue(val: unknown): boolean {
+  return (
+    val === null ||
+    val === undefined ||
+    val === "" ||
+    (Array.isArray(val) && val.length === 0)
+  );
+}
+
+export function isEnforcedRequiredField(field: FieldDef): boolean {
+  return !!field.required && field.type !== "boolean" && !field.readonly;
+}
+
+/** All visible, enforced-required fields of `typeConfig` (respecting the
+ * subtype's hidden fields) whose value on `attributes` is empty. */
+export function missingRequiredFields(
+  typeConfig: { fields_schema: { fields: FieldDef[] }[]; subtypes?: { key: string; hidden_fields?: string[] }[] } | undefined,
+  subtype: string | null | undefined,
+  attributes: Record<string, unknown> | null | undefined,
+): FieldDef[] {
+  if (!typeConfig) return [];
+  const hidden = new Set(
+    (subtype && typeConfig.subtypes?.find((s) => s.key === subtype)?.hidden_fields) || [],
+  );
+  const missing: FieldDef[] = [];
+  for (const section of typeConfig.fields_schema || []) {
+    for (const field of section.fields || []) {
+      if (!isEnforcedRequiredField(field) || hidden.has(field.key)) continue;
+      if (isEmptyAttrValue((attributes || {})[field.key])) missing.push(field);
+    }
+  }
+  return missing;
+}
+
 // ── URL validation (matches backend _ALLOWED_URL_SCHEMES) ────────
 const ALLOWED_URL_SCHEMES = ["http://", "https://", "mailto:"];
 export function isValidUrl(value: string): boolean {
@@ -170,7 +210,7 @@ export function getUrlErrorMsg(t: (key: string) => string): string {
 export function DataQualityPill({ value }: { value: number }) {
   const { t } = useTranslation(["cards", "common"]);
   const v = Math.max(0, Math.min(100, Math.round(value)));
-  const color = v >= 80 ? "#4caf50" : v >= 50 ? "#ff9800" : "#f44336";
+  const color = bandColor(v);
   return (
     <Tooltip title={t("utils.dataQuality", { value: v })}>
       <Box
@@ -564,6 +604,7 @@ export function FieldEditor({
   const optLabel = useOptionLabel();
   const help = useFieldHelp()(field);
   const extFieldTypes = useExtensionFieldTypes();
+  const isRequired = isEnforcedRequiredField(field);
 
   // Sanitize: ensure value passed to MUI is always the expected primitive type
   const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
@@ -592,7 +633,7 @@ export function FieldEditor({
     switch (field.type) {
     case "single_select":
       return (
-        <FormControl size="small" sx={{ minWidth: 200 }}>
+        <FormControl size="small" required={isRequired} error={!!error} sx={{ minWidth: 200 }}>
           <InputLabel>{fieldLabel(field)}</InputLabel>
           <Select
             value={strVal}
@@ -620,16 +661,22 @@ export function FieldEditor({
               </MenuItem>
             ))}
           </Select>
+          {error && <FormHelperText>{error}</FormHelperText>}
         </FormControl>
       );
     case "multiple_select": {
       const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
       const labelText = fieldLabel(field);
       return (
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{labelText}</InputLabel>
+        <FormControl size="small" required={isRequired} error={!!error} sx={{ minWidth: 200 }}>
+          {/* `shrink` + `notched` keep the label on the outline while the
+              displayEmpty placeholder renders inside — without them the
+              un-shrunk label and the placeholder overlap when nothing is
+              selected (MUI never auto-shrinks for multiple + value=[]). */}
+          <InputLabel shrink>{labelText}</InputLabel>
           <Select
             multiple
+            notched
             value={arrVal}
             label={labelText}
             onChange={(e) => {
@@ -689,6 +736,7 @@ export function FieldEditor({
               );
             })}
           </Select>
+          {error && <FormHelperText>{error}</FormHelperText>}
         </FormControl>
       );
     }
@@ -718,6 +766,9 @@ export function FieldEditor({
           size="small"
           label={fieldLabel(field)}
           type="number"
+          required={isRequired}
+          error={!!error}
+          helperText={error}
           value={numVal}
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
@@ -732,6 +783,9 @@ export function FieldEditor({
           size="small"
           label={fieldLabel(field)}
           type="number"
+          required={isRequired}
+          error={!!error}
+          helperText={error}
           value={numVal}
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
@@ -756,6 +810,9 @@ export function FieldEditor({
         <DateField
           size="small"
           label={fieldLabel(field)}
+          required={isRequired}
+          error={!!error}
+          helperText={error}
           value={strVal}
           onChange={(v) => onChange(v || undefined)}
           sx={{ minWidth: 200 }}
@@ -768,6 +825,7 @@ export function FieldEditor({
           label={fieldLabel(field)}
           type="url"
           placeholder="https://"
+          required={isRequired}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           error={!!error}
@@ -780,6 +838,9 @@ export function FieldEditor({
         <TextField
           size="small"
           label={fieldLabel(field)}
+          required={isRequired}
+          error={!!error}
+          helperText={error}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           multiline
@@ -804,6 +865,9 @@ export function FieldEditor({
         <TextField
           size="small"
           label={fieldLabel(field)}
+          required={isRequired}
+          error={!!error}
+          helperText={error}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           sx={{ minWidth: 300 }}

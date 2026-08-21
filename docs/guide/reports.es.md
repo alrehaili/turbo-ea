@@ -21,6 +21,10 @@ Esto es ideal para el análisis de portafolio — por ejemplo, representar aplic
 
 Cuando la IA está configurada y los análisis de portafolio están habilitados por un administrador, el informe de portafolio muestra un botón **Análisis IA**. Al hacer clic, se envía un resumen de la vista actual al proveedor de IA, que devuelve análisis estratégicos sobre riesgos de concentración, oportunidades de modernización, preocupaciones del ciclo de vida y equilibrio del portafolio. El panel de análisis es plegable y puede regenerarse después de cambiar filtros o agrupaciones.
 
+### Del informe al inventario
+
+Al hacer clic en un grupo se abre un panel con las tarjetas de ese grupo. Su botón **Ver en el inventario** abre el inventario exactamente en ese segmento. Cuando el informe está agrupado por un campo propio del tipo de tarjeta, el inventario llega agrupado por el mismo campo: el grupo pulsado aparece desplegado y el resto plegado (los recuentos siguen visibles), y se trasladan la búsqueda y los filtros de atributos, relaciones y etiquetas del informe — listo para «seleccionar todo» y la [edición masiva](inventory.md#mass-edit). Al agrupar por un tipo de tarjeta relacionado (por ejemplo, Organización), el inventario llega filtrado a esa tarjeta relacionada. El botón se oculta cuando los *grupos anidados* están activos: un subárbol agregado no se corresponde con ningún filtro único del inventario.
+
 ## Portafolio flexible
 
 ![Portafolio flexible — portafolio de Objetos de Datos agrupado por Aplicación y coloreado por Sensibilidad de Datos](../assets/img/es/57_informe_portafolio_flexible.png)
@@ -41,6 +45,9 @@ Al agrupar por un tipo de tarjeta relacionado que admite jerarquía (como Capaci
 
 ## Mapa de Capacidades
 
+Al hacer clic en una capacidad se abre un panel lateral con todas las aplicaciones de su subárbol. En el nivel más bajo, el panel ofrece **Ver en el inventario**, que lleva a las aplicaciones vinculadas a ella.
+
+
 ![Mapa de Capacidades de Negocio](../assets/img/es/11_mapa_capacidades.png)
 
 El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capacidades de negocio de la organización. Cada bloque representa una capacidad, con:
@@ -48,6 +55,8 @@ El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capac
 - **Jerarquía** — Las capacidades principales contienen sus sub-capacidades
 - **Coloración por mapa de calor** — Los bloques se colorean según una métrica seleccionada (por ejemplo, número de aplicaciones que las soportan, calidad de datos promedio o nivel de riesgo)
 - **Clic para explorar** — Haga clic en cualquier capacidad para profundizar en sus detalles y aplicaciones de soporte
+
+**Limitar a capacidades concretas** — De forma predeterminada, el mapa dibuja todas las capacidades. Use el chip de capacidad de la barra de herramientas para abrir un selector y elegir una o varias capacidades; el mapa mostrará entonces solo esas y todo lo que hay debajo. Las subcapacidades se incluyen automáticamente, así que elegir una capacidad de primer nivel le da toda su rama. La **Profundidad de visualización** se cuenta desde las capacidades seleccionadas, por lo que *Nivel 2* siempre significa dos niveles por debajo de lo que está viendo. El alcance se guarda con el informe, de modo que un informe guardado se vuelve a abrir en la misma rama.
 
 ## Informe de Ciclo de Vida
 
@@ -60,6 +69,8 @@ El **Informe de Ciclo de Vida** muestra una **visualización de línea temporal*
 - **Coordinación de migración** — Visualice períodos superpuestos de entrada y salida de fase
 
 Los componentes se muestran como barras horizontales que abarcan sus fases de ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida y Fin de Vida.
+
+**Limitar a tarjetas concretas** — Una vez elegido un tipo de tarjeta, el chip contiguo abre un selector: elija una o varias tarjetas y la línea de tiempo mostrará solo esas y todo lo que hay debajo. Las tarjetas hijas se incluyen automáticamente. El chip permanece desactivado mientras el selector esté en *Todos los tipos*, porque un alcance necesita una única jerarquía.
 
 ## Informe de Dependencias
 
@@ -145,6 +156,8 @@ Siempre que haya al menos un Origen de los costes activo, los rectángulos del m
 
 El control deslizante de cronología, la selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
 
+**Limitar a tarjetas concretas** — El chip contiguo al selector de tipo abre un selector: elija una o varias tarjetas y el treemap, los totales y la tabla se limitarán a esas y a todo lo que hay debajo. El chip se oculta mientras esté dentro de un rectángulo, ya que ese detalle le ha llevado a otro tipo de tarjeta; salga de él y el alcance seguirá ahí.
+
 ## Informe de Matriz
 
 ![Informe de Matriz](../assets/img/es/35_informe_matriz.png)
@@ -198,6 +211,8 @@ Dos tarjetas cuentan las fichas de cada eje que no tienen ninguna relación. **M
 
 La exportación a Excel genera dos hojas: la cuadrícula tal como aparece en pantalla y una fila por relación con sus valores repartidos en columnas, la hoja sobre la que construir una tabla dinámica. La exportación a PowerPoint captura la imagen.
 
+**Limitar cada eje** — Cada eje tiene su propio chip junto a su selector de tipo, de modo que puede pedir *estas capacidades × estas aplicaciones*. Los indicadores sobre la cuadrícula siguen al alcance, así que las cifras siempre describen lo que está viendo. Cambiar el tipo de un eje borra su alcance; al transponer, los dos alcances se intercambian junto con los ejes.
+
 ## Informe de Calidad de Datos
 
 ![Informe de Calidad de Datos](../assets/img/es/33_informe_calidad_datos.png)
@@ -207,6 +222,19 @@ El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qu
 - **Puntuación general** — Calidad de datos promedio en todas las fichas
 - **Por tipo** — Desglose que muestra qué tipos de fichas tienen la mejor/peor completitud
 - **Fichas individuales** — Lista de fichas con la calidad de datos más baja, priorizadas para mejora
+
+Las tarjetas con un **campo obligatorio** vacío siempre puntúan **0 %** — el cálculo ponderado solo se reanuda cuando todos los campos obligatorios están completos — de modo que la lista de puntuaciones más bajas muestra exactamente las tarjetas a las que aún les faltan datos obligatorios.
+
+### Profundizar en una cifra
+
+Cada cifra del informe es una vía de entrada, no solo un dato:
+
+- **Haga clic en un segmento de barra** en *Completitud por tipo*: se abre un panel a la derecha con las fichas de ese tipo en esa banda (Completo, Parcial o Mínimo).
+- **Haga clic en una barra** de *Completitud media por tipo*, o en una fila de la vista de tabla, para listar todas las fichas de ese tipo.
+- **Haga clic en el mosaico Huérfanos u Desactualizados** para listar las fichas tras ese recuento.
+
+Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados enlazan con el filtro de inventario correspondiente, en todos los tipos de ficha.
+
 
 ## Informe de Fin de Vida (EOL)
 
@@ -236,3 +264,5 @@ Los filtros y agrupaciones activos en el momento de la exportación se registran
 ## Mapa de Procesos
 
 El **Mapa de Procesos** visualiza el panorama de procesos de negocio de la organización como un mapa estructurado, mostrando las categorías de procesos (Gestión, Principal, Soporte) y sus relaciones jerárquicas.
+
+**Limitar a procesos concretos** — El chip contiguo a *Profundidad de visualización* abre un selector: elija uno o varios procesos y el mapa mostrará solo esos y todo lo que hay debajo. Los subprocesos se incluyen automáticamente y la **Profundidad de visualización** se cuenta desde su selección. El zoom con un clic sigue funcionando, ahora dentro del alcance. Es un control distinto de la fila **Alcance** de abajo, que filtra por Organización o Contexto de negocio relacionado.

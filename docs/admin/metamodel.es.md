@@ -55,9 +55,11 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 | **Etiqueta** | Nombre para mostrar |
 | **Tipo** | texto, texto_multilínea, número, costo, booleano, fecha, url, selección_única o selección_múltiple |
 | **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales |
-| **Requerido** | Si el campo debe completarse para la puntuación de calidad de datos |
+| **Requerido** | Si el campo es obligatorio — consulta las reglas de aplicación más abajo |
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |
 | **Solo lectura** | Impide la edición manual (útil para campos calculados) |
+
+**Cómo se aplican los campos obligatorios.** Crear una tarjeta nunca exige estos campos: las tarjetas pueden crearse rápidamente y completarse después. Mientras algún campo obligatorio siga vacío, la puntuación de calidad de datos de la tarjeta permanece en **0** y la página de detalle muestra un aviso con los campos que deben completarse. Al editar una sección de la tarjeta, no se puede guardar hasta que sus campos obligatorios estén completos, y la API rechaza vaciar un campo obligatorio que ya tiene valor. Los campos booleanos y de solo lectura (calculados) están exentos.
 
 Haga clic en **+ Agregar Campo** para crear un nuevo campo, o haga clic en un campo existente para editarlo en el **Diálogo Editor de Campos**.
 
@@ -87,6 +89,8 @@ Los ID son **únicos globalmente, de solo lectura y nunca se reutilizan ni cambi
 
 La puntuación de **calidad de datos** de una tarjeta mide de forma ponderada cuán completa está. Cada factor que contribuye —cada campo y cinco factores integrados— se gestiona en un solo lugar: la pestaña **Calidad de datos** del editor del tipo de tarjeta. (El editor se organiza en pestañas: General, Relaciones, Roles de partes interesadas y Calidad de datos; las traducciones están disponibles desde el icono del encabezado.)
 
+**Los campos obligatorios prevalecen sobre la puntuación.** Mientras algún campo obligatorio de una tarjeta siga vacío, su puntuación permanece en **0** independientemente de los pesos: el cálculo ponderado solo se aplica una vez completados todos los campos obligatorios (los campos booleanos y de solo lectura están exentos; consulta el ajuste **Requerido** más arriba).
+
 La importancia de cada factor se establece con un control deslizante simple de cuatro niveles, que también muestra el número subyacente:
 
 - **Ignorar (0)**: excluido por completo de la puntuación.
@@ -94,7 +98,7 @@ La importancia de cada factor se establece con un control deslizante simple de c
 - **Importante (2)**: cuenta el doble.
 - **Crítico (3)**: cuenta el triple.
 
-El panel enumera los cinco **factores integrados** —**Descripción**, **Ciclo de vida** (si hay alguna fecha de ciclo de vida establecida), **Relaciones obligatorias** , **Etiquetas obligatorias** y **Roles de partes interesadas** (cada rol definido para el tipo se cumple cuando se le asigna una parte interesada)— seguidos de cada campo agrupado por su sección, todos con el mismo control deslizante. Por ejemplo, establezca el **Ciclo de vida** en *Ignorar* para un tipo cuyas tarjetas legítimamente nunca llevan fechas, para que no se penalicen.
+El panel enumera los cinco **factores integrados** —**Descripción**, **Ciclo de vida** (si hay alguna fecha de ciclo de vida establecida), **Relaciones obligatorias** , **Etiquetas obligatorias** y **Roles de partes interesadas** (una sola casilla, que se cumple en cuanto se asigna a alguien a la tarjeta en un rol que cuenta para la calidad de datos)— seguidos de cada campo agrupado por su sección, todos con el mismo control deslizante. Por ejemplo, establezca el **Ciclo de vida** en *Ignorar* para un tipo cuyas tarjetas legítimamente nunca llevan fechas, para que no se penalicen.
 
 Una barra de **composición de la puntuación** en la parte superior del panel muestra la proporción de cada factor en la puntuación máxima posible, para ver de un vistazo qué factores dominan. En el diseño de la tarjeta de la pestaña **Main**, cada campo —y las secciones integradas Descripción, Ciclo de vida y Relaciones— muestra una pequeña insignia con su nivel actual, para ver la ponderación sin salir de esa pestaña.
 
@@ -120,6 +124,8 @@ Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipo
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
 
 Cada rol tiene una **clave** (el identificador almacenado en las tarjetas, utilizado por las columnas de importación/exportación `stakeholder:<clave_del_rol>`) y una **etiqueta** (lo que ven los usuarios). La clave sigue la misma convención que cualquier otra clave del metamodelo: solo letras y dígitos, empezando por una letra, de 3 a 50 caracteres, por convención en camelCase como `businessArchitect`. Se rellena automáticamente a partir de la etiqueta, por lo que rara vez tendrá que escribirla.
+
+Cada rol lleva además un interruptor **Cuenta para la calidad de datos**. La puntuación de calidad tiene una única casilla de partes interesadas, que se cumple en cuanto se asigna a alguien a la tarjeta en un rol con este interruptor activo. Desactívelo para roles puramente pasivos: el **Observador** integrado se entrega desactivado, de modo que observar una tarjeta nunca equivalga a ser responsable de ella. Un tipo cuyos roles estén todos desactivados no aporta casilla alguna. Cambiar el interruptor vuelve a puntuar de inmediato todas las tarjetas del tipo.
 
 Los roles pueden retirarse de dos formas:
 

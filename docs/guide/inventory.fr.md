@@ -15,7 +15,9 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 - **Sous-types** -- Lorsqu'un type est sélectionné, filtrer davantage par sous-type (par ex. Application -> Application Métier, Microservice, Agent IA, Déploiement)
 - **Statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté
 - **Cycle de vie** -- Filtrer par phase du cycle de vie : Planification, Mise en service, Actif, Retrait progressif, Fin de vie
-- **Qualité des données** -- Filtrage par seuil : Bonne (80%+), Moyenne (50-79%), Faible (inférieure à 50%)
+- **Qualité des données** -- Filtrage par plage (sélection multiple) : Complet (≥80 %), Partiel (40-79 %), Minimal (moins de 40 %). Ce sont les plages du [rapport Qualité des données](reports.md#data-quality-report) : un clic sur un segment de barre y mène ici.
+- **Orphelines** -- Uniquement les fiches sans aucune relation, dans un sens comme dans l'autre. Évalué côté serveur, donc utilisable sans type de fiche sélectionné.
+- **Obsolètes** -- Uniquement les fiches non mises à jour depuis 90 jours. Les deux reflètent les tuiles du [rapport Qualité des données](reports.md#data-quality-report) : un clic sur une tuile y mène ici.
 - **Tags** -- Filtrer par tags de n'importe quel groupe de tags
 - **Relations** -- Filtrer par fiches liées à travers les types de relations
 - **Attributs personnalisés** -- Filtrer par valeurs dans les champs personnalisés (recherche textuelle, options de sélection)
@@ -25,6 +27,20 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 > **Trouver les cartes sans valeur.** Les filtres Sous-type, Cycle de vie, Étiquettes, Relations et attributs personnalisés de type liste proposent chacun une option **(vide)**. Sélectionnez-la pour n'afficher que les cartes qui n'ont *aucune* valeur pour ce champ — par exemple toutes les cartes sans cycle de vie défini. Elle se combine avec des valeurs normales (correspond à l'une d'elles) et entre plusieurs filtres (correspond à tous).
 
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
+
+### Actions sur une cellule
+
+Faites un clic droit sur n'importe quelle cellule de la grille (appui long sur un appareil tactile) pour ouvrir un menu contextuel d'actions rapides sur ce qui se trouve sous le curseur, à la manière de ServiceNow :
+
+- **Aperçu de la fiche** — ouvrir la fiche nommée par la cellule dans le panneau latéral, sans quitter la grille
+- **Afficher les correspondances** — ne conserver que les lignes dont la valeur est égale à celle de la cellule cliquée
+- **Exclure** — masquer les lignes dont la valeur est égale à celle de la cellule cliquée
+- **Copier la valeur** — copier le texte de la cellule dans le presse-papiers
+- **Effacer le filtre de colonne** — supprimer le filtre de cette colonne (visible uniquement lorsqu'un filtre est actif)
+
+Sur une cellule à valeurs multiples (étiquettes, relations, parties prenantes, attributs à choix multiples), le menu liste d'abord les valeurs individuelles, afin de filtrer sur l'une d'elles ou sur la cellule entière. **Aperçu de la fiche** apparaît sur toute cellule qui nomme une fiche — la colonne **Nom** (la fiche de la ligne elle-même), la colonne **Parent** et les colonnes de relations — et lorsque la cellule en nomme plusieurs, le menu les liste de la même manière, pour que vous choisissiez celle à ouvrir. Ces filtres alimentent les filtres de colonnes de la grille : ils se combinent avec les filtres de la barre latérale, comptent dans le bouton **Effacer les filtres** de la barre d'outils et sont conservés avec votre vue. Le même menu est disponible sur toutes les grilles de Turbo EA — Décisions, Registre des risques, Conformité et les grilles d'administration. Lorsque la colonne possède un filtre correspondant dans le panneau de gauche — type de carte, sous-type, cycle de vie, statut d'approbation ou attribut à choix unique —, **Afficher les correspondances** sélectionne également cette valeur dans le panneau, et **Effacer** efface les deux : une vue enregistrée ne peut donc jamais contenir un filtre de panneau et un filtre de colonne contradictoires. Si le filtre est ensuite modifié dans le panneau, c'est lui qui prend le relais.
+
+![Menu contextuel d'une cellule de l'inventaire](../assets/img/fr/62_inventaire_menu_contextuel.png)
 
 ### Onglet Colonnes
 
@@ -74,10 +90,12 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 
 - **Tri** -- Cliquer sur l'en-tête de n'importe quelle colonne pour trier par ordre croissant/décroissant
 - **Édition en ligne** -- En mode édition grille, modifiez les valeurs des champs directement dans le tableau
+- **Remplir une colonne** -- En mode édition grille, cliquez sur une cellule puis faites glisser le petit carré situé dans son coin vers le haut ou vers le bas pour recopier cette valeur dans toutes les lignes parcourues. Avant tout enregistrement, une confirmation indique la colonne, la valeur et le nombre de lignes ; si le serveur refuse une ligne, elle est listée avec le motif et un lien, et les lignes réussies restent enregistrées. Le geste fonctionne au doigt comme à la souris, ainsi qu'au clavier -- placez le focus sur le carré, étendez avec les flèches, validez avec Entrée. Seules les lignes actuellement affichées, après vos filtres et votre tri, sont remplies, et la colonne Nom est volontairement exclue afin que deux fiches ne puissent pas porter le même nom.
 - **Sélection multiple** -- Sélectionnez plusieurs lignes pour des opérations en masse
 - **Affichage hiérarchique** -- Les relations parent/enfant sont affichées sous forme de chemins de navigation
 - **Configuration des colonnes** -- Afficher, masquer et réorganiser les colonnes
 - **Figer une colonne** -- Survolez l'en-tête d'une colonne et cliquez sur l'icône d'épingle pour figer cette colonne sur le bord gauche, afin qu'elle reste visible lors du défilement horizontal. Cliquez à nouveau sur l'épingle pour la libérer. Chaque colonne porte également cette épingle dans l'onglet **Colonnes** du panneau de filtres, ce qui permet de figer une colonne sans chercher son en-tête. Les colonnes figées sont mémorisées par tableau, et le même contrôle est disponible dans tous les tableaux de Turbo EA (Registre des risques, Décisions, Constats de conformité, Utilisateurs, Ressources, Journal d'audit).
+- **Réorganiser les colonnes** -- Faites glisser un en-tête de colonne pour la déplacer, ou ouvrez la section **Ordre des colonnes** en haut de l'onglet **Colonnes** et faites glisser une ligne par sa poignée. Cette liste *est* l'ordre du tableau : les deux concordent donc toujours, et les colonnes figées sont regroupées en tête parce qu'elles s'affichent toujours au début — libérez-y l'épingle d'une colonne si vous souhaitez la sortir de ce groupe. La poignée fonctionne aussi au clavier (Espace pour saisir une colonne, flèches pour la déplacer, Espace pour la déposer) et au toucher, l'ordre peut donc être modifié sur un téléphone. Votre ordre de colonnes est mémorisé par tableau, dans tous les tableaux de données de Turbo EA.
 
 ### Barre d'outils
 
@@ -110,6 +128,8 @@ La liste déroulante **Champ** regroupe les éléments modifiables :
 
 Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
 
+Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non un interrupteur, un champ date un sélecteur de date. Laisser la valeur vide efface le champ sur toutes les cartes sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
+
 ### Restructurer la hiérarchie { #mass-edit-parent }
 
 Le champ **Parent** apparaît dès que la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Une carte n'a qu'un seul parent : ce champ unique couvre donc les deux sens d'une restructuration.
@@ -124,6 +144,16 @@ Les cartes sont déplacées une par une : un déplacement refusé ne bloque donc
 - Le déplacement porterait une capacité métier au-delà du maximum de cinq niveaux.
 
 Une carte emporte ses propres enfants lors du déplacement, et les cartes approuvées repassent à **Rompu** afin que la modification soit réexaminée.
+
+## Regrouper l'inventaire { #group-by }
+
+Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'éléments) pour organiser la grille en groupes repliables. La phase de cycle de vie et le statut d'approbation sont toujours disponibles ; lorsque la grille est filtrée sur un seul type de carte, son sous-type et tous ses attributs à choix unique s'y ajoutent.
+
+- Les cartes sans valeur pour le champ choisi sont rassemblées dans un groupe **Non défini** en haut de la grille : le point de départ naturel pour trier les cartes non classées.
+- Cliquez sur l'en-tête d'un groupe pour le replier ou le déplier. L'en-tête affiche le nombre de cartes du groupe.
+- Lorsque vous faites défiler un groupe long, son en-tête reste épinglé juste sous les en-têtes de colonnes : vous savez toujours quel groupe vous lisez, et l'en-tête du groupe suivant le chasse à son arrivée. C'est l'en-tête complet, case à cocher comprise : vous pouvez donc sélectionner un groupe long sans remonter à son début.
+- La case à cocher de l'en-tête sélectionne toutes les cartes du groupe : pour reclasser un lot, dépliez **Non défini**, cochez l'en-tête, puis définissez la valeur via la [Modification en masse](#mass-edit). Il n'y a volontairement pas de glisser-déposer : sélectionner puis définir fonctionne de la même façon sur ordinateur, tablette et téléphone.
+- Le tri s'applique à l'intérieur de chaque groupe ; le regroupement est conservé après rechargement, enregistré dans les vues sauvegardées et partageable via le paramètre d'URL `group_by`.
 
 ## Suggestions de description par IA { #ai-description-suggestions }
 

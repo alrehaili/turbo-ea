@@ -517,6 +517,19 @@
         "title": "AiSuggestResponse",
         "type": "object"
       },
+      "AnnounceUpgradesEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AnnounceUpgradesEnabledPayload",
+        "type": "object"
+      },
       "AppTitlePayload": {
         "properties": {
           "app_title": {
@@ -543,6 +556,18 @@
           "response_ids"
         ],
         "title": "ApplyBody",
+        "type": "object"
+      },
+      "ApplyInstallIn": {
+        "description": "Optional apply-time flags. The body may be omitted entirely.",
+        "properties": {
+          "confirm_downgrade": {
+            "default": false,
+            "title": "Confirm Downgrade",
+            "type": "boolean"
+          }
+        },
+        "title": "ApplyInstallIn",
         "type": "object"
       },
       "ApproveRequest": {
@@ -5479,6 +5504,17 @@
           "state": {
             "title": "State",
             "type": "string"
+          },
+          "trial": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial"
           }
         },
         "required": [
@@ -5919,6 +5955,19 @@
           "status"
         ],
         "title": "ExtensionInstallOut",
+        "type": "object"
+      },
+      "ExtensionNoticesEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ExtensionNoticesEnabledPayload",
         "type": "object"
       },
       "ExtensionOut": {
@@ -6699,6 +6748,11 @@
       },
       "LicenseIn": {
         "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -15250,6 +15304,11 @@
             "title": "Color",
             "type": "string"
           },
+          "counts_for_quality": {
+            "default": true,
+            "title": "Counts For Quality",
+            "type": "boolean"
+          },
           "description": {
             "anyOf": [
               {
@@ -15307,6 +15366,17 @@
               }
             ],
             "title": "Color"
+          },
+          "counts_for_quality": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts For Quality"
           },
           "description": {
             "anyOf": [
@@ -15403,6 +15473,22 @@
             "title": "Reachable",
             "type": "boolean"
           },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Code"
+          },
           "store_url": {
             "default": "",
             "title": "Store Url",
@@ -15476,10 +15562,50 @@
             "title": "Description",
             "type": "string"
           },
+          "entitlement_auto_renew": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Auto Renew"
+          },
+          "entitlement_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Expires At"
+          },
+          "entitlement_grace_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Grace Until"
+          },
           "entitlement_state": {
             "default": "unlicensed",
             "title": "Entitlement State",
             "type": "string"
+          },
+          "entitlement_trial": {
+            "default": false,
+            "title": "Entitlement Trial",
+            "type": "boolean"
           },
           "free": {
             "default": false,
@@ -15542,6 +15668,19 @@
             },
             "title": "Screenshots",
             "type": "array"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "trial_link": {
+            "default": "",
+            "title": "Trial Link",
+            "type": "string"
           },
           "update_available": {
             "default": false,
@@ -16945,6 +17084,19 @@
           }
         },
         "title": "UiPreferencesUpdate",
+        "type": "object"
+      },
+      "UpdateCheckEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "UpdateCheckEnabledPayload",
         "type": "object"
       },
       "UserBulkDelete": {
@@ -20300,6 +20452,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApplyInstallIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -24804,6 +24973,30 @@
               ],
               "description": "Filter to cards within a NORA segment scope (root + descendants + related). When provided, only cards in the resolved segment are returned.",
               "title": "Segment Id"
+            }
+          },
+          {
+            "description": "Keep only cards with no relation in either direction. Evaluated server-side because the client only ever holds the relations of the type it is currently displaying.",
+            "in": "query",
+            "name": "orphaned",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Keep only cards with no relation in either direction. Evaluated server-side because the client only ever holds the relations of the type it is currently displaying.",
+              "title": "Orphaned",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`).",
+            "in": "query",
+            "name": "stale",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`).",
+              "title": "Stale",
+              "type": "boolean"
             }
           },
           {
@@ -38883,6 +39076,104 @@
         ]
       }
     },
+    "/api/v1/reports/data-quality/cards": {
+      "get": {
+        "description": "The cards behind one slice of the data-quality dashboard.\n\nBacks the side panel opened by clicking a bar segment / KPI tile: same\npopulation as `/reports/data-quality` (ACTIVE cards only), narrowed to one\ntype, quality band and/or flag. `total` is the untruncated count so the\npanel can say \"showing N of M\".",
+        "operationId": "data_quality_cards_api_v1_reports_data_quality_cards_get",
+        "parameters": [
+          {
+            "description": "Card type key",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Card type key",
+              "title": "Type"
+            }
+          },
+          {
+            "description": "complete | partial | minimal",
+            "in": "query",
+            "name": "band",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "complete | partial | minimal",
+              "title": "Band"
+            }
+          },
+          {
+            "description": "orphaned | stale",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "orphaned | stale",
+              "title": "Scope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Data Quality Cards",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/dependencies": {
       "get": {
         "description": "Dependency / interface map: nodes + edges, plateau and segment-filtered.",
@@ -43869,6 +44160,46 @@
         ]
       }
     },
+    "/api/v1/settings/announce-upgrades-enabled": {
+      "patch": {
+        "description": "Admin endpoint \u2014 announce upgrades to all users, or keep them silent.\n\nSwitching it off does not suppress a *pending* announcement retroactively:\nthe version marker still advances on every boot, so re-enabling this later\nannounces the next upgrade rather than replaying an old one.",
+        "operationId": "update_announce_upgrades_enabled_api_v1_settings_announce_upgrades_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceUpgradesEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Announce Upgrades Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/app-title": {
       "get": {
         "description": "Public endpoint \u2014 returns the configured app title.\n\nPublic because the login page and browser tab title need it before the\nuser authenticates. Falls back to the default brand name when unset.",
@@ -44424,6 +44755,46 @@
           }
         },
         "summary": "Update Enabled Locales",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/extension-notices-enabled": {
+      "patch": {
+        "description": "Admin endpoint \u2014 enable or disable the daily extension-store check.\n\nTurning it off stops the outbound request to the store entirely (the flag is\nread before the fetch), which is what an egress-restricted or air-gapped\ninstall wants. Gated on ``admin.settings`` like its two neighbours: who owns\nthe switch for outbound traffic is a separate question from who receives the\nresulting notifications (``admin.manage_extensions``).",
+        "operationId": "update_extension_notices_enabled_api_v1_settings_extension_notices_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionNoticesEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Extension Notices Enabled",
         "tags": [
           "settings"
         ]
@@ -45280,6 +45651,70 @@
         ]
       }
     },
+    "/api/v1/settings/release-notes": {
+      "get": {
+        "description": "Release notes for one specific version, as a notification announced it.\n\n``/whats-new`` answers \"what changed in the most recent upgrade?\" \u2014 right\nfor the newest notification and wrong for every older one still sitting in\nthe bell. This takes the versions off the notification itself, so a notice\nfrom six releases ago still opens its own notes.\n\nAuthenticated but **not** permission-gated, on the same reasoning as\n``/whats-new``: every user is told when the app is updated, so every user\nhas to be able to read the changelog, which is public information anyway.\nThe one privileged ingredient is narrower \u2014 the cached GitHub body for a\nrelease this instance has *not* installed is readable only by holders of\n``admin.settings``, matching ``/update-status``, since they are also the\nonly people who ever receive an update-available notification. None of that\nendpoint's operational state (``checked_at``, ``error``, ``enabled``) is\nexposed here.",
+        "operationId": "get_release_notes_api_v1_settings_release_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Release Notes",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/sponsor-button-enabled": {
       "get": {
         "description": "Public endpoint \u2014 returns whether the Sponsor button is shown in the user menu.\n\nDefaults to True so existing installations keep showing it; administrators can\nhide it from the avatar menu via the admin UI. It always remains reachable from\nAdmin \u2192 Settings regardless of this flag.",
@@ -45526,6 +45961,86 @@
           }
         },
         "summary": "Update Turbolens Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/update-check-enabled": {
+      "patch": {
+        "description": "Admin endpoint \u2014 enable or disable the daily \"newer release available\" check.\n\nTurning it off stops the outbound request to GitHub entirely (the flag is\nread before the fetch), which is what an egress-restricted or air-gapped\ninstall wants. The current value rides along on ``GET /settings/bootstrap``\nrather than getting its own endpoint \u2014 only the admin page reads it.",
+        "operationId": "update_update_check_enabled_api_v1_settings_update_check_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCheckEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Update Check Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/update-status": {
+      "get": {
+        "description": "Cached result of the last update check, for the release-notes dialog.\n\nGated on ``admin.settings`` \u2014 the same permission that decides who gets\nnotified in the first place, so the endpoint cannot tell a non-admin\nanything the notification would not have. Serves only what the daily check\nalready stored; it never reaches out to GitHub itself.",
+        "operationId": "get_update_status_api_v1_settings_update_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Update Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/whats-new": {
+      "get": {
+        "description": "Changelog for the versions this instance was last upgraded across.\n\nAuthenticated but **not** permission-gated, unlike ``/update-status``:\nevery active user is notified when the app is updated, so every one of them\nhas to be able to read what changed. A changelog is public information \u2014\nthe same text is on the project's releases page.\n\nServed from the changelog bundled in the image, so it needs no network and\nanswers identically on an air-gapped install.",
+        "operationId": "get_whats_new_api_v1_settings_whats_new_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Whats New",
         "tags": [
           "settings"
         ]

@@ -21,6 +21,10 @@ Isso é ideal para análise de portfólio — plotando aplicações por valor de
 
 Quando a IA está configurada e as análises de portfólio estão habilitadas por um administrador, o relatório de portfólio exibe um botão **Análises IA**. Ao clicar, um resumo da visualização atual é enviado ao provedor de IA, que retorna análises estratégicas sobre riscos de concentração, oportunidades de modernização, preocupações com ciclo de vida e equilíbrio do portfólio. O painel de análises é recolhível e pode ser regenerado após alterar filtros ou agrupamentos.
 
+### Do relatório para o inventário
+
+Clicar num grupo abre um painel com os cartões desse grupo. O seu botão **Ver no inventário** abre o inventário exatamente nessa fatia. Quando o relatório está agrupado por um campo próprio do tipo de cartão, o inventário chega agrupado pelo mesmo campo: o grupo clicado aparece expandido e todos os outros recolhidos (as contagens continuam visíveis), e a pesquisa e os filtros de atributos, relações e etiquetas do relatório são transportados — pronto para «selecionar tudo» e a [edição em massa](inventory.md#mass-edit). Ao agrupar por um tipo de cartão relacionado (por exemplo, Organização), o inventário chega filtrado para esse cartão relacionado. O botão fica oculto quando os *grupos aninhados* estão ativos: uma subárvore agregada não corresponde a um único filtro do inventário.
+
 ## Portfólio flexível
 
 ![Portfólio flexível — portfólio de Objetos de Dados agrupado por Aplicação e colorido por Sensibilidade dos Dados](../assets/img/pt/57_relatorio_portfolio_flexivel.png)
@@ -41,6 +45,9 @@ Ao agrupar por um tipo de cartão relacionado que suporta hierarquia (como Capac
 
 ## Mapa de Capacidades
 
+Clicar numa capacidade abre um painel lateral com todas as aplicações da sua subárvore. No nível mais baixo, o painel oferece **Ver no inventário**, que leva às aplicações ligadas a ela.
+
+
 ![Mapa de Capacidades de Negócio](../assets/img/pt/11_mapa_capacidades.png)
 
 O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidades de negócio da organização. Cada bloco representa uma capacidade, com:
@@ -48,6 +55,8 @@ O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidad
 - **Hierarquia** — Capacidades principais contêm suas sub-capacidades
 - **Coloração por mapa de calor** — Os blocos são coloridos com base em uma métrica selecionada (ex.: número de aplicações de suporte, qualidade média dos dados ou nível de risco)
 - **Clique para explorar** — Clique em qualquer capacidade para aprofundar nos detalhes e aplicações de suporte
+
+**Limitar a capacidades específicas** — Por predefinição, o mapa desenha todas as capacidades. Use o chip de capacidade na barra de ferramentas para abrir um seletor e escolher uma ou mais capacidades; o mapa mostra então apenas essas e tudo o que está abaixo delas. As subcapacidades são incluídas automaticamente, pelo que escolher uma capacidade de primeiro nível lhe dá todo o seu ramo. A **Profundidade de visualização** conta a partir das capacidades selecionadas, por isso *Nível 2* significa sempre dois níveis abaixo daquilo que está a ver. O âmbito é guardado com o relatório, para que um relatório guardado reabra no mesmo ramo.
 
 ## Relatório de Ciclo de Vida
 
@@ -60,6 +69,8 @@ O **Relatório de Ciclo de Vida** mostra uma **visualização de linha do tempo*
 - **Coordenação de migração** — Visualize períodos sobrepostos de implantação e desativação
 
 Os componentes são exibidos como barras horizontais abrangendo suas fases do ciclo de vida: Planejamento, Implantação, Ativo, Desativação e Fim de Vida.
+
+**Limitar a cartões específicos** — Depois de escolher um tipo de cartão, o chip ao lado abre um seletor: escolha um ou mais cartões e a linha temporal mostra apenas esses e tudo o que está abaixo deles. Os cartões filhos são incluídos automaticamente. O chip fica desativado enquanto o seletor estiver em *Todos os tipos*, porque um âmbito precisa de uma única hierarquia.
 
 ## Relatório de Dependências
 
@@ -145,6 +156,8 @@ Sempre que pelo menos uma Origem de custos estiver ativa, os retângulos do mapa
 
 O cursor de cronologia, a seleção de Origem de custos e os restantes filtros são preservados durante o detalhamento, e o nível de detalhamento faz parte da configuração do relatório guardado — guardar um relatório enquanto se está a detalhar reabre-o diretamente nesse nível. Sem uma Origem de custos ativa, um clique num retângulo abre antes o painel lateral do cartão (não há nada a decompor).
 
+**Limitar a cartões específicos** — O chip ao lado do seletor de tipo abre um seletor: escolha um ou mais cartões e o treemap, os totais e a tabela limitam-se a esses e a tudo o que está abaixo deles. O chip fica oculto enquanto estiver dentro de um retângulo, pois esse detalhe já o levou a outro tipo de cartão; saia dele e o âmbito continua lá.
+
 ## Relatório de Matriz
 
 ![Relatório de Matriz](../assets/img/pt/35_relatorio_matriz.png)
@@ -198,6 +211,8 @@ Dois mosaicos contam os cards de cada eixo que não têm qualquer relação. **M
 
 A exportação para Excel produz duas folhas: a grelha tal como aparece no ecrã e uma linha por relação com os seus valores distribuídos por colunas — a folha sobre a qual construir uma tabela dinâmica. A exportação para PowerPoint capta a imagem.
 
+**Limitar cada eixo** — Cada eixo tem o seu próprio chip junto ao seletor de tipo, para que possa pedir *estas capacidades × estas aplicações*. Os indicadores acima da grelha seguem o âmbito, pelo que os números descrevem sempre o que está a ver. Mudar o tipo de um eixo limpa o âmbito desse eixo; ao transpor, os dois âmbitos trocam juntamente com os eixos.
+
 ## Relatório de Qualidade dos Dados
 
 ![Relatório de Qualidade dos Dados](../assets/img/pt/33_relatorio_qualidade_dados.png)
@@ -207,6 +222,19 @@ O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostr
 - **Pontuação geral** — Qualidade média dos dados em todos os cards
 - **Por tipo** — Detalhamento mostrando quais tipos de card têm melhor/pior completude
 - **Cards individuais** — Lista de cards com menor qualidade de dados, priorizados para melhoria
+
+Cards com um **campo obrigatório** vazio sempre pontuam **0%** — o cálculo ponderado só é retomado quando todos os campos obrigatórios estiverem preenchidos — assim, a lista de pontuações mais baixas mostra exatamente os cards cujos dados obrigatórios ainda faltam.
+
+### Aprofundar num número
+
+Cada valor do relatório é uma porta de entrada, não apenas uma leitura:
+
+- **Clique num segmento de barra** em *Completude por tipo* — abre-se um painel à direita com os cards desse tipo naquela faixa (Completo, Parcial ou Mínimo).
+- **Clique numa barra** em *Completude média por tipo*, ou numa linha da vista de tabela, para listar todos os cards desse tipo.
+- **Clique no bloco Órfãos ou Desatualizados** para listar os cards por trás daquela contagem.
+
+No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados ligam ao filtro correspondente do inventário, em todos os tipos de ficha.
+
 
 ## Relatório de Fim de Vida (EOL)
 
@@ -236,3 +264,5 @@ Os filtros e agrupamentos ativos no momento da exportação são registrados no 
 ## Mapa de Processos
 
 O **Mapa de Processos** visualiza o cenário de processos de negócio da organização como um mapa estruturado, mostrando categorias de processos (Gestão, Core, Suporte) e seus relacionamentos hierárquicos.
+
+**Limitar a processos específicos** — O chip ao lado de *Profundidade de visualização* abre um seletor: escolha um ou mais processos e o mapa mostra apenas esses e tudo o que está abaixo deles. Os subprocessos são incluídos automaticamente e a **Profundidade de visualização** conta a partir da sua seleção. O zoom por clique continua a funcionar, agora dentro do âmbito. É um controlo diferente da linha **Âmbito** abaixo, que filtra por Organização ou Contexto de Negócio relacionado.

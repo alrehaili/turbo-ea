@@ -57,14 +57,19 @@ def _scoring_signature(fields_schema: list | None, section_config: dict | None) 
     """Capture the data-quality-relevant config of a card type.
 
     Used to detect when an admin edit changes how scores are computed (field
-    weights or the built-in contributor weights) so existing cards can be
-    re-scored. Label/icon/order edits leave this signature unchanged.
+    weights, the required/readonly flags feeding the mandatory-field gate, or
+    the built-in contributor weights) so existing cards can be re-scored.
+    Label/icon/order edits leave this signature unchanged.
     """
-    field_weights: dict[str, float] = {}
+    field_weights: dict[str, tuple] = {}
     for section in fields_schema or []:
         for field in section.get("fields", []):
             if "key" in field:
-                field_weights[field["key"]] = field.get("weight", 1)
+                field_weights[field["key"]] = (
+                    field.get("weight", 1),
+                    bool(field.get("required")),
+                    bool(field.get("readonly")),
+                )
     dq_cfg = (section_config or {}).get("__dataQuality") or {}
     return {"fields": field_weights, "dq": dq_cfg}
 
@@ -882,17 +887,9 @@ async def update_type(
 
 async def _recompute_data_quality_for_type(db: AsyncSession, type_key: str) -> None:
     """Recompute data_quality for every active card of a type after a config change."""
-    from app.services.data_quality import calc_data_quality
+    from app.services.data_quality import rescore_card_type
 
-    result = await db.execute(select(Card).where(Card.type == type_key, Card.status == "ACTIVE"))
-    cards = result.scalars().all()
-    changed = False
-    for card in cards:
-        score = await calc_data_quality(db, card)
-        if card.data_quality != score:
-            card.data_quality = score
-            changed = True
-    if changed:
+    if await rescore_card_type(db, type_key):
         await db.commit()
 
 

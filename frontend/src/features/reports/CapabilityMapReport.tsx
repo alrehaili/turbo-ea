@@ -6,11 +6,6 @@ import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
@@ -19,10 +14,17 @@ import SaveReportDialog from "./SaveReportDialog";
 import ArchitectureStateFilter from "@/components/ArchitectureStateFilter";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import CardScopeFilter from "@/components/CardScopeFilter";
+import type { CardScopeOption } from "@/components/CardScopeDialog";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import {
+  buildInventorySliceUrl,
+  type InventorySliceFilters,
+} from "./portfolioInventoryLink";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { readableTextColor } from "@/lib/color";
@@ -33,6 +35,7 @@ import { useSegments } from "@/hooks/useSegments";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
@@ -284,6 +287,13 @@ function buildTree(
     });
   }
 
+  // A scope is applied to `items` *before* this runs (see `scopedData`), so a
+  // scoped capability's parent is simply absent and it lands here as a root.
+  // Re-levelling then falls out of the existing pass below: a scoped L3
+  // becomes level 1, so "Display Depth: Level 2" keeps meaning "two tiers from
+  // what I'm looking at" wherever the user scoped (#954). Deep metrics follow
+  // too — `propagate` only walks these roots, so an application supporting a
+  // capability outside the scope drops out of the counts.
   const roots: CapNode[] = [];
   for (const node of nodeMap.values()) {
     if (node.parent_id && nodeMap.has(node.parent_id)) {
@@ -643,7 +653,6 @@ export default function CapabilityMapReport() {
   const [displayLevel, setDisplayLevel] = useState(2);
   const [showApps, setShowApps] = useState(false);
   const [colorBy, setColorBy] = useState("");
-
   // Timeline slider
   const tl = useTimeline();
 
@@ -654,6 +663,12 @@ export default function CapabilityMapReport() {
   const [tagGroupsData, setTagGroupsData] = useState<TagGroupDef[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
+  // Narrow the map to chosen capabilities and everything beneath them (#954).
+  // The heatmap payload is the complete capability set with parent chains, so
+  // the hook takes its hierarchy from `data` and issues no fetch of its own.
+  const scope = useCardScope({ typeKey: "BusinessCapability", hierarchy: data });
+  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -663,6 +678,9 @@ export default function CapabilityMapReport() {
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
+      if (Array.isArray(cfg.scopeIds)) {
+        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+      }
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
@@ -680,12 +698,12 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds });
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -694,6 +712,7 @@ export default function CapabilityMapReport() {
     setDisplayLevel(2);
     setShowApps(false);
     setColorBy("");
+    setScopeIds([]);
     tl.reset();
     setAttrFilters({});
     setRelationFilters({});
@@ -799,11 +818,96 @@ export default function CapabilityMapReport() {
     Object.values(relationFilters).some((v) => v.length > 0) ||
     tagFilterIds.length > 0;
 
+  // Report filters the drawer's inventory link carries over. Relation filters
+  // are id-keyed here but name-based in the inventory, so they are translated
+  // through `filterableTypes`; anything that fails to resolve is dropped,
+  // which can only widen the landing, never silently empty it.
+  const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
+    const relations: Record<string, string[]> = {};
+    for (const [typeKey, ids] of Object.entries(relationFilters)) {
+      if (ids.length === 0) continue;
+      const members = filterableTypes[typeKey] || [];
+      const names = ids
+        .map((id) => members.find((m) => m.id === id)?.name)
+        .filter((n): n is string => !!n);
+      if (names.length > 0) relations[typeKey] = names;
+    }
+    return { attributes: attrFilters, relations, tagIds: tagFilterIds };
+  }, [attrFilters, relationFilters, tagFilterIds, filterableTypes]);
+
+  /**
+   * "View in inventory" for the drawer, on LEAF capabilities only.
+   *
+   * The list shows every app in the node's whole subtree, while the inventory
+   * can only filter on a direct relation to one capability — so on a parent
+   * the link would land on fewer rows than the panel just listed. A leaf has
+   * no descendants, so there the two sets are identical. Same rule the
+   * portfolio applies to its nested tree nodes, for the same reason.
+   */
+  const drawerInventoryHref = useMemo(() => {
+    if (!drawer || drawer.children.length > 0) return undefined;
+    return buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "BusinessCapability" },
+      group: { key: drawer.id, label: drawer.name },
+      filters: carriedLinkFilters,
+    });
+  }, [drawer, carriedLinkFilters]);
+
+  // Rows for the capability drawer: every unique app in the subtree.
+  const drawerItems = useMemo<ReportCardListItem[]>(() => {
+    if (!drawer) return [];
+    const coloured = colorBy && colorBy !== "none";
+    return Array.from(drawer.deepUniqueApps.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((a) => {
+        const parts: string[] = [];
+        if (coloured) {
+          const label = getAppColorLabel(a, colorBy, selectFields);
+          if (label) parts.push(label);
+        }
+        if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+        return {
+          id: a.id,
+          name: a.name,
+          secondary: parts.join(" · ") || undefined,
+          dotColor: coloured ? getAppColor(a, colorBy, selectFields) : undefined,
+          warn: !!a.lifecycle?.endOfLife,
+        };
+      });
+  }, [drawer, colorBy, selectFields]);
+
+  /** Scoped capabilities as picker options, so chips label instantly. */
+  const scopeOptions = useMemo<CardScopeOption[]>(() => {
+    if (!data) return [];
+    return data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: "BusinessCapability",
+      parent_id: c.parent_id,
+    }));
+  }, [data]);
+
+  // The heatmap payload is the complete capability set with parent chains, so
+  // the hook needs no fetch of its own here.
+  const scopedData = useMemo(
+    () => (data ? applyScope(data, scope.closure) : null),
+    [data, scope.closure],
+  );
+
   const tree = useMemo(
-    () => (data ? buildTree(data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
-    [data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
+
+  // Scoping into a shallower branch re-ranges the Display Depth options, which
+  // can strand the current value outside them — a MUI Select with no matching
+  // MenuItem renders blank and warns. Clamp it back into range. `99`
+  // ("all levels") is a sentinel, not a depth, so it is never clamped.
+  useEffect(() => {
+    if (displayLevel !== 99 && maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
+  }, [maxLvl, displayLevel]);
 
   // Compute max metric value for heatmap coloring
   const maxVal = useMemo(() => {
@@ -877,6 +981,12 @@ export default function CapabilityMapReport() {
     params.push({ label: t("common.metric"), value: metricLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    if (effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("common.scope"),
+        value: t("capabilityMap.scopeCount", { count: effectiveScopeIds.length }),
+      });
+    }
     if (showApps) params.push({ label: t("common.showApps"), value: t("common:labels.yes") });
     if (showApps && colorBy && colorBy !== "none") {
       const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
@@ -885,7 +995,7 @@ export default function CapabilityMapReport() {
     if (tl.printParam) params.push(tl.printParam);
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, t]);
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
     return (
@@ -947,6 +1057,21 @@ export default function CapabilityMapReport() {
               </MenuItem>
             ))}
           </TextField>
+
+          {/* Scopes the *capabilities* the map draws, so it belongs up here
+              with the other structural controls — not in the Application
+              Filters block below, which narrows the apps inside them. */}
+          <CardScopeFilter
+            types="BusinessCapability"
+            value={effectiveScopeIds}
+            onChange={setScopeIds}
+            labelAll={t("capabilityMap.scopeAll")}
+            labelCount={(count) => t("capabilityMap.scopeCount", { count })}
+            dialogTitle={t("capabilityMap.scopeDialogTitle")}
+            helperText={t("capabilityMap.scopeHelper")}
+            tooltip={t("capabilityMap.scopeTooltip")}
+            initialOptions={scopeOptions}
+          />
 
           <FormControlLabel
             control={
@@ -1306,115 +1431,50 @@ export default function CapabilityMapReport() {
       )}
 
       {/* Detail drawer */}
-      <Drawer
-        anchor="right"
+      <ReportCardListPanel
         open={!!drawer}
-        onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
-      >
-        {drawer && (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-                {drawer.name}
+        title={drawer?.name ?? ""}
+        items={drawerItems}
+        metrics={METRIC_OPTIONS.map((o) => ({
+          value: drawer
+            ? o.key === "total_cost"
+              ? fmtShort(nodeMetric(drawer, o.key))
+              : nodeMetric(drawer, o.key)
+            : 0,
+          label: t(o.labelKey),
+        }))}
+        beforeList={
+          drawer && drawer.children.length > 0 ? (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                {t("capabilityMap.subCapabilities", { count: drawer.children.length })}
               </Typography>
-              <IconButton onClick={() => setDrawer(null)}>
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
-            </Box>
-
-            {/* Metric summary */}
-            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-              {METRIC_OPTIONS.map((o) => (
-                <Box key={o.key} sx={{ textAlign: "center", minWidth: 80 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {o.key === "total_cost"
-                      ? fmtShort(nodeMetric(drawer, o.key))
-                      : nodeMetric(drawer, o.key)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t(o.labelKey)}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-
-            {/* Sub-capabilities */}
-            {drawer.children.length > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  {t("capabilityMap.subCapabilities", { count: drawer.children.length })}
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
-                  {drawer.children.map((ch) => (
-                    <Chip
-                      key={ch.id}
-                      size="small"
-                      label={`${ch.name} (${ch.deepAppCount})`}
-                      onClick={() => setDrawer(ch)}
-                      sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
-                    />
-                  ))}
-                </Box>
-              </>
-            )}
-
-            {/* Supporting applications — all unique apps in the subtree */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              {t("capabilityMap.supportingApps", { count: drawer.deepAppCount })}
-            </Typography>
-            <List dense>
-              {Array.from(drawer.deepUniqueApps.values())
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((a) => {
-                  // Build secondary text dynamically from colorBy field
-                  const parts: string[] = [];
-                  if (colorBy && colorBy !== "none") {
-                    const lbl = getAppColorLabel(a, colorBy, selectFields);
-                    if (lbl) parts.push(lbl);
-                  }
-                  if (a.lifecycle?.endOfLife)
-                    parts.push(`EOL: ${a.lifecycle.endOfLife}`);
-
-                  return (
-                    <ListItemButton key={a.id} onClick={() => handleAppClick(a.id)}>
-                      <ListItemText
-                        primary={a.name}
-                        secondary={parts.join(" \u00B7 ") || undefined}
-                      />
-                      {colorBy && colorBy !== "none" && (
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            bgcolor: getAppColor(a, colorBy, selectFields),
-                            flexShrink: 0,
-                            ml: 1,
-                          }}
-                        />
-                      )}
-                      {a.lifecycle?.endOfLife && (
-                        <MaterialSymbol icon="warning" size={16} color="#e65100" />
-                      )}
-                    </ListItemButton>
-                  );
-                })}
-              {drawer.filteredApps.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ py: 2, textAlign: "center" }}
-                >
-                  {hasActiveFilters
-                    ? t("capabilityMap.noAppsFiltered")
-                    : t("capabilityMap.noLinkedApps")}
-                </Typography>
-              )}
-            </List>
-          </Box>
-        )}
-      </Drawer>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+                {drawer.children.map((ch) => (
+                  <Chip
+                    key={ch.id}
+                    size="small"
+                    label={`${ch.name} (${ch.deepAppCount})`}
+                    // Re-targets the drawer at the child node — navigation,
+                    // not a card click, so it stays out of `items`.
+                    onClick={() => setDrawer(ch)}
+                    sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
+                  />
+                ))}
+              </Box>
+            </>
+          ) : undefined
+        }
+        inventoryHref={drawerInventoryHref}
+        listHeading={t("capabilityMap.supportingApps", { count: drawer?.deepAppCount ?? 0 })}
+        emptyLabel={
+          hasActiveFilters
+            ? t("capabilityMap.noAppsFiltered")
+            : t("capabilityMap.noLinkedApps")
+        }
+        onItemClick={handleAppClick}
+        onClose={() => setDrawer(null)}
+      />
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}

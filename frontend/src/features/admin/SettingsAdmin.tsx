@@ -55,7 +55,7 @@ import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 const AuthAdmin = lazy(() => import("./AuthAdmin"));
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
-const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
+const IntegrationsHub = lazy(() => import("./IntegrationsHub"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
 const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
 const MigrationHub = lazy(() => import("./MigrationHub"));
@@ -68,12 +68,19 @@ const TAB_KEYS = [
   "ai",
   "eol",
   "web-portals",
-  "servicenow",
+  "integrations",
   "turbolens",
   "migration",
   "audit-log",
   "resources",
 ];
+
+// Legacy tab keys that bookmarks / redirects may still carry, mapped to the
+// tab that replaced them. `?tab=servicenow` predates the Integrations hub
+// (ServiceNow is its first sub-tab), so it must keep resolving.
+const LEGACY_TAB_ALIASES: Record<string, string> = {
+  servicenow: "integrations",
+};
 
 function TabLoader() {
   return (
@@ -154,6 +161,9 @@ interface GeneralSettingsBootstrap {
   ppm_enabled: boolean;
   grc_enabled: boolean;
   sponsor_button_enabled: boolean;
+  update_check_enabled: boolean;
+  announce_upgrades_enabled: boolean;
+  extension_notices_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
@@ -333,6 +343,12 @@ function GeneralTab() {
   // Sponsor button toggle state (gates the avatar-menu button only)
   const [sponsorButtonEnabled, setSponsorButtonEnabled] = useState(true);
   const [savingSponsorButton, setSavingSponsorButton] = useState(false);
+  const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
+  const [savingUpdateCheck, setSavingUpdateCheck] = useState(false);
+  const [announceUpgrades, setAnnounceUpgrades] = useState(true);
+  const [savingAnnounceUpgrades, setSavingAnnounceUpgrades] = useState(false);
+  const [extensionNotices, setExtensionNotices] = useState(true);
+  const [savingExtensionNotices, setSavingExtensionNotices] = useState(false);
   const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false);
 
   // File uploads toggle state
@@ -425,6 +441,9 @@ function GeneralTab() {
         setPpmEnabled(general.ppm_enabled);
         setGrcEnabled(general.grc_enabled);
         setSponsorButtonEnabled(general.sponsor_button_enabled);
+        setUpdateCheckEnabled(general.update_check_enabled);
+        setAnnounceUpgrades(general.announce_upgrades_enabled);
+        setExtensionNotices(general.extension_notices_enabled);
         setFileUploadsEnabled(general.file_uploads_enabled);
         setFiscalYearStart(general.fiscal_year_start);
         setArchiveRetentionDays(general.archive_retention_days);
@@ -675,6 +694,60 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingSponsorButton(false);
+    }
+  };
+
+  const handleUpdateCheckToggle = async (enabled: boolean) => {
+    setSavingUpdateCheck(true);
+    setError("");
+    try {
+      await api.patch("/settings/update-check-enabled", { enabled });
+      setUpdateCheckEnabled(enabled);
+      setSnack(
+        enabled
+          ? t("settings.updateCheck.enabledSuccess")
+          : t("settings.updateCheck.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingUpdateCheck(false);
+    }
+  };
+
+  const handleAnnounceUpgradesToggle = async (enabled: boolean) => {
+    setSavingAnnounceUpgrades(true);
+    setError("");
+    try {
+      await api.patch("/settings/announce-upgrades-enabled", { enabled });
+      setAnnounceUpgrades(enabled);
+      setSnack(
+        enabled
+          ? t("settings.announceUpgrades.enabledSuccess")
+          : t("settings.announceUpgrades.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingAnnounceUpgrades(false);
+    }
+  };
+
+  const handleExtensionNoticesToggle = async (enabled: boolean) => {
+    setSavingExtensionNotices(true);
+    setError("");
+    try {
+      await api.patch("/settings/extension-notices-enabled", { enabled });
+      setExtensionNotices(enabled);
+      setSnack(
+        enabled
+          ? t("settings.extensionNotices.enabledSuccess")
+          : t("settings.extensionNotices.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingExtensionNotices(false);
     }
   };
 
@@ -1772,6 +1845,92 @@ function GeneralTab() {
         />
       </Paper>
 
+      {/* Update check toggle */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="system_update_alt" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.updateCheck.title")}
+          </Typography>
+          <Chip
+            label={
+              updateCheckEnabled
+                ? t("settings.updateCheck.enabled")
+                : t("settings.updateCheck.disabled")
+            }
+            size="small"
+            color={updateCheckEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.updateCheck.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={updateCheckEnabled}
+              onChange={(e) => handleUpdateCheckToggle(e.target.checked)}
+              disabled={savingUpdateCheck}
+            />
+          }
+          label={
+            updateCheckEnabled
+              ? t("settings.updateCheck.on")
+              : t("settings.updateCheck.off")
+          }
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+          {t("settings.announceUpgrades.title")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.announceUpgrades.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={announceUpgrades}
+              onChange={(e) => handleAnnounceUpgradesToggle(e.target.checked)}
+              disabled={savingAnnounceUpgrades}
+            />
+          }
+          label={
+            announceUpgrades
+              ? t("settings.announceUpgrades.on")
+              : t("settings.announceUpgrades.off")
+          }
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+          {t("settings.extensionNotices.title")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.extensionNotices.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={extensionNotices}
+              onChange={(e) => handleExtensionNoticesToggle(e.target.checked)}
+              disabled={savingExtensionNotices}
+            />
+          }
+          label={
+            extensionNotices
+              ? t("settings.extensionNotices.on")
+              : t("settings.extensionNotices.off")
+          }
+        />
+      </Paper>
+
       {/* Sponsor Button Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
@@ -2117,7 +2276,8 @@ function GeneralTab() {
 export default function SettingsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const [params, setParams] = useSearchParams();
-  const tabKey = params.get("tab") || "general";
+  const rawTabKey = params.get("tab") || "general";
+  const tabKey = LEGACY_TAB_ALIASES[rawTabKey] ?? rawTabKey;
   const tabIndex = Math.max(0, TAB_KEYS.indexOf(tabKey));
 
   const TAB_LABELS = [
@@ -2126,7 +2286,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.ai"),
     t("settings.tabs.eol"),
     t("settings.tabs.webPortals"),
-    t("settings.tabs.servicenow"),
+    t("settings.tabs.integrations", "Integrations"),
     t("settings.tabs.turbolens"),
     t("settings.tabs.migration"),
     t("settings.tabs.auditLog", "Audit log"),
@@ -2186,7 +2346,7 @@ export default function SettingsAdmin() {
       )}
       {tabIndex === 5 && (
         <Suspense fallback={<TabLoader />}>
-          <ServiceNowAdmin />
+          <IntegrationsHub />
         </Suspense>
       )}
       {tabIndex === 6 && (

@@ -15,7 +15,9 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Ciclo di vita** — Filtra per fase del ciclo di vita: Plan, Phase In, Active, Phase Out, End of Life
-- **Qualità dei dati** — Filtro basato su soglia: Buona (80%+), Media (50-79%), Scarsa (sotto il 50%)
+- **Qualità dei dati** — Filtro per fascia (selezione multipla): Completo (≥80%), Parziale (40-79%), Minimo (sotto il 40%). Sono le fasce del [report Qualità dei dati](reports.md#data-quality-report): un clic su un segmento di barra porta qui.
+- **Orfane** — Solo schede senza alcuna relazione, in entrambe le direzioni. Valutato lato server, quindi funziona anche senza un tipo selezionato.
+- **Obsolete** — Solo schede non aggiornate negli ultimi 90 giorni. Entrambe rispecchiano i riquadri del [report Qualità dei dati](reports.md#data-quality-report): un clic su un riquadro porta qui.
 - **Tag** — Filtra per tag di qualsiasi gruppo di tag
 - **Relazioni** — Filtra per card correlate attraverso i tipi di relazione
 - **Attributi personalizzati** — Filtra per valori nei campi personalizzati (ricerca testuale, opzioni di selezione)
@@ -25,6 +27,20 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 > **Trovare le carte senza valore.** I filtri Sottotipo, Ciclo di vita, Tag, Relazioni e gli attributi personalizzati a selezione offrono ciascuno un'opzione **(vuoto)**. Selezionala per elencare solo le carte che *non* hanno un valore per quel campo — ad esempio tutte le carte senza ciclo di vita impostato. Può essere combinata con valori normali (corrisponde a uno qualsiasi) e tra più filtri (corrisponde a tutti).
 
 Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attualmente applicati.
+
+### Azioni sulla cella
+
+Fai clic con il tasto destro su una cella qualsiasi della griglia (pressione prolungata sui dispositivi touch) per aprire un menu contestuale con azioni rapide su ciò che si trova sotto il cursore, in stile ServiceNow:
+
+- **Anteprima scheda** — apre la scheda indicata dalla cella nel pannello laterale, senza uscire dalla griglia
+- **Mostra corrispondenze** — mantiene solo le righe il cui valore corrisponde a quello della cella selezionata
+- **Escludi** — nasconde le righe il cui valore corrisponde a quello della cella selezionata
+- **Copia valore** — copia il testo della cella negli appunti
+- **Cancella filtro colonna** — rimuove il filtro di quella colonna (visibile solo mentre ce n'è uno attivo)
+
+Su una cella con più valori (tag, relazioni, stakeholder, attributi a selezione multipla) il menu elenca prima i singoli valori, così puoi filtrare su uno di essi o sull'intera cella. **Anteprima scheda** compare su ogni cella che indica una scheda — la colonna **Nome** (la scheda della riga stessa), la colonna **Genitore** e le colonne delle relazioni — e quando la cella ne indica più di una, il menu le elenca allo stesso modo, così puoi scegliere quale aprire. Questi filtri confluiscono nei filtri di colonna della griglia: si combinano con i filtri della barra laterale, contano nel pulsante **Cancella filtri** della barra degli strumenti e vengono conservati con la tua vista. Lo stesso menu è disponibile su ogni griglia di Turbo EA — Decisioni, Registro dei rischi, Conformità e le griglie di amministrazione. Quando la colonna ha un filtro corrispondente nel pannello di sinistra — tipo di scheda, sottotipo, ciclo di vita, stato di approvazione o un attributo a selezione singola —, **Mostra corrispondenze** seleziona quel valore anche nel pannello e **Cancella** cancella entrambi, così una vista salvata non può mai contenere un filtro del pannello e un filtro di colonna in contraddizione. Se poi il filtro viene modificato nel pannello, è quest'ultimo a prevalere.
+
+![Menu contestuale di una cella dell'inventario](../assets/img/it/62_inventario_menu_contestuale.png)
 
 ### Scheda Colonne
 
@@ -74,10 +90,12 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 
 - **Ordinamento** — Cliccate sull'intestazione di qualsiasi colonna per ordinare in modo crescente/decrescente
 - **Modifica in linea** — In modalità modifica griglia, modificate i valori dei campi direttamente nella tabella
+- **Riempire una colonna** — In modalità modifica griglia, cliccate una cella e trascinate il quadratino nel suo angolo verso l'alto o verso il basso per copiare quel valore in tutte le righe attraversate. Prima di salvare qualsiasi cosa, una conferma indica la colonna, il valore e quante righe; se il server rifiuta una riga, questa viene elencata con il motivo e un collegamento, mentre le righe riuscite restano salvate. Il gesto funziona con il dito come con il mouse, e anche da tastiera: mettete a fuoco il quadratino, estendete con le frecce, confermate con Invio. Vengono riempite solo le righe attualmente visibili dopo filtri e ordinamento, e la colonna Nome è deliberatamente esclusa perché due card non possano condividere lo stesso nome.
 - **Selezione multipla** — Selezionate più righe per operazioni in blocco
 - **Visualizzazione gerarchica** — Le relazioni genitore/figlio sono mostrate come percorsi breadcrumb
 - **Configurazione colonne** — Mostrate, nascondete e riordinate le colonne
 - **Blocca una colonna** — Passate il mouse sull'intestazione di una colonna e cliccate sull'icona a puntina per bloccare quella colonna sul bordo sinistro, così resta visibile mentre scorrete lateralmente. Cliccate di nuovo sulla puntina per sbloccarla. Ogni colonna porta la stessa puntina anche nella scheda **Colonne** del pannello dei filtri, così potete bloccare una colonna senza cercarne l'intestazione. Le colonne bloccate vengono ricordate per ogni tabella e lo stesso comando è disponibile in tutte le tabelle dati di Turbo EA (Registro dei rischi, Decisioni, Rilievi di conformità, Utenti, Risorse, Log di audit).
+- **Riordinare le colonne** — Trascinate l'intestazione di una colonna per spostarla, oppure aprite la sezione **Ordine delle colonne** in cima alla scheda **Colonne** e trascinate una riga dalla sua maniglia. Quell'elenco *è* l'ordine della tabella, quindi i due coincidono sempre, e le colonne bloccate sono raggruppate in testa perché vengono sempre mostrate all'inizio: sbloccate lì la puntina di una colonna se volete spostarla fuori da quel gruppo. La maniglia funziona anche da tastiera (barra spaziatrice per prendere una colonna, frecce per spostarla, barra spaziatrice per rilasciarla) e al tocco, quindi l'ordine si può cambiare anche da telefono. L'ordine delle colonne viene ricordato per ogni tabella, in tutte le tabelle dati di Turbo EA.
 
 ### Barra degli strumenti
 
@@ -110,6 +128,8 @@ Il menu a discesa **Campo** raggruppa ciò che è possibile modificare:
 
 Tag, relazioni e padre offrono ciascuno un interruttore **aggiungi / rimuovi**, così da estendere o ridurre i valori esistenti invece di sostituirli.
 
+Il controllo del valore si adatta al tipo di campo: un campo a selezione multipla mostra le sue opzioni con caselle di spunta, un campo sì/no un interruttore, un campo data un selettore di data. Lasciando il valore vuoto il campo viene svuotato su tutte le schede selezionate. I campi calcolati da una formula e i campi di costo che non sei autorizzato a vedere non vengono proposti.
+
 ### Ristrutturare la gerarchia { #mass-edit-parent }
 
 Il campo **Padre** compare quando la griglia è filtrata su un unico tipo di scheda che supporta la gerarchia. Una scheda ha esattamente un padre, quindi questo singolo campo copre entrambe le direzioni di una ristrutturazione:
@@ -124,6 +144,16 @@ Le schede vengono spostate una alla volta, quindi uno spostamento non consentito
 - Lo spostamento porterebbe una capacità di business oltre il massimo di cinque livelli.
 
 Una scheda porta con sé le proprie schede figlie e le schede approvate tornano a **Non valido**, in modo che la modifica venga riesaminata.
+
+## Raggruppare l'inventario { #group-by }
+
+Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio degli elementi) per organizzare la griglia in gruppi comprimibili. La fase del ciclo di vita e lo stato di approvazione sono sempre disponibili; filtrando la griglia su un solo tipo di scheda si aggiungono il suo sottotipo e tutti gli attributi a selezione singola.
+
+- Le schede senza valore nel campo scelto finiscono nel gruppo **Non impostato**, in cima all'elenco: il punto di partenza naturale per classificare le schede in sospeso.
+- Fai clic sull'intestazione di un gruppo per comprimerlo o espanderlo. L'intestazione mostra il numero di schede del gruppo.
+- Scorrendo un gruppo lungo, la sua intestazione resta fissata appena sotto le intestazioni di colonna, così sai sempre quale gruppo stai leggendo; l'intestazione del gruppo successivo la spinge via quando arriva. È l'intestazione completa, casella di controllo inclusa, così puoi selezionare un gruppo lungo senza tornare al suo inizio.
+- La casella di controllo nell'intestazione seleziona tutte le schede del gruppo: per riclassificare un lotto, espandi **Non impostato**, spunta l'intestazione e imposta il valore con la [Modifica di massa](#mass-edit). Non c'è volutamente alcun drag and drop: selezionare e impostare funziona allo stesso modo su desktop, tablet e telefono.
+- L'ordinamento si applica all'interno di ogni gruppo; il raggruppamento viene ricordato dopo un ricaricamento, salvato nelle viste salvate e condivisibile tramite il parametro URL `group_by`.
 
 ## Suggerimenti di descrizione AI { #ai-description-suggestions }
 

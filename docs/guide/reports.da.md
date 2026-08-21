@@ -21,6 +21,10 @@ Dette er ideelt til porteføljeanalyse — for eksempel at plotte applikationer 
 
 Når AI er konfigureret, og porteføljeindsigter er aktiveret af en administrator, viser porteføljerapporten en **AI Insights**-knap. Klikker du på den, sendes et resumé af din aktuelle visning til AI-udbyderen, som returnerer strategiske indsigter om koncentrationsrisici, modernisations­muligheder, livscyklus­bekymringer og porteføljebalance. Indsigtspanelet kan foldes sammen og kan regenereres efter ændring af filtre eller gruppering.
 
+### Fra rapport til lager
+
+Et klik på en gruppe åbner et panel med gruppens kort. Panelets knap **Vis i lageret** åbner lageret på præcis dette udsnit. Når rapporten er grupperet efter et af korttypens egne felter, ankommer lageret grupperet efter samme felt: den valgte gruppe er foldet ud, alle andre er foldet sammen (antallene er stadig synlige), og rapportens søgning samt attribut-, relations- og tagfiltre følger med — klar til «vælg alle» og [masseredigering](inventory.md#mass-edit). Ved gruppering efter en relateret korttype (for eksempel Organisation) ankommer lageret i stedet filtreret til det relaterede kort. Knappen skjules, når *indlejrede grupper* er aktive: et sammenlagt undertræ svarer ikke til ét enkelt lagerfilter.
+
 ## Fleksibel portefølje
 
 ![Fleksibel portefølje — Data Object-portefølje grupperet efter Application, farvet efter Data Sensitivity](../assets/img/da/57_report_flexible_portfolio.png)
@@ -41,6 +45,9 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 
 ## Kompetencekort
 
+Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens undertræ. På nederste niveau tilbyder panelet **Vis i inventar**, som fører til de applikationer, der er knyttet til den.
+
+
 ![Forretningskompetencekort](../assets/img/da/11_capability_map.png)
 
 **Kompetencekortet** viser et hierarkisk **heatmap** over organisationens forretningskompetencer. Hver blok repræsenterer en kompetence med:
@@ -48,6 +55,8 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 - **Hierarki** — Hovedkompetencer indeholder deres underkompetencer
 - **Heatmap-farvelægning** — Blokke er farvet baseret på en valgt metrik (f.eks. antal understøttende applikationer, gennemsnitlig datakvalitet eller risikoniveau)
 - **Klik for at udforske** — Klik på en kompetence for at drille ned i dens detaljer og understøttende applikationer
+
+**Afgrænsning til bestemte kapabiliteter** — Som standard tegner kortet alle kapabiliteter. Brug kapabilitetschippen i værktøjslinjen til at åbne en vælger og markere en eller flere kapabiliteter; kortet viser derefter kun disse og alt under dem. Underkapabiliteter medtages automatisk, så hvis du vælger en kapabilitet på øverste niveau, får du hele dens gren. **Visningsdybde** tælles fra de valgte kapabiliteter, så *Niveau 2* altid betyder to niveauer under det, du kigger på. Omfanget gemmes sammen med rapporten, så en gemt rapport åbnes igen på den samme gren.
 
 ## Livscyklusrapport
 
@@ -60,6 +69,8 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 - **Migrations­koordinering** — Visualiser overlappende phase-in- og phase-out-perioder
 
 Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-faser: Plan, Phase In, Active, Phase Out og End of Life.
+
+**Afgrænsning til bestemte kort** — Når du har valgt en korttype, åbner chippen ved siden af en vælger: vælg et eller flere kort, og tidslinjen viser kun disse og alt under dem. Underkort medtages automatisk. Chippen er deaktiveret, så længe vælgeren står på *Alle typer*, fordi en afgrænsning kræver ét hierarki.
 
 ## Afhængighedsrapport
 
@@ -145,6 +156,8 @@ Når mindst én Cost Source er aktiv, er treemap-rektanglerne **klikbare**. Klik
 
 Tidslinjeskyderen, Cost Source-valget og andre filtre bevares, mens du driller, og det drillede niveau er en del af den gemte rapports konfiguration — at gemme en rapport, mens du har drillet ind, genåbner direkte på det niveau. Uden **nogen** Cost Source aktiv åbner klik på et rektangel kort-sidepanelet i stedet (der er intet at bryde ned).
 
+**Afgrænsning til bestemte kort** — Chippen ved siden af korttypevælgeren åbner en vælger: vælg et eller flere kort, og træstrukturen, totalerne og tabellen afgrænses til disse og alt under dem. Chippen skjules, mens du er inde i et rektangel, da det allerede har flyttet dig til en anden korttype; forlad det, og afgrænsningen er der stadig.
+
 ## Matrixrapport
 
 ![Matrixrapport](../assets/img/da/35_report_matrix.png)
@@ -198,6 +211,8 @@ To felter tæller de kort på hver akse, der slet ingen relation har. **Vis kun 
 
 Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række pr. relation med værdierne fordelt på kolonner — arket, du laver pivot på. PowerPoint-eksport fanger billedet.
 
+**Afgrænsning af hver akse** — Hver akse har sin egen chip ved siden af typevælgeren, så du kan spørge om *disse kapabiliteter × disse applikationer*. Nøgletallene over gitteret følger afgrænsningen, så tallene altid beskriver det, du kigger på. Ændring af en akses korttype rydder den akses afgrænsning; ved transponering bytter de to afgrænsninger plads sammen med akserne.
+
 ## Datakvalitetsrapport
 
 ![Datakvalitetsrapport](../assets/img/da/33_report_data_quality.png)
@@ -207,6 +222,19 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 - **Samlet score** — Gennemsnitlig datakvalitet på tværs af alle kort
 - **Efter type** — Nedbrydning, der viser hvilke korttyper der har den bedste/dårligste fuldstændighed
 - **Individuelle kort** — Liste over kort med den laveste datakvalitet, prioriteret til forbedring
+
+Kort med et tomt **påkrævet felt** scorer altid **0 %** — den vægtede beregning genoptages først, når alle påkrævede felter er udfyldt — så listen med de laveste scorer viser præcis de kort, der stadig mangler påkrævede data.
+
+### Bor ned i et tal
+
+Hvert tal i rapporten er en indgang, ikke bare en aflæsning:
+
+- **Klik på et bjælkesegment** i *Fuldstændighed efter type* — et panel åbner til højre med kortene af den type i det bånd (Komplet, Delvis eller Minimal).
+- **Klik på en bjælke** i *Gennemsnitlig fuldstændighed efter type*, eller på en række i tabelvisningen, for at vise alle kort af den type.
+- **Klik på feltet Forældreløse eller Forældede** for at vise kortene bag det tal.
+
+Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede linker til inventarets tilsvarende filter på tværs af alle korttyper.
+
 
 ## End of Life (EOL)-rapport
 
@@ -236,3 +264,5 @@ Aktive filtre og grupperingsindstillinger, der er anvendt på eksporttidspunktet
 ## Procesmap
 
 **Procesmappet** visualiserer organisationens forretningsproces-landskab som et struktureret kort, der viser proceskategorier (Management, Core, Support) og deres hierarkiske relationer.
+
+**Afgrænsning til bestemte processer** — Chippen ved siden af *Visningsdybde* åbner en vælger: vælg en eller flere processer, og kortet viser kun disse og alt under dem. Underprocesser medtages automatisk, og **Visningsdybde** tælles fra dit valg. Klik-zoom virker stadig, nu inden for afgrænsningen. Det er et andet element end rækken **Omfang** nedenfor, som filtrerer efter relateret organisation eller forretningskontekst.

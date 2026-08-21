@@ -21,6 +21,10 @@ C'est idéal pour l'analyse de portefeuille -- par exemple, positionner les appl
 
 Lorsque l'IA est configurée et que les analyses de portefeuille sont activées par un administrateur, le rapport de portefeuille affiche un bouton **Analyses IA**. Un clic envoie un résumé de la vue actuelle au fournisseur IA, qui renvoie des analyses stratégiques sur les risques de concentration, les opportunités de modernisation, les préoccupations de cycle de vie et l'équilibre du portefeuille. Le panneau d'analyses est repliable et peut être régénéré après modification des filtres ou du regroupement.
 
+### Du rapport à l'inventaire
+
+Cliquer sur un groupe ouvre un panneau listant les cartes de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire exactement sur cette tranche. Lorsque le rapport est regroupé par un champ propre au type de carte, l'inventaire arrive regroupé par le même champ : le groupe cliqué est déplié, tous les autres sont repliés (les compteurs restent visibles), et la recherche ainsi que les filtres d'attributs, de relations et d'étiquettes du rapport sont repris — prêt pour un « tout sélectionner » suivi de la [modification en masse](inventory.md#mass-edit). Lors d'un regroupement par un type de carte lié (par exemple Organisation), l'inventaire arrive filtré sur cette carte liée. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
+
 ## Portefeuille flexible
 
 ![Portefeuille flexible — portefeuille d'Objets de données regroupé par Application et coloré par Sensibilité des données](../assets/img/fr/57_rapport_portefeuille_flexible.png)
@@ -41,6 +45,9 @@ Lorsque vous regroupez par un type de carte lié prenant en charge la hiérarchi
 
 ## Carte de capacités
 
+Un clic sur une capacité ouvre un panneau latéral listant toutes les applications de son sous-arbre. Au niveau le plus bas, le panneau propose **Voir dans l'inventaire**, qui mène aux applications qui lui sont liées.
+
+
 ![Carte de capacités métier](../assets/img/fr/11_carte_capacites.png)
 
 La **Carte de capacités** affiche une **carte thermique hiérarchique** des capacités métier de l'organisation. Chaque bloc représente une capacité, avec :
@@ -48,6 +55,8 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 - **Hiérarchie** -- Les capacités principales contiennent leurs sous-capacités
 - **Coloration thermique** -- Les blocs sont colorés en fonction d'une métrique sélectionnée (par ex. nombre d'applications de support, qualité moyenne des données, ou niveau de risque)
 - **Cliquer pour explorer** -- Cliquez sur n'importe quelle capacité pour approfondir ses détails et ses applications de support
+
+**Limiter à certaines capacités** — Par défaut, la carte affiche toutes les capacités. Utilisez la puce de capacité dans la barre d'outils pour ouvrir un sélecteur et choisir une ou plusieurs capacités ; la carte n'affiche alors que celles-ci et tout ce qui se trouve en dessous. Les sous-capacités sont incluses automatiquement : choisir une capacité de premier niveau vous donne donc toute sa branche. La **Profondeur d'affichage** se compte à partir des capacités sélectionnées, de sorte que *Niveau 2* signifie toujours deux niveaux sous ce que vous regardez. Le périmètre est enregistré avec le rapport, si bien qu'un rapport sauvegardé se rouvre sur la même branche.
 
 ## Rapport Cycle de vie
 
@@ -60,6 +69,8 @@ Le **Rapport Cycle de vie** affiche une **visualisation chronologique** indiquan
 - **Coordination des migrations** -- Visualiser les périodes de chevauchement entre mise en service et retrait progressif
 
 Les composants sont affichés sous forme de barres horizontales couvrant leurs phases de cycle de vie : Planification, Mise en service, Actif, Retrait progressif et Fin de vie.
+
+**Limiter à certaines cartes** — Une fois un type de carte choisi, la puce voisine ouvre un sélecteur : choisissez une ou plusieurs cartes et la chronologie n'affiche que celles-ci et tout ce qui se trouve en dessous. Les cartes filles sont incluses automatiquement. La puce reste désactivée tant que le sélecteur est sur *Tous les types*, car un périmètre a besoin d'une seule hiérarchie.
 
 ## Rapport Dépendances
 
@@ -145,6 +156,8 @@ Dès qu'au moins une Source de coût est active, les rectangles du treemap devie
 
 Le curseur de chronologie, la sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
 
+**Limiter à certaines cartes** — La puce voisine du sélecteur de type ouvre un sélecteur : choisissez une ou plusieurs cartes et la treemap, les totaux et le tableau se limitent à celles-ci et à tout ce qui se trouve en dessous. La puce disparaît lorsque vous avez zoomé dans un rectangle, puisqu'un tel zoom vous a déjà déplacé vers un autre type de carte ; quittez-le et le périmètre est toujours là.
+
 ## Rapport Matrice
 
 ![Rapport Matrice](../assets/img/fr/35_rapport_matrice.png)
@@ -198,6 +211,8 @@ Deux tuiles comptent les fiches de chaque axe qui n'ont aucune relation. **Affic
 
 L'export Excel produit deux feuilles : la grille telle qu'elle apparaît à l'écran, et une ligne par relation avec ses valeurs réparties en colonnes — la feuille sur laquelle construire un tableau croisé. L'export PowerPoint capture l'image.
 
+**Limiter chaque axe** — Chaque axe possède sa propre puce à côté de son sélecteur de type, ce qui permet de demander *ces capacités × ces applications*. Les indicateurs au-dessus de la grille suivent le périmètre, de sorte que les chiffres décrivent toujours ce que vous regardez. Changer le type d'un axe efface son périmètre ; la transposition échange les deux périmètres en même temps que les axes.
+
 ## Rapport Qualité des données
 
 ![Rapport Qualité des données](../assets/img/fr/33_rapport_qualite_donnees.png)
@@ -207,6 +222,19 @@ Le **Rapport Qualité des données** est un **tableau de bord de complétude** q
 - **Score global** -- Qualité moyenne des données sur toutes les fiches
 - **Par type** -- Ventilation montrant quels types de fiches ont la meilleure/pire complétude
 - **Fiches individuelles** -- Liste des fiches avec la qualité de données la plus faible, priorisées pour amélioration
+
+Les fiches dont un **champ obligatoire** est vide obtiennent toujours **0 %** — le calcul pondéré ne reprend qu'une fois tous les champs obligatoires remplis — la liste des scores les plus bas fait donc ressortir précisément les fiches dont les données obligatoires manquent encore.
+
+### Explorer un chiffre
+
+Chaque valeur du rapport est un point d'entrée, pas seulement un affichage :
+
+- **Cliquez sur un segment de barre** dans *Complétude par type* — un panneau s'ouvre à droite avec les fiches de ce type dans cette plage (Complet, Partiel ou Minimal).
+- **Cliquez sur une barre** dans *Complétude moyenne par type*, ou sur une ligne de la vue tableau, pour lister toutes les fiches de ce type.
+- **Cliquez sur la tuile Orphelins ou Obsolètes** pour lister les fiches derrière ce compteur.
+
+Depuis le panneau, cliquez sur une fiche pour ouvrir son panneau de détail, ou sur **Voir dans l'inventaire** pour poursuivre dans l'[Inventaire](inventory.md) — qui arrive groupé par qualité des données, la plage cliquée dépliée et les autres repliées à côté, afin de corriger les enregistrements immédiatement. Les panneaux Orphelins et Obsolètes mènent au filtre d'inventaire correspondant, tous types de fiches confondus.
+
 
 ## Rapport Fin de vie (EOL)
 
@@ -236,3 +264,5 @@ Les filtres et options de regroupement actifs au moment de l'export sont consign
 ## Carte de processus
 
 La **Carte de processus** visualise le paysage des processus métier de l'organisation sous forme de carte structurée, montrant les catégories de processus (Management, Cœur de métier, Support) et leurs relations hiérarchiques.
+
+**Limiter à certains processus** — La puce voisine de *Profondeur d'affichage* ouvre un sélecteur : choisissez un ou plusieurs processus et la carte n'affiche que ceux-ci et tout ce qui se trouve en dessous. Les sous-processus sont inclus automatiquement, et la **Profondeur d'affichage** se compte à partir de votre sélection. Le zoom par clic fonctionne toujours, désormais à l'intérieur du périmètre. Il s'agit d'un contrôle distinct de la ligne **Périmètre** située en dessous, qui filtre par Organisation ou Contexte métier lié.

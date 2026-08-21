@@ -54,6 +54,9 @@ export interface StakeholderRoleDefinitionFull {
   color: string;
   permissions: Record<string, boolean>;
   is_archived: boolean;
+  /** Whether holding this role fills the card's data-quality stakeholders slot.
+   *  Off for passive roles — the built-in Observer ships with it disabled. */
+  counts_for_quality: boolean;
   sort_order: number;
   stakeholder_count?: number;
   created_at?: string;
@@ -507,6 +510,18 @@ export interface RelationRef {
   subtype?: string;
 }
 
+/**
+ * The far end of a relation as the inventory grid indexes it: enough to
+ * render the cell text *and* to open the card, which is why the id is kept.
+ * Lives here rather than in InventoryPage so the filter sidebar can type its
+ * prop without importing from the page that renders it.
+ */
+export interface RelatedCardRef {
+  id: string;
+  name: string;
+  type: string;
+}
+
 export interface Relation {
   id: string;
   type: string;
@@ -721,7 +736,11 @@ export type NotificationType =
   | "approval_status_changed"
   | "soaw_sign_requested"
   | "soaw_signed"
-  | "survey_request";
+  | "survey_request"
+  | "app_update_available"
+  | "app_updated"
+  | "extension_available"
+  | "extension_update_available";
 
 export interface Notification {
   id: string;
@@ -743,6 +762,40 @@ export interface NotificationListResponse {
   total: number;
   page: number;
   page_size: number;
+}
+
+/** Cached result of the daily "is there a newer release?" check. */
+export interface UpdateStatus {
+  current_version: string;
+  latest_version: string | null;
+  release_url: string | null;
+  release_notes: string;
+  checked_at: string | null;
+  error: string | null;
+  update_available: boolean;
+  enabled: boolean;
+}
+
+/** Changelog for the versions this instance was last upgraded across. */
+export interface WhatsNewResponse {
+  version: string;
+  from_version: string | null;
+  notes: string;
+}
+
+/** Notes for one specific version — the one a notification announced.
+ *
+ *  `source` says where they came from: `changelog` is the copy bundled in the
+ *  image (every installed version), `github` the cached body for a release not
+ *  installed yet, `none` when neither can describe this version. */
+export interface ReleaseNotesResponse {
+  version: string;
+  from_version: string | null;
+  notes: string;
+  source: "changelog" | "github" | "none";
+  release_url: string | null;
+  is_installed: boolean;
+  current_version: string;
 }
 
 export interface NotificationPreferences {

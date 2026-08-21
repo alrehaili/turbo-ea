@@ -55,9 +55,11 @@ Fields define the custom attributes available on cards of this type. Each field 
 | **Label** | Display name |
 | **Type** | text, multiline_text, number, cost, boolean, date, url, single_select, or multiple_select |
 | **Options** | For select fields: the available choices with labels and optional colors |
-| **Required** | Whether the field must be filled for data quality scoring |
+| **Required** | Whether the field is mandatory — see the enforcement rules below |
 | **Data quality** | Each field's contribution to the score is managed in the **Data quality** panel — see [Data quality scoring](#data-quality-scoring) below |
 | **Read-only** | Prevents manual editing (useful for calculated fields) |
+
+**How Required is enforced.** Creating a card never requires these fields — cards can be created quickly and completed later. While any required field is still empty, the card's data-quality score is pinned to **0** and the card detail page shows a warning banner listing what must be filled. When a card section is edited, it cannot be saved until the required fields in it are filled, and the API rejects clearing a required field that already has a value. Boolean and read-only (calculated) fields are exempt.
 
 Click **+ Add Field** to create a new field, or click an existing field to edit it in the **Field Editor Dialog**.
 
@@ -89,6 +91,8 @@ IDs are **globally unique, read-only, and never reused or changed** once assigne
 
 A card's **data quality** score is a weighted measure of how complete it is. Every contributing factor — each field plus five built-in factors — is managed in one place: the **Data quality** tab of the card-type editor. (The editor is organised into tabs — Main, Relations, Stakeholder roles, and Data quality — with translations available from the icon in the header.)
 
+**Mandatory fields override the score.** While any required field on a card is still empty, its score is pinned to **0** regardless of the weights — the weighted calculation only applies once every required field is filled (boolean and read-only fields are exempt; see the **Required** setting above).
+
 Each factor has an importance set with a simple slider across four tiers, which also shows the underlying number:
 
 - **Ignore (0)** — excluded from the score entirely.
@@ -96,7 +100,7 @@ Each factor has an importance set with a simple slider across four tiers, which 
 - **Important (2)** — counts twice as much.
 - **Critical (3)** — counts three times as much.
 
-The panel lists the five **built-in factors** — **Description**, **Lifecycle** (whether any lifecycle date is set), **mandatory Relations**, **mandatory Tags**, and **Stakeholder roles** (each role defined for the type is satisfied once a stakeholder is assigned to it) — followed by every field grouped by its section, each with the same slider. For example, set **Lifecycle** to *Ignore* for a type whose cards legitimately never carry dates, so they are not penalized.
+The panel lists the five **built-in factors** — **Description**, **Lifecycle** (whether any lifecycle date is set), **mandatory Relations**, **mandatory Tags**, and **Stakeholder roles** (a single slot, filled as soon as anyone is assigned to the card in a role that counts toward data quality) — followed by every field grouped by its section, each with the same slider. For example, set **Lifecycle** to *Ignore* for a type whose cards legitimately never carry dates, so they are not penalized.
 
 A **score composition** bar at the top of the tab shows each factor's share of the maximum possible score, so you can see at a glance which factors dominate. In the **Main** tab's card layout, each field — and the built-in Description, Lifecycle and Relations sections — shows a small badge with its current tier number, so you can see the weighting without leaving that tab.
 
@@ -122,6 +126,8 @@ When no subtype is selected on a card (or the type has no subtypes), all fields 
 Define custom roles for this type (e.g., "Application Owner", "Technical Owner"). Each role carries **card-level permissions** that are combined with the user's app-level role when accessing a card. See [Users & Roles](users.md) for more on the permission model.
 
 Each role has a **key** (the identifier stored on cards, used by the `stakeholder:<role_key>` import/export columns) and a **label** (what users see). The key follows the same convention as every other metamodel key — letters and digits only, starting with a letter, 3–50 characters, conventionally camelCase such as `businessArchitect`. It is filled in automatically from the label, so you rarely need to type one.
+
+Each role also carries a **Counts toward data quality** switch. The data-quality score has a single stakeholders slot, and it is filled as soon as anyone is assigned to the card in a role where this is on. Turn it off for purely passive roles — the built-in **Observer** ships with it off, so watching a card never stands in for owning it. A type whose roles all have it off contributes no stakeholders slot at all. Flipping the switch re-scores every card of the type straight away.
 
 Roles can be removed in two ways:
 

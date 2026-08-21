@@ -31,15 +31,24 @@ import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { useSegments } from "@/hooks/useSegments";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
+import {
+  DATA_QUALITY_BANDS,
+  normalizeDataQualityFilter,
+  type DataQualityBand,
+} from "@/lib/dataQualityBands";
 import type {
   CardType,
   Bookmark,
   ColumnLayoutItem,
   FieldDef,
+  RelatedCardRef,
   RelationType,
   StakeholderRoleOption,
   TagGroup,
@@ -55,7 +64,10 @@ export interface Filters {
   search: string;
   subtypes: string[];
   lifecyclePhases: string[];
-  dataQualityMin: number | null;
+  /** Selected quality bands (OR'd). Replaces the old `dataQualityMin`
+   * threshold — see `dataQualityBands.ts` for why, and for the migration
+   * every persisted read path has to run through. */
+  dataQualityBands: DataQualityBand[];
   approvalStatuses: string[];
   architectureStates: string[]; // current, transition, target
   changeTypes: string[]; // create, modify, replace, retire, consolidate
@@ -69,6 +81,11 @@ export interface Filters {
   // both, …) without changing every call site.
   mineScope: "stakeholder" | null;
   segmentIds: string[]; // NORA segment filtering (B.9)
+  /** Cards with no relation in either direction. Server-evaluated: the client
+   * only ever holds the relations of the type it is currently displaying. */
+  orphanedOnly: boolean;
+  /** Cards untouched for 90+ days — same cutoff as the report's Stale tile. */
+  staleOnly: boolean;
 }
 
 interface Props {
@@ -83,7 +100,7 @@ interface Props {
   // Stakeholder roles of the single selected type — one togglable
   // "Stakeholders: <role>" column each.
   stakeholderRoles?: StakeholderRoleOption[];
-  relationsMap?: Map<string, Map<string, string[]>>;
+  relationsMap?: Map<string, Map<string, RelatedCardRef[]>>;
   tagGroups?: TagGroup[];
   canArchive?: boolean;
   canShareBookmarks?: boolean;
@@ -98,6 +115,12 @@ interface Props {
   /** Grid colIds frozen to the leading edge; the pin on each row toggles one. */
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
   columnState?: ColumnLayoutItem[];
   onApplyColumnState?: (state: ColumnLayoutItem[] | null) => void;
   // The grid's current AG Grid column-filter model (a layer separate from these
@@ -106,27 +129,25 @@ interface Props {
   // Applies a column-filter model to the grid (or clears with null). Invoked on
   // "Clear all" (null) and when applying a saved view (the view's model).
   onApplyColumnFilters?: (model: Record<string, unknown> | null) => void;
+  // Active group-by axis (wire format) — saved into a view's filters payload
+  // and restored on apply, like the sidebar filters themselves.
+  groupBy?: string | null;
+  onGroupByChange?: (groupBy: string | null) => void;
 }
 
-const APPROVAL_STATUS_OPTIONS = [
+export const APPROVAL_STATUS_OPTIONS = [
   { key: "DRAFT", tKey: "common:status.draft" as const, color: "#9e9e9e" },
   { key: "APPROVED", tKey: "common:status.approved" as const, color: "#4caf50" },
   { key: "BROKEN", tKey: "common:status.broken" as const, color: "#ff9800" },
   { key: "REJECTED", tKey: "common:status.rejected" as const, color: "#f44336" },
 ];
 
-const LIFECYCLE_PHASES = [
+export const LIFECYCLE_PHASES = [
   { key: "plan", tKey: "common:lifecycle.plan" as const, color: "#90a4ae" },
   { key: "phaseIn", tKey: "common:lifecycle.phaseIn" as const, color: "#42a5f5" },
   { key: "active", tKey: "common:lifecycle.active" as const, color: "#66bb6a" },
   { key: "phaseOut", tKey: "common:lifecycle.phaseOut" as const, color: "#ffa726" },
   { key: "endOfLife", tKey: "common:lifecycle.endOfLife" as const, color: "#ef5350" },
-];
-
-const DATA_QUALITY_THRESHOLDS = [
-  { key: 80, tKey: "filter.dataQualityGood" as const, color: "#4caf50" },
-  { key: 50, tKey: "filter.dataQualityMedium" as const, color: "#ff9800" },
-  { key: 0, tKey: "filter.dataQualityPoor" as const, color: "#f44336" },
 ];
 
 const ARCHITECTURE_STATES = [
@@ -172,6 +193,67 @@ export const tagEmptyToken = (groupId: string) => `${EMPTY_VALUE}:${groupId}`;
  */
 export function tagsToFilterText(tags?: { name: string }[]): string {
   return (tags || []).map((t) => t.name).join(", ");
+}
+
+/**
+ * Promote scalar attribute-filter values on select fields to single-element
+ * arrays. URL deep-links (`?attr_<key>=<value>`) seed scalars because they are
+ * parsed before the metamodel loads, but the sidebar's select filter renders
+ * (and highlights) arrays only, and the client matcher compares arrays by
+ * exact option key rather than the loose "contains" scalar branch. Returns the
+ * SAME object reference when nothing changed, so callers can setState safely.
+ */
+export function normalizeSelectAttributeFilters(
+  attributes: Filters["attributes"],
+  fields: FieldDef[],
+): Filters["attributes"] {
+  let changed = false;
+  const next: Filters["attributes"] = { ...attributes };
+  for (const field of fields) {
+    if (field.type !== "single_select" && field.type !== "multiple_select") continue;
+    const value = next[field.key];
+    if (typeof value === "string" && value !== "") {
+      next[field.key] = [value];
+      changed = true;
+    }
+  }
+  return changed ? next : attributes;
+}
+
+/**
+ * Translate relation-filter keys to the RELATION-TYPE-KEY vocabulary the
+ * inventory uses everywhere (sidebar dropdowns, the client matcher, and
+ * `relationsMap` are all keyed by e.g. `relAppToProvider`). Deep links emit
+ * `rel_<relatedCardTypeKey>` (`rel_Provider`) because the report thinks in
+ * related card types — an untranslated entry matches nothing and silently
+ * empties the grid. Rules: a key that already is a relation-type key is kept;
+ * a related-card-type key moves its names under the FIRST mapped relation
+ * type (the same dedup rule the relation columns use), merging with any
+ * existing values; an unresolvable key is DROPPED — a deep link may degrade
+ * to showing more items, never to an inexplicable zero. Returns the SAME
+ * object reference when nothing changed, so callers can setState safely.
+ */
+export function normalizeRelationFilterKeys(
+  relations: Filters["relations"],
+  relationTypeKeys: ReadonlySet<string>,
+  cardTypeToRelTypes: ReadonlyMap<string, string[]>,
+): Filters["relations"] {
+  let changed = false;
+  const next: Filters["relations"] = {};
+  for (const [key, names] of Object.entries(relations || {})) {
+    if (relationTypeKeys.has(key)) {
+      next[key] = [...new Set([...(next[key] ?? []), ...names])];
+      continue;
+    }
+    const mapped = cardTypeToRelTypes.get(key);
+    changed = true;
+    if (mapped && mapped.length > 0) {
+      const target = mapped[0];
+      next[target] = [...new Set([...(next[target] ?? []), ...names])];
+    }
+    // else: unresolvable — drop.
+  }
+  return changed ? next : relations;
 }
 
 /** True when a card value should count as "empty" for filtering purposes. */
@@ -258,10 +340,16 @@ export default function InventoryFilterSidebar({
   onResetColumns,
   frozenColumns,
   onToggleFrozen,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
   columnState,
   onApplyColumnState,
   columnFilterModel,
   onApplyColumnFilters,
+  groupBy = null,
+  onGroupByChange,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const typeLabel = useTypeLabel();
@@ -418,8 +506,10 @@ export default function InventoryFilterSidebar({
       const index = relationsMap.get(rt.key);
       if (!index) continue;
       const names = new Set<string>();
+      // Facets filter on the related card's name, not its id — two cards
+      // sharing a name collapse into one option, as they always have.
       for (const arr of index.values()) {
-        for (const name of arr) names.add(name);
+        for (const ref of arr) names.add(ref.name);
       }
       if (names.size > 0) {
         result.set(rt.key, Array.from(names).sort());
@@ -429,14 +519,14 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [] });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [], orphanedOnly: false, staleOnly: false });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
     filters.subtypes.length +
     filters.lifecyclePhases.length +
-    (filters.dataQualityMin !== null ? 1 : 0) +
+    filters.dataQualityBands.length +
     filters.approvalStatuses.length +
     filters.architectureStates.length +
     filters.changeTypes.length +
@@ -445,7 +535,9 @@ export default function InventoryFilterSidebar({
     Object.keys(filters.relations || {}).length +
     (filters.tagIds?.length ?? 0) +
     (filters.mineScope ? 1 : 0) +
-    (filters.segmentIds?.length ?? 0);
+    (filters.segmentIds?.length ?? 0) +
+    (filters.orphanedOnly ? 1 : 0) +
+    (filters.staleOnly ? 1 : 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -493,15 +585,20 @@ export default function InventoryFilterSidebar({
         search: filters.search,
         subtypes: filters.subtypes,
         lifecyclePhases: filters.lifecyclePhases,
-        dataQualityMin: filters.dataQualityMin,
+        dataQualityBands: filters.dataQualityBands,
         approvalStatuses: filters.approvalStatuses,
         architectureStates: filters.architectureStates,
         changeTypes: filters.changeTypes,
         showArchived: filters.showArchived,
+        orphanedOnly: filters.orphanedOnly,
+        staleOnly: filters.staleOnly,
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
         mineScope: filters.mineScope,
+        // Not a Filters field — rides inside the free-form JSONB payload so a
+        // saved view restores its grouping (older views simply restore null).
+        groupBy,
       },
       columns: Array.from(selectedColumns),
       column_state: columnState ?? null,
@@ -530,11 +627,14 @@ export default function InventoryFilterSidebar({
         search: f.search || "",
         subtypes: f.subtypes || [],
         lifecyclePhases: f.lifecyclePhases || [],
-        dataQualityMin: f.dataQualityMin ?? null,
+        // Views saved before bands existed carry a `dataQualityMin` threshold.
+        dataQualityBands: normalizeDataQualityFilter(f),
         approvalStatuses: f.approvalStatuses || [],
         architectureStates: f.architectureStates || [],
         changeTypes: f.changeTypes || [],
         showArchived: f.showArchived || false,
+        orphanedOnly: f.orphanedOnly || false,
+        staleOnly: f.staleOnly || false,
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -542,6 +642,11 @@ export default function InventoryFilterSidebar({
         mineScope: f.mineScope ?? null,
       });
     }
+    // Restore the view's grouping (views saved before the feature carry none).
+    onGroupByChange?.(
+      ((f as { groupBy?: string | null } | undefined)?.groupBy as string | null | undefined) ??
+        null,
+    );
     // Restore saved columns if present
     const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
     if (bmColumns && Array.isArray(bmColumns)) {
@@ -808,6 +913,7 @@ export default function InventoryFilterSidebar({
                 />
               </Box>
 
+
               {/* Card Types */}
               <SectionHeader
                 label={t("filter.types")}
@@ -1003,24 +1109,34 @@ export default function InventoryFilterSidebar({
                 icon="bar_chart"
                 expanded={expandedSections.dataQuality}
                 onToggle={() => toggleSection("dataQuality")}
-                count={filters.dataQualityMin !== null ? 1 : 0}
+                count={filters.dataQualityBands.length}
               />
               <Collapse in={expandedSections.dataQuality}>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
-                  {DATA_QUALITY_THRESHOLDS.map((dq) => (
-                    <Chip
-                      key={dq.key}
-                      label={t(dq.tKey)}
-                      size="small"
-                      onClick={() => onFiltersChange({ ...filters, dataQualityMin: filters.dataQualityMin === dq.key ? null : dq.key })}
-                      variant={filters.dataQualityMin === dq.key ? "filled" : "outlined"}
-                      sx={
-                        filters.dataQualityMin === dq.key
-                          ? { bgcolor: dq.color, color: "#fff", borderColor: dq.color }
-                          : { borderColor: dq.color, color: dq.color }
-                      }
-                    />
-                  ))}
+                  {DATA_QUALITY_BANDS.map((dq) => {
+                    const selected = filters.dataQualityBands.includes(dq.key);
+                    return (
+                      <Chip
+                        key={dq.key}
+                        label={t(dq.tKey)}
+                        size="small"
+                        onClick={() =>
+                          onFiltersChange({
+                            ...filters,
+                            dataQualityBands: selected
+                              ? filters.dataQualityBands.filter((b) => b !== dq.key)
+                              : [...filters.dataQualityBands, dq.key],
+                          })
+                        }
+                        variant={selected ? "filled" : "outlined"}
+                        sx={
+                          selected
+                            ? { bgcolor: dq.color, color: "#fff", borderColor: dq.color }
+                            : { borderColor: dq.color, color: dq.color }
+                        }
+                      />
+                    );
+                  })}
                 </Box>
               </Collapse>
 
@@ -1474,6 +1590,54 @@ export default function InventoryFilterSidebar({
                   </Collapse>
                 </>
               )}
+              {/* Health scopes — the inventory side of the Data Quality
+                  report's Orphaned and Stale tiles. Server-evaluated, and
+                  grouped with the other whole-list scopes rather than with
+                  the value facets above. */}
+              {(
+                [
+                  {
+                    key: "orphanedOnly",
+                    icon: "link_off",
+                    label: "filter.orphanedOnly",
+                    hint: "filter.orphanedOnlyHint",
+                  },
+                  {
+                    key: "staleOnly",
+                    icon: "update_disabled",
+                    label: "filter.staleOnly",
+                    hint: "filter.staleOnlyHint",
+                  },
+                ] as const
+              ).map((scope) => (
+                <Box key={scope.key} sx={{ px: 0.5, mb: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={filters[scope.key]}
+                        onChange={(e) =>
+                          onFiltersChange({ ...filters, [scope.key]: e.target.checked })
+                        }
+                      />
+                    }
+                    label={
+                      <Tooltip title={t(scope.hint) as string}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                          <MaterialSymbol icon={scope.icon} size={16} />
+                          <Typography variant="body2" fontSize={13}>
+                            {t(scope.label)}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+                    }
+                    // Cancels FormControlLabel's default -11px, which would
+                    // otherwise pull these two left of the Show-archived row
+                    // they sit directly above.
+                    sx={{ ml: 0 }}
+                  />
+                </Box>
+              ))}
 
               {/* Include Archived toggle */}
               {canArchive && (
@@ -1532,6 +1696,10 @@ export default function InventoryFilterSidebar({
               onResetColumns={onResetColumns}
               frozenColumns={frozenColumns}
               onToggleFrozen={onToggleFrozen}
+              columnOrderItems={columnOrderItems}
+              columnOrder={columnOrder}
+              onColumnOrderChange={onColumnOrderChange}
+              onResetColumnOrder={onResetColumnOrder}
               columnsChanged={columnsChanged}
               t={t}
             />
@@ -2046,6 +2214,10 @@ function ColumnsTab({
   columnsChanged,
   frozenColumns,
   onToggleFrozen,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
   t,
 }: {
   types: CardType[];
@@ -2058,6 +2230,10 @@ function ColumnsTab({
   columnsChanged?: boolean;
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
+  columnOrderItems: ColumnOrderItem[];
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const typeLabel = useTypeLabel();
@@ -2209,6 +2385,17 @@ function ColumnsTab({
 
   return (
     <>
+      {/* Reorder — deliberately above (and outside) the search box:
+          reordering a filtered list by index is not sound. */}
+      <ColumnOrderSection
+        items={columnOrderItems}
+        order={columnOrder}
+        frozen={frozenColumns}
+        onToggleFrozen={onToggleFrozen}
+        onReorder={onColumnOrderChange}
+        onReset={onResetColumnOrder}
+      />
+
       {/* Search */}
       <TextField
         size="small"

@@ -5,6 +5,30 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.0] - 2026-08-21
+
+### Added
+- Merged upstream Turbo EA **v2.51.0 → v2.72.0** into the fork.
+- **Inventory group-by** with collapsible, sticky group headers, plus report-to-inventory deep links.
+- **Cell context menu** on the inventory grid (Show matching / Filter out / Copy value) and a card preview panel.
+- **Drag-fill handle** and shared column-reorder machinery for AG Grid.
+- **Orphaned / Stale filters** in the inventory sidebar, mirroring the Data Quality report tiles, evaluated server-side.
+- **Data Quality drill-down** — card panel behind every metric tile; quality bands replace the old minimum-score threshold.
+- **Update check and release notes** — in-app upgrade announcement and what's-new dialog sourced from the bundled changelog.
+- **Settings → Integrations** tab consolidating ServiceNow and extension integrations.
+- **Extension store**: trials, update detection, downgrade confirmation, category filter pills, admin notifications for new/updated extensions.
+- **Extension SDK 1.5** — inventory data bridge, cron jobs, and card events.
+
+### Changed
+- Card create/update logic extracted into `card_write_service`; the fork's architecture-state, change-type, successor and stage-gate rules were ported into it.
+- Upgraded bundled DrawIO v26.0.9 → v31.1.8, AG Grid 32.3 → 35.3 (Theming API), bpmn-js 18.12 → 18.25.
+- Capability Map can be scoped to selected capabilities; stakeholders now score once toward data quality rather than once per role.
+
+### Fixed
+- Card subtype labels render instead of internal keys.
+- Multi-select fields use real editors in mass edit and grid edit, and mandatory fields are enforced on edit.
+- Over-indented Data Quality completeness chart.
+
 ## [2.27.0] - 2026-08-13
 
 ### Added

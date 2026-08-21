@@ -7,11 +7,7 @@ import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -28,15 +24,22 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import {
+  buildInventorySliceUrl,
+  type InventorySliceFilters,
+  type InventorySliceGroup,
+} from "./portfolioInventoryLink";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
@@ -120,6 +123,10 @@ interface DrawerData {
   /** Per-app member ids for nested groups, where rolled-up cards belong to
    * different (deeper) members than the clicked node. */
   appMemberIds?: Record<string, string>;
+  /** The group this drawer shows, for the "View in inventory" deep-link.
+   * Unset for nested-hierarchy nodes — a rolled-up subtree slice is not
+   * representable as an inventory filter. */
+  groupRef?: InventorySliceGroup | "ungrouped";
 }
 
 /* ------------------------------------------------------------------ */
@@ -554,6 +561,7 @@ export default function PortfolioReport({
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const subtypeLabel = useCardSubtypeLabel();
   const saved = useSavedReport(savedReportKey);
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -1111,7 +1119,12 @@ export default function PortfolioReport({
   const handleGroupClick = useCallback((g: GroupData) => {
     // g.key is the related card id for relation groups — keep it so the drawer
     // can colour chips per group-member when colouring by a relation subtype.
-    setDrawer({ label: g.label, apps: g.apps, memberId: g.key });
+    setDrawer({
+      label: g.label,
+      apps: g.apps,
+      memberId: g.key,
+      groupRef: { key: g.key, label: g.label },
+    });
   }, []);
 
   const handleNodeClick = useCallback((node: GroupNode) => {
@@ -1125,6 +1138,30 @@ export default function PortfolioReport({
       appMemberIds: Object.fromEntries(entries.map((e) => [e.app.id, e.memberId])),
     });
   }, []);
+
+  // Report filters the "View in inventory" deep-link carries over. Relation
+  // filters are translated member-id → name (the inventory's relation filter
+  // is name-based); relation-subtype filters and the timeline date have no
+  // inventory equivalent and are deliberately dropped.
+  const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
+    const relations: Record<string, string[]> = {};
+    if (data) {
+      for (const [typeKey, memberIds] of Object.entries(relationFilters)) {
+        if (memberIds.length === 0) continue;
+        const members = data.groupable_types[typeKey] || [];
+        const names = memberIds
+          .map((id) => members.find((m) => m.id === id)?.name)
+          .filter((n): n is string => !!n);
+        if (names.length > 0) relations[typeKey] = names;
+      }
+    }
+    return {
+      search: search || undefined,
+      attributes: attrFilters,
+      relations,
+      tagIds: tagFilterIds,
+    };
+  }, [data, search, attrFilters, relationFilters, tagFilterIds]);
 
   // Build relation filter options from groupable_types
   const relationFilterOptions = useMemo(() => {
@@ -1157,14 +1194,20 @@ export default function PortfolioReport({
     const dir = sortD === "asc" ? 1 : -1;
     return [...filteredApps].sort((a, b) => {
       if (sortK === "name") return a.name.localeCompare(b.name) * dir;
+      // Compare the labels the column actually renders, so the sort order
+      // matches what the reader sees rather than the underlying keys.
       if (sortK === "subtype")
-        return (a.subtype || "").localeCompare(b.subtype || "") * dir;
+        return (
+          subtypeLabel(cardType, a.subtype).localeCompare(
+            subtypeLabel(cardType, b.subtype),
+          ) * dir
+        );
       // Attribute column
       const av = ((a.attributes || {})[sortK] as string) || "";
       const bv = ((b.attributes || {})[sortK] as string) || "";
       return av.localeCompare(bv) * dir;
     });
-  }, [filteredApps, sortK, sortD]);
+  }, [filteredApps, sortK, sortD, cardType, subtypeLabel]);
 
   const groupByLabel =
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
@@ -1230,6 +1273,38 @@ export default function PortfolioReport({
     cardType === "Application"
       ? t("portfolio.noAppsInGroup")
       : t("portfolio.noItemsInGroup", { type: currentTypeLabel });
+
+  // Rows for the group drawer. `[...apps]` matters: this used to sort in
+  // place, mutating the array held in state — and, via handleGroupClick, the
+  // grouping memo's own `g.apps`.
+  const drawerItems = useMemo<ReportCardListItem[]>(() => {
+    if (!drawer) return [];
+    // Which group member colours this row: nested nodes roll up cards
+    // belonging to deeper members, so each keeps its own.
+    const memberOf = (id: string) =>
+      perMemberColor ? (drawer.appMemberIds?.[id] ?? drawer.memberId) : undefined;
+    return [...drawer.apps]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((a) => {
+        const parts: string[] = [];
+        const st = subtypeLabel(cardType, a.subtype);
+        if (st) parts.push(st);
+        if (colorBy) {
+          const label = getAppColorLabel(a, colorRes, colorLabels, memberOf(a.id));
+          if (label) parts.push(label);
+        }
+        if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+        return {
+          id: a.id,
+          name: a.name,
+          secondary: parts.join(" · ") || undefined,
+          dotColor: colorBy ? getAppColor(a, colorRes, colorLabels, memberOf(a.id)) : undefined,
+          warn: !!a.lifecycle?.endOfLife,
+        };
+      });
+  }, [drawer, colorBy, colorRes, colorLabels, perMemberColor, cardType, subtypeLabel]);
+
+  const drawerEolCount = drawer?.apps.filter((a) => a.lifecycle?.endOfLife).length ?? 0;
 
   // Depth options for the nested-groups selector — "Level 1..N" + "All levels"
   // (same pattern as the Capability Map's Display Depth control).
@@ -2019,6 +2094,7 @@ export default function PortfolioReport({
                       setDrawer({
                         label: t("portfolio.ungroupedLabel", { groupBy: groupByLabel }),
                         apps: ungrouped,
+                        groupRef: "ungrouped",
                       })
                     }
                   >
@@ -2188,7 +2264,7 @@ export default function PortfolioReport({
                     <TableCell sx={{ fontWeight: 500 }}>
                       {app.name}
                     </TableCell>
-                    <TableCell>{app.subtype || "\u2014"}</TableCell>
+                    <TableCell>{subtypeLabel(cardType, app.subtype) || "\u2014"}</TableCell>
                     <TableCell>{groupVal}</TableCell>
                     {colorBy && (
                       <TableCell>
@@ -2219,124 +2295,34 @@ export default function PortfolioReport({
         </Paper>
       )}
 
-      {/* Detail drawer */}
-      <Drawer
-        anchor="right"
+      {/* Group drawer — the cards behind one bubble/group */}
+      <ReportCardListPanel
         open={!!drawer}
+        title={drawer?.label ?? ""}
+        items={drawerItems}
+        metrics={[
+          { value: drawer?.apps.length ?? 0, label: typeNoun },
+          ...(drawerEolCount > 0
+            ? [{ value: drawerEolCount, label: t("portfolio.eolRisk"), color: "#e65100" }]
+            : []),
+        ]}
+        listHeading={`${typeNoun} (${drawer?.apps.length ?? 0})`}
+        emptyLabel={noItemsInGroup}
+        inventoryHref={
+          // A rolled-up nested subtree is not expressible as an inventory
+          // filter, so those drawers deliberately carry no link.
+          drawer?.groupRef && !nestedActive
+            ? buildInventorySliceUrl({
+                cardType,
+                mode: groupByMode,
+                group: drawer.groupRef,
+                filters: carriedLinkFilters,
+              })
+            : undefined
+        }
+        onItemClick={handleAppClick}
         onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
-      >
-        {drawer && (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-                {drawer.label}
-              </Typography>
-              <IconButton onClick={() => setDrawer(null)}>
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
-            </Box>
-
-            {/* Summary metrics */}
-            <Box sx={{ display: "flex", gap: 3, mb: 2 }}>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {drawer.apps.length}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {typeNoun}
-                </Typography>
-              </Box>
-              {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length > 0 && (
-                <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#e65100" }}>
-                    {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t("portfolio.eolRisk")}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Application list */}
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 600, mb: 1 }}
-            >
-              {typeNoun} ({drawer.apps.length})
-            </Typography>
-            <List dense>
-              {drawer.apps
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((a) => {
-                  // Build secondary text dynamically from active color/group fields
-                  const parts: string[] = [];
-                  if (a.subtype) parts.push(a.subtype);
-                  if (colorBy) {
-                    const lbl = getAppColorLabel(
-                      a,
-                      colorRes,
-                      colorLabels,
-                      perMemberColor
-                        ? (drawer.appMemberIds?.[a.id] ?? drawer.memberId)
-                        : undefined,
-                    );
-                    if (lbl) parts.push(lbl);
-                  }
-                  if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
-
-                  return (
-                    <ListItemButton
-                      key={a.id}
-                      onClick={() => handleAppClick(a.id)}
-                    >
-                      <ListItemText
-                        primary={a.name}
-                        secondary={parts.join(" \u00B7 ") || undefined}
-                      />
-                      {colorBy && (
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            bgcolor: getAppColor(
-                              a,
-                              colorRes,
-                              colorLabels,
-                              perMemberColor
-                                ? (drawer.appMemberIds?.[a.id] ?? drawer.memberId)
-                                : undefined,
-                            ),
-                            flexShrink: 0,
-                            ml: 1,
-                          }}
-                        />
-                      )}
-                      {a.lifecycle?.endOfLife && (
-                        <MaterialSymbol
-                          icon="warning"
-                          size={16}
-                          color="#e65100"
-                        />
-                      )}
-                    </ListItemButton>
-                  );
-                })}
-              {drawer.apps.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ py: 2, textAlign: "center" }}
-                >
-                  {noItemsInGroup}
-                </Typography>
-              )}
-            </List>
-          </Box>
-        )}
-      </Drawer>
+      />
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}

@@ -19,6 +19,8 @@ import { fileURLToPath } from "url";
 export type ScreenshotAction =
   | { type: "scroll"; target: "bottom" | "top" | string; pixels?: number }
   | { type: "click"; selector: string; nth?: number }
+  // Right-click (context menu) — used to capture the grid cell menu.
+  | { type: "rightClick"; selector: string; nth?: number }
   | { type: "wait"; ms: number }
   | { type: "hover"; selector: string }
   // Type text into a field one key at a time (via pressSequentially) so
@@ -1557,6 +1559,32 @@ export const DOC_PAGES: PageDef[] = [
       pt: "59_relatorio_camada_aplicacao",
       zh: "59_report_application_layer",
       ru: "59_otchet_uroven_prilozheniy",
+    },
+  },
+  // ── Inventory cell context menu (Show matching / Filter out) ────────────
+  {
+    id: "62_inventory_cell_menu",
+    route: "/inventory?type=Application",
+    waitFor: ".ag-root",
+    actions: [
+      { type: "wait", ms: 900 },
+      // Right-click a Name cell on the second row — opens the cell context
+      // menu (Show matching / Filter out / Copy value).
+      {
+        type: "rightClick",
+        selector: ".ag-row[row-index='1'] .ag-cell[col-id='core_name']",
+      },
+      { type: "wait", ms: 500 },
+    ],
+    filenames: {
+      en: "62_inventory_cell_menu",
+      de: "62_inventar_kontextmenue",
+      fr: "62_inventaire_menu_contextuel",
+      es: "62_inventario_menu_contextual",
+      it: "62_inventario_menu_contestuale",
+      pt: "62_inventario_menu_contextual",
+      zh: "62_inventory_cell_menu",
+      ru: "62_inventarizatsiya_kontekstnoe_menyu",
     },
   },
 

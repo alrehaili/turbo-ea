@@ -15,11 +15,6 @@ import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
@@ -27,13 +22,22 @@ import ReportShell from "./ReportShell";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ReportCardListPanel, {
+  ReportCardListRows,
+  type ReportCardListItem,
+} from "./ReportCardListPanel";
+import { buildInventorySliceUrl } from "./portfolioInventoryLink";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useProcessTypeOptions } from "@/features/bpm/useProcessTypeOptions";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import CardScopeFilter from "@/components/CardScopeFilter";
+import type { CardScopeOption } from "@/components/CardScopeDialog";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -530,6 +534,7 @@ export default function ProcessMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { options: processTypeOptions, resolve: resolveProcessType } = useProcessTypeOptions();
+  const subtypeLabel = useCardSubtypeLabel();
   const saved = useSavedReport("process-map");
 
   // Data
@@ -551,6 +556,24 @@ export default function ProcessMapReport() {
   const [filterOrgs, setFilterOrgs] = useState<string[]>([]);
   const [filterCtxs, setFilterCtxs] = useState<string[]>([]);
 
+  // Narrow the map to chosen processes and everything beneath them (#954).
+  // `/reports/bpm/process-map` takes no query params and returns every ACTIVE
+  // BusinessProcess with its parent chain, so the hook needs no fetch here.
+  const scope = useCardScope({ typeKey: "BusinessProcess", hierarchy: data });
+  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+
+  /** Processes as picker options, so the chips label without a round-trip. */
+  const scopeOptions = useMemo<CardScopeOption[]>(
+    () =>
+      (data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: "BusinessProcess",
+        parent_id: p.parent_id,
+      })),
+    [data],
+  );
+
   // Load saved/local config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -560,15 +583,18 @@ export default function ProcessMapReport() {
       if (cfg.showRelated) setShowRelated(cfg.showRelated as ShowRelated);
       if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
       if (cfg.filterCtxs) setFilterCtxs(cfg.filterCtxs as string[]);
+      if (Array.isArray(cfg.scopeIds)) {
+        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+      }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showRelated, filterOrgs, filterCtxs });
+  const getConfig = () => ({ metric, displayLevel, showRelated, filterOrgs, filterCtxs, scopeIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showRelated, filterOrgs, filterCtxs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showRelated, filterOrgs, filterCtxs, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -579,6 +605,7 @@ export default function ProcessMapReport() {
     setZoomNodeId(null);
     setFilterOrgs([]);
     setFilterCtxs([]);
+    setScopeIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -591,10 +618,13 @@ export default function ProcessMapReport() {
     });
   }, []);
 
-  // Build full tree (with filters applied)
+  // Build full tree (with filters applied). The scope is applied to the flat
+  // items *before* `buildTree`, so its `addAncestors` pass cannot climb above
+  // the scope root, and the existing `setLevel(roots, 1)` re-levels the scoped
+  // subtree with no extra handling.
   const fullTree = useMemo(
-    () => (data ? buildTree(data, filterOrgs, filterCtxs) : []),
-    [data, filterOrgs, filterCtxs],
+    () => (data ? buildTree(applyScope(data, scope.closure), filterOrgs, filterCtxs) : []),
+    [data, scope.closure, filterOrgs, filterCtxs],
   );
 
   // If zoomed, find the subtree root and render only its children
@@ -611,6 +641,21 @@ export default function ProcessMapReport() {
   }, [fullTree, zoomNodeId]);
 
   const maxLvl = useMemo(() => getMaxLevel(fullTree), [fullTree]);
+
+  // Scoping into a shallow branch re-ranges the Display Depth options, which
+  // can strand the current value outside them — a MUI Select with no matching
+  // MenuItem renders blank and warns. `99` ("all levels") is a sentinel.
+  useEffect(() => {
+    if (displayLevel !== 99 && maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
+  }, [maxLvl, displayLevel]);
+
+  // A zoom target outside a newly-set scope is no longer in the tree. The
+  // derivation below already falls back to the whole (scoped) tree, so nothing
+  // breaks — but the stale id would linger in state with no breadcrumb to
+  // clear it from.
+  useEffect(() => {
+    if (zoomNodeId && scope.closure && !scope.closure.has(zoomNodeId)) setZoomNodeId(null);
+  }, [zoomNodeId, scope.closure]);
 
   // Compute max metric value across visible tree
   const maxVal = useMemo(() => {
@@ -645,6 +690,55 @@ export default function ProcessMapReport() {
     setZoomNodeId(id);
     setDrawer(null);
   }, []);
+
+  /**
+   * "View in inventory" for the drawer, on LEAF processes only.
+   *
+   * The list shows every app in the node's whole subtree, while the inventory
+   * can only filter on a direct relation to one process — so on a parent the
+   * link would land on fewer rows than the panel just listed. A leaf has no
+   * descendants, so there the two sets are identical.
+   *
+   * The report's Organization / Business Context filters have no inventory
+   * equivalent and are dropped, which can only widen the landing.
+   */
+  const drawerInventoryHref = useMemo(() => {
+    if (!drawer || drawer.children.length > 0) return undefined;
+    return buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "BusinessProcess" },
+      group: { key: drawer.id, label: drawer.name },
+    });
+  }, [drawer]);
+
+  // The drawer's two lists. Data objects render through the same row
+  // component as the applications, so they cannot drift apart visually.
+  const drawerApps = useMemo<ReportCardListItem[]>(
+    () =>
+      drawer
+        ? Array.from(drawer.deepUniqueApps.values())
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((a) => ({
+              id: a.id,
+              name: a.name,
+              // These rows are Applications, not the drawer's BusinessProcess,
+              // so `SUBTYPE_TKEYS` does not apply — resolve off the metamodel.
+              secondary: subtypeLabel("Application", a.subtype) || undefined,
+              warn: !!a.lifecycle?.endOfLife,
+            }))
+        : [],
+    [drawer, subtypeLabel],
+  );
+
+  const drawerDataObjects = useMemo<ReportCardListItem[]>(
+    () =>
+      drawer
+        ? Array.from(drawer.deepDataObjects.values())
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((d) => ({ id: d.id, name: d.name }))
+        : [],
+    [drawer],
+  );
 
   const orgOptions = useMemo(
     () => organizations.map((o) => ({ key: o.id, label: o.name })),
@@ -682,6 +776,12 @@ export default function ProcessMapReport() {
     params.push({ label: t("common.metric"), value: mLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    if (effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("common.scope"),
+        value: t("processMap.scopeCount", { count: effectiveScopeIds.length }),
+      });
+    }
     if (showRelated !== "none") params.push({ label: t("processMap.showRelated"), value: showRelatedLabel });
     if (filterOrgs.length > 0) {
       const orgNames = filterOrgs.map((id) => orgOptions.find((o) => o.key === id)?.label || id).join(", ");
@@ -737,6 +837,22 @@ export default function ProcessMapReport() {
               <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
             ))}
           </TextField>
+
+          {/* Scopes which *processes* the map draws. The Row 2 block below is
+              also labelled "Scope", but that one narrows by related
+              Organization / Business Context — a different axis, and this
+              belongs with the structural controls. */}
+          <CardScopeFilter
+            types="BusinessProcess"
+            value={effectiveScopeIds}
+            onChange={setScopeIds}
+            labelAll={t("processMap.scopeAll")}
+            labelCount={(count) => t("processMap.scopeCount", { count })}
+            dialogTitle={t("processMap.scopeDialogTitle")}
+            helperText={t("processMap.scopeHelper")}
+            tooltip={t("processMap.scopeTooltip")}
+            initialOptions={scopeOptions}
+          />
 
           <TextField
             select
@@ -904,24 +1020,12 @@ export default function ProcessMapReport() {
       )}
 
       {/* Detail drawer */}
-      <Drawer
-        anchor="right"
+      <ReportCardListPanel
         open={!!drawer}
-        onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
-      >
-        {drawer && (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-                {drawer.name}
-              </Typography>
-              <IconButton onClick={() => setDrawer(null)} size="small">
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
-            </Box>
-
-            {/* Metadata chips */}
+        title={drawer?.name ?? ""}
+        items={drawerApps}
+        headerContent={
+          drawer ? (
             <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
               {drawer.subtype && SUBTYPE_TKEYS[drawer.subtype] && (
                 <Chip size="small" label={t(SUBTYPE_TKEYS[drawer.subtype])} variant="outlined" />
@@ -962,109 +1066,74 @@ export default function ProcessMapReport() {
                 />
               )}
             </Box>
-
-            {/* Metric summary */}
-            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepAppCount}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("processMap.showApplications")}</Typography>
-              </Box>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepDataObjects.size}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("processMap.showDataObjects")}</Typography>
-              </Box>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{fmtShort(drawer.deepCost)}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("processMap.cost")}</Typography>
-              </Box>
-            </Box>
-
-            {/* Actions */}
-            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-              <Chip
-                size="small"
-                icon={<MaterialSymbol icon="open_in_new" size={14} />}
-                label={t("processMap.openCard")}
-                onClick={() => handleItemClick(drawer.id)}
-                sx={{ cursor: "pointer" }}
-              />
-              {drawer.children.length > 0 && (
+          ) : undefined
+        }
+        metrics={[
+          { value: drawer?.deepAppCount ?? 0, label: t("processMap.showApplications") },
+          { value: drawer?.deepDataObjects.size ?? 0, label: t("processMap.showDataObjects") },
+          { value: fmtShort(drawer?.deepCost ?? 0), label: t("processMap.cost") },
+        ]}
+        beforeList={
+          drawer ? (
+            <>
+              {/* Actions — neither is a card click, so both stay out of `items` */}
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <Chip
                   size="small"
-                  icon={<MaterialSymbol icon="zoom_in" size={14} />}
-                  label={t("processMap.drillDown")}
-                  onClick={() => handleDrillDown(drawer.id)}
+                  icon={<MaterialSymbol icon="open_in_new" size={14} />}
+                  label={t("processMap.openCard")}
+                  onClick={() => handleItemClick(drawer.id)}
                   sx={{ cursor: "pointer" }}
-                  color="primary"
                 />
-              )}
-            </Box>
-
-            {/* Sub-processes */}
-            {drawer.children.length > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  {t("processMap.subProcesses", { count: drawer.children.length })}
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
-                  {drawer.children.map((ch) => (
-                    <Chip
-                      key={ch.id}
-                      size="small"
-                      label={`${ch.name} (${ch.deepAppCount})`}
-                      onClick={() => setDrawer(ch)}
-                      sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
-                    />
-                  ))}
-                </Box>
-              </>
-            )}
-
-            {/* Applications */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              {t("processMap.applications", { count: drawer.deepAppCount })}
-            </Typography>
-            <List dense>
-              {Array.from(drawer.deepUniqueApps.values())
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((a) => (
-                  <ListItemButton key={a.id} onClick={() => handleItemClick(a.id)}>
-                    <ListItemText
-                      primary={a.name}
-                      secondary={a.subtype || undefined}
-                    />
-                    {a.lifecycle?.endOfLife && (
-                      <MaterialSymbol icon="warning" size={16} color="#e65100" />
-                    )}
-                  </ListItemButton>
-                ))}
-              {drawer.deepAppCount === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 1, textAlign: "center" }}>
-                  {t("processMap.noLinkedApps")}
-                </Typography>
-              )}
-            </List>
-
-            {/* Data Objects */}
-            {drawer.deepDataObjects.size > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>
-                  {t("processMap.dataObjects", { count: drawer.deepDataObjects.size })}
-                </Typography>
-                <List dense>
-                  {Array.from(drawer.deepDataObjects.values())
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((d) => (
-                      <ListItemButton key={d.id} onClick={() => handleItemClick(d.id)}>
-                        <ListItemText primary={d.name} />
-                      </ListItemButton>
+                {drawer.children.length > 0 && (
+                  <Chip
+                    size="small"
+                    icon={<MaterialSymbol icon="zoom_in" size={14} />}
+                    label={t("processMap.drillDown")}
+                    onClick={() => handleDrillDown(drawer.id)}
+                    sx={{ cursor: "pointer" }}
+                    color="primary"
+                  />
+                )}
+              </Box>
+              {drawer.children.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    {t("processMap.subProcesses", { count: drawer.children.length })}
+                  </Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+                    {drawer.children.map((ch) => (
+                      <Chip
+                        key={ch.id}
+                        size="small"
+                        label={`${ch.name} (${ch.deepAppCount})`}
+                        onClick={() => setDrawer(ch)}
+                        sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
+                      />
                     ))}
-                </List>
-              </>
-            )}
-          </Box>
-        )}
-      </Drawer>
+                  </Box>
+                </>
+              )}
+            </>
+          ) : undefined
+        }
+        inventoryHref={drawerInventoryHref}
+        listHeading={t("processMap.applications", { count: drawer?.deepAppCount ?? 0 })}
+        emptyLabel={t("processMap.noLinkedApps")}
+        afterList={
+          drawerDataObjects.length > 0 ? (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>
+                {t("processMap.dataObjects", { count: drawerDataObjects.length })}
+              </Typography>
+              {/* Second list, same rows as the first — see ReportCardListRows */}
+              <ReportCardListRows items={drawerDataObjects} onItemClick={handleItemClick} />
+            </>
+          ) : undefined
+        }
+        onItemClick={handleItemClick}
+        onClose={() => setDrawer(null)}
+      />
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}

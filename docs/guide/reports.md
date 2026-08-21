@@ -21,6 +21,10 @@ This is ideal for portfolio analysis — plotting applications by business value
 
 When AI is configured and portfolio insights are enabled by an admin, the portfolio report shows an **AI Insights** button. Clicking it sends a summary of your current view to the AI provider, which returns strategic insights about concentration risks, modernisation opportunities, lifecycle concerns, and portfolio balance. The insights panel is collapsible and can be regenerated after changing filters or grouping.
 
+### From report to inventory
+
+Clicking a group opens a drawer listing that group's cards. Its **View in inventory** button opens the Inventory on that exact slice. When the report is grouped by one of the card type's own fields, the inventory arrives grouped by the same field with the clicked group expanded and every other group collapsed (counts stay visible), and the report's search, attribute, relation and tag filters are carried over — ready for a select-all and [mass edit](inventory.md#mass-edit). When grouping by a related card type (such as Organization), the inventory instead arrives filtered to that related card. The button is hidden while *Nested groups* is active: a rolled-up subtree has no single inventory filter.
+
 ## Flexible Portfolio
 
 ![Flexible Portfolio — Data Object portfolio grouped by Application, coloured by Data Sensitivity](../assets/img/en/57_report_flexible_portfolio.png)
@@ -41,6 +45,9 @@ When grouping by a related card type that supports hierarchy (such as Business C
 
 ## Capability Map
 
+Clicking a capability opens a side panel listing every application in its subtree. On a bottom-level capability the panel offers **View in inventory**, which lands on the applications linked to it.
+
+
 ![Business Capability Map](../assets/img/en/11_capability_map.png)
 
 The **Capability Map** shows a hierarchical **heatmap** of the organization's business capabilities. Each block represents a capability, with:
@@ -48,6 +55,8 @@ The **Capability Map** shows a hierarchical **heatmap** of the organization's bu
 - **Hierarchy** — Main capabilities contain their sub-capabilities
 - **Heatmap coloring** — Blocks are colored based on a selected metric (e.g., number of supporting applications, average data quality, or risk level)
 - **Click to explore** — Click any capability to drill down into its details and supporting applications
+
+**Scoping to specific capabilities** — By default the map draws every capability. Use the capability chip in the toolbar to open a picker and select one or more capabilities; the map then shows only those and everything beneath them. Sub-capabilities are included automatically, so picking a top-level capability gives you its whole branch. **Display Depth** counts from the capabilities you selected, so *Level 2* always means two tiers below what you are looking at. The scope is stored with the report, so a saved report reopens on the same branch.
 
 ## Lifecycle Report
 
@@ -60,6 +69,8 @@ The **Lifecycle Report** shows a **timeline visualization** of when technology c
 - **Migration coordination** — Visualize overlapping phase-in and phase-out periods
 
 Components are displayed as horizontal bars spanning their lifecycle phases: Plan, Phase In, Active, Phase Out, and End of Life.
+
+**Scoping to specific cards** — Once you have picked a card type, the chip beside it opens a picker: select one or more cards and the timeline shows only those and everything beneath them in the hierarchy. Sub-cards are included automatically. The chip stays disabled while the type selector is on *All types*, because a scope needs one hierarchy to work from.
 
 ## Dependencies Report
 
@@ -145,6 +156,8 @@ Whenever at least one Cost Source is active, the treemap rectangles are **clicka
 
 The timeline slider, Cost Source selection, and other filters are preserved as you drill, and the drilled level is part of the saved-report config — saving a report while drilled in re-opens directly at that level. With **no** Cost Source active, clicking a rectangle opens the card side panel instead (there's nothing to break down).
 
+**Scoping to specific cards** — The chip beside the card-type selector opens a picker: select one or more cards and the treemap, the totals and the table all narrow to those and everything beneath them. The chip is hidden while you are drilled into a rectangle, since a drill has already moved you to a different card type; leave the drill and the scope is still there.
+
 ## Matrix Report
 
 ![Matrix Report](../assets/img/en/35_report_matrix.png)
@@ -198,6 +211,8 @@ Two tiles count the cards on each axis that have no relation at all. **Show only
 
 Excel export produces two sheets: the grid as it appears on screen, and one row per relation with its values spread across columns — the sheet to pivot on. PowerPoint export captures the picture.
 
+**Scoping each axis** — Each axis carries its own chip beside its type selector, so you can ask for *these capabilities × these applications*. Select one or more cards and that axis shows only those and everything beneath them. The KPI cards above the grid follow the scope, so the counts always describe what you are looking at. Changing an axis's card type clears that axis's scope; transposing the grid swaps the two scopes along with the axes.
+
 ## Data Quality Report
 
 ![Data Quality Report](../assets/img/en/33_report_data_quality.png)
@@ -207,6 +222,19 @@ The **Data Quality Report** is a **completeness dashboard** that shows how well 
 - **Overall score** — Average data quality across all cards
 - **By type** — Breakdown showing which card types have the best/worst completeness
 - **Individual cards** — List of cards with the lowest data quality, prioritized for improvement
+
+Cards with an empty **mandatory field** always score **0%** — the weighted calculation only resumes once every required field is filled — so the lowest-scoring list surfaces exactly the cards whose required data is still missing.
+
+### Drilling into a number
+
+Every figure on the report is a way in, not just a readout:
+
+- **Click a bar segment** in *Completeness by Type* — a panel opens on the right listing the cards of that type in that band (Complete, Partial or Minimal).
+- **Click a bar** in *Average Completion by Type*, or a row in the table view, to list every card of that type.
+- **Click the Orphaned or Stale tile** to list the cards behind that count.
+
+From the panel, click any card to open its detail side panel, or press **View in inventory** to continue in the [Inventory](inventory.md) — which arrives grouped by data quality with the band you clicked expanded and the others collapsed beside it, so you can start fixing records straight away. The Orphaned and Stale panels link into the inventory's matching filter, across every card type.
+
 
 ## End of Life (EOL) Report
 
@@ -236,3 +264,5 @@ Active filters and grouping options applied at the moment of export are recorded
 ## Process Map
 
 The **Process Map** visualizes the organization's business process landscape as a structured map, showing process categories (Management, Core, Support) and their hierarchical relationships.
+
+**Scoping to specific processes** — The chip beside *Display Depth* opens a picker: select one or more processes and the map shows only those and everything beneath them. Sub-processes are included automatically, and **Display Depth** counts from what you selected. Clicking into a process to zoom still works, and now works within the scope. Note this is a different control from the **Scope** row below, which filters by related Organization or Business Context.

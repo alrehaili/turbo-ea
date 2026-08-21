@@ -55,9 +55,11 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 | **Etichetta** | Nome visualizzato |
 | **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select o multiple_select |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali |
-| **Obbligatorio** | Se il campo deve essere compilato per il punteggio di qualità dei dati |
+| **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |
 | **Sola lettura** | Impedisce la modifica manuale (utile per i campi calcolati) |
+
+**Come vengono applicati i campi obbligatori.** La creazione di una scheda non richiede mai questi campi: le schede possono essere create rapidamente e completate in seguito. Finché un campo obbligatorio resta vuoto, il punteggio di qualità dei dati della scheda rimane a **0** e la pagina di dettaglio mostra un banner di avviso con i campi da compilare. Quando si modifica una sezione della scheda, non è possibile salvarla finché i suoi campi obbligatori non sono compilati, e l'API rifiuta di svuotare un campo obbligatorio già valorizzato. I campi booleani e in sola lettura (calcolati) sono esenti.
 
 Cliccate su **+ Aggiungi campo** per creare un nuovo campo, o cliccate su un campo esistente per modificarlo nella **Finestra editor campo**.
 
@@ -87,6 +89,8 @@ Gli ID sono **univoci a livello globale, di sola lettura e non vengono mai riuti
 
 Il punteggio di **qualità dei dati** di una card misura in modo ponderato quanto è completa. Ogni fattore che contribuisce — ogni campo e cinque fattori integrati — è gestito in un unico posto: la scheda **Qualità dei dati** dell'editor del tipo di card. (L'editor è organizzato in schede – Generale, Relazioni, Ruoli degli stakeholder e Qualità dei dati – le traduzioni sono disponibili dall'icona nell'intestazione.)
 
+**I campi obbligatori prevalgono sul punteggio.** Finché un campo obbligatorio di una card resta vuoto, il suo punteggio rimane a **0** indipendentemente dai pesi — il calcolo ponderato si applica solo quando tutti i campi obbligatori sono compilati (i campi booleani e in sola lettura sono esenti; vedi l'impostazione **Obbligatorio** sopra).
+
 L'importanza di ciascun fattore si imposta con un semplice cursore a quattro livelli, che mostra anche il numero sottostante:
 
 - **Ignora (0)** — escluso completamente dal punteggio.
@@ -94,7 +98,7 @@ L'importanza di ciascun fattore si imposta con un semplice cursore a quattro liv
 - **Importante (2)** — conta il doppio.
 - **Critico (3)** — conta il triplo.
 
-Il pannello elenca i cinque **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie**, **Tag obbligatori** e **Ruoli degli stakeholder** (ogni ruolo definito per il tipo è soddisfatto quando vi viene assegnato uno stakeholder) — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
+Il pannello elenca i cinque **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie**, **Tag obbligatori** e **Ruoli degli stakeholder** (un solo slot, soddisfatto non appena qualcuno viene assegnato alla scheda in un ruolo che conta per la qualità dei dati) — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
 
 Una barra di **composizione del punteggio** in cima al pannello mostra la quota di ciascun fattore sul punteggio massimo possibile, per vedere a colpo d'occhio quali fattori dominano. Nel layout della card della scheda **Generale**, ogni campo — e le sezioni integrate Descrizione, Ciclo di vita e Relazioni — mostra un piccolo badge con il livello attuale, per vedere la ponderazione senza lasciare quella scheda.
 
@@ -120,6 +124,8 @@ Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi),
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
 
 Ogni ruolo ha una **chiave** (l'identificatore memorizzato sulle schede, usato dalle colonne di importazione/esportazione `stakeholder:<chiave_ruolo>`) e un'**etichetta** (ciò che vedono gli utenti). La chiave segue la stessa convenzione di ogni altra chiave del metamodello: solo lettere e cifre, con iniziale alfabetica, da 3 a 50 caratteri, per convenzione in camelCase come `businessArchitect`. Viene compilata automaticamente dall'etichetta, quindi raramente dovrai digitarla.
+
+Ogni ruolo porta inoltre un interruttore **Conta per la qualità dei dati**. Il punteggio di qualità ha un solo slot per gli stakeholder, soddisfatto non appena qualcuno viene assegnato alla scheda in un ruolo con questo interruttore attivo. Disattivalo per i ruoli puramente passivi: l'**Osservatore** integrato viene fornito disattivato, così osservare una scheda non vale mai come responsabilità. Un tipo in cui tutti i ruoli sono disattivati non contribuisce con alcuno slot. Cambiare l'interruttore ricalcola subito il punteggio di tutte le schede del tipo.
 
 I ruoli possono essere rimossi in due modi:
 

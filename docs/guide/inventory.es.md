@@ -15,7 +15,9 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Ciclo de Vida** — Filtrar por fase del ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida
-- **Calidad de Datos** — Filtrado por umbral: Buena (80%+), Media (50–79%), Baja (menos del 50%)
+- **Calidad de Datos** — Filtrado por banda (selección múltiple): Completo (≥80%), Parcial (40–79%), Mínimo (menos del 40%). Son las bandas del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en un segmento de barra allí se llega aquí.
+- **Huérfanas** — Solo fichas sin ninguna relación, en ningún sentido. Se evalúa en el servidor, por lo que funciona sin seleccionar un tipo de ficha.
+- **Desactualizadas** — Solo fichas sin actualizar en los últimos 90 días. Ambas reflejan los mosaicos del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en uno se llega aquí.
 - **Etiquetas** — Filtrar por etiquetas de cualquier grupo de etiquetas
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
 - **Atributos personalizados** — Filtrar por valores en campos personalizados (búsqueda de texto, opciones de selección)
@@ -25,6 +27,20 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 > **Encontrar fichas sin valor.** Los filtros de Subtipo, Ciclo de vida, Etiquetas, Relaciones y atributos personalizados de selección incluyen cada uno una opción **(vacío)**. Selecciónela para mostrar solo las fichas que *no* tienen valor en ese campo, por ejemplo todas las fichas sin ciclo de vida definido. Se puede combinar con valores normales (coincide con cualquiera) y entre varios filtros (coincide con todos).
 
 Un **contador de filtros activos** muestra cuántos filtros están aplicados actualmente.
+
+### Acciones de celda
+
+Haga clic derecho en cualquier celda de la cuadrícula (pulsación larga en dispositivos táctiles) para abrir un menú contextual con acciones rápidas sobre lo que hay bajo el cursor, al estilo de ServiceNow:
+
+- **Vista previa de la ficha** — abrir la ficha que nombra la celda en el panel lateral, sin salir de la cuadrícula
+- **Mostrar coincidencias** — conservar solo las filas cuyo valor coincide con el de la celda pulsada
+- **Excluir** — ocultar las filas cuyo valor coincide con el de la celda pulsada
+- **Copiar valor** — copiar el texto de la celda al portapapeles
+- **Borrar filtro de columna** — quitar el filtro de esa columna (visible solo mientras haya uno activo)
+
+En una celda con varios valores (etiquetas, relaciones, partes interesadas, atributos de selección múltiple), el menú muestra primero los valores individuales, para filtrar por uno de ellos o por la celda completa. **Vista previa de la ficha** aparece en toda celda que nombra una ficha — la columna **Nombre** (la ficha de la propia fila), la columna **Padre** y las columnas de relaciones — y cuando la celda nombra varias, el menú las lista igual, para que elija cuál abrir. Estos filtros van a los filtros de columna de la cuadrícula: se combinan con los filtros de la barra lateral, cuentan en el botón **Borrar filtros** de la barra de herramientas y se conservan con su vista. El mismo menú está disponible en todas las cuadrículas de Turbo EA — Decisiones, Registro de riesgos, Cumplimiento y las cuadrículas de administración. Cuando la columna tiene un filtro equivalente en el panel izquierdo — tipo de tarjeta, subtipo, ciclo de vida, estado de aprobación o un atributo de selección única —, **Mostrar coincidencias** también selecciona ese valor en el panel, y **Borrar** borra ambos, de modo que una vista guardada nunca puede contener un filtro del panel y un filtro de columna contradictorios. Si después se edita el filtro en el panel, este simplemente toma el control.
+
+![Menú contextual de una celda del inventario](../assets/img/es/62_inventario_menu_contextual.png)
 
 ### Pestaña Columnas
 
@@ -74,10 +90,12 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 
 - **Ordenamiento** — Haga clic en cualquier encabezado de columna para ordenar de forma ascendente/descendente
 - **Edición en línea** — En modo de edición en cuadrícula, edite los valores de los campos directamente en la tabla
+- **Rellenar una columna** — En modo de edición en cuadrícula, haga clic en una celda y arrastre el pequeño cuadrado de su esquina hacia arriba o hacia abajo para copiar ese valor en todas las filas recorridas. Antes de guardar nada, una confirmación indica la columna, el valor y cuántas filas; si el servidor rechaza una fila, se muestra con el motivo y un enlace, y las filas que sí se guardaron permanecen. El gesto funciona con el dedo igual que con el ratón, y también con el teclado: enfoque el cuadrado, extienda con las flechas y confirme con Intro. Solo se rellenan las filas visibles tras sus filtros y su orden, y la columna Nombre queda excluida a propósito para que dos tarjetas no acaben compartiendo nombre.
 - **Selección múltiple** — Seleccione múltiples filas para operaciones masivas
 - **Vista jerárquica** — Las relaciones padre/hijo se muestran como rutas de navegación
 - **Configuración de columnas** — Mostrar, ocultar y reordenar columnas
 - **Fijar una columna** — Pase el ratón sobre el encabezado de una columna y haga clic en el icono de chincheta para fijar esa columna en el borde izquierdo, de modo que permanezca visible al desplazarse lateralmente. Haga clic de nuevo en la chincheta para liberarla. Cada columna lleva también esa chincheta en la pestaña **Columnas** del panel de filtros, así que puede fijar una columna sin buscar su encabezado. Las columnas fijadas se recuerdan por tabla, y el mismo control está disponible en todas las tablas de datos de Turbo EA (Registro de riesgos, Decisiones, Hallazgos de cumplimiento, Usuarios, Recursos, Registro de auditoría).
+- **Reordenar columnas** — Arrastre el encabezado de una columna para moverla, o abra la sección **Orden de columnas** en la parte superior de la pestaña **Columnas** y arrastre una fila por su asa. Esa lista *es* el orden de la tabla, así que ambos coinciden siempre, y las columnas fijadas se agrupan al principio porque siempre se muestran al inicio: libere allí la chincheta de una columna si desea sacarla de ese grupo. El asa también funciona con el teclado (Espacio para tomar una columna, flechas para moverla, Espacio para soltarla) y de forma táctil, así que el orden se puede cambiar en un teléfono. Su orden de columnas se recuerda por tabla, en todas las tablas de datos de Turbo EA.
 
 ### Barra de Herramientas
 
@@ -110,6 +128,8 @@ La lista desplegable **Campo** agrupa lo que se puede modificar:
 
 Las etiquetas, las relaciones y el padre ofrecen un conmutador **añadir / quitar**, de modo que amplíe o reduzca los valores existentes en lugar de sustituirlos.
 
+El control de valor se adapta al tipo de campo: un campo de selección múltiple muestra sus opciones con casillas, un campo de sí/no un interruptor y un campo de fecha un selector de fecha. Si deja el valor vacío, el campo se borra en todas las tarjetas seleccionadas. Los campos calculados por una fórmula, y los campos de coste que no tiene permiso para ver, no se ofrecen.
+
 ### Reestructurar la jerarquía { #mass-edit-parent }
 
 El campo **Padre** aparece cuando ha filtrado la cuadrícula a un único tipo de tarjeta que admite jerarquía. Una tarjeta tiene exactamente un padre, así que este único campo cubre ambos sentidos de una reestructuración:
@@ -124,6 +144,16 @@ Las tarjetas se mueven de una en una, por lo que un movimiento no permitido solo
 - El movimiento llevaría una capacidad de negocio más allá del máximo de cinco niveles.
 
 Una tarjeta arrastra consigo a sus hijas al moverse, y las tarjetas aprobadas vuelven a **Roto** para que el cambio se revise de nuevo.
+
+## Agrupar el inventario { #group-by }
+
+Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de elementos) para organizar la cuadrícula en grupos plegables. La fase del ciclo de vida y el estado de aprobación están siempre disponibles; al filtrar la cuadrícula a un único tipo de tarjeta se añaden su subtipo y todos sus atributos de selección única.
+
+- Las tarjetas sin valor en el campo elegido se agrupan en **Sin definir**, al principio de la lista: el punto de partida natural para clasificar tarjetas pendientes.
+- Haga clic en la cabecera de un grupo para plegarlo o desplegarlo. La cabecera muestra el número de tarjetas del grupo.
+- Al desplazarse por un grupo largo, su cabecera permanece fijada justo debajo de las cabeceras de columna, de modo que siempre sabe qué grupo está leyendo; la cabecera del grupo siguiente la desplaza al llegar. Es la cabecera completa, casilla incluida, de modo que puede seleccionar un grupo largo sin volver a su principio.
+- La casilla de la cabecera selecciona todas las tarjetas del grupo: para reclasificar un lote, despliegue **Sin definir**, marque la cabecera y establezca el valor con la [Edición masiva](#mass-edit). Deliberadamente no hay arrastrar y soltar: seleccionar y establecer funciona igual en escritorio, tableta y móvil.
+- La ordenación se aplica dentro de cada grupo; la agrupación se conserva al recargar, se guarda en las vistas guardadas y puede compartirse mediante el parámetro de URL `group_by`.
 
 ## Sugerencias de Descripción con IA { #ai-description-suggestions }
 
