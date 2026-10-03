@@ -13,6 +13,15 @@ import type {
   TagGroup,
 } from "@/types";
 
+import {
+  isCurrentWorkbookFormat,
+  type ListCellMode,
+  listCellReadings,
+  splitListCell,
+  tagsAreSemicolonSeparated,
+  unescapeListItem,
+} from "./listCell";
+
 const t = (key: string, opts?: Record<string, unknown>) =>
   i18n.t(key, { ns: "inventory", ...opts });
 
@@ -225,28 +234,10 @@ function pathKey(type: string, segments: string[]): string {
   return `${type}|${segments.map((s) => s.toLowerCase()).join("/")}`;
 }
 
-/** Mirror of `encodePathSegment()` in `excelExport.ts` — escape `\` and `/`
- * so a card name containing either character round-trips cleanly. */
+/** Mirror of `encodePathSegment()` in `excelExport.ts` — escape `\`, `/`
+ * and `;` so a card name containing any of them round-trips cleanly. */
 function encodePathSegment(name: string): string {
-  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/");
-}
-
-/**
- * Split a `rel:<key>` cell into individual target references. Semicolons
- * are the canonical separator (see `excelExport.ts`) because card names
- * commonly contain commas. As a transitional courtesy we fall back to
- * commas when the cell contains no semicolon — this keeps workbooks
- * exported before the convention switch importable. A cell containing
- * any `;` is treated as semicolon-separated, so a single new-format cell
- * with comma-bearing names parses correctly even when the cell happens
- * to also contain commas inside those names.
- */
-function splitRelationCell(cell: string): string[] {
-  const sep = cell.includes(";") ? ";" : ",";
-  return cell
-    .split(sep)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return name.replace(/\\/g, "\\\\").replace(/\//g, "\\/").replace(/;/g, "\\;");
 }
 
 /**
@@ -413,7 +404,14 @@ function buildPatch(
     changes.name = { old: ex.name, new: d.name };
   }
 
-  for (const key of ["description", "subtype", "parent_id", "external_id", "alias"] as const) {
+  for (const key of [
+    "description",
+    "subtype",
+    "parent_id",
+    "parent_label",
+    "external_id",
+    "alias",
+  ] as const) {
     const exVal = (ex as unknown as Record<string, unknown>)[key] ?? "";
     if (d[key] !== undefined && norm(d[key]) !== norm(exVal)) {
       patch[key] = d[key] || null;
@@ -471,15 +469,12 @@ const RELATIONS_SHEET_NAME = "Relations";
  * Legacy single-sheet parser. Kept for backwards compatibility with callers
  * that only care about the first sheet. New code should use
  * `parseWorkbookSheets()` to get a structured view of every sheet.
+ *
+ * The reader itself lives in the leaf `@/lib/spreadsheet` (it is what the
+ * extension SDK's `loadSpreadsheet` resolves — an extension needs "read this
+ * file into rows" without this module's card-import validators riding along).
  */
-export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
-  // cellDates: true so that Excel-reformatted date cells come back as JS Date
-  // objects (handled by str()) instead of opaque serial numbers.
-  const wb = XLSX.read(file, { type: "array", cellDates: true });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  if (!ws) return [];
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
-}
+export { parseWorkbook } from "@/lib/spreadsheet";
 
 /**
  * Multi-sheet parser: returns one entry per non-meta, non-relations sheet,
@@ -551,6 +546,22 @@ export function parseWorkbookSheets(
 
 // ---- Core: validate ------------------------------------------------------
 
+/** What `validateImport()` knows about the workbook a sheet came from. */
+export interface ValidateImportOptions {
+  /** `_Meta` sheet info, absent for a hand-built sheet or a CSV. Decides how
+   * the `tags` column is separated (`tagsCellMode`). */
+  meta?: MetaInfo;
+}
+
+/**
+ * How to read a `tags` cell. Format 4 writes it `; `-separated; earlier
+ * formats wrote `, `; a sheet without `_Meta` could be either.
+ */
+function tagsCellMode(meta: MetaInfo | undefined): ListCellMode {
+  if (!meta) return "auto";
+  return tagsAreSemicolonSeparated(meta.formatVersion) ? "semicolon" : "comma";
+}
+
 export function validateImport(
   rows: Record<string, unknown>[],
   existingCards: Card[],
@@ -560,6 +571,7 @@ export function validateImport(
   calculatedFields: CalculatedFieldsMap = {},
   users: UserRef[] = [],
   stakeholderRolesByType: StakeholderRolesByType = {},
+  opts: ValidateImportOptions = {},
 ): ImportReport {
   const errors: ImportError[] = [];
   const warnings: ImportWarning[] = [];
@@ -612,6 +624,7 @@ export function validateImport(
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
     "id", "type", "name", "description", "subtype", "parent_id", "parent_path",
+    "parent_label",
     "external_id", "reference", "alias", "approval_status", "tags",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
@@ -642,9 +655,11 @@ export function validateImport(
   }
 
   // Index existing cards by id for fast lookup
+  // Keyed by `normalizeId` — a UUID is case-insensitive, and a sheet edited in a
+  // tool that upper-cases them must still find its cards.
   const existingById = new Map<string, Card>();
   for (const card of existingCards) {
-    existingById.set(card.id, card);
+    existingById.set(normalizeId(card.id), card);
   }
 
   // Index existing cards by (type, full ancestor path) for parent_path resolution.
@@ -671,7 +686,7 @@ export function validateImport(
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
     const id = str(raw["id"] ?? raw["Id"] ?? raw["ID"]);
-    if (id && UUID_RE.test(id)) fileIds.add(id);
+    if (id && UUID_RE.test(id)) fileIds.add(normalizeId(id));
     const ppRaw = str(raw["parent_path"]);
     const name = str(raw["name"] ?? raw["Name"]);
     const rowType = str(raw["type"] ?? raw["Type"]) || preSelectedType || "";
@@ -709,6 +724,18 @@ export function validateImport(
       else tagByNameOnly.set(bare, tg.id);
     }
   }
+  /** Whether one `tags` entry names a tag — ambiguous bare names included,
+   * since they still name something (and get their own warning). */
+  const isKnownTagEntry = (entry: string): boolean => {
+    const colonIdx = entry.indexOf(":");
+    if (colonIdx > 0) {
+      const groupName = entry.slice(0, colonIdx).trim().toLowerCase();
+      const tagName = entry.slice(colonIdx + 1).trim().toLowerCase();
+      if (tagByGroupTag.has(`${groupName}|${tagName}`)) return true;
+    }
+    return tagByNameOnly.has(entry.trim().toLowerCase());
+  };
+  const tagsMode = tagsCellMode(opts.meta);
 
   for (let i = 0; i < rows.length; i++) {
     const rowNum = i + 2; // +2 because row 1 is the header, data starts at 2
@@ -728,6 +755,7 @@ export function validateImport(
     const subtype = str(raw["subtype"] ?? raw["Subtype"]);
     let parentId = str(raw["parent_id"]);
     const parentPathRaw = str(raw["parent_path"]);
+    const parentLabel = str(raw["parent_label"]);
     const externalId = str(raw["external_id"]);
     const alias = str(raw["alias"] ?? raw["Alias"]);
     const approvalStatus = str(raw["approval_status"]).toUpperCase();
@@ -761,7 +789,7 @@ export function validateImport(
       }
 
       // Rule 8: duplicate id in file
-      const prevRow = seenIds.get(id);
+      const prevRow = seenIds.get(normalizeId(id));
       if (prevRow !== undefined) {
         errors.push({
           row: rowNum,
@@ -770,12 +798,12 @@ export function validateImport(
         });
         continue;
       }
-      seenIds.set(id, rowNum);
+      seenIds.set(normalizeId(id), rowNum);
 
       // Rule 6: id must match existing — but for cross-instance imports the
       // source UUID won't exist locally, so demote to a "create" with a
       // warning instead of failing the row outright.
-      matchedExisting = existingById.get(id);
+      matchedExisting = existingById.get(normalizeId(id));
       if (!matchedExisting) {
         warnings.push({
           row: rowNum,
@@ -784,7 +812,7 @@ export function validateImport(
         });
         // Fall through: the row will be classified as a create below; we
         // intentionally drop the file id so the server generates a fresh one.
-        seenIds.delete(id);
+        seenIds.delete(normalizeId(id));
       } else if (matchedExisting.type !== type) {
         // Rule 7: type must match for an update
         errors.push({
@@ -810,9 +838,9 @@ export function validateImport(
       } else {
         parentPathKey = pathKey(type, parentSegments);
 
-        // Self-reference: a row whose parent_path is its own path.
-        const ownKey = pathKey(type, [...parentSegments, name]);
-        if (parentPathKey === ownKey) {
+        const existingMatch = existingByPath.get(parentPathKey);
+        // Self-reference: the parent path resolves to this row's own card.
+        if (existingMatch && id && normalizeId(existingMatch) === normalizeId(id)) {
           errors.push({
             row: rowNum,
             column: "parent_path",
@@ -820,8 +848,6 @@ export function validateImport(
           });
           continue;
         }
-
-        const existingMatch = existingByPath.get(parentPathKey);
         if (existingMatch) {
           // Use the existing card's id directly — overrides any stale parent_id.
           parentId = existingMatch;
@@ -861,7 +887,7 @@ export function validateImport(
         continue;
       }
       // parent must exist in DB or be another row in the file
-      if (!existingById.has(parentId) && !fileIds.has(parentId)) {
+      if (!existingById.has(normalizeId(parentId)) && !fileIds.has(normalizeId(parentId))) {
         errors.push({
           row: rowNum,
           column: "parent_id",
@@ -870,7 +896,7 @@ export function validateImport(
         continue;
       }
       // parent must not be self
-      if (parentId === id) {
+      if (id && normalizeId(parentId) === normalizeId(id)) {
         errors.push({
           row: rowNum,
           column: "parent_id",
@@ -892,6 +918,7 @@ export function validateImport(
 
     // Build lifecycle object
     const lifecycle: Record<string, string> = {};
+    let rowHasLifecycleError = false;
     for (const phase of LIFECYCLE_PHASES) {
       const val = str(raw[`lifecycle_${phase}`]);
       if (val) {
@@ -902,11 +929,15 @@ export function validateImport(
             column: `lifecycle_${phase}`,
             message: t("import.errors.invalidDate", { row: rowNum, field: `lifecycle_${phase}`, value: val }),
           });
+          rowHasLifecycleError = true;
         } else {
           lifecycle[phase] = val;
         }
       }
     }
+    // An errored row is not a card to create — the preview's counts say what
+    // the import would do, and it will not run while an error stands.
+    if (rowHasLifecycleError) continue;
 
     // Build attributes object, validating against field defs
     const fieldDefs = fieldDefsForType(type, allTypes);
@@ -967,6 +998,20 @@ export function validateImport(
 
       // Validate by field type
       switch (field.type) {
+        case "percentage": {
+          const num = Number(val);
+          if (isNaN(num) || num < 0 || num > 100) {
+            errors.push({
+              row: rowNum,
+              column: colKey,
+              message: t("import.errors.expectsPercentage", { row: rowNum, field: fieldLabel(field, i18n.language), value: val }),
+            });
+            rowHasAttrError = true;
+          } else {
+            attributes[field.key] = num;
+          }
+          break;
+        }
         case "cost":
         case "number": {
           // Rule 11
@@ -1063,15 +1108,16 @@ export function validateImport(
 
     if (rowHasAttrError) continue;
 
-    // Parse optional Tags column: "Group: Tag, Group: Tag" (or bare "Tag")
+    // Parse optional Tags column: "Group: Tag; Group: Tag" (or bare "Tag").
+    // Workbooks before format 4 separated entries with `, `; there a cell is
+    // one tag when the whole of it names one ("Vendor: Acme, Inc."), and
+    // comma-separated otherwise.
     let parsedTagIds: string[] | undefined;
     const tagsCell = str(raw["tags"] ?? raw["Tags"]);
     if (tagsCell !== "") {
       parsedTagIds = [];
-      const entries = tagsCell
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const split = splitListCell(tagsCell, tagsMode, isKnownTagEntry);
+      const entries = split.bySemicolon ? split.parts.map(unescapeListItem) : split.parts;
       for (const entry of entries) {
         const colonIdx = entry.indexOf(":");
         let resolved: string | null | undefined;
@@ -1123,7 +1169,8 @@ export function validateImport(
       const cell = str(raw[col]);
       const ids: string[] = [];
       if (cell !== "") {
-        for (const entry of splitRelationCell(cell)) {
+        // Emails hold neither `;` nor `,`, so either separator is safe here.
+        for (const entry of splitListCell(cell, "auto").parts) {
           const ref = parseStakeholderEntry(entry);
           const resolved = ref.email ? userByEmail.get(ref.email.toLowerCase()) : undefined;
           if (!resolved) {
@@ -1149,6 +1196,13 @@ export function validateImport(
     if (description) data.description = description;
     if (subtype) data.subtype = subtype;
     if (parentId) data.parent_id = parentId;
+    // Only a non-empty cell is sent, exactly like `parent_id` above: an empty
+    // cell in a bulk sheet means "leave it alone", not "clear it" — clearing is
+    // the grid editor's and the card's job, where the intent is unambiguous.
+    // An unknown key is refused by the server with the valid list, which
+    // surfaces as this row's error — never pre-validated here, since the
+    // vocabulary is per type and the server owns it.
+    if (parentLabel) data.parent_label = parentLabel;
     if (externalId) data.external_id = externalId;
     if (alias) data.alias = alias;
     if (Object.keys(lifecycle).length > 0) data.lifecycle = lifecycle;
@@ -1167,7 +1221,8 @@ export function validateImport(
     };
 
     if (id && matchedExisting) {
-      parsed.id = id;
+      // The card's own id, not the sheet's spelling of it.
+      parsed.id = matchedExisting.id;
       parsed.existing = matchedExisting;
       // Classify as update when regular fields, tags, or stakeholders changed
       const { patch, changes } = buildPatch(data, matchedExisting);
@@ -1278,7 +1333,7 @@ export async function validateMultiSheet(
 
   const meta = parsed.meta;
   // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
-  if (meta?.formatVersion && meta.formatVersion !== "2") {
+  if (meta?.formatVersion && !isCurrentWorkbookFormat(meta.formatVersion)) {
     warnings.push({
       message: t("import.warnings.formatVersionMismatch", {
         version: meta.formatVersion,
@@ -1298,6 +1353,7 @@ export async function validateMultiSheet(
       calculatedFields,
       users,
       stakeholderRolesByType,
+      { meta },
     );
     errors.push(
       ...sheetReport.errors.map((e) => ({
@@ -1396,6 +1452,14 @@ export async function validateMultiSheet(
   type StagedRef = { type: string; ref: string };
   const refsToResolve = new Map<string, StagedRef>();
 
+  // How a `rel:` cell is separated. Every workbook carrying `_Meta` has
+  // written `; ` since the multi-sheet format began, so a comma there is
+  // always part of a name — the lone target "This is X, it does Y" stays one
+  // target (#1171), and a deleted "A, B" is reported missing rather than
+  // quietly linked to unrelated cards "A" and "B". Only a sheet with no
+  // `_Meta` falls back to the comma reading for a cell with no `;`.
+  const relCellMode: ListCellMode = meta ? "semicolon" : "auto";
+
   function stageRef(type: string, ref: string): void {
     const segs = decodePath(ref);
     if (segs.length === 0) return;
@@ -1434,7 +1498,9 @@ export async function validateMultiSheet(
         if (!rt) continue;
         const cellRaw = str(raw[col]);
         if (!cellRaw) continue;
-        for (const part of splitRelationCell(cellRaw)) {
+        // Stage every reading of an ambiguous comma cell — the whole cell and
+        // each part — so one round-trip can tell which of them names a card.
+        for (const part of listCellReadings(cellRaw, relCellMode)) {
           stageRef(rt.target_type_key, part);
         }
       }
@@ -1562,6 +1628,15 @@ export async function validateMultiSheet(
     return undefined;
   }
 
+  /** Whether a ref names a card, in this workbook or the instance — the
+   * comma reading of a `rel:` cell keeps the whole cell as one target when
+   * it does. Ambiguous counts: the name exists, it just needs a path. */
+  function refNamesACard(targetTypeKey: string, ref: string): boolean {
+    if (sameBatchCreate(targetTypeKey, ref)) return true;
+    const r = refResults.get(refLookupKey(targetTypeKey, ref));
+    return r?.status === "resolved" || r?.status === "ambiguous";
+  }
+
   // ----- Inline `rel:<key>` columns on card sheets -------------------------
   // Build a lookup: source card identity → set of existing relations of each type.
   // We use this to compute deletes (cell empty → drop everything) and noops.
@@ -1599,10 +1674,12 @@ export async function validateMultiSheet(
     // sheet's type as source. Reject columns referring to relation types
     // that don't match or that carry attributes (those belong on the
     // Relations sheet).
+    // Every relation type starting at this sheet's card type is a valid column,
+    // whether or not it carries values — membership is this sheet's job for all
+    // of them. The values themselves live on the Relations sheet.
     const validRelTypes = new Map<string, RelationType>();
     for (const rt of relationTypes) {
       if (rt.source_type_key !== sheetType) continue;
-      if (rt.attributes_schema && rt.attributes_schema.length > 0) continue;
       validRelTypes.set(rt.key, rt);
     }
 
@@ -1659,7 +1736,9 @@ export async function validateMultiSheet(
           continue;
         }
         const cellRaw = str(raw[col]);
-        const targetRefs = cellRaw ? splitRelationCell(cellRaw) : [];
+        const targetRefs = splitListCell(cellRaw, relCellMode, (whole) =>
+          refNamesACard(rt.target_type_key, whole),
+        ).parts;
         const targetHandles: CardRefHandle[] = [];
         let resolvedAll = true;
         for (const tr of targetRefs) {
@@ -1739,7 +1818,16 @@ export async function validateMultiSheet(
     }
   }
 
-  // ----- Relations sheet --------------------------------------------------
+  // ----- Relations sheet (values only) -------------------------------------
+  // Triples the card sheets are creating in this same import, so a row setting
+  // values on a brand-new relation is accepted rather than reported missing.
+  const inlineUpsertTriples = new Set<string>();
+  for (const op of relationOps) {
+    if (op.action !== "upsert") continue;
+    if (op.sourceRef.kind !== "id" || op.targetRef.kind !== "id") continue;
+    inlineUpsertTriples.add(`${op.relationType}|${op.sourceRef.id}|${op.targetRef.id}`);
+  }
+
   if (parsed.relationRows.length > 0) {
     for (let i = 0; i < parsed.relationRows.length; i++) {
       const raw = parsed.relationRows[i];
@@ -1762,12 +1850,17 @@ export async function validateMultiSheet(
         });
         continue;
       }
-      const action = (str(raw["action"]) || "upsert").toLowerCase();
-      if (action !== "upsert" && action !== "delete") {
-        errors.push({
+      // The sheet is values-only: it sets what a relation holds and never
+      // creates or removes one. A workbook exported before that (format 2)
+      // carries an `action` column; `upsert` reads the same either way, but a
+      // `delete` row is no longer honoured and says so rather than looking
+      // like it worked.
+      const legacyAction = str(raw["action"]).toLowerCase();
+      if (legacyAction === "delete") {
+        warnings.push({
           row: rowNum,
           column: "action",
-          message: t("import.errors.invalidRelationAction", { action }),
+          message: t("import.warnings.relationActionIgnored"),
         });
         continue;
       }
@@ -1800,6 +1893,9 @@ export async function validateMultiSheet(
         if (f.type === "number" || f.type === "cost") {
           const n = Number(cell);
           if (!isNaN(n)) attributes[f.key] = n;
+        } else if (f.type === "percentage") {
+          const n = Number(cell);
+          if (!isNaN(n) && n >= 0 && n <= 100) attributes[f.key] = n;
         } else if (f.type === "boolean") {
           const lower = cell.toLowerCase();
           if (TRUTHY.has(lower)) attributes[f.key] = true;
@@ -1808,10 +1904,30 @@ export async function validateMultiSheet(
           attributes[f.key] = cell;
         }
       }
+      // Values-only: this row annotates a relation, it does not bring one into
+      // existence. When both ends resolve to real cards we can tell whether the
+      // relation is there — if it is not, and no card sheet is creating it in
+      // this import, say so and point at the card sheet. When an end is a card
+      // this workbook is still creating, existence is unknowable here and the
+      // row is trusted.
+      if (sourceHandle.kind === "id" && targetHandle.kind === "id") {
+        const triple = `${relType}|${sourceHandle.id}|${targetHandle.id}`;
+        if (!relationByTriple.has(triple) && !inlineUpsertTriples.has(triple)) {
+          warnings.push({
+            row: rowNum,
+            column: "relation_type",
+            message: t("import.warnings.relationRowNotLinked", {
+              source: sourceRefStr,
+              target: targetRefStr,
+            }),
+          });
+          continue;
+        }
+      }
       relationOps.push({
         rowIndex: rowNum,
         sheet: RELATIONS_SHEET_NAME,
-        action: action as "upsert" | "delete",
+        action: "upsert",
         relationType: relType,
         sourceRef: sourceHandle,
         targetRef: targetHandle,
@@ -1869,6 +1985,66 @@ export async function validateMultiSheet(
   }
   relationOps.length = 0;
   relationOps.push(...dedupedOps);
+
+  // ----- Reconcile ops naming the same relation ----------------------------
+  // A relation can be created by a card sheet's `rel:` cell and given its
+  // values by a `Relations` row in the same import — two ops for one relation,
+  // which must MERGE into a single upsert carrying the values rather than race.
+  //
+  // The other case is a contradictory hand edit: the card taken out of the
+  // inline cell while its `Relations` row is left in place. Removal wins — a
+  // delete can only come from a name somebody deliberately removed — and the
+  // reader is told the two disagreed.
+  const opTriple = (op: RelationOp): string | null => {
+    if (op.sourceRef.kind !== "id" || op.targetRef.kind !== "id") return null;
+    return `${op.relationType}|${op.sourceRef.id}|${op.targetRef.id}`;
+  };
+  const deletedTriples = new Set<string>();
+  for (const op of relationOps) {
+    if (op.action !== "delete") continue;
+    const key = opTriple(op);
+    if (key) deletedTriples.add(key);
+  }
+  const seenTriples = new Map<string, RelationOp>();
+  const reconciled: RelationOp[] = [];
+  for (const op of relationOps) {
+    const key = opTriple(op);
+    // Ops naming a card this workbook is still creating cannot collide — the
+    // relation cannot already exist — so they pass through untouched.
+    if (!key) {
+      reconciled.push(op);
+      continue;
+    }
+    if (op.action === "upsert" && deletedTriples.has(key)) {
+      warnings.push({
+        row: op.rowIndex,
+        column: op.sheet,
+        message: t("import.warnings.relationOpConflict"),
+      });
+      continue;
+    }
+    const prior = seenTriples.get(key);
+    if (prior) {
+      // The same relation listed twice with the same intent. Keep one, but let
+      // a `Relations`-sheet upsert win over a bare inline one so the values
+      // and description it carries survive the merge.
+      if (
+        op.action === "upsert" &&
+        prior.action === "upsert" &&
+        (op.attributes !== undefined || op.description !== undefined) &&
+        prior.attributes === undefined &&
+        prior.description === undefined
+      ) {
+        reconciled[reconciled.indexOf(prior)] = op;
+        seenTriples.set(key, op);
+      }
+      continue;
+    }
+    seenTriples.set(key, op);
+    reconciled.push(op);
+  }
+  relationOps.length = 0;
+  relationOps.push(...reconciled);
 
   // Hand every relation op a workbook-wide unique `wireRow` so a
   // `/relations/bulk` response can be tied back to the exact op for

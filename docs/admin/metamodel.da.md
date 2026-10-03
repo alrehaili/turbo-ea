@@ -53,7 +53,7 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 |---------|-------------|
 | **Nøgle** | Unik feltidentifikator |
 | **Etiket** | Visningsnavn |
-| **Type** | text, multiline_text, number, cost, boolean, date, url, single_select eller multiple_select |
+| **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select eller multiple_select. En procent er et tal fra 0 til 100, der vises som en fremgangsbjælke og redigeres med en skyder eller indtastes præcist |
 | **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver |
 | **Påkrævet** | Hvorvidt feltet er obligatorisk — se håndhævelsesreglerne nedenfor |
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |
@@ -134,12 +134,55 @@ Roller kan fjernes på to måder:
 
 En rolles nøgle kan rettes, så længe **ingen har rollen** — undersøgelser der bruger den følger automatisk med omdøbningen, og det er også i orden at omdøbe en types eneste rolle, da rollen overlever det. Så snart nogen har rollen, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
 
+#### Tilladelser { #permissions }
+
+Korttyper kan begrænse, hvad hver applikationsrolle må gøre med deres kort. Åbn fanen **Tilladelser** i typepanelet for at se en matrix af roller over for de fem korthandlinger — **Vis**, **Opret**, **Rediger**, **Arkivér** og **Slet**.
+
+![Tilladelser pr. korttype](../assets/img/da/85_admin_card_type_permissions.png)
+
+Hver celle har tre tilstande:
+
+- **Arv** (standard) — rollens landskabsdækkende tilladelse afgør det. Ikonet viser, hvad den aktuelt er.
+- **Tillad** — rollen må udføre denne handling på kort af denne type, også når den mangler tilladelsen globalt.
+- **Nægt** — rollen må ikke udføre denne handling på kort af denne type, heller ikke når den har tilladelsen globalt.
+
+Det gør det muligt at sige «alle må oprette applikationer, men kun det centrale team opretter organisationer og initiativer» uden at opfinde en rolle pr. korttype. At nægte **Opret** på en type fjerner den også fra oprettelsesdialogen, diagrameditoren og regnearksimporten.
+
+Nogle regler er værd at kende:
+
+- **Administratorer begrænses aldrig.** Administratorrækken er låst.
+- **Interessentroller gælder stadig.** At nægte en rolle **Rediger** på en type fjerner dens landskabsdækkende tilladelse, ikke den myndighed nogen har som tildelt ejer af ét bestemt kort. Se [Brugere og roller](users.md).
+- **Masseredigering følger et nej, ikke et ja.** En type, der nægter **Rediger**, blokerer også masseredigeringer; en tilladelse giver ikke i sig selv den separate masseredigeringstilladelse.
+- Ændringer træder i kraft for andre brugere, næste gang de genindlæser applikationen.
+
+##### Skjul en korttype for en rolle { #hiding-a-card-type-from-a-role }
+
+At nægte **Vis** skjuler typen helt for rollen. For rollens brugere findes kort af den type ikke: de er udeladt af lageret, søgning, optællinger og eksporter, af relationerne og hierarkiet på andre kort og af alle rapporter, grafer, afhængighedsgrafer og dashboards samt af listerne i BPM, PPM, GRC, beslutninger, diagrammer og TurboLens. Åbnes et sådant kort fra et link, vises **ikke fundet** i stedet for **adgang nægtet**, så siden ikke engang afslører, at kortet findes.
+
+- **At tillade Vis virker den modsatte vej.** En rolle, der slet ikke må gennemse lageret, kan få tilladt **Vis** på én type; dens brugere ser så kortene af den type og kun den type.
+- **Arv læses på to måder for Vis.** I lageret, på kortsider, i søgning og i eksporter følger *arv* rollens landskabsdækkende **Vis**-tilladelse. I moduler, der har deres egen tilladelse — rapporter, BPM, PPM, risici, beslutninger, diagrammer, TurboLens — skjuler kun et udtrykkeligt **Nægt** noget, så en rolle, der må læse rapporter, men ikke gennemse lageret, beholder sine rapporter.
+- **Et nej til Vis låser de øvrige handlinger.** En rolle, der ikke må se en type, kan heller ikke oprette, redigere, arkivere eller slette dens kort. Rækkens øvrige celler viser et låseikon og bevarer deres gemte værdier, som gælder igen, så snart **Vis** ikke længere er nægtet.
+- **Interessenter beholder deres kort.** En person, der er tildelt et kort gennem en interessentrolle, som giver adgang til at se det, ser stadig det kort — og kun det — selv når vedkommendes applikationsrolle ikke må se typen.
+- **Et nej til Vis på Initiativ gælder også i PPM.** PPM-tilladelsen bringer ikke skjulte initiativer tilbage; rollen ser kun dem, den er interessent på.
+- **Links, du ikke kan se, bevares.** Når nogen redigerer de kort, der er knyttet til en beslutning, et diagram eller et procestrin, bliver links til kort, som vedkommende ikke kan se, liggende.
+- **Architecture AI kræver hele landskabet.** TurboLens' Architecture AI ræsonnerer over alle kort, så den er ikke tilgængelig for en rolle, der har blot én korttype skjult.
+
+Nogle ting filtreres bevidst ikke, fordi de er publikationer eller administration snarere end gennemsyn:
+
+- publicerede webportaler og publicerede diagrammer;
+- selve tegningen på et diagram og teksten skrevet i en beslutning eller et Statement of Architecture Work (de kort, der er knyttet til dem, filtreres);
+- værdier fra beregnede felter, som udregnes på tværs af hele landskabet;
+- hændelsesloggen og den direkte hændelsesstrøm for administratorer samt arbejdsområdeeksporten;
+- undersøgelser, som en administrator har sendt til brugeren;
+- udvidelser, som handler på vegne af systemet frem for en bruger.
+
 #### Oversættelser
 
 Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Oversættelsesdialogen**. Her kan du levere oversættelser for alle metamodel-etiketter i hvert understøttet sprog:
 
 - **Type-etiket** — Visningsnavnet for korttypen
 - **Undertyper** — Etiketter for hver undertype
+- **Hierarkiske forbindelsestyper** — Etiketter for hver hierarkisk forbindelsestype
 - **Sektioner** — Sektionsoverskrifter på kortdetaljesiden
 - **Felter** — Feltetiketter og udvælgelsesindstillingsetiketter
 - **Interessentroller** — Rollenavne vist i interessenttildelings-UI'et
@@ -157,7 +200,7 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 | Felt | Beskrivelse |
 |-------|-------------|
-| **Nøgle** | Unik identifikator |
+| **Nøgle** | Unik identifikator — foreslås ud fra dit verbum, kan redigeres under oprettelsen og ligger fast bagefter |
 | **Etiket** | Etiket for fremadrettet retning (f.eks. "bruger") |
 | **Omvendt etiket** | Etiket for baglæns retning (f.eks. "bruges af") |
 | **Kildetype** | Korttypen på "fra"-siden |
@@ -166,15 +209,31 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 Klik på **+ Ny relationstype** for at oprette en relation, eller klik på en eksisterende for at redigere dens etiketter og egenskaber.
 
+Hver relationsrække har desuden kontakterne **Synlig** og **Obligatorisk** for *hver* af sine to ender, navngivet efter den korttype de gælder: Synlig afgør, om relationen vises på den types kortdetaljeside, Obligatorisk om den skal udfyldes. En relationstype, hvis to ender er samme korttype, får ét sæt kontakter pr. retning, så den indgående side kan konfigureres separat fra den udgående.
+
 Felterne **Etiket** og **Omvendt etiket** skrives på det sprog, du bruger lige nu — feltets betegnelse viser hvilket (for eksempel *Etiket (Dansk)*). Når du omdøber en relation, opdateres det sprog alle steder, hvor udsagnsordet optræder: afsnittet **Relationer** på et kort, inventarets relationskolonner, rapporter, portaler og diagrammer. Andre sprog beholder deres egen ordlyd, indtil du oversætter dem.
 
-Brug **Administrér oversættelser** øverst på fanen Relationstyper til at oversætte alle relationers udsagnsord til hvert aktiveret sprog på én gang. Vælg en sprogfane, udfyld ordlyden ved siden af den engelske kilde, og gem — tælleren på hver fane viser, hvor mange udsagnsord det sprog stadig mangler. Engelsk står ikke her, fordi det er ordlyden på selve relationen; et uoversat udsagnsord falder tilbage til den.
+Brug **Administrér oversættelser** øverst på fanen Relationer, over dens underfaner, til at oversætte alle relationers udsagnsord til hvert aktiveret sprog på én gang. Vælg en sprogfane, udfyld ordlyden ved siden af den engelske kilde, og gem — tælleren på hver fane viser, hvor mange udsagnsord det sprog stadig mangler. Engelsk står ikke her, fordi det er ordlyden på selve relationen; et uoversat udsagnsord falder tilbage til den. Den samme dialog har et separat afsnit **Hierarkiske forbindelsestyper** med ordforrådet for hver hierarkisk korttype, så udsagnsord og forbindelsestyper oversættes i én omgang.
+
+### Hierarkiske forbindelsestyper
+
+For en korttype med hierarki slået til kan du definere **forbindelsestyper** — et kort ordforråd, der sætter etiket på hver forælder-barn-forbindelse. I et organisationstræ kan man for eksempel markere ét datterselskab som *kommercielt* og et andet som *salg*, uden at opfinde en relationstype mere.
+
+1. Åbn underfanen **Hierarkiske forbindelsestyper** på fanen **Relationer** — hver korttype med hierarki slået til er anført der. (Den første underfane, **Relationstyper**, er den almindelige relationsliste.) En korttypes egen fane **Relationer** viser det samme som en enkelt linje øverst, afgrænset til den type.
+2. Klik på **Rediger forbindelsestyper**, og tilføj én post pr. etiket med nøgle, navn og farve.
+3. Oversæt navnene med knappen **Oversæt**, som enhver anden metamodel-etiket.
+
+Redaktører vælger derefter en forbindelsestype i kortets **Hierarki**-sektion eller i inventarets kolonne **Forbindelsestype**. Etiketten hører til barnekortet og ryddes derfor automatisk, når det kort flyttes til øverste niveau.
+
+At fjerne en forbindelsestype omskriver **ikke** de kort, der allerede bruger den: de beholder den gemte værdi og viser den som en ukendt forbindelsestype, indtil nogen ændrer den — så en utilsigtet fjernelse mister intet. Dialogen fortæller, hvor mange kort det berører, før du bekræfter.
 
 ### Relationsegenskaber
 
 Nogle relationer bærer ekstra egenskaber, som du angiver på hvert enkelt link i stedet for på relationstypen. For eksempel har den indbyggede relation **Organisation → Applikation** (»bruger«) en **Brugstype**-egenskab — angiv den til **Ejer**, **Bruger** eller **Interessent** på hvert link. Dermed kan du modellere en applikation, der *ejes af* én organisation og *bruges af* andre, via en enkelt relationstype. Den valgte værdi vises som en farvet chip i kortets **Relationer**-sektion; angiv den, når du tilføjer relationen, eller senere via redigeringsikonet på relationsrækken.
 
-Der kan kun findes én relationstype mellem et givet par af korttyper, så brug disse egenskaber til at præcisere betydningen af et link i stedet for at oprette endnu en relationstype for den samme kilde og destination.
+Du kan også oprette **flere relationstyper mellem det samme par af korttyper** — for eksempel en organisation, der *ejer* en applikation, ved siden af en, der *bruger* den. Foretræk en egenskab, når du beskriver varianter af én og samme relation (det bevarer én kolonne i inventaret og én linje på et diagram); opret en anden relationstype, når relationerne reelt er forskellige og fortjener deres egne verber, egne egenskaber eller egne filtre. Når et par bærer mere end én relationstype, viser inventaret stadig én kolonne for den relaterede korttype, og når du åbner den celle, får du et afsnit per relationstype. På et kort beholder hver relationstype sit eget afsnit: afsnit, der peger på den samme korttype, vises sammen, og et kort, du har knyttet via mere end én af dem, er markeret med *Også …* i hvert af sine afsnit. En relationstype, hvis to ender er den samme korttype — en organisation, der *har lokation* en anden organisation — viser *begge* verber på et kort som to afsnit og i inventaret som to filterrækker og to redigeringsafsnit; giv sådan en type en omvendt etiket, ellers læses de to afsnit ens.
+
+Når et par bærer mere end én relationstype, kan rapporter, portaler og undersøgelser målrette en bestemt: Porteføljerapporten tilbyder en grupperingsakse og et filter pr. relation, Kapabilitetskortet tilføjer et filter pr. relation, portalens filtre og relationsafsnit mærkes med deres verbum, og en undersøgelses **relateret til**-filter får en **Via relation**-vælger. At vælge intet betyder fortsat „relateret via en hvilken som helst af dem“.
 
 ### Administrer relationsværdier
 

@@ -47,7 +47,8 @@ VALID_CAPABILITIES = frozenset({"content", "backend", "frontend", "metamodel"})
 # The authoring-affordance grants unlock admin UI features
 # (``metamodel.*`` — see api/v1/metamodel.py), the ``core.*`` grants unlock
 # SDK bridge access (todos bridge + event subscriptions since SDK 1.2, the
-# read-only users bridge since SDK 1.3 — evaluated at call/delivery time via
+# read-only users bridge since SDK 1.3, the decisions bridge since SDK 1.8 —
+# evaluated at call/delivery time via
 # registry.grants_for). An unknown grant is a hard BundleError: a signed
 # manifest carrying a typo'd scope would otherwise be silently inert. Keep in
 # sync with VALID_GRANTS in scripts/extension-tools/teax.py (deliberately
@@ -63,8 +64,89 @@ VALID_GRANTS = frozenset(
         "core.cards.read",
         "core.cards.write",
         "core.events.card",
+        "core.notifications.channel",
+        "core.adr.read",
+        "core.adr.write",
+        "core.risks.read",
+        "core.risks.write",
+        "core.notifications.send",
+        "core.stakeholders.write",
+        "core.surveys.read",
+        "core.surveys.write",
     }
 )
+
+# Notification types an extension may declare under ``notifications.types``
+# (SDK 1.11): rows of its own in every person's notification preferences,
+# labelled from the manifest so a backend-only extension still gets a proper
+# row. Gated by the grant that lets the extension send. Keys share the
+# ``ext.{key}.`` namespace with permissions and must fit ``notifications.type``
+# (String(50)). Deliberately duplicated in scripts/extension-tools/teax.py —
+# pinned together by tests/services/test_teax_grants_lint.py.
+NOTIFICATION_TYPE_GRANT = "core.notifications.send"
+MAX_NOTIFICATION_TYPES_PER_EXTENSION = 5
+MAX_NOTIFICATION_TYPE_LABEL_LENGTH = 80
+MAX_NOTIFICATION_TYPE_KEY_LENGTH = 50
+_NOTIFICATION_TYPE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def notification_types_error(block: Any, ext_key: str, grants: list[str]) -> str | None:
+    """None when ``block`` is a usable ``notifications`` manifest block, else why not."""
+    if not isinstance(block, dict):
+        return "notifications must be an object with a types list"
+    types = block.get("types")
+    if not isinstance(types, list) or not types:
+        return "notifications.types must be a non-empty list"
+    if NOTIFICATION_TYPE_GRANT not in [str(g) for g in grants]:
+        return f"notifications.types requires the {NOTIFICATION_TYPE_GRANT} grant"
+    if len(types) > MAX_NOTIFICATION_TYPES_PER_EXTENSION:
+        return (
+            f"notifications.types allows at most {MAX_NOTIFICATION_TYPES_PER_EXTENSION} "
+            f"entries (got {len(types)})"
+        )
+    prefix = f"ext.{ext_key}."
+    seen: set[str] = set()
+    for i, entry in enumerate(types):
+        where = f"notifications.types[{i}]"
+        if not isinstance(entry, dict):
+            return f"{where} must be an object"
+        key = entry.get("key")
+        if (
+            not isinstance(key, str)
+            or not key.startswith(prefix)
+            or not _NOTIFICATION_TYPE_NAME.match(key[len(prefix) :])
+        ):
+            return f"{where}: key must be {prefix}<name> with <name> matching [a-z][a-z0-9_]*"
+        if len(key) > MAX_NOTIFICATION_TYPE_KEY_LENGTH:
+            return f"{where}: key exceeds {MAX_NOTIFICATION_TYPE_KEY_LENGTH} characters"
+        if key in seen:
+            return f"{where}: duplicate key {key!r}"
+        seen.add(key)
+        label = entry.get("label")
+        if not isinstance(label, str) or not label.strip():
+            return f"{where}: label must be a non-empty string"
+        if len(label) > MAX_NOTIFICATION_TYPE_LABEL_LENGTH:
+            return f"{where}: label exceeds {MAX_NOTIFICATION_TYPE_LABEL_LENGTH} characters"
+        translations = entry.get("translations")
+        if translations is not None and (
+            not isinstance(translations, dict)
+            or not all(
+                isinstance(loc, str)
+                and isinstance(text, str)
+                and text.strip()
+                and len(text) <= MAX_NOTIFICATION_TYPE_LABEL_LENGTH
+                for loc, text in translations.items()
+            )
+        ):
+            return (
+                f"{where}: translations must map locale codes to non-empty strings of at "
+                f"most {MAX_NOTIFICATION_TYPE_LABEL_LENGTH} characters"
+            )
+        for flag in ("in_app_default", "email_default"):
+            if flag in entry and not isinstance(entry[flag], bool):
+                return f"{where}: {flag} must be a boolean"
+    return None
+
 
 # fields_schema field types an extension may contribute: the built-in set, or
 # a custom type namespaced under the extension's own key (ext.{key}.*).
@@ -79,9 +161,70 @@ _BUILTIN_FIELD_TYPES = frozenset(
         "url",
         "single_select",
         "multiple_select",
+        "percentage",
     }
 )
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
+
+# Artwork an extension may ship as its own logo, shown on the Store and
+# Installed tabs. Raster or SVG; the suffix allowlist is what stops a manifest
+# nominating `manifest.json` or a wheel as its "logo" and thereby making it
+# readable through the unauthenticated asset route. Keep in sync with
+# LOGO_EXTENSIONS / MAX_LOGO_BYTES in scripts/extension-tools/teax.py
+# (deliberately duplicated — teax is stdlib-vendorable).
+# Where a contributed field section lands in a card type's stored section order
+# (``section_config["__order"]``) the first time anything places it.
+#
+# Core holds NO opinion beyond the default: an extension says where its own
+# section belongs, because "just above Relations" is right for a regulatory
+# attribute block and wrong for, say, a post-decision summary meant to read
+# last. Grammar: ``start``, ``end``, ``before:<anchor>`` or ``after:<anchor>``.
+#
+# Anchors are the built-in section keys only. ``custom:N`` is deliberately not
+# addressable: it is a POSITIONAL index into the target type's fields_schema,
+# so it means a different section on every install.
+SECTION_ANCHORS = frozenset(
+    {
+        "description",
+        "eol",
+        "lifecycle",
+        "hierarchy",
+        "successors",
+        "tags",
+        "relations",
+    }
+)
+
+# Applied when a contribution declares no placement — which every bundle built
+# before the key existed does. Keeps a contributed section with the card's own
+# content, matching where custom sections render when no order is stored.
+DEFAULT_SECTION_PLACEMENT = "before:relations"
+
+
+def placement_error(value: object) -> str | None:
+    """``None`` when ``value`` is a usable placement, else why it is not.
+
+    Shared by the bundle verifier and (mirrored) by ``teax lint`` so an
+    extension cannot pass lint and then fail verify.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return "placement must be a non-empty string"
+    spec = value.strip()
+    if spec in ("start", "end"):
+        return None
+    prefix, _, anchor = spec.partition(":")
+    if prefix not in ("before", "after") or not anchor:
+        return f"placement {spec!r} must be 'start', 'end', 'before:<section>' or 'after:<section>'"
+    if anchor not in SECTION_ANCHORS:
+        return (
+            f"placement {spec!r} anchors on unknown section {anchor!r} "
+            f"(one of: {', '.join(sorted(SECTION_ANCHORS))})"
+        )
+    return None
+
+
+LOGO_EXTENSIONS = frozenset({".png", ".svg", ".webp", ".jpg", ".jpeg"})
+MAX_LOGO_BYTES = 512 * 1024
 
 # Largest single file we will read into memory while hashing (bundle members and
 # on-disk re-verification). Bounds the zip-bomb / tampered-file blast radius; no
@@ -116,6 +259,33 @@ class VerifiedBundle:
     def free(self) -> bool:
         """Whether this extension runs without a license entitlement."""
         return self.manifest.get("free") is True
+
+    @property
+    def logo(self) -> str | None:
+        """Relative path of the bundle's own logo artwork, if it ships one."""
+        return extension_logo_path(self.manifest)
+
+
+def extension_logo_path(manifest: dict[str, Any]) -> str | None:
+    """The manifest's declared logo as a validated relative path, or ``None``.
+
+    Pure and total — an absent, malformed or ineligible ``logo`` yields
+    ``None`` rather than raising, so the serving path can ask without a
+    try/except while :func:`_validate_manifest` turns "declared but invalid"
+    into a hard :class:`BundleError`. Having exactly one implementation of the
+    rules is the point: the validator, the API layer and the asset route must
+    agree on what the logo path *is*, or the route would serve something the
+    validator never approved.
+    """
+    raw = manifest.get("logo")
+    if not isinstance(raw, str):
+        return None
+    rel = raw.strip()
+    if not rel or not _safe_member_name(rel):
+        return None
+    if PurePosixPath(rel).suffix.lower() not in LOGO_EXTENSIONS:
+        return None
+    return rel
 
 
 def _safe_member_name(name: str) -> bool:
@@ -188,6 +358,17 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
         if unknown_grants:
             raise BundleError(f"Bundle declares unknown grants: {sorted(unknown_grants)}")
 
+    # Optional ``notifications``: types the extension declares as rows of its
+    # own in the preferences dialog (SDK 1.11). Namespaced like permissions
+    # and gated on the send grant, so an extension that may not notify anyone
+    # cannot register a switch either.
+    if "notifications" in manifest:
+        problem = notification_types_error(
+            manifest["notifications"], key, list(manifest.get("grants") or [])
+        )
+        if problem:
+            raise BundleError(f"Bundle manifest: {problem}")
+
     # Optional ``sdk_version``: when present it must be major.minor. The
     # loader's compatibility check reads the code attribute, but a malformed
     # manifest value is still an authoring error worth failing early.
@@ -215,6 +396,20 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
     if not isinstance(files, dict):
         raise BundleError("Bundle manifest is missing the files hash map")
 
+    if "logo" in manifest:
+        logo = extension_logo_path(manifest)
+        if logo is None:
+            raise BundleError(
+                "Bundle manifest field `logo` must be a relative path inside the bundle "
+                f"ending in one of {sorted(LOGO_EXTENSIONS)}"
+            )
+        if logo not in files:
+            # The whole security story in one line: the logo is served
+            # unauthenticated, so it must be covered by manifest.sig and by the
+            # per-boot on-disk re-hash. A file dropped onto the volume beside a
+            # signed manifest is never served — it quarantines the extension.
+            raise BundleError(f"Bundle logo is not covered by the signed files map: {logo}")
+
     core = manifest.get("core") or {}
     if not isinstance(core, dict) or not core.get("min"):
         raise BundleError("Bundle manifest is missing the core compatibility range")
@@ -241,15 +436,43 @@ def _validate_metamodel_block(manifest: dict[str, Any], ext_key: str) -> None:
     if not isinstance(block, dict):
         raise BundleError("metamodel capability requires a metamodel object in the manifest")
     sections = block.get("field_sections")
-    if not isinstance(sections, list) or not sections:
-        raise BundleError("metamodel block must declare a non-empty field_sections list")
-    for i, contrib in enumerate(sections):
+    subtype_rows = block.get("subtypes")
+    if (not isinstance(sections, list) or not sections) and (
+        not isinstance(subtype_rows, list) or not subtype_rows
+    ):
+        raise BundleError(
+            "metamodel block must declare a non-empty field_sections and/or subtypes list"
+        )
+    if subtype_rows is not None:
+        if not isinstance(subtype_rows, list):
+            raise BundleError("metamodel.subtypes must be a list")
+        for i, contrib in enumerate(subtype_rows):
+            where = f"metamodel.subtypes[{i}]"
+            if not isinstance(contrib, dict):
+                raise BundleError(f"{where} must be an object")
+            if not isinstance(contrib.get("card_type"), str) or not contrib["card_type"].strip():
+                raise BundleError(f"{where} is missing card_type")
+            rows = contrib.get("subtypes")
+            if not isinstance(rows, list) or not rows:
+                raise BundleError(f"{where} must declare a non-empty subtypes list")
+            for j, s in enumerate(rows):
+                sw = f"{where}.subtypes[{j}]"
+                if not isinstance(s, dict):
+                    raise BundleError(f"{sw} must be an object")
+                for req in ("key", "label"):
+                    if not isinstance(s.get(req), str) or not s[req].strip():
+                        raise BundleError(f"{sw} is missing {req}")
+    for i, contrib in enumerate(sections or []):
         where = f"metamodel.field_sections[{i}]"
         if not isinstance(contrib, dict):
             raise BundleError(f"{where} must be an object")
         for req in ("card_type", "section"):
             if not isinstance(contrib.get(req), str) or not contrib[req].strip():
                 raise BundleError(f"{where} is missing {req}")
+        if "placement" in contrib:
+            problem = placement_error(contrib["placement"])
+            if problem:
+                raise BundleError(f"{where}: {problem}")
         fields = contrib.get("fields")
         if not isinstance(fields, list) or not fields:
             raise BundleError(f"{where} must declare a non-empty fields list")
@@ -311,6 +534,13 @@ def _verify_zip(zf: zipfile.ZipFile, *, core_version: str) -> dict[str, Any]:
         raise BundleError("Bundle manifest must be a JSON object")
 
     _validate_manifest(manifest, core_version)
+
+    # The manifest carries hashes, not sizes, so the logo's size is checked
+    # here where the zip entry is at hand. Once verified it is pinned by its
+    # hash, so no per-request size check is ever needed.
+    logo_rel = extension_logo_path(manifest)
+    if logo_rel is not None and zf.getinfo(logo_rel).file_size > MAX_LOGO_BYTES:
+        raise BundleError(f"Bundle logo is larger than {MAX_LOGO_BYTES // 1024} KB: {logo_rel}")
 
     files: dict[str, str] = manifest["files"]
     members = [n for n in names if n not in (MANIFEST_NAME, SIGNATURE_NAME) and not n.endswith("/")]

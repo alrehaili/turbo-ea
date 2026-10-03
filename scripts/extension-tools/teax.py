@@ -78,13 +78,142 @@ VALID_GRANTS = {
     "core.cards.read",
     "core.cards.write",
     "core.events.card",
+    "core.notifications.channel",
+    "core.adr.read",
+    "core.adr.write",
+    "core.risks.read",
+    "core.risks.write",
+    "core.notifications.send",
+    "core.stakeholders.write",
+    "core.surveys.read",
+    "core.surveys.write",
 }
+# Artwork an extension may ship as its own logo (manifest `logo`), shown on the
+# Store and Installed tabs. Deliberately duplicated from
+# backend/app/services/extensions/bundle.py (LOGO_EXTENSIONS / MAX_LOGO_BYTES).
+# Mirrors app.services.extensions.bundle — pinned by test_teax_grants_lint.py.
+# Where a contributed field section lands in a card type's stored section order
+# the first time anything places it. Core holds no opinion beyond the default;
+# the extension says where its own section belongs. Anchors are built-in
+# section keys only — `custom:N` is positional and means a different section
+# on every install.
+SECTION_ANCHORS = {
+    "description",
+    "eol",
+    "lifecycle",
+    "hierarchy",
+    "successors",
+    "tags",
+    "relations",
+}
+DEFAULT_SECTION_PLACEMENT = "before:relations"
+
+
+def placement_error(value):
+    """None when `value` is a usable placement, else why it is not."""
+    if not isinstance(value, str) or not value.strip():
+        return "placement must be a non-empty string"
+    spec = value.strip()
+    if spec in ("start", "end"):
+        return None
+    prefix, _, anchor = spec.partition(":")
+    if prefix not in ("before", "after") or not anchor:
+        return f"placement {spec!r} must be 'start', 'end', 'before:<section>' or 'after:<section>'"
+    if anchor not in SECTION_ANCHORS:
+        return (
+            f"placement {spec!r} anchors on unknown section {anchor!r} "
+            f"(one of: {', '.join(sorted(SECTION_ANCHORS))})"
+        )
+    return None
+
+
+# Notification types an extension may declare under ``notifications.types``
+# (SDK 1.11): rows of its own in every person's notification preferences,
+# labelled from the manifest so a backend-only extension still gets a proper
+# row. Gated by the grant that lets the extension send. Keys share the
+# ``ext.{key}.`` namespace with permissions and must fit ``notifications.type``
+# (String(50)). Deliberately duplicated in scripts/extension-tools/teax.py —
+# pinned together by tests/services/test_teax_grants_lint.py.
+NOTIFICATION_TYPE_GRANT = "core.notifications.send"
+MAX_NOTIFICATION_TYPES_PER_EXTENSION = 5
+MAX_NOTIFICATION_TYPE_LABEL_LENGTH = 80
+MAX_NOTIFICATION_TYPE_KEY_LENGTH = 50
+_NOTIFICATION_TYPE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def notification_types_error(block, ext_key, grants):
+    """None when ``block`` is a usable ``notifications`` manifest block, else why not."""
+    if not isinstance(block, dict):
+        return "notifications must be an object with a types list"
+    types = block.get("types")
+    if not isinstance(types, list) or not types:
+        return "notifications.types must be a non-empty list"
+    if NOTIFICATION_TYPE_GRANT not in [str(g) for g in grants]:
+        return f"notifications.types requires the {NOTIFICATION_TYPE_GRANT} grant"
+    if len(types) > MAX_NOTIFICATION_TYPES_PER_EXTENSION:
+        return (
+            f"notifications.types allows at most {MAX_NOTIFICATION_TYPES_PER_EXTENSION} "
+            f"entries (got {len(types)})"
+        )
+    prefix = f"ext.{ext_key}."
+    seen = set()
+    for i, entry in enumerate(types):
+        where = f"notifications.types[{i}]"
+        if not isinstance(entry, dict):
+            return f"{where} must be an object"
+        key = entry.get("key")
+        if (
+            not isinstance(key, str)
+            or not key.startswith(prefix)
+            or not _NOTIFICATION_TYPE_NAME.match(key[len(prefix) :])
+        ):
+            return f"{where}: key must be {prefix}<name> with <name> matching [a-z][a-z0-9_]*"
+        if len(key) > MAX_NOTIFICATION_TYPE_KEY_LENGTH:
+            return f"{where}: key exceeds {MAX_NOTIFICATION_TYPE_KEY_LENGTH} characters"
+        if key in seen:
+            return f"{where}: duplicate key {key!r}"
+        seen.add(key)
+        label = entry.get("label")
+        if not isinstance(label, str) or not label.strip():
+            return f"{where}: label must be a non-empty string"
+        if len(label) > MAX_NOTIFICATION_TYPE_LABEL_LENGTH:
+            return f"{where}: label exceeds {MAX_NOTIFICATION_TYPE_LABEL_LENGTH} characters"
+        translations = entry.get("translations")
+        if translations is not None and (
+            not isinstance(translations, dict)
+            or not all(
+                isinstance(loc, str)
+                and isinstance(text, str)
+                and text.strip()
+                and len(text) <= MAX_NOTIFICATION_TYPE_LABEL_LENGTH
+                for loc, text in translations.items()
+            )
+        ):
+            return (
+                f"{where}: translations must map locale codes to non-empty strings of at "
+                f"most {MAX_NOTIFICATION_TYPE_LABEL_LENGTH} characters"
+            )
+        for flag in ("in_app_default", "email_default"):
+            if flag in entry and not isinstance(entry[flag], bool):
+                return f"{where}: {flag} must be a boolean"
+    return None
+
+
+LOGO_EXTENSIONS = {".png", ".svg", ".webp", ".jpg", ".jpeg"}
+MAX_LOGO_BYTES = 512 * 1024
 # Grants that require SDK 1.2+ surfaces at runtime.
 SDK_1_2_GRANT_PREFIXES = ("core.",)
 # Grants that require the SDK 1.3 users bridge specifically.
 SDK_1_3_GRANTS = {"core.users.read"}
 # Grants that require the SDK 1.5 inventory bridge / card events specifically.
 SDK_1_5_GRANTS = {"core.cards.read", "core.cards.write", "core.events.card"}
+# Grants that require the SDK 1.6 notification-channel surface specifically.
+SDK_1_6_GRANTS = {"core.notifications.channel"}
+# Grants that require the SDK 1.8 decisions bridge specifically.
+SDK_1_8_GRANTS = {"core.adr.read", "core.adr.write"}
+# Manifest keys that require the SDK 1.11 surface (extension-declared
+# notification types + the `detail` flag on the notify bridge).
+SDK_1_11_MANIFEST_KEYS = {"notifications"}
 BUILTIN_FIELD_TYPES = {
     "text",
     "multiline_text",
@@ -95,6 +224,7 @@ BUILTIN_FIELD_TYPES = {
     "url",
     "single_select",
     "multiple_select",
+    "percentage",
 }
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 CONTENT_SHEETS = {
@@ -227,6 +357,25 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
 
     files = _collect_files(src)
 
+    # `pack` sweeps the whole source dir and passes unknown manifest keys
+    # through verbatim, so a root logo.png is already hashed into `files` and
+    # zipped — lint is the only place that needs to know about it.
+    logo = manifest.get("logo")
+    if logo is None:
+        warnings.append(
+            "no logo declared — the Store and Installed tabs will show a generated tile"
+        )
+    elif not isinstance(logo, str) or not logo.strip():
+        problems.append("logo must be a relative path inside the bundle")
+    elif not _safe_member(logo):
+        problems.append(f"unsafe logo path: {logo}")
+    elif PurePosixPath(logo).suffix.lower() not in LOGO_EXTENSIONS:
+        problems.append(f"logo must end in one of {sorted(LOGO_EXTENSIONS)}: {logo}")
+    elif logo not in files:
+        problems.append(f"logo file listed but missing: {logo}")
+    elif files[logo].stat().st_size > MAX_LOGO_BYTES:
+        problems.append(f"logo is larger than {MAX_LOGO_BYTES // 1024} KB: {logo}")
+
     if "content" in capabilities:
         content = manifest.get("content") or [p for p in files if p.startswith("content/")]
         if not content:
@@ -279,8 +428,30 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
     if "metamodel" in capabilities:
         block = manifest.get("metamodel") or {}
         sections = block.get("field_sections")
-        if not isinstance(sections, list) or not sections:
-            problems.append("metamodel capability needs metamodel.field_sections")
+        subtype_rows = block.get("subtypes")
+        if (not isinstance(sections, list) or not sections) and (
+            not isinstance(subtype_rows, list) or not subtype_rows
+        ):
+            problems.append("metamodel capability needs field_sections and/or subtypes")
+        for i, contrib in enumerate(subtype_rows if isinstance(subtype_rows, list) else []):
+            where = f"metamodel.subtypes[{i}]"
+            if not isinstance(contrib, dict):
+                problems.append(f"{where} must be an object")
+                continue
+            if not str(contrib.get("card_type", "")).strip():
+                problems.append(f"{where} is missing card_type")
+            rows = contrib.get("subtypes")
+            if not isinstance(rows, list) or not rows:
+                problems.append(f"{where} needs a non-empty subtypes list")
+                continue
+            for j, s in enumerate(rows):
+                sw = f"{where}.subtypes[{j}]"
+                if not isinstance(s, dict):
+                    problems.append(f"{sw} must be an object")
+                    continue
+                for req in ("key", "label"):
+                    if not str(s.get(req, "")).strip():
+                        problems.append(f"{sw} is missing {req}")
         for i, contrib in enumerate(sections or []):
             where = f"metamodel.field_sections[{i}]"
             if not isinstance(contrib, dict):
@@ -289,6 +460,10 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
             for req in ("card_type", "section"):
                 if not str(contrib.get(req, "")).strip():
                     problems.append(f"{where} is missing {req}")
+            if "placement" in contrib:
+                problem = placement_error(contrib["placement"])
+                if problem:
+                    problems.append(f"{where}: {problem}")
             flds = contrib.get("fields")
             if not isinstance(flds, list) or not flds:
                 problems.append(f"{where} needs a non-empty fields list")
@@ -316,6 +491,23 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
         if not str(perm).startswith(f"ext.{key}."):
             problems.append(f"permission {perm!r} must be namespaced ext.{key}.*")
 
+    if "notifications" in manifest:
+        problem = notification_types_error(
+            manifest["notifications"], key, list(manifest.get("grants") or [])
+        )
+        if problem:
+            problems.append(problem)
+        declared_sdk = str(manifest.get("sdk_version", ""))
+        if declared_sdk:
+            try:
+                major, minor = (int(x) for x in declared_sdk.split(".")[:2])
+                if (major, minor) < (1, 11):
+                    warnings.append(
+                        f"notifications.types requires SDK 1.11+ but sdk_version is {declared_sdk}"
+                    )
+            except ValueError:
+                pass  # reported below by the grants block
+
     if "free" in manifest and not isinstance(manifest["free"], bool):
         problems.append("free must be a boolean (true = no license required to run)")
 
@@ -330,10 +522,21 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
             needs_1_2 = any(g.startswith(SDK_1_2_GRANT_PREFIXES) for g in grants)
             needs_1_3 = bool(set(grants) & SDK_1_3_GRANTS)
             needs_1_5 = bool(set(grants) & SDK_1_5_GRANTS)
-            if (needs_1_2 or needs_1_3 or needs_1_5) and declared_sdk:
+            needs_1_6 = bool(set(grants) & SDK_1_6_GRANTS)
+            needs_1_8 = bool(set(grants) & SDK_1_8_GRANTS)
+            if (needs_1_2 or needs_1_3 or needs_1_5 or needs_1_6 or needs_1_8) and declared_sdk:
                 try:
                     major, minor = (int(x) for x in declared_sdk.split(".")[:2])
-                    if needs_1_5 and (major, minor) < (1, 5):
+                    if needs_1_8 and (major, minor) < (1, 8):
+                        warnings.append(
+                            f"core.adr.* grants require SDK 1.8+ but sdk_version is {declared_sdk}"
+                        )
+                    elif needs_1_6 and (major, minor) < (1, 6):
+                        warnings.append(
+                            f"core.notifications.channel requires SDK 1.6+ "
+                            f"but sdk_version is {declared_sdk}"
+                        )
+                    elif needs_1_5 and (major, minor) < (1, 5):
                         warnings.append(
                             f"core.cards.* / core.events.card grants require SDK 1.5+ "
                             f"but sdk_version is {declared_sdk}"
@@ -385,9 +588,9 @@ def cmd_pack(args) -> int:
     }
     manifest.setdefault("entitlement_key", manifest["key"])
     # Default to the SDK this teax ships with. The loader's compatibility
-    # check is major-only, so a 1.5 default still loads on a 1.1 core (with
+    # check is major-only, so a 1.6 default still loads on a 1.1 core (with
     # a newer-minor warning there).
-    manifest.setdefault("sdk_version", "1.5")
+    manifest.setdefault("sdk_version", "1.6")
     if args.key_id:
         manifest["key_id"] = args.key_id
     manifest["files"] = {

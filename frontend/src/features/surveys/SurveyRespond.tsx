@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import { PercentageInput } from "@/components/PercentageInput";
 import { useNavigate, useParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import Chip from "@mui/material/Chip";
@@ -25,10 +27,12 @@ import {
   useFieldLabel,
 } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
@@ -217,11 +221,13 @@ export default function SurveyRespond() {
   const fieldLabel = useFieldLabel();
   const theme = useTheme();
   const { types } = useMetamodel();
+  const surveyRelationLabel = useSurveyRelationFieldLabel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
 
-  // For a relation field, the related cards are all of one type (relation types
-  // are unique per type pair), so colour the pills by that type's metamodel
-  // colour and resolve its label for the "between X and Y" instruction.
+  // A relation field is scoped to ONE relation type, so its related cards are
+  // all of that type's other end — colour the pills by that type's metamodel
+  // colour and resolve its label for the "between X and Y" instruction. (Several
+  // relation types may share a card-type pair; each is its own field.)
   const relatedTypeColor = (key?: string): { bg: string; fg: string } => {
     const bg = types.find((ct) => ct.key === key)?.color || theme.palette.grey[500];
     return { bg, fg: theme.palette.getContrastText(bg) };
@@ -233,6 +239,7 @@ export default function SurveyRespond() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState<SurveyRespondForm | null>(null);
+  usePageSubject(form?.card.name);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -248,6 +255,9 @@ export default function SurveyRespond() {
         const data = await api.get<SurveyRespondForm>(
           `/surveys/${surveyId}/respond/${cardId}`,
         );
+        // An empty body is "nothing to respond to", not a crash: leave
+        // `form` null so the not-found copy renders.
+        if (!data) return;
         setForm(data);
 
         // Initialize field responses based on action type
@@ -301,9 +311,21 @@ export default function SurveyRespond() {
     setSubmitting(true);
     setError("");
     try {
-      await api.post(`/surveys/${surveyId}/respond/${cardId}`, {
-        responses: fieldResponses,
-      });
+      // A number/cost box cleared on screen is stored as "" (see
+      // renderFieldInput); the server expects null for "no value".
+      const numericKeys = new Set(
+        (form?.fields ?? [])
+          .filter((f) => f.type === "number" || f.type === "cost")
+          .map((f) => f.key),
+      );
+      const responses = Object.fromEntries(
+        Object.entries(fieldResponses).map(([key, resp]) =>
+          numericKeys.has(key) && resp.new_value === ""
+            ? [key, { ...resp, new_value: null }]
+            : [key, resp],
+        ),
+      );
+      await api.post(`/surveys/${surveyId}/respond/${cardId}`, { responses });
       setSubmitted(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("surveys.respond.error.submitFailed"));
@@ -406,6 +428,16 @@ export default function SurveyRespond() {
       );
     }
 
+    if (field.type === "percentage") {
+      return (
+        <PercentageInput
+          fullWidth
+          value={value}
+          onChange={(v) => setNewValue(field.key, v ?? null)}
+        />
+      );
+    }
+
     if (field.type === "number" || field.type === "cost") {
       return (
         <TextField
@@ -413,7 +445,13 @@ export default function SurveyRespond() {
           size="small"
           fullWidth
           value={value ?? ""}
-          onChange={(e) => setNewValue(field.key, e.target.value ? Number(e.target.value) : null)}
+          // A cleared box is kept as "" so it stays empty on screen; `null`
+          // would read as "untouched" and fall back to the current value,
+          // which is how the old number snapped back under the cursor.
+          // `handleSubmit` turns the "" into null on the wire.
+          onChange={(e) =>
+            setNewValue(field.key, e.target.value === "" ? "" : Number(e.target.value))
+          }
         />
       );
     }
@@ -522,7 +560,7 @@ export default function SurveyRespond() {
       {form.survey.message && (
         <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "action.hover" }}>
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-            {form.survey.message}
+            <LinkifiedText text={form.survey.message} />
           </Typography>
         </Card>
       )}
@@ -542,7 +580,7 @@ export default function SurveyRespond() {
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: field.kind === "relation" ? 0.5 : 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>
-                {field.kind === "relation" ? field.label : fieldLabel(field)}
+                {field.kind === "relation" ? surveyRelationLabel(field) : fieldLabel(field)}
               </Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}

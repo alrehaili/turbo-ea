@@ -30,6 +30,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import (
+    migrate_legacy_app_permissions,
+    strip_legacy_card_permissions,
+)
 from app.models.app_settings import AppSettings
 from app.models.bookmark import Bookmark, bookmark_shares
 from app.models.card import Card
@@ -40,12 +44,14 @@ from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.standard import Standard, StandardPrinciple
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services import card_reference
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
+from app.services.relation_orientation import oriented
 from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
@@ -124,10 +130,22 @@ class ApplyResult:
 
 
 def _coerce(row: dict[str, Any], columns: tuple[str, ...], json_cols: frozenset[str]) -> dict:
+    """Coerce one sheet row into column values.
+
+    A column the sheet does not carry is left out of the result entirely,
+    rather than coerced to None. "This bundle has nothing to say about the
+    column" is not the same statement as "set this column to NULL": a bundle
+    written before the column existed, or a hand-authored content pack that
+    lists only the columns it cares about, must not blank it — and for a
+    NOT NULL column with a default, writing None fails the insert outright.
+    An empty *cell* in a column the sheet does declare still clears the value,
+    so exports keep their ability to blank a field.
+    """
     out: dict[str, Any] = {}
     for col in columns:
-        raw = row.get(col)
-        out[col] = from_cell(raw, is_json=col in json_cols)
+        if col not in row:
+            continue
+        out[col] = from_cell(row[col], is_json=col in json_cols)
     return out
 
 
@@ -137,8 +155,11 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
     re-importing an unchanged export into the same instance is a true no-op."""
     changed = False
     for col in cols:
-        if getattr(current, col) != data.get(col):
-            setattr(current, col, data.get(col))
+        # A column the bundle does not carry is left alone — see _coerce.
+        if col not in data:
+            continue
+        if getattr(current, col) != data[col]:
+            setattr(current, col, data[col])
             changed = True
     if changed:
         sr.updated += 1
@@ -171,8 +192,7 @@ async def apply_selected(
 
     Public facade for callers outside workspace transfer (the Extension
     Store's content packs) that reuse the idempotent upsert engine —
-    built-in protection, one-relation-type-per-pair enforcement,
-    topo-sorted cards, dry-run via savepoint — over an in-memory
+    built-in protection, topo-sorted cards, dry-run via savepoint — over an in-memory
     :class:`WorkspaceBundle` carrying only the listed sheets.
     """
     return await _run(db, bundle, user, dry_run=dry_run, sheets=sheets)
@@ -286,7 +306,15 @@ async def _run(
             await root.rollback()
 
     if not dry_run:
+        from app.services.permission_service import PermissionService
+
         await db.commit()
+        # An import can rewrite roles and card types, both of which the
+        # permission checks read through a per-process cache. Drop them so the
+        # imported RBAC takes effect immediately rather than up to a TTL later.
+        PermissionService.invalidate_role_cache()
+        PermissionService.invalidate_srd_cache()
+        PermissionService.invalidate_type_permission_cache()
     return result
 
 
@@ -425,6 +453,13 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     existing = {ct.key: ct for ct in (await db.execute(select(CardType))).scalars().all()}
     for row in bundle.rows(schema.SHEET_CARD_TYPES):
         data = _coerce(row, exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON)
+        # NOT NULL JSONB columns: a hand-authored content pack may declare the
+        # column and leave the cell blank, which `from_cell` reads as None and
+        # the insert would reject. An absent column is still left alone (see
+        # `_coerce`) — this only normalises a declared-but-empty cell.
+        for not_null_json in ("reference_config", "role_permissions", "translations"):
+            if not_null_json in data and data[not_null_json] is None:
+                data[not_null_json] = {}
         key = data.get("key")
         if not key:
             sr.failed += 1
@@ -446,14 +481,9 @@ async def _apply_relation_types(
     db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool
 ) -> None:
     existing = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
-    # One relation type per ordered (source, target) pair — enforced here too.
-    # Successor (lineage) relation types are exempt (see below), so they never claim
-    # a pair.
-    pair_owner = {
-        (rt.source_type_key, rt.target_type_key): rt.key
-        for rt in existing.values()
-        if not rt.key.endswith("Successor")
-    }
+    # Relation types are keyed by ``key`` alone. Any number of them may share an
+    # ordered (source, target) pair — the bundle is applied as authored, matching
+    # what the API (metamodel.py) and the platform-migration importer accept.
     for row in bundle.rows(schema.SHEET_RELATION_TYPES):
         data = _coerce(row, exp.RELATION_TYPE_COLUMNS, exp.RELATION_TYPE_JSON)
         key = data.get("key")
@@ -461,25 +491,10 @@ async def _apply_relation_types(
             sr.failed += 1
             continue
         current = existing.get(key)
-        pair = (data.get("source_type_key"), data.get("target_type_key"))
-        # Successor (lineage) relation types are a separate, UI-isolated category and
-        # are exempt from the one-relation-type-per-pair rule (mirrors the API in
-        # metamodel.py) — a self-referential rel{Key}Successor must be able to coexist
-        # with a custom self-relation on the same pair.
-        is_successor = bool(key) and key.endswith("Successor")
         if current is None:
-            owner = pair_owner.get(pair)
-            if not is_successor and owner is not None and owner != key:
-                sr.conflict += 1
-                sr.errors.append(
-                    f"relation_type {key!r}: pair {pair} already used by {owner!r} — skipped"
-                )
-                continue
             rt = RelationType(**{k: v for k, v in data.items()})
             db.add(rt)
             existing[key] = rt
-            if not is_successor:
-                pair_owner[pair] = key
             sr.created += 1
         else:
             cols = [c for c in exp.RELATION_TYPE_COLUMNS if c not in ("key", "built_in")]
@@ -500,6 +515,22 @@ def _make_config_applier(sec: schema.ConfigSection):
         }
         for row in bundle.rows(sec.sheet):
             data = _coerce(row, sec.columns, sec.json_columns)
+            # A bundle exported from an install that predates the permission
+            # renames carries keys the validators would reject. This path writes
+            # straight onto the model, bypassing Pydantic entirely, so without
+            # this an old bundle would silently re-poison a repaired instance
+            # and break its role editor — the very bug 140 exists to fix, only
+            # reintroduced through the back door and with no migration watching.
+            #
+            # The two tiers are normalised differently on purpose: dead
+            # card-level keys are dropped (they grant nothing), while app-level
+            # keys are renamed onto the permissions they still mean, so an
+            # import never silently revokes access a role actually had.
+            if "permissions" in data:
+                if sec.model is StakeholderRoleDefinition:
+                    data["permissions"] = strip_legacy_card_permissions(data["permissions"])
+                elif sec.model is Role:
+                    data["permissions"] = migrate_legacy_app_permissions(data["permissions"])
             nk = tuple(data.get(k) for k in sec.natural_key)
             if any(part is None for part in nk):
                 sr.failed += 1
@@ -679,10 +710,14 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
 
 
 def _find_asset(bundle: WorkspaceBundle, prefix: str) -> bytes | None:
-    """Return the first asset whose path matches ``prefix`` (any extension)."""
-    for path, data in bundle.assets.items():
+    """Return the first asset whose path matches ``prefix`` (any extension).
+
+    Iterates names and reads the one match — the store may be lazy, so asking
+    for every value here would inflate the whole assets tree.
+    """
+    for path in bundle.assets.keys():
         if path == prefix or path.startswith(prefix + "."):
-            return data
+            return bundle.assets.get(path)
     return None
 
 
@@ -724,18 +759,23 @@ async def _finalize_cards(db) -> None:
     from app.services.calculation_engine import run_calculations_for_card
     from app.services.card_write_service import _get_ppm_exclusions
     from app.services.data_quality import calc_data_quality
+    from app.services.derived_writes import derived_maintenance
 
     ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
-    for i in range(0, len(ids), 500):
-        chunk = ids[i : i + 500]
-        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
-        for card in cards:
-            ppm_excl = await _get_ppm_exclusions(db, card)
-            await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
-            score = await calc_data_quality(db, card)
-            if card.data_quality != score:
-                card.data_quality = score
-    await db.flush()
+    # Cards the bundle created carry their own `card.created` event; cards the
+    # target already had are only being rescored, so this pass must not re-date
+    # the whole inventory to the moment of the import.
+    with derived_maintenance(db):
+        for i in range(0, len(ids), 500):
+            chunk = ids[i : i + 500]
+            cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
+            for card in cards:
+                ppm_excl = await _get_ppm_exclusions(db, card)
+                await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+                score = await calc_data_quality(db, card)
+                if card.data_quality != score:
+                    card.data_quality = score
+        await db.flush()
 
 
 def _make_cards_applier(user: User):
@@ -833,6 +873,9 @@ def _make_cards_applier(user: User):
                     name=name,
                     description=data.get("description"),
                     parent_id=resolved_parent,
+                    parent_label=(
+                        data.get("parent_label") if resolved_parent is not None else None
+                    ),
                     lifecycle=data.get("lifecycle") or {},
                     attributes=data.get("attributes") or {},
                     external_id=external_id,
@@ -939,6 +982,7 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
         if r.get("target_type"):
             type_keys.add(r["target_type"])
     resolver = await CardResolver.load(db, type_keys)
+    rt_by_key = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
     existing = {
         (rel.type, rel.source_id, rel.target_id)
         for rel in (await db.execute(select(Relation))).scalars().all()
@@ -959,15 +1003,24 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
                 f"({data.get('source_ref')!r} -> {data.get('target_ref')!r})"
             )
             continue
-        key = (rtype, s_res.card_id, t_res.card_id)
+        # A bundle from an instance that still held a relation stored the other
+        # way round lands in the relation type's direction here (#1140).
+        source_id, target_id = oriented(
+            rt_by_key.get(rtype),
+            s_res.card_id,
+            t_res.card_id,
+            str(data.get("source_type") or ""),
+            str(data.get("target_type") or ""),
+        )
+        key = (rtype, source_id, target_id)
         if key in existing:
             sr.skip("already_present")
             continue
         db.add(
             Relation(
                 type=rtype,
-                source_id=s_res.card_id,
-                target_id=t_res.card_id,
+                source_id=source_id,
+                target_id=target_id,
                 description=data.get("description"),
                 attributes=data.get("attributes") or {},
             )

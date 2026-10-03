@@ -3,7 +3,7 @@
 Mirrors the capability catalogue:
 
 - `GET /value-stream-catalogue` — `inventory.view`
-- `POST /value-stream-catalogue/import` — `inventory.create`
+- `POST /value-stream-catalogue/import` — `inventory.create` on `ValueStream`
 - `GET /value-stream-catalogue/update-status` — `admin.metamodel`
 - `POST /value-stream-catalogue/update-fetch` — `admin.metamodel`
 """
@@ -35,7 +35,9 @@ class ImportRequest(BaseModel):
 async def get_catalogue(
     locale: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.view")),
+    # The catalogue marks which entries already exist as BusinessContext cards, so a
+    # role denied View on that type may not open it.
+    user: User = Depends(require_permission("inventory.view", card_type_key="BusinessContext")),
 ):
     """Return the full active value-stream catalogue, flattened to a
     parent-stream + child-stage tree so the existing browser UI can render
@@ -49,7 +51,7 @@ async def get_catalogue(
 async def import_value_streams(
     payload: ImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.create")),
+    user: User = Depends(require_permission("inventory.create", card_type_key="ValueStream")),
 ):
     """Create BusinessContext / valueStream cards for selected streams or
     stages. Selecting a stage automatically pulls in its parent stream so

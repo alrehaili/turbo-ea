@@ -116,7 +116,11 @@ plugins:
             Platform Migration: Migración de plataforma
             Workspace Transfer: Transferencia de espacio de trabajo
             Extensions: Extensiones
+            Extension Store: Tienda de extensiones
             Operations & Upgrades: Operaciones y actualizaciones
+            Kubernetes & Cloud: Kubernetes y nube
+            Managed Container Services: Servicios de contenedores gestionados
+            Terraform: Terraform
             Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
@@ -181,7 +185,11 @@ plugins:
             Platform Migration: Plattform-Migration
             Workspace Transfer: Workspace-Transfer
             Extensions: Erweiterungen
+            Extension Store: Erweiterungs-Store
             Operations & Upgrades: Betrieb & Upgrades
+            Kubernetes & Cloud: Kubernetes & Cloud
+            Managed Container Services: Verwaltete Container-Dienste
+            Terraform: Terraform
             Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
@@ -246,7 +254,11 @@ plugins:
             Platform Migration: Migration de plateforme
             Workspace Transfer: Transfert d'espace de travail
             Extensions: Extensions
+            Extension Store: Boutique d'extensions
             Operations & Upgrades: Exploitation et mises à niveau
+            Kubernetes & Cloud: Kubernetes et cloud
+            Managed Container Services: Services de conteneurs managés
+            Terraform: Terraform
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
@@ -311,7 +323,11 @@ plugins:
             Platform Migration: Migrazione di piattaforma
             Workspace Transfer: Trasferimento workspace
             Extensions: Estensioni
+            Extension Store: Store delle estensioni
             Operations & Upgrades: Operazioni e aggiornamenti
+            Kubernetes & Cloud: Kubernetes e cloud
+            Managed Container Services: Servizi di container gestiti
+            Terraform: Terraform
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
@@ -376,7 +392,11 @@ plugins:
             Platform Migration: Migração de plataforma
             Workspace Transfer: Transferência de workspace
             Extensions: Extensões
+            Extension Store: Loja de extensões
             Operations & Upgrades: Operações e atualizações
+            Kubernetes & Cloud: Kubernetes e nuvem
+            Managed Container Services: Serviços de contêineres gerenciados
+            Terraform: Terraform
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
@@ -441,7 +461,11 @@ plugins:
             Platform Migration: 平台迁移
             Workspace Transfer: 工作区迁移
             Extensions: 扩展
+            Extension Store: 扩展商店
             Operations & Upgrades: 运维与升级
+            Kubernetes & Cloud: Kubernetes 与云
+            Managed Container Services: 托管容器服务
+            Terraform: Terraform
             Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
@@ -506,7 +530,11 @@ plugins:
             Platform Migration: Миграция платформы
             Workspace Transfer: Перенос рабочей области
             Extensions: Расширения
+            Extension Store: Магазин расширений
             Operations & Upgrades: Эксплуатация и обновления
+            Kubernetes & Cloud: Kubernetes и облако
+            Managed Container Services: Управляемые контейнерные сервисы
+            Terraform: Terraform
             Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
@@ -571,7 +599,11 @@ plugins:
             Platform Migration: Platformsmigrering
             Workspace Transfer: Workspace-overførsel
             Extensions: Udvidelser
+            Extension Store: Udvidelsesbutik
             Operations & Upgrades: Drift og opgraderinger
+            Kubernetes & Cloud: Kubernetes og cloud
+            Managed Container Services: Administrerede containertjenester
+            Terraform: Terraform
             Supply Chain: Forsyningskæde
             Reference: Reference
             Glossary: Ordliste
@@ -636,7 +668,11 @@ plugins:
             Platform Migration: ترحيل المنصة
             Workspace Transfer: نقل مساحة العمل
             Extensions: الإضافات
+            Extension Store: متجر الإضافات
             Operations & Upgrades: العمليات والترقيات
+            Kubernetes & Cloud: Kubernetes والسحابة
+            Managed Container Services: خدمات الحاويات المُدارة
+            Terraform: Terraform
             Supply Chain: سلسلة التوريد
             Reference: المرجع
             Glossary: المسرد
@@ -729,9 +765,21 @@ nav:
       - ServiceNow Integration: admin/servicenow.md
       - Platform Migration: admin/migration.md
       - Workspace Transfer: admin/workspace-transfer.md
-      - Extensions: admin/extensions.md
+      - Extension Store: admin/extensions.md
       - Operations & Upgrades: admin/operations.md
+      - Kubernetes & Cloud: admin/kubernetes.md
+      - Managed Container Services: admin/managed-containers.md
+      - Terraform: admin/terraform.md
       - Supply Chain: admin/supply-chain.md
+  - Extensions:
+      - Overview: extensions/index.md
+      - Digital Autonomy Assessment: extensions/digital-autonomy.md
+      - EA Value Tracker: extensions/value-savings.md
+      - Jira Todo Sync: extensions/jira-todos.md
+      - Slack Notifications: extensions/slack-notify.md
+      - DORA Register of Information: extensions/dora-roi.md
+      - Roadmap Studio: extensions/roadmap-studio.md
+      - Automations: extensions/automations.md
   - Reference:
       - Glossary: reference/glossary.md
       - Compatibility Policy: reference/compatibility.md

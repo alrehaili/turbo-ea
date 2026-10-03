@@ -9,7 +9,7 @@ import i18n, { dirForLocale } from "@/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/hooks/AuthContext";
 import { ThemeModeContext, useThemeModeState } from "@/hooks/useThemeMode";
-import { useAppTitle } from "@/hooks/useAppTitle";
+import DocumentTitle from "@/components/DocumentTitle";
 import { buildTheme } from "@/theme";
 import { ltrCache, rtlCache } from "@/theme/emotionCache";
 import AppLayout from "@/layouts/AppLayout";
@@ -17,7 +17,7 @@ import LoginPage from "@/features/auth/LoginPage";
 import SsoCallback from "@/features/auth/SsoCallback";
 import SetPasswordPage from "@/features/auth/SetPasswordPage";
 import ModuleGate from "@/components/ModuleGate";
-import RequirePermission from "@/components/RequirePermission";
+import RouteGuard from "@/components/RouteGuard";
 
 const ForgotPasswordPage = lazy(() => import("@/features/auth/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("@/features/auth/ResetPasswordPage"));
@@ -186,17 +186,17 @@ function PageLoader() {
 
 /** Inner component that handles authenticated vs public routes. */
 function AppRoutes() {
-  const { user, loading, login, register, ssoCallback, setPassword, logout, refreshUser } =
-    useAuth();
-
-  // Sync `document.title` for every route — authenticated and public alike —
-  // so public pages (Web Portal, set-password, forgot/reset, SSO callback)
-  // inherit the admin-configured Application Title instead of the static
-  // «Turbo EA» default baked into index.html (#590).
-  const appTitle = useAppTitle();
-  useEffect(() => {
-    document.title = appTitle;
-  }, [appTitle]);
+  const {
+    user,
+    loading,
+    login,
+    register,
+    ssoCallback,
+    setPassword,
+    logout,
+    refreshUser,
+    proxySession,
+  } = useAuth();
 
   if (loading) {
     return (
@@ -226,7 +226,12 @@ function AppRoutes() {
           element={<Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense>}
         />
         {/* Everything else redirects to login */}
-        <Route path="*" element={<LoginPage onLogin={login} onRegister={register} />} />
+        <Route
+          path="*"
+          element={
+            <LoginPage onLogin={login} onRegister={register} onProxySession={proxySession} />
+          }
+        />
       </Routes>
     );
   }
@@ -246,6 +251,10 @@ function AppRoutes() {
           <AuthProvider user={user} refreshUser={refreshUser}>
           <AppLayout user={user} onLogout={logout}>
             <Suspense fallback={<PageLoader />}>
+              {/* One guard for the whole table: every route is gated on the
+                  permission ROUTE_PERMISSIONS declares for it, so a typed URL
+                  is checked exactly like the nav item that leads to it. */}
+              <RouteGuard>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/inventory" element={<InventoryPage />} />
@@ -380,8 +389,8 @@ function AppRoutes() {
                 <Route path="/ea-delivery/adr/new" element={<ADREditor />} />
                 <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
                 <Route path="/ea-delivery/adr/:id" element={<ADREditor />} />
-                <Route path="/ea-delivery/adm" element={<RequirePermission permission="adm.view"><AdmWorkspaceListPage /></RequirePermission>} />
-                <Route path="/ea-delivery/adm/:workspaceId" element={<RequirePermission permission="adm.view"><AdmWorkspacePage /></RequirePermission>} />
+                <Route path="/ea-delivery/adm" element={<AdmWorkspaceListPage />} />
+                <Route path="/ea-delivery/adm/:workspaceId" element={<AdmWorkspacePage />} />
                 <Route path="/ea-delivery/risks" element={<Navigate to="/grc?tab=risk" replace />} />
                 <Route path="/ea-delivery/risks/:id" element={<LegacyRiskDetailRedirect />} />
                 <Route path="/grc" element={<ModuleGate module="grc"><GrcPage /></ModuleGate>} />
@@ -389,27 +398,28 @@ function AppRoutes() {
                 <Route path="/todos" element={<TodosPage />} />
                 <Route path="/surveys" element={<Navigate to="/todos?tab=surveys" />} />
                 <Route path="/surveys/:surveyId/respond/:cardId" element={<SurveyRespond />} />
-                <Route path="/admin/metamodel" element={<RequirePermission permission="admin.metamodel"><MetamodelAdmin /></RequirePermission>} />
-                <Route path="/admin/users" element={<RequirePermission permission="admin.users"><UsersAdmin /></RequirePermission>} />
-                <Route path="/admin/settings" element={<RequirePermission permission="admin.settings"><SettingsAdmin /></RequirePermission>} />
-                <Route path="/admin/eol" element={<RequirePermission permission="eol.manage"><Navigate to="/admin/settings?tab=eol" /></RequirePermission>} />
-                <Route path="/admin/web-portals" element={<RequirePermission permission="web_portals.manage"><Navigate to="/admin/settings?tab=web-portals" /></RequirePermission>} />
-                <Route path="/admin/servicenow" element={<RequirePermission permission="servicenow.manage"><Navigate to="/admin/settings?tab=servicenow" /></RequirePermission>} />
-                <Route path="/admin/extensions" element={<RequirePermission permission="admin.manage_extensions"><ExtensionsAdmin /></RequirePermission>} />
+                <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
+                <Route path="/admin/users" element={<UsersAdmin />} />
+                <Route path="/admin/settings" element={<SettingsAdmin />} />
+                <Route path="/admin/eol" element={<Navigate to="/admin/settings?tab=eol" />} />
+                <Route path="/admin/web-portals" element={<Navigate to="/admin/settings?tab=web-portals" />} />
+                <Route path="/admin/servicenow" element={<Navigate to="/admin/settings?tab=servicenow" />} />
+                <Route path="/admin/extensions" element={<ExtensionsAdmin />} />
                 <Route path="/ext/*" element={<ExtensionRoutesOutlet />} />
-                <Route path="/admin/surveys" element={<RequirePermission permission="surveys.manage"><SurveysAdmin /></RequirePermission>} />
-                <Route path="/admin/surveys/new" element={<RequirePermission permission="surveys.manage"><SurveyBuilder /></RequirePermission>} />
-                <Route path="/admin/surveys/:id/results" element={<RequirePermission permission="surveys.manage"><SurveyResults /></RequirePermission>} />
-                <Route path="/admin/surveys/:id" element={<RequirePermission permission="surveys.manage"><SurveyBuilder /></RequirePermission>} />
+                <Route path="/admin/surveys" element={<SurveysAdmin />} />
+                <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
+                <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
+                <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
                 <Route path="/turbolens" element={<ModuleGate module="turbolens"><TurboLensPage /></ModuleGate>} />
                 <Route path="/turbolens/assessments/:id" element={<ModuleGate module="turbolens"><AssessmentViewer /></ModuleGate>} />
-                <Route path="/admin/turbolens" element={<RequirePermission permission="turbolens.manage"><Navigate to="/admin/settings?tab=turbolens" /></RequirePermission>} />
+                <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
                 <Route path="/capability-catalogue" element={<CapabilityCataloguePage />} />
                 <Route path="/process-catalogue" element={<ProcessCataloguePage />} />
                 <Route path="/value-stream-catalogue" element={<ValueStreamCataloguePage />} />
                 <Route path="/principles-catalogue" element={<PrinciplesCataloguePage />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
+              </RouteGuard>
             </Suspense>
           </AppLayout>
           </AuthProvider>
@@ -451,6 +461,13 @@ export default function App() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <BrowserRouter>
+            {/* Sole writer of `document.title`, for every route — authenticated
+                and public alike — so public pages (Web Portal, set-password,
+                forgot/reset, SSO callback) inherit the admin-configured
+                Application Title instead of the static «Turbo EA» default baked
+                into index.html (#590), and every other page names itself in
+                front of it (#1085). */}
+            <DocumentTitle />
             <AppRoutes />
           </BrowserRouter>
         </ThemeProvider>

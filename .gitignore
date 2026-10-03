@@ -19,6 +19,12 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+# Vitest coverage output and diff-cover's markdown report (ci.yml)
+frontend/coverage/
+# Per-shard hand-offs to the aggregate CI jobs (ci.yml)
+frontend/.vitest-reports/
+backend/coverage.shard-*
+diff-cover.md
 *.cover
 *.py,cover
 .hypothesis/
@@ -80,6 +86,12 @@ logs/
 # Uploads
 uploads/
 
+# Runtime state the backend persists (the backend_data volume in Docker,
+# created in-tree when you run uvicorn locally): uploaded extension
+# bundles, installed extensions, workspace-transfer bundles. Customer
+# .teax files and workspace exports must never be committed.
+backend/data/
+
 # Alembic
 alembic/versions/__pycache__/
 
@@ -105,3 +117,19 @@ ea-ui-mvp/
 # Accidental workspace directories
 *الحقيبة*/
 *الحقيبة*
+
+# Terraform (deploy/terraform): provider binaries, state and personal tfvars.
+# The .terraform.lock.hcl files ARE committed.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+crash.log
+deploy/terraform/**/*.tfvars
+!deploy/terraform/**/*.tfvars.example
+*.auto.tfvars
+
+# Browser smoke suite (frontend/e2e): reports, traces and the saved sign-in (the DrawIO clone lands in .cache/, ignored above)
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/

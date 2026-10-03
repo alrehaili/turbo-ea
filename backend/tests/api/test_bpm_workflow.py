@@ -16,6 +16,7 @@ Covers the draft / pending / published / archived lifecycle:
 
 from __future__ import annotations
 
+import pathlib
 import uuid
 
 import pytest
@@ -693,3 +694,161 @@ class TestListArchived:
         assert data[0]["status"] == "archived"
         # Archived list uses summaries — no bpmn_xml
         assert "bpmn_xml" not in data[0]
+
+
+# ---------------------------------------------------------------------------
+# Element ordering (issue #978)
+# ---------------------------------------------------------------------------
+
+
+# Declared end-first with interleaved element types, so neither document order
+# nor the parser's old element-type grouping produces the reading order below.
+ORDERED_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="defs_wf">
+  <bpmn:process id="P_wf" isExecutable="true">
+    <bpmn:endEvent id="Ev_end" name="Closed" />
+    <bpmn:sendTask id="Task_inform" name="Inform requester" />
+    <bpmn:userTask id="Task_assess" name="Assess request" />
+    <bpmn:startEvent id="Ev_start" name="Request raised" />
+    <bpmn:sequenceFlow id="wf1" sourceRef="Ev_start" targetRef="Task_assess" />
+    <bpmn:sequenceFlow id="wf2" sourceRef="Task_assess" targetRef="Task_inform" />
+    <bpmn:sequenceFlow id="wf3" sourceRef="Task_inform" targetRef="Ev_end" />
+  </bpmn:process>
+</bpmn:definitions>
+"""
+
+ORDERED_EXPECTED = ["Request raised", "Assess request", "Inform requester", "Closed"]
+
+
+class TestElementOrdering:
+    """`approve` is a second, independent writer of `process_elements` — the
+    ordering guarantee has to hold on this path too, not just on save_diagram.
+    """
+
+    async def test_draft_elements_are_listed_in_flow_order(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=ORDERED_BPMN)
+        vid = resp.json()["id"]
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/draft-elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        elements = resp.json()
+        # The pre-link table renders this list positionally, so list order and
+        # sequence_order both matter.
+        assert [e["name"] for e in elements] == ORDERED_EXPECTED
+        assert [e["sequence_order"] for e in elements] == list(range(len(ORDERED_EXPECTED)))
+
+    async def test_approved_elements_are_persisted_in_flow_order(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=ORDERED_BPMN)
+        vid = resp.json()["id"]
+        await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/submit",
+            headers=auth_headers(admin),
+        )
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/approve",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [e["name"] for e in resp.json()] == ORDERED_EXPECTED
+
+
+# ---------------------------------------------------------------------------
+# Event definitions + message flows on the publish path
+# ---------------------------------------------------------------------------
+
+_COLLABORATION_BPMN = (
+    pathlib.Path(__file__).resolve().parents[2] / "bpmn_templates" / "collaboration.bpmn"
+).read_text()
+
+
+class TestEventDefinitionsOnPublish:
+    """`approve` is the second writer of the derived rows — the event sub-type
+    columns and the message-flow table have to be written on this path too."""
+
+    async def _publish(self, client, process, admin, xml=_COLLABORATION_BPMN):
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=xml)
+        vid = resp.json()["id"]
+        await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/submit",
+            headers=auth_headers(admin),
+        )
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/approve",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        return vid
+
+    async def test_draft_elements_carry_the_definition(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=_COLLABORATION_BPMN)
+        vid = resp.json()["id"]
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/draft-elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        by_id = {e["bpmn_element_id"]: e for e in resp.json()}
+        assert by_id["EndEvent_Confirmed"]["event_definition_type"] == "message"
+        assert by_id["EndEvent_Confirmed"]["definition_name"] == "Confirmation"
+        assert by_id["DataObjectReference_Request"]["element_type"] == "dataObjectReference"
+
+    async def test_publish_persists_definitions_and_message_flows(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        await self._publish(client, process, admin)
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/elements", headers=auth_headers(admin)
+        )
+        by_id = {e["bpmn_element_id"]: e for e in resp.json()}
+        assert by_id["StartEvent_RequestReceived"]["event_definition_type"] == "message"
+        assert by_id["StartEvent_RequestReceived"]["definition_name"] == "Request"
+        assert by_id["Task_ReceiveConfirmation"]["definition_name"] == "Confirmation"
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        assert [f["name"] for f in resp.json()] == ["Request", "Confirmation"]
+
+    async def test_republish_keeps_the_interface_link(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        await create_card_type(db, key="Interface", label="Interface")
+        iface = await create_card(db, card_type="Interface", name="Order API", user_id=admin.id)
+        await self._publish(client, process, admin)
+        flow_id = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()[0]["id"]
+        resp = await client.patch(
+            f"/api/v1/bpm/processes/{process.id}/message-flows/{flow_id}",
+            json={"interface_id": str(iface.id)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        await self._publish(client, process, admin)
+        flows = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/message-flows", headers=auth_headers(admin)
+            )
+        ).json()
+        assert flows[0]["id"] == flow_id
+        assert flows[0]["interface_id"] == str(iface.id)

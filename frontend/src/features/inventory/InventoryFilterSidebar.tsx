@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -30,11 +30,13 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { expandSides, sideKey } from "@/lib/relationSort";
+import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
-import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import { useSegments } from "@/hooks/useSegments";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
@@ -57,6 +59,13 @@ import type {
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
+import {
+  EOL_STATUSES,
+  EOL_STATUS_COLORS,
+  EOL_STATUS_LABEL_KEYS,
+  isEolType,
+} from "@/lib/eol";
+
 /* ------------------------------------------------------------------ */
 
 export interface Filters {
@@ -86,6 +95,23 @@ export interface Filters {
   orphanedOnly: boolean;
   /** Cards untouched for 90+ days — same cutoff as the report's Stale tile. */
   staleOnly: boolean;
+  /**
+   * Resolved end-of-life statuses to keep (`eol` / `approaching` /
+   * `supported` / `unknown`, plus `EMPTY_VALUE` for cards with nothing
+   * recorded). Client-side over the statuses `GET /eol/card-status` resolved
+   * for the selected type, exactly like `lifecyclePhases`. The `EMPTY_VALUE`
+   * pill is what answers "which of these has nobody recorded an end of life
+   * for?" — there is no separate scope for it.
+   */
+  eolStatuses: string[];
+  /**
+   * Hierarchy link types to keep — `cards.parent_label` keys, plus
+   * `EMPTY_VALUE` for children whose link carries no type. Client-side over the
+   * loaded page like `subtypes`, since `GET /cards` has no `parent_label`
+   * param. Only meaningful for a single hierarchical type, which is exactly
+   * what `hierarchyLabelColumnApplies` already gates the column on.
+   */
+  linkTypes: string[];
 }
 
 interface Props {
@@ -97,12 +123,27 @@ interface Props {
   width: number;
   onWidthChange: (w: number) => void;
   relevantRelTypes?: RelationType[];
+  /**
+   * Every relation type touching the selected type, *without* the per-related-type
+   * dedup `relevantRelTypes` applies for columns. Relation facets are keyed by
+   * relation type, so they must come from this list or cards related only through
+   * a second relation type on the same card-type pair become unfilterable.
+   */
+  allRelevantRelTypes?: RelationType[];
   // Stakeholder roles of the single selected type — one togglable
   // "Stakeholders: <role>" column each.
   stakeholderRoles?: StakeholderRoleOption[];
   relationsMap?: Map<string, Map<string, RelatedCardRef[]>>;
   tagGroups?: TagGroup[];
   canArchive?: boolean;
+  /** Whether the End of life facet applies to what is on screen — i.e. a
+   * single EOL-capable type is selected and the user may read EOL data. Same
+   * "applies to what is in view" shape as `logoColumnApplies`. */
+  showEolFacet?: boolean;
+  /** Whether the Link type facet applies to what is on screen — gated on the
+   * same `hierarchyLabelColumnApplies` as its column, so the two appear and
+   * disappear together. */
+  showLinkTypeFacet?: boolean;
   canShareBookmarks?: boolean;
   canOdataBookmarks?: boolean;
   currentUserId?: string;
@@ -227,11 +268,15 @@ export function normalizeSelectAttributeFilters(
  * `rel_<relatedCardTypeKey>` (`rel_Provider`) because the report thinks in
  * related card types — an untranslated entry matches nothing and silently
  * empties the grid. Rules: a key that already is a relation-type key is kept;
- * a related-card-type key moves its names under the FIRST mapped relation
- * type (the same dedup rule the relation columns use), merging with any
- * existing values; an unresolvable key is DROPPED — a deep link may degrade
- * to showing more items, never to an inexplicable zero. Returns the SAME
- * object reference when nothing changed, so callers can setState safely.
+ * a related-card-type key that maps to exactly ONE relation type moves its
+ * names under it, merging with any existing values; a key mapping to SEVERAL
+ * relation types is KEPT AS THE CARD-TYPE KEY, because the matcher resolves it
+ * as the union across them — collapsing to the first would silently filter by
+ * one relationship when the report meant "related to this card type at all",
+ * and spreading it across the group would AND them. An unresolvable key is
+ * DROPPED — a deep link may degrade to showing more items, never to an
+ * inexplicable zero. Returns the SAME object reference when nothing changed,
+ * so callers can setState safely.
  */
 export function normalizeRelationFilterKeys(
   relations: Filters["relations"],
@@ -246,8 +291,14 @@ export function normalizeRelationFilterKeys(
       continue;
     }
     const mapped = cardTypeToRelTypes.get(key);
+    if (mapped && mapped.length > 1) {
+      // Several relation types reach this card type — keep the card-type key
+      // and let the matcher union across them.
+      next[key] = [...new Set([...(next[key] ?? []), ...names])];
+      continue;
+    }
     changed = true;
-    if (mapped && mapped.length > 0) {
+    if (mapped && mapped.length === 1) {
       const target = mapped[0];
       next[target] = [...new Set([...(next[target] ?? []), ...names])];
     }
@@ -269,17 +320,26 @@ export function valueIsEmpty(actual: unknown): boolean {
 /**
  * Compute the next filter state when a card type is toggled on/off.
  *
- * Subtypes, custom attributes, and relationship filters are all type-specific
- * — they only make sense for the currently selected type(s) and their UI is
- * hidden once the selection no longer applies. They must therefore be reset on
- * every type change, otherwise a stale (and now-invisible) filter keeps being
- * applied client-side and silently empties the result list. See issue #686.
+ * Subtypes, custom attributes, relationship filters and the end-of-life
+ * statuses are all type-specific — they only make sense for the currently
+ * selected type(s) and their UI is hidden once the selection no longer
+ * applies. They must therefore be reset on every type change, otherwise a
+ * stale (and now-invisible) filter keeps being applied client-side and
+ * silently empties the result list. See issue #686.
  */
 export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
   const next = filters.types.includes(key)
     ? filters.types.filter((t) => t !== key)
     : [...filters.types, key];
-  return { ...filters, types: next, subtypes: [], attributes: {}, relations: {} };
+  return {
+    ...filters,
+    types: next,
+    subtypes: [],
+    attributes: {},
+    relations: {},
+    eolStatuses: [],
+    linkTypes: [],
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -327,10 +387,13 @@ export default function InventoryFilterSidebar({
   width,
   onWidthChange,
   relevantRelTypes = [],
+  allRelevantRelTypes = [],
   stakeholderRoles = [],
   relationsMap,
   tagGroups = [],
   canArchive = false,
+  showEolFacet = false,
+  showLinkTypeFacet = false,
   canShareBookmarks = false,
   canOdataBookmarks = false,
   currentUserId,
@@ -351,8 +414,12 @@ export default function InventoryFilterSidebar({
   groupBy = null,
   onGroupByChange,
 }: Props) {
-  const { t } = useTranslation(["inventory", "common"]);
+  const { t, i18n } = useTranslation(["inventory", "common"]);
+  // EOL status labels live in the reports namespace — the EOL report owns
+  // them, and a second copy here is how the two drift apart.
+  const { t: tReports } = useTranslation("reports");
   const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -374,6 +441,8 @@ export default function InventoryFilterSidebar({
     search: true,
     subtypes: false,
     lifecycle: false,
+    eol: false,
+    linkType: false,
     dataQuality: false,
     approvalStatus: false,
     architectureState: false,
@@ -411,11 +480,32 @@ export default function InventoryFilterSidebar({
     loadBookmarks();
   }, [loadBookmarks]);
 
+  // Card types bucketed by EA layer — see `lib/cardTypeOrder.ts`. The API
+  // orders by `sort_order` alone, which only looks layered because the seed
+  // numbers the built-in types that way; a type added later would otherwise
+  // sit at the bottom of the list whatever layer it belongs to.
+  const typeGroups = useMemo(
+    () => groupCardTypesByCategory(types, { locale: i18n.language }),
+    [types, i18n.language],
+  );
+  // A lone layer heading names nothing the section header does not — and on an
+  // instance where no type has a layer it would read as "Uncategorized" over
+  // the whole list, implying a categorised part that does not exist.
+  const showTypeGroupHeaders = typeGroups.length > 1;
+
   // Derive subtype options from selected type
   const subtypeOptions = useMemo(() => {
     if (filters.types.length !== 1) return [];
     const t = types.find((t) => t.key === filters.types[0]);
     return t?.subtypes ?? [];
+  }, [types, filters.types]);
+
+  // The link-type vocabulary of the one selected type — same single-type rule
+  // as `subtypeOptions`, and the same one `hierarchyLabelColumnApplies` uses.
+  const linkTypeOptions = useMemo(() => {
+    if (filters.types.length !== 1) return [];
+    const t = types.find((t) => t.key === filters.types[0]);
+    return t?.hierarchy_labels ?? [];
   }, [types, filters.types]);
 
   // Derive attribute filter fields from selected types (all field types)
@@ -448,11 +538,26 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, subtypes: next });
   };
 
+  const toggleLinkType = (key: string) => {
+    const current = filters.linkTypes ?? [];
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+    onFiltersChange({ ...filters, linkTypes: next });
+  };
+
   const toggleLifecyclePhase = (key: string) => {
     const next = filters.lifecyclePhases.includes(key)
       ? filters.lifecyclePhases.filter((p) => p !== key)
       : [...filters.lifecyclePhases, key];
     onFiltersChange({ ...filters, lifecyclePhases: next });
+  };
+
+  const toggleEolStatus = (key: string) => {
+    const next = filters.eolStatuses.includes(key)
+      ? filters.eolStatuses.filter((p) => p !== key)
+      : [...filters.eolStatuses, key];
+    onFiltersChange({ ...filters, eolStatuses: next });
   };
 
   const toggleApprovalStatus = (key: string) => {
@@ -498,12 +603,36 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, relations: next });
   };
 
+  // Relation facets are per relation type (never deduped by related card type), so
+  // each of several relation types sharing a card-type pair gets its own filter row.
+  const filterRelTypes = allRelevantRelTypes.length > 0 ? allRelevantRelTypes : relevantRelTypes;
+  // …and per SIDE: a self-referencing type ("has site" / "is site of") is two
+  // facets, each reading its own index (`<key>__out` / `<key>__in`), because
+  // "which end am I" is true at both ends when read off the type alone.
+  const selectedTypeKey = filters.types.length === 1 ? filters.types[0] : "";
+  const filterSides = useMemo(
+    () => expandSides(filterRelTypes, selectedTypeKey),
+    [filterRelTypes, selectedTypeKey],
+  );
+
+  // How many relation types in this list reach the same related card type — a
+  // count above 1 means the plain type label is ambiguous and needs its verb.
+  const relTypeCountByOtherKey = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const { rt, isSource } of filterSides) {
+      const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
+      counts.set(otherKey, (counts.get(otherKey) || 0) + 1);
+    }
+    return counts;
+  }, [filterSides]);
+
   // Compute unique related names per relation type for filter dropdowns
   const relFilterOptions = useMemo(() => {
-    if (!relationsMap || relevantRelTypes.length === 0) return new Map<string, string[]>();
+    if (!relationsMap || filterRelTypes.length === 0) return new Map<string, string[]>();
     const result = new Map<string, string[]>();
-    for (const rt of relevantRelTypes) {
-      const index = relationsMap.get(rt.key);
+    for (const { rt, isSource } of filterSides) {
+      const facetKey = sideKey(rt, isSource);
+      const index = relationsMap.get(facetKey);
       if (!index) continue;
       const names = new Set<string>();
       // Facets filter on the related card's name, not its id — two cards
@@ -512,14 +641,14 @@ export default function InventoryFilterSidebar({
         for (const ref of arr) names.add(ref.name);
       }
       if (names.size > 0) {
-        result.set(rt.key, Array.from(names).sort());
+        result.set(facetKey, Array.from(names).sort());
       }
     }
     return result;
-  }, [relationsMap, relevantRelTypes]);
+  }, [relationsMap, filterSides]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [], orphanedOnly: false, staleOnly: false });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [], orphanedOnly: false, staleOnly: false, eolStatuses: [], linkTypes: [] });
 
   const activeCount =
     filters.types.length +
@@ -537,7 +666,9 @@ export default function InventoryFilterSidebar({
     (filters.mineScope ? 1 : 0) +
     (filters.segmentIds?.length ?? 0) +
     (filters.orphanedOnly ? 1 : 0) +
-    (filters.staleOnly ? 1 : 0);
+    (filters.staleOnly ? 1 : 0) +
+    filters.eolStatuses.length +
+    (filters.linkTypes?.length ?? 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -592,6 +723,8 @@ export default function InventoryFilterSidebar({
         showArchived: filters.showArchived,
         orphanedOnly: filters.orphanedOnly,
         staleOnly: filters.staleOnly,
+        eolStatuses: filters.eolStatuses,
+        linkTypes: filters.linkTypes,
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
@@ -635,6 +768,8 @@ export default function InventoryFilterSidebar({
         showArchived: f.showArchived || false,
         orphanedOnly: f.orphanedOnly || false,
         staleOnly: f.staleOnly || false,
+        eolStatuses: f.eolStatuses || [],
+        linkTypes: f.linkTypes || [],
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -924,35 +1059,59 @@ export default function InventoryFilterSidebar({
               />
               <Collapse in={expandedSections.types}>
                 <List dense disablePadding sx={{ mb: 1 }}>
-                  {types
-                    .filter((t) => !t.is_hidden)
-                    .sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)))
-                    .map((t) => (
-                      <ListItemButton
-                        key={t.key}
-                        dense
-                        onClick={() => toggleType(t.key)}
-                        sx={{ py: 0.25, px: 1, borderRadius: 1 }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 32 }}>
-                          <Checkbox
-                            size="small"
-                            checked={filters.types.includes(t.key)}
-                            disableRipple
-                            sx={{ p: 0 }}
-                          />
-                        </ListItemIcon>
-                        <MaterialSymbol icon={t.icon} size={16} color={t.color} />
-                        <ListItemText
-                          primary={typeLabel(t)}
-                          primaryTypographyProps={{
-                            fontSize: 14,
-                            ml: 0.75,
-                            noWrap: true,
+                  {typeGroups.map((group) => (
+                    <Fragment key={group.key}>
+                      {showTypeGroupHeaders && (
+                        // A layer name is database free text and is translated
+                        // nowhere in the app, so it renders raw — only the
+                        // no-layer bucket needs a key of our own.
+                        <ListSubheader
+                          disableSticky
+                          disableGutters
+                          sx={{
+                            px: 1,
+                            pt: 1,
+                            pb: 0.25,
+                            lineHeight: 1.4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: 0.4,
+                            textTransform: "uppercase",
+                            color: "text.secondary",
+                            bgcolor: "transparent",
                           }}
-                        />
-                      </ListItemButton>
-                    ))}
+                        >
+                          {group.category ?? t("filter.typesUncategorized")}
+                        </ListSubheader>
+                      )}
+                      {group.types.map((t) => (
+                        <ListItemButton
+                          key={t.key}
+                          dense
+                          onClick={() => toggleType(t.key)}
+                          sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <Checkbox
+                              size="small"
+                              checked={filters.types.includes(t.key)}
+                              disableRipple
+                              sx={{ p: 0 }}
+                            />
+                          </ListItemIcon>
+                          <MaterialSymbol icon={t.icon} size={16} color={t.color} />
+                          <ListItemText
+                            primary={typeLabel(t)}
+                            primaryTypographyProps={{
+                              fontSize: 14,
+                              ml: 0.75,
+                              noWrap: true,
+                            }}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </Fragment>
+                  ))}
                 </List>
               </Collapse>
 
@@ -1102,6 +1261,95 @@ export default function InventoryFilterSidebar({
                   />
                 </Box>
               </Collapse>
+
+              {/* End of life — only for the types that can carry it. The
+                  statuses come from the same backend classifier the EOL
+                  report uses, so a component reading "Approaching" here reads
+                  the same there. "(empty)" is how you list the cards nobody
+                  has recorded an end of life for. */}
+              {showEolFacet && (
+                <>
+                  <SectionHeader
+                    label={t("filter.eol")}
+                    icon="update"
+                    expanded={expandedSections.eol}
+                    onToggle={() => toggleSection("eol")}
+                    count={filters.eolStatuses.length}
+                  />
+                  <Collapse in={expandedSections.eol}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {EOL_STATUSES.map((key) => {
+                        const color = EOL_STATUS_COLORS[key];
+                        const selected = filters.eolStatuses.includes(key);
+                        return (
+                          <Chip
+                            key={key}
+                            label={tReports(EOL_STATUS_LABEL_KEYS[key])}
+                            size="small"
+                            onClick={() => toggleEolStatus(key)}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={
+                              selected
+                                ? { bgcolor: color, color: "#fff", borderColor: color }
+                                : { borderColor: color, color }
+                            }
+                          />
+                        );
+                      })}
+                      <EmptyChip
+                        label={t("filter.emptyValue")}
+                        selected={filters.eolStatuses.includes(EMPTY_VALUE)}
+                        onClick={() => toggleEolStatus(EMPTY_VALUE)}
+                      />
+                    </Box>
+                  </Collapse>
+                </>
+              )}
+
+              {/* Link type — the parent→child link's qualifier (#1100). Sits
+                  beside End of life because both are single-type facets over a
+                  value the grid also shows as a column, and both offer
+                  "(empty)" to find the rows nobody has filled in. */}
+              {showLinkTypeFacet && linkTypeOptions.length > 0 && (
+                <>
+                  <SectionHeader
+                    label={t("filter.linkType")}
+                    icon="link"
+                    expanded={expandedSections.linkType}
+                    onToggle={() => toggleSection("linkType")}
+                    count={filters.linkTypes?.length ?? 0}
+                  />
+                  <Collapse in={expandedSections.linkType}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {linkTypeOptions.map((o) => {
+                        const color = o.color || undefined;
+                        const selected = (filters.linkTypes ?? []).includes(o.key);
+                        return (
+                          <Chip
+                            key={o.key}
+                            label={optLabel(o)}
+                            size="small"
+                            onClick={() => toggleLinkType(o.key)}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={
+                              color
+                                ? selected
+                                  ? { bgcolor: color, color: "#fff", borderColor: color }
+                                  : { borderColor: color, color }
+                                : undefined
+                            }
+                          />
+                        );
+                      })}
+                      <EmptyChip
+                        label={t("filter.emptyValue")}
+                        selected={(filters.linkTypes ?? []).includes(EMPTY_VALUE)}
+                        onClick={() => toggleLinkType(EMPTY_VALUE)}
+                      />
+                    </Box>
+                  </Collapse>
+                </>
+              )}
 
               {/* Data Quality */}
               <SectionHeader
@@ -1263,7 +1511,11 @@ export default function InventoryFilterSidebar({
                             </FormControl>
                           );
                         }
-                        if (field.type === "number" || field.type === "cost") {
+                        if (
+                          field.type === "number" ||
+                          field.type === "cost" ||
+                          field.type === "percentage"
+                        ) {
                           return (
                             <TextField
                               key={field.key}
@@ -1291,7 +1543,7 @@ export default function InventoryFilterSidebar({
                             value={(filters.attributes[field.key] as string) || ""}
                             onChange={(e) => setAttr(field.key, e.target.value)}
                             sx={{ "& .MuiInputBase-input": { fontSize: 14 } }}
-                            InputLabelProps={{ shrink: field.type === "date" ? true : undefined, sx: { fontSize: 14 } }}
+                            InputLabelProps={{ sx: { fontSize: 14 } }}
                           />
                         );
                       })}
@@ -1312,27 +1564,33 @@ export default function InventoryFilterSidebar({
                   />
                   <Collapse in={expandedSections.relationships}>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
-                      {relevantRelTypes.map((rt) => {
-                        const options = relFilterOptions.get(rt.key);
+                      {filterSides.map(({ rt, isSource }) => {
+                        const facetKey = sideKey(rt, isSource);
+                        const options = relFilterOptions.get(facetKey);
                         if (!options || options.length === 0) return null;
-                        const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
                         const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
                         const otherType = types.find((t) => t.key === otherTypeKey);
-                        const label = otherType ? typeLabel(otherType) : otherTypeKey;
-                        const selected = (filters.relations || {})[rt.key] || [];
-                        const searchKey = `rel_${rt.key}`;
+                        const baseLabel = otherType ? typeLabel(otherType) : otherTypeKey;
+                        // Several relation types can reach the same card type; the
+                        // verb is what tells their filter rows apart.
+                        const label =
+                          (relTypeCountByOtherKey.get(otherTypeKey) || 0) > 1
+                            ? `${baseLabel} · ${isSource ? relLabel(rt) : relLabel(rt, true)}`
+                            : baseLabel;
+                        const selected = (filters.relations || {})[facetKey] || [];
+                        const searchKey = `rel_${facetKey}`;
                         const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
                         const filteredOpts = (searchTerm
                           ? options.filter((n) => n.toLowerCase().includes(searchTerm))
                           : options).sort((a, b) => a.localeCompare(b));
                         return (
-                          <FormControl key={rt.key} size="small" fullWidth>
+                          <FormControl key={facetKey} size="small" fullWidth>
                             <InputLabel sx={{ fontSize: 14 }}>{label}</InputLabel>
                             <Select
                               multiple
                               value={selected}
                               label={label}
-                              onChange={(e) => setRelFilter(rt.key, e.target.value as string[])}
+                              onChange={(e) => setRelFilter(facetKey, e.target.value as string[])}
                               onClose={() => setDropdownSearch((s) => ({ ...s, [searchKey]: "" }))}
                               sx={{ fontSize: 14 }}
                               MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
@@ -1344,7 +1602,7 @@ export default function InventoryFilterSidebar({
                                       label={v === EMPTY_VALUE ? t("filter.emptyValue") : v}
                                       size="small"
                                       sx={{ height: 20, fontSize: 12, ...(v === EMPTY_VALUE ? { fontStyle: "italic" } : {}) }}
-                                      onDelete={() => setRelFilter(rt.key, selected.filter((s) => s !== v))}
+                                      onDelete={() => setRelFilter(facetKey, selected.filter((s) => s !== v))}
                                       onMouseDown={(e) => e.stopPropagation()}
                                     />
                                   ))}
@@ -2180,12 +2438,25 @@ const METADATA_COLUMNS = [
 export const CORE_COLUMNS = [
   { key: "core_type", icon: "category", tKey: "common:labels.type" as const },
   { key: "core_name", icon: "label", tKey: "common:labels.name" as const },
+  // Off by default (`optIn`), and offered only for types that allow logos —
+  // see LOGO_COLUMN_KEY below.
+  { key: "core_logo", icon: "image", tKey: "columns.logo" as const, optIn: true },
   { key: "core_reference", icon: "tag", tKey: "columns.id" as const },
+  // The card's other name. Off by default (`optIn`) because most landscapes
+  // carry none: a column of empty cells for everybody is a worse default than
+  // one the people who use aliases switch on (#1108).
+  { key: "core_alias", icon: "badge", tKey: "common:labels.alias" as const, optIn: true },
   { key: "core_parent", icon: "account_tree", tKey: "columns.parent" as const },
+  // Offered only for a single hierarchical type that has a link-label
+  // vocabulary — see HIERARCHY_LABEL_COLUMN_KEY below.
+  { key: "core_parent_label", icon: "link", tKey: "columns.parentLabel" as const },
   { key: "core_path", icon: "account_tree", tKey: "columns.path" as const },
   { key: "core_description", icon: "description", tKey: "common:labels.description" as const },
   { key: "core_subtype", icon: "subdirectory_arrow_right", tKey: "common:labels.subtype" as const },
   { key: "core_lifecycle", icon: "timeline", tKey: "columns.lifecycle" as const },
+  // Offered only for the types that can carry an end of life — see
+  // EOL_COLUMN_KEY below.
+  { key: "core_eol", icon: "update", tKey: "columns.eol" as const },
   { key: "core_approval_status", icon: "verified", tKey: "columns.approvalStatus" as const },
   { key: "core_architecture_state", icon: "check_circle", tKey: "columns.architectureState" as const },
   { key: "core_change_type", icon: "edit", tKey: "columns.changeType" as const },
@@ -2193,7 +2464,65 @@ export const CORE_COLUMNS = [
   { key: "core_tags", icon: "sell", tKey: "columns.tags" as const },
 ];
 
-export const CORE_COLUMN_KEYS = CORE_COLUMNS.map((c) => c.key);
+// The core columns a freshly-selected type (or a "Reset columns") turns on.
+// `optIn` columns are deliberately excluded: the Logo column makes every row
+// taller, so it is a choice the user makes rather than one made for them.
+export const CORE_COLUMN_KEYS = CORE_COLUMNS.filter((c) => !c.optIn).map((c) => c.key);
+
+export const LOGO_COLUMN_KEY = "core_logo";
+
+export const EOL_COLUMN_KEY = "core_eol";
+
+export const HIERARCHY_LABEL_COLUMN_KEY = "core_parent_label";
+
+/**
+ * Whether the hierarchy link-label column applies to what is on screen (#1100).
+ *
+ * Requires **exactly one** selected type, unlike the logo column: the
+ * vocabulary is per card type, so a mixed grid would render two unrelated
+ * colour schemes under one header and the cell editor would have no single list
+ * to offer. A type with an empty vocabulary has nothing to show either.
+ */
+export function hierarchyLabelColumnApplies(
+  types: CardType[],
+  selectedTypeKeys: string[],
+): boolean {
+  if (selectedTypeKeys.length !== 1) return false;
+  const ct = types.find((t) => t.key === selectedTypeKeys[0]);
+  return !!ct?.has_hierarchy && (ct.hierarchy_labels?.length ?? 0) > 0;
+}
+
+/**
+ * Whether the End of life column and facet apply to what is on screen.
+ *
+ * Unlike the logo column this is not a per-type flag in the metamodel: EOL is
+ * not a metamodel concept at all, so the eligible types are the fixed pair in
+ * `@/lib/eol`. It takes **exactly one** selected type rather than "any type in
+ * view can carry one", because the statuses come from a per-type endpoint:
+ * offering the column with no type filter would render a column that is
+ * always empty, which is the checkbox-that-does-nothing this function exists
+ * to prevent. The whole-inventory question ("what has no EOL at all?") is the
+ * Missing EOL scope instead, which is server-evaluated across both types.
+ */
+export function eolColumnApplies(selectedTypeKeys: string[]): boolean {
+  return selectedTypeKeys.length === 1 && isEolType(selectedTypeKeys[0]);
+}
+
+/**
+ * Whether the Logo column applies to what is on screen — i.e. whether any of
+ * the card types in view can carry a logo at all.
+ *
+ * Shared by the column picker (which offers the column) and the grid (which
+ * builds it), so the two can never disagree about when it exists. With no type
+ * filter the grid shows everything, so any logo-bearing type qualifies.
+ */
+export function logoColumnApplies(types: CardType[], selectedTypeKeys: string[]): boolean {
+  const inView =
+    selectedTypeKeys.length > 0
+      ? types.filter((ct) => selectedTypeKeys.includes(ct.key))
+      : types;
+  return inView.some((ct) => ct.allow_card_logo);
+}
 
 // Columns that must always be visible — deselecting them broke the inventory
 // in subtle ways (no way to identify rows, broken keyboard navigation, etc.).
@@ -2333,8 +2662,21 @@ function ColumnsTab({
     filters.types.length === 1
       ? types.find((ct) => ct.key === filters.types[0])?.subtypes?.length ?? 0
       : 0;
+  // Logos exist per card type, so the column is only offered when a type in
+  // view can actually carry one.
+  const logoAvailable = logoColumnApplies(types, filters.types);
   const filteredCore = CORE_COLUMNS.filter((c) => {
     if (c.key === "core_subtype" && !singleTypeWithSubtypes) return false;
+    if (c.key === LOGO_COLUMN_KEY && !logoAvailable) return false;
+    // Same rule the grid uses to build it — offering a column the grid will
+    // not render is a checkbox that does nothing.
+    if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(filters.types)) return false;
+    if (
+      c.key === HIERARCHY_LABEL_COLUMN_KEY &&
+      !hierarchyLabelColumnApplies(types, filters.types)
+    ) {
+      return false;
+    }
     if (searchQuery && !t(c.tKey).toLowerCase().includes(lowerSearch)) return false;
     return true;
   });

@@ -34,11 +34,13 @@ import type {
 } from "@/types";
 import { emptyField } from "./helpers";
 import TypeColorPreview from "./TypeColorPreview";
-import { useRelationLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
+import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
+import RelationsTabContent from "./RelationsTabContent";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -56,7 +58,7 @@ function defaultPrefixForType(key: string): string {
   return base ? `${base}-` : "";
 }
 
-type TabKey = "main" | "relations" | "stakeholders" | "dataQuality";
+type TabKey = "main" | "relations" | "stakeholders" | "permissions" | "dataQuality";
 
 export interface TypeDrawerProps {
   open: boolean;
@@ -65,7 +67,6 @@ export interface TypeDrawerProps {
   relationTypes: RType[];
   onClose: () => void;
   onRefresh: () => void;
-  onCreateRelation: (preselectedTypeKey: string) => void;
 }
 
 export default function TypeDetailDrawer({
@@ -75,13 +76,10 @@ export default function TypeDetailDrawer({
   relationTypes,
   onClose,
   onRefresh,
-  onCreateRelation,
 }: TypeDrawerProps) {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const stLabel = useSubtypeLabel();
-  const relationLabel = useRelationLabel();
-  const typeLabel = useTypeLabel();
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
@@ -92,6 +90,7 @@ export default function TypeDetailDrawer({
   const [icon, setIcon] = useState("category");
   const [hasHierarchy, setHasHierarchy] = useState(false);
   const [hasSuccessors, setHasSuccessors] = useState(false);
+  const [allowCardLogo, setAllowCardLogo] = useState(false);
   /* --- Human-readable card ID config (#811) --- */
   const [idEnabled, setIdEnabled] = useState(false);
   const [idPrefix, setIdPrefix] = useState("");
@@ -189,6 +188,7 @@ export default function TypeDetailDrawer({
       setIcon(cardTypeKey.icon);
       setHasHierarchy(cardTypeKey.has_hierarchy);
       setHasSuccessors(cardTypeKey.has_successors);
+      setAllowCardLogo(cardTypeKey.allow_card_logo);
       const rc = cardTypeKey.reference_config || {};
       setIdEnabled(rc.mode === "auto");
       setIdPrefix(rc.prefix || "");
@@ -205,12 +205,6 @@ export default function TypeDetailDrawer({
 
   if (!cardTypeKey) return null;
 
-  const connectedRelations = relationTypes.filter(
-    (r) =>
-      (r.source_type_key === cardTypeKey.key || r.target_type_key === cardTypeKey.key) &&
-      !r.key.endsWith("Successor"),
-  );
-
   /* --- Save header --- */
   const handleSaveHeader = async () => {
     setSaving(true);
@@ -222,12 +216,15 @@ export default function TypeDetailDrawer({
       };
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         label,
-        description: description || undefined,
+        // Sent as-is: dropping an empty string left a cleared description
+        // unsaved, with the stored text coming back on the next refresh.
+        description,
         category,
         color,
         icon,
         has_hierarchy: hasHierarchy,
         has_successors: hasSuccessors,
+        allow_card_logo: allowCardLogo,
         reference_config: idEnabled
           ? { mode: "auto", prefix: idPrefix, start: idStart, padding: idPadding }
           : { mode: "off" },
@@ -569,6 +566,7 @@ export default function TypeDetailDrawer({
           <Tab value="main" label={t("metamodel.typeDrawer.tabMain")} />
           <Tab value="relations" label={t("metamodel.typeDrawer.relations")} />
           <Tab value="stakeholders" label={t("metamodel.stakeholderPanel.title")} />
+          <Tab value="permissions" label={t("metamodel.permissionsPanel.title")} />
           <Tab value="dataQuality" label={t("metamodel.dataQuality.title")} />
         </Tabs>
       </Box>
@@ -650,6 +648,18 @@ export default function TypeDetailDrawer({
               control={<Switch checked={hasSuccessors} onChange={(e) => setHasSuccessors(e.target.checked)} />}
               label={t("metamodel.typeDrawer.supportsSuccessors")}
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={allowCardLogo}
+                  onChange={(e) => setAllowCardLogo(e.target.checked)}
+                />
+              }
+              label={t("metamodel.typeDrawer.allowCardLogo")}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: -1, ml: 6 }}>
+              {t("metamodel.typeDrawer.allowCardLogoHelp")}
+            </Typography>
             {/* -- Human-readable card ID (#811) -- */}
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               <FormControlLabel
@@ -866,86 +876,16 @@ export default function TypeDetailDrawer({
         {/* -- Relations tab -- */}
         {tab === "relations" && (
           <Box>
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-              {t("metamodel.typeDrawer.relations")}
-            </Typography>
-            {connectedRelations.length > 0 ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 1 }}>
-                {connectedRelations.map((r) => {
-                  const isSource = r.source_type_key === cardTypeKey.key;
-                  const otherKey = isSource ? r.target_type_key : r.source_type_key;
-                  const otherType = types.find((ct) => ct.key === otherKey);
-                  const isVisible = isSource ? r.source_visible : r.target_visible;
-                  const isMandatory = isSource ? r.source_mandatory : r.target_mandatory;
-                  const handleToggle = async (field: string, value: boolean) => {
-                    try {
-                      await api.patch(`/metamodel/relation-types/${r.key}`, { [field]: value });
-                      onRefresh();
-                    } catch {
-                      setError(t("common:errors.generic"));
-                    }
-                  };
-                  return (
-                    <Box
-                      key={r.key}
-                      sx={{
-                        p: 1.5,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        borderRadius: 1,
-                      }}
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mb: 1 }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {isSource ? relationLabel(r) : relationLabel(r, true)}
-                        </Typography>
-                        <MaterialSymbol icon={isSource ? "arrow_forward" : "arrow_back"} size={14} color="#999" />
-                        {otherType && (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
-                            <Typography variant="body2">{typeLabel(otherType)}</Typography>
-                          </Box>
-                        )}
-                        <Chip size="small" label={r.cardinality} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 2 }}>
-                        <Tooltip title={t("metamodel.typeDrawer.visibleTooltip")}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={isVisible}
-                                onChange={(_, v) => handleToggle(isSource ? "source_visible" : "target_visible", v)}
-                              />
-                            }
-                            label={<Typography variant="caption">{t("metamodel.typeDrawer.visible")}</Typography>}
-                          />
-                        </Tooltip>
-                        <Tooltip title={t("metamodel.typeDrawer.mandatoryTooltip")}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={isMandatory}
-                                onChange={(_, v) => handleToggle(isSource ? "source_mandatory" : "target_mandatory", v)}
-                              />
-                            }
-                            label={<Typography variant="caption">{t("metamodel.typeDrawer.mandatory")}</Typography>}
-                          />
-                        </Tooltip>
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {t("metamodel.typeDrawer.noRelations")}
-              </Typography>
-            )}
-            <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => onCreateRelation(cardTypeKey.key)}>
-              {t("metamodel.typeDrawer.addRelation")}
-            </Button>
+            {/* The same content the general Relation Types tab renders,
+                scoped to this card type — so the link-type vocabulary, the
+                bulk translations and the full relation editor are all reachable
+                from here too (#1100). */}
+            <RelationsTabContent
+              types={types}
+              relationTypes={relationTypes}
+              onRefresh={onRefresh}
+              scopeTypeKey={cardTypeKey.key}
+            />
           </Box>
         )}
 
@@ -955,6 +895,15 @@ export default function TypeDetailDrawer({
           typeKey={cardTypeKey.key}
           onError={(msg) => setError(msg)}
         />
+        )}
+
+        {/* -- Permissions tab (per-card-type RBAC, discussion #1068) -- */}
+        {tab === "permissions" && (
+          <CardTypePermissionsPanel
+            typeKey={cardTypeKey.key}
+            onError={(msg) => setError(msg)}
+            onSaved={onRefresh}
+          />
         )}
 
         {/* -- Data Quality tab -- */}

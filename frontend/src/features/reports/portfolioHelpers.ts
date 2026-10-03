@@ -7,6 +7,7 @@
 /* ------------------------------------------------------------------ */
 
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import { parseSideKey } from "@/lib/relationSort";
 
 /* ------------------------------------------------------------------ */
 /*  Data shapes                                                       */
@@ -14,12 +15,28 @@ import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 
 export interface AppRelation {
   relation_type: string;
+  /** The card's side of the row — what tells "has site" from "is site of" on
+   * a self-referencing type. Absent on older payloads, which means "either". */
+  direction?: "outgoing" | "incoming";
   related_id: string;
   related_name: string;
   related_type: string;
   /** Relation attribute values keyed by attribute field key, e.g.
    * `{ usageType: "owner" }`. Drives the relation-subtype colour/filters. */
   attributes?: Record<string, unknown>;
+}
+
+/**
+ * Does `rel` match a relation-type facet key? The key is a bare relation-type
+ * key ("either side") or one side of a self-referencing type (`<key>__out` /
+ * `<key>__in`), and a row only carries `direction` on payloads new enough to
+ * split — an older row matches either side, as it always did.
+ */
+export function relationOnSide(rel: AppRelation, facetKey: string): boolean {
+  const { key, isSource } = parseSideKey(facetKey);
+  if (rel.relation_type !== key) return false;
+  if (isSource === undefined || !rel.direction) return true;
+  return (rel.direction === "outgoing") === isSource;
 }
 
 export interface AppData {
@@ -80,8 +97,10 @@ export interface RelSubtype {
   relTypeKey: string;
   fieldKey: string;
   /** The related card type this relation connects to (relation type's
-   * `other_type_key`). The portfolio only offers a subtype while grouping by
-   * this type, so each card chip maps to exactly one related card. */
+   * `other_type_key`). Several relation types may reach the same card type, so
+   * this is NOT a unique key — subtype options are keyed
+   * `${relTypeKey}::${fieldKey}` and matched on `relation_type`, which keeps
+   * each chip's colour exact. */
   relatedTypeKey: string;
   /** Direction-aware "uses · Usage Type" label. */
   comboLabel: string;
@@ -91,7 +110,13 @@ export interface RelSubtype {
 
 export interface FilterState {
   attributeFilters: Record<string, string[]>;
+  /** Keyed by CARD type (union across every relation reaching it) or by
+   *  RELATION type — see the matcher. `relTypeKeys` tells the two apart. */
   relationFilters: Record<string, string[]>;
+  /** Every known relation-type key, so a `relationFilters` entry can be read as
+   *  a relation type rather than a card type. Absent = all keys are card types,
+   *  which is how every pre-existing saved report behaves. */
+  relTypeKeys?: ReadonlySet<string>;
   /** Keyed by RelSubtype.composite. */
   relSubtypeFilters: Record<string, string[]>;
   relSubtypes: RelSubtype[];
@@ -162,17 +187,49 @@ export function parseDate(s: string | undefined): number | null {
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
+/** A bare lifecycle map (`plan`/`phaseIn`/`active`/`phaseOut`/`endOfLife` → ISO date). */
+export type Lifecycle = Record<string, string> | undefined;
+
+/** The phases that say a card is MEANT to go live but has not done so yet. */
+const PLANNED_PHASES = ["plan", "phaseIn"];
+
+/**
+ * Whether the card is in the landscape at `dateMs` — i.e. its go-live date has
+ * arrived.
+ *
+ * A card enters on its `active` date and not before. The timeline's go-live
+ * marks sit on `active`, so taking the EARLIEST start phase as the birthday
+ * made a card with `plan 2027 / active 2029` appear in 2027 — two years before
+ * the mark that announces it, on a date carrying no mark at all.
+ *
+ * With no `active` date the card never went live:
+ *  - carrying a `plan`/`phaseIn` date makes it upcoming, so it shows only when
+ *    planned cards are previewed;
+ *  - carrying neither leaves it no birthday to miss, so it counts as started.
+ *    That fail-open branch is what keeps undated landscape furniture visible,
+ *    and what keeps a card holding only `phaseOut`/`endOfLife` (the shape the
+ *    endoflife.date mass-link writes) from being invisible its entire life —
+ *    it must already exist to be phasing out.
+ */
+export function hasStartedByDate(lifecycle: Lifecycle, dateMs: number): boolean {
+  const active = parseDate(lifecycle?.active);
+  if (active != null) return active <= dateMs;
+  return !PLANNED_PHASES.some((p) => parseDate(lifecycle?.[p]) != null);
+}
+
+/** Whether the card has reached end of life by `dateMs` (inclusive). */
+export function isRetiredByDate(lifecycle: Lifecycle, dateMs: number): boolean {
+  const eol = parseDate(lifecycle?.endOfLife);
+  return eol != null && eol <= dateMs;
+}
+
+/** Whether the card is part of the landscape at `dateMs`: born, not yet retired. */
+export function isAliveAtDate(lifecycle: Lifecycle, dateMs: number): boolean {
+  return hasStartedByDate(lifecycle, dateMs) && !isRetiredByDate(lifecycle, dateMs);
+}
+
 export function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
-  const lc = app.lifecycle;
-  if (!lc) return true;
-  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter(
-    (d): d is number => d != null,
-  );
-  if (dates.length === 0) return true;
-  if (Math.min(...dates) > dateMs) return false;
-  const eol = parseDate(lc.endOfLife);
-  if (eol != null && eol <= dateMs) return false;
-  return true;
+  return isAliveAtDate(app.lifecycle, dateMs);
 }
 
 /* ------------------------------------------------------------------ */
@@ -360,6 +417,18 @@ export function relationMemberMatchesSubtypeFilters(
 
 export function matchesFilters(app: AppData, filters: FilterState): boolean {
   if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
+  return matchesStaticFilters(app, filters);
+}
+
+/**
+ * Every filter EXCEPT the timeline date. Split out so the timeline milestone
+ * scope — which must stay stable while the slider is dragged — can be built
+ * from the statically-filtered set without re-running per date change.
+ */
+export function matchesStaticFilters(
+  app: AppData,
+  filters: Omit<FilterState, "timelineDate">,
+): boolean {
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(filters.attributeFilters)) {
@@ -372,10 +441,16 @@ export function matchesFilters(app: AppData, filters: FilterState): boolean {
     if (realVals.length > 0 && realVals.includes(v as string)) continue;
     return false;
   }
-  // Relation filters (e.g. Organization, Platform, etc.)
-  for (const [typeKey, ids] of Object.entries(filters.relationFilters)) {
+  // Relation filters. A key is a CARD type ("related to an Organization at
+  // all") or a RELATION type ("owned by an Organization"), so that several
+  // relation types reaching one card type can be filtered apart. Card-type keys
+  // are what every existing saved report carries and keep meaning the union.
+  for (const [key, ids] of Object.entries(filters.relationFilters)) {
     if (ids.length === 0) continue;
-    const appRels = app.relations.filter((r) => r.related_type === typeKey);
+    const byRelType = filters.relTypeKeys?.has(key) ?? false;
+    const appRels = app.relations.filter((r) =>
+      byRelType ? relationOnSide(r, key) : r.related_type === key,
+    );
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRels.length === 0) continue;

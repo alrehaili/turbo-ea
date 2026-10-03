@@ -26,6 +26,14 @@ Use the toolbar to:
 
 These filters persist in the URL, so refreshing the page retains your current view.
 
+### Printing & exporting
+
+The portfolio offers the same title-bar actions as the reports:
+
+- **Print / Save as PDF** — the printer icon prints the portfolio the way it looks on screen. The tab strip, the filter toolbar and hover popovers are dropped, the active grouping / subtype / search are printed as a compact parameter line, and the timeline grid is unclipped so every column fits the page instead of being cut off at the scroll edge.
+- **Export to PowerPoint (.pptx)** — from the **⋮** menu. The first slide carries the title, the generation timestamp and the active filters together with the portfolio at presentation quality; long portfolios continue onto further slides, split only between initiatives — never through a row, a group header or a totals line.
+- **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report.
+
 ## Initiative Detail View
 
 Click any initiative to open its detail page with seven tabs:
@@ -67,6 +75,21 @@ Track financial data with two types of line items:
 
 Budget and cost totals automatically roll up to the Initiative card's `costBudget` and `costActual` attributes. When PPM cost lines exist, these card fields are marked as auto-computed and become read-only in the card detail view.
 
+#### Spend Over Time
+
+Above the budget and cost tables, three charts plot how spend has accumulated month by month:
+
+- **Cumulative spend by category** — cumulative CapEx and OpEx for the selected fiscal year, with dotted horizontal lines marking the CapEx and OpEx budget for that year
+- **Cumulative total spend** — the same fiscal year with both categories combined, against a dotted total-budget line
+- **Project to date** — cumulative CapEx and OpEx across every month of the project, against the total budget for all fiscal years
+
+The fiscal-year selector applies to the first two charts and offers the current year, any other year with data, and **All fiscal years**. Your fiscal-year and expand/collapse choices are remembered between visits.
+
+Two things to be aware of when reading the charts:
+
+- Lines stop at the current month rather than running flat to the end of the year, so an unfinished year is not mistaken for one where spending has stopped
+- Cost lines with no date cannot be placed on a timeline and are left out. A note below the charts reports how many were excluded, so the chart totals can be reconciled with the summary bar
+
 ### Risk Management Tab
 
 ![PPM Risk Management](../assets/img/en/44_ppm_risk_management.png)
@@ -94,7 +117,7 @@ The task manager supports both **Kanban board** and **list** views with four sta
 - **Done** — Completed tasks
 - **Blocked** — Tasks that cannot proceed
 
-Tasks can be filtered and grouped by Work Breakdown Structure (WBS) item. Drag and drop cards between columns to update status. Each task supports:
+Tasks can be filtered and grouped by Work Breakdown Structure (WBS) item. When grouped, every work package appears as a group — including one that holds no tasks yet, which shows a hint and an **Add Task** button that opens the task dialog with that package preselected. Milestones appear only once they hold a task. Drag and drop cards between columns to update status. Each task supports:
 
 - Priority levels (Critical, High, Medium, Low)
 - Assignee (with notification on assignment)
@@ -113,7 +136,7 @@ The Gantt chart visualizes the project timeline with:
 - **Work Packages (WBS)** — Hierarchical work breakdown structure items with start/end dates
 - **Tasks** — Individual task bars linked to work packages
 - **Milestones** — Key dates marked with diamond indicators
-- **Progress Bars** — Visual completion percentage. Click the percentage chip on a task or leaf work package to open a slider that snaps to **0%, 50% or 100%** — matching the three task states (To Do, In Progress, Done). Parent work packages with children show a read-only chip whose value is rolled up automatically from the subtree.
+- **Progress Bars** — Visual completion percentage. A task has no percentage of its own: its fill follows its status — **To Do (0%)**, **In Progress (50%)**, **Done (100%)**. Click the percentage chip on a task to open a slider whose three stops are labelled with those statuses; choosing a stop changes the status, and dragging the fill on the task's bar does the same. A leaf work package has a free slider in 5% steps. Work packages that have child work packages **or tasks** show a read-only chip whose value is rolled up automatically from the subtree.
 - **Quarterly Ticks** — Timeline grid for orientation
 
 Interact with the Gantt chart using:
@@ -125,6 +148,7 @@ Interact with the Gantt chart using:
 - **View scale picker** — choose between Day, Week, Month, Quarter, and Year scales; the choice is remembered in your browser
 - **Zoom in / Zoom out buttons** — step through the same five scales one notch at a time
 - **Drag the dot on the right edge of one bar onto the dot on the left edge of another** to create a finish-to-start dependency arrow. Dependencies work between any combination of work packages and tasks. Cycles are rejected automatically. **Double-click an arrow** to remove it.
+- **The + row** at the bottom of the list asks what to create — a work package, a milestone or a task — so a task typed there lands on the Tasks tab.
 
 ### Card Details Tab
 
@@ -137,7 +161,7 @@ The WBS provides a hierarchical decomposition of project scope:
 - **Work Packages** — Logical groupings of tasks with start/end dates and completion tracking
 - **Milestones** — Significant events or completion points
 - **Hierarchy** — Parent-child relationships between WBS items
-- **Auto-completion** — Completion percentage is automatically calculated from child task done/total ratios, then rolled up recursively through the WBS hierarchy to parent items. Top-level completion represents overall initiative progress
+- **Auto-completion** — Completion is calculated automatically from the tasks in a work package's subtree: each task counts as 0% (To Do, Blocked), 50% (In Progress) or 100% (Done), weighted by its duration in days (one day when a date is missing), then rolled up recursively to parent items. A work package with no tasks anywhere below it keeps the value typed by hand. The average of the top-level work packages is the initiative's overall progress — the number on the Overview tab, and the `ppm.completion` variable a [calculated field](../admin/calculations.md#ppm-data-on-initiative-cards) can show on the card and in a portal
 
 ## Card Detail Integration
 
@@ -149,6 +173,6 @@ Conversely, the **Card Details** tab within the PPM Initiative Detail View shows
 
 | Permission | Description |
 |-----------|-------------|
-| `ppm.view` | View the PPM dashboard, Gantt chart, and initiative reports. Granted to all roles by default |
+| `ppm.view` | View the PPM dashboard, Gantt chart, and initiative reports, and read Initiative cards. Granted to all roles by default |
 | `ppm.manage` | Create and manage status reports, tasks, costs, risks, and WBS items. Granted to Admin, BPM Admin, and Member roles |
 | `reports.ppm_dashboard` | View the PPM portfolio dashboard. Granted to all roles by default |

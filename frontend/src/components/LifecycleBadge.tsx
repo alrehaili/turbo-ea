@@ -3,6 +3,7 @@ import Chip from "@mui/material/Chip";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { todayIsoDate } from "@/lib/dates";
 
 export const PHASE_COLORS: Record<
   string,
@@ -23,9 +24,22 @@ export const PHASE_ICONS: Record<string, string> = {
   endOfLife: "block",
 };
 
-export function getCurrentPhase(lifecycle?: Record<string, string>): string | null {
+/**
+ * The lifecycle phase a card is in on a given date.
+ *
+ * `asOfMs` defaults to now. Pass it when rendering a time-travelled view, so the
+ * phase shown is the one at the selected date rather than today's — otherwise a
+ * card retired in 2030 reads as "active" while you are looking at 2031.
+ */
+export function getCurrentPhase(
+  lifecycle?: Record<string, string>,
+  asOfMs?: number,
+): string | null {
   if (!lifecycle) return null;
-  const now = new Date().toISOString().slice(0, 10);
+  // The slider's instant is built from a local `Date`, so its local
+  // calendar day is the one to compare against — `toISOString()` would read
+  // the UTC day and flip the phase early west of UTC (#1016).
+  const now = todayIsoDate(new Date(asOfMs ?? Date.now()));
   const phases = ["endOfLife", "phaseOut", "active", "phaseIn", "plan"] as const;
   for (const phase of phases) {
     if (lifecycle[phase] && lifecycle[phase] <= now) return phase;

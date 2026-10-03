@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -25,10 +26,21 @@ from app.schemas.bpm import (
     ProcessFlowVersionWithdraw,
 )
 from app.services import notification_service
-from app.services.bpmn_parser import parse_bpmn_xml
-from app.services.element_relation_sync import sync_element_relations
+from app.services.bpmn_parser import ARTEFACT_TYPES, parse_bpmn
+from app.services.card_read_scope import CardReadScope, is_card_readable
+from app.services.element_relation_sync import (
+    ELEMENT_LINK_KEYS,
+    element_link_ids,
+    sync_element_relations,
+)
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.process_element_sync import (
+    as_card_uuid,
+    sync_process_elements,
+    sync_process_message_flows,
+    validate_process_link,
+)
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
 
@@ -36,7 +48,8 @@ router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID, user: User) -> Card:
+    """The ACTIVE BusinessProcess, 404 when missing or hidden from ``user``."""
     result = await db.execute(
         select(Card).where(
             Card.id == process_id,
@@ -46,6 +59,8 @@ async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     )
     card = result.scalar_one_or_none()
     if not card:
+        raise HTTPException(404, "Business process not found")
+    if not await is_card_readable(db, user, card.id, mode="module", type_key=card.type):
         raise HTTPException(404, "Business process not found")
     return card
 
@@ -156,10 +171,18 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
 async def _links_from_live_elements(db: AsyncSession, process_id: uuid.UUID) -> dict | None:
     """Rebuild a ``draft_element_links`` map from the live ``ProcessElement`` rows.
 
-    A published or archived version's own ``draft_element_links`` is typically
-    empty because the links were consumed when it was published, so cloning it
-    would silently drop every EA reference. Pulling from the element table
-    instead gives the new draft the links the process actually has today.
+    **This is where a draft syncs with the published flow.** A published flow
+    is approved and stays approved while its links are edited in the elements
+    table — that is metadata on top of a signed-off diagram, deliberately not a
+    reason to re-approve it. A draft is a *snapshot*: it starts from whatever
+    the rows say at the moment it is created and then goes its own way, so an
+    edit made in the published table afterwards does not leak into a draft
+    somebody is already working on.
+
+    A published or archived version's own ``draft_element_links`` is cleared
+    when it is approved (the links were consumed into the rows), so cloning it
+    would give a new draft nothing. Pulling from the element table instead is
+    what makes the new draft start from the links the process has today.
     """
     result = await db.execute(
         select(ProcessElement)
@@ -175,6 +198,8 @@ async def _links_from_live_elements(db: AsyncSession, process_id: uuid.UUID) -> 
             link["data_object_id"] = str(elem.data_object_id)
         if elem.it_component_id:
             link["it_component_id"] = str(elem.it_component_id)
+        if elem.business_process_id:
+            link["business_process_id"] = str(elem.business_process_id)
         if elem.organizations:
             link["organization_ids"] = [str(o.id) for o in elem.organizations]
         if elem.custom_fields:
@@ -198,6 +223,14 @@ async def _next_revision(db: AsyncSession, process_id: uuid.UUID) -> int:
 def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]) -> None:
     """Apply draft element link data to a ProcessElement, skipping stale references.
 
+    **A key the draft carries wins; a key it does not carry leaves the element
+    alone** — that is the one precedence rule, shared with `get_draft_elements`
+    so the pre-link table, the modeler and publishing agree. A key present with
+    an empty value is an explicit *clear* the user made in the draft, so it
+    overrides both the link the published row carried and the XML's own
+    reference; a key that is simply absent lets those stand. Without that
+    distinction a clear silently reverted at publish.
+
     The M:N ``organization_ids`` list is applied separately after flush (the
     junction rows need the element's PK) — see the publish path.
     """
@@ -205,12 +238,21 @@ def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]
         ("application_id", "application_id"),
         ("data_object_id", "data_object_id"),
         ("it_component_id", "it_component_id"),
+        ("business_process_id", "business_process_id"),
     ):
+        if key not in link:
+            continue
         val = link.get(key)
+        if key == "business_process_id" and (
+            elem.element_type in ARTEFACT_TYPES or val == str(elem.process_id)
+        ):
+            # A data artefact never links a process, and a process never
+            # links itself.
+            continue
         if val and val in valid_card_ids:
             setattr(elem, attr, uuid.UUID(val))
-        elif val:
-            # Card no longer valid — leave empty
+        else:
+            # Cleared in the draft, or the card is no longer valid.
             setattr(elem, attr, None)
     if "custom_fields" in link:
         elem.custom_fields = {**(elem.custom_fields or {}), **link["custom_fields"]}
@@ -228,7 +270,7 @@ async def get_published_flow(
     """Get the currently published process flow (visible to all authenticated users)."""
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessFlowVersion)
         .options(
@@ -261,7 +303,7 @@ async def list_drafts(
 ):
     """List draft (and pending) flow versions for a process."""
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to view drafts")
 
@@ -312,7 +354,7 @@ async def create_draft(
 ):
     """Create a new draft process flow, optionally cloned from an existing version."""
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to create drafts")
 
@@ -382,7 +424,7 @@ async def get_version(
     """Get a specific process flow version by ID."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
 
     result = await db.execute(
         select(ProcessFlowVersion)
@@ -420,7 +462,7 @@ async def update_draft(
     """Update a draft process flow. Only drafts can be edited."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -466,7 +508,7 @@ async def delete_draft(
     """Delete a draft process flow. Only drafts can be deleted."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -499,7 +541,7 @@ async def submit_for_approval(
     """Submit a draft for approval by the business process owner."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -593,7 +635,7 @@ async def approve_version(
     the previous published version becomes archived."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
     if not await _can_approve_flow(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can approve")
 
@@ -641,13 +683,13 @@ async def approve_version(
     # Extract process elements from BPMN XML for the elements table
     stale_link_warnings: list[str] = []
     if version.bpmn_xml:
-        extracted = parse_bpmn_xml(version.bpmn_xml)
+        parsed = parse_bpmn(version.bpmn_xml)
         draft_links = version.draft_element_links or {}
 
         # Validate draft-linked cards still exist
         linked_card_ids: set[str] = set()
         for link_data in draft_links.values():
-            for key in ("application_id", "data_object_id", "it_component_id"):
+            for key in ELEMENT_LINK_KEYS:
                 val = link_data.get(key)
                 if val:
                     linked_card_ids.add(val)
@@ -656,10 +698,11 @@ async def approve_version(
         valid_card_ids: set[str] = set()
         if linked_card_ids:
             card_result = await db.execute(
-                select(Card.id, Card.name, Card.status).where(
+                select(Card.id, Card.name, Card.status, Card.type).where(
                     Card.id.in_([uuid.UUID(cid) for cid in linked_card_ids])
                 )
             )
+            approver_scope = await CardReadScope.load(db, user)
             card_name_map: dict[str, str] = {}
             for row in card_result.all():
                 cid_str = str(row[0])
@@ -667,50 +710,28 @@ async def approve_version(
                 if row[2] == "ACTIVE":
                     valid_card_ids.add(cid_str)
                 else:
-                    stale_link_warnings.append(f"{row[1]} ({cid_str[:8]}...) is no longer active")
+                    # Never name a card the approver may not see.
+                    label = (
+                        f"{row[1]} ({cid_str[:8]}...)"
+                        if approver_scope.readable(row[0], row[3], mode="module")
+                        else "A linked card"
+                    )
+                    stale_link_warnings.append(f"{label} is no longer active")
             # Check for deleted (not found) cards
             for cid in linked_card_ids:
                 if cid not in card_name_map:
                     stale_link_warnings.append(f"Linked card {cid[:8]}... no longer exists")
 
-        # Load existing elements to preserve EA links (application, data_object, it_component)
-        existing_elements = await db.execute(
-            select(ProcessElement).where(ProcessElement.process_id == pid)
+        # Upsert the derived rows, keeping EA links on elements that survive
+        # and applying the draft's pre-links (only to cards still valid).
+        await sync_process_elements(
+            db,
+            pid,
+            parsed,
+            draft_links=draft_links,
+            apply_draft_link=lambda elem, link: _apply_draft_link(elem, link, valid_card_ids),
         )
-        old_by_bpmn_id = {e.bpmn_element_id: e for e in existing_elements.scalars().all()}
-        # Upsert: keep EA links for elements that still exist, remove deleted ones
-        new_bpmn_ids = {e.bpmn_element_id for e in extracted}
-        for old_id, old_elem in old_by_bpmn_id.items():
-            if old_id not in new_bpmn_ids:
-                await db.delete(old_elem)
-        for ext in extracted:
-            draft_link = draft_links.get(ext.bpmn_element_id, {})
-            if ext.bpmn_element_id in old_by_bpmn_id:
-                old = old_by_bpmn_id[ext.bpmn_element_id]
-                old.element_type = ext.element_type
-                old.name = ext.name
-                old.documentation = ext.documentation
-                old.lane_name = ext.lane_name
-                old.is_automated = ext.is_automated
-                old.sequence_order = ext.sequence_order
-                # Apply draft links (only if the linked card is still valid)
-                if draft_link:
-                    _apply_draft_link(old, draft_link, valid_card_ids)
-            else:
-                elem = ProcessElement(
-                    process_id=pid,
-                    bpmn_element_id=ext.bpmn_element_id,
-                    element_type=ext.element_type,
-                    name=ext.name,
-                    documentation=ext.documentation,
-                    lane_name=ext.lane_name,
-                    is_automated=ext.is_automated,
-                    sequence_order=ext.sequence_order,
-                )
-                # Apply draft links for new elements
-                if draft_link:
-                    _apply_draft_link(elem, draft_link, valid_card_ids)
-                db.add(elem)
+        await sync_process_message_flows(db, pid, parsed)
 
         # Sync element EA links → relations table (additive only)
         await db.flush()  # ensure new ProcessElements get their FK values
@@ -737,19 +758,16 @@ async def approve_version(
             for oid in valid_orgs:
                 db.add(ProcessElementOrganization(element_id=el.id, organization_id=uuid.UUID(oid)))
 
-        link_ids: dict[str, set[uuid.UUID]] = {
-            "application_id": set(),
-            "data_object_id": set(),
-            "it_component_id": set(),
-        }
-        for el in elements_list:
-            if el.application_id:
-                link_ids["application_id"].add(el.application_id)
-            if el.data_object_id:
-                link_ids["data_object_id"].add(el.data_object_id)
-            if el.it_component_id:
-                link_ids["it_component_id"].add(el.it_component_id)
-        await sync_element_relations(db, pid, link_ids)
+        await sync_element_relations(db, pid, element_link_ids(elements_list))
+
+        # The pre-links have been consumed into the element rows, which are now
+        # the truth. Dropping them is what lets a *later* draft based on this
+        # version re-seed from those rows (`_links_from_live_elements`) and so
+        # pick up links an admin made in the published elements table after the
+        # approval — the sanctioned way to add metadata on top of an approved
+        # flow. Keeping them would clone a snapshot frozen at approval time.
+        version.draft_element_links = None
+        flag_modified(version, "draft_element_links")
 
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
@@ -820,7 +838,7 @@ async def reject_version(
     """Reject a pending process flow, returning it to draft status."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
     if not await _can_approve_flow(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can reject")
 
@@ -938,7 +956,7 @@ async def withdraw_version(
     """
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, user)
 
     if not await _can_withdraw_flow(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to withdraw a published process flow")
@@ -1058,7 +1076,7 @@ async def list_archived(
     defeat the point of recording the withdrawal.
     """
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to view archives")
 
@@ -1093,7 +1111,7 @@ async def get_draft_elements(
     merged with any saved draft_element_links (pre-linked EA references)."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -1110,34 +1128,65 @@ async def get_draft_elements(
     if not version.bpmn_xml:
         return []
 
-    extracted = parse_bpmn_xml(version.bpmn_xml)
+    extracted = parse_bpmn(version.bpmn_xml).elements
     links = version.draft_element_links or {}
 
     # Collect all linked card IDs to resolve names in one query
     card_ids: set[str] = set()
     for link_data in links.values():
-        for key in ("application_id", "data_object_id", "it_component_id"):
+        for key in ELEMENT_LINK_KEYS:
             val = link_data.get(key)
             if val:
                 card_ids.add(val)
         card_ids.update(link_data.get("organization_ids") or [])
+    # A step whose XML process reference already holds a card UUID is linked
+    # by the XML itself — resolve those names too so the draft table shows them.
+    xml_called: dict[str, uuid.UUID] = {}
+    for ext in extracted:
+        target = as_card_uuid(ext.process_reference)
+        if ext.element_type not in ARTEFACT_TYPES and target and target != pid:
+            xml_called[ext.bpmn_element_id] = target
+            card_ids.add(str(target))
 
-    # Resolve names
+    # Resolve names — and which linked cards are hidden from the reader: a
+    # link to a card they may not see is shown as no link at all.
+    read_scope = await CardReadScope.load(db, user)
     name_map: dict[str, str] = {}
+    hidden: set[str] = set()
     if card_ids:
         card_result = await db.execute(
-            select(Card.id, Card.name).where(Card.id.in_([uuid.UUID(cid) for cid in card_ids]))
+            select(Card.id, Card.name, Card.type).where(
+                Card.id.in_([uuid.UUID(cid) for cid in card_ids])
+            )
         )
-        for row in card_result.all():
-            name_map[str(row[0])] = row[1]
+        for cid, cname, ctype in card_result.all():
+            if read_scope.readable(cid, ctype, mode="module"):
+                name_map[str(cid)] = cname
+            else:
+                hidden.add(str(cid))
+
+    def _vis(cid: str | None) -> str | None:
+        return None if cid in hidden else cid
 
     elements = []
     for ext in extracted:
         link = links.get(ext.bpmn_element_id, {})
-        app_id = link.get("application_id")
-        do_id = link.get("data_object_id")
-        itc_id = link.get("it_component_id")
-        org_ids = link.get("organization_ids") or []
+        app_id = _vis(link.get("application_id"))
+        do_id = _vis(link.get("data_object_id"))
+        itc_id = _vis(link.get("it_component_id"))
+        # The draft's own link wins, mirroring the publish-time precedence in
+        # `_apply_draft_link`: a key the draft carries is what the user set
+        # here (a card, or an explicit clear), and the XML's own reference is
+        # the fallback for a step the draft says nothing about.
+        bp_id: str | None = None
+        if ext.element_type not in ARTEFACT_TYPES:
+            if "business_process_id" in link:
+                bp_id = _vis(link.get("business_process_id"))
+            else:
+                xml_target = xml_called.get(ext.bpmn_element_id)
+                if xml_target and str(xml_target) in name_map:
+                    bp_id = str(xml_target)
+        org_ids = [oid for oid in (link.get("organization_ids") or []) if oid not in hidden]
         elements.append(
             {
                 "bpmn_element_id": ext.bpmn_element_id,
@@ -1147,12 +1196,19 @@ async def get_draft_elements(
                 "lane_name": ext.lane_name,
                 "is_automated": ext.is_automated,
                 "sequence_order": ext.sequence_order,
+                "event_definition_type": ext.event_definition_type,
+                "definition_name": ext.definition_name,
                 "application_id": app_id,
                 "application_name": name_map.get(app_id, "") if app_id else None,
                 "data_object_id": do_id,
                 "data_object_name": name_map.get(do_id, "") if do_id else None,
                 "it_component_id": itc_id,
                 "it_component_name": name_map.get(itc_id, "") if itc_id else None,
+                "called_element": (
+                    None if ext.process_reference in hidden else ext.process_reference
+                ),
+                "business_process_id": bp_id,
+                "business_process_name": name_map.get(bp_id, "") if bp_id else None,
                 "organizations": [{"id": oid, "name": name_map.get(oid, "")} for oid in org_ids],
                 "custom_fields": link.get("custom_fields"),
             }
@@ -1172,7 +1228,7 @@ async def update_draft_element_link(
     """Update a single draft element link (pre-link EA references before publishing)."""
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
@@ -1191,23 +1247,80 @@ async def update_draft_element_link(
     links = dict(version.draft_element_links or {})
     existing = links.get(bpmn_element_id, {})
 
-    from sqlalchemy.orm.attributes import flag_modified
+    # Read scope: linking a card hidden from the caller is a 404 (it does not
+    # exist for them); clearing or replacing links they were never shown
+    # keeps those links.
+    read_scope = await CardReadScope.load(db, user)
 
-    # Merge updates into existing link. `organization_ids` is a list (M:N);
-    # an empty list clears the step's organizations, like "" for the FKs.
+    def _uuids(ids: set[str]) -> set[uuid.UUID]:
+        out: set[uuid.UUID] = set()
+        for i in ids:
+            try:
+                out.add(uuid.UUID(str(i)))
+            except ValueError:
+                continue  # malformed: left to the validators below
+        return out
+
+    async def _hidden(ids: set[str]) -> set[str]:
+        """Ids of existing cards the caller may not see."""
+        found = await read_scope.hidden_card_ids(db, _uuids(ids), mode="module")
+        return {str(i) for i in found}
+
+    for key in ("application_id", "data_object_id", "it_component_id", "business_process_id"):
+        if key not in body:
+            continue
+        new, old_val = body[key], existing.get(key)
+        if new and await _hidden({new}):
+            raise HTTPException(404, "Card not found")
+        if not new and old_val and await _hidden({old_val}):
+            body[key] = old_val
+    if body.get("organization_ids") is not None:
+        wanted = {o for o in body["organization_ids"] if o}
+        if await _hidden(wanted):
+            raise HTTPException(404, "Card not found")
+        before = {o for o in (existing.get("organization_ids") or []) if o}
+        body["organization_ids"] = sorted(wanted | await _hidden(before))
+
+    # The process link is validated at write time — the picker is the only
+    # sanctioned source, so a bad id here is a client bug, not stale data.
+    # An element the *saved* XML does not carry is accepted: the modeler links
+    # a shape the moment it is placed, before its 5s autosave lands.
+    if body.get("business_process_id"):
+        types = {
+            e.bpmn_element_id: e.element_type for e in parse_bpmn(version.bpmn_xml or "").elements
+        }
+        if types.get(bpmn_element_id) in ARTEFACT_TYPES:
+            raise HTTPException(400, "A data artefact cannot link a process")
+        await validate_process_link(db, pid, body["business_process_id"])
+
+    # Merge updates into the existing link. **A key the caller sent is stored,
+    # even when it is empty** — an explicit clear has to be distinguishable
+    # from "not set here", because that is exactly what `_apply_draft_link`
+    # and `get_draft_elements` read to decide whether the draft overrides the
+    # XML reference. Only `None` on `organization_ids` unsets the key; `""`
+    # on an FK stores `None` (a clear), and `[]` on the M:N stores the empty
+    # list (also a clear). The element's entry therefore survives with nothing
+    # but clears in it, which is what makes a clear stick at publish.
     for key in (
         "application_id",
         "data_object_id",
         "it_component_id",
-        "organization_ids",
-        "custom_fields",
+        "business_process_id",
     ):
         if key in body:
-            val = body[key]
-            if val == "" or val is None or val == []:
-                existing.pop(key, None)
-            else:
-                existing[key] = val
+            existing[key] = body[key] or None
+    if "organization_ids" in body:
+        val = body["organization_ids"]
+        if val is None:
+            existing.pop("organization_ids", None)
+        else:
+            existing["organization_ids"] = list(val)
+    if "custom_fields" in body:
+        val = body["custom_fields"]
+        if val:
+            existing["custom_fields"] = val
+        else:
+            existing.pop("custom_fields", None)
 
     if existing:
         links[bpmn_element_id] = existing
@@ -1233,7 +1346,7 @@ async def get_flow_permissions(
 ):
     """Return the current user's permissions on the process flow."""
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     return {
         "can_view_drafts": await _can_view_drafts(db, user, pid),
         "can_edit_draft": await _can_edit_draft(db, user, pid),

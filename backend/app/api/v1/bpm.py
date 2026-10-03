@@ -14,12 +14,20 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement, ProcessElementOrganization
+from app.models.process_message_flow import ProcessMessageFlow
 from app.models.user import User
-from app.schemas.bpm import DiagramSave, ElementUpdate
-from app.services.bpmn_parser import parse_bpmn_xml
-from app.services.element_relation_sync import sync_element_relations
+from app.schemas.bpm import DiagramSave, ElementUpdate, MessageFlowUpdate
+from app.services.bpmn_parser import ARTEFACT_TYPES, parse_bpmn, parse_bpmn_xml
+from app.services.card_read_scope import CardReadScope, is_card_readable
+from app.services.element_relation_sync import element_link_ids, sync_element_relations
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.process_element_sync import (
+    message_flow_to_dict,
+    sync_process_elements,
+    sync_process_message_flows,
+    validate_process_link,
+)
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
 
@@ -30,6 +38,12 @@ TEMPLATES = [
         "key": "blank",
         "name": "Blank Diagram",
         "description": "Empty diagram with a start and end event.",
+        "category": "General",
+    },
+    {
+        "key": "collaboration",
+        "name": "Collaboration",
+        "description": "Two pools exchanging messages: request → handle → confirmation.",
         "category": "General",
     },
     {
@@ -65,7 +79,8 @@ TEMPLATES = [
 ]
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID, user: User) -> Card:
+    """The ACTIVE BusinessProcess, 404 when missing or hidden from ``user``."""
     result = await db.execute(
         select(Card).where(
             Card.id == process_id,
@@ -75,6 +90,8 @@ async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     )
     card = result.scalar_one_or_none()
     if not card:
+        raise HTTPException(404, "Business process not found")
+    if not await is_card_readable(db, user, card.id, mode="module", type_key=card.type):
         raise HTTPException(404, "Business process not found")
     return card
 
@@ -90,7 +107,7 @@ async def get_diagram(
 ):
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessDiagram)
         .where(ProcessDiagram.process_id == pid)
@@ -120,7 +137,7 @@ async def save_diagram(
 ):
     await PermissionService.require_permission(db, current_user, "bpm.edit")
     pid = uuid.UUID(process_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, current_user)
 
     # Dry-run isolation — see the matching comment in `cards.py` bulk-create.
     dry_run_savepoint = await db.begin_nested() if body.dry_run else None
@@ -144,43 +161,18 @@ async def save_diagram(
     )
     db.add(diagram)
 
-    # Parse XML and extract elements
-    extracted = parse_bpmn_xml(body.bpmn_xml)
-
-    # Load existing elements to preserve EA links
-    existing_elements = await db.execute(
-        select(ProcessElement).where(ProcessElement.process_id == pid)
+    # Parse XML and upsert the derived rows (EA links on surviving rows are kept)
+    parsed = parse_bpmn(body.bpmn_xml)
+    extracted = parsed.elements
+    rows = await sync_process_elements(db, pid, parsed)
+    await sync_process_message_flows(db, pid, parsed)
+    # A step whose XML process reference resolved to a card is a link the XML
+    # itself made — mint its `calls` relation now, as the element table would.
+    await sync_element_relations(
+        db,
+        pid,
+        {"business_process_id": {r.business_process_id for r in rows if r.business_process_id}},
     )
-    old_by_bpmn_id = {e.bpmn_element_id: e for e in existing_elements.scalars().all()}
-
-    # Upsert: keep EA links for elements that still exist, remove deleted ones
-    new_bpmn_ids = {e.bpmn_element_id for e in extracted}
-    for old_id, old_elem in old_by_bpmn_id.items():
-        if old_id not in new_bpmn_ids:
-            await db.delete(old_elem)
-
-    for ext in extracted:
-        if ext.bpmn_element_id in old_by_bpmn_id:
-            old = old_by_bpmn_id[ext.bpmn_element_id]
-            old.element_type = ext.element_type
-            old.name = ext.name
-            old.documentation = ext.documentation
-            old.lane_name = ext.lane_name
-            old.is_automated = ext.is_automated
-            old.sequence_order = ext.sequence_order
-        else:
-            db.add(
-                ProcessElement(
-                    process_id=pid,
-                    bpmn_element_id=ext.bpmn_element_id,
-                    element_type=ext.element_type,
-                    name=ext.name,
-                    documentation=ext.documentation,
-                    lane_name=ext.lane_name,
-                    is_automated=ext.is_automated,
-                    sequence_order=ext.sequence_order,
-                )
-            )
 
     # Publish event — skipped in dry-run mode since nothing is persisted.
     if not body.dry_run:
@@ -236,12 +228,13 @@ async def delete_diagram(
     await PermissionService.require_permission(db, current_user, "bpm.edit")
 
     pid = uuid.UUID(process_id)
-    process = await _get_process_or_404(db, pid)
+    process = await _get_process_or_404(db, pid, current_user)
 
-    # Delete all extracted elements
+    # Delete all extracted elements and message flows
     elements = await db.execute(select(ProcessElement).where(ProcessElement.process_id == pid))
     for elem in elements.scalars().all():
         await db.delete(elem)
+    await db.execute(delete(ProcessMessageFlow).where(ProcessMessageFlow.process_id == pid))
 
     # Delete all diagram versions
     diagrams = await db.execute(select(ProcessDiagram).where(ProcessDiagram.process_id == pid))
@@ -268,7 +261,7 @@ async def list_diagram_versions(
 ):
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessDiagram)
         .where(ProcessDiagram.process_id == pid)
@@ -293,7 +286,7 @@ async def export_bpmn(
 ):
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessDiagram)
         .where(ProcessDiagram.process_id == pid)
@@ -320,7 +313,7 @@ async def export_svg(
 ):
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessDiagram)
         .where(ProcessDiagram.process_id == pid)
@@ -348,7 +341,7 @@ async def import_bpmn(
 ):
     await PermissionService.require_permission(db, current_user, "bpm.edit")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, current_user)
     content = await file.read()
     bpmn_xml = content.decode("utf-8")
     # Validate it's parseable BPMN
@@ -372,21 +365,34 @@ async def list_elements(
 ):
     await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, user)
     result = await db.execute(
         select(ProcessElement)
         .options(
             selectinload(ProcessElement.application),
             selectinload(ProcessElement.data_object),
             selectinload(ProcessElement.it_component),
+            selectinload(ProcessElement.business_process),
             selectinload(ProcessElement.organizations),
         )
         .where(ProcessElement.process_id == pid)
         .order_by(ProcessElement.sequence_order)
     )
     elements = result.scalars().all()
-    return [
-        {
+    # A link to a card the reader may not see is shown as no link at all.
+    read_scope = await CardReadScope.load(db, user)
+
+    def _ref(card: Card | None) -> tuple[str | None, str | None]:
+        if card is None or not read_scope.readable(card.id, card.type, mode="module"):
+            return None, None
+        return str(card.id), card.name
+
+    def _row(e: ProcessElement) -> dict:
+        app_id, app_name = _ref(e.application)
+        do_id, do_name = _ref(e.data_object)
+        itc_id, itc_name = _ref(e.it_component)
+        bp_id, bp_name = _ref(e.business_process)
+        return {
             "id": str(e.id),
             "process_id": str(e.process_id),
             "bpmn_element_id": e.bpmn_element_id,
@@ -396,17 +402,26 @@ async def list_elements(
             "lane_name": e.lane_name,
             "is_automated": e.is_automated,
             "sequence_order": e.sequence_order,
-            "application_id": str(e.application_id) if e.application_id else None,
-            "application_name": e.application.name if e.application else None,
-            "data_object_id": str(e.data_object_id) if e.data_object_id else None,
-            "data_object_name": e.data_object.name if e.data_object else None,
-            "it_component_id": str(e.it_component_id) if e.it_component_id else None,
-            "it_component_name": e.it_component.name if e.it_component else None,
-            "organizations": [{"id": str(o.id), "name": o.name} for o in e.organizations],
+            "event_definition_type": e.event_definition_type,
+            "definition_name": e.definition_name,
+            "application_id": app_id,
+            "application_name": app_name,
+            "data_object_id": do_id,
+            "data_object_name": do_name,
+            "it_component_id": itc_id,
+            "it_component_name": itc_name,
+            "called_element": e.called_element if bp_id or not e.business_process else None,
+            "business_process_id": bp_id,
+            "business_process_name": bp_name,
+            "organizations": [
+                {"id": str(o.id), "name": o.name}
+                for o in e.organizations
+                if read_scope.readable(o.id, o.type, mode="module")
+            ],
             "custom_fields": e.custom_fields,
         }
-        for e in elements
-    ]
+
+    return [_row(e) for e in elements]
 
 
 @router.put("/processes/{process_id}/elements/{element_id}")
@@ -419,7 +434,7 @@ async def update_element(
 ):
     await PermissionService.require_permission(db, current_user, "bpm.edit")
     pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
+    await _get_process_or_404(db, pid, current_user)
     result = await db.execute(
         select(ProcessElement).where(
             ProcessElement.id == uuid.UUID(element_id),
@@ -430,17 +445,68 @@ async def update_element(
     if not elem:
         raise HTTPException(404, "Element not found")
 
+    read_scope = await CardReadScope.load(db, current_user)
+
+    async def _link(current: uuid.UUID | None, raw: str) -> uuid.UUID | None:
+        """A new FK link from client input, honouring the read scope.
+
+        Linking a card hidden from the caller is a 404 (it does not exist for
+        them); a *clear* of a link they were never shown keeps it.
+        """
+        if raw:
+            target = uuid.UUID(raw)
+            if target not in await read_scope.readable_card_ids(db, {target}, mode="module"):
+                raise HTTPException(404, "Card not found")
+            return target
+        if current is not None and current not in await read_scope.readable_card_ids(
+            db, {current}, mode="module"
+        ):
+            return current
+        return None
+
     if body.application_id is not None:
-        elem.application_id = uuid.UUID(body.application_id) if body.application_id else None
+        elem.application_id = await _link(elem.application_id, body.application_id)
     if body.data_object_id is not None:
-        elem.data_object_id = uuid.UUID(body.data_object_id) if body.data_object_id else None
+        elem.data_object_id = await _link(elem.data_object_id, body.data_object_id)
     if body.it_component_id is not None:
-        elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
+        elem.it_component_id = await _link(elem.it_component_id, body.it_component_id)
+    if body.business_process_id is not None:
+        try:
+            wanted_bp = uuid.UUID(body.business_process_id) if body.business_process_id else None
+        except ValueError:
+            wanted_bp = None  # validate_process_link reports the malformed id
+        if wanted_bp is not None and wanted_bp not in await read_scope.readable_card_ids(
+            db, {wanted_bp}, mode="module"
+        ):
+            raise HTTPException(404, "Card not found")
+        if not body.business_process_id and elem.business_process_id is not None:
+            # A clear aimed at a link the caller was never shown keeps it.
+            if elem.business_process_id not in await read_scope.readable_card_ids(
+                db, {elem.business_process_id}, mode="module"
+            ):
+                body.business_process_id = str(elem.business_process_id)
+        if body.business_process_id:
+            if elem.element_type in ARTEFACT_TYPES:
+                raise HTTPException(400, "A data artefact cannot link a process")
+            elem.business_process_id = await validate_process_link(
+                db, pid, body.business_process_id
+            )
+        else:
+            elem.business_process_id = None
     if body.organization_ids is not None:
         # Full replacement of the step's M:N Organization links. Informative
         # only — unlike the FK links below, this never creates a card-to-card
         # relation (process ↔ Organization relations are managed on the card).
         org_ids = {uuid.UUID(o) for o in body.organization_ids if o}
+        if org_ids - await read_scope.readable_card_ids(db, org_ids, mode="module"):
+            raise HTTPException(404, "Organization card not found")
+        # The client was only shown the readable links; keep the hidden ones.
+        existing_orgs = await db.execute(
+            select(Card.id, Card.type)
+            .join(ProcessElementOrganization, ProcessElementOrganization.organization_id == Card.id)
+            .where(ProcessElementOrganization.element_id == elem.id)
+        )
+        org_ids = read_scope.keep_hidden(dict(existing_orgs.all()), org_ids, mode="module")
         if org_ids:
             found = await db.execute(
                 select(Card.id).where(
@@ -462,22 +528,106 @@ async def update_element(
         elem.custom_fields = body.custom_fields
 
     # Sync newly linked cards → relations table (additive only)
-    link_ids: dict[str, set[uuid.UUID]] = {
-        "application_id": set(),
-        "data_object_id": set(),
-        "it_component_id": set(),
-    }
-    if elem.application_id:
-        link_ids["application_id"].add(elem.application_id)
-    if elem.data_object_id:
-        link_ids["data_object_id"].add(elem.data_object_id)
-    if elem.it_component_id:
-        link_ids["it_component_id"].add(elem.it_component_id)
-    await sync_element_relations(db, pid, link_ids)
+    await sync_element_relations(db, pid, element_link_ids([elem]))
 
     await db.commit()
     await db.refresh(elem)
     return {"id": str(elem.id), "status": "updated"}
+
+
+# ── Message flow endpoints ───────────────────────────────────────────────
+
+
+@router.get("/processes/{process_id}/message-flows")
+async def list_message_flows(
+    process_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The messages exchanged between the pools of the process's diagram."""
+    await PermissionService.require_permission(db, user, "bpm.view")
+    pid = uuid.UUID(process_id)
+    await _get_process_or_404(db, pid, user)
+    result = await db.execute(
+        select(ProcessMessageFlow)
+        .options(selectinload(ProcessMessageFlow.interface))
+        .where(ProcessMessageFlow.process_id == pid)
+        .order_by(ProcessMessageFlow.sequence_order)
+    )
+    read_scope = await CardReadScope.load(db, user)
+    out = []
+    for f in result.scalars().all():
+        row = message_flow_to_dict(f)
+        # An Interface hidden from the reader is shown as no link.
+        if f.interface is not None and not read_scope.readable(
+            f.interface.id, f.interface.type, mode="module"
+        ):
+            row["interface_id"] = None
+            row["interface_name"] = None
+        out.append(row)
+    return out
+
+
+@router.patch("/processes/{process_id}/message-flows/{flow_id}")
+async def update_message_flow(
+    process_id: str,
+    flow_id: str,
+    body: MessageFlowUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Link a message flow to the Interface card it realises (``null`` clears).
+
+    Informative only — like a step's Organization links, no card-to-card
+    relation is derived from it.
+    """
+    await PermissionService.require_permission(db, current_user, "bpm.edit")
+    pid = uuid.UUID(process_id)
+    await _get_process_or_404(db, pid, current_user)
+    result = await db.execute(
+        select(ProcessMessageFlow)
+        .options(selectinload(ProcessMessageFlow.interface))
+        .where(
+            ProcessMessageFlow.id == uuid.UUID(flow_id),
+            ProcessMessageFlow.process_id == pid,
+        )
+    )
+    flow = result.scalar_one_or_none()
+    if not flow:
+        raise HTTPException(404, "Message flow not found")
+
+    iface: Card | None = None
+    if body.interface_id:
+        iface_id = uuid.UUID(body.interface_id)
+        found = await db.execute(
+            select(Card).where(
+                Card.id == iface_id,
+                Card.type == "Interface",
+                Card.status == "ACTIVE",
+            )
+        )
+        iface = found.scalar_one_or_none()
+        if not iface or not await is_card_readable(
+            db, current_user, iface.id, mode="module", type_key=iface.type
+        ):
+            raise HTTPException(404, "Interface card not found")
+        flow.interface_id = iface_id
+    elif flow.interface_id is None or await is_card_readable(
+        db, current_user, flow.interface_id, mode="module", type_key="Interface"
+    ):
+        flow.interface_id = None
+    # else: a clear aimed at a link the caller was never shown keeps it, as an
+    # element's links do (`update_element`). The response reads as unlinked,
+    # exactly as the list shows a hidden Interface.
+
+    await db.commit()
+    # The `interface` relationship is `noload`, so the identity-mapped row
+    # still carries the pre-PATCH value — answer from the card just validated.
+    return {
+        **message_flow_to_dict(flow),
+        "interface_id": str(iface.id) if iface else None,
+        "interface_name": iface.name if iface else None,
+    }
 
 
 # ── Template endpoints ───────────────────────────────────────────────────

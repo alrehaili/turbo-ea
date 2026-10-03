@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import { PercentageInput } from "@/components/PercentageInput";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -28,6 +29,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
+import { hasTypePermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import TagPicker from "@/components/TagPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -42,6 +45,7 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
+import { isEolType } from "@/lib/eol";
 import type {
   FieldDef,
   EolProductMatch,
@@ -50,7 +54,6 @@ import type {
   SiblingNameConflictDetail,
 } from "@/types";
 
-const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 
 interface Props {
@@ -66,6 +69,13 @@ interface Props {
     lifecycle?: Record<string, string>;
   }) => Promise<string>;
   initialType?: string;
+  // Preset the subtype / seed attribute values for the initial type. They
+  // apply while the selected type IS the initial type — picking a different
+  // type clears them like any other dependent field, and switching back
+  // re-applies them. Callers use these to open the dialog pre-configured
+  // (e.g. "new Branch" = Organization + subtype preset).
+  initialSubtype?: string;
+  initialAttributes?: Record<string, unknown>;
 }
 
 
@@ -74,17 +84,34 @@ export default function CreateCardDialog({
   onClose,
   onCreate,
   initialType,
+  initialSubtype,
+  initialAttributes,
 }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const { user } = useAuthContext();
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
 
+  // A card type may deny this role `inventory.create` (discussion #1068), so
+  // the picker offers only the types the user may actually create.
+  const creatableTypes = useMemo(
+    () =>
+      types.filter(
+        (ct) => !ct.is_hidden && hasTypePermission(user, "inventory.create", ct.key)
+      ),
+    [types, user]
+  );
+
   const [selectedType, setSelectedType] = useState(initialType || "");
-  const [subtype, setSubtype] = useState("");
+  /** `initialType` is supplied by the caller (the inventory's selected type,
+   *  a diagram, a deep link) and may be one this role cannot create — so the
+   *  submit button is gated on the *selected* type, not just on the list. */
+  const typeAllowed = hasTypePermission(user, "inventory.create", selectedType || null);
+  const [subtype, setSubtype] = useState(initialType ? initialSubtype || "" : "");
   const [parentCard, setParentCard] = useState<CardOption | null>(null);
   const [name, setName] = useState("");
   // Field-level error for the Name input — populated when the backend
@@ -98,7 +125,13 @@ export default function CreateCardDialog({
     typeKey?: string;
   } | null>(null);
   const [description, setDescription] = useState("");
-  const [attributes, setAttributes] = useState<Record<string, unknown>>({});
+  const [attributes, setAttributes] = useState<Record<string, unknown>>(() =>
+    initialType ? { ...(initialAttributes || {}) } : {},
+  );
+  // Ref, not an effect dep: callers routinely pass an inline object literal,
+  // whose identity changes every render and would loop the reset effect.
+  const initialAttributesRef = useRef(initialAttributes);
+  initialAttributesRef.current = initialAttributes;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [eolProduct, setEolProduct] = useState("");
@@ -147,7 +180,7 @@ export default function CreateCardDialog({
 
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const hasHierarchy = !!typeConfig?.has_hierarchy;
-  const isEolEligible = EOL_ELIGIBLE_TYPES.includes(selectedType);
+  const isEolEligible = isEolType(selectedType);
 
   // Determine hidden fields for the selected subtype
   const hiddenFieldKeys = useMemo(() => {
@@ -179,11 +212,14 @@ export default function CreateCardDialog({
       .catch(() => setTagGroups([]));
   }, [open]);
 
-  // Reset dependent fields when type changes
+  // Reset dependent fields when type changes. The initial presets survive
+  // while the selected type is still the initial one (the open-effect's
+  // setSelectedType lands here too, and must not wipe them).
   useEffect(() => {
-    setSubtype("");
+    const presetsApply = Boolean(selectedType) && selectedType === initialType;
+    setSubtype(presetsApply ? initialSubtype || "" : "");
     setParentCard(null);
-    setAttributes({});
+    setAttributes(presetsApply ? { ...(initialAttributesRef.current || {}) } : {});
     setError("");
     setEolProduct("");
     setEolCycle("");
@@ -193,7 +229,7 @@ export default function CreateCardDialog({
     setAiError("");
     setTagIds([]);
     setPendingProvider(null);
-  }, [selectedType]);
+  }, [selectedType, initialType, initialSubtype]);
 
   // Set initial type when dialog opens
   useEffect(() => {
@@ -202,16 +238,17 @@ export default function CreateCardDialog({
     }
   }, [open, initialType]);
 
-  // Reset form when dialog closes
+  // Reset form when dialog closes — back to the presets, so reopening with
+  // the same initial type starts pre-seeded again.
   useEffect(() => {
     if (!open) {
       setSelectedType(initialType || "");
-      setSubtype("");
+      setSubtype(initialType ? initialSubtype || "" : "");
       setParentCard(null);
       setName("");
       setNameConflict(null);
       setDescription("");
-      setAttributes({});
+      setAttributes(initialType ? { ...(initialAttributesRef.current || {}) } : {});
       setLoading(false);
       setError("");
       setEolProduct("");
@@ -225,7 +262,7 @@ export default function CreateCardDialog({
       setTagIds([]);
       setPendingProvider(null);
     }
-  }, [open, initialType]);
+  }, [open, initialType, initialSubtype]);
 
   // Auto-search EOL when name changes (debounced). Cancelling the timer never
   // cancelled a dispatched request, so suggestions for a half-typed name could
@@ -338,13 +375,20 @@ export default function CreateCardDialog({
         }
       }
       if (pendingProvider) {
-        const relType = relationTypes.find(
-          (r) =>
-            (r.source_type_key === "Provider" &&
-              r.target_type_key === selectedType) ||
-            (r.target_type_key === "Provider" &&
-              r.source_type_key === selectedType),
-        );
+        // Several relation types may connect Provider to this card type; pick
+        // the same one VendorField shows — lowest sort_order, then key.
+        const relType = relationTypes
+          .filter(
+            (r) =>
+              (r.source_type_key === "Provider" &&
+                r.target_type_key === selectedType) ||
+              (r.target_type_key === "Provider" &&
+                r.source_type_key === selectedType),
+          )
+          .sort(
+            (a, b) =>
+              (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.key.localeCompare(b.key),
+          )[0];
         if (relType) {
           const providerIsSource = relType.source_type_key === "Provider";
           try {
@@ -505,6 +549,20 @@ export default function CreateCardDialog({
         );
       }
 
+      case "percentage":
+        return (
+          <PercentageInput
+            key={field.key}
+            fullWidth
+            size="medium"
+            required={field.required}
+            label={fieldLabel(field)}
+            value={attributes[field.key]}
+            onChange={(v) => setAttr(field.key, v)}
+            sx={{ mb: 2 }}
+          />
+        );
+
       case "cost":
       case "number":
         return (
@@ -609,7 +667,7 @@ export default function CreateCardDialog({
             label={t("common:labels.type")}
             onChange={(e) => setSelectedType(e.target.value)}
           >
-            {types.filter((t) => !t.is_hidden).map((t) => (
+            {creatableTypes.map((t) => (
               <MenuItem key={t.key} value={t.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Box
@@ -923,16 +981,20 @@ export default function CreateCardDialog({
         <Button onClick={onClose} color="inherit">
           {t("common:actions.cancel")}
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!selectedType || !name.trim() || loading}
-          startIcon={
-            loading ? <CircularProgress size={18} color="inherit" /> : undefined
-          }
-        >
-          {t("common:actions.create")}
-        </Button>
+        <Tooltip title={typeAllowed ? "" : t("create.noTypePermission")}>
+          <span>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={!selectedType || !typeAllowed || !name.trim() || loading}
+              startIcon={
+                loading ? <CircularProgress size={18} color="inherit" /> : undefined
+              }
+            >
+              {t("common:actions.create")}
+            </Button>
+          </span>
+        </Tooltip>
       </DialogActions>
     </Dialog>
   );

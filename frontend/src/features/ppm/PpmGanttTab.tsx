@@ -15,6 +15,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTranslation } from "react-i18next";
 import {
   Gantt,
@@ -45,7 +46,11 @@ import { api, ApiError } from "@/api/client";
 import { brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
+import GanttAddItemMenu from "./GanttAddItemMenu";
+import { TASK_PROGRESS_MARKS, percentFromStatus, statusFromPercent } from "./taskProgress";
 import type { PpmDependency, PpmWbs, PpmTask, PpmTaskStatus } from "@/types";
+import { startOfLocalDay, toIsoDate, toLocalDate } from "@/lib/dates";
+import { buildGanttArrowPath } from "./ganttArrowPath";
 
 /** Bar colors per task status — reuses the standard palette from PpmTaskBoard. */
 const TASK_STATUS_BAR_COLORS: Record<
@@ -106,7 +111,13 @@ function loadInitialViewMode(): ViewMode {
   } catch {
     /* localStorage unavailable */
   }
-  return ViewMode.Week;
+  // No stored preference. A phone-width viewport cannot show a useful Week
+  // scale (columnWidth 200 against ~180px of chart once the task list is
+  // subtracted), so start zoomed out. A stored choice always wins — this only
+  // moves the default. Raw innerWidth because this runs in a useState
+  // initializer, outside any hook (same posture as AppLayout's px queries).
+  const narrow = typeof window !== "undefined" && window.innerWidth < 900;
+  return narrow ? ViewMode.QuarterYear : ViewMode.Week;
 }
 
 /** Convert a Gantt task id ("task-uuid" / "wbs-uuid") to the API's
@@ -289,25 +300,14 @@ function deriveRange(card?: { attributes?: Record<string, unknown> }): {
   return { start, end };
 }
 
-/** Parse a "YYYY-MM-DD" string as a local-timezone date at start-of-day. */
+/** Parse a date string as a local-timezone date at start-of-day.
+ *
+ *  The date-only handling lives in `@/lib/dates` — this used to carry a private
+ *  copy of it, one of three that had grown across the app before that module
+ *  existed (#1016). */
 function parseDate(s: string | null, fallback: Date): Date {
-  if (!s) return fallback;
-  // "YYYY-MM-DD" → new Date() treats as UTC midnight, which can shift the day
-  // in positive timezones. Split and construct as local date instead.
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0);
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return fallback;
-  // Normalize to start-of-day local
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** Snap a Date to start-of-day (00:00) in local timezone. */
-function startOfDay(d: Date): Date {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
+  const d = toLocalDate(s);
+  return d ? startOfLocalDay(d) : fallback;
 }
 
 /** Snap a Date to end-of-day (23:59:59.999) in local timezone. */
@@ -315,14 +315,6 @@ function endOfDay(d: Date): Date {
   const r = new Date(d);
   r.setHours(23, 59, 59, 999);
   return r;
-}
-
-/** Format a Date to "YYYY-MM-DD" using local date components (not UTC). */
-function toIso(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 /** Add a number of whole days to a "YYYY-MM-DD" string and return the same
@@ -334,7 +326,7 @@ function addDaysIso(iso: string, days: number): string {
   if (!m) return iso;
   const d = new Date(+m[1], +m[2] - 1, +m[3]);
   d.setDate(d.getDate() + days);
-  return toIso(d);
+  return toIsoDate(d);
 }
 
 /** Whole-day difference `to - from` between two ISO dates. Returned as
@@ -356,7 +348,7 @@ function roundToDay(
   dateExtremity?: string,
 ): Date {
   if (dateExtremity === "endOfTask") return endOfDay(date);
-  return startOfDay(date);
+  return startOfLocalDay(date);
 }
 
 /** Check if a date falls on Saturday or Sunday (unused params from library API). */
@@ -380,6 +372,7 @@ function getParentIds(wbsList: PpmWbs[], tasks: PpmTask[]): Set<string> {
 export default function PpmGanttTab({ initiativeId, card }: Props) {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
+  const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
 
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
   const [tasks, setTasks] = useState<PpmTask[]>([]);
@@ -518,8 +511,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const defaultNewDate = useMemo(() => {
     const now = new Date();
     const range = deriveRange(card);
-    if (now >= range.start && now <= range.end) return toIso(now);
-    return toIso(range.start);
+    if (now >= range.start && now <= range.end) return toIsoDate(now);
+    return toIsoDate(range.start);
   }, [card]);
 
   // Today button → scroll gantt to current date
@@ -648,7 +641,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // WBS items as "project" or "milestone" type
     for (const w of wbsList) {
       const wbsId = `wbs-${w.id}`;
-      const start = startOfDay(parseDate(w.start_date, defStart));
+      const start = startOfLocalDay(parseDate(w.start_date, defStart));
       const deps = depsBySuccessor.get(wbsId);
       if (w.is_milestone) {
         items.push({
@@ -692,7 +685,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     // Tasks as "task" type
     for (const tk of tasks) {
       const taskId = `task-${tk.id}`;
-      const start = startOfDay(
+      const start = startOfLocalDay(
         parseDate(tk.start_date, parseDate(tk.created_at, defStart)),
       );
       let end = endOfDay(
@@ -702,8 +695,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         end = endOfDay(new Date(start));
         end.setDate(end.getDate() + 1);
       }
-      const progress =
-        tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
+      const progress = percentFromStatus(tk.status);
       const barColors = TASK_STATUS_BAR_COLORS[tk.status] ?? TASK_STATUS_BAR_COLORS.todo;
       items.push({
         id: taskId,
@@ -740,10 +732,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       });
     }
     for (const tk of tasks) {
-      const pct =
-        tk.status === "done" ? 100 : tk.status === "in_progress" ? 50 : 0;
       map.set(`task-${tk.id}`, {
-        completion: pct,
+        completion: percentFromStatus(tk.status),
         assigneeName: tk.assignee_name,
         hasChildren: false,
       });
@@ -756,8 +746,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       if (!("start" in task)) return;
       const t = task as Task;
       const id = t.id;
-      const newStart = toIso(t.start);
-      const newEnd = toIso(t.end);
+      const newStart = toIsoDate(t.start);
+      const newEnd = toIsoDate(t.end);
 
       // Optimistic local update — prevents the bar from jumping back to old dates
       if (id.startsWith("wbs-")) {
@@ -792,9 +782,20 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           completion: Math.round(task.progress),
         });
         await loadData();
+      } else if (id.startsWith("task-")) {
+        // A task's fill follows its status, so a drag picks the status the
+        // dragged value means. Reload either way: the library has already
+        // painted the dragged fill, and the bar must snap back to its stop.
+        const tk = tasks.find((x) => x.id === id.slice(5));
+        if (!tk) return;
+        const status = statusFromPercent(task.progress, tk.status);
+        if (status !== tk.status) {
+          await api.patch(`/ppm/tasks/${tk.id}`, { status });
+        }
+        await loadData();
       }
     },
-    [loadData, parentIds],
+    [loadData, parentIds, tasks],
   );
 
   /** Lookup helpers — read end-/start-dates from our state, accounting
@@ -961,6 +962,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     }
   }, []);
 
+  /** The "+" row asks what to create instead of assuming a work package. */
+  const [emptyRowMenuAnchor, setEmptyRowMenuAnchor] = useState<HTMLElement | null>(null);
+  const openNewWbs = useCallback((milestone: boolean) => {
+    setEditingWbs(undefined);
+    setMilestoneDefault(milestone);
+    setWbsDialogOpen(true);
+  }, []);
+  const openNewTask = useCallback((wbsId: string) => {
+    setEditingTask(undefined);
+    setPreselectedWbsId(wbsId);
+    setTaskDialogOpen(true);
+  }, []);
+
   const contextMenuOptions: ContextMenuOptionType[] = useMemo(
     () => [
       {
@@ -973,30 +987,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         icon: <MaterialSymbol icon="add_task" size={16} />,
         action: (meta) => {
           if (!meta.task.id.startsWith("wbs-")) return;
-          const wbsRealId = meta.task.id.slice(4);
-          setEditingTask(undefined);
-          setPreselectedWbsId(wbsRealId);
-          setTaskDialogOpen(true);
+          openNewTask(meta.task.id.slice(4));
         },
         checkIsAvailable: (meta) => meta.task.id.startsWith("wbs-"),
       },
       {
         label: t("addWbs"),
         icon: <MaterialSymbol icon="add" size={16} />,
-        action: () => {
-          setEditingWbs(undefined);
-          setMilestoneDefault(false);
-          setWbsDialogOpen(true);
-        },
+        action: () => openNewWbs(false),
       },
       {
         label: t("addMilestone"),
         icon: <MaterialSymbol icon="flag" size={16} />,
-        action: () => {
-          setEditingWbs(undefined);
-          setMilestoneDefault(true);
-          setWbsDialogOpen(true);
-        },
+        action: () => openNewWbs(true),
       },
       {
         label: t("markDone"),
@@ -1027,7 +1030,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         },
       },
     ],
-    [t, openDialogForId, loadData],
+    [t, openDialogForId, loadData, openNewTask, openNewWbs],
   );
 
   /** State for inline completion slider popover. */
@@ -1040,15 +1043,22 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     async (val: number) => {
       const id = completionEditId;
       if (id.startsWith("wbs-")) {
+        if (val === rowMeta.get(id)?.completion) return;
         await api.patch(`/ppm/wbs/${id.slice(4)}`, { completion: val });
       } else if (id.startsWith("task-")) {
-        const status = val >= 100 ? "done" : val > 0 ? "in_progress" : "todo";
-        await api.patch(`/ppm/tasks/${id.slice(5)}`, { status });
+        const tk = tasks.find((x) => x.id === id.slice(5));
+        if (!tk) return;
+        const status = statusFromPercent(val, tk.status);
+        // Closing the popover untouched (or on a Blocked task, whose 0 % is
+        // shared with To Do) must not PATCH anything.
+        if (status === tk.status) return;
+        await api.patch(`/ppm/tasks/${tk.id}`, { status });
       }
       await loadData();
     },
-    [completionEditId, loadData],
+    [completionEditId, loadData, rowMeta, tasks],
   );
+
 
   /** Custom title column: name is clickable (opens edit dialog), plus
    *  expander arrow for WBS parents. Avoids the library's broken onClick. */
@@ -1065,12 +1075,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       const handleExpand = () => {
         if (task.type !== "empty") onExpanderClick(task as Task);
       };
-      const handleNameClick = (e: { stopPropagation: () => void }) => {
+      const handleNameClick = (e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
         if (task.id === "__empty__") {
-          setEditingWbs(undefined);
-          setMilestoneDefault(false);
-          setWbsDialogOpen(true);
+          // useState setters are referentially stable, so the memo below
+          // keeps `openDialogForId` as its only dependency.
+          setEmptyRowMenuAnchor(e.currentTarget);
           return;
         }
         openDialogForId(task.id);
@@ -1192,44 +1202,66 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, [rowMeta]);
 
   const ganttColumns: Column[] = useMemo(
-    () => [
-      {
-        id: "title",
-        Cell: NameCell,
-        width: 200,
-        title: t("wbsTitle"),
-        canResize: true,
-      },
-      {
-        id: "completion",
-        Cell: CompletionCell,
-        width: 56,
-        title: "%",
-        canResize: false,
-      },
-      {
-        id: "assignee",
-        Cell: AssigneeCell,
-        width: 100,
-        title: t("wbsAssignee"),
-        canResize: true,
-      },
-      {
-        id: "start",
-        Cell: DateStartColumn,
-        width: 90,
-        title: t("startDate"),
-        canResize: true,
-      },
-      {
-        id: "end",
-        Cell: DateEndColumn,
-        width: 90,
-        title: t("endDate"),
-        canResize: true,
-      },
-    ],
-    [t, NameCell, CompletionCell, AssigneeCell],
+    () =>
+      // The full set is 200+56+100+90+90 = 536px of task list before the chart
+      // even starts, so a phone would render no timeline at all. Keep the two
+      // columns that identify a row and drop the rest; the dates and assignee
+      // are still on the bar tooltip and in the task dialog.
+      isNarrow
+        ? [
+            {
+              id: "title",
+              Cell: NameCell,
+              width: 150,
+              title: t("wbsTitle"),
+              canResize: true,
+            },
+            {
+              id: "completion",
+              Cell: CompletionCell,
+              width: 48,
+              title: "%",
+              canResize: false,
+            },
+          ]
+        : [
+            {
+              id: "title",
+              Cell: NameCell,
+              width: 200,
+              title: t("wbsTitle"),
+              canResize: true,
+            },
+            {
+              id: "completion",
+              Cell: CompletionCell,
+              width: 56,
+              title: "%",
+              canResize: false,
+            },
+            {
+              id: "assignee",
+              Cell: AssigneeCell,
+              width: 100,
+              title: t("wbsAssignee"),
+              canResize: true,
+            },
+            {
+              id: "start",
+              Cell: DateStartColumn,
+              width: 90,
+              title: t("startDate"),
+              canResize: true,
+            },
+            {
+              id: "end",
+              Cell: DateEndColumn,
+              width: 90,
+              title: t("endDate"),
+              canResize: true,
+            },
+          ],
+    [t, NameCell, CompletionCell, AssigneeCell, isNarrow],
   );
 
   const columnWidth = useMemo(() => {
@@ -1711,114 +1743,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return out;
   }, [dependencies, arrowTick, portalTarget]);
 
-  /** Build the SVG path for one arrow.  Coordinates are already overlay-local.
-   *
-   *  When `clickSafe` is true we return a "click target" variant of the
-   *  same shape that stays clear of both bars' relation-circle handles
-   *  (which sit at `bar.right + 10` / `bar.left - 10`). Without that
-   *  clear zone, our 12 px wide transparent click stroke covers the
-   *  hover region for the lib's `:hover` rule that toggles the dots
-   *  from opacity 0 → 1, so once a bar has any outgoing dependency the
-   *  dot is hidden + ungrabbable and the user can't pull a second arrow
-   *  out of it. Routing decisions still use the original endpoints so
-   *  visible and clickable paths follow the exact same shape. */
-  const buildArrowPath = useCallback(
-    (
-      fromX: number,
-      fromY: number,
-      toX: number,
-      toY: number,
-      clickSafe = false,
-    ): string => {
-      const RADIUS = 6;
-      const STUB = 14; // horizontal exit/entry length for loop-back routing
-      const DETOUR_PAD = 18; // gap between detour line and bars
-      const SAFE = 18; // clear zone in px around each bar's relation handle
-
-      // Same row → one straight segment. Inset both ends linearly.
-      if (Math.abs(toY - fromY) < 1) {
-        const sx = clickSafe ? fromX + SAFE : fromX;
-        const ex = clickSafe ? toX - SAFE : toX;
-        return `M ${sx} ${fromY} H ${ex}`;
-      }
-
-      const vDir = toY > fromY ? 1 : -1; // +1 down, -1 up
-
-      // Forward routing — clean 3-segment H/V/H with 2 rounded corners
-      if (toX > fromX + 2 * RADIUS) {
-        const midX = (fromX + toX) / 2;
-        const r = Math.min(
-          RADIUS,
-          (toX - fromX) / 4,
-          Math.abs(toY - fromY) / 2,
-        );
-        // Cap inset so the click M never crosses past the first arc /
-        // the click H never crosses past the last arc — otherwise the
-        // segment would double back over the bar's edge.
-        const sx = clickSafe ? Math.min(fromX + SAFE, midX - r) : fromX;
-        const ex = clickSafe ? Math.max(toX - SAFE, midX + r) : toX;
-        if (r < 1) {
-          return `M ${sx} ${fromY} H ${midX} V ${toY} H ${ex}`;
-        }
-        // sweep flags: R→D=1, D→R=0; flip both for vDir=-1
-        const s1 = vDir > 0 ? 1 : 0;
-        const s2 = vDir > 0 ? 0 : 1;
-        return [
-          `M ${sx} ${fromY}`,
-          `H ${midX - r}`,
-          `A ${r} ${r} 0 0 ${s1} ${midX} ${fromY + vDir * r}`,
-          `V ${toY - vDir * r}`,
-          `A ${r} ${r} 0 0 ${s2} ${midX + r} ${toY}`,
-          `H ${ex}`,
-        ].join(" ");
-      }
-
-      // Loop-back — exit right, drop past source row, run LEFT past both
-      // bars, drop to target row, re-enter target.
-      const r = RADIUS;
-      const exitX = fromX + STUB;
-      const turnY = fromY + vDir * STUB;
-      const detourX = Math.min(fromX, toX) - DETOUR_PAD;
-      // Sweep flags by direction:
-      //   vDir +1 (down):  R→D=1, D→L=1, L→D=0, D→R=0
-      //   vDir -1 (up):    R→U=0, U→L=0, L→U=1, U→R=1
-      const s1 = vDir > 0 ? 1 : 0;
-      const s2 = vDir > 0 ? 1 : 0;
-      const s3 = vDir > 0 ? 0 : 1;
-      const s4 = vDir > 0 ? 0 : 1;
-      const ex = clickSafe ? toX - SAFE : toX;
-      // For the click path in loop-back routing we skip the first three
-      // segments (H exit → arc down → V) entirely. Those segments hug the
-      // source bar's row (only ~6 px below the bar centre) and any click
-      // stroke covering them would still overlap the source's right
-      // relation handle. Starting the click path at the END of the second
-      // arc — where the path begins running LEFT under both bars — keeps
-      // the bar's hover region completely clear.
-      if (clickSafe) {
-        return [
-          `M ${exitX - r} ${turnY}`,
-          `H ${detourX + r}`,
-          `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
-          `V ${toY - vDir * r}`,
-          `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-          `H ${ex}`,
-        ].join(" ");
-      }
-      return [
-        `M ${fromX} ${fromY}`,
-        `H ${exitX - r}`,
-        `A ${r} ${r} 0 0 ${s1} ${exitX} ${fromY + vDir * r}`,
-        `V ${turnY - vDir * r}`,
-        `A ${r} ${r} 0 0 ${s2} ${exitX - r} ${turnY}`,
-        `H ${detourX + r}`,
-        `A ${r} ${r} 0 0 ${s3} ${detourX} ${turnY + vDir * r}`,
-        `V ${toY - vDir * r}`,
-        `A ${r} ${r} 0 0 ${s4} ${detourX + r} ${toY}`,
-        `H ${ex}`,
-      ].join(" ");
-    },
-    [],
-  );
 
   /** Click handler for arrows: confirm + delete. */
   const handleArrowClick = useCallback(
@@ -1844,7 +1768,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }
 
   return (
-    <Box sx={{ mx: { xs: -2, md: -3 } }}>
+    <Box sx={{ mx: { xs: -1.5, sm: -3 } }}>
       {/* Toolbar */}
       <Box
         display="flex"
@@ -1852,17 +1776,13 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         gap={1}
         mb={2}
         flexWrap="wrap"
-        px={{ xs: 2, md: 3 }}
+        px={{ xs: 1.5, sm: 3 }}
       >
         <Button
           variant="contained"
           size="small"
           startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => {
-            setEditingWbs(undefined);
-            setMilestoneDefault(false);
-            setWbsDialogOpen(true);
-          }}
+          onClick={() => openNewWbs(false)}
         >
           {t("addWbs")}
         </Button>
@@ -1870,11 +1790,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           variant="outlined"
           size="small"
           startIcon={<MaterialSymbol icon="flag" size={18} />}
-          onClick={() => {
-            setEditingWbs(undefined);
-            setMilestoneDefault(true);
-            setWbsDialogOpen(true);
-          }}
+          onClick={() => openNewWbs(true)}
         >
           {t("addMilestone")}
         </Button>
@@ -1882,11 +1798,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           variant="outlined"
           size="small"
           startIcon={<MaterialSymbol icon="add_task" size={18} />}
-          onClick={() => {
-            setEditingTask(undefined);
-            setPreselectedWbsId("");
-            setTaskDialogOpen(true);
-          }}
+          onClick={() => openNewTask("")}
         >
           {t("createTask")}
         </Button>
@@ -1993,7 +1905,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
              The library sets a solid background on the SVG and renders column
              lines + alternating bands via a wrapper div's backgroundImage.
              We override the wrapper div's gradient in dark mode and add 1px
-             horizontal dividers on the SVG itself. */
+             horizontal dividers on the SVG itself.
+             COUPLED: the 40px/39px stops below must match the `rowHeight`
+             passed to <Gantt distances> or the stripes drift off the rows. */
           "& [class*='ganttTaskContent_'] > div": {
             backgroundImage: `
               linear-gradient(to right, ${theme.palette.divider} 1px, transparent 2px),
@@ -2134,6 +2048,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           }}
           distances={{
             columnWidth,
+            // COUPLED: the row stripes and dividers are drawn by hardcoded
+            // 40px/39px stops in the backgroundImage gradients above (search
+            // "ganttTaskContent_"). Changing rowHeight without updating all
+            // four of those literals desyncs the stripes from the rows.
             rowHeight: 40,
             headerHeight: 50,
             barCornerRadius: 4,
@@ -2143,7 +2061,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           createPortal(
             <DependencyArrowOverlay
               arrows={arrowGeometry}
-              buildPath={buildArrowPath}
+              buildPath={buildGanttArrowPath}
               onClick={handleArrowClick}
               color={
                 theme.palette.mode === "dark"
@@ -2156,7 +2074,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           )}
       </Box>
 
-      {/* Inline completion slider popover */}
+      {/* Inline completion slider popover. A task's stops are its three
+          statuses, labelled as such; a leaf work package gets a free 5 % slider
+          — the same one its dialog offers. */}
       <Popover
         open={Boolean(completionAnchor)}
         anchorEl={completionAnchor}
@@ -2168,25 +2088,56 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         transformOrigin={{ vertical: "top", horizontal: "center" }}
         disableRestoreFocus
       >
-        <Box sx={{ px: 2, py: 1.5, width: 180 }}>
+        <Box sx={{ px: 2, py: 1.5, width: completionEditId.startsWith("task-") ? 260 : 200 }}>
           <Typography variant="caption" fontWeight={600}>
             {t("completion")}: {Math.round(completionEditValue)}%
           </Typography>
-          <Slider
-            value={completionEditValue}
-            onChange={(_, v) => setCompletionEditValue(v as number)}
-            onChangeCommitted={(_, v) => {
-              handleCompletionSave(v as number);
-              setCompletionAnchor(null);
-            }}
-            min={0}
-            max={100}
-            step={50}
-            marks
-            size="small"
-          />
+          {completionEditId.startsWith("task-") ? (
+            <>
+              <Slider
+                value={completionEditValue}
+                onChange={(_, v) => setCompletionEditValue(v as number)}
+                onChangeCommitted={(_, v) => {
+                  handleCompletionSave(v as number);
+                  setCompletionAnchor(null);
+                }}
+                min={0}
+                max={100}
+                step={null}
+                marks={TASK_PROGRESS_MARKS.map((m) => ({ value: m.value, label: t(m.labelKey) }))}
+                size="small"
+                sx={{ mx: 1, width: "calc(100% - 16px)", "& .MuiSlider-markLabel": { fontSize: 11 } }}
+              />
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>
+                {t("completionFollowsStatus")}
+              </Typography>
+            </>
+          ) : (
+            <Slider
+              value={completionEditValue}
+              onChange={(_, v) => setCompletionEditValue(v as number)}
+              onChangeCommitted={(_, v) => {
+                handleCompletionSave(v as number);
+                setCompletionAnchor(null);
+              }}
+              min={0}
+              max={100}
+              step={5}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `${v}%`}
+              size="small"
+            />
+          )}
         </Box>
       </Popover>
+
+      <GanttAddItemMenu
+        anchorEl={emptyRowMenuAnchor}
+        onClose={() => setEmptyRowMenuAnchor(null)}
+        onAddWbs={() => openNewWbs(false)}
+        onAddMilestone={() => openNewWbs(true)}
+        onAddTask={() => openNewTask("")}
+      />
 
       {/* WBS Dialog */}
       {wbsDialogOpen && (
@@ -2194,6 +2145,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           initiativeId={initiativeId}
           wbs={editingWbs}
           wbsList={wbsList}
+          hasTasks={!!editingWbs && tasks.some((x) => x.wbs_id === editingWbs.id)}
           defaultMilestone={milestoneDefault}
           defaultStartDate={editingWbs ? undefined : defaultNewDate}
           onClose={() => {

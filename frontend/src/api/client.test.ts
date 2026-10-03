@@ -243,11 +243,63 @@ describe("error handling", () => {
 
     await expect(api.get("/fail")).rejects.toThrow("Internal Server Error");
   });
+
+  it("names the status when the body is not JSON and statusText is empty", async () => {
+    // HTTP/2 responses carry no reason phrase, and a proxy in front of the
+    // origin can replace an error body with its own HTML page: the message
+    // must still say which status came back, never an empty string.
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: false,
+        status: 502,
+        statusText: "",
+        json: () => Promise.reject(new Error("not json")),
+      }),
+    );
+
+    try {
+      await api.get("/fail");
+      expect.fail("should have thrown");
+    } catch (e) {
+      const err = e as ApiError;
+      expect(err.status).toBe(502);
+      expect(err.message).toBe("HTTP 502");
+      expect(err.detail).toBe("HTTP 502");
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
 // auth helpers
 // ---------------------------------------------------------------------------
+
+describe("api.upload", () => {
+  const file = new File(["%PDF-1.7"], "spec.pdf", { type: "application/pdf" });
+
+  it("POSTs a multipart body with the file and extra fields by default", async () => {
+    mockFetch.mockReturnValue(jsonResponse({ id: "f1" }));
+    await api.upload("/cards/c1/file-attachments", file, "file", { category: "security" });
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe("/api/v1/cards/c1/file-attachments");
+    expect(init.method).toBe("POST");
+    const form = init.body as FormData;
+    expect(form.get("file")).toBe(file);
+    expect(form.get("category")).toBe("security");
+    // No JSON content type: the browser sets the multipart boundary itself.
+    expect(init.headers["Content-Type"]).toBeUndefined();
+  });
+
+  it("sends PUT when asked, for replacing a resource's bytes in place", async () => {
+    mockFetch.mockReturnValue(jsonResponse({ id: "f1" }));
+    await api.upload("/file-attachments/f1/content", file, "file", undefined, { method: "PUT" });
+    expect(mockFetch.mock.calls[0][1].method).toBe("PUT");
+  });
+
+  it("rejects with the server's detail as a plain Error", async () => {
+    mockFetch.mockReturnValue(jsonResponse({ detail: "File is empty" }, 400));
+    await expect(api.upload("/cards/c1/file-attachments", file)).rejects.toThrow("File is empty");
+  });
+});
 
 describe("auth helpers", () => {
   it("auth.login calls POST /auth/login", async () => {

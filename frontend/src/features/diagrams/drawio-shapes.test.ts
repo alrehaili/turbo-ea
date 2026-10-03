@@ -1,9 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildCardCellData,
   applyCardTypeIcons,
+  applyCardLogos,
+  applyCardLogosToXml,
+  logoKey,
+  logoLookupFor,
+  readCardBoxesFromXml,
+  readCardCellBoxes,
+  CARD_BASE_H,
   buildLdvDiagramXml,
   rollUpInto,
+  drillDownInto,
+  convertShapeToContainer,
   expandCardGroup,
   childEscapedParentBounds,
   applyViewToGraph,
@@ -18,17 +27,45 @@ import {
   scanDiagramItems,
   scanSyncedRelationEdges,
   applyEdgeFlowDirection,
+  composeCardLabel,
+  readCardName,
+  readCardDetail,
+  setCardLabel,
+  firstLineText,
+  applyCardLabels,
+  normaliseEditedCardLabel,
+  dedupClonedCell,
+  unlinkCell,
+  CARD_DETAIL_LINE_H,
+  type CardDetailLine,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
+  type DiagramGroupInput,
+  type DiagramConnectorInput,
+  fanWaypoints,
+  resolveMenuCardCell,
+  fitMenuToBand,
+  visibleBand,
+  enableMenuTouchScroll,
 } from "./drawio-shapes";
+import { LOGO_BOX_PX } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
+import {
+  attrBag as xmlAttrBag,
+  cardCell as kitCardCell,
+  fakeIframe,
+  plainCell as kitPlainCell,
+} from "@/test/mxGraphFake";
 
 /** Minimal fake mxGraph model so applyCardTypeIcons can run without DrawIO. */
 type FakeCell = {
   _style: string;
   edge?: boolean;
   value?: { getAttribute: (k: string) => string | null };
+  /** Cell geometry, for the passes that size a logo to the cell it lands on.
+   *  Absent means "no geometry", which falls back to the plain 210×60 card. */
+  _geo?: { width: number; height: number };
 };
 function fakeFrame(cells: Record<string, FakeCell>) {
   const model = {
@@ -40,9 +77,18 @@ function fakeFrame(cells: Record<string, FakeCell>) {
       c._style = s;
     },
   };
-  const graph = { getModel: () => model };
+  const graph = {
+    getModel: () => model,
+    getCellGeometry: (c: FakeCell) => c._geo,
+  };
   return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
 }
+
+/** A size-agnostic logo lookup, for the tests that are not about geometry. */
+const logos =
+  (byId: Record<string, string>) =>
+  (cardId: string): string | undefined =>
+    byId[cardId];
 function cardCell(cardType: string | null, style: string, edge = false): FakeCell {
   return {
     _style: style,
@@ -265,6 +311,132 @@ describe("buildLdvDiagramXml", () => {
     expect(xml).not.toContain('edge="1"');
   });
 
+  /* ---- Aggregated view: group boxes as containers, connectors as decoration ---- */
+  const groups: DiagramGroupInput[] = [
+    { key: "cluster:type:Application", label: "Application (1)", color: "#0f7eb5", x: 40, y: 20, w: 300, h: 160 },
+  ];
+  const nested: DiagramCardInput[] = [
+    { ...cards[0], x: 16, y: 30, groupKey: "cluster:type:Application" },
+    cards[1],
+  ];
+
+  it("exports a group box as a swimlane container with its card nested inside", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], groups);
+    expect(xml).toContain('id="group-0"');
+    expect(xml).toContain("shape=swimlane");
+    expect(xml).toContain("startSize=28");
+    expect(xml).toContain('value="Application (1)"');
+    // the box's geometry is where the view had it
+    expect(xml).toContain('x="40" y="20" width="300" height="160"');
+    // the member is the box's mxGraph child, at its RELATIVE position, and
+    // carries the container-child marker the editor keys its rules on
+    const member = /<object[^>]*cardId="11111111-1111-1111-1111-111111111111"[^>]*>\s*<mxCell[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(member).toContain('groupChild="1"');
+    expect(member).toContain('parent="group-0"');
+    expect(xml).toContain('x="16" y="30" width="200"');
+    // a card outside any box still sits on the root
+    const loose = /<object[^>]*cardId="22222222-2222-2222-2222-222222222222"[^>]*>\s*<mxCell[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(loose).toContain('parent="1"');
+    expect(loose).not.toContain("groupChild");
+    // the box itself is not a card: still exactly two cardId occurrences
+    expect(xml.match(/cardId=/g)?.length).toBe(2);
+  });
+
+  it("falls a card back to the root when its group key names no exported box", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], []);
+    const member = /<object[^>]*cardId="11111111-1111-1111-1111-111111111111"[^>]*>\s*<mxCell[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(member).toContain('parent="1"');
+    expect(member).not.toContain("groupChild");
+  });
+
+  it("draws a merged connector as a bare edge with a count and no relation identity", () => {
+    const connectors: DiagramConnectorInput[] = [
+      {
+        sourceKey: "cluster:type:Application",
+        targetKey: "22222222-2222-2222-2222-222222222222",
+        label: "reads",
+        count: 3,
+        exit: { x: 0.5, y: 1 },
+        entry: { x: 0.5, y: 0 },
+        waypoints: [{ x: 190, y: 200 }, { x: 500, y: 200 }],
+      },
+    ];
+    const xml = buildLdvDiagramXml(nested, [], [], groups, connectors);
+    const cell = /<mxCell id="connector-0"[^>]*>/.exec(xml)?.[0] ?? "";
+    expect(cell).not.toBe("");
+    expect(cell).toContain('value="reads · 3"');
+    expect(cell).toContain('source="group-0"');
+    expect(cell).toContain('target="card-1-22222222"');
+    // 1.5 + log2(3) → heavier than a one-relation line, boxed label
+    expect(cell).toContain("strokeWidth=3.1");
+    expect(cell).toContain("labelBackgroundColor=#ffffff");
+    expect(cell).toContain("edgeStyle=orthogonalEdgeStyle");
+    expect(cell).toContain("exitX=0.5;exitY=1");
+    expect(xml).toContain('<mxPoint x="190" y="200"/>');
+    // decoration: nothing the sync, the stale check or the delete flow reads
+    expect(cell).not.toContain("relationType");
+    expect(cell).not.toContain("relationId");
+    expect(cell).not.toContain("pending");
+    expect(xml).not.toContain('<object id="connector');
+  });
+
+  it("labels a connector with the count alone when it stands for several relation types", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], groups, [
+      { sourceKey: "cluster:type:Application", targetKey: "22222222-2222-2222-2222-222222222222", label: "", count: 7 },
+    ]);
+    expect(xml).toContain('value="7"');
+    expect(xml).toContain("strokeWidth=4.3");
+  });
+
+  it("drops a connector whose endpoint is not on the diagram", () => {
+    const xml = buildLdvDiagramXml(nested, [], [], groups, [
+      { sourceKey: "cluster:type:Application", targetKey: "cluster:type:Ghost", label: "", count: 2 },
+    ]);
+    expect(xml).not.toContain('id="connector-');
+  });
+
+  it("carries a computed route as waypoints and fixed anchors", () => {
+    // The whole point of the export: a diagram made from a view opens looking
+    // like the view, instead of being re-routed from scratch.
+    const xml = buildLdvDiagramXml(
+      cards,
+      [
+        {
+          ...rels[0],
+          exit: { x: 0.5, y: 1 },
+          entry: { x: 0.12, y: 0 },
+          waypoints: [
+            { x: 300, y: 120 },
+            { x: 460, y: 120 },
+          ],
+        },
+      ],
+      layers,
+    );
+    expect(xml).toContain('<Array as="points">');
+    expect(xml).toContain('<mxPoint x="300" y="120"/>');
+    expect(xml).toContain('<mxPoint x="460" y="120"/>');
+    // Right-angled routing, since the default ER router ignores fixed anchors.
+    expect(xml).toContain("edgeStyle=orthogonalEdgeStyle");
+    expect(xml).toContain("exitX=0.5");
+    expect(xml).toContain("entryX=0.12");
+  });
+
+  it("leaves an unrouted edge for the diagram to route", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    expect(xml).not.toContain('<Array as="points">');
+    expect(xml).toContain('<mxGeometry relative="1" as="geometry"/>');
+    expect(xml).toContain("edgeStyle=entityRelationEdgeStyle");
+  });
+
+  it("puts the arrowhead where the view drew it for a reverse flow", () => {
+    // Without this the export silently dropped flowDirection, so a relation
+    // the report drew as "consumes" arrived pointing the other way.
+    const xml = buildLdvDiagramXml(cards, [{ ...rels[0], flow: "reverse" }], layers);
+    expect(xml).toContain("startArrow=block");
+    expect(xml).toContain("endArrow=none");
+  });
+
   it("omits the relationType attribute for synthetic (typeless) edges", () => {
     const hierRel: DiagramRelInput[] = [
       {
@@ -336,10 +508,21 @@ function rollUpFrame(initial: RUCell[]) {
       parent.children.push(child);
       return child;
     },
+    getStyle: (c: RUCell) => c.style ?? "",
+    setStyle: (c: RUCell, style: string) => {
+      c.style = style;
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setValue: (c: RUCell, value: any) => {
+      c.value = value;
+    },
+    getChildCount: (c: RUCell) => c.children.length,
+    getChildAt: (c: RUCell, i: number) => c.children[i] ?? null,
   };
   const graph = {
     getModel: () => model,
     getDefaultParent: () => root,
+    refresh() {},
     getCellGeometry: (c: RUCell) => c.geometry,
     resizeCell: (c: RUCell, r: Geo) => {
       c.geometry = { x: r.x, y: r.y, width: r.width, height: r.height };
@@ -446,6 +629,90 @@ describe("rollUpInto — re-parent existing vs insert new", () => {
   });
 });
 
+describe("a card that becomes a container sizes its header for its rows", () => {
+  const rows = [
+    { label: "Owner", value: "Alice" },
+    { label: "Tier", value: "Gold" },
+    { label: "Hosting", value: "SaaS" },
+  ];
+
+  const startSizeOf = (style: string | undefined) =>
+    Number(/startSize=(\d+)/.exec(style ?? "")?.[1] ?? NaN);
+
+  /** A synced card already showing three detail rows. */
+  function labelledCard(id: string, geo: Geo, style?: string): RUCell {
+    const cell = ruCell(id, geo, {
+      cardId: `id-${id}`,
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      cardDetail: JSON.stringify(rows),
+      label: composeCardLabel("NexaCore ERP", rows),
+    });
+    cell.style = style ?? "rounded=1;fillColor=#0f7eb5";
+    return cell;
+  }
+
+  it("convertShapeToContainer keeps the rows instead of stripping them", () => {
+    // The strip used to be a fixed 28px, so the rows were dropped on the way
+    // in — and since the display pass puts them straight back, dropping them
+    // only ever bought an overflowing header one repaint later.
+    const card = labelledCard("c1", { x: 0, y: 0, width: 210, height: 74 });
+    const { iframe } = rollUpFrame([card]);
+
+    expect(convertShapeToContainer(iframe, "c1", "Fallback")).toBe(true);
+
+    expect(card.value!.getAttribute("label")).toContain("Owner: Alice");
+    expect(readCardDetail(card.value)).toHaveLength(3);
+    expect(startSizeOf(card.style)).toBe(28 + 3 * CARD_DETAIL_LINE_H);
+  });
+
+  it("convertShapeToContainer leaves a plain shape's header at its natural height", () => {
+    const shape = ruCell("s1", { x: 0, y: 0, width: 120, height: 60 });
+    shape.value = null;
+    const { iframe } = rollUpFrame([shape]);
+
+    expect(convertShapeToContainer(iframe, "s1", "Group")).toBe(true);
+    expect(startSizeOf(shape.style)).toBe(28);
+  });
+
+  it("drillDownInto clears the header it just sized for the parent's rows", () => {
+    const card = labelledCard("p1", { x: 0, y: 0, width: 210, height: 74 });
+    const { iframe, cells } = rollUpFrame([card]);
+
+    const inserted = drillDownInto(iframe, "p1", [
+      { id: "kid-1", name: "Child", type: "Application", color: "#0f7eb5" },
+    ]);
+
+    const header = 28 + 3 * CARD_DETAIL_LINE_H;
+    expect(startSizeOf(card.style)).toBe(header);
+    // The grid starts below the strip, not underneath it.
+    expect(cells[inserted[0].cellId].geometry.y).toBe(header + 12);
+  });
+
+  it("a re-drill lays the backfilled child against the live header", () => {
+    // The style is deliberately left alone on a re-drill, so the constant is
+    // the wrong thing to measure against once the header has grown. The stored
+    // row count is one, so a header recomputed from it would be 42, not 70 —
+    // only reading the live strip gets this right.
+    const card = ruCell("p1", { x: 0, y: 0, width: 320, height: 300 }, {
+      cardId: "id-p1",
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      cardDetail: JSON.stringify(rows.slice(0, 1)),
+      label: composeCardLabel("NexaCore ERP", rows.slice(0, 1)),
+    });
+    card.style = "shape=swimlane;startSize=70;fillColor=#0f7eb5";
+    const { iframe, cells } = rollUpFrame([card]);
+
+    const inserted = drillDownInto(iframe, "p1", [
+      { id: "kid-2", name: "Backfilled", type: "Application", color: "#0f7eb5" },
+    ]);
+
+    expect(startSizeOf(card.style)).toBe(70);
+    expect(cells[inserted[0].cellId].geometry.y).toBe(70 + 12);
+  });
+});
+
 describe("childEscapedParentBounds — collapse guard", () => {
   const parent = { x: 0, y: 0, width: 204, height: 300 };
 
@@ -534,8 +801,12 @@ function stylePart(style: string, key: string): string | undefined {
     ?.slice(key.length + 1);
 }
 
-describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
-  const TYPE_COLORS = new Map([["Application", "#0f7eb5"]]);
+describe("applyViewToGraph — colours only what a rule covers", () => {
+  const TYPE_COLORS = new Map([
+    ["Application", "#0f7eb5"],
+    ["Provider", "#ffa31f"],
+  ]);
+  const RESTORE = { colorByType: TYPE_COLORS, fallback: "#999" };
 
   it("stamps the pre-view fill so the view can be undone", () => {
     const cell = viewCell(
@@ -544,7 +815,7 @@ describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
     );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
 
     expect(stylePart(cell._style, "fillColor")).toBe("#ff0000");
     expect(stylePart(cell._style, "turboBaseFill")).toBe("#0f7eb5");
@@ -558,74 +829,158 @@ describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
     );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), "#cbd5e1");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), RESTORE);
 
     // Still the ORIGINAL colour, not the first view's colour.
     expect(stylePart(cell._style, "turboBaseFill")).toBe("#abcdef");
     expect(stylePart(cell._style, "fillColor")).toBe("#00ff00");
   });
 
-  it("restores the stamped colour and clears the stamp on reset", () => {
+  it("REGRESSION #986: leaves a card no rule covers completely untouched", () => {
+    // A Provider on a canvas where only Applications carry a rule. It used to
+    // be painted with a single grey fallback, which greyed out most of the
+    // diagram the moment one type was coloured by a field.
+    const covered = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#0f7eb5");
+    const untouched = viewCell(
+      { cardId: "c2", cardType: "Provider" },
+      "rounded=1;fillColor=#ffa31f;strokeColor=#cc8219",
+    );
+    const frame = viewFrame({ a: covered, b: untouched });
+
+    const { painted, restored } = applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+
+    expect({ painted, restored }).toEqual({ painted: 1, restored: 0 });
+    expect(untouched._style).toBe("rounded=1;fillColor=#ffa31f;strokeColor=#cc8219");
+    expect(stylePart(untouched._style, "turboBaseFill")).toBeUndefined();
+  });
+
+  it("hands a card back when it drops out of the rule set", () => {
     const cell = viewCell(
       { cardId: "c1", cardType: "Application" },
       "fillColor=#0f7eb5;strokeColor=#0b5f88",
     );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+    const { restored } = applyViewToGraph(frame, new Map(), RESTORE);
 
-    expect(touched).toBe(1);
+    expect(restored).toBe(1);
     expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
     expect(stylePart(cell._style, "strokeColor")).toBe("#0b5f88");
     expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
     expect(stylePart(cell._style, "turboBaseStroke")).toBeUndefined();
   });
 
-  it("REGRESSION #905: leaves a hand-picked fill alone on reset", () => {
-    // The user set this card to pink by hand. No view ever claimed it, so it
-    // carries no stamp — reset (which runs on every save) must not touch it.
+  it("REGRESSION #905: a hand-picked fill survives a rule-set A → B → A cycle", () => {
+    // The user set this card to pink by hand, then coloured by a field, then
+    // switched the rule to a different card type, then switched back.
     const cell = viewCell(
       { cardId: "c1", cardType: "Application" },
       "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
     );
     const frame = viewFrame({ a: cell });
 
-    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE); // rules A
+    applyViewToGraph(frame, new Map(), RESTORE); // rules B — Applications drop out
+    expect(stylePart(cell._style, "fillColor")).toBe("#ff69b4");
+    expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
 
-    expect(touched).toBe(0);
-    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
+    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), RESTORE); // back to A
+    // Re-stamped from the PINK it was handed back to, not from rule A's colour.
+    expect(stylePart(cell._style, "turboBaseFill")).toBe("#ff69b4");
   });
 
-  it("restores a manual fill applied BEFORE a view was switched on", () => {
-    const cell = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#ff69b4");
+  it("never touches a hand-picked fill no view ever claimed", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
+    );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    resetViewColors(frame, TYPE_COLORS, "#999");
+    const { painted, restored } = applyViewToGraph(frame, new Map(), RESTORE);
 
-    expect(stylePart(cell._style, "fillColor")).toBe("#ff69b4");
+    expect({ painted, restored }).toEqual({ painted: 0, restored: 0 });
+    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
   });
 
   it("falls back to the card-type colour when the cell had no explicit fill", () => {
     const cell = viewCell({ cardId: "c1", cardType: "Application" }, "rounded=1");
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    resetViewColors(frame, TYPE_COLORS, "#999");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+    applyViewToGraph(frame, new Map(), RESTORE);
 
     expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
   });
 
-  it("ignores edges and pending cells", () => {
+  it("ignores edges and pending cells on both branches", () => {
     const edge = viewCell({ cardId: "c1" }, "strokeColor=#000", { edge: true });
     const pending = viewCell({ cardId: "pending-xyz" }, "fillColor=#eee");
     const frame = viewFrame({ e: edge, p: pending });
 
-    expect(applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1")).toBe(0);
+    expect(applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE)).toEqual({
+      painted: 0,
+      restored: 0,
+    });
     expect(edge._style).toBe("strokeColor=#000");
     expect(pending._style).toBe("fillColor=#eee");
+  });
+
+  it("writes one undo step per call, not one per branch", () => {
+    // Two passes would cost the reader two Ctrl+Z presses per view change.
+    const covered = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#0f7eb5");
+    const dropping = viewCell(
+      { cardId: "c2", cardType: "Provider" },
+      "fillColor=#111;turboBaseFill=#ffa31f;turboBaseStroke=#cc8219",
+    );
+    const frame = viewFrame({ a: covered, b: dropping });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const model = (frame.contentWindow as any).__turboGraph.getModel();
+    let begins = 0;
+    const realBegin = model.beginUpdate;
+    model.beginUpdate = () => {
+      begins += 1;
+      realBegin?.call(model);
+    };
+
+    const { painted, restored } = applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+
+    expect(begins).toBe(1);
+    expect({ painted, restored }).toEqual({ painted: 1, restored: 1 });
+  });
+});
+
+describe("resetViewColors — still the card-colours path", () => {
+  const TYPE_COLORS = new Map([["Application", "#0f7eb5"]]);
+
+  it("restores the stamped colour and clears the stamp", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "fillColor=#0f7eb5;strokeColor=#0b5f88",
+    );
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), {
+      colorByType: TYPE_COLORS,
+      fallback: "#999",
+    });
+    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+
+    expect(touched).toBe(1);
+    expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
+    expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
+  });
+
+  it("REGRESSION #905: leaves a hand-picked fill alone", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
+    );
+    const frame = viewFrame({ a: cell });
+
+    expect(resetViewColors(frame, TYPE_COLORS, "#999")).toBe(0);
+    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
   });
 });
 
@@ -655,6 +1010,9 @@ describe("captureGroupChildLayout — collapse preserves arrangement", () => {
       width: 180,
       height: 50,
       style: "fillColor=#111",
+      // Snapshotted with the geometry: a height restored without the rows that
+      // earned it would be grown a second time by the next display pass.
+      detail: [],
     });
   });
 
@@ -869,6 +1227,20 @@ describe("edge builders all delegate to relationEdgeStyle", () => {
 /*  flowDirection arrowheads — provider vs consumer on an edge (#905)      */
 /* ---------------------------------------------------------------------- */
 
+describe("relationEdgeStyle weight", () => {
+  it("thickens the stroke and boxes the label for a merged connector", () => {
+    const one = relationEdgeStyle({ weight: 1 });
+    expect(one).toContain("strokeWidth=1.5");
+    expect(one).toContain("labelBackgroundColor=#ffffff");
+    const eight = relationEdgeStyle({ weight: 8 });
+    expect(eight).toContain("strokeWidth=4.3");
+    // an ordinary relation line is untouched
+    const plain = relationEdgeStyle();
+    expect(plain).toContain("strokeWidth=1.5");
+    expect(plain).not.toContain("labelBackgroundColor");
+  });
+});
+
 describe("relationEdgeStyle honours a relation's flowDirection", () => {
   const arrows = (style: string) => {
     const parts = style.split(";");
@@ -983,50 +1355,22 @@ describe("flowDirection survives the pending → synced switch", () => {
 /*  expandCardGroup — the edges the + / Expand menu inserts (#905)          */
 /* ---------------------------------------------------------------------- */
 
-/** Fake mxGraph with just enough surface for expandCardGroup's edge output. */
+/** The expanded card on a fake canvas; `cells` omits mxGraph's root and default parent. */
 function expandFrame() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cells: Record<string, any> = {};
-  const root = { id: "__root" };
-  const parent = {
-    id: "parent-cell",
-    value: attrBag({ cardId: "org-1", cardType: "Organization", label: "Nexatech" }),
-  };
-  cells["parent-cell"] = parent;
-  const model = {
-    cells,
-    beginUpdate() {},
-    endUpdate() {},
-    getCell: (id: string) => cells[id] ?? null,
+  const parent = kitCardCell("parent-cell", {
+    cardId: "org-1",
+    cardType: "Organization",
+    label: "Nexatech",
+    geometry: { x: 0, y: 0, width: 180, height: 50 },
+  });
+  const f = fakeIframe({ cells: [parent] });
+  return {
+    iframe: f.iframe,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setValue: (cell: any, v: unknown) => {
-      cell.value = v;
+    get cells(): Record<string, any> {
+      return Object.fromEntries(Object.entries(f.cells).filter(([id]) => id !== "0" && id !== "1"));
     },
   };
-  const graph = {
-    getModel: () => model,
-    getDefaultParent: () => root,
-    getCellGeometry: () => ({ x: 0, y: 0, width: 180, height: 50 }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insertVertex: (_p: any, id: string, obj: any, _x: number, _y: number, _w: number, _h: number, style: string) => {
-      const cell = { id, value: obj, style };
-      cells[id] = cell;
-      return cell;
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insertEdge: (_p: any, id: string, _v: unknown, _s: any, _t: any, style: string) => {
-      const cell = { id, value: null, style, edge: true };
-      cells[id] = cell;
-      return cell;
-    },
-  };
-  const iframe = {
-    contentWindow: {
-      __turboGraph: graph,
-      mxUtils: { createXmlDocument: () => ({ createElement: () => attrBag() }) },
-    },
-  } as unknown as HTMLIFrameElement;
-  return { iframe, cells };
 }
 
 /** One neighbour of the expanded card, related by `relOrgToApp` ("uses"). */
@@ -1086,12 +1430,138 @@ describe("expandCardGroup edges", () => {
     expect(inserted[0].relationLabel).toBe("uses");
   });
 
+  it("draws one edge per relation when a child is reached several times", () => {
+    // The card stays ONE vertex — a second cell with the same cardId would trip
+    // the canvas dedup and unlink one of them — so the extra relation becomes an
+    // extra edge on that vertex.
+    const f = expandFrame();
+    const inserted = expandCardGroup(f.iframe, "parent-cell", [
+      { ...expandChild(false), extraRelations: [
+        { relationType: "relOrgToAppOwns", relationId: "rel-2", relationLabel: "owns" },
+      ] },
+    ]);
+
+    const vertices = Object.values(f.cells).filter((c) => !c.edge && c.id !== "parent-cell");
+    const edges = Object.values(f.cells).filter((c) => c.edge);
+    expect(vertices).toHaveLength(1);
+    expect(edges).toHaveLength(2);
+
+    // Each edge carries its OWN relation id and verb.
+    const stamped = edges.map((e) => [
+      e.value.getAttribute("relationId"),
+      e.value.getAttribute("relationType"),
+      e.value.getAttribute("label"),
+    ]);
+    expect(stamped).toEqual(
+      expect.arrayContaining([
+        ["rel-1", "relOrgToApp", "uses"],
+        ["rel-2", "relOrgToAppOwns", "owns"],
+      ]),
+    );
+    // Distinct cell ids, so neither overwrites the other in the model.
+    expect(new Set(edges.map((e) => e.id)).size).toBe(2);
+
+    // Reported back so the editor can seed its edge → relation side-table for
+    // every edge, not just the first — extras have no other fallback.
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].relationId).toBe("rel-1");
+    expect(inserted[0].extraEdges).toHaveLength(1);
+    expect(inserted[0].extraEdges?.[0].relationId).toBe("rel-2");
+  });
+
+  it("fans parallel edges apart instead of drawing them on top of each other", () => {
+    // The default ER router ignores fixed anchors, so without this both lines
+    // follow the same path and read as one line with two superimposed verbs.
+    const f = expandFrame();
+    expandCardGroup(f.iframe, "parent-cell", [
+      { ...expandChild(false), extraRelations: [
+        { relationType: "relOrgToAppOwns", relationId: "rel-2", relationLabel: "owns" },
+      ] },
+    ]);
+
+    const edges = Object.values(f.cells).filter((c) => c.edge);
+    for (const e of edges) {
+      expect(e.style).toContain("orthogonalEdgeStyle");
+    }
+    // TWO waypoints each, at a matched offset: that is what holds the lines
+    // apart over the middle of the run instead of pinching them back together
+    // at a single mid-point, which is what made a pair easy to miss.
+    for (const e of edges) {
+      expect(e.geometry.points).toHaveLength(2);
+      const [a, b] = e.geometry.points;
+      expect(a.y).toBe(b.y);
+      expect(b.x).toBeGreaterThan(a.x);
+    }
+    const ys = edges.map((e) => e.geometry.points[0].y);
+    expect(new Set(ys).size).toBe(2);
+    expect(Math.abs(ys[0] - ys[1])).toBeGreaterThanOrEqual(30);
+  });
+
+  it("leaves a lone relation on the default router with no waypoint", () => {
+    const f = expandFrame();
+    expandCardGroup(f.iframe, "parent-cell", [expandChild(false)]);
+
+    const edge = Object.values(f.cells).find((c) => c.edge);
+    expect(edge.style).toContain("entityRelationEdgeStyle");
+    expect(edge.geometry.points).toBeNull();
+  });
+
   it("hides the verb on expansion edges when the diagram hides labels", () => {
     const f = expandFrame();
     expandCardGroup(f.iframe, "parent-cell", [expandChild(false)], true);
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.style.split(";")).toContain("noLabel=1");
+  });
+});
+
+describe("fanWaypoints", () => {
+  const win = { mxPoint: class { constructor(public x: number, public y: number) {} } };
+  const box = (x: number, y: number) => ({ x, y, width: 180, height: 50 });
+
+  it("offsets perpendicular to a horizontal run", () => {
+    const pts = fanWaypoints(win, box(0, 0), box(600, 0), 17);
+    expect(pts).toHaveLength(2);
+    // Both points sit on one horizontal line offset from the straight run.
+    expect(pts[0].y).toBe(25 + 17);
+    expect(pts[1].y).toBe(25 + 17);
+    expect(pts[1].x).toBeGreaterThan(pts[0].x);
+  });
+
+  it("offsets perpendicular to a VERTICAL run", () => {
+    // The bug this guards: always offsetting in y moves a stacked pair's lines
+    // along the same corridor, separating them by nothing at all.
+    const pts = fanWaypoints(win, box(0, 0), box(0, 600), 17);
+    expect(pts).toHaveLength(2);
+    expect(pts[0].x).toBe(90 + 17);
+    expect(pts[1].x).toBe(90 + 17);
+    expect(pts[1].y).toBeGreaterThan(pts[0].y);
+  });
+
+  it("holds the corridor over the middle half of the run", () => {
+    const pts = fanWaypoints(win, box(0, 0), box(800, 0), 0);
+    // Centres 800 apart: split off at 25% and rejoin at 75%.
+    expect(pts[0].x).toBe(290);
+    expect(pts[1].x).toBe(690);
+  });
+
+  it("falls back to a single point when the cards are too close to route", () => {
+    const pts = fanWaypoints(win, box(0, 0), box(40, 0), 17);
+    expect(pts).toHaveLength(1);
+    expect(pts[0].y).toBe(25 + 17);
+  });
+
+  it("mirrors the offset for the opposite side of the fan", () => {
+    const up = fanWaypoints(win, box(0, 0), box(600, 0), 17);
+    const down = fanWaypoints(win, box(0, 0), box(600, 0), -17);
+    expect(up[0].x).toBe(down[0].x);
+    expect(up[0].y - 25).toBe(-(down[0].y - 25));
+  });
+
+  it("routes a run that is diagonal-but-mostly-vertical on the vertical plan", () => {
+    const pts = fanWaypoints(win, box(0, 0), box(100, 600), 17);
+    expect(pts[0].x).toBe(pts[1].x);
+    expect(pts[0].y).not.toBe(pts[1].y);
   });
 });
 
@@ -1146,6 +1616,35 @@ describe("scanDiagramItems — synced children", () => {
       { cellId: "child", cardId: "id-child", name: "Child", type: "Application" },
     ]);
     expect(scan.pendingCards).toHaveLength(1);
+  });
+
+  it("counts a card exported inside a group box as a top-level synced card", () => {
+    // `groupChild` marks a container child for the editor's sizing and
+    // paste rules; it is not an expansion child, so the sync and the stale
+    // check see it like any other card on the canvas.
+    const frame = scanFrame({
+      member: scanVertex("member", {
+        cardId: "id-member",
+        cardType: "Application",
+        label: "Member",
+        groupChild: "1",
+      }),
+    });
+    const scan = scanDiagramItems(frame);
+    expect(scan.syncedFS).toEqual([
+      { cellId: "member", cardId: "id-member", name: "Member", type: "Application" },
+    ]);
+    expect(scan.syncedChildren).toEqual([]);
+  });
+
+  it("ignores a merged connector: a bare edge is neither a pending nor a synced relation", () => {
+    const frame = scanFrame({
+      a: scanVertex("a", { cardId: "id-a", cardType: "Application", label: "A" }),
+      connector: { id: "connector-0", edge: true, value: "reads · 3", source: { id: "a" }, target: { id: "a" } },
+    });
+    const scan = scanDiagramItems(frame);
+    expect(scan.pendingRels).toEqual([]);
+    expect(scan.syncedFS).toHaveLength(1);
   });
 });
 
@@ -1275,5 +1774,1183 @@ describe("applyEdgeFlowDirection", () => {
   it("returns false for an unknown edge cell", () => {
     const { iframe } = flowFrame(attrBag({}));
     expect(applyEdgeFlowDirection(iframe, "nope", "forward", false)).toBe(false);
+  });
+});
+
+
+/* ------------------------------------------------------------------ */
+/*  Card labels — one renderer, one reader                             */
+/* ------------------------------------------------------------------ */
+
+describe("composeCardLabel", () => {
+  it("returns the bare name when there are no detail lines", () => {
+    // The backwards-compatibility guarantee: an untouched diagram is untouched.
+    expect(composeCardLabel("NexaCore ERP")).toBe("NexaCore ERP");
+    expect(composeCardLabel("NexaCore ERP", [])).toBe("NexaCore ERP");
+  });
+
+  it("HTML-escapes the name in both the bare and the composed form", () => {
+    expect(composeCardLabel('R&D <x> "q"')).toBe("R&amp;D &lt;x&gt; &quot;q&quot;");
+    const composed = composeCardLabel('R&D <x>', [{ label: "Type", value: "App" }]);
+    expect(composed).toContain("<b>R&amp;D &lt;x&gt;</b>");
+    // The only raw markup is ours.
+    expect(composed).not.toContain("<x>");
+  });
+
+  it("escapes field labels and values so an attribute cannot inject markup", () => {
+    const composed = composeCardLabel("App", [
+      { label: "Owner", value: '<img src=x onerror=alert(1)>' },
+    ]);
+    expect(composed).not.toContain("<img");
+    expect(composed).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+
+  it("renders detail rows unbolded — the card style bolds the whole label", () => {
+    const composed = composeCardLabel("App", [{ label: "Type", value: "Application" }]);
+    expect(composed).toContain("font-weight:normal");
+    expect(composed).toContain("Type: Application");
+  });
+
+  it("renders every row it is given — the cell grows, the label is not clipped", () => {
+    const lines: CardDetailLine[] = [
+      { label: "A", value: "1" },
+      { label: "B", value: "2" },
+      { label: "C", value: "3" },
+      { label: "D", value: "4" },
+    ];
+    const composed = composeCardLabel("App", lines);
+    expect(composed.match(/<div/g)).toHaveLength(4);
+    expect(composed).toContain("C: 3");
+    expect(composed).toContain("D: 4");
+  });
+});
+
+describe("readCardName", () => {
+  it("prefers cardName over a composed label", () => {
+    const v = attrBag({
+      cardName: "NexaCore ERP",
+      label: composeCardLabel("NexaCore ERP", [{ label: "Type", value: "Application" }]),
+    });
+    expect(readCardName(v)).toBe("NexaCore ERP");
+  });
+
+  it("falls back to label for a cell created before cardName existed", () => {
+    expect(readCardName(attrBag({ label: "Legacy Card" }))).toBe("Legacy Card");
+  });
+
+  it("handles plain string values and empty cells", () => {
+    expect(readCardName("Plain Shape")).toBe("Plain Shape");
+    expect(readCardName(null)).toBe("");
+    expect(readCardName(attrBag({}))).toBe("");
+  });
+});
+
+describe("detail rows are carried as data, not as markup", () => {
+  it("stamps the rows alongside the rendered label, and reads them back", () => {
+    const bag = attrBag({});
+    const lines = [{ label: "Type", value: "Application" }];
+    setCardLabel(bag, "NexaCore ERP", lines);
+    expect(readCardName(bag)).toBe("NexaCore ERP");
+    expect(readCardDetail(bag)).toEqual(lines);
+  });
+
+  it("clears the rows when a card is composed without any", () => {
+    const bag = attrBag({});
+    setCardLabel(bag, "App", [{ label: "Type", value: "Application" }]);
+    setCardLabel(bag, "App", []);
+    expect(readCardDetail(bag)).toEqual([]);
+    expect(bag.getAttribute("label")).toBe("App");
+  });
+
+  it("never re-emits markup from a hand-edited label", () => {
+    // A label is hand-editable, so anything spliced out of one and into
+    // another is user input. Recomposition goes through the stored rows.
+    const bag = attrBag({
+      cardName: "App",
+      cardDetail: JSON.stringify([{ label: "Owner", value: "Alice" }]),
+      label: '<b>App</b><div onmouseover="steal()">Owner: Alice</div>',
+    });
+    setCardLabel(bag, "Renamed", readCardDetail(bag));
+    expect(bag.getAttribute("label")).not.toContain("onmouseover");
+    expect(bag.getAttribute("label")).toContain("Owner: Alice");
+  });
+
+  it("ignores a cardDetail attribute that was tampered with by hand", () => {
+    expect(readCardDetail(attrBag({ cardDetail: "not json" }))).toEqual([]);
+    expect(readCardDetail(attrBag({ cardDetail: '{"not":"an array"}' }))).toEqual([]);
+    expect(readCardDetail(attrBag({ cardDetail: '[{"label":1,"value":2}]' }))).toEqual([]);
+  });
+});
+
+describe("firstLineText", () => {
+  it("recovers the typed name from a hand-edited label, dropping the rows", () => {
+    const edited = '<b>Payment GW</b><div style="font-size:9px">Type: Application</div>';
+    expect(firstLineText(edited)).toBe("Payment GW");
+    expect(firstLineText("R&amp;D")).toBe("R&D");
+    expect(firstLineText("Plain")).toBe("Plain");
+  });
+
+  it("joins a multi-line hand-typed name", () => {
+    expect(firstLineText("Line one<br>Line two")).toBe("Line one Line two");
+  });
+
+  it("is not fooled by markup a strip-tags regex would let through", () => {
+    // `<[^>]*>` — the pattern this replaced — stops at the first `>`, so it
+    // leaks `">Payment` out of the attribute, and cannot skip a comment.
+    expect(firstLineText('<b title="a>b">Payment</b>')).toBe("Payment");
+    expect(firstLineText("<!-- <b> -->Payment")).toBe("Payment");
+  });
+});
+
+/** The label-apply passes on a fake canvas: `cells` carry an XML attribute bag and a geometry. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function labelFrame(cells: Record<string, any>) {
+  return fakeIframe({ cells: Object.values(cells) }).iframe;
+}
+
+/** A vertex for the label-apply passes; no `geo` means no geometry. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function labelVertex(id: string, attrs: Record<string, string>, geo?: Geo): any {
+  return kitPlainCell(id, { value: xmlAttrBag(attrs), style: "", geometry: geo ? { ...geo } : null });
+}
+
+const TOP_GEO: Geo = { x: 0, y: 0, width: 210, height: 60 };
+
+describe("applyCardLabels", () => {
+  const lines = new Map<string, CardDetailLine[]>([
+    ["id-top", [{ label: "Type", value: "Application" }]],
+    ["id-child", [{ label: "Type", value: "Application" }]],
+    ["id-dd", [{ label: "Type", value: "Application" }]],
+    ["id-ru", [{ label: "Type", value: "Application" }]],
+  ]);
+
+  function canvas() {
+    return {
+      top: labelVertex(
+        "top",
+        { cardId: "id-top", cardType: "Application", label: "Top", cardName: "Top" },
+        TOP_GEO,
+      ),
+      child: labelVertex(
+        "child",
+        {
+          cardId: "id-child",
+          cardType: "Application",
+          label: "Child",
+          cardName: "Child",
+          parentGroupCell: "top",
+        },
+        { x: 0, y: 0, width: 190, height: 40 },
+      ),
+      drilled: labelVertex(
+        "drilled",
+        {
+          cardId: "id-dd",
+          cardType: "Application",
+          label: "Drilled",
+          cardName: "Drilled",
+          drillDownChild: "1",
+        },
+        { x: 0, y: 0, width: 180, height: 50 },
+      ),
+      rolled: labelVertex(
+        "rolled",
+        {
+          cardId: "id-ru",
+          cardType: "Application",
+          label: "Rolled",
+          cardName: "Rolled",
+          rollUpChild: "1",
+        },
+        { x: 0, y: 0, width: 180, height: 50 },
+      ),
+      pending: labelVertex(
+        "pending",
+        {
+          cardId: "pending-x",
+          cardType: "Application",
+          label: "Draft",
+          cardName: "Draft",
+        },
+        TOP_GEO,
+      ),
+      plain: labelVertex("plain", { label: "Just a box" }, TOP_GEO),
+    };
+  }
+
+  it("composes every card-bound cell, nested ones included", () => {
+    const cells = canvas();
+    const touched = applyCardLabels(labelFrame(cells), lines);
+    expect(touched).toBe(4);
+    expect(cells.top.value.getAttribute("label")).toContain("Type: Application");
+    // The bug: a card pulled in with `+` used to keep a bare name.
+    expect(cells.child.value.getAttribute("label")).toContain("Type: Application");
+    expect(cells.drilled.value.getAttribute("label")).toContain("Type: Application");
+    expect(cells.rolled.value.getAttribute("label")).toContain("Type: Application");
+    // A pending cell's name is POSTed verbatim on sync — never compose it.
+    expect(cells.pending.value.getAttribute("label")).toBe("Draft");
+    expect(cells.plain.value.getAttribute("label")).toBe("Just a box");
+  });
+
+  it("is idempotent — a second identical pass touches nothing", () => {
+    const frame = labelFrame(canvas());
+    expect(applyCardLabels(frame, lines)).toBe(4);
+    expect(applyCardLabels(frame, lines)).toBe(0);
+  });
+
+  it("adopts a legacy cell that predates cardName, recovering the plain name", () => {
+    const cells = {
+      old: labelVertex(
+        "old",
+        {
+          cardId: "id-top",
+          cardType: "Application",
+          // No `cardName`, and the user had hand-bolded the label in DrawIO.
+          label: "<b>Top</b>",
+        },
+        TOP_GEO,
+      ),
+    };
+    applyCardLabels(labelFrame(cells), lines);
+    expect(cells.old.value.getAttribute("cardName")).toBe("Top");
+    expect(cells.old.value.getAttribute("label")).toContain("Type: Application");
+  });
+
+  it("resets a card to its bare name when its fields are turned off", () => {
+    const cells = canvas();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, lines);
+    expect(applyCardLabels(frame, new Map())).toBe(4);
+    expect(cells.top.value.getAttribute("label")).toBe("Top");
+    expect(cells.top.value.getAttribute("cardName")).toBe("Top");
+  });
+});
+
+describe("applyCardLabels — the cell grows to hold its rows", () => {
+  const rows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ label: `L${i}`, value: `${i}` }));
+
+  function cardCanvas(geo: Geo = TOP_GEO, extra: Record<string, string> = {}) {
+    return {
+      top: labelVertex(
+        "top",
+        { cardId: "id-top", cardType: "Application", label: "Top", cardName: "Top", ...extra },
+        geo,
+      ),
+    };
+  }
+
+  it("leaves a full card at its own height for the two rows it was sized for", () => {
+    // 210x60 always held the name plus two small rows — that is what the old
+    // cap was measuring. Ticking two fields must not resize a single card on
+    // any diagram that already exists.
+    const cells = cardCanvas();
+    applyCardLabels(labelFrame(cells), new Map([["id-top", rows(2)]]));
+    expect(cells.top.geometry.height).toBe(60);
+  });
+
+  it("grows by one row-height per row past that, and shrinks all the way back", () => {
+    const cells = cardCanvas();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, new Map([["id-top", rows(5)]]));
+    expect(cells.top.geometry.height).toBe(60 + 3 * CARD_DETAIL_LINE_H);
+    applyCardLabels(frame, new Map());
+    expect(cells.top.geometry.height).toBe(60);
+  });
+
+  it("grows an expanded child from its own smaller base", () => {
+    const cells = {
+      child: labelVertex(
+        "child",
+        {
+          cardId: "id-child",
+          cardType: "Application",
+          label: "Child",
+          cardName: "Child",
+          parentGroupCell: "top",
+        },
+        { x: 0, y: 0, width: 190, height: 40 },
+      ),
+    };
+    applyCardLabels(labelFrame(cells), new Map([["id-child", rows(5)]]));
+    expect(cells.child.geometry.height).toBe(40 + 3 * CARD_DETAIL_LINE_H);
+  });
+
+  it("stops a container child at what fits, rather than pushing it out of its grid", () => {
+    // Drill-down / roll-up children are tiled into fixed slots inside a
+    // swimlane: a taller cell would overlap the row beneath it.
+    const cells = {
+      dd: labelVertex(
+        "dd",
+        {
+          cardId: "id-dd",
+          cardType: "Application",
+          label: "Drilled",
+          cardName: "Drilled",
+          drillDownChild: "1",
+        },
+        { x: 0, y: 0, width: 180, height: 50 },
+      ),
+    };
+    applyCardLabels(labelFrame(cells), new Map([["id-dd", rows(5)]]));
+    expect(cells.dd.geometry.height).toBe(50);
+    const label = cells.dd.value.getAttribute("label");
+    expect(label.match(/<div/g)).toHaveLength(2);
+  });
+
+  it("moves by the delta, so a height the user dragged is preserved", () => {
+    // The user made the card taller by hand while three rows were showing.
+    const cells = cardCanvas({ x: 0, y: 0, width: 210, height: 200 }, {
+      cardDetail: JSON.stringify(rows(3)),
+    });
+    applyCardLabels(labelFrame(cells), new Map([["id-top", rows(4)]]));
+    expect(cells.top.geometry.height).toBe(200 + CARD_DETAIL_LINE_H);
+  });
+
+  it("floors an undersized cell whose stored rows never fitted", () => {
+    // What a diagram generated by the Layered Dependency View before card
+    // cells could grow looks like: every row stored, a fixed 72px box.
+    const cells = cardCanvas({ x: 0, y: 0, width: 210, height: 72 }, {
+      cardDetail: JSON.stringify(rows(4)),
+    });
+    applyCardLabels(labelFrame(cells), new Map([["id-top", rows(5)]]));
+    expect(cells.top.geometry.height).toBe(60 + 3 * CARD_DETAIL_LINE_H);
+  });
+
+  it("leaves the geometry alone when the row count has not changed", () => {
+    const cells = cardCanvas();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, new Map([["id-top", rows(4)]]));
+    const grown = cells.top.geometry.height;
+    applyCardLabels(
+      frame,
+      new Map([["id-top", rows(4).map((r) => ({ ...r, value: "changed" }))]]),
+    );
+    expect(cells.top.geometry.height).toBe(grown);
+  });
+});
+
+describe("applyCardLabels — a container's header holds its rows", () => {
+  const rows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ label: `L${i}`, value: `${i}` }));
+
+  const SWIMLANE = "shape=swimlane;startSize=28;fillColor=#0f7eb5";
+
+  /** A drilled-down card: a swimlane header over a 3-wide grid of children. */
+  function container(style = SWIMLANE, stored: number = 0) {
+    const child = labelVertex(
+      "kid",
+      {
+        cardId: "id-kid",
+        cardType: "Application",
+        label: "Kid",
+        cardName: "Kid",
+        drillDownChild: "1",
+      },
+      { x: 12, y: 40, width: 180, height: 50 },
+    );
+    const box = labelVertex(
+      "box",
+      {
+        cardId: "id-box",
+        cardType: "Application",
+        label: "Box",
+        cardName: "Box",
+        ...(stored ? { cardDetail: JSON.stringify(rows(stored)) } : {}),
+      },
+      { x: 0, y: 0, width: 320, height: 220 },
+    );
+    box._style = style;
+    box.children = [child];
+    return { box, kid: child };
+  }
+
+  const startSizeOf = (style: string) =>
+    Number(/startSize=(\d+)/.exec(style)?.[1] ?? NaN);
+
+  it("grows the strip, the box and the children together", () => {
+    const cells = container();
+    applyCardLabels(labelFrame(cells), new Map([["id-box", rows(3)]]));
+    // No free allowance on a strip drawn for the name alone.
+    expect(startSizeOf(cells.box._style)).toBe(28 + 3 * CARD_DETAIL_LINE_H);
+    expect(cells.box.geometry.height).toBe(220 + 3 * CARD_DETAIL_LINE_H);
+    // Without this the top grid row would sit under the header.
+    expect(cells.kid.geometry.y).toBe(40 + 3 * CARD_DETAIL_LINE_H);
+  });
+
+  it("puts all three back when the fields are turned off", () => {
+    const cells = container();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, new Map([["id-box", rows(3)]]));
+    applyCardLabels(frame, new Map());
+    expect(startSizeOf(cells.box._style)).toBe(28);
+    expect(cells.box.geometry.height).toBe(220);
+    expect(cells.kid.geometry.y).toBe(40);
+  });
+
+  it("leaves a container with no rows exactly as it found it", () => {
+    const cells = container();
+    applyCardLabels(labelFrame(cells), new Map());
+    expect(cells.box._style).toBe(SWIMLANE);
+    expect(cells.box.geometry.height).toBe(220);
+    expect(cells.kid.geometry.y).toBe(40);
+  });
+
+  it("grows a header the user dragged from their size, not from the default", () => {
+    const cells = container("shape=swimlane;startSize=44;fillColor=#0f7eb5");
+    applyCardLabels(labelFrame(cells), new Map([["id-box", rows(1)]]));
+    expect(startSizeOf(cells.box._style)).toBe(44 + CARD_DETAIL_LINE_H);
+  });
+
+  it("does not drift when the same pass runs again", () => {
+    const cells = container();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, new Map([["id-box", rows(3)]]));
+    const style = cells.box._style;
+    const { height } = cells.box.geometry;
+    const { y } = cells.kid.geometry;
+    expect(applyCardLabels(frame, new Map([["id-box", rows(3)]]))).toBe(0);
+    expect(cells.box._style).toBe(style);
+    expect(cells.box.geometry.height).toBe(height);
+    expect(cells.kid.geometry.y).toBe(y);
+  });
+
+  it("takes the room out of the header, never out of the body", () => {
+    // The card path would have grown the cell height and left the strip at 28,
+    // spilling the rows over the children.
+    const cells = container();
+    applyCardLabels(labelFrame(cells), new Map([["id-box", rows(4)]]));
+    const grown = startSizeOf(cells.box._style) - 28;
+    expect(cells.box.geometry.height - 220).toBe(grown);
+  });
+});
+
+describe("normaliseEditedCardLabel", () => {
+  it("re-syncs cardName after a hand-typed (F2) rename", () => {
+    const cells = {
+      top: labelVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        cardName: "Old Name",
+        cardDetail: JSON.stringify([{ label: "Type", value: "Application" }]),
+        // What DrawIO leaves behind after an in-place edit: only `label` moved.
+        label: "<b>Hand Typed</b><div style=\"font-size:9px\">Type: Application</div>",
+      }),
+    };
+    const name = normaliseEditedCardLabel(labelFrame(cells), "top");
+    expect(name).toBe("Hand Typed");
+    expect(cells.top.value.getAttribute("cardName")).toBe("Hand Typed");
+    // The rows are re-rendered from the stored data, not lifted out of the
+    // markup the user just edited.
+    expect(cells.top.value.getAttribute("label")).toContain("Type: Application");
+  });
+
+  it("keeps the typed name on a cell that carries no stored rows", () => {
+    // A cell composed before the rows became data. The name is what matters;
+    // the rows come back on the next display pass, which renders from the
+    // card record rather than from the cell.
+    const cells = {
+      top: labelVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        cardName: "Old Name",
+        label: "<b>Hand Typed</b><div>Type: Application</div>",
+      }),
+    };
+    expect(normaliseEditedCardLabel(labelFrame(cells), "top")).toBe("Hand Typed");
+    expect(cells.top.value.getAttribute("label")).toBe("Hand Typed");
+  });
+
+  it("ignores cells that are not card cells", () => {
+    const cells = { plain: labelVertex("plain", { label: "Just a box" }) };
+    expect(normaliseEditedCardLabel(labelFrame(cells), "plain")).toBeNull();
+  });
+});
+
+describe("scanDiagramItems — composed labels", () => {
+  it("reports the plain name, never the composed HTML", () => {
+    const frame = scanFrame({
+      top: scanVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        cardName: "NexaCore ERP",
+        label: composeCardLabel("NexaCore ERP", [{ label: "Type", value: "Application" }]),
+      }),
+    });
+    // This is what staleCheck diffs against the inventory — HTML here would
+    // flag every card on every diagram as renamed.
+    expect(scanDiagramItems(frame).syncedFS[0].name).toBe("NexaCore ERP");
+  });
+
+  it("keeps a pending card's name safe to POST verbatim", () => {
+    const frame = scanFrame({
+      p: scanVertex("p", {
+        cardId: "pending-x",
+        cardType: "Application",
+        cardName: "Draft App",
+        label: "Draft App",
+        pending: "1",
+      }),
+    });
+    expect(scanDiagramItems(frame).pendingCards[0].name).toBe("Draft App");
+  });
+});
+
+describe("unlinking collapses the detail rows", () => {
+  // Three rows: the first two ride free in a 210x60 card, the third grew it.
+  const rows = [
+    { label: "Owner", value: "Alice" },
+    { label: "Tier", value: "Gold" },
+    { label: "Hosting", value: "SaaS" },
+  ];
+
+  function linkedCell() {
+    return labelVertex(
+      "c1",
+      {
+        cardId: "id-1",
+        cardType: "Application",
+        cardName: "NexaCore ERP",
+        cardDetail: JSON.stringify(rows),
+        label: composeCardLabel("NexaCore ERP", rows),
+      },
+      { x: 0, y: 0, width: 210, height: 60 + CARD_DETAIL_LINE_H },
+    );
+  }
+
+  it("unlinkCell drops the rows a stub no longer has data for", () => {
+    const cells = { c1: linkedCell() };
+    const frame = labelFrame(cells);
+    expect(unlinkCell(frame, "c1")).toBe("id-1");
+    expect(cells.c1.value.getAttribute("label")).toBe("NexaCore ERP");
+    expect(cells.c1.value.getAttribute("cardId")).toBeNull();
+    // The label pass skips a cell with no cardId, so if unlink doesn't give the
+    // row's height back nothing ever will.
+    expect(cells.c1.geometry.height).toBe(60);
+  });
+
+  it("dedupClonedCell does the same for a pasted copy", () => {
+    const cells = { c1: linkedCell() };
+    const frame = labelFrame(cells);
+    expect(dedupClonedCell(frame, "c1", false)).toEqual({ mode: "unlinked" });
+    expect(cells.c1.value.getAttribute("label")).toBe("NexaCore ERP");
+    expect(cells.c1.geometry.height).toBe(60);
+  });
+});
+
+describe("buildLdvDiagramXml — detail lines carried from the report", () => {
+  const layers: DiagramLayerInput[] = [];
+  const rels: DiagramRelInput[] = [];
+
+  it("emits the composed label plus a cardName stamp", () => {
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "11111111-1111-1111-1111-111111111111",
+          cardType: "Application",
+          name: "NexaCore ERP",
+          color: "#0f7eb5",
+          detailLines: [{ label: "Type", value: "Application" }],
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    expect(xml).toContain('cardName="NexaCore ERP"');
+    // HTML-escaped by composeCardLabel, then XML-escaped for the attribute.
+    expect(xml).toContain("&lt;b&gt;NexaCore ERP&lt;/b&gt;");
+    expect(xml).toContain("Type: Application");
+  });
+
+  it("sizes the cell to the rows it carries, not to the report's node box", () => {
+    // The report draws at most two rows in a fixed 72px node but exports every
+    // row the reader ticked, so its own height cannot hold them.
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "44444444-4444-4444-4444-444444444444",
+          cardType: "Application",
+          name: "NexaCore ERP",
+          color: "#0f7eb5",
+          detailLines: [
+            { label: "A", value: "1" },
+            { label: "B", value: "2" },
+            { label: "C", value: "3" },
+            { label: "D", value: "4" },
+          ],
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    expect(xml).toContain(`height="${60 + 2 * CARD_DETAIL_LINE_H}"`);
+  });
+
+  it("double-escapes an ampersand exactly once each way", () => {
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "22222222-2222-2222-2222-222222222222",
+          cardType: "Application",
+          name: "R&D Portal",
+          color: "#0f7eb5",
+          detailLines: [{ label: "Owner", value: "A & B" }],
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    // Parsing the attribute yields `&amp;`, which renders under html=1 as `&`.
+    expect(xml).toContain("&amp;amp;D Portal");
+    expect(xml).toContain('cardName="R&amp;D Portal"');
+  });
+
+  it("keeps emitting a bare name when the report showed no extra rows", () => {
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "33333333-3333-3333-3333-333333333333",
+          cardType: "Application",
+          name: "Plain App",
+          color: "#0f7eb5",
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    expect(xml).toContain('label="Plain App"');
+  });
+});
+
+describe("applyCardLogos — a card's own logo on the canvas", () => {
+  const PLAIN =
+    "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5;fontColor=#ffffff;strokeColor=#0a5a82";
+  const iconByType = new Map([["Application", "apps"]]);
+  // What `composeCardLogoImage` produces: a percent-encoded (never base64)
+  // PNG data URI, so it carries no `;` or `=` of its own.
+  const LOGO = "data:image/png,%89PNG%0D%0A%1A%0Aabc";
+
+  function logoCell(cardId: string | null, cardType: string, style: string, edge = false) {
+    return {
+      _style: style,
+      edge,
+      value: {
+        getAttribute: (k: string) =>
+          k === "cardType" ? cardType : k === "cardId" ? cardId : null,
+      },
+    };
+  }
+
+  it("puts the logo in the image slot of a plain card cell", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const { painted } = applyCardLogos(fakeFrame(cells), logos({ "card-1": LOGO }), iconByType);
+    expect(painted).toBe(1);
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+    expect(cells.c1._style).toContain("shape=label");
+    expect(cells.c1._style).toContain("fillColor=#0f7eb5");
+  });
+
+  it("keeps the style parseable as `;`-delimited key=value pairs", () => {
+    // The whole reason the composed image is percent-encoded rather than
+    // base64: a raw `;` or `=` in the data URI would truncate the token and
+    // corrupt every style part after it — including this file's own helpers,
+    // which split on `;`.
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    applyCardLogos(fakeFrame(cells), logos({ "card-1": LOGO }), iconByType);
+    const parts = cells.c1._style.split(";").filter(Boolean);
+    expect(parts.filter((p) => p.startsWith("image=")).length).toBe(1);
+    for (const p of parts) expect(p).toMatch(/^[^;]+=[^;]*$/);
+  });
+
+  it("restores the card-type icon when the logo goes away", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const frame = fakeFrame(cells);
+    applyCardTypeIcons(frame, iconByType); // the cell starts with a type icon
+    applyCardLogos(frame, logos({ "card-1": LOGO }), iconByType);
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+
+    const { restored } = applyCardLogos(frame, logos({}), iconByType);
+    expect(restored).toBe(1);
+    expect(cells.c1._style).toContain("image=data:image/svg+xml,");
+    expect(cells.c1._style).not.toContain("turboLogo=");
+  });
+
+  it("gives no icon back to a cell that never had one", () => {
+    // A diagram drawn before card icons existed must come out of a logo exactly
+    // as it went in — this pass owns the slot it took, and nothing else.
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const frame = fakeFrame(cells);
+    applyCardLogos(frame, logos({ "card-1": LOGO }), iconByType);
+    applyCardLogos(frame, logos({}), iconByType);
+    expect(cells.c1._style).not.toContain("shape=label");
+    expect(cells.c1._style).not.toContain("image=");
+    expect(cells.c1._style).toContain("fillColor=#0f7eb5");
+  });
+
+  it("leaves an untouched card alone rather than imposing an icon on it", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const { painted, restored } = applyCardLogos(fakeFrame(cells), logos({}), iconByType);
+    expect({ painted, restored }).toEqual({ painted: 0, restored: 0 });
+    expect(cells.c1._style).toBe(PLAIN);
+  });
+
+  it("is idempotent, and never re-stamps its own logo as the base", () => {
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    const frame = fakeFrame(cells);
+    applyCardTypeIcons(frame, iconByType);
+    applyCardLogos(frame, logos({ "card-1": LOGO }), iconByType);
+    const after = cells.c1._style;
+    applyCardLogos(frame, logos({ "card-1": LOGO }), iconByType);
+    expect(cells.c1._style).toBe(after);
+    expect(cells.c1._style.match(/turboLogo=/g)?.length).toBe(1);
+    // Re-stamping would have recorded "icon" as "icon" over our own image and
+    // the restore below would hand back the logo instead of the glyph.
+    applyCardLogos(frame, logos({}), iconByType);
+    expect(cells.c1._style).toContain("image=data:image/svg+xml,");
+  });
+
+  it("skips swimlanes, edges and pending cards", () => {
+    const cells = {
+      lane: logoCell("card-1", "Application", "shape=swimlane;startSize=28"),
+      edge: logoCell("card-1", "Application", "edgeStyle=entityRelationEdgeStyle", true),
+      pending: logoCell("pending-xyz", "Application", PLAIN),
+    };
+    const { painted } = applyCardLogos(
+      fakeFrame(cells),
+      logos({ "card-1": LOGO, "pending-xyz": LOGO }),
+      iconByType,
+    );
+    expect(painted).toBe(0);
+  });
+});
+
+describe("applyCardTypeIcons — with logos on the canvas", () => {
+  const PLAIN = "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5";
+  const iconByType = new Map([["Application", "apps"]]);
+  const LOGO = "data:image/png,%89PNG%1A";
+
+  function logoCell(cardId: string, cardType: string, style: string) {
+    return {
+      _style: style,
+      value: {
+        getAttribute: (k: string) =>
+          k === "cardType" ? cardType : k === "cardId" ? cardId : null,
+      },
+    };
+  }
+
+  it("does not replace a card's logo with a generic type glyph", () => {
+    // This action strips the whole image family and rebuilds it, so without
+    // the logo map it would silently wipe every logo on the canvas.
+    const cells = { c1: logoCell("card-1", "Application", PLAIN) };
+    applyCardTypeIcons(fakeFrame(cells), iconByType, logos({ "card-1": LOGO }));
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+    expect(cells.c1._style).not.toContain("image=data:image/svg+xml,");
+  });
+
+  it("still icons the cards that have no logo", () => {
+    const cells = {
+      c1: logoCell("card-1", "Application", PLAIN),
+      c2: logoCell("card-2", "Application", PLAIN),
+    };
+    applyCardTypeIcons(fakeFrame(cells), iconByType, logos({ "card-1": LOGO }));
+    expect(cells.c1._style).toContain(`image=${LOGO}`);
+    expect(cells.c2._style).toContain("image=data:image/svg+xml,");
+  });
+});
+
+describe("applyCardLogosToXml — logos for the read-only viewer", () => {
+  const LOGO = "data:image/png,%89PNG%1A";
+  // The shape the editor actually saves: the cardId lives on the user object
+  // wrapping the cell, not on the cell itself.
+  const xml = (style: string, cardId = "card-1") =>
+    `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>` +
+    `<object label="NexaCore" cardId="${cardId}" cardType="Application" id="c1">` +
+    `<mxCell style="${style}" vertex="1" parent="1">` +
+    `<mxGeometry x="0" y="0" width="210" height="60" as="geometry"/>` +
+    `</mxCell></object></root></mxGraphModel>`;
+
+  const PLAIN = "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5";
+
+  it("writes the logo into the stored style", () => {
+    const out = applyCardLogosToXml(xml(PLAIN), logos({ "card-1": LOGO }));
+    expect(out).toContain(`image=${LOGO}`);
+    expect(out).toContain("shape=label");
+    expect(out).toContain("fillColor=#0f7eb5");
+  });
+
+  it("leaves a diagram untouched when no card on it has a logo", () => {
+    // Byte-for-byte: the viewer renders the stored document unless there is
+    // something to add, so an unrelated diagram cannot be perturbed.
+    const original = xml(PLAIN);
+    expect(applyCardLogosToXml(original, logos({}))).toBe(original);
+    expect(applyCardLogosToXml(original, logos({ other: LOGO }))).toBe(original);
+  });
+
+  it("preserves shapes the user chose", () => {
+    const swim = "shape=swimlane;startSize=28;fillColor=#0f7eb5";
+    const out = applyCardLogosToXml(xml(swim), logos({ "card-1": LOGO }));
+    expect(out).toContain(swim);
+    expect(out).not.toContain("image=");
+  });
+
+  it("returns the input unchanged rather than throwing on unparseable XML", () => {
+    // A viewer must never fail to render because a logo could not be drawn.
+    const junk = "<mxGraphModel><root><broken";
+    expect(applyCardLogosToXml(junk, logos({ "card-1": LOGO }))).toBe(junk);
+  });
+
+  it("keeps the result parseable as `;`-delimited style pairs", () => {
+    const out = applyCardLogosToXml(xml(PLAIN), logos({ "card-1": LOGO }));
+    const style = out.match(/style="([^"]*)"/)?.[1] ?? "";
+    expect(style).not.toBe("");
+    for (const part of style.split(";").filter(Boolean)) {
+      expect(part).toMatch(/^[^;]+=[^;]*$/);
+    }
+  });
+});
+
+describe("iconStyleParts sizing — logo versus bare type icon", () => {
+  const LOGO = "data:image/svg+xml,%3Csvg%3E";
+  const cellStyle = (style: string, cardId = "card-1") => ({
+    _style: style,
+    value: {
+      getAttribute: (k: string) =>
+        k === "cardType" ? "Application" : k === "cardId" ? cardId : null,
+    },
+  });
+  const read = (style: string, key: string) =>
+    Number(style.split(";").find((p) => p.startsWith(`${key}=`))?.split("=")[1]);
+
+  it("gives a logo an image the size of the card, and a bare glyph a small one", () => {
+    // A `shape=label` cell has one image slot, so the ONLY way to put the type
+    // glyph in the card's own top-right corner is for the image to be the
+    // card. A card with no logo keeps the small corner glyph it always had.
+    const withLogo = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardLogos(fakeFrame(withLogo), logos({ "card-1": LOGO }), new Map());
+
+    const bare = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardTypeIcons(fakeFrame(bare), new Map([["Application", "apps"]]));
+
+    expect(read(withLogo.c1._style, "imageWidth")).toBe(210);
+    expect(read(withLogo.c1._style, "imageHeight")).toBe(CARD_BASE_H);
+    expect(read(bare.c1._style, "imageWidth")).toBe(18);
+  });
+
+  it("centres the card name on the card, not on what is left beside the image", () => {
+    // `spacingLeft` alone centres the label in the REMAINING width, so a left
+    // gutter silently pushes the name right of true centre by half the gutter.
+    // Symmetric gutters are what put it back.
+    for (const cells of [
+      (() => {
+        const c = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+        applyCardLogos(fakeFrame(c), logos({ "card-1": LOGO }), new Map());
+        return c;
+      })(),
+      (() => {
+        const c = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+        applyCardTypeIcons(fakeFrame(c), new Map([["Application", "apps"]]));
+        return c;
+      })(),
+    ]) {
+      const style = cells.c1._style;
+      expect(read(style, "spacingRight")).toBe(read(style, "spacingLeft"));
+    }
+  });
+
+  it("keeps the label gutter clear of the logo", () => {
+    // The gutter has to clear the logo box, or a centred card name runs over
+    // the mark.
+    const cells = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardLogos(fakeFrame(cells), logos({ "card-1": LOGO }), new Map());
+    expect(read(cells.c1._style, "spacingLeft")).toBeGreaterThan(LOGO_BOX_PX);
+  });
+
+  it("sizes the image to the cell it is painted on, not to the plain card", () => {
+    // The composite IS the card, so a picture built for 210×60 hangs its type
+    // glyph off a smaller cell entirely — the expanded-group child (190×40),
+    // the drill-down child (180×50) and every card exported from the
+    // dependency view (200×72) are all smaller or taller than the default.
+    const cells = {
+      c1: { ...cellStyle("rounded=1;fillColor=#0f7eb5"), _geo: { width: 190, height: 40 } },
+    };
+    applyCardLogos(fakeFrame(cells), logos({ "card-1": LOGO }), new Map());
+    expect(read(cells.c1._style, "imageWidth")).toBe(190);
+    expect(read(cells.c1._style, "imageHeight")).toBe(40);
+  });
+
+  it("shrinks the label gutter with the logo on a short cell", () => {
+    // The gutter reserves room for the mark, and the mark shrinks to fit a
+    // card too short to hold the full box — reserving the full-size gutter
+    // would push that card's name off-centre for a logo that is not that wide.
+    const tall = { c1: cellStyle("rounded=1;fillColor=#0f7eb5") };
+    applyCardLogos(fakeFrame(tall), logos({ "card-1": LOGO }), new Map());
+    const short = {
+      c1: { ...cellStyle("rounded=1;fillColor=#0f7eb5"), _geo: { width: 190, height: 30 } },
+    };
+    applyCardLogos(fakeFrame(short), logos({ "card-1": LOGO }), new Map());
+    expect(read(short.c1._style, "spacingLeft")).toBeLessThan(
+      read(tall.c1._style, "spacingLeft"),
+    );
+  });
+});
+
+describe("reading the geometry a logo has to match", () => {
+  const LOGO = "data:image/svg+xml,%3Csvg%3E";
+  const cell = (cardId: string, style: string, geo?: { width: number; height: number }) => ({
+    _style: style,
+    _geo: geo,
+    value: {
+      getAttribute: (k: string) =>
+        k === "cardType" ? "Application" : k === "cardId" ? cardId : null,
+    },
+  });
+
+  it("reports each card cell's own size", () => {
+    const cells = {
+      c1: cell("card-1", "rounded=1", { width: 190, height: 40 }),
+      c2: cell("card-2", "rounded=1", { width: 200, height: 72 }),
+    };
+    expect(readCardCellBoxes(fakeFrame(cells))).toEqual([
+      { cardId: "card-1", w: 190, h: 40 },
+      { cardId: "card-2", w: 200, h: 72 },
+    ]);
+  });
+
+  it("skips what the logo pass itself skips", () => {
+    // Same guards, so the caller never composes a picture for a cell that will
+    // never be painted.
+    const cells = {
+      lane: cell("card-1", "shape=swimlane;startSize=28", { width: 400, height: 300 }),
+      pending: cell("pending-x", "rounded=1", { width: 210, height: 60 }),
+    };
+    expect(readCardCellBoxes(fakeFrame(cells))).toEqual([]);
+  });
+
+  it("falls back to the plain card when a cell has no geometry", () => {
+    const cells = { c1: cell("card-1", "rounded=1") };
+    expect(readCardCellBoxes(fakeFrame(cells))).toEqual([
+      { cardId: "card-1", w: 210, h: CARD_BASE_H },
+    ]);
+  });
+
+  it("keeps a logo on a card that was resized since it was composed", () => {
+    // "Apply card-type icons" reads the same lookup so it cannot wipe logos.
+    // If a resize made every key a miss, that guard would invert: the action
+    // would replace the logo with a generic glyph. A picture built for the old
+    // size is briefly off; losing the logo is not recoverable by looking.
+    const lookup = logoLookupFor(new Map([[logoKey("card-1", 210, 60), LOGO]]));
+    expect(lookup("card-1", 240, 60)).toBe(LOGO);
+    expect(lookup("card-2", 210, 60)).toBeUndefined();
+  });
+
+  it("reads the geometry out of stored XML, and paints to it", () => {
+    // The viewer has no live graph, so the document itself is the only place
+    // the size can come from.
+    const xml =
+      `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>` +
+      `<object label="NexaCore" cardId="card-1" cardType="Application" id="c1">` +
+      `<mxCell style="rounded=1;fillColor=#0f7eb5" vertex="1" parent="1">` +
+      `<mxGeometry x="0" y="0" width="180" height="50" as="geometry"/>` +
+      `</mxCell></object></root></mxGraphModel>`;
+    expect(readCardBoxesFromXml(xml)).toEqual([{ cardId: "card-1", w: 180, h: 50 }]);
+
+    const out = applyCardLogosToXml(xml, (cardId, w, h) =>
+      cardId === "card-1" && w === 180 && h === 50 ? LOGO : undefined,
+    );
+    expect(out).toContain("imageWidth=180");
+    expect(out).toContain("imageHeight=50");
+  });
+});
+
+
+describe("resolveMenuCardCell", () => {
+  type C = { id: string; value?: { getAttribute: (n: string) => string | null }; parent?: C | null };
+  const node = (id: string, cardId: string | null, parent: C | null = null): C => ({
+    id,
+    value: { getAttribute: (n) => (n === "cardId" ? cardId : null) },
+    parent,
+  });
+  const container = node("container", "card-1");
+  const child = node("child", "card-2", container);
+  const plain = node("plain", null, null);
+  const label = node("label", null, child);
+
+  it("resolves the hit cell, walking up from an inner label", () => {
+    expect(resolveMenuCardCell(child, () => container)?.id).toBe("child");
+    expect(resolveMenuCardCell(label, () => null)?.id).toBe("child");
+  });
+
+  it("falls back to the container under the pointer when DrawIO hit nothing", () => {
+    // The open body of a drilled-down card is not hit-tested by DrawIO.
+    expect(resolveMenuCardCell(null, () => container)?.id).toBe("container");
+  });
+
+  it("does not claim a plain shape or empty canvas for a card", () => {
+    expect(resolveMenuCardCell(plain, () => container)).toBeNull();
+    expect(resolveMenuCardCell(null, () => null)).toBeNull();
+    expect(resolveMenuCardCell(null, () => plain)).toBeNull();
+  });
+});
+
+describe("visibleBand", () => {
+  it("is the whole frame when the frame is fully on screen", () => {
+    expect(
+      visibleBand({
+        innerHeight: 500,
+        frameElement: { getBoundingClientRect: () => ({ top: 100 }) },
+        parent: { innerHeight: 800 },
+      }),
+    ).toEqual({ top: 0, bottom: 500 });
+  });
+
+  it("cuts off the part of the frame below what the browser shows", () => {
+    // iPad: a 900px frame starting at 100px inside a 680px visible area.
+    expect(
+      visibleBand({
+        innerHeight: 900,
+        frameElement: { getBoundingClientRect: () => ({ top: 100 }) },
+        parent: { innerHeight: 1000, visualViewport: { offsetTop: 0, height: 680 } },
+      }),
+    ).toEqual({ top: 0, bottom: 580 });
+  });
+
+  it("follows a parent visual viewport that has scrolled", () => {
+    expect(
+      visibleBand({
+        innerHeight: 900,
+        frameElement: { getBoundingClientRect: () => ({ top: 100 }) },
+        parent: { innerHeight: 1000, visualViewport: { offsetTop: 200, height: 500 } },
+      }),
+    ).toEqual({ top: 100, bottom: 600 });
+  });
+
+  it("falls back to the frame when the parent cannot be read", () => {
+    const win = {
+      innerHeight: 700,
+      visualViewport: { offsetTop: 0, height: 650 },
+      get frameElement(): never {
+        throw new Error("cross-origin");
+      },
+    };
+    expect(visibleBand(win)).toEqual({ top: 0, bottom: 650 });
+  });
+});
+
+describe("fitMenuToBand", () => {
+  function menu(top: number, height: number): HTMLElement {
+    const div = document.createElement("div");
+    Object.defineProperty(div, "offsetTop", { get: () => top });
+    Object.defineProperty(div, "offsetHeight", { get: () => height });
+    return div;
+  }
+
+  it("caps the height to the band and lets it scroll", () => {
+    const div = menu(10, 100);
+    fitMenuToBand(div, { top: 0, bottom: 500 });
+    expect(div.style.maxHeight).toBe("484px");
+    expect(div.style.overflowY).toBe("auto");
+    expect(div.style.boxSizing).toBe("border-box");
+    expect(div.style.top).toBe(""); // already inside: left where it was
+  });
+
+  it("lifts a menu hanging below the band", () => {
+    const div = menu(400, 300);
+    fitMenuToBand(div, { top: 0, bottom: 580 });
+    expect(div.style.top).toBe("272px");
+  });
+
+  it("only caps the height when asked not to reposition", () => {
+    const div = menu(0, 300);
+    fitMenuToBand(div, { top: 20, bottom: 580 }, 8, false);
+    expect(div.style.maxHeight).toBe("544px");
+    expect(div.style.top).toBe("");
+  });
+
+  it("never lifts it above the band's top, and never sets a negative height", () => {
+    const div = menu(400, 900);
+    fitMenuToBand(div, { top: 50, bottom: 60 });
+    expect(div.style.top).toBe("58px");
+    expect(div.style.maxHeight).toBe("0px");
+    expect(() => fitMenuToBand(null, { top: 0, bottom: 1 })).not.toThrow();
+  });
+});
+
+describe("enableMenuTouchScroll", () => {
+  function touch(type: string, clientY: number | null, cancelable = true): Event {
+    const e = new Event(type, { bubbles: true, cancelable });
+    Object.defineProperty(e, "touches", { value: clientY == null ? [] : [{ clientY }] });
+    return e;
+  }
+
+  function setup() {
+    const div = document.createElement("div");
+    const row = document.createElement("div");
+    div.appendChild(row);
+    document.body.appendChild(div);
+    // A scrollable menu: jsdom does no layout, so scrollTop is a plain field here.
+    let top = 0;
+    Object.defineProperty(div, "scrollTop", { get: () => top, set: (v: number) => (top = v) });
+    const rowEnd = vi.fn();
+    row.addEventListener("touchend", rowEnd);
+    enableMenuTouchScroll(div);
+    return { div, row, rowEnd };
+  }
+
+  it("scrolls the menu with the finger and keeps the swipe from the page", () => {
+    const { div, row } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    const move = touch("touchmove", 300);
+    row.dispatchEvent(move);
+    expect(div.scrollTop).toBe(100);
+    expect(move.defaultPrevented).toBe(true);
+  });
+
+  it("does not let the end of a swipe trigger the row under the finger", () => {
+    const { row, rowEnd } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 300));
+    row.dispatchEvent(touch("touchend", null));
+    expect(rowEnd).not.toHaveBeenCalled();
+  });
+
+  it("lets a tap through to the row", () => {
+    const { div, row, rowEnd } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 397)); // a finger's jitter, not a swipe
+    row.dispatchEvent(touch("touchend", null));
+    expect(rowEnd).toHaveBeenCalledTimes(1);
+    expect(div.scrollTop).toBe(0);
+  });
+
+  it("stands aside while the browser scrolls natively", () => {
+    const { div, row } = setup();
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 300, false));
+    expect(div.scrollTop).toBe(0);
+  });
+
+  it("installs only once per menu", () => {
+    const { div, row } = setup();
+    enableMenuTouchScroll(div); // a second show of the same menu
+    row.dispatchEvent(touch("touchstart", 400));
+    row.dispatchEvent(touch("touchmove", 350));
+    expect(div.scrollTop).toBe(50);
   });
 });

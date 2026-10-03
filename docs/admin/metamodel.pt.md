@@ -31,6 +31,7 @@ Clique em **+ Novo Tipo** para criar um tipo de card personalizado. Configure:
 | **Cor** | Cor da marca para o tipo (usada no inventário, relatórios e diagramas) |
 | **Categoria** | Agrupamento por camada de arquitetura |
 | **Possui Hierarquia** | Se cards deste tipo podem ter relacionamentos pai/filho |
+| **Permitir logótipos personalizados** | Se os editores podem carregar um logótipo por cartão, apresentado em vez do ícone do tipo (ativo de origem para Aplicação e Componente de TI) |
 
 ### Editando um Tipo
 
@@ -53,7 +54,7 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 |--------------|-----------|
 | **Chave** | Identificador único do campo |
 | **Rótulo** | Nome de exibição |
-| **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select ou multiple_select |
+| **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Uma porcentagem é um número de 0 a 100, exibida como uma barra de progresso e editada com um controle deslizante ou digitada com exatidão |
 | **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais |
 | **Obrigatório** | Se o campo é obrigatório — veja as regras de aplicação abaixo |
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |
@@ -134,12 +135,55 @@ Os papéis podem ser removidos de duas formas:
 
 A chave de um papel pode ser corrigida enquanto **ninguém detiver o papel** — os inquéritos que o utilizam acompanham a mudança de nome automaticamente, e renomear o único papel de um tipo não é problema, pois o papel sobrevive. Assim que alguém o detém, a chave fica bloqueada e o campo explica porquê. Os papéis criados antes desta convenção mantêm a chave que já tinham e continuam a funcionar; só é verificada uma chave nova ou alterada.
 
+#### Permissões { #permissions }
+
+Os tipos de cartão podem restringir o que cada papel da aplicação pode fazer com os seus cartões. Abra o separador **Permissões** no painel do tipo para ver uma matriz de papéis e das cinco ações — **Ver**, **Criar**, **Editar**, **Arquivar** e **Eliminar**.
+
+![Permissões por tipo de cartão](../assets/img/pt/85_admin_permissoes_tipo_card.png)
+
+Cada célula tem três estados:
+
+- **Herdar** (predefinição) — decide a permissão global do papel. O ícone mostra qual é atualmente.
+- **Permitir** — o papel pode executar esta ação nos cartões deste tipo, mesmo que não tenha a permissão globalmente.
+- **Negar** — o papel não pode executar esta ação nos cartões deste tipo, mesmo que tenha a permissão globalmente.
+
+Isto permite dizer «qualquer pessoa pode criar Aplicações, mas apenas a equipa central cria Organizações e Iniciativas» sem inventar um papel por tipo de cartão. Negar **Criar** num tipo também o retira da caixa de diálogo de criação, do editor de diagramas e do importador de folhas de cálculo.
+
+Algumas regras a conhecer:
+
+- **Os administradores nunca são restringidos.** A linha do administrador está bloqueada.
+- **Os papéis de partes interessadas continuam a aplicar-se.** Negar **Editar** a um papel num tipo remove a sua permissão em todo o panorama, não a autoridade que detém como proprietário designado de um cartão específico. Consulte [Utilizadores e papéis](users.md).
+- **A edição em massa segue uma negação, não uma permissão.** Um tipo que nega **Editar** também bloqueia edições em massa; uma permissão não concede, por si só, a permissão distinta de edição em massa.
+- As alterações produzem efeito para os outros utilizadores no próximo carregamento da aplicação.
+
+##### Ocultar um tipo de cartão a um papel { #hiding-a-card-type-from-a-role }
+
+Negar **Ver** oculta completamente o tipo ao papel. Para os seus utilizadores, os cartões desse tipo não existem: ficam de fora do inventário, da pesquisa, das contagens e das exportações, das relações e da hierarquia de outros cartões, e de todos os relatórios, gráficos, grafos de dependências e painéis, bem como das listas de BPM, PPM, GRC, decisões, diagramas e TurboLens. Abrir um desses cartões a partir de uma ligação mostra **não encontrado** em vez de **acesso negado**, pelo que a página nem sequer revela que o cartão existe.
+
+- **Permitir Ver funciona no sentido inverso.** A um papel que não pode de todo consultar o inventário pode ser permitido **Ver** num único tipo; os seus utilizadores passam então a ver os cartões desse tipo, e apenas desse tipo.
+- **Para Ver, Herdar lê-se de duas formas.** No inventário, nas páginas dos cartões, na pesquisa e nas exportações, *herdar* segue a permissão **Ver** do papel em todo o panorama. Nos módulos que têm permissão própria — relatórios, BPM, PPM, riscos, decisões, diagramas, TurboLens — só um **Negar** explícito oculta alguma coisa, pelo que um papel que pode ler relatórios, mas não consultar o inventário, mantém os seus relatórios.
+- **Uma negação de Ver bloqueia as outras ações.** Um papel que não pode ver um tipo também não pode criar, editar, arquivar nem eliminar os seus cartões. As outras células da linha mostram um ícone de cadeado e mantêm os valores guardados, que voltam a aplicar-se assim que **Ver** deixar de estar negado.
+- **As partes interessadas mantêm os seus cartões.** Quem está atribuído a um cartão através de um papel de parte interessada que concede visualização continua a ver esse cartão — e apenas esse — mesmo quando o seu papel da aplicação não pode ver o respetivo tipo.
+- **Uma negação de Ver em Iniciativa também se aplica ao PPM.** A permissão de PPM não faz reaparecer as iniciativas ocultas; o papel vê apenas aquelas em que é parte interessada.
+- **As ligações que não pode ver são mantidas.** Quando alguém edita os cartões ligados a uma decisão, a um diagrama ou a um passo de processo, as ligações a cartões que não pode ver permanecem no lugar.
+- **A IA de Arquitetura precisa de todo o panorama.** A IA de Arquitetura do TurboLens raciocina sobre todos os cartões, pelo que fica indisponível para um papel ao qual esteja oculto qualquer tipo de cartão.
+
+Algumas coisas não são filtradas propositadamente, porque se trata de publicações ou de administração, e não de consulta:
+
+- os portais web publicados e os diagramas publicados;
+- o desenho de um diagrama e o texto escrito numa decisão ou num Statement of Architecture Work (os cartões ligados a eles são filtrados);
+- os valores produzidos por campos calculados, que são apurados sobre todo o panorama;
+- o registo de eventos e o fluxo de eventos em tempo real para administradores, e a exportação do espaço de trabalho;
+- os inquéritos que um administrador enviou ao utilizador;
+- as extensões, que atuam em nome do sistema e não de um utilizador.
+
 #### Traduções
 
 Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abrir o **Diálogo de Traduções**. Aqui você pode fornecer traduções para todos os rótulos do metamodelo em cada idioma suportado:
 
 - **Rótulo do tipo** — O nome de exibição do tipo de card
 - **Subtipos** — Rótulos para cada subtipo
+- **Tipos de ligação hierárquica** — Rótulos para cada tipo de ligação hierárquica
 - **Seções** — Cabeçalhos de seção na página de detalhe do card
 - **Campos** — Rótulos de campos e rótulos de opções de seleção
 - **Papéis de stakeholder** — Nomes de papéis exibidos na interface de atribuição de stakeholders
@@ -157,7 +201,7 @@ Tipos de relacionamento definem as conexões permitidas entre tipos de card. Cad
 
 | Campo | Descrição |
 |-------|-----------|
-| **Chave** | Identificador único |
+| **Chave** | Identificador único — sugerido a partir do seu verbo, editável durante a criação e fixo depois |
 | **Rótulo** | Rótulo da direção direta (ex.: "utiliza") |
 | **Rótulo Inverso** | Rótulo da direção inversa (ex.: "é utilizado por") |
 | **Tipo de Origem** | O tipo de card no lado "de" |
@@ -166,15 +210,31 @@ Tipos de relacionamento definem as conexões permitidas entre tipos de card. Cad
 
 Clique em **+ Novo Tipo de Relacionamento** para criar um relacionamento, ou clique em um existente para editar seus rótulos e atributos.
 
+Cada linha de relação tem ainda os interruptores **Visível** e **Obrigatório** para *cada* uma das suas duas extremidades, indicando o tipo de card a que se aplicam: Visível decide se a relação aparece na página de detalhe desse tipo, Obrigatório se tem de ser preenchida. Um tipo de relação cujas duas extremidades são o mesmo card recebe um par de interruptores por direção, pelo que o lado de entrada se configura separadamente do de saída.
+
 Os campos **Rótulo** e **Rótulo Inverso** são escritos no idioma que está a utilizar no momento — a legenda do campo indica qual (por exemplo, *Rótulo (Português)*). Renomear uma relação atualiza esse idioma em todos os locais onde o verbo aparece: a secção **Relações** de um card, as colunas de relação do inventário, os relatórios, os portais e os diagramas. Os restantes idiomas mantêm a sua própria redação até que os traduza.
 
-Use **Gerir traduções** no topo do separador Tipos de Relacionamento para traduzir os verbos de todas as relações para cada idioma ativado de uma só vez. Escolha um separador de idioma, escreva a redação ao lado do original em inglês e guarde — o contador em cada separador mostra quantos verbos faltam ainda nesse idioma. O inglês não aparece aqui porque é a redação da própria relação; um verbo não traduzido recorre a ela.
+Use **Gerir traduções** no topo do separador Relações, acima dos seus subseparadores, para traduzir os verbos de todas as relações para cada idioma ativado de uma só vez. Escolha um separador de idioma, escreva a redação ao lado do original em inglês e guarde — o contador em cada separador mostra quantos verbos faltam ainda nesse idioma. O inglês não aparece aqui porque é a redação da própria relação; um verbo não traduzido recorre a ela. A mesma caixa de diálogo inclui uma secção separada, **Tipos de ligação hierárquica**, com o vocabulário de cada tipo de cartão hierárquico, pelo que os verbos e os tipos de ligação são traduzidos numa só passagem.
+
+### Tipos de ligação hierárquica
+
+Para um tipo de card com hierarquia ativada, pode definir **tipos de ligação** — um vocabulário curto que rotula cada ligação pai-filho. Numa árvore de organizações, por exemplo, permite marcar uma subsidiária como *comercial* e outra como de *vendas*, sem inventar um segundo tipo de relacionamento.
+
+1. No separador **Relações**, abra o subseparador **Tipos de ligação hierárquica** — nele consta cada tipo de card com hierarquia ativada. (O primeiro subseparador, **Tipos de relação**, é a lista de relações habitual.) O separador **Relações** de um tipo de card mostra o mesmo numa única linha no topo, limitado a esse tipo.
+2. Clique em **Editar tipos de ligação** e adicione uma entrada por rótulo, com chave, nome e cor.
+3. Traduza os nomes com o botão **Traduzir**, como qualquer outro rótulo do metamodelo.
+
+Os editores escolhem depois um tipo de ligação na seção **Hierarquia** do card, ou na coluna **Tipo de ligação** do inventário. O rótulo pertence ao card filho, pelo que é limpo automaticamente quando esse card passa para o nível superior.
+
+Remover um tipo de ligação **não** reescreve os cards que já o usam: mantêm o valor armazenado e mostram-no como tipo de ligação desconhecido até alguém o alterar, de modo que uma remoção acidental não perde nada. A caixa de diálogo indica quantos cards são afetados antes de confirmar.
 
 ### Atributos de relação
 
 Algumas relações incluem atributos adicionais que define em cada ligação individual em vez de no tipo de relação. Por exemplo, a relação integrada **Organização → Aplicação** («utiliza») tem um atributo **Tipo de utilização** — defina-o como **Proprietário**, **Utilizador** ou **Parte interessada** em cada ligação. Assim, pode modelar uma aplicação *propriedade de* uma organização e *utilizada por* outras através de um único tipo de relação. O valor escolhido aparece como um marcador colorido na secção **Relações** da carta; defina-o ao adicionar a relação ou mais tarde através do ícone de edição na linha da relação.
 
-Só pode existir um tipo de relação entre um determinado par de tipos de carta, por isso utilize estes atributos para qualificar o significado de uma ligação em vez de criar um segundo tipo de relação para a mesma origem e destino.
+Também pode criar **vários tipos de relação entre o mesmo par de tipos de carta** — por exemplo, uma organização que *detém* uma aplicação a par de outra que a *utiliza*. Prefira um atributo quando estiver a descrever variantes de uma mesma relação (mantém uma só coluna no inventário e uma só linha num diagrama); crie um segundo tipo de relação quando as relações forem genuinamente diferentes e merecerem verbos, atributos ou filtros próprios. Quando um par tem mais do que um tipo de relação, o inventário continua a mostrar uma única coluna para o tipo de carta relacionado, e abrir essa célula dá-lhe uma secção por tipo de relação. Num cartão, cada tipo de relação mantém a sua própria secção: as secções que apontam para o mesmo tipo de cartão são apresentadas juntas, e um cartão que tenha ligado através de mais do que uma delas fica marcado com *Também …* em cada uma das suas secções. Um tipo de relação cujas duas extremidades são o mesmo tipo de cartão — uma organização que *tem como local* outra organização — mostra *ambos* os verbos num cartão, como duas secções, e no inventário como duas linhas de filtro e duas secções do editor; dê a esse tipo um rótulo inverso, ou ambas as secções se lerão da mesma forma.
+
+Quando um par tem mais do que um tipo de relação, relatórios, portais e questionários podem visar um específico: o relatório de Portefólio oferece um eixo de agrupamento e um filtro por relação, o Mapa de capacidades acrescenta um filtro por relação, os filtros e secções de relação do portal são identificados com o seu verbo, e o filtro **relacionado com** de um questionário ganha um seletor **Através da relação**. Não escolher nada continua a significar «relacionado por qualquer uma delas».
 
 ### Gerir valores de relação
 

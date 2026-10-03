@@ -79,7 +79,11 @@ async function request<T>(
   });
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    // HTTP/2 carries no reason phrase, so `statusText` is "" there; an error
+    // body that is not JSON (a proxy's own error page) must still name the
+    // status rather than surface as an empty message.
+    const fallback = res.statusText || `HTTP ${res.status}`;
+    const err = await res.json().catch(() => ({ detail: fallback }));
     // FastAPI 422 returns detail as array of validation error objects
     const detail = err.detail;
     const msg = Array.isArray(detail)
@@ -88,7 +92,7 @@ async function request<T>(
         ? detail
         : typeof detail === "object" && detail?.message
           ? detail.message
-          : res.statusText;
+          : fallback;
     throw new ApiError(msg, res.status, detail);
   }
   return res.json();
@@ -105,10 +109,11 @@ async function requestRaw(path: string, options: RequestInit = {}): Promise<Resp
     credentials: "same-origin",
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const fallback = res.statusText || `HTTP ${res.status}`;
+    const err = await res.json().catch(() => ({ detail: fallback }));
     const msg = Array.isArray(err.detail)
       ? err.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
-      : err.detail || res.statusText;
+      : err.detail || fallback;
     throw new Error(msg);
   }
   return res;
@@ -136,19 +141,26 @@ export const api = {
       method: "DELETE",
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     }),
+  // `file` is optional: one endpoint (a card's logo) accepts EITHER an upload
+  // or a form field naming a built-in icon, and a multipart body with no file
+  // part is how the second form is sent.
+  //
+  // `method` defaults to POST (create); PUT is for an endpoint that replaces
+  // an existing resource's bytes in place (a file attachment's content).
   upload: <T>(
     path: string,
-    file: File,
+    file: File | undefined,
     fieldName = "file",
     extraFields?: Record<string, string>,
+    options?: { method?: "POST" | "PUT" },
   ) => {
     const form = new FormData();
-    form.append(fieldName, file);
+    if (file) form.append(fieldName, file);
     if (extraFields) {
       for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
     }
     return fetch(`${BASE}${path}`, {
-      method: "POST",
+      method: options?.method ?? "POST",
       body: form,
       credentials: "same-origin",
       headers: { "X-Turbo-EA-Origin": "web" },
@@ -194,9 +206,16 @@ export const auth = {
       extra_auth_params?: Record<string, string>;
       registration_enabled?: boolean;
       local_login_available?: boolean;
+      proxy_auth?: boolean;
+      proxy_logout_url?: string;
     }>("/auth/sso/config"),
   ssoCallback: (code: string, redirect_uri: string) =>
     api.post<{ access_token: string }>("/auth/sso/callback", { code, redirect_uri }),
+  /**
+   * Exchange the identity an authenticating reverse proxy already established
+   * for a Turbo EA session. 404s unless the instance opted in (#1006).
+   */
+  proxySession: () => api.post<{ access_token: string }>("/auth/proxy/session"),
   setPassword: (token: string, password: string) =>
     api.post<{ access_token: string }>("/auth/set-password", { token, password }),
   forgotPassword: (email: string) =>

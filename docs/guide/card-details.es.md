@@ -10,11 +10,51 @@ La parte superior de la ficha muestra:
 
 - **Icono y etiqueta del tipo** — Indicador del tipo de ficha con código de color
 - **Nombre de la ficha** — Editable en línea
+- **Alias** — El otro nombre de la ficha, mostrado bajo el título cuando está definido. El lápiz de edición del título permite cambiar el nombre y el alias a la vez. Los alias se tienen en cuenta en todos los cuadros de búsqueda, de modo que una ficha se encuentra por el nombre que su organización usa realmente.
 - **Subtipo** — Clasificación secundaria (si aplica)
 - **Insignia de estado de aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Botón de sugerencia IA** — Haga clic para generar una descripción con IA (visible cuando la IA está habilitada para este tipo de ficha y el usuario tiene permiso de edición)
 - **Anillo de calidad de datos** — Indicador visual de la completitud de la información (0–100%)
 - **Menú de acciones** — Archivar, eliminar y acciones de aprobación. También incluye una acción de un clic **Observar esta ficha** (cuando el tipo de ficha define un rol Observador), para que cualquier usuario con permiso de lectura pueda seguir la ficha sin pasar por la pestaña de Partes interesadas.
+
+### Logotipo personalizado
+
+Las tarjetas de un tipo que lo permita pueden llevar su propio **logotipo** en
+lugar del icono genérico del tipo, de modo que una Aplicación de SAP, Kafka o
+Jira muestre la marca del propio producto. Los logotipos reconocibles hacen que
+un inventario se explore mucho más rápido, sobre todo para quienes lo consultan
+sin mantenerlo.
+
+Pase el ratón sobre el icono de la esquina superior izquierda de la tarjeta y
+haga clic para **subir**, **reemplazar** o **eliminar** la imagen. El icono del
+tipo no desaparece: se traslada como una pequeña insignia a la esquina del
+logotipo, así que sigue viéndose de un vistazo qué clase de tarjeta se está
+consultando.
+
+- **Formatos admitidos** — PNG, JPEG, WebP o GIF, hasta 1 MB. No se admite SVG,
+  porque puede contener scripts.
+- **Dónde aparece** — en la cabecera de la tarjeta, en la columna
+  **Logotipo** opcional del [Inventario](inventory.md) y en cualquier portal
+  web publicado sobre ese tipo de tarjeta.
+- **Si no hay logotipo** — la tarjeta vuelve a su icono de tipo, igual que
+  antes.
+
+Los logotipos están disponibles en los tipos de tarjeta que un administrador
+haya activado; de fábrica son Aplicación y Componente de TI. Consulte
+[Metamodelo](../admin/metamodel.md).
+
+Haga clic en el logotipo y elija **Elegir un icono de marca…** para seleccionar
+de un conjunto integrado de varios miles de marcas: busque el producto por su
+nombre y selecciónelo; no hace falta ningún archivo de imagen. **Subir** permite
+usar su propio archivo. Un asistente de IA conectado por [MCP](../admin/mcp.md)
+puede asignar logotipos del mismo modo de forma masiva y, si un producto no está
+en el conjunto, obtiene la marca por su cuenta.
+
+El mismo menú está disponible desde la columna **Logotipo** del
+[Inventario](inventory.md) — pase el ratón sobre una celda de logotipo y haga
+clic —, de modo que se pueden poner marcas en un paisaje recién importado sin
+abrir cada ficha. Es ficha a ficha a propósito: el logotipo no se ofrece ni en
+el rellenado hacia abajo ni en la edición masiva.
 
 ### Flujo de Aprobación
 
@@ -27,7 +67,7 @@ Las fichas pueden pasar por un ciclo de aprobación:
 | **Roto** | Fue aprobado, pero ha sido editado desde entonces — necesita re-revisión |
 | **Rechazado** | Revisado y rechazado, necesita correcciones |
 
-Cuando una ficha aprobada es editada, su estado cambia automáticamente a **Roto** para indicar que necesita re-revisión.
+Cuando una ficha aprobada es editada, su estado cambia automáticamente a **Roto** para indicar que necesita re-revisión. Archivar la ficha principal produce el mismo efecto en las fichas hijas aprobadas que se desplazan en la jerarquía. Se notifica a todas las personas con un rol de parte interesada en la ficha — salvo a quien realizó el cambio — y el cambio queda registrado en la pestaña **Historial** de la ficha. Una acción que rompe varias fichas, como una edición masiva, envía a cada persona un único resumen en lugar de una notificación por ficha.
 
 ## Pestaña Detalle (Principal)
 
@@ -36,7 +76,8 @@ La pestaña de detalle está organizada en **secciones** que pueden ser reordena
 ### Sección de Descripción
 
 - **Descripción** — Descripción en texto enriquecido del componente. Soporta la función de sugerencia con IA para generación automática
-- **Campos de descripción adicionales** — Algunos tipos de ficha incluyen campos extra en la sección de descripción (por ejemplo, alias, ID externo)
+- **Campos de descripción adicionales** — Un administrador puede asignar cualquier campo propio de un tipo de ficha a la sección de descripción, por lo que esta puede llevar campos adicionales además de la descripción misma
+- **Enlaces** — Una dirección web (`http://` o `https://`) escrita en la descripción, en cualquier campo de texto, un comentario o una tarea se convierte en un enlace que se abre en una pestaña nueva
 
 ### Sección de Ciclo de Vida
 
@@ -51,6 +92,8 @@ El modelo de ciclo de vida rastrea un componente a través de cinco fases:
 | **Fin de Vida** | Ya no está en uso ni tiene soporte |
 
 Cada fase tiene un **selector de fecha** para registrar cuándo el componente entró o entrará en esa fase. Una barra de línea temporal visual muestra la posición del componente en su ciclo de vida.
+
+Si una fase tiene una fecha posterior a la de una fase que debería seguirla —por ejemplo, **Fase de Salida** después de **Fin de Vida**—, aparece un icono de advertencia junto a esa fecha, y la misma advertencia se muestra bajo el campo durante la edición. Es solo un aviso: las fechas se pueden guardar igualmente tal como se introdujeron.
 
 ### Secciones de Atributos Personalizados
 
@@ -75,6 +118,7 @@ Para tipos de ficha que soportan jerarquía (por ejemplo, Organización, Capacid
 - **Padre** — La ficha padre en la jerarquía (haga clic para navegar)
 - **Hijos** — Lista de fichas hijas (haga clic en cualquiera para navegar)
 - **Ruta jerárquica** — Muestra la ruta completa desde la raíz hasta la ficha actual
+- **Tipo de vínculo** — Cuando un administrador ha configurado tipos de vínculo para este tipo de ficha, cada vínculo padre-hijo puede etiquetarse — por ejemplo, una filial *comercial* y otra de *ventas*. La etiqueta pertenece a la ficha hija: la ficha padre la muestra junto a cada hija, y la ficha hija junto a su padre. Quitar una ficha o moverla al nivel superior borra su etiqueta, y el cambio queda registrado en la pestaña **Historial**.
 
 ### Sección de Relaciones
 
@@ -82,7 +126,7 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 
 - **Nombre de la ficha relacionada** — Haga clic para navegar a la ficha relacionada
 - **Tipo de relación** — La naturaleza de la conexión (por ejemplo, «utiliza», «se ejecuta en», «depende de»)
-- **Agregar relación** — Haga clic en **+** para abrir el diálogo de esa relación. Lista las tarjetas coincidentes mientras escribe (las mejores coincidencias primero, y se cargan más al desplazarse) y oculta las ya vinculadas, con un texto que indica cuántas son. Al hacer clic en una tarjeta se vincula de inmediato y aparece como una etiqueta arriba: haga clic en la **×** de una etiqueta para deshacer esa adición. El diálogo permanece abierto para añadir tantas como quiera, y en el móvil se abre a pantalla completa. Las relaciones sin sección propia se alcanzan desde el botón **Agregar relación** al final de la sección
+- **Agregar relación** — Haga clic en **+** para abrir el diálogo de esa relación. Lista las tarjetas coincidentes mientras escribe (las mejores coincidencias primero, y se cargan más al desplazarse) y oculta las ya vinculadas, con un texto que indica cuántas son. Al hacer clic en una tarjeta se vincula de inmediato y aparece como una etiqueta arriba: haga clic en la **×** de una etiqueta para deshacer esa adición. El diálogo permanece abierto para añadir tantas como quiera, y en el móvil se abre a pantalla completa. Las relaciones sin sección propia se alcanzan desde el botón **Agregar relación** al final de la sección. Cuando el tipo vinculado es jerárquico (capacidad de negocio, organización, etc.), el diálogo lo muestra como un árbol indentado en lugar de una lista alfabética, de modo que puede elegir una subcapacidad por su rama. La búsqueda mantiene visibles los padres de cada coincidencia como contexto, y las tarjetas que no se pueden elegir (ya vinculadas, recién añadidas o la propia tarjeta) permanecen en su sitio en gris para que los niveles a su alrededor sigan leyéndose bien.
 - **Orden** — Las tarjetas relacionadas se listan alfabéticamente por nombre
 - **Eliminar relación** — Haga clic en el icono de eliminar para quitar una relación
 - **Agrupar por subtipo** — Cuando una sección de relaciones tiene muchas fichas relacionadas, se agrupan automáticamente en grupos de subtipo plegables (cada uno con un recuento), con un grupo final **Sin subtipo** para las fichas sin clasificar. Utilice el botón de alternancia en el encabezado de la sección para cambiar entre la vista agrupada y la vista de lista.
@@ -92,6 +136,12 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 
 ![Fichas vinculadas a través de subelementos, agrupadas por subtipo](../assets/img/es/60_ficha_subelementos_relaciones.png)
 
+### Sección de Dependencias
+
+Una [Layered Dependency View](reports.md) de la ficha y de todo lo que está a un salto de distancia, agrupado en las cuatro capas de arquitectura. Mayús-clic en una ficha para volver a centrar la vista y recorrer el panorama sin salir de la página.
+
+El icono **abrir en una pestaña nueva** de la barra de herramientas abre el [informe de dependencias](reports.md) completo en una pestaña nueva, centrado en la ficha en la que la vista esté centrada en ese momento — es decir, la ficha a la que ha navegado, no necesariamente la de partida. Útil cuando necesita lo que el informe añade alrededor de la misma imagen: el viaje en el tiempo, las marcas de transición, la vista de tabla y guardar la vista como informe.
+
 ### Sección de Etiquetas
 
 Aplique etiquetas de los [grupos de etiquetas](../admin/tags.es.md) configurados. Dependiendo del modo del grupo, puede seleccionar una etiqueta (selección única) o múltiples etiquetas (selección múltiple).
@@ -100,8 +150,8 @@ Aplique etiquetas de los [grupos de etiquetas](../admin/tags.es.md) configurados
 
 La pestaña de **Recursos** consolida todos los materiales de apoyo de una ficha:
 
-- **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB). Al cargar, seleccione una **categoría de documento** entre: Arquitectura, Seguridad, Compliance, Operaciones, Notas de Reunión, Diseño u Otro. La categoría aparece como un chip junto a cada archivo.
-- **Enlaces de Documentos** — Referencias de documentos basadas en URL. Al agregar un enlace, seleccione un **tipo de enlace** entre: Documentación, Seguridad, Compliance, Arquitectura, Operaciones, Soporte u Otro. El tipo de enlace aparece como un chip junto a cada enlace, y el icono cambia según el tipo seleccionado.
+- **Archivos Adjuntos** — Cargue y gestione archivos (documentos, hojas de cálculo, presentaciones, archivos OpenDocument y de Office heredados, imágenes, archivos comprimidos, mensajes de Outlook y correo electrónico, CSV, Markdown, JSON y XML: hasta 20 MB). Al cargar, seleccione una **categoría de documento** entre: Arquitectura, Seguridad, Compliance, Operaciones, Notas de Reunión, Diseño u Otro. La categoría aparece como un chip junto a cada archivo. Use el icono de reemplazo junto a un archivo para cargar una nueva versión en su lugar (la entrada pasa a fecharse y atribuirse como una carga nueva, y la versión anterior solo se conserva en la pestaña Historial de la tarjeta) y el icono de lápiz para renombrarlo o cambiar su categoría; la extensión debe mantenerse.
+- **Enlaces de Documentos** — Referencias de documentos basadas en URL. Al agregar un enlace, seleccione un **tipo de enlace** entre: Documentación, Seguridad, Compliance, Arquitectura, Operaciones, Soporte u Otro. El tipo de enlace aparece como un chip junto a cada enlace, y el icono cambia según el tipo seleccionado. Use el icono de lápiz junto a un enlace para cambiar su nombre, URL o tipo de enlace; la URL debe comenzar por `http://`, `https://` o `mailto:`, y cada cambio queda registrado en la pestaña Historial de la tarjeta.
 - **Diagramas** — Vincule [diagramas](diagrams.es.md) existentes a esta ficha. Los diagramas vinculados se muestran como vistas previas en miniatura que puede hacer clic para abrir en el editor de diagramas. Use el botón **Vincular Diagrama** para buscar y adjuntar un diagrama existente, o haga clic en el icono de desvincular para eliminar la asociación.
 
 ### Sección EOL
@@ -119,6 +169,7 @@ Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.
 - **Agregar comentarios** — Deje notas, preguntas o decisiones sobre el componente
 - **Respuestas en hilo** — Responda a comentarios específicos para crear hilos de conversación
 - **Marcas de tiempo** — Vea cuándo se publicó cada comentario y por quién
+- **Enlaces** — Una dirección web en un comentario es clicable y se abre en una pestaña nueva
 
 ## Pestaña de Tareas
 
@@ -142,6 +193,8 @@ Las partes interesadas son personas con un **rol** específico en esta ficha. Lo
 
 Las asignaciones de partes interesadas afectan los **permisos**: los permisos efectivos de un usuario en una ficha son la combinación de su rol a nivel de aplicación y cualquier rol de parte interesada que tenga en esa ficha.
 
+Cuando un rol tiene un **color** definido en el metamodelo, su grupo se marca con él, de modo que puede distinguir un propietario de un observador de un vistazo.
+
 ### Búsqueda e invitación
 
 Elige a una parte interesada mediante el **autocompletar buscable** — empieza a escribir y el desplegable filtra tanto por nombre como por correo (el correo aparece como línea secundaria, de modo que dos usuarios con el mismo nombre puedan distinguirse de un vistazo).
@@ -155,6 +208,8 @@ La ruta de invitación requiere el permiso **`users.invite`**, una forma delegad
 ![Historial de Cambios de una Ficha](../assets/img/es/08_ficha_historial.png)
 
 Muestra el **registro completo de auditoría** de los cambios realizados en la ficha: **quién** hizo el cambio, **cuándo** se realizó y **qué** se modificó (valor anterior vs. valor nuevo). Esto permite la trazabilidad completa de todas las modificaciones a lo largo del tiempo.
+
+Todo lo que mueve la fecha **Modificado** de la ficha aparece aquí: una edición manual, una importación desde hoja de cálculo, una migración de plataforma o sincronización con ServiceNow, un cambio de etiqueta, una edición masiva, o un movimiento jerárquico que arrastró esta ficha. El mantenimiento del sistema no cambia ninguno de los dos: recalcular las puntuaciones de calidad de datos, volver a ejecutar los campos calculados y rellenar niveles jerárquicos o identificadores de ficha dejan intactos el historial y la fecha **Modificado**.
 
 ## Pestaña de ADR
 

@@ -216,6 +216,14 @@ describe("isInventoryFillable", () => {
     expect(isInventoryFillable("ag-Grid-SelectionColumn", { field: undefined })).toBe(false);
   });
 
+  it("excludes the Logo column even when it looks fillable", () => {
+    // Deliberately asserted WITH a field: the exclusion has to be by column,
+    // not a side effect of how the column happens to be built today. One drag
+    // would rewrite the mark on every row it covered, with no undo.
+    expect(isInventoryFillable("core_logo", { field: "logo_updated_at" })).toBe(false);
+    expect(isInventoryFillable("core_logo", {})).toBe(false);
+  });
+
   it("excludes columns with nothing to persist through", () => {
     expect(isInventoryFillable("core_path", {})).toBe(false);
   });
@@ -224,6 +232,8 @@ describe("isInventoryFillable", () => {
     expect(isInventoryFillable("core_description", { field: "description" })).toBe(true);
     expect(isInventoryFillable("core_subtype", { field: "subtype" })).toBe(true);
     expect(isInventoryFillable("core_parent", { field: "parent_id" })).toBe(true);
+    // "Mark these twelve subsidiaries commercial" is the canonical gesture (#1100).
+    expect(isInventoryFillable("core_parent_label", { field: "parent_label" })).toBe(true);
     expect(isInventoryFillable("core_tags", { field: "tags" })).toBe(true);
     expect(isInventoryFillable("attr_owner", { field: "attr_owner" })).toBe(true);
     expect(isInventoryFillable("stakeholder_owner", { field: "stakeholder_owner" })).toBe(true);
@@ -254,6 +264,10 @@ describe("currentFieldValue", () => {
 
   it("normalises a missing parent to null", () => {
     expect(currentFieldValue(CARD_A, "parent_id")).toBeNull();
+  });
+
+  it("normalises a missing hierarchy link label to null", () => {
+    expect(currentFieldValue(CARD_A, "parent_label")).toBeNull();
   });
 });
 
@@ -343,6 +357,27 @@ describe("handleGridFill", () => {
     // The card that already carries the tag issues nothing.
     expect(api.post).toHaveBeenCalledTimes(1);
     expect(api.post).toHaveBeenCalledWith("/cards/c2/tags", ["t1"]);
+  });
+
+  it("fills a hierarchy link label per card, never through /cards/bulk", async () => {
+    // `PATCH /cards/bulk` would be wrong for the same family of reasons as an
+    // attribute fill: one payload applied to every id, with no per-card merge.
+    const onFill = await mountAndGetFill();
+    const outcome = await onFill(
+      requestFor("parent_label", "commercial", [CARD_A, CARD_B]),
+      () => {},
+    );
+
+    expect(outcome).toEqual({ succeeded: 2, failures: [] });
+    expect(bulkCalls()).toHaveLength(0);
+    expect(api.patch).toHaveBeenCalledWith("/cards/c1", { parent_label: "commercial" });
+    expect(api.patch).toHaveBeenCalledWith("/cards/c2", { parent_label: "commercial" });
+  });
+
+  it("clears a hierarchy link label when the source cell is empty", async () => {
+    const onFill = await mountAndGetFill();
+    await onFill(requestFor("parent_label", "", [CARD_B]), () => {});
+    expect(api.patch).toHaveBeenCalledWith("/cards/c2", { parent_label: null });
   });
 
   it("writes a subtype fill through, which the inline editor used to drop", async () => {

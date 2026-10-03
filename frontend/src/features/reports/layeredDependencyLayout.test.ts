@@ -3,7 +3,10 @@ import {
   buildLdvFlow,
   relationValueSuffix,
   filterEndOfLifeNodes,
+  filterHiddenTypes,
   resolveRevealIds,
+  stripEdgeLabels,
+  transposeRow,
   type GNode,
   type GEdge,
 } from "./layeredDependencyLayout";
@@ -86,6 +89,81 @@ describe("buildLdvFlow", () => {
     const groupLabels = groups.map((g) => (g.data as { label: string }).label);
     expect(groupLabels).toContain("Application");
     expect(groupLabels).toContain("Technology");
+  });
+
+  it("marks edges with a retired endpoint as severed, in either direction", () => {
+    const nodes: GNode[] = [
+      { id: "gone", name: "Gone", type: "Application", changeState: "retired" },
+      { id: "stays", name: "Stays", type: "Application" },
+      { id: "other", name: "Other", type: "Application" },
+    ];
+    const edges: GEdge[] = [
+      { source: "gone", target: "stays", type: "uses" },
+      { source: "stays", target: "other", type: "uses" },
+    ];
+    const result = buildLdvFlow(nodes, edges, TYPES);
+    const severedFlags = result.edges.map((e) => (e.data as { severed?: boolean }).severed);
+    expect(severedFlags).toContain(true);
+    expect(severedFlags).toContain(false);
+  });
+
+  it("clears the verb the edge component actually renders", () => {
+    // `data.relLabel` is what LdvEdgeComponent draws — NOT React Flow's own
+    // `label` prop, which type-checks and does nothing. The hide-labels option
+    // shipped inert on exactly that mistake, so this names the field.
+    const nodes: GNode[] = [
+      { id: "a", name: "A", type: "Application" },
+      { id: "b", name: "B", type: "Application" },
+    ];
+    const built = buildLdvFlow(nodes, [{ source: "a", target: "b", type: "uses", label: "uses" }], TYPES);
+    expect((built.edges[0].data as { relLabel: string }).relLabel).not.toBe("");
+
+    const stripped = stripEdgeLabels(built.edges);
+    expect((stripped[0].data as { relLabel: string }).relLabel).toBe("");
+    // Everything else about the edge survives — routing, handles, direction —
+    // so hiding the verbs cannot move an edge.
+    expect({ ...stripped[0], data: null }).toEqual({ ...built.edges[0], data: null });
+    const before = built.edges[0].data as Record<string, unknown>;
+    const after = stripped[0].data as Record<string, unknown>;
+    for (const k of Object.keys(before)) {
+      if (k !== "relLabel") expect(after[k]).toEqual(before[k]);
+    }
+  });
+
+  it("forwards the connection-change marks onto node data", () => {
+    const nodes: GNode[] = [
+      { id: "loses", name: "Loses", type: "Application", lostLink: true },
+      { id: "gains", name: "Gains", type: "Application", gainedLink: true },
+      { id: "fine", name: "Fine", type: "Application" },
+    ];
+    const result = buildLdvFlow(nodes, [], TYPES);
+    const byId = new Map(
+      result.nodes
+        .filter((n) => n.type === "ldvNode")
+        .map((n) => [n.id, n.data as { gainedLink?: boolean; lostLink?: boolean }]),
+    );
+    expect(byId.get("loses")?.lostLink).toBe(true);
+    expect(byId.get("gains")?.gainedLink).toBe(true);
+    expect(byId.get("fine")?.lostLink).toBeUndefined();
+    expect(byId.get("fine")?.gainedLink).toBeUndefined();
+  });
+
+  it("forwards changeState and proposed onto node data", () => {
+    const nodes: GNode[] = [
+      { id: "new", name: "Arriving", type: "Application", changeState: "arriving" },
+      { id: "old", name: "Retiring", type: "Application", changeState: "retired" },
+      { id: "same", name: "Unchanged", type: "Application" },
+    ];
+    const result = buildLdvFlow(nodes, [], TYPES);
+    const byId = new Map(
+      result.nodes
+        .filter((n) => n.type === "ldvNode")
+        .map((n) => [n.id, n.data as { changeState?: string }]),
+    );
+
+    expect(byId.get("new")?.changeState).toBe("arriving");
+    expect(byId.get("old")?.changeState).toBe("retired");
+    expect(byId.get("same")?.changeState).toBeUndefined();
   });
 
   it("creates ldvNode nodes as children of groups", () => {
@@ -185,6 +263,181 @@ describe("buildLdvFlow", () => {
       // Narrower group should be centered (x offset > 0)
       expect(itGroup.position.x).toBeGreaterThan(appGroup.position.x);
     }
+  });
+
+  describe("cross-lane x-alignment", () => {
+    /** Absolute center x of a card (group position + child position + W/2). */
+    function absCenterX(nodes: { id: string; position: { x: number }; parentId?: string }[], id: string): number {
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      const n = byId.get(id)!;
+      const parent = byId.get(n.parentId!)!;
+      return parent.position.x + n.position.x + 100; // LDV_NODE_W / 2
+    }
+
+    it("lines a cross-lane-linked card up under its partner", () => {
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "a3", name: "App 3", type: "Application" },
+        { id: "a4", name: "App 4", type: "Application" },
+        { id: "it1", name: "Server 1", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [{ source: "a3", target: "it1", type: "runs_on" }];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      // The single server sits directly under the app it serves — not at the
+      // lane center, which is what produced long diagonal edge runs.
+      expect(absCenterX(rf, "it1")).toBeCloseTo(absCenterX(rf, "a3"), 0);
+    });
+
+    it("aligns a chain through three lanes", () => {
+      const nodes: GNode[] = [
+        { id: "o1", name: "Org 1", type: "Organization" },
+        { id: "o2", name: "Org 2", type: "Organization" },
+        { id: "a", name: "App", type: "Application" },
+        { id: "it", name: "Server", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [
+        { source: "o2", target: "a", type: "uses" },
+        { source: "a", target: "it", type: "runs_on" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      expect(absCenterX(rf, "a")).toBeCloseTo(absCenterX(rf, "o2"), 0);
+      expect(absCenterX(rf, "it")).toBeCloseTo(absCenterX(rf, "a"), 0);
+    });
+
+    it("keeps minimum separation when several cards want the same column", () => {
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "a3", name: "App 3", type: "Application" },
+        { id: "it1", name: "Server 1", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [
+        { source: "a1", target: "it1", type: "runs_on" },
+        { source: "a2", target: "it1", type: "runs_on" },
+        { source: "a3", target: "it1", type: "runs_on" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      const xs = ["a1", "a2", "a3"].map((id) => absCenterX(rf, id)).sort((a, b) => a - b);
+      // All three are pulled toward the shared server but never overlap:
+      // centers stay at least a node width + gap apart.
+      expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(240);
+      expect(xs[2] - xs[1]).toBeGreaterThanOrEqual(240);
+      // …and the server lands at their median.
+      expect(absCenterX(rf, "it1")).toBeCloseTo(xs[1], 0);
+    });
+
+    it("is deterministic", () => {
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "it1", name: "Server 1", type: "ITComponent" },
+        { id: "o1", name: "Org 1", type: "Organization" },
+      ];
+      const edges: GEdge[] = [
+        { source: "o1", target: "a2", type: "uses" },
+        { source: "a1", target: "it1", type: "runs_on" },
+        { source: "a2", target: "it1", type: "runs_on" },
+      ];
+      const first = buildLdvFlow(nodes, edges, TYPES);
+      const second = buildLdvFlow(nodes, edges, TYPES);
+      expect(second.nodes).toEqual(first.nodes);
+      expect(second.edges).toEqual(first.edges);
+    });
+
+    it("lets a well-connected hub claim its exact column (priority placement)", () => {
+      // The hub server pulls toward the median of its two apps; the leaf
+      // server wants the very same column. Priority placement gives the hub
+      // its exact position and pushes the leaf aside — instead of
+      // first-come-first-served.
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "a3", name: "App 3", type: "Application" },
+        { id: "hub", name: "Hub", type: "ITComponent" },
+        { id: "leaf", name: "Leaf", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [
+        { source: "a1", target: "hub", type: "runs_on" },
+        { source: "a3", target: "hub", type: "runs_on" },
+        { source: "a2", target: "leaf", type: "runs_on" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      const cx = (id: string) => absCenterX(rf, id);
+      const hubDesired = (cx("a1") + cx("a3")) / 2;
+      expect(cx("hub")).toBeCloseTo(hubDesired, 0);
+      // Minimum separation still holds against the leaf.
+      expect(Math.abs(cx("leaf") - cx("hub"))).toBeGreaterThanOrEqual(240);
+    });
+  });
+
+  describe("transposeRow", () => {
+    it("swaps an adjacent pair when it strictly reduces crossings", () => {
+      const centerX = new Map([
+        ["u", 0],
+        ["v", 240],
+      ]);
+      // u's edge goes far right, v's goes far left — crossed as placed.
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        u: { above: [], below: [500] },
+        v: { above: [], below: [0] },
+      };
+      transposeRow(["u", "v"], centerX, (id) => nbs[id]);
+      expect(centerX.get("u")).toBe(240);
+      expect(centerX.get("v")).toBe(0);
+    });
+
+    it("does not swap on ties (both orders cross equally)", () => {
+      const centerX = new Map([
+        ["u", 0],
+        ["v", 240],
+      ]);
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        u: { above: [], below: [0, 480] },
+        v: { above: [], below: [240] },
+      };
+      transposeRow(["u", "v"], centerX, (id) => nbs[id]);
+      expect(centerX.get("u")).toBe(0);
+      expect(centerX.get("v")).toBe(240);
+    });
+
+    it("lets a crossing-neutral opposite side coexist with a below-side swap", () => {
+      const centerX = new Map([
+        ["u", 0],
+        ["v", 240],
+      ]);
+      // Both above-side edges meet at the same x (crossing-neutral either
+      // way); the below-side pair is crossed and drives the swap.
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        u: { above: [100], below: [500] },
+        v: { above: [100], below: [0] },
+      };
+      transposeRow(["u", "v"], centerX, (id) => nbs[id]);
+      expect(centerX.get("u")).toBe(240);
+      expect(centerX.get("v")).toBe(0);
+    });
+
+    it("bubbles a node across several positions and terminates", () => {
+      const centerX = new Map([
+        ["a", 0],
+        ["b", 240],
+        ["c", 480],
+      ]);
+      // a belongs on the right of both b and c.
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        a: { above: [], below: [900] },
+        b: { above: [], below: [0] },
+        c: { above: [], below: [200] },
+      };
+      transposeRow(["a", "b", "c"], centerX, (id) => nbs[id]);
+      expect(centerX.get("b")).toBe(0);
+      expect(centerX.get("c")).toBe(240);
+      expect(centerX.get("a")).toBe(480);
+    });
   });
 
   describe("flowDirection on edges", () => {
@@ -462,6 +715,47 @@ describe("filterEndOfLifeNodes", () => {
     expect(result.nodes.map((n) => n.id).sort()).toEqual(["a1", "a2", "a3"]);
     expect(result.edges).toHaveLength(2);
   });
+
+  it("judges end of life against asOfMs when time-travelling", () => {
+    const nodes: GNode[] = [
+      { id: "later", name: "Retires later", type: "Application", lifecycle: { endOfLife: FUTURE } },
+    ];
+    // Viewed from beyond its end-of-life date it is gone...
+    const beyond = new Date(FUTURE).getTime() + 86_400_000;
+    expect(filterEndOfLifeNodes(nodes, [], undefined, beyond).nodes).toHaveLength(0);
+    // ...but from today it is still very much alive.
+    expect(filterEndOfLifeNodes(nodes, [], undefined, Date.now()).nodes).toHaveLength(1);
+  });
+
+  it("keeps a node the consumer marked as retired at the date it is showing", () => {
+    // A card retiring inside a time-travel window IS end-of-life at the viewed
+    // date — dropping it would delete exactly what the view exists to show.
+    const nodes: GNode[] = [
+      {
+        id: "going",
+        name: "On its way out",
+        type: "Application",
+        lifecycle: { active: "2000-01-01", endOfLife: PAST },
+        changeState: "retired",
+      },
+    ];
+    expect(filterEndOfLifeNodes(nodes, []).nodes.map((n) => n.id)).toEqual(["going"]);
+    const beyond = new Date(PAST).getTime() + 86_400_000;
+    expect(filterEndOfLifeNodes(nodes, [], undefined, beyond).nodes.map((n) => n.id)).toEqual([
+      "going",
+    ]);
+  });
+
+  it("keeps a node that is end-of-life today but was alive at a past date", () => {
+    const nodes: GNode[] = [
+      { id: "gone", name: "Retired", type: "Application", lifecycle: { active: "2000-01-01", endOfLife: PAST } },
+    ];
+    expect(filterEndOfLifeNodes(nodes, []).nodes).toHaveLength(0);
+    const before = new Date(PAST).getTime() - 86_400_000;
+    expect(filterEndOfLifeNodes(nodes, [], undefined, before).nodes.map((n) => n.id)).toEqual([
+      "gone",
+    ]);
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -498,5 +792,186 @@ describe("resolveRevealIds", () => {
 
   it("returns nothing for a leaf card in children mode", () => {
     expect(resolveRevealIds(nodes, nodeMap, "leafA", "children")).toEqual([]);
+  });
+});
+
+describe("several relation types between the same pair", () => {
+  // The metamodel allows any number of relation types per ordered card-type
+  // pair, so the graph endpoint returns one edge per type. Each is a distinct
+  // relationship and gets its OWN line — merging them into one line labelled
+  // "uses / owns" hid the distinction and forced an arbitrary type onto
+  // anything derived from the view.
+  const NODES: GNode[] = [
+    { id: "org", name: "Finance", type: "Organization" },
+    { id: "app", name: "CRM", type: "Application" },
+  ];
+
+  const drawn = (result: ReturnType<typeof buildLdvFlow>) =>
+    result.edges.filter((e) => e.type !== "ldvGroup");
+
+  it("draws one line per relation type, each with its own verb", () => {
+    const edges: GEdge[] = [
+      { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
+      { source: "org", target: "app", type: "relOrgToAppOwns", label: "owns" },
+    ];
+    const lines = drawn(buildLdvFlow(NODES, edges, TYPES));
+
+    expect(lines).toHaveLength(2);
+    const labels = lines.map((e) => (e.data as { relLabel: string }).relLabel);
+    expect(labels.sort()).toEqual(["owns", "uses"]);
+    // No line carries both verbs any more.
+    expect(labels.some((l) => l.includes(" / "))).toBe(false);
+  });
+
+  it("gives the parallel lines distinct handles so they do not superimpose", () => {
+    const edges: GEdge[] = [
+      { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
+      { source: "org", target: "app", type: "relOrgToAppOwns", label: "owns" },
+    ];
+    const lines = drawn(buildLdvFlow(NODES, edges, TYPES));
+
+    const handles = lines.map((e) => `${e.sourceHandle}|${e.targetHandle}`);
+    expect(new Set(handles).size).toBe(handles.length);
+  });
+
+  it("keeps each line's own description and flow direction", () => {
+    const edges: GEdge[] = [
+      {
+        source: "org",
+        target: "app",
+        type: "relOrgToApp",
+        label: "uses",
+        description: "since 2019",
+        attributes: { flowDirection: "forward" },
+      },
+      {
+        source: "org",
+        target: "app",
+        type: "relOrgToAppOwns",
+        label: "owns",
+        attributes: { flowDirection: "reverse" },
+      },
+    ];
+    const lines = drawn(buildLdvFlow(NODES, edges, TYPES));
+    const byLabel = new Map(
+      lines.map((e) => [(e.data as { relLabel: string }).relLabel, e.data as Record<string, unknown>]),
+    );
+
+    // Previously the pair merged, so conflicting directions were forced to
+    // "bidirectional" and only the first description survived.
+    expect(byLabel.get("uses")?.description).toBe("since 2019");
+    expect(byLabel.get("uses")?.flowDirection).toBe("forward");
+    expect(byLabel.get("owns")?.description).toBeUndefined();
+    expect(byLabel.get("owns")?.flowDirection).toBe("reverse");
+  });
+
+  it("separates parallel lines in the SAME lane, where side handles are fixed", () => {
+    // The near-horizontal same-lane route uses the one `right`/`left` handle
+    // pair, so a second edge taking it would be drawn exactly on top of the
+    // first. Only the first may claim it; the rest route vertically.
+    const sameLane: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application" },
+      { id: "a2", name: "App 2", type: "Application" },
+    ];
+    const lines = drawn(
+      buildLdvFlow(
+        sameLane,
+        [
+          { source: "a1", target: "a2", type: "relAppToApp", label: "calls" },
+          { source: "a1", target: "a2", type: "relAppToAppOwns", label: "owns" },
+        ],
+        TYPES,
+      ),
+    );
+
+    expect(lines).toHaveLength(2);
+    const handles = lines.map((e) => `${e.sourceHandle}|${e.targetHandle}`);
+    expect(new Set(handles).size).toBe(2);
+  });
+
+  it("still collapses two rows of the SAME relation type into one line", () => {
+    // A duplicate edge is not a second relationship. Mirrors the backend's
+    // `min:max:type` dedup in GET /reports/dependencies.
+    const edges: GEdge[] = [
+      { source: "org", target: "app", type: "relOrgToApp", label: "uses" },
+      { source: "app", target: "org", type: "relOrgToApp", label: "uses" },
+    ];
+    expect(drawn(buildLdvFlow(NODES, edges, TYPES))).toHaveLength(1);
+  });
+
+  it("still draws one line when only a single relation type connects the pair", () => {
+    const lines = drawn(
+      buildLdvFlow(
+        NODES,
+        [{ source: "org", target: "app", type: "relOrgToApp", label: "uses" }],
+        TYPES,
+      ),
+    );
+    expect(lines).toHaveLength(1);
+    expect((lines[0].data as { relLabel: string }).relLabel).toBe("uses");
+  });
+});
+
+describe("filterHiddenTypes", () => {
+  const nodes: GNode[] = [
+    { id: "app", name: "App", type: "Application" },
+    { id: "cap", name: "Capability", type: "BusinessCapability" },
+    { id: "itc", name: "Component", type: "ITComponent" },
+  ];
+  const edges: GEdge[] = [
+    { source: "app", target: "cap", type: "relAppToBC" },
+    { source: "app", target: "itc", type: "relAppToITC" },
+  ];
+
+  it("drops a hidden type's cards and every relation touching them", () => {
+    const result = filterHiddenTypes(nodes, edges, new Set(["BusinessCapability"]));
+    expect(result.nodes.map((n) => n.id)).toEqual(["app", "itc"]);
+    expect(result.edges.map((e) => e.type)).toEqual(["relAppToITC"]);
+  });
+
+  it("keeps the centred card even when its own type is hidden", () => {
+    // The centre is the subject of the diagram, not one of its neighbours —
+    // hiding it would leave the view with nothing to be centred on.
+    const result = filterHiddenTypes(nodes, edges, new Set(["Application"]), "app");
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(["app", "cap", "itc"]);
+    expect(result.edges).toHaveLength(2);
+  });
+
+  it("hides several types at once", () => {
+    const result = filterHiddenTypes(
+      nodes,
+      edges,
+      new Set(["BusinessCapability", "ITComponent"]),
+    );
+    expect(result.nodes.map((n) => n.id)).toEqual(["app"]);
+    expect(result.edges).toHaveLength(0);
+  });
+
+  it("returns the very same arrays when nothing is hidden", () => {
+    // The view feeds this straight into its layout memos: a fresh array every
+    // render would rebuild the whole graph for nothing.
+    const result = filterHiddenTypes(nodes, edges, new Set());
+    expect(result.nodes).toBe(nodes);
+    expect(result.edges).toBe(edges);
+  });
+
+  it("returns the very same arrays when the hidden types are not on the view", () => {
+    const result = filterHiddenTypes(nodes, edges, new Set(["Provider"]));
+    expect(result.nodes).toBe(nodes);
+    expect(result.edges).toBe(edges);
+  });
+});
+
+describe("stripEdgeLabels with aggregate connectors", () => {
+  it("clears the verb but keeps the count a merged connector stands for", () => {
+    // With the verbs hidden, the count is all an aggregate line has left to
+    // say — and it rides on `count`, not inside `relLabel`, precisely so that
+    // hiding the labels cannot take it away.
+    const edges = [
+      { id: "e1", source: "a", target: "b", data: { relLabel: "uses", count: 4 } },
+    ] as unknown as Parameters<typeof stripEdgeLabels>[0];
+    const [stripped] = stripEdgeLabels(edges);
+    expect((stripped.data as { relLabel: string; count: number }).relLabel).toBe("");
+    expect((stripped.data as { relLabel: string; count: number }).count).toBe(4);
   });
 });

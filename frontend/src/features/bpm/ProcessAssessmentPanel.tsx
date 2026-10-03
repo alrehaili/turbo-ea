@@ -8,6 +8,7 @@ import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import TextField from "@mui/material/TextField";
 import Slider from "@mui/material/Slider";
 import Dialog from "@mui/material/Dialog";
@@ -29,6 +30,7 @@ import Divider from "@mui/material/Divider";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { todayIsoDate } from "@/lib/dates";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { makeRtlAxisTick, rtlLegendItemStyle, rtlTooltipStyle } from "@/lib/rechartsRtl";
@@ -60,7 +62,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [form, setForm] = useState({
-    assessment_date: new Date().toISOString().split("T")[0],
+    assessment_date: todayIsoDate(),
     overall_score: 3,
     efficiency: 3,
     effectiveness: 3,
@@ -215,7 +217,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
                   <TableCell align="center"><ScoreChip score={a.compliance} /></TableCell>
                   <TableCell align="center"><ScoreChip score={a.automation} /></TableCell>
                   <TableCell sx={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {a.notes || "—"}
+                    {a.notes ? <LinkifiedText text={a.notes} /> : "—"}
                   </TableCell>
                   <TableCell>
                     <IconButton size="small" onClick={() => handleDelete(a.id)}>

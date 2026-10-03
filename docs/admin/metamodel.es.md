@@ -31,6 +31,7 @@ Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configu
 | **Color** | Color de marca para el tipo (usado en inventario, informes y diagramas) |
 | **Categoría** | Agrupación por capa de arquitectura |
 | **Tiene Jerarquía** | Si las fichas de este tipo pueden tener relaciones padre/hijo |
+| **Permitir logotipos personalizados** | Si los editores pueden subir un logotipo por tarjeta, que se muestra en lugar del icono del tipo (activado de origen para Aplicación y Componente de TI) |
 
 ### Editar un Tipo
 
@@ -53,7 +54,7 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 |---------------|-------------|
 | **Clave** | Identificador único del campo |
 | **Etiqueta** | Nombre para mostrar |
-| **Tipo** | texto, texto_multilínea, número, costo, booleano, fecha, url, selección_única o selección_múltiple |
+| **Tipo** | texto, texto_multilínea, número, costo, porcentaje, booleano, fecha, url, selección_única o selección_múltiple. Un porcentaje es un número de 0 a 100, mostrado como una barra de progreso y editado con un control deslizante o escrito con exactitud |
 | **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales |
 | **Requerido** | Si el campo es obligatorio — consulta las reglas de aplicación más abajo |
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |
@@ -134,12 +135,55 @@ Los roles pueden retirarse de dos formas:
 
 La clave de un rol puede corregirse mientras **nadie ostente el rol**: las encuestas que lo utilizan siguen el cambio de nombre automáticamente, y renombrar el único rol de un tipo no supone problema, ya que el rol sobrevive. En cuanto alguien lo ostenta, la clave queda bloqueada y el campo explica por qué. Los roles creados antes de esta convención conservan la clave que ya tenían y siguen funcionando; solo se comprueba una clave nueva o modificada.
 
+#### Permisos { #permissions }
+
+Los tipos de tarjeta pueden restringir lo que cada rol de aplicación puede hacer con sus tarjetas. Abra la pestaña **Permisos** en el panel del tipo para ver una matriz de roles frente a las cinco acciones — **Ver**, **Crear**, **Editar**, **Archivar** y **Eliminar**.
+
+![Permisos por tipo de ficha](../assets/img/es/85_admin_permisos_tipo_ficha.png)
+
+Cada celda tiene tres estados:
+
+- **Heredar** (predeterminado) — decide el permiso global del rol. El icono muestra cuál es actualmente.
+- **Permitir** — el rol puede realizar esta acción en las tarjetas de este tipo, aunque no tenga el permiso globalmente.
+- **Denegar** — el rol no puede realizar esta acción en las tarjetas de este tipo, aunque tenga el permiso globalmente.
+
+Esto permite decir «cualquiera puede crear aplicaciones, pero solo el equipo central crea organizaciones e iniciativas» sin inventar un rol por tipo de tarjeta. Denegar **Crear** en un tipo también lo retira del diálogo de creación, del editor de diagramas y del importador de hojas de cálculo.
+
+Algunas reglas que conviene conocer:
+
+- **Los administradores nunca están restringidos.** La fila de administrador está bloqueada.
+- **Los roles de partes interesadas siguen aplicándose.** Denegar **Editar** a un rol en un tipo elimina su permiso a nivel de todo el panorama, no la autoridad que ostenta como propietario asignado de una tarjeta concreta. Consulte [Usuarios y roles](users.md).
+- **La edición masiva sigue una denegación, no una autorización.** Un tipo que deniega **Editar** también bloquea las ediciones masivas; una autorización no concede por sí sola el permiso independiente de edición masiva.
+- Los cambios surten efecto para otros usuarios la próxima vez que recarguen la aplicación.
+
+##### Ocultar un tipo de tarjeta a un rol { #hiding-a-card-type-from-a-role }
+
+Denegar **Ver** oculta el tipo por completo al rol. Para sus usuarios, las tarjetas de ese tipo no existen: quedan fuera del inventario, de la búsqueda, de los recuentos y de las exportaciones, de las relaciones y de la jerarquía de otras tarjetas, y de todo informe, gráfico, grafo de dependencias y panel, así como de las listas de BPM, PPM, GRC, decisiones, diagramas y TurboLens. Abrir una de esas tarjetas desde un enlace muestra **no encontrado** en lugar de **acceso denegado**, de modo que la página ni siquiera revela que la tarjeta existe.
+
+- **Permitir Ver funciona en sentido contrario.** A un rol que no puede explorar el inventario en absoluto se le puede permitir **Ver** en un tipo; sus usuarios ven entonces las tarjetas de ese tipo, y solo las de ese tipo.
+- **Heredar se interpreta de dos maneras para Ver.** En el inventario, en las páginas de tarjeta, en la búsqueda y en las exportaciones, *heredar* sigue el permiso **Ver** del rol a nivel de todo el panorama. En los módulos que tienen su propio permiso — informes, BPM, PPM, riesgos, decisiones, diagramas, TurboLens — solo un **Denegar** explícito oculta algo, de modo que un rol que puede leer informes pero no explorar el inventario conserva sus informes.
+- **Denegar Ver bloquea las demás acciones.** Un rol que no puede ver un tipo tampoco puede crear, editar, archivar ni eliminar sus tarjetas. Las demás celdas de la fila muestran un icono de candado y conservan sus valores guardados, que vuelven a aplicarse en cuanto **Ver** deja de estar denegado.
+- **Las partes interesadas conservan sus tarjetas.** Quien esté asignado a una tarjeta mediante un rol de parte interesada que concede la visualización sigue viendo esa tarjeta —y solo esa— aunque su rol de aplicación no pueda ver su tipo.
+- **Denegar Ver en Iniciativa también se aplica a PPM.** El permiso de PPM no recupera las iniciativas ocultas; el rol solo ve aquellas en las que es parte interesada.
+- **Se conservan los vínculos que no se pueden ver.** Cuando alguien edita las tarjetas vinculadas a una decisión, un diagrama o un paso de proceso, los vínculos a tarjetas que esa persona no puede ver se mantienen.
+- **La IA de Arquitectura necesita todo el panorama.** La IA de Arquitectura de TurboLens razona sobre todas las tarjetas, por lo que no está disponible para un rol al que se le oculte cualquier tipo de tarjeta.
+
+Algunas cosas no se filtran a propósito, porque son publicaciones o tareas de administración y no exploración:
+
+- los portales web publicados y los diagramas publicados;
+- el dibujo de un diagrama y el texto redactado en una decisión o en una Declaración de Trabajo de Arquitectura (las tarjetas vinculadas a ellos sí se filtran);
+- los valores de los campos calculados, que se obtienen a partir de todo el panorama;
+- el registro de eventos y el flujo de eventos en directo para los administradores, así como la exportación del workspace;
+- las encuestas que un administrador ha enviado al usuario;
+- las extensiones, que actúan en nombre del sistema y no de un usuario.
+
 #### Traducciones
 
 Haga clic en el botón **Traducir** en la barra de herramientas del cajón de tipo para abrir el **Diálogo de Traducciones**. Aquí puede proporcionar traducciones para todas las etiquetas del metamodelo en cada idioma soportado:
 
 - **Etiqueta del tipo** — El nombre de visualización del tipo de ficha
 - **Subtipos** — Etiquetas para cada subtipo
+- **Tipos de vínculo jerárquico** — Etiquetas para cada tipo de vínculo jerárquico
 - **Secciones** — Encabezados de sección en la página de detalle de la ficha
 - **Campos** — Etiquetas de campos y etiquetas de opciones de selección
 - **Roles de Parte Interesada** — Nombres de roles mostrados en la interfaz de asignación de stakeholders
@@ -157,7 +201,7 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 | Campo | Descripción |
 |-------|-------------|
-| **Clave** | Identificador único |
+| **Clave** | Identificador único: se propone a partir de su verbo, se puede editar durante la creación y queda fijo después |
 | **Etiqueta** | Etiqueta de dirección directa (ej., «utiliza») |
 | **Etiqueta Inversa** | Etiqueta de dirección inversa (ej., «es utilizado por») |
 | **Tipo Origen** | El tipo de ficha en el lado «de» |
@@ -166,15 +210,31 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
 
+Cada fila de relación lleva además los interruptores **Visible** y **Obligatorio** para *cada uno* de sus dos extremos, indicando el tipo de ficha al que se aplican: Visible decide si la relación aparece en la página de detalle de ese tipo, Obligatorio si debe rellenarse. Un tipo de relación cuyos dos extremos son la misma ficha recibe un par de interruptores por dirección, de modo que el lado entrante se configura por separado del saliente.
+
 Los campos **Etiqueta** y **Etiqueta Inversa** se escriben en el idioma que está utilizando en ese momento: el rótulo del campo indica cuál (por ejemplo, *Etiqueta (Español)*). Cambiar el nombre de una relación actualiza ese idioma en todos los lugares donde aparece el verbo: la sección **Relaciones** de una ficha, las columnas de relación del inventario, los informes, los portales y los diagramas. Los demás idiomas conservan su propia redacción hasta que los traduzca.
 
-Use **Gestionar traducciones** en la parte superior de la pestaña Tipos de relación para traducir los verbos de todas las relaciones a cada idioma habilitado de una sola vez. Elija una pestaña de idioma, escriba la redacción junto al original en inglés y guarde: el contador de cada pestaña muestra cuántos verbos faltan todavía en ese idioma. El inglés no aparece aquí porque es la redacción de la propia relación; un verbo sin traducir vuelve a ella.
+Use **Gestionar traducciones** en la parte superior de la pestaña Relaciones, encima de sus subpestañas, para traducir los verbos de todas las relaciones a cada idioma habilitado de una sola vez. Elija una pestaña de idioma, escriba la redacción junto al original en inglés y guarde: el contador de cada pestaña muestra cuántos verbos faltan todavía en ese idioma. El inglés no aparece aquí porque es la redacción de la propia relación; un verbo sin traducir vuelve a ella. El mismo cuadro de diálogo incluye una sección aparte, **Tipos de vínculo jerárquico**, con el vocabulario de cada tipo de tarjeta jerárquico, de modo que los verbos y los tipos de vínculo se traducen en una sola pasada.
+
+### Tipos de vínculo jerárquico
+
+Para un tipo de ficha con la jerarquía activada, puede definir **tipos de vínculo**: un vocabulario breve que etiqueta cada vínculo padre-hijo. En un árbol de organizaciones, por ejemplo, permite marcar una filial como *comercial* y otra como de *ventas*, sin inventar un segundo tipo de relación.
+
+1. En la pestaña **Relaciones**, abra la subpestaña **Tipos de vínculo jerárquico**: allí figura cada tipo de ficha con la jerarquía activada. (La primera subpestaña, **Tipos de relación**, es la lista de relaciones habitual.) La pestaña **Relaciones** de un tipo de ficha muestra lo mismo en una sola línea arriba, limitada a ese tipo.
+2. Haga clic en **Editar tipos de vínculo** y añada una entrada por etiqueta, con clave, nombre y color.
+3. Traduzca los nombres con el botón **Traducir**, como cualquier otra etiqueta del metamodelo.
+
+Los editores eligen después un tipo de vínculo en la sección **Jerarquía** de la ficha, o en la columna **Tipo de vínculo** del inventario. La etiqueta pertenece a la ficha hija, por lo que se borra automáticamente cuando esa ficha pasa al nivel superior.
+
+Eliminar un tipo de vínculo **no** reescribe las fichas que ya lo usan: conservan el valor almacenado y lo muestran como tipo de vínculo desconocido hasta que alguien lo cambie, de modo que un borrado accidental no pierde nada. El diálogo indica cuántas fichas se ven afectadas antes de confirmar.
 
 ### Atributos de relación
 
 Algunas relaciones incluyen atributos adicionales que se establecen en cada enlace individual en lugar de en el tipo de relación. Por ejemplo, la relación integrada **Organización → Aplicación** («utiliza») tiene un atributo **Tipo de uso**: establézcalo en **Propietario**, **Usuario** o **Parte interesada** en cada enlace. Así puede modelar una aplicación *propiedad de* una organización y *utilizada por* otras mediante un único tipo de relación. El valor elegido aparece como una etiqueta de color en la sección **Relaciones** de la tarjeta; establézcalo al añadir la relación o más tarde mediante el icono de edición en la fila de la relación.
 
-Solo puede existir un tipo de relación entre un par dado de tipos de tarjeta, así que utilice estos atributos para matizar el significado de un enlace en lugar de crear un segundo tipo de relación para el mismo origen y destino.
+También puede crear **varios tipos de relación entre el mismo par de tipos de tarjeta** — por ejemplo, una organización que *posee* una aplicación junto a otra que la *utiliza*. Prefiera un atributo cuando describa variantes de una misma relación (mantiene una sola columna en el inventario y una sola línea en un diagrama); cree un segundo tipo de relación cuando las relaciones sean realmente distintas y merezcan sus propios verbos, atributos o filtros. Cuando un par tiene más de un tipo de relación, el inventario sigue mostrando una única columna para el tipo de tarjeta relacionado, y al abrir esa celda obtiene una sección por tipo de relación. En una tarjeta, cada tipo de relación conserva su propia sección: las secciones que apuntan al mismo tipo de tarjeta se muestran juntas, y una tarjeta que haya vinculado mediante más de una de ellas aparece marcada con *También …* en cada una de sus secciones. Un tipo de relación cuyos dos extremos son el mismo tipo de tarjeta — una organización que *tiene como sede* a otra organización — muestra *ambos* verbos en una tarjeta, como dos secciones, y en el inventario como dos filas de filtro y dos secciones de edición; asigne a ese tipo una etiqueta inversa o ambas secciones se leerán igual.
+
+Cuando un par tiene más de un tipo de relación, los informes, portales y encuestas pueden apuntar a uno concreto: el informe de Cartera ofrece un eje de agrupación y un filtro por relación, el Mapa de capacidades añade un filtro por relación, los filtros y secciones de relación del portal se etiquetan con su verbo, y el filtro **relacionado con** de una encuesta incorpora un selector **A través de la relación**. No elegir nada sigue significando «relacionado por cualquiera de ellas».
 
 ### Gestionar valores de relación
 

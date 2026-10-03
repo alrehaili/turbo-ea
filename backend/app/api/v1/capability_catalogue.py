@@ -2,8 +2,8 @@
 
 Visibility:
 - `GET /capability-catalogue` — any user with `inventory.view`.
-- `POST /capability-catalogue/import` — `inventory.create` (matches the regular
-  card-creation permission, per the product brief).
+- `POST /capability-catalogue/import` — `inventory.create` on `BusinessCapability`
+  (matches the regular card-creation permission, per the product brief).
 - `GET /capability-catalogue/update-status` and
   `POST /capability-catalogue/update-fetch` — `admin.metamodel`. The catalogue
   is metamodel-adjacent reference data and updating it changes what users see
@@ -42,7 +42,9 @@ class ImportRequest(BaseModel):
 async def get_catalogue(
     locale: str | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.view")),
+    # The catalogue marks which entries already exist as BusinessCapability cards, so a
+    # role denied View on that type may not open it.
+    user: User = Depends(require_permission("inventory.view", card_type_key="BusinessCapability")),
 ):
     """Return the full active catalogue with `existing_card_id` annotations.
 
@@ -60,7 +62,9 @@ async def get_catalogue(
 async def import_capabilities(
     payload: ImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_permission("inventory.create")),
+    user: User = Depends(
+        require_permission("inventory.create", card_type_key="BusinessCapability")
+    ),
 ):
     """Create BusinessCapability cards for the selected catalogue entries.
 

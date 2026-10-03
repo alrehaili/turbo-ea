@@ -3,10 +3,29 @@
 from __future__ import annotations
 
 import json as _json
+from collections.abc import Iterable, Sequence
+from typing import TypeVar
 
 import httpx
 
 from turbo_ea_mcp.config import TURBO_EA_URL
+
+T = TypeVar("T")
+
+# Ids per ``GET /cards?ids=`` request. The bundled edge nginx runs the default
+# ``large_client_header_buffers 4 8k``, so a request line over 8 KB is refused
+# with 414 before it ever reaches the backend. httpx percent-encodes the comma,
+# so an encoded UUID costs 39 bytes: 200 of them make a 7.8 KB request line,
+# which fits; 210 do not. The frontend's ``fetchCardsByIds`` uses the same
+# figure (#1093).
+CARD_IDS_CHUNK = 200
+
+
+def chunked(items: Sequence[T], size: int) -> list[list[T]]:
+    """Split ``items`` into consecutive lists of at most ``size``."""
+    if size < 1:
+        raise ValueError("chunk size must be >= 1")
+    return [list(items[i : i + size]) for i in range(0, len(items), size)]
 
 
 def _raise_for_status_with_detail(resp: httpx.Response) -> None:
@@ -76,6 +95,26 @@ class TurboEAClient:
                 return {}
             return resp.json()
 
+    async def get_cards_by_ids(self, ids: Iterable[str]) -> list[dict]:
+        """Fetch cards by id in batches, so no single URL can hit the proxy's
+        request-line limit.
+
+        Dedupes and drops falsy ids (first-seen order kept) and makes no
+        request when nothing is left. Archived cards are included — the
+        endpoint deliberately skips its ACTIVE filter when ``ids`` is given —
+        and hard-deleted ones are simply absent, so key the result by id
+        rather than by position. All-or-nothing: one failed batch raises.
+        """
+        unique = list(dict.fromkeys(i for i in ids if i))
+        items: list[dict] = []
+        for chunk in chunked(unique, CARD_IDS_CHUNK):
+            page = await self.get(
+                "/cards", params={"ids": ",".join(chunk), "page_size": len(chunk)}
+            )
+            if isinstance(page, dict):
+                items.extend(page.get("items", []))
+        return items
+
     async def post(self, path: str, json: dict | None = None) -> dict | list:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
@@ -87,6 +126,63 @@ class TurboEAClient:
             if resp.status_code == 204:
                 return {}
             return resp.json()
+
+    async def post_multipart(
+        self,
+        path: str,
+        *,
+        data: dict[str, str] | None = None,
+        file: tuple[str, bytes, str] | None = None,
+        field: str = "file",
+    ) -> dict | list:
+        """POST multipart/form-data — a file, some plain fields, or both.
+
+        The image endpoints take a real upload rather than JSON, and one of
+        them also accepts a bare form field instead of a file (a brand-icon
+        slug, resolved server-side). ``_headers()`` supplies the origin and
+        batch ids as usual; the content type is left to httpx so it sets the
+        multipart boundary.
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self._base}{path}",
+                headers=self._headers(),
+                files={field: file} if file else None,
+                data=data or None,
+            )
+            _raise_for_status_with_detail(resp)
+            if resp.status_code == 204:
+                return {}
+            return resp.json()
+
+    async def post_file(
+        self,
+        path: str,
+        filename: str,
+        content: bytes,
+        mime: str,
+        field: str = "file",
+    ) -> dict | list:
+        """POST a single file as multipart/form-data."""
+        return await self.post_multipart(
+            path, file=(filename, content, mime), field=field
+        )
+
+    async def get_bytes(self, path: str, params: dict | None = None) -> tuple[bytes, str]:
+        """GET a binary artefact, returning ``(content, content_type)``.
+
+        ``get()`` JSON-decodes, which is wrong for the image endpoints. The
+        content type comes back with the bytes so a caller needs no second
+        request to learn what it received.
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{self._base}{path}",
+                headers=self._headers(),
+                params=params,
+            )
+            _raise_for_status_with_detail(resp)
+            return resp.content, resp.headers.get("content-type", "").split(";")[0].strip()
 
     async def put(self, path: str, json: dict | None = None) -> dict | list:
         async with httpx.AsyncClient(timeout=30.0) as client:

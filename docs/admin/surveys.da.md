@@ -34,11 +34,12 @@ Vælg, hvilken korttype undersøgelsen gælder for (f.eks. Application, IT Compo
 
 ### Filtre
 
-Indsnæver eventuelt omfanget ved at filtrere kort. Tre filtertyper er tilgængelige og kan kombineres:
+Indsnæver eventuelt omfanget ved at filtrere kort. Fire filtertyper er tilgængelige og kan kombineres:
 
 - **Specifikke kort** — Vælg et eller flere kort direkte (filtreret til den valgte måltype). Brug dette til at målrette et enkelt kort eller en håndplukket delmængde.
 - **Kort relateret til** — Inkluder kun kort, der har en relation til et af de listede elementer (f.eks. alle Applications relateret til Sales-organisationen).
 - **Tags** og **Egenskabsfiltre** — Match kort efter tag eller efter egenskabsbetingelser (f.eks. omkostninger større end 10.000, TIME-vurdering mangler).
+- **Seneste opdatering** — Medtag kun kort, som ingen har ændret i et stykke tid: 30 dage, 90 dage, 6 måneder, 1 år eller et selvvalgt antal dage eller måneder. Byggeren viser den skæringsdato, det svarer til, mens du vælger. Vinduet er relativt til, hvornår undersøgelsen **sendes**, ikke hvornår du designer den, så et udkast, der har ligget stille, finder stadig de kort, der er forældede til den tid. Det måler kortets ændringsdato — den samme, som inventarkolonnen og kortets historik viser.
 
 ### Spørgsmål
 
@@ -53,7 +54,7 @@ Design dine spørgsmål. Hvert spørgsmål kan være:
 
 ### Relationer
 
-Ud over attributter kan en undersøgelse også bede respondenter om at holde et korts **relationer** opdaterede. I trinnet **Felter** viser afsnittet **Relationer** alle de relationer, måltypen for kortet kan have, i begge retninger (for eksempel for en Applikation: *understøtter → IT-komponent* og *bruges af ← Organisation*). For hver enkelt, du vælger, skal du vælge en handling:
+Ud over attributter kan en undersøgelse også bede respondenter om at holde et korts **relationer** opdaterede. I trinnet **Felter** viser afsnittet **Relationer** alle de relationer, måltypen for kortet kan have, i begge retninger (for eksempel for en Applikation: *understøtter → IT-komponent* og *bruges af ← Organisation*). En korttype, der understøtter slægtskab, vises her som enhver anden relation, i begge retninger og med sine egne udsagnsord: for en Applikation opsamler *efterfølger* de kort, den afløste, og *efterfølges af* dem, der afløser den. Sider, som en administrator har skjult på korttypen, tilbydes ikke. For hver enkelt, du vælger, skal du vælge en handling:
 
 - **Vedligehold** — Respondenten ser de aktuelt tilknyttede kort og kan tilføje eller fjerne tilknytninger via en søgevælger.
 - **Bekræft** — Respondenten bekræfter blot, at de aktuelle tilknytninger er korrekte, eller slår kontakten fra for at foreslå ændringer.
@@ -71,6 +72,13 @@ Når din undersøgelse er i **Aktiv**-status:
 1. Klik på **Send** for at distribuere undersøgelsen
 2. Hvert målrettet kort genererer en todo for de tildelte interessenter
 3. Interessenter ser undersøgelsen i deres **Mine undersøgelser**-faneblad på [Opgaver-siden](../guide/tasks.md)
+4. Hver interessent får **én** notifikation — og én e-mail, hvis den er slået til — uanset hvor mange af deres kort undersøgelsen omfatter; e-mailen viser de kort, hver med et link direkte til svarformularen
+
+!!! note "Et kort skal have nogen at spørge"
+
+    Et kort indgår kun i undersøgelsen, hvis mindst én person har en af de **valgte interessentroller** på det. Kort, der matcher dine filtre, men ikke har en sådan interessent, springes over; trinnet **Forhåndsvis og send** oplyser hvor mange, så du kan tildele ansvarlige.
+
+En undersøgelse kan også oprettes og sendes af en installeret udvidelse — for eksempel en planlagt regel, der beder ejerne af hvert kort, som opfylder en betingelse, om at udfylde det. Sådan en undersøgelse viser ingen ophavsmand, dens felter er dem, korttypen definerer, og den opfører sig som enhver anden: du lukker den og anvender dens svar her. En tilbagerulning af udvidelsens kørsel i **Admin → Revisionslog** lukker undersøgelsen og trækker de anmodninger tilbage, som ingen endnu havde besvaret.
 
 ## Visning af resultater
 

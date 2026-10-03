@@ -16,8 +16,10 @@ from sqlalchemy import delete, select
 from app.core.encryption import encrypt_value
 from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.comment import Comment
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.risk import Risk, RiskCard
 from app.services.workspace_io import (
     apply_bundle,
@@ -31,6 +33,7 @@ from app.services.workspace_io import exporter as exp
 from tests.conftest import (
     create_card,
     create_card_type,
+    create_role,
     create_user,
 )
 
@@ -321,14 +324,17 @@ async def test_process_element_organizations_roundtrip(db):
     process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
     org_a = await create_card(db, card_type="Organization", name="Sales", user_id=user.id)
     org_b = await create_card(db, card_type="Organization", name="Finance", user_id=user.id)
+    callee = await create_card(db, card_type="BusinessProcess", name="Quote", user_id=user.id)
 
     elem = ProcessElement(
         process_id=process.id,
         bpmn_element_id="task_1",
-        element_type="task",
+        element_type="callActivity",
         name="Create Quote",
         lane_name="Sales",
         sequence_order=0,
+        called_element=str(callee.id),
+        business_process_id=callee.id,
     )
     db.add(elem)
     await db.flush()
@@ -357,6 +363,12 @@ async def test_process_element_organizations_roundtrip(db):
         )
     ).all()
     assert {row[0] for row in restored} == {org_a.id, org_b.id}
+    # The call activity's process link is a card FK, remapped by reference.
+    restored_elem = (
+        await db.execute(select(ProcessElement).where(ProcessElement.id == elem_id))
+    ).scalar_one()
+    assert restored_elem.business_process_id == callee.id
+    assert restored_elem.called_element == str(callee.id)
 
 
 async def test_large_json_blob_survives_export_import(db):
@@ -426,6 +438,54 @@ async def test_diagram_with_card_link_roundtrips(db):
     assert restored.data["thumbnail"] == "data:image/png;base64,AA"  # meta preserved
     links = (await db.execute(select(diagram_cards))).all()
     assert any(row.diagram_id == diag_id and row.card_id == card.id for row in links)
+
+
+async def test_card_logo_roundtrips(db):
+    """A card's custom logo — bytes and all — plus the per-type switch that
+    governs it survive export → delete → re-import."""
+    from app.models.card_logo import CardLogo
+    from app.models.card_type import CardType
+
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    user = await create_user(db, email="logo@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application", allow_card_logo=True)
+    card = await create_card(db, card_type="Application", name="Kafka", user_id=user.id)
+    db.add(
+        CardLogo(
+            card_id=card.id,
+            mime_type="image/png",
+            size=len(png),
+            data=png,
+            created_by=user.id,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    # The image is offloaded to the assets folder, not inlined in a cell.
+    _, _, assets = bundle_io.unpack(raw)
+    assert any(p.startswith("CardLogos/") for p in assets)
+
+    await db.execute(delete(CardLogo))
+    ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+    ct.allow_card_logo = False
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    # `data` is deferred on the model, so ask for the columns explicitly —
+    # the same way the serving endpoint does.
+    restored = (
+        await db.execute(
+            select(CardLogo.data, CardLogo.mime_type).where(CardLogo.card_id == card.id)
+        )
+    ).one()
+    assert restored.data == png
+    assert restored.mime_type == "image/png"
+
+    await db.refresh(ct)
+    assert ct.allow_card_logo is True, "the per-type switch must transfer too"
 
 
 async def test_diagram_groups_and_favorites_roundtrip(db):
@@ -1009,3 +1069,507 @@ async def test_transfer_out_exposes_source_app_version():
     )
     out = _to_out(t)
     assert out.source_app_version == "1.62.3"
+
+
+async def test_import_cannot_reintroduce_legacy_permission_keys(db):
+    """A bundle exported from a pre-024 instance must not re-poison a repaired one.
+
+    The generic config applier writes ``permissions`` straight onto the model,
+    bypassing the Pydantic validators that forgive these keys — so without the
+    normaliser an old bundle would put ``card.quality_seal`` back and break the
+    target's stakeholder-role editor again, with a key its admin cannot see.
+
+    The stale key is seeded **before** the export so the bundle itself carries
+    it, and the row is deleted before the import so the applier has to take its
+    create path: asserting on a row the bundle merely failed to change would
+    pass without the normaliser doing anything at all.
+    """
+    from app.models.card_type import CardType
+    from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+    user = await create_user(db, email="legacy-perms-ws@test.com", role="admin")
+    db.add(
+        CardType(
+            key="Application",
+            label="Application",
+            icon="apps",
+            color="#0f7eb5",
+            fields_schema=[],
+        )
+    )
+    await db.flush()
+    db.add(
+        StakeholderRoleDefinition(
+            card_type_key="Application",
+            key="responsible",
+            label="Responsible",
+            color="#ff0000",
+            permissions={"card.view": True, "card.quality_seal": True},
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    # Prove the bundle really carries the stale key, so the assertions below
+    # test the normaliser rather than an export that quietly dropped it.
+    exported = parse_bundle(raw).rows(schema.SHEET_STAKEHOLDER_ROLES)
+    assert any("card.quality_seal" in str(r.get("permissions", "")) for r in exported)
+
+    await db.execute(
+        delete(StakeholderRoleDefinition).where(StakeholderRoleDefinition.key == "responsible")
+    )
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    stored = (
+        await db.execute(
+            select(StakeholderRoleDefinition.permissions).where(
+                StakeholderRoleDefinition.card_type_key == "Application",
+                StakeholderRoleDefinition.key == "responsible",
+            )
+        )
+    ).scalar_one()
+    assert "card.quality_seal" not in stored
+    assert stored == {"card.view": True}
+
+
+async def test_import_renames_legacy_app_permission_keys(db):
+    """A bundle from a pre-033 instance must not reintroduce the old app names.
+
+    This is the path no migration is watching: the config applier writes
+    ``roles.permissions`` straight onto the model, bypassing the RoleCreate /
+    RoleUpdate validators, so an old bundle would put ``subscriptions.view``
+    back into a repaired database and break its roles admin.
+
+    Renamed, not dropped — the opposite of the card-level keys — because each
+    one still maps to a live permission, so discarding it would silently revoke
+    access the role actually had. Note the seeded value is ``False``: that is
+    what proves the value is carried across rather than the key merely being
+    re-added as a grant.
+    """
+    from app.models.role import Role
+
+    user = await create_user(db, email="legacy-app-perms-ws@test.com", role="admin")
+    db.add(
+        Role(
+            key="auditor",
+            label="Auditor",
+            permissions={"inventory.view": True, "subscriptions.view": False},
+            is_system=False,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    exported = parse_bundle(raw).rows(schema.SHEET_ROLES)
+    assert any("subscriptions.view" in str(r.get("permissions", "")) for r in exported)
+
+    await db.execute(delete(Role).where(Role.key == "auditor"))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    stored = (await db.execute(select(Role.permissions).where(Role.key == "auditor"))).scalar_one()
+    assert "subscriptions.view" not in stored
+    assert stored == {"inventory.view": True, "stakeholders.view": False}
+
+
+async def test_import_accepts_multiple_relation_types_per_pair(db):
+    """A bundle may carry several relation types on one ordered card-type pair.
+
+    The applier used to re-enforce a one-type-per-pair rule and skip the extra
+    rows as conflicts, so a workspace that legitimately modelled "owns" and
+    "uses" separately lost one of them on every transfer.
+    """
+    user = await create_user(db, email="wsmulti@test.com", role="admin")
+
+    card_types = [
+        {c: None for c in exp.CARD_TYPE_COLUMNS}
+        | {
+            "key": "Widget",
+            "label": "Widget",
+            "icon": "category",
+            "color": "#123456",
+            "category": "Application & Data",
+            "has_hierarchy": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+    ]
+
+    def _rel_type(key: str, label: str, reverse: str) -> dict:
+        return {c: None for c in exp.RELATION_TYPE_COLUMNS} | {
+            "key": key,
+            "label": label,
+            "reverse_label": reverse,
+            "source_type_key": "Widget",
+            "target_type_key": "Widget",
+            "cardinality": "n:m",
+            "attributes_schema": [],
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+            "source_visible": True,
+            "source_mandatory": False,
+            "target_visible": True,
+            "target_mandatory": False,
+        }
+
+    relation_types = [
+        _rel_type("widget_uses", "uses", "is used by"),
+        _rel_type("widget_owns", "owns", "is owned by"),
+    ]
+
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON, card_types),
+            schema.SHEET_RELATION_TYPES: (
+                exp.RELATION_TYPE_COLUMNS,
+                exp.RELATION_TYPE_JSON,
+                relation_types,
+            ),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    assert result.total_conflict == 0, result.as_dict()
+
+    stored = set(
+        (
+            await db.execute(
+                select(RelationType.key).where(
+                    RelationType.source_type_key == "Widget",
+                    RelationType.target_type_key == "Widget",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert {"widget_uses", "widget_owns"} <= stored
+
+
+async def test_card_type_role_permissions_roundtrip(db):
+    """Per-card-type RBAC overrides must survive export → import.
+
+    They are part of the metamodel, so cloning an instance has to carry them —
+    otherwise the target comes up with the restriction silently lifted.
+    """
+    user = await create_user(db, email="rp@test.com", role="admin")
+    await create_role(db, key="member", label="Member", permissions={"inventory.create": True})
+    ct = await create_card_type(db, key="Application", label="Application")
+    ct.role_permissions = {"member": {"inventory.create": False}}
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Wipe the map, then re-import: the bundle must put it back.
+    ct.role_permissions = {}
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (
+        await db.execute(select(CardType).where(CardType.key == "Application"))
+    ).scalar_one()
+    assert restored.role_permissions == {"member": {"inventory.create": False}}
+
+
+async def test_hierarchy_link_labels_roundtrip(db):
+    """The vocabulary AND each card's chosen label must survive a clone (#1100).
+
+    Both live in **bespoke** sections, which the generic introspection engine
+    does not cover — the column lists in `exporter.py` are the whole
+    obligation, and nothing in CI catches an omission but this test.
+    """
+    user = await create_user(db, email="hl@test.com", role="admin")
+    vocab = [{"key": "commercial", "label": "Commercial", "color": "#2889ff"}]
+    ct = await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+    ct.hierarchy_labels = vocab
+    parent = await create_card(db, card_type="Organization", name="Company A")
+    await db.flush()
+    child = await create_card(
+        db,
+        card_type="Organization",
+        name="Company B",
+        parent_id=parent.id,
+        parent_label="commercial",
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Wipe both, then re-import: the bundle must put them back. The card is
+    # DELETED rather than blanked — the cards section is create-only (it skips
+    # a row it can already resolve), so a surviving row would be skipped and
+    # the assertion would prove nothing about what the bundle carried.
+    ct.hierarchy_labels = []
+    await db.execute(delete(Card).where(Card.id == child.id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored_type = (
+        await db.execute(select(CardType).where(CardType.key == "Organization"))
+    ).scalar_one()
+    assert restored_type.hierarchy_labels == vocab
+
+    restored_child = (await db.execute(select(Card).where(Card.name == "Company B"))).scalar_one()
+    assert restored_child.parent_label == "commercial"
+
+
+async def test_card_type_bundle_without_the_column_keeps_the_default(db):
+    """A bundle written before the column existed must not blank it.
+
+    `role_permissions` is NOT NULL, so an older export (which carries no such
+    column) has to leave the target's value alone rather than write NULL.
+    """
+    user = await create_user(db, email="old@test.com", role="admin")
+    legacy_columns = tuple(c for c in exp.CARD_TYPE_COLUMNS if c != "role_permissions")
+    card_types = [
+        {c: None for c in legacy_columns}
+        | {
+            "key": "Widget",
+            "label": "Widget",
+            "icon": "widgets",
+            "color": "#123456",
+            "has_hierarchy": False,
+            "has_successors": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+    ]
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (
+                legacy_columns,
+                exp.CARD_TYPE_JSON,
+                card_types,
+            )
+        }
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    created = (await db.execute(select(CardType).where(CardType.key == "Widget"))).scalar_one()
+    assert created.role_permissions == {}
+
+
+async def test_process_message_flows_roundtrip(db):
+    """A message flow keeps its own id on import; the process and Interface
+    card FKs are re-resolved by card ref."""
+    from app.models.process_message_flow import ProcessMessageFlow
+
+    user = await create_user(db, email="bpm-flows@test.com", role="admin")
+    await create_card_type(db, key="BusinessProcess", label="Business Process")
+    await create_card_type(db, key="Interface", label="Interface")
+    process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
+    iface = await create_card(db, card_type="Interface", name="Order API", user_id=user.id)
+
+    flow = ProcessMessageFlow(
+        process_id=process.id,
+        bpmn_element_id="MessageFlow_1",
+        name="Order",
+        source_ref="Task_Send",
+        target_ref="Participant_Supplier",
+        source_name="Send order",
+        target_name="Supplier",
+        sequence_order=0,
+        interface_id=iface.id,
+    )
+    db.add(flow)
+    await db.flush()
+    flow_id = flow.id
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(ProcessMessageFlow).where(ProcessMessageFlow.id == flow_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (
+        await db.execute(select(ProcessMessageFlow).where(ProcessMessageFlow.id == flow_id))
+    ).scalar_one()
+    assert restored.process_id == process.id
+    assert restored.interface_id == iface.id
+    assert restored.target_name == "Supplier"
+
+
+async def test_a_file_attachment_transfers_when_the_bundle_is_read_from_disk(db, tmp_path):
+    """The lazy asset store has to work through the real entity engine.
+
+    An import parses the bundle from its path and reads each asset only when
+    the applier reaches its row, so this is the path a real import takes —
+    ``parse_bundle(bytes)`` would not prove it.
+    """
+    from app.models.file_attachment import FileAttachment
+
+    user = await create_user(db, email="lazy@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="Payroll", user_id=user.id)
+
+    blob = b"%PDF-1.7\n" + b"contract bytes" * 500
+    db.add(
+        FileAttachment(
+            card_id=card.id,
+            name="contract.pdf",
+            mime_type="application/pdf",
+            size=len(blob),
+            data=blob,
+            created_by=user.id,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Wipe the attachment so the import has something to create.
+    await db.execute(delete(FileAttachment))
+    await db.flush()
+    assert (await db.execute(select(FileAttachment))).scalars().all() == []
+
+    path = tmp_path / "workspace.zip"
+    path.write_bytes(raw)
+    with parse_bundle(path) as bundle:
+        assert isinstance(bundle.assets, bundle_io.ZipAssetStore)
+        result = await apply_bundle(db, bundle, user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(FileAttachment))).scalars().all()
+    assert len(restored) == 1
+    assert restored[0].name == "contract.pdf"
+    assert restored[0].data == blob  # byte-identical through the lazy store
+
+
+async def test_import_stores_a_backwards_relation_in_its_type_direction(db):
+    """A bundle exported from an instance that still held a relation stored the
+    other way round (#1140) lands in the relation type's direction, with its
+    attributes unchanged — and a correct row for the same pair is not doubled."""
+    user = await create_user(db, email="importer@test.com", role="admin")
+
+    def _card_type(key: str) -> dict:
+        return {c: None for c in exp.CARD_TYPE_COLUMNS} | {
+            "key": key,
+            "label": key,
+            "icon": "widgets",
+            "color": "#123456",
+            "has_hierarchy": False,
+            "has_successors": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+
+    def _card(card_type: str, name: str) -> dict:
+        return {
+            "type": card_type,
+            "name": name,
+            "parent_path": "",
+            "subtype": None,
+            "description": None,
+            "external_id": f"ext-{name}",
+            "alias": None,
+            "approval_status": "DRAFT",
+            "status": "ACTIVE",
+            "lifecycle": {},
+            "attributes": {},
+        }
+
+    def _relation(src: tuple[str, str], tgt: tuple[str, str]) -> dict:
+        return {
+            "type": "gadget_feeds_port",
+            "source_type": src[0],
+            "source_ref": src[1],
+            "target_type": tgt[0],
+            "target_ref": tgt[1],
+            "description": None,
+            "attributes": {"flowDirection": "forward"},
+        }
+
+    relation_types = [
+        {c: None for c in exp.RELATION_TYPE_COLUMNS}
+        | {
+            "key": "gadget_feeds_port",
+            "label": "feeds",
+            "reverse_label": "is fed by",
+            "source_type_key": "Gadget",
+            "target_type_key": "Port",
+            "cardinality": "n:m",
+            "attributes_schema": [],
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+            "source_visible": True,
+            "source_mandatory": False,
+            "target_visible": True,
+            "target_mandatory": False,
+        }
+    ]
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (
+                exp.CARD_TYPE_COLUMNS,
+                exp.CARD_TYPE_JSON,
+                [_card_type("Gadget"), _card_type("Port")],
+            ),
+            schema.SHEET_RELATION_TYPES: (
+                exp.RELATION_TYPE_COLUMNS,
+                exp.RELATION_TYPE_JSON,
+                relation_types,
+            ),
+            schema.SHEET_CARDS: (
+                exp.CARD_COLUMNS,
+                exp.CARD_JSON,
+                [_card("Gadget", "G1"), _card("Port", "P1")],
+            ),
+            schema.SHEET_RELATIONS: (
+                exp.RELATION_COLUMNS,
+                exp.RELATION_JSON,
+                # Backwards first, then the same relation the right way round.
+                [
+                    _relation(("Port", "P1"), ("Gadget", "G1")),
+                    _relation(("Gadget", "G1"), ("Port", "P1")),
+                ],
+            ),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    gadget = (await db.execute(select(Card).where(Card.name == "G1"))).scalar_one()
+    port = (await db.execute(select(Card).where(Card.name == "P1"))).scalar_one()
+    rels = (
+        (await db.execute(select(Relation).where(Relation.type == "gadget_feeds_port")))
+        .scalars()
+        .all()
+    )
+    assert [(r.source_id, r.target_id) for r in rels] == [(gadget.id, port.id)]
+    assert rels[0].attributes == {"flowDirection": "forward"}

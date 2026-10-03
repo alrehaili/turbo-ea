@@ -28,17 +28,20 @@ Agrupe diagramas relacionados en **grupos**: etiquetas compartidas en todo el es
 
 Abrir un diagrama lanza el editor DrawIO a pantalla completa en un iframe del mismo origen. La barra de herramientas nativa de DrawIO está disponible para formas, conectores, texto y diseño -- cada acción propia de Turbo EA está expuesta vía el menú contextual del clic derecho, el botón Sync de la barra de herramientas y el chevrón que aparece encima de cada tarjeta.
 
+![Editor de diagramas con fichas coloreadas por criticidad de negocio](../assets/img/es/99_editor_diagrama.png)
+
 ### Insertar tarjetas
 
 Use el diálogo **Insertar tarjetas** (desde la barra de herramientas o el menú contextual) para añadir tarjetas al lienzo:
 
 - Las **fichas de tipo con contadores en directo** en la columna izquierda filtran los resultados.
-- Busque por nombre en la columna derecha; cada fila lleva una casilla.
-- **Insertar seleccionadas** añade las tarjetas elegidas en una cuadrícula; **Insertar todas** añade cada tarjeta que coincida con el filtro actual (con confirmación si supera 50 resultados).
+- Busque por nombre en la columna derecha; cada fila lleva una casilla. Limite el filtro a un único tipo jerárquico y la lista se convierte en un árbol con sangría, para encontrar una tarjeta por su rama.
+- Las tarjetas marcadas aparecen como fichas sobre la lista y siguen seleccionadas mientras cambia el filtro o la búsqueda; quite una con su ×.
+- **Seleccionar todo lo mostrado** marca todo lo que deja el filtro actual; **Insertar seleccionadas** añade las tarjetas elegidas al lienzo en una cuadrícula.
 
 El mismo diálogo se abre en modo de selección única para **Cambiar tarjeta vinculada** y **Vincular a tarjeta existente**.
 
-Cada tarjeta en el lienzo muestra su **icono de tipo de tarjeta** como un pequeño glifo blanco en la esquina superior izquierda, junto al color del tipo — de modo que el tipo de una tarjeta se transmite tanto por el icono como por el color. Esto coincide con los iconos usados en toda la aplicación y mejora la legibilidad para usuarios daltónicos. El icono aparece en las tarjetas insertadas a partir de ahora. Para añadir iconos a las tarjetas que ya están en un diagrama anterior, haz clic en **Aplicar iconos de tipo de tarjeta** en la barra de herramientas del editor.
+Cada tarjeta en el lienzo muestra su **icono de tipo de tarjeta** como un pequeño glifo blanco en la esquina superior izquierda, junto al color del tipo — de modo que el tipo de una tarjeta se transmite tanto por el icono como por el color. Esto coincide con los iconos usados en toda la aplicación y mejora la legibilidad para usuarios daltónicos. El icono aparece en las tarjetas insertadas a partir de ahora. Para añadir iconos a las tarjetas que ya están en un diagrama anterior, haz clic en **Aplicar iconos de tipo de tarjeta** en la barra de herramientas del editor. Si una tarjeta tiene su propio **logotipo**, se muestra este en su lugar, conservando el icono del tipo de tarjeta como una pequeña insignia en la esquina, de modo que la forma indica tanto el producto como el tipo de tarjeta. Los logotipos aparecen al abrir el diagrama y se actualizan cuando se cambia alguno; una tarjeta sin logotipo, y toda tarjeta de un tipo en el que un administrador ha desactivado los logotipos, se dibuja exactamente igual que antes. Una casilla **Logotipos de las tarjetas** en el mismo menú los desactiva si prefiere un diagrama sin adornos; está activada de forma predeterminada.
 
 ### Acciones del clic derecho
 
@@ -79,13 +82,25 @@ Eliminar una arista que lleva una relación real abre «¿Eliminar la relación 
 
 ### Perspectivas de vista
 
-El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del lienzo según un atributo:
+El desplegable **Colorear por** de la barra de herramientas recolorea las tarjetas del lienzo:
 
 - **Colores de tarjetas** (predeterminado) -- cada tarjeta usa el color de su tipo.
 - **Estado de aprobación** -- recolorea por `aprobada` / `pendiente` / `rota`.
-- **Valores de campo** -- elija cualquier campo de selección única en los tipos de tarjeta presentes en el lienzo (p. ej. *Ciclo de vida*, *Estado*). Las celdas sin valor caen a un gris neutro.
+- **Valores de campo** -- marque un campo de selección única bajo cualquier tipo de tarjeta presente en el lienzo. **Varios tipos de tarjeta pueden llevar una regla cada uno al mismo tiempo**: Aplicaciones por criticidad *y* Componentes de TI por modelo de alojamiento. Un tipo sin regla conserva el color que ya tenía, incluido un relleno puesto a mano; solo se vuelve gris una tarjeta cuya propia regla no encuentra valor. Un segundo campo dentro de un mismo tipo sustituye al primero, porque una tarjeta tiene un relleno.
 
-Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
+Una leyenda flotante en la esquina inferior izquierda muestra una escala por regla activa. Las reglas de campo y el **Estado de aprobación** son alternativas, no capas: elegir una borra la otra. Si desmarca todas las reglas, el lienzo vuelve a los colores de tarjeta. La elección se guarda con el diagrama. La misma leyenda se muestra cuando el diagrama se abre en modo de visualización y en su enlace publicado o incrustado, para que los lectores sepan qué significan los colores.
+
+![Diagrama en modo de visualización con su leyenda de colores](../assets/img/es/99b_diagrama_vista_leyenda.png)
+
+#### Mostrar en la tarjeta
+
+Un segundo botón de la barra de herramientas, **Mostrar en la tarjeta**, decide **qué dice cada forma**. Marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre. Los campos se listan bajo el tipo de tarjeta al que pertenecen; un campo compartido por varios de esos tipos se agrupa bajo **Comunes**. Es un botón aparte de **Colorear por**, para que ninguna de las dos listas obligue a recorrer la otra. **Borrar todo** desmarca todas las casillas de una vez.
+
+Cada selección se dibuja en la forma, y la forma **crece para acogerla**. Dos líneas ya caben en una tarjeta, así que nada se mueve hasta que marca una tercera; a partir de ahí cada tarjeta se hace un poco más alta por selección y vuelve a encogerse al desmarcar una. Una tarjeta que haya redimensionado a mano conserva su altura: solo gana o devuelve el espacio de una línea.
+
+Estas líneas se guardan con el diagrama, de modo que todos los lectores — incluido quien abra un enlace publicado — ven las mismas formas. Las tarjetas traídas al lienzo por **Expandir** llevan las mismas filas que cualquier otra tarjeta y crecen igual. Las tarjetas dispuestas dentro de un contenedor **Drill-Down** o **Roll-Up** muestran lo que cabe en su casilla: agrandarlas las haría invadir la fila de abajo. La barra de título del contenedor, en cambio, crece para acoger sus filas — y su contenido baja con ella —, así que convertir una tarjeta en contenedor nunca cuesta lo que estaba diciendo.
+
+El botón **Crear diagrama** del [informe de dependencias](reports.md) traslada sus propios ajustes de visualización, así que un diagrama generado desde un informe muestra exactamente las filas que mostraba el informe — todas ellas, incluso las que el propio informe no tenía sitio para dibujar.
 
 ### Cómo se dibujan las aristas de relación
 
@@ -128,6 +143,8 @@ El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo
     - una **relación eliminada** -- *Quitar la arista del diagrama* retira la arista obsoleta del lienzo;
     - una relación cuya **dirección del flujo** cambió -- *Aceptar actualización* alinea la flecha con el inventario.
 
+![Panel de sincronización del editor de diagramas](../assets/img/es/99a_diagrama_sincronizacion.png)
+
 Turbo EA **comprueba automáticamente los cambios del inventario cada vez que abre un diagrama** -- una insignia azul en el botón Sync de la barra de herramientas cuenta los cambios pendientes de revisión. Nada se aplica sin su confirmación; la insignia solo le invita a abrir el panel. El botón **Comprobar actualizaciones** del panel vuelve a ejecutar la misma comprobación bajo demanda.
 
 El botón Sync de la barra de herramientas muestra una pastilla pulsante «N sin sincronizar» mientras haya trabajo pendiente. Salir de la pestaña con cambios sin sincronizar dispara un aviso del navegador, y el lienzo se autoguarda en almacenamiento local cada cinco segundos para poder restaurarse tras un refresco accidental.
@@ -145,7 +162,7 @@ Abre el menú **⋮** del diagrama en la galería y elige **Compartir / insertar
 El diálogo ofrece dos opciones y dos cadenas para copiar:
 
 - **Cualquiera con el enlace** — sin inicio de sesión. Trata el enlace como una contraseña: cualquiera a quien se le reenvíe podrá ver el diagrama.
-- **Solo personas que inicien sesión** — los visitantes se autentican con tu proveedor de identidad, opcionalmente restringido a dominios de correo concretos. No se crea ninguna cuenta de Turbo EA para ellos.
+- **Solo personas que inicien sesión** — los visitantes se autentican con tu proveedor de identidad, opcionalmente restringido a dominios de correo concretos. No se crea ninguna cuenta de Turbo EA para ellos. Dentro de una inserción, el inicio de sesión se abre en una pequeña ventana emergente, y Turbo EA debe servirse por HTTPS para que la sesión se mantenga dentro del marco; los visitantes inician sesión una vez por cada sitio en el que esté insertado el diagrama.
 
 La página publicada muestra solo la imagen. Permite desplazarse y hacer zoom, pero no hay acceso a los detalles de las tarjetas, y los identificadores de las tarjetas tras las formas se eliminan antes de que el diagrama salga del servidor. Dejar de publicar surte efecto de inmediato, incluso para quien lo esté viendo. Volver a publicarlo más tarde restaura el mismo enlace, así que las URL ya pegadas siguen funcionando.
 
@@ -165,3 +182,6 @@ La página publicada muestra solo la imagen. Permite desplazarse y hacer zoom, p
 3. En Confluence, inserta una macro **HTML** (o *Iframe* / *HTML include*, según lo que permita tu instancia) y pega el código.
 
 Si tu Confluence no permite macros HTML, pega en su lugar el **enlace** simple: abre la misma vista en una pestaña nueva.
+
+!!! note "Inicio de sesión dentro de una inserción"
+    Un diagrama publicado para *Solo personas que inicien sesión* muestra un botón **Iniciar sesión** dentro de la inserción. Abre tu proveedor de identidad en una pequeña ventana emergente, y el diagrama aparece en cuanto esa ventana se cierra. Tres cosas pueden interponerse: Turbo EA debe servirse por **HTTPS** (los navegadores solo conservan la sesión entre sitios que necesita una inserción en un origen seguro); la página que lo inserta debe permitir ventanas emergentes desde sus marcos (un marco aislado sin `allow-popups` bloquea tanto la ventana emergente como el enlace alternativo); y en Safari, usa el enlace **Abrir el diagrama en una pestaña nueva** que ofrece la pantalla de acceso. Aparte, Chrome se niega a cargar una inserción desde una dirección de red privada (una IP o un nombre de host internos) en una página pública como Confluence Cloud: publica la instancia con un nombre de host HTTPS público, o insértala desde un wiki de la misma red.

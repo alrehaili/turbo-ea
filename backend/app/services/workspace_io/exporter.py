@@ -61,11 +61,14 @@ CARD_TYPE_COLUMNS = (
     "category",
     "has_hierarchy",
     "has_successors",
+    "allow_card_logo",
     "subtypes",
+    "hierarchy_labels",
     "fields_schema",
     "stakeholder_roles",
     "section_config",
     "reference_config",
+    "role_permissions",
     "built_in",
     "is_hidden",
     "sort_order",
@@ -74,10 +77,12 @@ CARD_TYPE_COLUMNS = (
 CARD_TYPE_JSON = frozenset(
     {
         "subtypes",
+        "hierarchy_labels",
         "fields_schema",
         "stakeholder_roles",
         "section_config",
         "reference_config",
+        "role_permissions",
         "translations",
     }
 )
@@ -112,6 +117,7 @@ CARD_COLUMNS = (
     "type",
     "name",
     "parent_path",
+    "parent_label",
     "subtype",
     "description",
     "external_id",
@@ -297,6 +303,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
             "type": c.type,
             "name": c.name,
             "parent_path": _parent_path_cell(c, by_id),
+            "parent_label": c.parent_label,
             "subtype": c.subtype,
             "description": c.description,
             "external_id": c.external_id,

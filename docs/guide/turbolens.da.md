@@ -3,9 +3,11 @@
 **TurboLens**-modulet tilbyder AI-drevet analyse af dit virksomheds­arkitekturlandskab. Det bruger din konfigurerede AI-udbyder til at udføre leverandøranalyse, dubletdetektion, modernisations­vurdering og arkitekturanbefalinger.
 
 !!! note
-    TurboLens kræver en kommerciel AI-udbyder (Anthropic Claude, OpenAI, DeepSeek eller Google Gemini) konfigureret i [AI-indstillinger](../admin/ai.md). Modulet er automatisk tilgængeligt, når AI er konfigureret.
+    TurboLens kræver en kommerciel AI-udbyder (Anthropic Claude, OpenAI, DeepSeek, Google Gemini eller Amazon Bedrock) konfigureret i [AI-indstillinger](../admin/ai.md). Modulet er automatisk tilgængeligt, når AI er konfigureret.
 
 ## Dashboard
+
+![TurboLens-dashboardet](../assets/img/da/75_turbolens_dashboard.png)
 
 TurboLens-dashboardet giver et øjebliks overblik over din landskabsanalyse.
 
@@ -81,6 +83,8 @@ Modernisations­vurdering evaluerer kort for opgraderings­muligheder baseret p�
 Resultater grupperes efter prioritet, så du kan fokusere på de mest virkningsfulde modernisations­muligheder først.
 
 ## Architecture AI
+
+![Arkitektur-AI-guiden, trin 1](../assets/img/da/76_turbolens_architect.png)
 
 Architecture AI er en 5-trins guidet wizard, der genererer arkitekturanbefalinger baseret på dit eksisterende landskab. Den linker dine forretningsmål og kompetencer til konkrete løsningsforslag, mangelanalyse, afhængigheds­kortlægning og et målarkitektur-diagram.
 
@@ -221,6 +225,8 @@ Compliance-scanneren er en TurboLens-analyse, der producerer compliance-fund mod
 Compliance-fund kan også **forfattes manuelt** uden en AI-udbyder konfigureret, så Compliance-fanen virker i deployments, der ikke har en LLM opsat.
 
 ## Analyse-historik
+
+![TurboLens-analysehistorik](../assets/img/da/77_turbolens_history.png)
 
 Alle analyse-kørsler spores i **TurboLens > History** og viser:
 

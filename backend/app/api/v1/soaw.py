@@ -287,6 +287,7 @@ async def request_signatures(
         await notification_service.create_notification(
             db,
             user_id=uuid.UUID(sig["user_id"]),
+            actor_id=user.id,
             notif_type="soaw_sign_requested",
             title="Signature Requested",
             message=f'{user.display_name} requested your signature on "{s.name}"',
@@ -372,6 +373,7 @@ async def sign_soaw(
             await notification_service.create_notification(
                 db,
                 user_id=s.created_by,
+                actor_id=user.id,
                 notif_type="soaw_signed",
                 title="SoAW Fully Signed",
                 message=f'All signatories have signed "{s.name}"',
@@ -385,6 +387,7 @@ async def sign_soaw(
             await notification_service.create_notification(
                 db,
                 user_id=s.created_by,
+                actor_id=user.id,
                 notif_type="soaw_signed",
                 title="SoAW Signature Received",
                 message=(
@@ -438,6 +441,7 @@ async def recall_signatures(
             await notification_service.create_notification(
                 db,
                 user_id=uuid.UUID(sig["user_id"]),
+                actor_id=user.id,
                 notif_type="soaw_sign_recalled",
                 title="Signature Request Recalled",
                 message=(f'{user.display_name} recalled the signature request for "{s.name}"'),
@@ -497,6 +501,7 @@ async def reject_soaw(
         await notification_service.create_notification(
             db,
             user_id=s.created_by,
+            actor_id=user.id,
             notif_type="soaw_rejected",
             title="SoAW Rejected",
             message=(f'{user.display_name} rejected "{s.name}": {body.comment}'),
@@ -514,6 +519,7 @@ async def reject_soaw(
             await notification_service.create_notification(
                 db,
                 user_id=uuid.UUID(sig["user_id"]),
+                actor_id=user.id,
                 notif_type="soaw_rejected",
                 title="SoAW Rejected",
                 message=(f'{user.display_name} rejected "{s.name}": {body.comment}'),

@@ -26,6 +26,7 @@ import MetricCard from "./MetricCard";
 import ReportLegend from "./ReportLegend";
 import MatrixFilterBar, { type MatrixFilterState } from "./MatrixFilterBar";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import CardScopeFilter from "@/components/CardScopeFilter";
@@ -197,6 +198,8 @@ export default function MatrixReport() {
   const countTextHigh = "#fff";
   const countTextDiag = isDark ? "#aaa" : "#666";
   const { types, relationTypes, loading: ml } = useMetamodel();
+  // Report type pickers offer only the types the user may see.
+  const readableTypes = useReadableCardTypes("module");
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optionLabel = useOptionLabel();
@@ -411,8 +414,8 @@ export default function MatrixReport() {
     loadedAxes.current = axes;
   }, [rowType, colType]);
 
-  // Relation types able to connect the two axes — at most one per ordered pair
-  // by the metamodel rule, so at most two here (one per orientation). Everything
+  // Every relation type able to connect the two axes. Any number may share an
+  // ordered pair, so this is a list, not one per orientation. Everything
   // the filter bar, the legend, the cells and the export can show is derived
   // from these types' own `attributes_schema`; no attribute is named in code.
   const pairRelationTypes = useMemo(
@@ -1030,7 +1033,7 @@ export default function MatrixReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
+            {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter
             types={rowType}
@@ -1044,7 +1047,7 @@ export default function MatrixReport() {
             initialOptions={rowScopeOptions}
           />
           <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
+            {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <CardScopeFilter
             types={colType}

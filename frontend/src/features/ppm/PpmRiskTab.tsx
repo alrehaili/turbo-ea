@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Table from "@mui/material/Table";
@@ -25,6 +26,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import type { PpmRisk } from "@/types";
 
 interface UserOption {
@@ -55,6 +57,7 @@ interface Props {
 
 export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
+  const fullScreen = useFullScreenDialog();
   const [dialog, setDialog] = useState<{ open: boolean; item?: PpmRisk }>({
     open: false,
   });
@@ -127,8 +130,10 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
       <Paper
         sx={{
           display: "flex",
-          gap: 4,
-          px: 3,
+          flexWrap: "wrap",
+          gap: { xs: 2, sm: 4 },
+          rowGap: 1,
+          px: { xs: 2, sm: 3 },
           py: 1.5,
           mb: 2,
           alignItems: "center",
@@ -174,8 +179,12 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
       </Box>
 
       {/* Table */}
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <Table size="small" sx={{ minWidth: { xs: 900, md: "auto" } }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("riskTitle")}</TableCell>
@@ -203,9 +212,11 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                   </Typography>
                   {risk.description && (
                     <Typography variant="caption" color="text.secondary">
-                      {risk.description.length > 80
-                        ? `${risk.description.slice(0, 80)}...`
-                        : risk.description}
+                      {risk.description.length > 80 ? (
+                        `${risk.description.slice(0, 80)}...`
+                      ) : (
+                        <LinkifiedText text={risk.description} />
+                      )}
                     </Typography>
                   )}
                 </TableCell>
@@ -238,7 +249,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                 </TableCell>
                 <TableCell>
                   <Typography variant="caption" noWrap sx={{ maxWidth: 200, display: "block" }}>
-                    {risk.mitigation || "\u2014"}
+                    {risk.mitigation ? <LinkifiedText text={risk.mitigation} /> : "\u2014"}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -276,6 +287,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
           onClose={() => setDialog({ open: false })}
           maxWidth="sm"
           fullWidth
+          fullScreen={fullScreen}
         >
           <DialogTitle>
             {dialog.item ? t("editRisk") : t("addRisk")}

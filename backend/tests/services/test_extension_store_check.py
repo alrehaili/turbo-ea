@@ -18,11 +18,15 @@ from app.models.extension import Extension
 from app.models.notification import Notification
 from app.services import extension_store_check as check
 from app.services.extension_store_check import (
+    MAX_TRACKED_KEYS,
     NEW_NOTIFICATION_TYPE,
     UPDATE_NOTIFICATION_TYPE,
     classify,
+    deliver_digests,
     extension_notices_enabled,
     installed_versions,
+    read_status,
+    record_notified,
     record_result,
 )
 from app.services.extensions import store_catalog
@@ -37,6 +41,39 @@ from app.services.extensions.store_catalog import (
 from tests.conftest import create_role, create_user
 
 STORE = "https://store.example.com"
+
+
+@pytest.fixture(autouse=True)
+def _batch_uses_the_test_session(db, monkeypatch):
+    """Hand the batch deliverer this test's savepoint session.
+
+    ``deliver_notification_batch`` opens a session of its own by design — it
+    must not hold the caller's across SMTP. A real one cannot see rows this
+    test has not committed, so without the swap every delivery here would
+    quietly reach nobody.
+    """
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def factory():
+        yield db
+
+    monkeypatch.setattr("app.database.async_session", factory)
+
+
+async def _record_and_deliver(db, *, items, error=None) -> int:
+    """One probe cycle, in the order ``run_extension_store_check`` runs it.
+
+    Delivery lives outside ``record_result`` because it ends in an SMTP
+    handshake per emailed administrator and must not hold the settings
+    session. A test that cares about notifications therefore owns both halves;
+    this is that pair, with the count stamped exactly as production stamps it.
+    """
+    digests = await record_result(db, items=items, error=error)
+    created = await deliver_digests(digests)
+    if created:
+        await record_notified(db, created)
+    return created
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +357,7 @@ async def test_recipients_are_resolved_by_permission_not_by_role_name(db):
     await create_user(db, role="member", email="member@example.com")
     await _seeded(db)
 
-    created = await record_result(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
+    created = await _record_and_deliver(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
 
     assert created == 2
     notified = {n.user_id for n in await _notifications(db, NEW_NOTIFICATION_TYPE)}
@@ -340,7 +377,7 @@ async def _one_admin(db):
 async def test_the_first_successful_fetch_seeds_silently(db):
     await _one_admin(db)
 
-    created = await record_result(
+    created = await _record_and_deliver(
         db, items=_catalogue(("a", "Acme", "1.0.0"), ("b", "Beta", "2.0.0")), error=None
     )
 
@@ -353,9 +390,9 @@ async def test_the_first_successful_fetch_seeds_silently(db):
 
 async def test_a_key_that_appears_after_seeding_is_announced_once(db):
     await _one_admin(db)
-    await record_result(db, items=_catalogue(("a", "Acme", "1.0.0")), error=None)
+    await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.0.0")), error=None)
 
-    created = await record_result(
+    created = await _record_and_deliver(
         db, items=_catalogue(("a", "Acme", "1.0.0"), ("b", "Beta", "1.0.0")), error=None
     )
     assert created == 1
@@ -366,7 +403,7 @@ async def test_a_key_that_appears_after_seeding_is_announced_once(db):
 
     # A second identical run says nothing more.
     assert (
-        await record_result(
+        await _record_and_deliver(
             db, items=_catalogue(("a", "Acme", "1.0.0"), ("b", "Beta", "1.0.0")), error=None
         )
         == 0
@@ -379,7 +416,7 @@ async def test_an_installed_extension_update_is_announced_once_per_version(db):
     db.add(Extension(key="a", name="Acme", version="1.0.0", status="installed"))
     await db.flush()
 
-    assert await record_result(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None) == 1
+    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None) == 1
     notifs = await _notifications(db, UPDATE_NOTIFICATION_TYPE)
     assert len(notifs) == 1
     assert "1.1.0" in notifs[0].title
@@ -387,10 +424,10 @@ async def test_an_installed_extension_update_is_announced_once_per_version(db):
     assert (await _state(db))["notifiedVersions"] == {"a": "1.1.0"}
 
     # Same catalogue tomorrow: nothing.
-    assert await record_result(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None) == 0
+    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None) == 0
 
     # A further release: announced again.
-    assert await record_result(db, items=_catalogue(("a", "Acme", "1.2.0")), error=None) == 1
+    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.2.0")), error=None) == 1
     assert len(await _notifications(db, UPDATE_NOTIFICATION_TYPE)) == 2
 
 
@@ -399,11 +436,11 @@ async def test_installing_the_update_clears_the_pending_stamp(db):
     ext = Extension(key="a", name="Acme", version="1.0.0", status="installed")
     db.add(ext)
     await db.flush()
-    await record_result(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None)
+    await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None)
 
     ext.version = "1.1.0"
     await db.flush()
-    created = await record_result(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None)
+    created = await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None)
 
     assert created == 0
     assert (await _state(db))["notifiedVersions"] == {}
@@ -421,7 +458,7 @@ async def test_a_disabled_extension_still_gets_update_notices(db):
     db.add(Extension(key="a", name="Acme", version="1.0.0", status="disabled", enabled=False))
     await db.flush()
 
-    assert await record_result(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None) == 1
+    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.1.0")), error=None) == 1
 
 
 async def test_a_catalogue_downgrade_is_never_announced(db):
@@ -429,7 +466,7 @@ async def test_a_catalogue_downgrade_is_never_announced(db):
     db.add(Extension(key="a", name="Acme", version="1.0.0", status="installed"))
     await db.flush()
 
-    assert await record_result(db, items=_catalogue(("a", "Acme", "0.9.0")), error=None) == 0
+    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "0.9.0")), error=None) == 0
 
 
 async def test_many_changes_produce_one_digest_per_type(db):
@@ -439,7 +476,7 @@ async def test_many_changes_produce_one_digest_per_type(db):
     await db.flush()
     await _seeded(db)
 
-    created = await record_result(
+    created = await _record_and_deliver(
         db,
         items=_catalogue(
             ("a", "Acme", "1.1.0"),
@@ -472,16 +509,78 @@ async def test_an_admin_who_muted_the_types_is_not_notified_but_state_advances(d
     await db.flush()
     await _seeded(db)
 
-    created = await record_result(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
+    created = await _record_and_deliver(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
 
     assert created == 0
     assert "b" in (await _state(db))["knownKeys"]
 
 
+async def test_a_user_who_never_touched_preferences_is_notified(db):
+    """On by default. A type nobody has expressed an opinion about falls back
+    to its spec default, so an administrator gets the notice without having to
+    go and switch anything on first."""
+    await _one_admin(db)
+    await _seeded(db)
+
+    created = await _record_and_deliver(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
+
+    assert created == 1
+    assert len(await _notifications(db, NEW_NOTIFICATION_TYPE)) == 1
+
+
+async def test_preferences_saved_before_the_type_existed_still_notify(db):
+    """The subtle half of "on by default".
+
+    An account that saved its notification preferences before these types were
+    added carries a populated ``in_app`` dict that simply has no key for them.
+    Resolution is per-key with a spec fallback, not "the stored dict wins
+    wholesale" — otherwise every pre-existing account would have been silently
+    opted out of a type it had never seen.
+    """
+    admin = await _one_admin(db)
+    admin.notification_preferences = {
+        "in_app": {"todo_assigned": True, "comment_added": False},
+        "email": {"todo_assigned": True},
+    }
+    await db.flush()
+    await _seeded(db)
+
+    created = await _record_and_deliver(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None)
+
+    assert created == 1
+
+
+async def test_an_explicit_opt_out_survives(db):
+    """...and the opposite must hold just as firmly: somebody who turned these
+    off stays off, and nothing about adding the type re-enables them."""
+    admin = await _one_admin(db)
+    admin.notification_preferences = {"in_app": {"extension_available": False}}
+    await db.flush()
+    await _seeded(db)
+
+    assert await _record_and_deliver(db, items=_catalogue(("b", "Beta", "1.0.0")), error=None) == 0
+    assert await _notifications(db, NEW_NOTIFICATION_TYPE) == []
+
+
+async def test_the_instance_toggle_is_on_until_an_admin_turns_it_off(db):
+    await _one_admin(db)
+    assert await extension_notices_enabled(db) is True
+
+    row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if row is None:
+        row = AppSettings(id="default", general_settings={})
+        db.add(row)
+    row.general_settings = {**(row.general_settings or {}), "extensionNoticesEnabled": False}
+    await db.flush()
+    assert await extension_notices_enabled(db) is False
+
+
 async def test_an_unreachable_store_records_the_error_and_stays_quiet(db):
     await _one_admin(db)
 
-    created = await record_result(db, items=None, error="Could not reach the extension store")
+    created = await _record_and_deliver(db, items=None, error="Could not reach the extension store")
 
     assert created == 0
     state = await _state(db)
@@ -496,13 +595,13 @@ async def test_an_unreachable_store_records_the_error_and_stays_quiet(db):
 async def test_known_keys_survive_an_empty_catalogue(db):
     """A partial or empty response must not make everything look new again."""
     await _one_admin(db)
-    await record_result(db, items=_catalogue(("a", "Acme", "1.0.0")), error=None)
+    await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.0.0")), error=None)
 
-    await record_result(db, items=[], error=None)
+    await _record_and_deliver(db, items=[], error=None)
     assert (await _state(db))["knownKeys"] == ["a"]
 
     # And the extension coming back is not re-announced.
-    assert await record_result(db, items=_catalogue(("a", "Acme", "1.0.0")), error=None) == 0
+    assert await _record_and_deliver(db, items=_catalogue(("a", "Acme", "1.0.0")), error=None) == 0
 
 
 async def test_an_unparseable_catalogue_version_is_seen_but_never_an_update(db):
@@ -510,8 +609,76 @@ async def test_an_unparseable_catalogue_version_is_seen_but_never_an_update(db):
     db.add(Extension(key="a", name="Acme", version="1.0.0", status="installed"))
     await db.flush()
 
-    assert await record_result(db, items=_catalogue(("a", "Acme", "nightly")), error=None) == 0
+    nightly = _catalogue(("a", "Acme", "nightly"))
+    assert await _record_and_deliver(db, items=nightly, error=None) == 0
     assert (await _state(db))["knownKeys"] == ["a"]
+
+
+async def test_the_known_key_cap_evicts_the_oldest_not_the_alphabetically_last(db):
+    """The seen set is capped by dropping the *oldest* key.
+
+    It used to be ``sorted(known | catalog_keys)[:MAX_TRACKED_KEYS]``, which
+    evicts by key *name*. Past the cap, an extension whose key sorts late fell
+    out of the set on every run and was therefore announced as brand new on
+    every following run — a notification loop that could never converge.
+    """
+    await _one_admin(db)
+    # Fill the seen set to the cap with keys that all sort BEFORE "zzz".
+    filler = [f"k{i:04d}" for i in range(MAX_TRACKED_KEYS)]
+    db.add(
+        AppSettings(
+            id="default",
+            general_settings={"extensionStoreCheck": {"seeded": True, "knownKeys": filler}},
+        )
+    )
+    await db.flush()
+
+    # "zzz" arrives: announced once, and it must survive the cap.
+    zulu = _catalogue(("zzz", "Zulu", "1.0.0"))
+    assert await _record_and_deliver(db, items=zulu, error=None) == 1
+    known = (await _state(db))["knownKeys"]
+    assert len(known) == MAX_TRACKED_KEYS
+    assert "zzz" in known, "the newest key must never be the one evicted"
+    assert known[0] == "k0001", "the oldest key is the one that falls off the front"
+
+    # And the whole point: it is not announced a second time.
+    assert await _record_and_deliver(db, items=zulu, error=None) == 0
+
+
+async def test_the_status_readout_reports_what_the_last_run_found(db):
+    """``read_status`` is the only window onto an otherwise silent job."""
+    await _one_admin(db)
+    db.add(Extension(key="a", name="Acme", version="1.0.0", status="installed"))
+    await db.flush()
+    await _seeded(db)
+
+    await _record_and_deliver(
+        db,
+        items=_catalogue(("a", "Acme", "1.1.0"), ("b", "Beta", "1.0.0")),
+        error=None,
+    )
+
+    status = await read_status(db)
+    assert status["last_new"] == 1  # b
+    assert status["last_updates"] == 1  # a 1.0.0 -> 1.1.0
+    assert status["last_notified"] == 2  # one digest per type, one admin
+    assert status["known_count"] == 2
+    assert status["error"] is None
+    assert status["checked_at"]
+    assert status["seeded"] is True
+    assert status["enabled"] is True
+
+
+async def test_the_status_readout_surfaces_a_failing_fetch(db):
+    """A store that refuses the request records the reason here and nowhere
+    else — without this readout the failure is completely invisible."""
+    await _one_admin(db)
+
+    await _record_and_deliver(db, items=None, error="Store refused the request (HTTP 403)")
+
+    status = await read_status(db)
+    assert status["error"] == "Store refused the request (HTTP 403)"
+    assert status["seeded"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -563,3 +730,83 @@ async def test_safe_fetch_stays_quiet_when_there_is_no_route(fake_http):
 
     assert items is None
     assert error == "Could not reach the extension store"
+
+
+# ── service listings ride the same announcement ─────────────────────────
+
+
+def _new_item(key: str, name: str, **over) -> dict:
+    item = {"key": key, "name": name, "version": "1.0.0"}
+    item.update(over)
+    return item
+
+
+def test_a_new_service_is_announced_and_called_a_service():
+    """A catalogue item with nothing to install is new in the same store and
+    acted on in the same place, so it rides `extension_available` — but the
+    digest must never call it an extension."""
+    changes = classify(
+        [_new_item("support", "Turbo EA Enterprise Support", service=True, version="")],
+        installed={},
+        known_keys=set(),
+        notified_versions={},
+        seeded=True,
+    )
+    assert [(e.key, e.service) for e in changes.new] == [("support", True)]
+    title, body = check._new_summary(changes.new)
+    assert title == "Turbo EA Enterprise Support is available in the extension store"
+    assert "A new service was published" in body
+    assert "extension was published" not in body
+
+
+def test_several_new_services_read_as_services():
+    new = [
+        check.NewExtension(key="support", name="Support", version="", service=True),
+        check.NewExtension(key="onboarding", name="Onboarding", version="", service=True),
+    ]
+    title, _body = check._new_summary(new)
+    assert title == "2 new services in the extension store"
+
+
+def test_a_mixed_batch_uses_a_word_that_covers_both():
+    new = [
+        check.NewExtension(key="support", name="Support", version="", service=True),
+        check.NewExtension(key="pack", name="Pack", version="1.0.0"),
+    ]
+    title, _body = check._new_summary(new)
+    assert title == "2 new listings in the extension store"
+
+
+def test_an_extension_only_batch_is_unchanged():
+    new = [check.NewExtension(key="pack", name="Pack", version="1.0.0")]
+    title, body = check._new_summary(new)
+    assert title == "Pack is available in the extension store"
+    assert "A new extension was published" in body
+    assert check._new_summary(new + [check.NewExtension("b", "B", "1.0.0")])[0] == (
+        "2 new extensions in the extension store"
+    )
+
+
+def test_a_service_is_announced_once_like_anything_else():
+    """Seen keys are what stop a repeat, and a service has no version to fall
+    back on — so the second run must be silent on the strength of the key."""
+    item = _new_item("support", "Support", service=True, version="")
+    first = classify([item], installed={}, known_keys=set(), notified_versions={}, seeded=True)
+    assert len(first.new) == 1
+    second = classify(
+        [item], installed={}, known_keys={"support"}, notified_versions={}, seeded=True
+    )
+    assert second.new == []
+
+
+def test_a_versionless_service_never_looks_like_an_update():
+    """`store_update_available` must not read a service's empty version as an
+    upgrade for an installed extension that happens to share its key."""
+    changes = classify(
+        [_new_item("support", "Support", service=True, version="")],
+        installed={"support": "1.0.0"},
+        known_keys={"support"},
+        notified_versions={},
+        seeded=True,
+    )
+    assert changes.new == [] and changes.updates == []

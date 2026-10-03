@@ -26,6 +26,14 @@ Use a barra de ferramentas para:
 
 Esses filtros são mantidos na URL, então atualizar a página preserva sua visualização atual.
 
+### Impressão e exportação
+
+O portfólio oferece as mesmas ações na barra de título que os relatórios:
+
+- **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página.
+- **Exportar para PowerPoint (.pptx)** — pelo menu **⋮**. O primeiro slide traz o título, o carimbo de data/hora de geração e os filtros ativos junto com o portfólio em qualidade de apresentação; portfólios longos continuam em outros slides, divididos apenas entre iniciativas — nunca no meio de uma linha, de um cabeçalho de grupo ou de uma linha de totais.
+- **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status.
+
 ## Visão Detalhada da Iniciativa
 
 Clique em qualquer iniciativa para abrir sua página de detalhes com sete abas:
@@ -67,6 +75,21 @@ Acompanhamento de dados financeiros com dois tipos de itens:
 
 Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
 
+#### Gastos ao longo do tempo
+
+Acima das tabelas de orçamento e custos, três gráficos mostram como os gastos se acumulam mês a mês:
+
+- **Gasto acumulado por categoria** — CapEx e OpEx acumulados do ano fiscal selecionado, com linhas horizontais tracejadas a marcar o orçamento CapEx e OpEx desse ano
+- **Gasto total acumulado** — o mesmo ano fiscal com ambas as categorias combinadas, face a uma linha tracejada de orçamento total
+- **Projeto até à data** — CapEx e OpEx acumulados ao longo de todos os meses do projeto, face ao orçamento total de todos os anos fiscais
+
+O seletor de ano fiscal aplica-se aos dois primeiros gráficos e oferece o ano atual, qualquer outro ano com dados e **Todos os anos fiscais**. As suas escolhas de ano fiscal e estado recolhido ou expandido são memorizadas entre visitas.
+
+Dois aspetos a ter em conta ao ler os gráficos:
+
+- As linhas param no mês atual em vez de seguirem planas até ao fim do ano, para que um ano em curso não seja confundido com um em que os gastos pararam
+- Os itens de custo sem data não podem ser colocados numa linha temporal e são excluídos. Uma nota por baixo dos gráficos indica quantos foram excluídos, permitindo conciliar os totais do gráfico com a barra de resumo
+
 ### Aba Gestão de Riscos
 
 ![Gestão de Riscos PPM](../assets/img/pt/44_ppm_gestao_riscos.png)
@@ -94,7 +117,7 @@ O gerenciador de tarefas suporta as visualizações **quadro Kanban** e **lista*
 - **Concluído** — Tarefas concluídas
 - **Bloqueado** — Tarefas que não podem prosseguir
 
-As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do Projeto (EAP/WBS).
+As tarefas podem ser filtradas e agrupadas por item da Estrutura Analítica do Projeto (EAP/WBS). Quando agrupadas, cada pacote de trabalho aparece como um grupo — inclusive um que ainda não contém tarefas, que mostra uma dica e um botão **Adicionar tarefa** que abre o diálogo de tarefa com esse pacote pré-selecionado. Os marcos aparecem apenas quando contêm uma tarefa. Arraste e solte cards entre as colunas para atualizar o status.
 
 Os filtros de exibição (modo de visualização, filtro WBS, alternância de agrupamento) são mantidos na URL entre atualizações de página.
 
@@ -107,7 +130,7 @@ O diagrama de Gantt visualiza o cronograma do projeto com:
 - **Pacotes de trabalho (WBS)** — Itens hierárquicos da estrutura analítica do projeto com datas de início/fim
 - **Tarefas** — Barras de tarefas individuais vinculadas a pacotes de trabalho
 - **Marcos** — Datas-chave marcadas com indicadores de diamante
-- **Barras de progresso** — Porcentagem de conclusão visual. Clique no chip de porcentagem de uma tarefa ou pacote de trabalho folha para abrir um controle deslizante que se ajusta a **0%, 50% ou 100%** — correspondendo aos três estados de tarefa (A fazer, Em progresso, Concluído). Os pacotes de trabalho pai com filhos exibem um chip somente leitura cujo valor é calculado automaticamente a partir da subárvore.
+- **Barras de progresso** — Porcentagem de conclusão visual. Uma tarefa não tem porcentagem própria: seu preenchimento segue o status — **A fazer (0%)**, **Em progresso (50%)**, **Concluído (100%)**. Clique no chip de porcentagem de uma tarefa para abrir um controle deslizante cujas três posições levam o nome desses status; escolher uma posição muda o status, e arrastar o preenchimento na barra da tarefa faz o mesmo. Um pacote de trabalho folha tem um controle deslizante livre em passos de 5%. Os pacotes de trabalho que têm pacotes de trabalho filhos **ou tarefas** exibem um chip somente leitura cujo valor é calculado automaticamente a partir da subárvore.
 - **Marcas trimestrais** — Grade de cronograma para orientação
 
 Interaja com o diagrama de Gantt:
@@ -115,6 +138,7 @@ Interaja com o diagrama de Gantt:
 - **Seletor de escala** — Escolha entre Dia, Semana, Mês, Trimestre e Ano; a escolha é lembrada no seu navegador
 - **Botões de zoom +/−** — Avance um nível por vez nas mesmas cinco escalas
 - **Pontos nas extremidades das barras** — Arraste do ponto direito de uma barra até o ponto esquerdo de outra para criar uma dependência «finish-to-start». Funciona entre pacotes de trabalho e tarefas em qualquer combinação. Os ciclos são rejeitados automaticamente. **Dê um clique duplo em uma seta** para removê-la.
+- **A linha +** no fim da lista pergunta o que criar — um pacote de trabalho, um marco ou uma tarefa — de modo que uma tarefa digitada ali vai parar na aba Tarefas.
 
 ### Aba Detalhes do Card
 
@@ -127,7 +151,7 @@ A EAP fornece uma decomposição hierárquica do escopo do projeto:
 - **Pacotes de trabalho** — Agrupamentos lógicos de tarefas com datas de início/fim e acompanhamento de conclusão
 - **Marcos** — Eventos significativos ou pontos de conclusão
 - **Hierarquia** — Relações pai-filho entre itens da EAP
-- **Auto-conclusão** — A porcentagem de conclusão é calculada automaticamente a partir das proporções de tarefas concluídas/totais, acumulada recursivamente pela hierarquia WBS até os itens pai. A conclusão do nível superior representa o progresso geral da iniciativa
+- **Auto-conclusão** — A conclusão é calculada automaticamente a partir das tarefas na subárvore de um pacote de trabalho: cada tarefa conta como 0% (A fazer, Bloqueado), 50% (Em progresso) ou 100% (Concluído), ponderada pela sua duração em dias (um dia quando falta uma data), e depois acumulada recursivamente até os itens pai. Um pacote de trabalho sem nenhuma tarefa abaixo dele mantém o valor digitado à mão. A média dos pacotes de trabalho de nível superior é o progresso geral da iniciativa — o número da aba Visão Geral e a variável `ppm.completion` que um [campo calculado](../admin/calculations.md#ppm-data-on-initiative-cards) pode mostrar no card e em um portal
 
 ## Integração com os detalhes do card
 
@@ -139,6 +163,6 @@ Por outro lado, a aba **Detalhes do Card** dentro da visualização detalhada PP
 
 | Permissão | Descrição |
 |-----------|-----------|
-| `ppm.view` | Visualizar o painel PPM, diagrama de Gantt e relatórios de iniciativas. Concedido a todos os papéis por padrão |
+| `ppm.view` | Visualizar o painel PPM, diagrama de Gantt e relatórios de iniciativas, e ler os cartões de iniciativa. Concedido a todos os papéis por padrão |
 | `ppm.manage` | Criar e gerenciar relatórios de status, tarefas, custos, riscos e itens WBS. Concedido aos papéis Admin, Admin BPM e Membro |
 | `reports.ppm_dashboard` | Visualizar o painel do portfólio PPM. Concedido a todos os papéis por padrão |

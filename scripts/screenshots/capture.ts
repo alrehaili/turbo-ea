@@ -24,6 +24,8 @@ import {
   DOC_PAGES,
   MARKETING_PAGES,
   CARD_LOOKUPS,
+  DIAGRAM_LOOKUPS,
+  RISK_LOOKUPS,
   type PageDef,
   type ScreenshotAction,
 } from "./pages.js";
@@ -195,6 +197,17 @@ async function login(
 // Locale switching
 // ---------------------------------------------------------------------------
 
+/**
+ * localStorage key the SPA's language detector actually reads — see
+ * `detection.lookupLocalStorage` in frontend/src/i18n/index.ts. Writing
+ * i18next's default `i18nextLng` key is inert here, and that was the bug:
+ * every authenticated page still rendered correctly because useAuth calls
+ * i18n.changeLanguage(user.locale) after /auth/me, but the login page — the
+ * one page with no authenticated user — fell back to `en`, so all ten
+ * locales captured the same English screenshot (and `ar` lost RTL with it).
+ */
+const LOCALE_STORAGE_KEY = "turboea-locale";
+
 async function switchLocale(
   page: Page,
   config: Config,
@@ -217,10 +230,15 @@ async function switchLocale(
     console.log(`  API locale switch returned ${resp.status()}, using localStorage fallback.`);
   }
 
-  // Also set i18next localStorage so the SPA picks up the locale immediately
-  await page.evaluate((loc: string) => {
-    localStorage.setItem("i18nextLng", loc);
-  }, locale);
+  // Also set the detector's localStorage key so the SPA picks up the locale
+  // immediately — and so pages with no authenticated user (the login page)
+  // render in the right language too.
+  await page.evaluate(
+    ([loc, key]: [string, string]) => {
+      localStorage.setItem(key, loc);
+    },
+    [locale, LOCALE_STORAGE_KEY] as [string, string]
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -261,18 +279,154 @@ async function resolveCardIds(
 }
 
 // ---------------------------------------------------------------------------
+// Draft flow resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve `{{draftId:<cardKey>}}` — the id of a *draft* flow version.
+ *
+ * A published flow is read-only in the modeller, and the card-link rows only
+ * appear when there is a draft to store the links in (the editor takes the
+ * version from `?versionId=`). So a shot of those rows needs a draft: reuse
+ * one the demo data already carries, otherwise branch one off the published
+ * version the way the Edit button does.
+ */
+async function resolveDraftIds(
+  page: Page,
+  config: Config,
+  token: string,
+  cardIds: Record<string, string>,
+  pageDefs: PageDef[]
+): Promise<Record<string, string>> {
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const wanted = new Set<string>();
+  for (const def of pageDefs) {
+    for (const match of def.route.matchAll(/\{\{draftId:(\w+)\}\}/g)) {
+      wanted.add(match[1]);
+    }
+  }
+
+  const resolved: Record<string, string> = {};
+  for (const key of wanted) {
+    const processId = cardIds[key];
+    // The card lookup already warned; the route will skip on __MISSING__.
+    if (!processId) continue;
+
+    const base = `${config.baseUrl}/api/v1/bpm/processes/${processId}/flow`;
+
+    const drafts = await page.request.get(`${base}/drafts`, { headers });
+    if (drafts.ok()) {
+      const rows = await drafts.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        resolved[key] = rows[0].id;
+        console.log(`  Reusing draft ${rows[0].id} for "${key}"`);
+        continue;
+      }
+    }
+
+    const published = await page.request.get(`${base}/published`, { headers });
+    const publishedVersion = published.ok() ? await published.json() : null;
+    if (!publishedVersion) {
+      console.warn(`  WARNING: no published flow for "${key}" — draft shots will be skipped.`);
+      continue;
+    }
+
+    // An empty `bpmn_xml` tells the backend to clone the base version's.
+    const created = await page.request.post(`${base}/drafts`, {
+      headers,
+      data: { bpmn_xml: "", based_on_id: publishedVersion.id },
+    });
+    if (!created.ok()) {
+      console.warn(`  WARNING: could not create a draft for "${key}": ${created.status()}`);
+      continue;
+    }
+    const draft = await created.json();
+    resolved[key] = draft.id;
+    console.log(`  Created draft ${draft.id} for "${key}"`);
+  }
+
+  return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// Diagram / risk resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve `{{diagramId:<key>}}` and `{{riskId:<key>}}` — a demo diagram by its
+ * exact name (DIAGRAM_LOOKUPS) and a demo risk by its reference
+ * (RISK_LOOKUPS). Only the tokens some route actually uses are looked up.
+ * Keys in the returned map are `<kind>:<key>`, as written in the route.
+ */
+async function resolveNamedIds(
+  page: Page,
+  config: Config,
+  token: string,
+  pageDefs: PageDef[]
+): Promise<Record<string, string>> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const resolved: Record<string, string> = {};
+
+  const wanted = new Set<string>();
+  for (const def of pageDefs) {
+    for (const match of def.route.matchAll(/\{\{(diagramId|riskId):(\w+)\}\}/g)) {
+      wanted.add(`${match[1]}:${match[2]}`);
+    }
+  }
+
+  for (const ref of wanted) {
+    const [kind, key] = ref.split(":");
+    try {
+      if (kind === "diagramId") {
+        const name = DIAGRAM_LOOKUPS[key as keyof typeof DIAGRAM_LOOKUPS];
+        const res = await page.request.get(
+          `${config.baseUrl}/api/v1/diagrams?search=${encodeURIComponent(name)}`,
+          { headers }
+        );
+        const rows = res.ok() ? await res.json() : [];
+        const hit = Array.isArray(rows) ? rows.find((d) => d.name === name) : undefined;
+        if (hit) resolved[ref] = hit.id;
+      } else {
+        const reference = RISK_LOOKUPS[key as keyof typeof RISK_LOOKUPS];
+        const res = await page.request.get(
+          `${config.baseUrl}/api/v1/risks?search=${encodeURIComponent(reference)}&page_size=20`,
+          { headers }
+        );
+        const data = res.ok() ? await res.json() : { items: [] };
+        const hit = (data.items || []).find((r: { reference: string }) => r.reference === reference);
+        if (hit) resolved[ref] = hit.id;
+      }
+    } catch (e) {
+      console.warn(`  WARNING: lookup failed for ${ref}: ${e}`);
+    }
+    if (resolved[ref]) {
+      console.log(`  Resolved ${ref} → ${resolved[ref]}`);
+    } else {
+      console.warn(`  WARNING: ${ref} not found — its shots will be skipped.`);
+    }
+  }
+
+  return resolved;
+}
+
+// ---------------------------------------------------------------------------
 // Route interpolation
 // ---------------------------------------------------------------------------
 
 function interpolateRoute(
   route: string,
-  cardIds: Record<string, string>
+  cardIds: Record<string, string>,
+  draftIds: Record<string, string> = {},
+  namedIds: Record<string, string> = {}
 ): string | null {
-  return route.replace(/\{\{cardId:(\w+)\}\}/g, (_match, key) => {
-    const id = cardIds[key];
-    if (!id) return "__MISSING__";
-    return id;
-  });
+  return route
+    .replace(/\{\{cardId:(\w+)\}\}/g, (_match, key) => cardIds[key] || "__MISSING__")
+    .replace(/\{\{draftId:(\w+)\}\}/g, (_match, key) => draftIds[key] || "__MISSING__")
+    .replace(
+      /\{\{(diagramId|riskId):(\w+)\}\}/g,
+      (_match, kind, key) => namedIds[`${kind}:${key}`] || "__MISSING__"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +451,21 @@ async function executeActions(
           );
         } else if (action.target === "top") {
           await page.evaluate(() => window.scrollTo(0, 0));
+        } else if (action.align === "start") {
+          // Put the element at the top of whatever scrolls it, leaving room
+          // for the fixed app bar above the page content.
+          await page
+            .locator(action.target)
+            .first()
+            .evaluate((el) => {
+              el.scrollIntoView({ block: "start" });
+              let p = el.parentElement;
+              while (p && !(p.scrollHeight > p.clientHeight && /auto|scroll/.test(getComputedStyle(p).overflowY))) {
+                p = p.parentElement;
+              }
+              (p ?? document.scrollingElement)?.scrollBy(0, -88);
+            })
+            .catch(() => {});
         } else {
           // Scroll to a specific element
           await page
@@ -360,6 +529,26 @@ async function executeActions(
       case "wait":
         await page.waitForTimeout(action.ms);
         break;
+
+      case "waitFor":
+        // Wait until any of the comma-separated selectors is visible — for
+        // state that takes an unpredictable time to appear (an LLM answer,
+        // an iframe editor booting). Like the page-level waitFor, a timeout
+        // only warns.
+        try {
+          const selectors = action.selector.split(",").map((s) => s.trim());
+          await Promise.race(
+            selectors.map((sel) =>
+              page
+                .locator(sel)
+                .first()
+                .waitFor({ state: "visible", timeout: action.timeout ?? 15000 })
+            )
+          );
+        } catch {
+          console.warn(`    WARNING: waitFor action timed out for: ${action.selector}`);
+        }
+        break;
     }
   }
 }
@@ -373,11 +562,13 @@ async function capturePage(
   pageDef: PageDef,
   outputPath: string,
   cardIds: Record<string, string>,
+  draftIds: Record<string, string>,
+  namedIds: Record<string, string>,
   config: Config,
   locale: string
 ): Promise<boolean> {
   // Resolve route
-  const route = interpolateRoute(pageDef.route, cardIds);
+  const route = interpolateRoute(pageDef.route, cardIds, draftIds, namedIds);
   if (!route || route.includes("__MISSING__")) {
     console.warn(`  SKIP ${pageDef.id}: unresolved card ID in route`);
     return false;
@@ -412,15 +603,15 @@ async function capturePage(
   // 23_inventory_filters leaks into the next locale's 03_inventory, and the
   // dependency C4 view (13b) leaks into 13. Preserve the i18n locale key so the
   // page still renders in the locale we switched to.
-  await page.evaluate(() => {
+  await page.evaluate((key: string) => {
     try {
-      const lng = localStorage.getItem("i18nextLng");
+      const lng = localStorage.getItem(key);
       localStorage.clear();
-      if (lng !== null) localStorage.setItem("i18nextLng", lng);
+      if (lng !== null) localStorage.setItem(key, lng);
     } catch {
       // about:blank / no document origin yet — nothing to clear.
     }
-  });
+  }, LOCALE_STORAGE_KEY);
 
   // Navigate
   // Use "domcontentloaded" instead of "networkidle" because the app opens an
@@ -539,7 +730,15 @@ async function main(): Promise<void> {
   // does not match the npm dependency. Unset everywhere else, so the normal
   // `npm run install-browsers` flow is unchanged.
   const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
-  const browser: Browser = await chromium.launch({ headless: true, executablePath });
+  //
+  // `SCREENSHOT_BROWSER_ARGS` appends extra Chromium flags (space-separated),
+  // for sandboxes whose only way out is an HTTP proxy — e.g.
+  // `--proxy-server=http://127.0.0.1:3128 --ignore-certificate-errors-spki-list=<hash>`.
+  // The Inter and Material Symbols webfonts come from Google Fonts; if they
+  // cannot load, every icon renders as its ligature name and the capture is
+  // useless. Chromium never proxies loopback, so the app is still reached directly.
+  const extraArgs = (process.env.SCREENSHOT_BROWSER_ARGS || "").split(/\s+/).filter(Boolean);
+  const browser: Browser = await chromium.launch({ headless: true, executablePath, args: extraArgs });
   const context = await browser.newContext({
     viewport: config.viewport,
     deviceScaleFactor: 2, // Retina-quality screenshots
@@ -553,6 +752,13 @@ async function main(): Promise<void> {
 
     // Resolve card IDs from demo data
     const cardIds = await resolveCardIds(page, config, token);
+
+    // Draft flows for the editor shots (only touched when a route asks).
+    const draftIds = await resolveDraftIds(page, config, token, cardIds, [
+      ...docPages,
+      ...mktPages,
+    ]);
+    const namedIds = await resolveNamedIds(page, config, token, [...docPages, ...mktPages]);
 
     let captured = 0;
     let skipped = 0;
@@ -577,7 +783,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, locale
+          page, pageDef, outDir, cardIds, draftIds, namedIds, config, locale
         );
 
         if (ok) {
@@ -608,7 +814,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, "en"
+          page, pageDef, outDir, cardIds, draftIds, namedIds, config, "en"
         );
 
         if (ok) {

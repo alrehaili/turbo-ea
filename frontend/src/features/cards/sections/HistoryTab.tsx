@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router";
@@ -34,10 +35,19 @@ const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
   "risk.updated": { icon: "edit_note", color: "#ff9800" },
   "risk.removed": { icon: "report_off", color: "#9e9e9e" },
   "document.added": { icon: "link", color: "#1976d2" },
+  "document.updated": { icon: "edit_note", color: "#1976d2" },
   "document.removed": { icon: "link_off", color: "#f44336" },
   "file.uploaded": { icon: "upload_file", color: "#1976d2" },
+  "file.replaced": { icon: "sync", color: "#1976d2" },
+  "file.updated": { icon: "edit_note", color: "#1976d2" },
   "file.deleted": { icon: "delete", color: "#f44336" },
+  "card_logo.updated": { icon: "image", color: "#1976d2" },
+  "card_logo.deleted": { icon: "hide_image", color: "#f44336" },
   "comment.created": { icon: "chat", color: "#1976d2" },
+  // Tagging rescores the card, which moves its Modified date — so it belongs
+  // on the timeline like any other edit (#995).
+  "tag.added": { icon: "label", color: "#1976d2" },
+  "tag.removed": { icon: "label_off", color: "#f44336" },
   // BPM process-flow approval trail. Without these the events render as their
   // raw dotted event_type, which makes the approval history of a process
   // unreadable on the card — and an unreadable trail is not an audit trail.
@@ -67,10 +77,17 @@ function getEventMeta(t: (key: string) => string): Record<string, { label: strin
     "risk.updated": { label: t("history.events.riskUpdated"), ...EVENT_META_ICONS["risk.updated"] },
     "risk.removed": { label: t("history.events.riskRemoved"), ...EVENT_META_ICONS["risk.removed"] },
     "document.added": { label: t("history.events.documentAdded"), ...EVENT_META_ICONS["document.added"] },
+    "document.updated": { label: t("history.events.documentUpdated"), ...EVENT_META_ICONS["document.updated"] },
     "document.removed": { label: t("history.events.documentRemoved"), ...EVENT_META_ICONS["document.removed"] },
     "file.uploaded": { label: t("history.events.fileUploaded"), ...EVENT_META_ICONS["file.uploaded"] },
+    "file.replaced": { label: t("history.events.fileReplaced"), ...EVENT_META_ICONS["file.replaced"] },
+    "file.updated": { label: t("history.events.fileUpdated"), ...EVENT_META_ICONS["file.updated"] },
     "file.deleted": { label: t("history.events.fileDeleted"), ...EVENT_META_ICONS["file.deleted"] },
+    "card_logo.updated": { label: t("history.events.cardLogoUpdated"), ...EVENT_META_ICONS["card_logo.updated"] },
+    "card_logo.deleted": { label: t("history.events.cardLogoDeleted"), ...EVENT_META_ICONS["card_logo.deleted"] },
     "comment.created": { label: t("history.events.commentCreated"), ...EVENT_META_ICONS["comment.created"] },
+    "tag.added": { label: t("history.events.tagAdded"), ...EVENT_META_ICONS["tag.added"] },
+    "tag.removed": { label: t("history.events.tagRemoved"), ...EVENT_META_ICONS["tag.removed"] },
     "process_flow.submitted": { label: t("history.events.processFlowSubmitted"), ...EVENT_META_ICONS["process_flow.submitted"] },
     "process_flow.approved": { label: t("history.events.processFlowApproved"), ...EVENT_META_ICONS["process_flow.approved"] },
     "process_flow.rejected": { label: t("history.events.processFlowRejected"), ...EVENT_META_ICONS["process_flow.rejected"] },
@@ -85,9 +102,22 @@ function getFieldLabels(t: (key: string) => string): Record<string, string> {
     subtype: t("common:labels.subtype"),
     lifecycle: t("history.fields.lifecycle"),
     parent_id: t("common:labels.parent"),
+    parent_label: t("history.fields.parentLabel"),
     alias: t("history.fields.alias"),
     external_id: t("history.fields.externalId"),
     approval_status: t("history.fields.approvalStatus"),
+  };
+}
+
+// Approval status is stored as the raw enum, so a history row would otherwise
+// read "APPROVED → BROKEN". These are the same four labels the approval badge
+// and the Inventory render, so the tab agrees with the rest of the card.
+function getApprovalStatusLabels(t: (key: string) => string): Record<string, string> {
+  return {
+    DRAFT: t("common:status.draft"),
+    APPROVED: t("common:status.approved"),
+    REJECTED: t("common:status.rejected"),
+    BROKEN: t("common:status.broken"),
   };
 }
 
@@ -192,10 +222,14 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
     );
   }
 
-  if (eventType === "document.added" || eventType === "document.removed") {
+  if (
+    eventType === "document.added" ||
+    eventType === "document.updated" ||
+    eventType === "document.removed"
+  ) {
     const name = (data.name as string) || (data.url as string) || fallbackSummary || "";
     const url = data.url as string | undefined;
-    if (eventType === "document.added" && url) {
+    if (eventType !== "document.removed" && url) {
       return (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
           <Link href={url} target="_blank" rel="noopener noreferrer" underline="hover">
@@ -207,11 +241,25 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
     return <PlainSummary text={name} />;
   }
 
-  if (eventType === "file.uploaded" || eventType === "file.deleted") {
-    const name = (data.name as string) || fallbackSummary || "";
-    const size = data.size as number | undefined;
-    const sizeText = size != null ? ` · ${(size / 1024).toFixed(1)} KB` : "";
-    return <PlainSummary text={`${name}${sizeText}`} />;
+  if (eventType === "card_logo.updated" || eventType === "card_logo.deleted") {
+    // No `changes` payload: image bytes have no business in a diff.
+    return <PlainSummary text={fallbackSummary || ""} />;
+  }
+
+  if (eventType.startsWith("file.")) {
+    const fileLine = (d: Record<string, unknown>) => {
+      const name = (d.name as string) || "";
+      const size = d.size as number | undefined;
+      return size != null ? `${name} · ${(size / 1024).toFixed(1)} KB` : name;
+    };
+    const current = fileLine(data) || fallbackSummary || "";
+    // A replace carries the version it superseded as `previous` (not as
+    // `changes`: a raw byte count is not a field diff anyone wants to read).
+    const previous = data.previous as Record<string, unknown> | undefined;
+    if (eventType === "file.replaced" && previous) {
+      return <PlainSummary text={`${fileLine(previous)} → ${current}`} />;
+    }
+    return <PlainSummary text={current} />;
   }
 
   if (eventType.startsWith("stakeholder.")) {
@@ -237,7 +285,7 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
         )}
         {reason && (
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-            {t("history.withdrawalReason")}: {reason}
+            {t("history.withdrawalReason")}: <LinkifiedText text={reason} />
           </Typography>
         )}
       </Box>
@@ -250,7 +298,7 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: Event
 function PlainSummary({ text }: { text: string }) {
   return (
     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-      {text}
+      <LinkifiedText text={text} />
     </Typography>
   );
 }
@@ -285,6 +333,7 @@ function parseChanges(
   fieldLabels: Record<string, string>,
   phaseLabels: Record<string, string>,
   attrLabels: Record<string, string>,
+  statusLabels: Record<string, string>,
 ): ChangeRow[] {
   const rows: ChangeRow[] = [];
   for (const [field, change] of Object.entries(changes)) {
@@ -313,6 +362,14 @@ function parseChanges(
           rows.push({ field: phaseLabels[key] || key, oldVal: fmtVal(oldL[key], phaseLabels), newVal: fmtVal(newL[key], phaseLabels) });
         }
       }
+    } else if (field === "approval_status") {
+      // Fall back to the raw value so a status this build has not heard of
+      // still renders, rather than blanking the row.
+      rows.push({
+        field: resolveFieldLabel(field, fieldLabels, phaseLabels, attrLabels),
+        oldVal: statusLabels[String(c.old)] ?? fmtVal(c.old, phaseLabels),
+        newVal: statusLabels[String(c.new)] ?? fmtVal(c.new, phaseLabels),
+      });
     } else {
       rows.push({
         field: resolveFieldLabel(field, fieldLabels, phaseLabels, attrLabels),
@@ -331,6 +388,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
   const eventMeta = getEventMeta(t);
   const fieldLabels = getFieldLabels(t);
   const phaseLabels = getPhaseLabels(t);
+  const statusLabels = getApprovalStatusLabels(t);
   const { getType } = useMetamodel();
   const fieldLabel = useFieldLabel();
   // Build a `{attributeKey: localizedLabel}` map for the card's type so
@@ -366,7 +424,22 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
       {events.map((e) => {
         const meta = eventMeta[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
-        const rows = changes ? parseChanges(changes, fieldLabels, phaseLabels, attrLabels) : [];
+        // A document link's `url` / `type` and a file's `category` are the
+        // resource's own fields, not the card's: label them as the Resources
+        // dialogs do, so a card attribute that happens to be keyed `type` is
+        // not borrowed for the row (#1166).
+        const labels =
+          e.event_type === "document.updated" || e.event_type === "file.updated"
+            ? {
+                ...fieldLabels,
+                url: t("resources.addLinkDialog.url"),
+                type: t("resources.addLinkDialog.type"),
+                category: t("resources.uploadFileDialog.category"),
+              }
+            : fieldLabels;
+        const rows = changes
+          ? parseChanges(changes, labels, phaseLabels, attrLabels, statusLabels)
+          : [];
         const summary = typeof e.data?.summary === "string" ? (e.data.summary as string) : null;
 
         return (

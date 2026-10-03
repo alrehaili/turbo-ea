@@ -18,9 +18,33 @@ import CardScopeFilter from "@/components/CardScopeFilter";
 import type { CardScopeOption } from "@/components/CardScopeDialog";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
+import { expandSides, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ColumnCountPicker from "@/components/ColumnCountPicker";
+import {
+  columnGridProps,
+  isColumnCount,
+  nestedColumns,
+  nestedGridProps,
+  CARD_TITLE_MIN_WIDTH,
+  DEFAULT_COLUMNS,
+  type ColumnCount,
+} from "@/components/cardColumns";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import ReportFilterSection from "./ReportFilterSection";
+import { isAliveAtDate, isRetiredByDate } from "./portfolioHelpers";
+import {
+  classifyTimelineChange,
+  computeTimelineMilestones,
+  computeTimelineRange,
+} from "./timelineRange";
+import {
+  PULSE_COLORS,
+  TIMELINE_PULSE_KEYFRAMES,
+  useMilestoneSpotlight,
+} from "./useMilestoneSpotlight";
+import type { ContainerPulseKind, PulseKind } from "./useMilestoneSpotlight";
 import {
   buildInventorySliceUrl,
   type InventorySliceFilters,
@@ -36,7 +60,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
-import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useFieldLabel, useOptionLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -69,7 +93,12 @@ interface AppData {
   attributes?: Record<string, unknown>;
   lifecycle?: Record<string, string>;
   org_ids: string[];
+  /** Related card ids keyed by CARD type — the union across every relation type
+   *  reaching that type. */
   related_by_type?: Record<string, string[]>;
+  /** The same, keyed by RELATION type, so "owned by" filters apart from
+   *  "used by" when several relation types reach one card type. */
+  related_by_rel_type?: Record<string, string[]>;
   tag_ids?: string[];
 }
 
@@ -78,6 +107,17 @@ interface TagGroupDef {
   name: string;
   mode: string;
   tags: { id: string; name: string; color?: string }[];
+}
+
+/** A relation type reaching Application, for per-relationship filter facets. */
+interface RelationTypeRef {
+  key: string;
+  label: string;
+  reverse_label?: string;
+  source_type_key: string;
+  target_type_key: string;
+  other_type_key: string;
+  translations?: Record<string, Record<string, string>>;
 }
 
 interface FilterableTypeRef {
@@ -113,8 +153,6 @@ const METRIC_OPTIONS: { key: Metric; labelKey: string; icon: string }[] = [
 
 const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
 
-const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
-
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -124,24 +162,6 @@ function pickSelectFields(schema: SectionDef[]): FieldDef[] {
   for (const s of schema)
     for (const f of s.fields) if (f.type === "single_select") out.push(f);
   return out;
-}
-
-function parseDate(s: string | undefined): number | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.getTime();
-}
-
-/** An app is "alive" at a date if it has started (earliest phase <= date) and hasn't been retired (endOfLife > date). */
-function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
-  const lc = app.lifecycle;
-  if (!lc) return true;
-  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter((d): d is number => d != null);
-  if (dates.length === 0) return true;
-  if (Math.min(...dates) > dateMs) return false;
-  const eol = parseDate(lc.endOfLife);
-  if (eol != null && eol <= dateMs) return false;
-  return true;
 }
 
 function nodeMetric(node: CapNode, metric: Metric): number {
@@ -193,16 +213,23 @@ function getAppColorLabel(
   return opt?.label || val;
 }
 
-/** Filter an app based on active attribute, relation and tag filters */
+/**
+ * Filter an app based on active attribute, relation and tag filters. The
+ * timeline date is deliberately NOT part of this matcher: the milestone
+ * marks/delta/pills are computed from the statically-filtered set, and the
+ * alive-at-date check is applied separately by the caller.
+ */
 function matchesFilters(
   app: AppData,
   attrFilters: Record<string, string[]>,
   relationFilters: Record<string, string[]>,
   tagFilterIds: string[],
   tagGroups: TagGroupDef[],
-  timelineDate: number,
+  /** Every known relation-type key, so a filter keyed by a relation type is
+   *  told apart from one keyed by a card type. Absent = all card types, which
+   *  is how every saved report written before this behaves. */
+  relTypeKeys?: ReadonlySet<string>,
 ): boolean {
-  if (!isAppAliveAtDate(app, timelineDate)) return false;
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(attrFilters)) {
@@ -215,11 +242,15 @@ function matchesFilters(
     if (realVals.length > 0 && realVals.includes(v as string)) continue;
     return false;
   }
-  // Relation filters (e.g. Organization, Platform, etc.)
+  // Relation filters. A key is a CARD type ("related to an Organization at
+  // all") or a RELATION type ("owned by an Organization").
   const byType = app.related_by_type || {};
-  for (const [typeKey, ids] of Object.entries(relationFilters)) {
+  const byRelType = app.related_by_rel_type || {};
+  for (const [key, ids] of Object.entries(relationFilters)) {
     if (ids.length === 0) continue;
-    const appRelIds = byType[typeKey] || app.org_ids || [];
+    const appRelIds = relTypeKeys?.has(key)
+      ? (byRelType[key] ?? [])
+      : (byType[key] || app.org_ids || []);
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRelIds.length === 0) continue;
@@ -269,11 +300,18 @@ function buildTree(
   tagGroups: TagGroupDef[],
   timelineDate: number,
   costFieldKeys: string[],
+  /** Retiring apps transiently kept visible while a retirement mark's
+   *  spotlight runs — the map hides retired apps, so the pulse needs a ghost
+   *  to point at. */
+  revealedForPulse: Set<string>,
+  relTypeKeys?: ReadonlySet<string>,
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
-    const filteredApps = item.apps.filter((a) =>
-      matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, timelineDate),
+    const filteredApps = item.apps.filter(
+      (a) =>
+        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys) &&
+        (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)),
     );
     nodeMap.set(item.id, {
       ...item,
@@ -387,11 +425,17 @@ function AppChip({
   colorBy,
   selectFields,
   onClick,
+  pulse,
+  dimmed,
 }: {
   app: AppData;
   colorBy: string;
   selectFields: FieldDef[];
   onClick: () => void;
+  /** Mark-click spotlight: this chip's card changes at the clicked mark. */
+  pulse?: PulseKind;
+  /** A spotlight is running and this chip is not part of it. */
+  dimmed?: boolean;
 }) {
   // Metamodel Application color (admin-editable) when not coloring by field.
   const { getType } = useMetamodel();
@@ -418,6 +462,11 @@ function AppChip({
           maxWidth: 160,
           cursor: "pointer",
           "&:hover": { opacity: 0.85 },
+          ...(dimmed && { opacity: 0.3, transition: "opacity 0.2s, box-shadow 0.2s" }),
+          ...(pulse && {
+            boxShadow: `0 0 0 3px ${PULSE_COLORS[pulse]}55`,
+            animation: `tl-pulse-${pulse} 0.65s ease-in-out 2`,
+          }),
         }}
       />
     </Tooltip>
@@ -427,6 +476,8 @@ function AppChip({
 function CapabilityCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   showApps,
   colorBy,
   selectFields,
@@ -435,9 +486,16 @@ function CapabilityCard({
   onCapClick,
   onAppClick,
   fmtCost,
+  pulseCards,
+  pulsing,
+  pulsedCaps,
 }: {
   node: CapNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. */
+  depth?: number;
   showApps: boolean;
   colorBy: string;
   selectFields: FieldDef[];
@@ -446,6 +504,12 @@ function CapabilityCard({
   onCapClick: (cap: CapNode) => void;
   onAppClick: (id: string) => void;
   fmtCost: (v: number) => string;
+  pulseCards: Record<string, PulseKind>;
+  pulsing: boolean;
+  /** Capability boxes pulsed on behalf of hidden app chips (Show
+   *  Applications off) — a ring only, never a dim: dimming a heatmap box
+   *  would read as a data change. */
+  pulsedCaps: Map<string, ContainerPulseKind>;
 }) {
   const { t } = useTranslation(["reports"]);
   const val = nodeMetric(node, metric);
@@ -457,6 +521,14 @@ function CapabilityCard({
     () => getVisibleApps(node, displayLevel),
     [node, displayLevel],
   );
+
+  const boxPulse = pulsedCaps.get(node.id);
+  const boxPulseSx = boxPulse
+    ? {
+        boxShadow: `0 0 0 3px ${PULSE_COLORS[boxPulse]}55`,
+        animation: `tl-pulse-${boxPulse} 0.65s ease-in-out 2`,
+      }
+    : undefined;
 
   // If this node is at or below the display level, render as a leaf card
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
@@ -473,6 +545,7 @@ function CapabilityCard({
           cursor: "pointer",
           transition: "box-shadow 0.2s",
           "&:hover": { boxShadow: 3 },
+          ...boxPulseSx,
         }}
         onClick={() => onCapClick(node)}
       >
@@ -484,6 +557,7 @@ function CapabilityCard({
               showApps && visibleApps.length > 0 ? 1 : "none",
             borderColor: "divider",
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "center",
             gap: 1,
           }}
@@ -493,6 +567,7 @@ function CapabilityCard({
             sx={{
               fontWeight: 700,
               flex: 1,
+              minWidth: CARD_TITLE_MIN_WIDTH,
               color: val > maxVal * 0.7 ? "#fff" : "#333",
             }}
             noWrap
@@ -525,6 +600,8 @@ function CapabilityCard({
                   colorBy={colorBy}
                   selectFields={selectFields}
                   onClick={() => onAppClick(app.id)}
+                  pulse={pulseCards[app.id]}
+                  dimmed={pulsing && !pulseCards[app.id]}
                 />
               ))}
           </Box>
@@ -542,6 +619,7 @@ function CapabilityCard({
         borderRadius: 2,
         overflow: "hidden",
         bgcolor: "background.paper",
+        ...boxPulseSx,
       }}
     >
       {/* Header */}
@@ -552,6 +630,7 @@ function CapabilityCard({
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           gap: 1,
           cursor: "pointer",
@@ -564,6 +643,7 @@ function CapabilityCard({
           sx={{
             fontWeight: 700,
             flex: 1,
+            minWidth: CARD_TITLE_MIN_WIDTH,
             color: val > maxVal * 0.7 ? "#fff" : "#333",
           }}
           noWrap
@@ -596,18 +676,22 @@ function CapabilityCard({
                 colorBy={colorBy}
                 selectFields={selectFields}
                 onClick={() => onAppClick(app.id)}
+                pulse={pulseCards[app.id]}
+                dimmed={pulsing && !pulseCards[app.id]}
               />
             ))}
         </Box>
       )}
 
       {/* Children */}
-      <Box sx={{ p: 1, display: "flex", flexWrap: "wrap", gap: 1 }}>
+      <Box {...nestedGridProps(nestedColumns(columns, depth + 1), { gap: 1, sx: { p: 1 } })}>
         {node.children.map((ch) => (
-          <Box key={ch.id} sx={{ flex: "1 1 200px", minWidth: 180, maxWidth: 400 }}>
+          <Box key={ch.id}>
             <CapabilityCard
               node={ch}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               showApps={showApps}
               colorBy={colorBy}
               selectFields={selectFields}
@@ -616,6 +700,9 @@ function CapabilityCard({
               onCapClick={onCapClick}
               onAppClick={onAppClick}
               fmtCost={fmtCost}
+              pulseCards={pulseCards}
+              pulsing={pulsing}
+              pulsedCaps={pulsedCaps}
             />
           </Box>
         ))}
@@ -634,6 +721,7 @@ export default function CapabilityMapReport() {
   const { types: metamodelTypes } = useMetamodel();
   const { segments } = useSegments();
   const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const saved = useSavedReport("capability-map");
@@ -643,6 +731,18 @@ export default function CapabilityMapReport() {
   const [data, setData] = useState<CapItem[] | null>(null);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
+  const [relationTypesData, setRelationTypesData] = useState<RelationTypeRef[]>([]);
+  const allRelTypeKeys = useMemo(
+    () =>
+      new Set(
+        relationTypesData.flatMap((rt) =>
+          rt.source_type_key === rt.target_type_key
+            ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
+            : [rt.key],
+        ),
+      ),
+    [relationTypesData],
+  );
   const [drawer, setDrawer] = useState<CapNode | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [, setArchitectureStates] = useState<string[]>(["current", "transition", "target"]);
@@ -651,6 +751,7 @@ export default function CapabilityMapReport() {
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
   const [displayLevel, setDisplayLevel] = useState(2);
+  const [columns, setColumns] = useState<ColumnCount>(DEFAULT_COLUMNS);
   const [showApps, setShowApps] = useState(false);
   const [colorBy, setColorBy] = useState("");
   // Timeline slider
@@ -662,6 +763,9 @@ export default function CapabilityMapReport() {
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [tagGroupsData, setTagGroupsData] = useState<TagGroupDef[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
+  // Fold the filter block away. Expanded by default; persisted with the rest
+  // of the report config, so a missing key means expanded.
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   // Narrow the map to chosen capabilities and everything beneath them (#954).
   // The heatmap payload is the complete capability set with parent chains, so
@@ -676,6 +780,7 @@ export default function CapabilityMapReport() {
     if (cfg) {
       if (cfg.metric) setMetric(cfg.metric as Metric);
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
+      if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
       if (Array.isArray(cfg.scopeIds)) {
@@ -683,6 +788,7 @@ export default function CapabilityMapReport() {
       }
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
         setTagFilterIds(cfg.tagFilterIds as string[]);
@@ -698,18 +804,19 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds });
+  const getConfig = () => ({ metric, displayLevel, columns, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, columns, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
     saved.resetAll();
     setMetric("app_count");
     setDisplayLevel(2);
+    setColumns(DEFAULT_COLUMNS);
     setShowApps(false);
     setColorBy("");
     setScopeIds([]);
@@ -718,6 +825,7 @@ export default function CapabilityMapReport() {
     setRelationFilters({});
     setTagFilterIds([]);
     setShowAllRelFilters(false);
+    setFiltersCollapsed(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derived: select fields from schema — resolve labels for the current locale
@@ -763,12 +871,14 @@ export default function CapabilityMapReport() {
       const r = await api.get<{
         items: CapItem[];
         filterable_types?: Record<string, FilterableTypeRef[]>;
+        relation_types?: RelationTypeRef[];
         fields_schema?: SectionDef[];
         tag_groups?: TagGroupDef[];
       }>(`/reports/capability-heatmap?${p}`, { signal });
       if (!isCurrent()) return;
       setData(r.items);
       if (r.filterable_types) setFilterableTypes(r.filterable_types);
+      if (r.relation_types) setRelationTypesData(r.relation_types);
       if (r.fields_schema) setFieldsSchema(r.fields_schema);
       if (r.tag_groups) setTagGroupsData(r.tag_groups);
     },
@@ -776,42 +886,14 @@ export default function CapabilityMapReport() {
   );
 
   // Compute date range from all app lifecycle dates
-  const { dateRange, yearMarks } = useMemo(() => {
-    const now = tl.todayMs;
-    const pad3y = 3 * 365.25 * 86400000;
-    if (!data)
-      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
-
-    let minD = Infinity, maxD = -Infinity;
-    for (const cap of data) {
-      for (const app of cap.apps) {
-        const lc = app.lifecycle || {};
-        for (const p of LIFECYCLE_PHASES) {
-          const d = parseDate(lc[p]);
-          if (d != null) { minD = Math.min(minD, d); maxD = Math.max(maxD, d); }
-        }
-      }
-    }
-    if (minD === Infinity)
-      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
-
-    const pad = 365.25 * 86400000;
-    minD -= pad; maxD += pad;
-    const marks: { value: number; label: string }[] = [];
-    const sy = new Date(minD).getFullYear(), ey = new Date(maxD).getFullYear();
-    for (let y = sy; y <= ey + 1; y++) {
-      const t = new Date(y, 0, 1).getTime();
-      if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
-    }
-    return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
-  }, [data, tl.todayMs]);
-
-  const hasLifecycleData = useMemo(() => {
-    if (!data) return false;
-    return data.some((cap) =>
-      cap.apps.some((app) => app.lifecycle && LIFECYCLE_PHASES.some((p) => app.lifecycle?.[p])),
-    );
-  }, [data]);
+  const { dateRange, yearMarks, hasLifecycleData } = useMemo(
+    () =>
+      computeTimelineRange(
+        (data ?? []).flatMap((cap) => cap.apps.map((app) => app.lifecycle)),
+        tl.todayMs,
+      ),
+    [data, tl.todayMs],
+  );
 
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||
@@ -824,16 +906,20 @@ export default function CapabilityMapReport() {
   // which can only widen the landing, never silently empty it.
   const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
     const relations: Record<string, string[]> = {};
-    for (const [typeKey, ids] of Object.entries(relationFilters)) {
+    for (const [key, ids] of Object.entries(relationFilters)) {
       if (ids.length === 0) continue;
-      const members = filterableTypes[typeKey] || [];
+      // A key is a card type or a relation type; the members always live under
+      // the CARD type at the relation's other end. The inventory keys relation
+      // filters the same way, so the key travels through unchanged.
+      const relType = relationTypesData.find((rt) => rt.key === key);
+      const members = filterableTypes[relType?.other_type_key ?? key] || [];
       const names = ids
         .map((id) => members.find((m) => m.id === id)?.name)
         .filter((n): n is string => !!n);
-      if (names.length > 0) relations[typeKey] = names;
+      if (names.length > 0) relations[key] = names;
     }
     return { attributes: attrFilters, relations, tagIds: tagFilterIds };
-  }, [attrFilters, relationFilters, tagFilterIds, filterableTypes]);
+  }, [attrFilters, relationFilters, tagFilterIds, filterableTypes, relationTypesData]);
 
   /**
    * "View in inventory" for the drawer, on LEAF capabilities only.
@@ -895,11 +981,110 @@ export default function CapabilityMapReport() {
     [data, scope.closure],
   );
 
+  // Transition marks, delta and pills are computed from the statically-
+  // filtered set (timeline filter NOT applied — what changes over time must
+  // not vanish from the track the moment the travelled date hides it),
+  // DEDUPED by app id: an app supporting several capabilities appears once
+  // per capability in the payload, and counting it per appearance would
+  // inflate every mark, pill row and delta chip.
+  const milestoneScope = useMemo(() => {
+    if (!scopedData) return [];
+    const byId = new Map<string, AppData>();
+    for (const cap of scopedData) {
+      for (const app of cap.apps) {
+        if (byId.has(app.id)) continue;
+        if (
+          matchesFilters(
+            app, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys,
+          )
+        )
+          byId.set(app.id, app);
+      }
+    }
+    return [...byId.values()];
+  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys]);
+
+  const milestones = useMemo(
+    () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
+    [milestoneScope],
+  );
+
+  // Pill accents reuse the report's own colour-by, so the pill row matches
+  // the chips it spotlights.
+  const appDefaultColor = useMemo(
+    () =>
+      metamodelTypes.find((tp) => tp.key === "Application")?.color ||
+      CARD_TYPE_COLORS.Application,
+    [metamodelTypes],
+  );
+  const milestoneById = useMemo(
+    () => new Map(milestoneScope.map((a) => [a.id, a])),
+    [milestoneScope],
+  );
+  const milestoneCardColor = useCallback(
+    (id: string) => {
+      const app = milestoneById.get(id);
+      return app ? getAppColor(app, colorBy, selectFields, appDefaultColor) : undefined;
+    },
+    [milestoneById, colorBy, selectFields, appDefaultColor],
+  );
+
+  const {
+    pulseCards,
+    revealedForPulse,
+    pulsing,
+    handleMilestoneClick,
+    milestoneCards,
+    handleMilestoneCardClick,
+  } = useMilestoneSpotlight({ scope: milestoneScope, getColor: milestoneCardColor });
+
+  // The transformation between today and the selected date, over the same
+  // scope as the marks and computed BEFORE the alive-at-date filter — hiding
+  // retired apps must not make the count lie.
+  const timelineDelta = useMemo(() => {
+    const at = tl.timelineDate;
+    if (at <= tl.todayMs) return { arriving: 0, retiring: 0 };
+    let arriving = 0;
+    let retiring = 0;
+    for (const a of milestoneScope) {
+      if (classifyTimelineChange(a.lifecycle, tl.todayMs, at) === "arriving") arriving++;
+      else if (isRetiredByDate(a.lifecycle, at) && !isRetiredByDate(a.lifecycle, tl.todayMs))
+        retiring++;
+    }
+    return { arriving, retiring };
+  }, [milestoneScope, tl.timelineDate, tl.todayMs]);
+
   const tree = useMemo(
-    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
-    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
+
+  // With Show Applications off there are no chips to pulse, so a mark-click
+  // spotlight falls on the capability boxes instead: each pulsed app lights
+  // the DEEPEST VISIBLE box it displays under (the same box its chip would
+  // occupy), never the whole ancestor chain. A box holding both an arriving
+  // and a retiring app pulses "mixed".
+  const pulsedCaps = useMemo(() => {
+    const out = new Map<string, ContainerPulseKind>();
+    if (!pulsing || showApps) return out;
+    const walk = (nodes: CapNode[]) => {
+      for (const n of nodes) {
+        let live = false;
+        let retire = false;
+        for (const app of getVisibleApps(n, displayLevel)) {
+          const kind = pulseCards[app.id];
+          if (kind === "live") live = true;
+          else if (kind === "retire") retire = true;
+        }
+        if (live || retire) out.set(n.id, live && retire ? "mixed" : live ? "live" : "retire");
+        // A leaf-rendered node draws no children, so their boxes can't pulse.
+        if (n.level < displayLevel && n.children.length > 0) walk(n.children);
+      }
+    };
+    walk(tree);
+    return out;
+  }, [pulsing, showApps, pulseCards, tree, displayLevel]);
 
   // Scoping into a shallower branch re-ranges the Display Depth options, which
   // can strand the current value outside them — a MUI Select with no matching
@@ -938,11 +1123,25 @@ export default function CapabilityMapReport() {
     for (const [typeKey, members] of Object.entries(filterableTypes)) {
       if (members.length === 0) continue;
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-      out.push({
-        typeKey,
-        label: typeLabel(typeMeta) || typeKey,
-        options: members.map((m) => ({ key: m.id, label: m.name })),
-      });
+      const label = typeLabel(typeMeta) || typeKey;
+      const options = members.map((m) => ({ key: m.id, label: m.name }));
+      out.push({ typeKey, label, options });
+
+      // Several relation types can reach this card type — "owned by" is a
+      // different question from "used by" — so each gets its own facet, keyed
+      // by the relation-type key (the matcher tells the key kinds apart).
+      // Per SIDE: a self-referencing type is two facets, and the backend keys
+      // `related_by_rel_type` the same way (`<key>__out` / `<key>__in`).
+      const reaching = expandSides(
+        relationTypesData.filter((rt) => rt.other_type_key === typeKey),
+        "Application",
+      );
+      if (reaching.length > 1) {
+        for (const { rt, isSource } of reaching) {
+          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+          out.push({ typeKey: sideKey(rt, isSource), label: `${label} · ${verb}`, options });
+        }
+      }
     }
     // Sort so Organization comes first if present
     out.sort((a, b) => {
@@ -951,7 +1150,7 @@ export default function CapabilityMapReport() {
       return a.typeKey.localeCompare(b.typeKey);
     });
     return out;
-  }, [filterableTypes, metamodelTypes, typeLabel]);
+  }, [filterableTypes, metamodelTypes, typeLabel, relationTypesData, relLabel]);
 
   // Level picker options
   const levelOptions = useMemo(() => {
@@ -981,6 +1180,7 @@ export default function CapabilityMapReport() {
     params.push({ label: t("common.metric"), value: metricLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    params.push({ label: t("common:cardColumns.label"), value: String(columns) });
     if (effectiveScopeIds.length > 0) {
       params.push({
         label: t("common.scope"),
@@ -993,9 +1193,14 @@ export default function CapabilityMapReport() {
       params.push({ label: t("common.colorBy"), value: cLabel });
     }
     if (tl.printParam) params.push(tl.printParam);
+    if (timelineDelta.arriving > 0 || timelineDelta.retiring > 0)
+      params.push({
+        label: t("common:timelineSlider.deltaLabel"),
+        value: `+${timelineDelta.arriving} / −${timelineDelta.retiring}`,
+      });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, effectiveScopeIds, t]);
+  }, [metric, displayLevel, columns, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
     return (
@@ -1058,6 +1263,8 @@ export default function CapabilityMapReport() {
             ))}
           </TextField>
 
+          <ColumnCountPicker value={columns} onChange={setColumns} />
+
           {/* Scopes the *capabilities* the map draws, so it belongs up here
               with the other structural controls — not in the Application
               Filters block below, which narrows the apps inside them. */}
@@ -1113,6 +1320,11 @@ export default function CapabilityMapReport() {
               dateRange={dateRange}
               yearMarks={yearMarks}
               todayMs={tl.todayMs}
+              milestones={milestones}
+              delta={timelineDelta}
+              onMilestoneClick={handleMilestoneClick}
+              milestoneCards={milestoneCards}
+              onMilestoneCardClick={handleMilestoneCardClick}
             />
           )}
 
@@ -1139,184 +1351,166 @@ export default function CapabilityMapReport() {
             </Box>
           )}
 
-          {/* Row 2: Dynamic application filters */}
+          {/* Row 2: Dynamic application filters — collapsible, state
+              persisted as filtersCollapsed */}
           {(showApps || hasActiveFilters) && (
-            <Box sx={{ width: "100%", pt: 0.5 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  mb: 1,
-                }}
-              >
-                <MaterialSymbol icon="filter_alt" size={16} color="#999" />
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                  {t("capabilityMap.applicationFilters")}
-                </Typography>
-                {hasActiveFilters && (
-                  <Chip
-                    size="small"
-                    label={t("capabilityMap.clearAll")}
-                    variant="outlined"
-                    onDelete={() => {
+            <ReportFilterSection
+              label={t("capabilityMap.applicationFilters")}
+              collapsed={filtersCollapsed}
+              onToggle={() => setFiltersCollapsed((v) => !v)}
+              count={activeFilterCount}
+              clearAllLabel={hasActiveFilters ? t("capabilityMap.clearAll") : undefined}
+              onClearAll={
+                hasActiveFilters
+                  ? () => {
                       setAttrFilters({});
                       setRelationFilters({});
                       setTagFilterIds([]);
-                    }}
-                    sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
-                  />
-                )}
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  flexWrap: "wrap",
-                }}
-              >
-                {/* Related By section */}
-                {relationFilterOptions.length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
+                    }
+                  : undefined
+              }
+            >
+              {/* Related By section */}
+              {relationFilterOptions.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.relatedBy")}
-                    </Typography>
-                    {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
-                      <FilterSelect
-                        key={rf.typeKey}
-                        label={rf.label}
-                        options={rf.options}
-                        value={relationFilters[rf.typeKey] || []}
-                        onChange={(v) =>
-                          setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
-                        }
-                      />
-                    ))}
-                    {!showAllRelFilters && relationFilterOptions.length > 2 && (
-                      <Tooltip title={t("capabilityMap.showMore", { count: relationFilterOptions.length - 2 })}>
-                        <Chip
-                          size="small"
-                          icon={<MaterialSymbol icon="add" size={14} />}
-                          label={t("capabilityMap.more", { count: relationFilterOptions.length - 2 })}
-                          onClick={() => setShowAllRelFilters(true)}
-                          sx={{
-                            height: 26,
-                            fontSize: "0.72rem",
-                            fontWeight: 500,
-                            cursor: "pointer",
-                            bgcolor: "background.paper",
-                            border: "1px dashed",
-                            borderColor: "divider",
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
-                        />
-                      </Tooltip>
-                    )}
-                    {showAllRelFilters && relationFilterOptions.length > 2 && (
+                    {t("capabilityMap.relatedBy")}
+                  </Typography>
+                  {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
+                    <FilterSelect
+                      key={rf.typeKey}
+                      label={rf.label}
+                      options={rf.options}
+                      value={relationFilters[rf.typeKey] || []}
+                      onChange={(v) =>
+                        setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
+                      }
+                    />
+                  ))}
+                  {!showAllRelFilters && relationFilterOptions.length > 2 && (
+                    <Tooltip title={t("capabilityMap.showMore", { count: relationFilterOptions.length - 2 })}>
                       <Chip
                         size="small"
-                        label={t("capabilityMap.less")}
-                        onClick={() => setShowAllRelFilters(false)}
+                        icon={<MaterialSymbol icon="add" size={14} />}
+                        label={t("capabilityMap.more", { count: relationFilterOptions.length - 2 })}
+                        onClick={() => setShowAllRelFilters(true)}
                         sx={{
                           height: 26,
                           fontSize: "0.72rem",
+                          fontWeight: 500,
                           cursor: "pointer",
                           bgcolor: "background.paper",
-                          border: 1,
+                          border: "1px dashed",
                           borderColor: "divider",
+                          "&:hover": { bgcolor: "action.hover" },
                         }}
                       />
-                    )}
-                  </Box>
-                )}
-
-                {/* Tags section */}
-                {tagGroupsData.length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.tags")}
-                    </Typography>
-                    <TagPicker
-                      groups={tagGroupsData as unknown as TagGroup[]}
-                      value={tagFilterIds}
-                      onChange={setTagFilterIds}
+                    </Tooltip>
+                  )}
+                  {showAllRelFilters && relationFilterOptions.length > 2 && (
+                    <Chip
                       size="small"
-                      label={t("capabilityMap.tags")}
-                      placeholder=""
-                      sx={{ minWidth: 180, maxWidth: 320 }}
+                      label={t("capabilityMap.less")}
+                      onClick={() => setShowAllRelFilters(false)}
+                      sx={{
+                        height: 26,
+                        fontSize: "0.72rem",
+                        cursor: "pointer",
+                        bgcolor: "background.paper",
+                        border: 1,
+                        borderColor: "divider",
+                      }}
                     />
-                  </Box>
-                )}
+                  )}
+                </Box>
+              )}
 
-                {/* Own Fields section */}
-                {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
+              {/* Tags section */}
+              {tagGroupsData.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.fields")}
-                    </Typography>
-                    {selectFields
-                      .filter((f) => f.options && f.options.length > 0)
-                      .map((f) => (
-                        <FilterSelect
-                          key={f.key}
-                          label={f.label}
-                          options={(f.options || []).map((o) => ({
-                            key: o.key,
-                            label: o.label,
-                            color: o.color,
-                          }))}
-                          value={attrFilters[f.key] || []}
-                          onChange={(v) =>
-                            setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                          }
-                        />
-                      ))}
-                  </Box>
-                )}
-              </Box>
-            </Box>
+                    {t("capabilityMap.tags")}
+                  </Typography>
+                  <TagPicker
+                    groups={tagGroupsData as unknown as TagGroup[]}
+                    value={tagFilterIds}
+                    onChange={setTagFilterIds}
+                    size="small"
+                    label={t("capabilityMap.tags")}
+                    placeholder=""
+                    sx={{ minWidth: 180, maxWidth: 320 }}
+                  />
+                </Box>
+              )}
+
+              {/* Own Fields section */}
+              {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    {t("capabilityMap.fields")}
+                  </Typography>
+                  {selectFields
+                    .filter((f) => f.options && f.options.length > 0)
+                    .map((f) => (
+                      <FilterSelect
+                        key={f.key}
+                        label={f.label}
+                        options={(f.options || []).map((o) => ({
+                          key: o.key,
+                          label: o.label,
+                          color: o.color,
+                        }))}
+                        value={attrFilters[f.key] || []}
+                        onChange={(v) =>
+                          setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                        }
+                      />
+                    ))}
+                </Box>
+              )}
+            </ReportFilterSection>
           )}
         </>
       }
@@ -1391,6 +1585,7 @@ export default function CapabilityMapReport() {
         </Box>
       }
     >
+      {pulsing && <style>{TIMELINE_PULSE_KEYFRAMES}</style>}
       {tree.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
           <Typography color="text.secondary">
@@ -1398,24 +1593,13 @@ export default function CapabilityMapReport() {
           </Typography>
         </Box>
       ) : (
-        <Box
-          className={displayLevel <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "1fr 1fr",
-              md: displayLevel <= 1 ? "1fr 1fr 1fr" : "1fr 1fr",
-              lg: displayLevel <= 1 ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr",
-            },
-            gap: 2,
-          }}
-        >
+        <Box {...columnGridProps(columns)}>
           {tree.map((cap) => (
             <Box key={cap.id} data-export-row>
               <CapabilityCard
                 node={cap}
                 displayLevel={displayLevel}
+                columns={columns}
                 showApps={showApps}
                 colorBy={colorBy}
                 selectFields={selectFields}
@@ -1424,6 +1608,9 @@ export default function CapabilityMapReport() {
                 onCapClick={setDrawer}
                 onAppClick={handleAppClick}
                 fmtCost={fmtShort}
+                pulseCards={pulseCards}
+                pulsing={pulsing}
+                pulsedCaps={pulsedCaps}
               />
             </Box>
           ))}

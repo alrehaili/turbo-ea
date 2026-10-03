@@ -3,9 +3,11 @@
 Das **TurboLens**-Modul bietet KI-gestützte Analysen Ihrer Enterprise-Architecture-Landschaft. Es verwendet Ihren konfigurierten KI-Anbieter, um Herstelleranalysen, Duplikaterkennung, Modernisierungsbewertungen und Architekturempfehlungen durchzuführen.
 
 !!! note
-    TurboLens erfordert einen kommerziellen KI-Anbieter (Anthropic Claude, OpenAI, DeepSeek oder Google Gemini), der in den [KI-Einstellungen](../admin/ai.md) konfiguriert wurde. Das Modul ist automatisch verfügbar, sobald KI konfiguriert ist.
+    TurboLens erfordert einen kommerziellen KI-Anbieter (Anthropic Claude, OpenAI, DeepSeek, Google Gemini oder Amazon Bedrock), der in den [KI-Einstellungen](../admin/ai.md) konfiguriert wurde. Das Modul ist automatisch verfügbar, sobald KI konfiguriert ist.
 
 ## Dashboard
+
+![Das TurboLens-Dashboard](../assets/img/de/75_turbolens_uebersicht.png)
 
 Das TurboLens-Dashboard bietet einen schnellen Überblick über Ihre Landschaftsanalyse.
 
@@ -81,6 +83,8 @@ Die Modernisierungsbewertung evaluiert Karten hinsichtlich Upgrade-Möglichkeite
 Die Ergebnisse werden nach Priorität gruppiert, damit Sie sich auf die wirkungsvollsten Modernisierungsmöglichkeiten konzentrieren können.
 
 ## Architektur-KI
+
+![Der Architektur-KI-Assistent, Schritt 1](../assets/img/de/76_turbolens_architekt.png)
 
 Die Architektur-KI ist ein geführter 5-Schritte-Assistent, der Architekturempfehlungen auf Basis Ihrer bestehenden Landschaft generiert. Er verknüpft Ihre Geschäftsziele und Business Capabilities mit konkreten Lösungsvorschlägen, Gap-Analysen, Abhängigkeitsmapping und einem Zielarchitektur-Diagramm.
 
@@ -221,6 +225,8 @@ Der Compliance-Scanner ist eine TurboLens-Analyse, die Compliance-Befunde gegen 
 Compliance-Befunde können auch **manuell erfasst** werden, ohne dass ein KI-Provider konfiguriert sein muss, sodass der Compliance-Reiter auch in Bereitstellungen ohne LLM funktioniert.
 
 ## Analyseverlauf
+
+![TurboLens-Analysehistorie](../assets/img/de/77_turbolens_historie.png)
 
 Alle Analyseläufe werden unter **TurboLens > Verlauf** nachverfolgt und zeigen:
 

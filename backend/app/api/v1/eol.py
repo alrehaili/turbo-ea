@@ -15,14 +15,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
+from app.services.card_flags import EOL_TYPES
+from app.services.card_read_scope import CardReadScope
+from app.services.eol_service import resolve_eol_statuses
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
-from app.services.type_groups import EOL_TYPE_KEYS
 
 logger = logging.getLogger("turboea.eol")
 
@@ -273,6 +275,64 @@ async def get_product_cycles(
     return resp.json()
 
 
+class EolCardStatus(BaseModel):
+    """The resolved end-of-life picture for one card."""
+
+    status: str = Field(description="eol | approaching | supported | unknown")
+    source: str = Field(description="api (endoflife.date link) | manual (lifecycle date)")
+    eol_product: str | None = None
+    eol_cycle: str | None = None
+    eol_date: str | None = None
+    support_date: str | None = None
+    latest: str | None = None
+
+
+class EolCardStatusResponse(BaseModel):
+    """Card id → status, for every card of the type that carries EOL data."""
+
+    items: dict[str, EolCardStatus]
+
+
+@router.get("/card-status", response_model=EolCardStatusResponse)
+async def eol_card_status(
+    type_key: str = Query(..., alias="type", description="Application or ITComponent"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Resolve the end-of-life status of every card of a type in one call.
+
+    Backs the inventory's End of life column and filter. Cards with neither a
+    product link nor a manual End of Life date are **absent** from the map
+    rather than present with a null status — the client reads absence as "not
+    recorded", and it keeps the payload proportional to what is actually
+    linked rather than to the size of the landscape.
+    """
+    await PermissionService.require_permission(db, user, "eol.view")
+
+    if type_key not in EOL_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Only Application and ITComponent types carry EOL information",
+        )
+
+    read_scope = await CardReadScope.load(db, user)
+    result = await db.execute(
+        select(Card)
+        .where(Card.type == type_key)
+        .where(Card.status == "ACTIVE")
+        .where(*read_scope.where(Card, mode="module"))
+    )
+    cards = result.scalars().all()
+    # Hand the connection back BEFORE the outbound round-trip. `get_db` is a
+    # yield-dependency, so without this commit the read above would pin one of
+    # the pool's 30 connections for the whole endoflife.date fetch — and this
+    # endpoint is hit on every inventory type change, not once a day.
+    await db.commit()
+
+    statuses = await resolve_eol_statuses(cards)
+    return {"items": statuses}
+
+
 @router.post("/mass-search", response_model=list[MassEolResult])
 async def mass_eol_search(
     type_key: str = Query(..., description="Card type to search (Application or ITComponent)"),
@@ -286,7 +346,7 @@ async def mass_eol_search(
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
-    if type_key not in EOL_TYPE_KEYS:
+    if type_key not in EOL_TYPES:
         raise HTTPException(
             status_code=400,
             detail="Only Application and infrastructure (technology) types support EOL linking",
@@ -294,7 +354,11 @@ async def mass_eol_search(
 
     # Fetch all active cards of the given type
     stmt = (
-        select(Card).where(Card.type == type_key).where(Card.status == "ACTIVE").order_by(Card.name)
+        select(Card)
+        .where(Card.type == type_key)
+        .where(Card.status == "ACTIVE")
+        .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
+        .order_by(Card.name)
     )
     result = await db.execute(stmt)
     cards = result.scalars().all()
@@ -353,6 +417,7 @@ async def mass_eol_link(
     never auto-filled from vendor EOL data.
     """
     await PermissionService.require_permission(db, user, "eol.manage")
+    read_scope = await CardReadScope.load(db, user)
 
     updated = []
 
@@ -366,15 +431,32 @@ async def mass_eol_link(
         stmt = select(Card).where(Card.id == card_id)
         result = await db.execute(stmt)
         card = result.scalar_one_or_none()
-        if not card:
+        if not card or not read_scope.readable(card.id, card.type, mode="module"):
             continue
 
-        # Update attributes
-        attrs = dict(card.attributes or {})
+        # Update attributes. Re-linking a card to the product/cycle it already
+        # carries must write nothing: the old `flag_modified` forced an UPDATE
+        # regardless, moving Last-changed with no History entry behind it (#995).
+        old_attrs = dict(card.attributes or {})
+        if old_attrs.get("eol_product") == product and old_attrs.get("eol_cycle") == cycle:
+            continue
+
+        attrs = dict(old_attrs)
         attrs["eol_product"] = product
         attrs["eol_cycle"] = cycle
         card.attributes = attrs
-        flag_modified(card, "attributes")
+
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "source": "eol_mass_link",
+                "changes": {"attributes": {"old": old_attrs, "new": attrs}},
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
+        )
 
         updated.append(str(card.id))
 

@@ -11,7 +11,24 @@ import Snackbar from "@mui/material/Snackbar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { fetchCardsByIds } from "@/api/cardsByIds";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { usePageSubject } from "@/hooks/usePageTitle";
+import { useFieldLabel, useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { cardLogoUrl } from "@/components/CardLogoAvatar";
+import {
+  applyCardLogosToXml,
+  extractCardIds,
+  logoKey,
+  logoLookupFor,
+  readCardBoxesFromXml,
+} from "./drawio-shapes";
+import { composeCardLogoImage } from "./cardLogoImage";
+import DiagramViewLegend from "./DiagramViewLegend";
+import { buildLegend, normaliseViewSource, type ViewResolvers } from "./viewSource";
+import type { Card } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  DrawIO native lightbox viewer                                      */
@@ -26,7 +43,8 @@ interface DiagramData {
   id: string;
   name: string;
   type: string;
-  data: { xml?: string; thumbnail?: string };
+  /** `view` is the editor's saved "colour by" choice — untrusted JSON. */
+  data: { xml?: string; thumbnail?: string; view?: unknown };
 }
 
 const EMPTY_DIAGRAM =
@@ -74,6 +92,61 @@ function listenForCardClicks(onCardClick: (cardId: string) => void) {
   return () => window.removeEventListener("message", handler);
 }
 
+type TypeLook = { icon?: string; color?: string };
+
+/**
+ * The cards on a stored diagram, looked up in batches through
+ * `fetchCardsByIds`: a single URL for a big canvas blew past the edge proxy's
+ * 8 KB request line and the viewer reported the 414 as "Diagram not found"
+ * (#1093). One lookup feeds both the logos and the colour legend.
+ */
+async function cardsOnDiagram(d: DiagramData, signal?: AbortSignal): Promise<Card[]> {
+  const xml = d.data?.xml || "";
+  const ids = xml ? extractCardIds(xml) : [];
+  if (ids.length === 0) return [];
+  return fetchCardsByIds(ids, { signal });
+}
+
+/**
+ * Return the diagram with each card's logo painted into its XML, or the
+ * diagram exactly as stored when there is nothing to paint. Any failure in
+ * here is the caller's to swallow — a logo is never worth a blank viewer.
+ */
+async function withCardLogos(
+  d: DiagramData,
+  cards: Card[],
+  types: Map<string, TypeLook>,
+): Promise<DiagramData> {
+  const xml = d.data?.xml || "";
+  if (!xml) return d;
+  const byCard = new Map(cards.filter((c) => c.logo_updated_at).map((c) => [c.id, c]));
+  if (byCard.size === 0) return d;
+  // The composite is card-shaped, so it has to be built at each cell's
+  // real size — read the geometry out of the stored document first, or a
+  // card the editor left at 190x40 gets a 210x60 picture and wears its
+  // type glyph off the edge.
+  const boxes = new Map<string, { cardId: string; w: number; h: number }>();
+  for (const b of readCardBoxesFromXml(xml)) {
+    if (byCard.has(b.cardId)) boxes.set(logoKey(b.cardId, b.w, b.h), b);
+  }
+  const composed = await Promise.all(
+    Array.from(boxes.entries()).map(async ([key, b]) => {
+      const c = byCard.get(b.cardId) as Card;
+      const tp = types.get(c.type);
+      const image = await composeCardLogoImage(
+        cardLogoUrl(c.id, c.logo_updated_at as string),
+        tp?.icon,
+        tp?.color ?? "#999999",
+        b.w,
+        b.h,
+      );
+      return image ? ([key, image] as const) : null;
+    }),
+  );
+  const map = new Map(composed.filter((e): e is readonly [string, string] => e !== null));
+  return { ...d, data: { ...d.data, xml: applyCardLogosToXml(xml, logoLookupFor(map)) } };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -86,9 +159,27 @@ export default function DiagramViewer() {
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [diagram, setDiagram] = useState<DiagramData | null>(null);
+  usePageSubject(diagram?.name);
   const [loading, setLoading] = useState(true);
   const [snackMsg, setSnackMsg] = useState("");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [cards, setCards] = useState<Card[]>([]);
+
+  // Read through a ref: the load effect must not re-run (and re-render the
+  // whole iframe) just because the metamodel singleton resolved.
+  const { types } = useMetamodel();
+  const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optionLabel = useOptionLabel();
+  const viewResolvers = useMemo<ViewResolvers>(
+    () => ({ typeLabel, fieldLabel, optionLabel, t }),
+    [typeLabel, fieldLabel, optionLabel, t],
+  );
+  const typesRef = useRef(new Map<string, TypeLook>());
+  typesRef.current = useMemo(
+    () => new Map(types.map((tp) => [tp.key, { icon: tp.icon, color: tp.color }])),
+    [types],
+  );
 
   const canEdit = useMemo(() => {
     const perms = user?.permissions;
@@ -99,15 +190,56 @@ export default function DiagramViewer() {
   /* ---------- Listen for card clicks from the lightbox ---------- */
   useEffect(() => listenForCardClicks(setSelectedCardId), []);
 
-  /* ---------- Load diagram ---------- */
-  useEffect(() => {
-    if (!id) return;
-    api
-      .get<DiagramData>(`/diagrams/${id}`)
-      .then(setDiagram)
-      .catch(() => setSnackMsg(t("editor.errors.loadFailed")))
-      .finally(() => setLoading(false));
-  }, [id, t]);
+  /* ---------- Load diagram, then draw each card's logo into its XML ----------
+     The viewer hands DrawIO its XML in the URL fragment and never builds a
+     graph on this side, so there is no live model to patch the way the editor
+     does — the logos have to be in the document before it is handed over.
+     Done here rather than left to the editor because a diagram that showed
+     its logos only after someone opened it for editing would look broken to
+     everyone who merely reads it.
+
+     Two phases on purpose. The diagram itself is what the reader came for;
+     the logo lookup is decoration, so its failure falls back to the diagram
+     as stored. One try around both used to leave `diagram` null when the
+     lookup failed, which rendered as "Diagram not found" (#1093). */
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
+      let stored: DiagramData;
+      try {
+        stored = await api.get<DiagramData>(`/diagrams/${id}`, { signal });
+      } catch {
+        if (!isCurrent()) return;
+        setSnackMsg(t("editor.errors.loadFailed"));
+        setLoading(false);
+        return;
+      }
+      if (!isCurrent()) return;
+      let next = stored;
+      let onCanvas: Card[] = [];
+      try {
+        onCanvas = await cardsOnDiagram(stored, signal);
+        next = await withCardLogos(stored, onCanvas, typesRef.current);
+      } catch {
+        // Quiet by design: the diagram renders exactly as stored, without
+        // its logos, rather than not at all.
+      }
+      if (!isCurrent()) return;
+      setCards(onCanvas);
+      setDiagram(next);
+      setLoading(false);
+    },
+    [id],
+  );
+
+  /* ---------- Colour legend ----------
+     The editor saves its "colour by" choice with the diagram and the colours
+     it painted into the XML, so the viewer already shows them — the reader
+     needs the key too. Built from the same pure helper as the editor's. */
+  const legend = useMemo(
+    () => buildLegend(normaliseViewSource(diagram?.data?.view), types, cards, viewResolvers),
+    [diagram?.data?.view, types, cards, viewResolvers],
+  );
 
   /* ---------- Render ---------- */
   if (!id) return <Navigate to="/diagrams" replace />;
@@ -183,6 +315,7 @@ export default function DiagramViewer() {
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             title={t("viewer.title")}
           />
+          <DiagramViewLegend sections={legend.sections} appliedCount={legend.coloured} />
         </Box>
       </Box>
 

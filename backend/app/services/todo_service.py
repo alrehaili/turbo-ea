@@ -70,6 +70,45 @@ class TodoConflictError(TodoError):
     status_code = 409
 
 
+TODO_ORIGINS = ("ppm", "risk", "adr", "soaw", "bpm", "extension", "manual")
+
+
+def derive_origin(todo: Todo) -> str:
+    """Computed provenance of a todo, for display and filtering.
+
+    Derived from existing columns, never stored. System rows are identified
+    by the producer-specific ``link`` shape (each producer writes exactly one
+    shape — see ``_sync_task_todo`` in ppm.py, ``sync_owner_todo`` in
+    risks.py, ``sync_occurrence_todo`` in risk_mitigation_task_service.py,
+    and the sign-request/approval creators in adr.py / soaw.py /
+    bpm_workflow.py). Link prefixes only count on ``is_system`` rows so a
+    manual todo whose user-set link happens to point at an ADR stays
+    "manual".
+
+    ``external_source`` alone is NOT an origin: a connector extension stamps
+    it onto rows it merely *mirrors* to an external tracker (Jira, GitLab),
+    including risk/system todos via the is_system mirror carve-out — those
+    tasks are still Turbo EA work. Only rows the bridge *created* count as
+    "extension", and those are exactly the rows with no human creator
+    (bridge writes use ``TodoActor(user_id=None)``, so ``created_by`` is
+    NULL).
+    """
+    if todo.is_system and todo.link:
+        if todo.link.startswith("/ppm/"):
+            return "ppm"
+        if todo.link.startswith("/ea-delivery/risks/"):
+            return "risk"
+        if todo.link.startswith("/ea-delivery/adr/"):
+            return "adr"
+        if todo.link.startswith("/ea-delivery/soaw/"):
+            return "soaw"
+        if "tab=process-flow" in todo.link:
+            return "bpm"
+    if todo.external_source and todo.created_by is None:
+        return "extension"
+    return "manual"
+
+
 def validated_link(link: str | None) -> str | None:
     """Todos may deep-link only within the app — relative paths, never an
     external URL (a todo assigned to someone else must not become a

@@ -125,6 +125,12 @@ cd frontend
 npm run lint
 npm run build
 
+# Browser smoke suite (if you changed the diagram editor, the BPMN modeler,
+# the PPM Gantt, the dependency view or the metamodel graph). Needs a backend
+# with the demo data on :8000 — `SEED_DEMO=true make dev-backend` in another
+# terminal — and fetches the DrawIO build the image ships on first run.
+make e2e
+
 # Docs (if you changed anything in docs/ or mkdocs.yml)
 pip install -r requirements-docs.txt
 mkdocs build --strict
@@ -371,16 +377,33 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | Rule | Setting | Why |
 |------|---------|-----|
 | **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
-| **Require status checks to pass** | Backend Lint, Backend Tests, Frontend Lint, Frontend Build, Frontend Tests, Docs Build | Prevents broken code or docs from merging |
+| **Require status checks to pass** | Backend Lint, Backend Unit Tests, Backend Integration Tests, Backend Security Scan, Frontend Lint, Frontend Build, Frontend Tests, Frontend E2E, Frontend Security Scan, MCP Server Tests, Secret Scan, Docs Build | Prevents broken code, docs, a vulnerable dependency or a leaked credential from merging |
 | **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
 | **Require conversation resolution** | Enabled | Review comments must be addressed |
 | **Restrict force pushes** | Block everyone | Protects commit history |
 | **Restrict deletions** | Block everyone | Prevents accidental branch deletion |
 
-Security scanning jobs (`Backend Security Scan`, `Frontend Security Scan`) are
-intentionally **not** required status checks — they run with `continue-on-error`
-so that existing vulnerability findings don't block all PRs. Once findings are
-triaged and resolved, promote them to required checks.
+`Backend Integration Tests` and `Frontend Tests` are aggregate jobs: the two
+suites run as shard jobs on parallel runners (`Backend Integration Tests
+(shard k/4)`, `Frontend Tests (shard k/3)`), and the aggregate combines their
+coverage, enforces the floors and the diff gate, and fails whenever a shard
+failed — so only the aggregate names belong in the rule above; the shard jobs
+need no protection rule of their own.
+
+The three security jobs **block**: `Backend Security Scan` (pip-audit) and
+`Frontend Security Scan` (audit-ci) fail on any open advisory in a production
+dependency, and `Secret Scan` (gitleaks) fails on a credential anywhere in the
+commit range. They ran as informational (`continue-on-error`) until 2.154.0;
+they no longer do. An advisory with no upstream fix is allowlisted with a
+dated rationale — `.github/audit-ci.jsonc` for npm, the `--ignore-vuln`
+comment in `ci.yml` for pip — and a false positive of the secret scan is
+allowlisted by exact value in `.gitleaks.toml`. The full picture is in
+[`.github/SECURITY_PIPELINE.md`](.github/SECURITY_PIPELINE.md).
+
+Also enable, under **Settings > Code security**, GitHub's own **secret
+scanning** with **push protection**. It is a repository setting rather than
+a workflow, so this file cannot turn it on, and it is the only layer that
+stops a secret *before* it is pushed rather than failing the PR afterwards.
 
 ---
 

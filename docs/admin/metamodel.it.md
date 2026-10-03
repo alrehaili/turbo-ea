@@ -31,6 +31,7 @@ Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configur
 | **Colore** | Colore del brand per il tipo (utilizzato nell'inventario, nei report e nei diagrammi) |
 | **Categoria** | Raggruppamento per livello architetturale |
 | **Ha gerarchia** | Se le card di questo tipo possono avere relazioni genitore/figlio |
+| **Consenti loghi personalizzati** | Se gli editor possono caricare un logo per ogni scheda, mostrato al posto dell'icona del tipo (attivo di serie per Applicazione e Componente IT) |
 
 ### Modifica di un tipo
 
@@ -53,7 +54,7 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 |--------------|-------------|
 | **Key** | Identificatore univoco del campo |
 | **Etichetta** | Nome visualizzato |
-| **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select o multiple_select |
+| **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select o multiple_select. Una percentuale è un numero da 0 a 100, mostrato come barra di avanzamento e modificato con un cursore o digitato con precisione |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali |
 | **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |
@@ -134,12 +135,55 @@ I ruoli possono essere rimossi in due modi:
 
 La chiave di un ruolo può essere corretta finché **nessuno ricopre il ruolo**: i sondaggi che lo utilizzano seguono automaticamente la rinomina, e rinominare l'unico ruolo di un tipo non è un problema perché il ruolo sopravvive. Appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
 
+#### Autorizzazioni { #permissions }
+
+I tipi di scheda possono limitare ciò che ogni ruolo applicativo può fare con le loro schede. Apri la scheda **Autorizzazioni** nel pannello del tipo per una matrice di ruoli e delle cinque azioni — **Visualizza**, **Crea**, **Modifica**, **Archivia** ed **Elimina**.
+
+![Autorizzazioni per tipo di scheda](../assets/img/it/85_admin_autorizzazioni_tipo_scheda.png)
+
+Ogni cella ha tre stati:
+
+- **Eredita** (predefinito) — decide l'autorizzazione globale del ruolo. L'icona mostra qual è attualmente.
+- **Consenti** — il ruolo può eseguire questa azione sulle schede di questo tipo, anche se non dispone dell'autorizzazione a livello globale.
+- **Nega** — il ruolo non può eseguire questa azione sulle schede di questo tipo, anche se dispone dell'autorizzazione a livello globale.
+
+Questo consente di dire «chiunque può creare Applicazioni, ma solo il team centrale crea Organizzazioni e Iniziative» senza inventare un ruolo per ogni tipo di scheda. Negare **Crea** su un tipo lo rimuove anche dalla finestra di creazione, dall'editor dei diagrammi e dall'importatore di fogli di calcolo.
+
+Alcune regole da conoscere:
+
+- **Gli amministratori non sono mai limitati.** La riga dell'amministratore è bloccata.
+- **I ruoli stakeholder continuano ad applicarsi.** Negare **Modifica** a un ruolo su un tipo rimuove la sua autorizzazione a livello di intero panorama, non l'autorità che detiene come proprietario assegnato di una singola scheda. Vedi [Utenti e ruoli](users.md).
+- **La modifica di massa segue un divieto, non un permesso.** Un tipo che nega **Modifica** blocca anche le modifiche di massa; un permesso non concede di per sé la distinta autorizzazione di modifica di massa.
+- Le modifiche hanno effetto per gli altri utenti al successivo ricaricamento dell'applicazione.
+
+##### Nascondere un tipo di scheda a un ruolo { #hiding-a-card-type-from-a-role }
+
+Negare **Visualizza** nasconde completamente il tipo al ruolo. Per i suoi utenti le schede di quel tipo non esistono: sono escluse dall'inventario, dalla ricerca, dai conteggi e dalle esportazioni, dalle relazioni e dalla gerarchia delle altre schede, e da ogni report, grafico, grafo delle dipendenze e dashboard, così come dagli elenchi di BPM, PPM, GRC, decisioni, diagrammi e TurboLens. Aprire una di queste schede da un link mostra **non trovata** anziché **accesso negato**, così la pagina non rivela nemmeno che la scheda esiste.
+
+- **Consentire Visualizza funziona al contrario.** A un ruolo che non può consultare affatto l'inventario si può consentire **Visualizza** su un solo tipo; i suoi utenti vedono allora le schede di quel tipo, e solo di quel tipo.
+- **Per Visualizza, Eredita si legge in due modi.** Nell'inventario, nelle pagine delle schede, nella ricerca e nelle esportazioni, *eredita* segue l'autorizzazione **Visualizza** del ruolo a livello di intero panorama. Nei moduli che hanno una propria autorizzazione — report, BPM, PPM, rischi, decisioni, diagrammi, TurboLens — solo un **Nega** esplicito nasconde qualcosa, quindi un ruolo che può leggere i report ma non consultare l'inventario conserva i propri report.
+- **Un divieto su Visualizza blocca le altre azioni.** Un ruolo che non può vedere un tipo non può nemmeno creare, modificare, archiviare o eliminare le sue schede. Le altre celle della riga mostrano un'icona a forma di lucchetto e conservano i valori memorizzati, che tornano ad applicarsi non appena **Visualizza** non è più negato.
+- **Gli stakeholder conservano le proprie schede.** Chi è assegnato a una scheda tramite un ruolo stakeholder che concede la visualizzazione continua a vedere quella scheda — e solo quella — anche quando il suo ruolo applicativo non può visualizzarne il tipo.
+- **Un divieto su Visualizza per Iniziativa vale anche per PPM.** L'autorizzazione PPM non fa ricomparire le iniziative nascoste; il ruolo vede solo quelle su cui è stakeholder.
+- **I collegamenti che non puoi vedere vengono mantenuti.** Quando qualcuno modifica le schede collegate a una decisione, a un diagramma o a un passo di processo, i collegamenti a schede che non può vedere restano al loro posto.
+- **L'IA Architettura ha bisogno dell'intero panorama.** L'IA Architettura di TurboLens ragiona su tutte le schede, quindi non è disponibile per un ruolo a cui è nascosto anche un solo tipo di scheda.
+
+Alcuni elementi non vengono filtrati di proposito, perché si tratta di pubblicazioni o di amministrazione e non di consultazione:
+
+- i portali web pubblicati e i diagrammi pubblicati;
+- il disegno di un diagramma e il testo scritto in una decisione o in uno Statement of Architecture Work (le schede collegate vengono invece filtrate);
+- i valori prodotti dai campi calcolati, che vengono determinati sull'intero panorama;
+- il registro degli eventi e il flusso di eventi in tempo reale per gli amministratori, e l'esportazione dell'area di lavoro;
+- i sondaggi che un amministratore ha inviato all'utente;
+- le estensioni, che agiscono per conto del sistema e non di un utente.
+
 #### Traduzioni
 
 Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tipo per aprire il **Dialogo delle traduzioni**. Qui potete fornire traduzioni per tutte le etichette del metamodello in ogni lingua supportata:
 
 - **Etichetta del tipo** — Il nome visualizzato del tipo di card
 - **Sottotipi** — Etichette per ogni sottotipo
+- **Tipi di collegamento gerarchico** — Etichette per ogni tipo di collegamento gerarchico
 - **Sezioni** — Intestazioni delle sezioni nella pagina di dettaglio della card
 - **Campi** — Etichette dei campi e delle opzioni di selezione
 - **Ruoli degli stakeholder** — Nomi dei ruoli visualizzati nell'interfaccia di assegnazione degli stakeholder
@@ -157,7 +201,7 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 
 | Campo | Descrizione |
 |-------|-------------|
-| **Key** | Identificatore univoco |
+| **Key** | Identificatore univoco — proposto dal verbo, modificabile durante la creazione e poi fisso |
 | **Etichetta** | Etichetta della direzione in avanti (es. "utilizza") |
 | **Etichetta inversa** | Etichetta della direzione inversa (es. "è utilizzato da") |
 | **Tipo sorgente** | Il tipo di card sul lato "da" |
@@ -166,15 +210,31 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 
 Cliccate su **+ Nuovo tipo di relazione** per creare una relazione, o cliccate su una esistente per modificare le etichette e gli attributi.
 
+Ogni riga di relazione porta inoltre gli interruttori **Visibile** e **Obbligatorio** per *ciascuna* delle due estremità, con il nome del tipo di card a cui si applicano: Visibile decide se la relazione compare nella pagina di dettaglio di quel tipo, Obbligatorio se deve essere compilata. Un tipo di relazione le cui due estremità sono la stessa card riceve una coppia di interruttori per direzione, così il lato entrante si configura separatamente da quello uscente.
+
 I campi **Etichetta** ed **Etichetta inversa** vengono scritti nella lingua che state usando in quel momento — la didascalia del campo indica quale (ad esempio *Etichetta (Italiano)*). Rinominare una relazione aggiorna quella lingua ovunque compaia il verbo: la sezione **Relazioni** di una card, le colonne di relazione dell'inventario, i report, i portali e i diagrammi. Le altre lingue mantengono la propria formulazione finché non le traducete.
 
-Usate **Gestisci traduzioni** in cima alla scheda Tipi di relazione per tradurre i verbi di tutte le relazioni in ogni lingua abilitata in un'unica passata. Scegliete una scheda lingua, inserite la formulazione accanto all'originale inglese e salvate: il contatore su ogni scheda mostra quanti verbi mancano ancora in quella lingua. L'inglese non compare qui perché è la formulazione sulla relazione stessa; un verbo non tradotto vi ricade.
+Usate **Gestisci traduzioni** in cima alla scheda Relazioni, sopra le sue sotto-schede, per tradurre i verbi di tutte le relazioni in ogni lingua abilitata in un'unica passata. Scegliete una scheda lingua, inserite la formulazione accanto all'originale inglese e salvate: il contatore su ogni scheda mostra quanti verbi mancano ancora in quella lingua. L'inglese non compare qui perché è la formulazione sulla relazione stessa; un verbo non tradotto vi ricade. La stessa finestra contiene una sezione separata **Tipi di collegamento gerarchico** con il vocabolario di ogni tipo di scheda gerarchico, così i verbi e i tipi di collegamento si traducono in un'unica passata.
+
+### Tipi di collegamento gerarchico
+
+Per un tipo di card con la gerarchia attiva potete definire i **tipi di collegamento**: un breve vocabolario che etichetta ogni collegamento padre-figlio. In un albero di organizzazioni, per esempio, consente di segnare una controllata come *commerciale* e un'altra come di *vendita*, senza inventare un secondo tipo di relazione.
+
+1. Nella scheda **Relazioni**, aprite la sotto-scheda **Tipi di collegamento gerarchico**: vi compare ogni tipo di card con la gerarchia attiva. (La prima sotto-scheda, **Tipi di relazione**, è il consueto elenco delle relazioni.) La scheda **Relazioni** di un tipo di card mostra la stessa cosa su una sola riga in alto, limitata a quel tipo.
+2. Cliccate su **Modifica tipi di collegamento** e aggiungete una voce per etichetta, con chiave, nome e colore.
+3. Traducete i nomi con il pulsante **Traduci**, come qualsiasi altra etichetta del metamodello.
+
+Gli editor scelgono poi un tipo di collegamento nella sezione **Gerarchia** della card, o nella colonna **Tipo di collegamento** dell'inventario. L'etichetta appartiene alla card figlia, quindi viene cancellata automaticamente quando quella card viene spostata al livello superiore.
+
+Rimuovere un tipo di collegamento **non** riscrive le card che già lo usano: mantengono il valore memorizzato e lo mostrano come tipo di collegamento sconosciuto finché qualcuno non lo cambia, così una rimozione accidentale non perde nulla. La finestra indica quante card sono interessate prima della conferma.
 
 ### Attributi della relazione
 
 Alcune relazioni includono attributi aggiuntivi che si impostano su ogni singolo collegamento anziché sul tipo di relazione. Ad esempio, la relazione integrata **Organizzazione → Applicazione** («utilizza») ha un attributo **Tipo di utilizzo**: impostatelo su **Proprietario**, **Utente** o **Stakeholder** per ogni collegamento. In questo modo potete modellare un'applicazione *di proprietà di* un'organizzazione e *utilizzata da* altre tramite un unico tipo di relazione. Il valore scelto appare come un chip colorato nella sezione **Relazioni** della card; impostatelo quando aggiungete la relazione, oppure in seguito tramite l'icona di modifica sulla riga della relazione.
 
-Tra una determinata coppia di tipi di card può esistere un solo tipo di relazione, quindi utilizzate questi attributi per qualificare il significato di un collegamento anziché creare un secondo tipo di relazione per la stessa origine e destinazione.
+Potete anche creare **più tipi di relazione tra la stessa coppia di tipi di card** — ad esempio un'organizzazione che *possiede* un'applicazione accanto a una che la *utilizza*. Preferite un attributo quando descrivete varianti di una singola relazione (mantiene una sola colonna nell'inventario e una sola linea sul diagramma); create un secondo tipo di relazione quando le relazioni sono davvero diverse e meritano verbi, attributi o filtri propri. Quando una coppia porta più tipi di relazione, l'inventario mostra comunque un'unica colonna per il tipo di card collegato e, aprendo quella cella, ottenete una sezione per ciascun tipo di relazione. Su una scheda ogni tipo di relazione mantiene la propria sezione: le sezioni che puntano allo stesso tipo di scheda sono mostrate insieme, e una scheda collegata tramite più di una di esse è contrassegnata con *Anche …* in ciascuna delle sue sezioni. Un tipo di relazione le cui due estremità sono lo stesso tipo di scheda — un'organizzazione che *ha come sede* un'altra organizzazione — mostra *entrambi* i verbi su una scheda, come due sezioni, e nell'inventario come due righe di filtro e due sezioni dell'editor; assegna a un tipo del genere un'etichetta inversa, altrimenti le due sezioni si leggeranno allo stesso modo.
+
+Quando una coppia porta più tipi di relazione, report, portali e sondaggi possono puntare a uno specifico: il report Portfolio offre un asse di raggruppamento e un filtro per relazione, la Mappa delle capacità aggiunge un filtro per relazione, i filtri e le sezioni di relazione del portale riportano il proprio verbo e il filtro **collegato a** di un sondaggio ottiene un selettore **Tramite relazione**. Non scegliere nulla continua a significare «collegato tramite una qualsiasi di esse».
 
 ### Gestire i valori di relazione
 

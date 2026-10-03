@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
+from app.services.tag_service import publish_tag_event as _publish_tag_event
 
 router = APIRouter(tags=["tags"])
 
@@ -215,20 +216,29 @@ async def assign_tags(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await _require_can_tag_card(db, user, uuid.UUID(card_id))
+    card_uuid = uuid.UUID(card_id)
+    await _require_can_tag_card(db, user, card_uuid)
+    added: list[uuid.UUID] = []
     for tid in tag_ids:
+        tag_uuid = uuid.UUID(tid)
         existing = await db.execute(
             select(CardTag).where(
-                CardTag.card_id == uuid.UUID(card_id),
-                CardTag.tag_id == uuid.UUID(tid),
+                CardTag.card_id == card_uuid,
+                CardTag.tag_id == tag_uuid,
             )
         )
         if not existing.scalar_one_or_none():
-            db.add(CardTag(card_id=uuid.UUID(card_id), tag_id=uuid.UUID(tid)))
+            db.add(CardTag(card_id=card_uuid, tag_id=tag_uuid))
+            added.append(tag_uuid)
     # Mandatory tag groups are a data-quality bucket, so satisfying one has to
     # move the score without waiting for the card's next edit.
     await db.flush()
-    await rescore_cards(db, [uuid.UUID(card_id)])
+    await rescore_cards(db, [card_uuid])
+    # Tagging moves `updated_at` (the rescore writes the row), so it owes the
+    # History tab an entry — see the updated_at/History invariant in CLAUDE.md.
+    # Re-assigning a tag the card already carries writes nothing and says nothing.
+    for tag_uuid in added:
+        await _publish_tag_event(db, "tag.added", card_uuid, tag_uuid, user.id)
     await db.commit()
     return {"status": "ok"}
 
@@ -252,4 +262,5 @@ async def remove_tag(
         await db.delete(fst)
         await db.flush()
         await rescore_cards(db, [uuid.UUID(card_id)])
+        await _publish_tag_event(db, "tag.removed", uuid.UUID(card_id), uuid.UUID(tag_id), user.id)
         await db.commit()

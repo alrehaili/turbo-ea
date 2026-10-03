@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import ProcessMapReport from "./ProcessMapReport";
 
@@ -169,5 +170,86 @@ describe("ProcessMapReport scope filter", () => {
       .mocked(api.get)
       .mock.calls.filter(([path]) => String(path).startsWith("/cards"));
     expect(cardCalls).toHaveLength(0);
+  });
+});
+
+describe("ProcessMapReport column picker", () => {
+  const grid = () =>
+    chart().querySelector("[class*='report-print-grid-']") as HTMLElement;
+
+  it("defaults to three columns and reflows on a pick", async () => {
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+    expect(grid()).toHaveClass("report-print-grid-3");
+
+    await userEvent.click(within(toolbar()).getByRole("button", { name: "One column" }));
+
+    expect(grid()).toHaveClass("report-print-grid-1");
+  });
+
+  it("restores a stored count and ignores an unsupported one", async () => {
+    consumedConfig = { columns: 2 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+    expect(grid()).toHaveClass("report-print-grid-2");
+  });
+});
+
+describe("ProcessMapReport nested column taper", () => {
+  const colsAround = (name: string) =>
+    within(chart()).getByText(name).closest("[data-nested-cols]")?.getAttribute("data-nested-cols");
+
+  it("tapers the nested levels from the top-level pick", async () => {
+    consumedConfig = { columns: 1, displayLevel: 3 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+
+    // Invoicing is a child of Order to Cash, so it sits in a depth-2 grid.
+    expect(colsAround("Invoicing")).toBe("3");
+  });
+
+  it("stacks the nested levels when three columns are picked", async () => {
+    consumedConfig = { columns: 3, displayLevel: 3 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+
+    expect(colsAround("Invoicing")).toBe("1");
+  });
+});
+
+describe("ProcessMapReport narrow card headers", () => {
+  /**
+   * A card header is `<title><chips>` in a flex row, and the title carries
+   * `noWrap` — which sets `overflow: hidden` and so gives it an automatic
+   * minimum size of zero. Without a floor and a wrap, a narrow card (which
+   * the nested taper now routinely produces) squeezes the title out of
+   * existence and pushes the chips past the card edge, clipping them
+   * mid-word. jsdom has no layout, but it does resolve emotion's styles,
+   * so the two properties that prevent it can be pinned here.
+   */
+  const headerOf = (name: string) =>
+    within(chart()).getByText(name).closest("div") as HTMLElement;
+
+  it("keeps a title floor and lets the chips wrap instead of overflowing", async () => {
+    consumedConfig = { columns: 1, displayLevel: 3 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Invoicing")).toBeInTheDocument(),
+    );
+
+    const header = headerOf("Invoicing");
+    expect(getComputedStyle(header).flexWrap).toBe("wrap");
+
+    const title = within(chart()).getByText("Invoicing");
+    expect(getComputedStyle(title).minWidth).not.toBe("0px");
+    expect(getComputedStyle(title).minWidth).not.toBe("");
   });
 });

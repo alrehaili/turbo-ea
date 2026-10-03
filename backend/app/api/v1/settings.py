@@ -20,6 +20,7 @@ from app.models.resource_type import ResourceType
 from app.models.user import User
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
+from app.services.bedrock import is_valid_region
 from app.services.email_backends.base import (
     ALLOWED_METHODS as ALLOWED_EMAIL_METHODS,
 )
@@ -944,6 +945,96 @@ async def get_update_status(
     return await read_status(db)
 
 
+@router.get("/extension-store-status")
+async def get_extension_store_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cached result of the last extension-store check, for the Store tab.
+
+    The daily check is otherwise completely silent — a store that refuses the
+    request records the reason in the settings row and nowhere else, so an
+    administrator who is not being notified has no way to tell "nothing was
+    new" from "the fetch has been failing for a fortnight". Gated on
+    ``admin.settings`` like its ``/update-status`` neighbour, and it serves only
+    what the daily check already stored; it never reaches out to the store.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.extension_store_check import read_status
+
+    return await read_status(db)
+
+
+@router.post("/extension-store-check")
+async def run_extension_store_check_now(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Run the extension-store check immediately and report what it found.
+
+    Without this, verifying the daily check means waiting up to a day and then
+    inferring the result from whether a notification turned up — which cannot
+    distinguish "nothing was new" from "the fetch is failing".
+
+    Same three phases as the daily loop, over this request's session rather
+    than sessions of its own: read the toggle, hand the connection back, fetch
+    holding nothing, reopen for the writes. It is spelled out here rather than
+    delegated because a helper must never commit a session it was handed, and
+    the loop's entry point owns sessions this request does not have. Honours
+    the notices toggle, so a switched-off instance makes no outbound request
+    here any more than it does on the timer.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.extension_store_check import (
+        deliver_digests,
+        extension_notices_enabled,
+        read_status,
+        record_notified,
+        record_result,
+    )
+    from app.services.extensions.store_catalog import fetch_store_catalog_safe
+
+    base_url = app_config.EXTENSION_STORE_URL.strip()
+    if not base_url:
+        return {"configured": False}
+    if not await extension_notices_enabled(db):
+        # Off means off: the toggle governs the outbound request, not just the
+        # bell, so the on-demand path honours it exactly as the timer does.
+        return {"configured": True, "disabled": True}
+
+    # Same three-phase shape as the daily loop, on this request's session
+    # instead of its own: read, hand the connection back, fetch holding
+    # nothing, then reopen for the writes. The commit is what releases the
+    # connection — ``get_db`` is a yield-dependency, so without it the
+    # permission check's connection stays checked out for the whole round-trip
+    # to the store.
+    await db.commit()
+    items, error = await fetch_store_catalog_safe(base_url)
+
+    digests = await record_result(db, items=items, error=error)
+    # Commit before delivering for the same reason as above: the send ends in
+    # an SMTP handshake per emailed administrator and must not sit on this
+    # request's pooled connection.
+    await db.commit()
+    created = await deliver_digests(digests)
+    if created:
+        await record_notified(db, created)
+        await db.commit()
+    status = await read_status(db)
+
+    return {
+        "configured": True,
+        "disabled": False,
+        "new": status["last_new"],
+        "updates": status["last_updates"],
+        "notified": created,
+        "error": status["error"],
+        "checked_at": status["checked_at"],
+    }
+
+
 @router.get("/whats-new")
 async def get_whats_new(
     db: AsyncSession = Depends(get_db),
@@ -1598,7 +1689,7 @@ async def update_registration_settings(
 
 
 _AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
-_VALID_PROVIDER_TYPES = {"ollama", "openai", "azure_openai", "anthropic"}
+_VALID_PROVIDER_TYPES = {"ollama", "openai", "azure_openai", "anthropic", "bedrock"}
 
 
 class AiSettingsPayload(BaseModel):
@@ -1667,6 +1758,30 @@ async def update_ai_settings(
             f"Must be one of: {', '.join(sorted(_VALID_PROVIDER_TYPES))}",
         )
 
+    # Bedrock stores the AWS region in the shared providerUrl slot (the UI
+    # labels that field "AWS Region"), so validate it here rather than letting
+    # the AWS SDK reject it on the first call. Checked before the key is
+    # encrypted below so an unusable configuration is never stored.
+    if provider_type == "bedrock":
+        region = body.provider_url.strip()
+        if not region:
+            raise HTTPException(
+                400,
+                "AWS region is required for Amazon Bedrock (e.g. eu-central-1).",
+            )
+        if not is_valid_region(region):
+            raise HTTPException(
+                400,
+                f"'{region}' is not a valid AWS region (e.g. eu-central-1).",
+            )
+        supplied_key = body.api_key
+        if supplied_key and supplied_key != _AI_KEY_MASK and ":" not in supplied_key:
+            raise HTTPException(
+                400,
+                "Bedrock credentials must be ACCESS_KEY_ID:SECRET_ACCESS_KEY, or leave "
+                "the field empty to use the IAM role of the container.",
+            )
+
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     prev_ai = general.get("ai", {})
@@ -1684,6 +1799,10 @@ async def update_ai_settings(
     provider_url = body.provider_url
     if provider_type == "anthropic" and not provider_url:
         provider_url = "https://api.anthropic.com"
+
+    # For bedrock, providerUrl holds the AWS region (validated above).
+    if provider_type == "bedrock":
+        provider_url = provider_url.strip()
 
     # Azure requires a provider URL
     if provider_type == "azure_openai" and not provider_url:
@@ -1731,6 +1850,9 @@ async def test_ai_connection(
     provider_url = ai.get("providerUrl", "")
     model = ai.get("model", "")
     encrypted_key = ai.get("apiKey", "")
+
+    if provider_type == "bedrock" and not provider_url:
+        raise HTTPException(400, "AWS region is required for Amazon Bedrock.")
 
     if not provider_url and provider_type not in ("anthropic", "azure_openai"):
         raise HTTPException(400, "AI provider URL is not configured.")

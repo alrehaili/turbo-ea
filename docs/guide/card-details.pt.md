@@ -10,11 +10,48 @@ A parte superior do card mostra:
 
 - **Ícone e rótulo do tipo** — Indicador colorido do tipo de card
 - **Nome do card** — Editável inline
+- **Alias** — O outro nome do card, exibido sob o título quando definido. O lápis de edição do título permite alterar o nome e o alias em conjunto. Os aliases são considerados por todas as caixas de pesquisa, de modo que um card é encontrado pelo nome que a sua organização realmente usa.
 - **Subtipo** — Classificação secundária (se aplicável)
 - **Badge de status de aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Botão de sugestão IA** — Clique para gerar uma descrição com IA (visível quando a IA está habilitada para este tipo de card e o usuário tem permissão de edição)
 - **Anel de qualidade dos dados** — Indicador visual da completude das informações (0-100%)
 - **Menu de ações** — Arquivar, excluir e ações de aprovação. Também inclui uma ação de um clique **Observar este cartão** (quando o tipo de card define um papel de Observador), permitindo que qualquer usuário com permissão de leitura siga o card sem precisar abrir a aba Partes interessadas.
+
+### Logótipo personalizado
+
+Os cartões de um tipo que o permita podem ter o seu próprio **logótipo** em vez
+do ícone genérico do tipo — assim, uma Aplicação para SAP, Kafka ou Jira mostra
+a marca do próprio produto. Logótipos reconhecíveis tornam um inventário muito
+mais rápido de percorrer, sobretudo para quem o consulta sem o manter.
+
+Passe o rato sobre o ícone no canto superior esquerdo do cartão e clique para
+**carregar**, **substituir** ou **remover** a imagem. O ícone do tipo não
+desaparece: passa a um pequeno emblema no canto do logótipo, pelo que continua
+a perceber-se num relance de que tipo de cartão se trata.
+
+- **Formatos aceites** — PNG, JPEG, WebP ou GIF, até 1 MB. O formato SVG não é
+  aceite, porque pode conter scripts.
+- **Onde aparece** — no cabeçalho do cartão, na coluna **Logótipo** opcional
+  do [Inventário](inventory.md) e em qualquer portal web publicado sobre esse
+  tipo de cartão.
+- **Sem logótipo** — o cartão volta ao ícone do seu tipo, tal como antes.
+
+Os logótipos estão disponíveis nos tipos de cartão que um administrador tenha
+ativado; de origem, são Aplicação e Componente de TI. Consulte
+[Metamodelo](../admin/metamodel.md).
+
+Clique no logótipo e escolha **Escolher um ícone de marca…** para selecionar de
+um conjunto integrado de vários milhares de marcas: procure o produto pelo nome e
+selecione-o; não é preciso qualquer ficheiro de imagem. **Carregar** permite usar
+o seu próprio ficheiro. Um assistente de IA ligado por [MCP](../admin/mcp.md)
+pode definir logótipos da mesma forma em massa e, se um produto não constar do
+conjunto, vai buscar a marca por si.
+
+O mesmo menu está disponível na coluna **Logótipo** do
+[Inventário](inventory.md) — passe o rato sobre uma célula de logótipo e clique
+—, para que se possam colocar marcas num panorama acabado de importar sem abrir
+cada cartão. É cartão a cartão de propósito: o logótipo não é oferecido nem ao
+preenchimento para baixo nem à edição em massa.
 
 ### Fluxo de Aprovação
 
@@ -27,7 +64,7 @@ Os cards podem passar por um ciclo de aprovação:
 | **Quebrado** | Estava aprovado, mas foi editado desde então — precisa de nova revisão |
 | **Rejeitado** | Revisado e rejeitado, precisa de correções |
 
-Quando um card aprovado é editado, seu status muda automaticamente para **Quebrado** para indicar que precisa de nova revisão.
+Quando um card aprovado é editado, seu status muda automaticamente para **Quebrado** para indicar que precisa de nova revisão. Arquivar o card pai tem o mesmo efeito sobre os cards filhos aprovados que são deslocados na hierarquia. Todas as pessoas com um papel de parte interessada no card são notificadas — exceto quem fez a alteração — e a mudança fica registada na aba **Histórico** do card. Uma ação que quebra vários cards, como uma edição em massa, envia a cada pessoa um único resumo em vez de uma notificação por card.
 
 ## Aba de Detalhe (Principal)
 
@@ -36,7 +73,8 @@ A aba de detalhe é organizada em **seções** que podem ser reordenadas e confi
 ### Seção de Descrição
 
 - **Descrição** — Descrição em texto rico do componente. Suporta o recurso de sugestão de IA para geração automática
-- **Campos adicionais de descrição** — Alguns tipos de card incluem campos extras na seção de descrição (ex.: alias, ID externo)
+- **Campos adicionais de descrição** — Um administrador pode atribuir qualquer campo próprio de um tipo de card à seção de descrição, que pode assim conter campos além da própria descrição
+- **Links** — Um endereço web (`http://` ou `https://`) digitado na descrição, em qualquer campo de texto, em um comentário ou em uma tarefa torna-se um link que abre em uma nova aba
 
 ### Seção de Ciclo de Vida
 
@@ -51,6 +89,8 @@ O modelo de ciclo de vida acompanha um componente através de cinco fases:
 | **Fim de Vida** | Não mais em uso ou com suporte |
 
 Cada fase tem um **seletor de data** para que você possa registrar quando o componente entrou ou entrará nessa fase. Uma barra de linha do tempo visual mostra a posição do componente em seu ciclo de vida.
+
+Se uma fase tiver uma data posterior à de uma fase que deveria vir depois dela — por exemplo, **Desativação** após **Fim de Vida** —, um ícone de aviso aparece ao lado dessa data, e o mesmo aviso é exibido abaixo do campo durante a edição. É apenas uma indicação: as datas ainda podem ser salvas como foram inseridas.
 
 ### Seções de Atributos Personalizados
 
@@ -75,6 +115,7 @@ Para tipos de card que suportam hierarquia (ex.: Organização, Capacidade de Ne
 - **Pai** — O card pai na hierarquia (clique para navegar)
 - **Filhos** — Lista de cards filhos (clique em qualquer um para navegar)
 - **Breadcrumb de hierarquia** — Mostra o caminho completo da raiz até o card atual
+- **Tipo de ligação** — Quando um administrador configurou tipos de ligação para este tipo de card, cada ligação pai-filho pode ser rotulada — por exemplo, uma subsidiária *comercial* e outra de *vendas*. O rótulo pertence ao card filho: o card pai mostra-o ao lado de cada filho, e o card filho ao lado do seu pai. Remover um card ou movê-lo para o nível superior limpa o seu rótulo, e a alteração fica registada na aba **Histórico**.
 
 ### Seção de Relacionamentos
 
@@ -82,7 +123,7 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 
 - **Nome do card relacionado** — Clique para navegar até o card relacionado
 - **Tipo de relacionamento** — A natureza da conexão (ex.: "utiliza", "roda em", "depende de")
-- **Adicionar relacionamento** — Clique em **+** para abrir a caixa desse relacionamento. Ela lista os cartões correspondentes enquanto você digita (as melhores correspondências primeiro, e mais são carregados ao rolar) e oculta os já ligados, com uma legenda indicando quantos são. Clicar num cartão liga-o de imediato e ele aparece como etiqueta no topo — clique no **×** de uma etiqueta para desfazer essa adição. A caixa permanece aberta para adicionar quantos quiser e no telemóvel abre em ecrã inteiro. Os relacionamentos sem secção própria são alcançados pelo botão **Adicionar relacionamento** no fim da secção
+- **Adicionar relacionamento** — Clique em **+** para abrir a caixa desse relacionamento. Ela lista os cartões correspondentes enquanto você digita (as melhores correspondências primeiro, e mais são carregados ao rolar) e oculta os já ligados, com uma legenda indicando quantos são. Clicar num cartão liga-o de imediato e ele aparece como etiqueta no topo — clique no **×** de uma etiqueta para desfazer essa adição. A caixa permanece aberta para adicionar quantos quiser e no telemóvel abre em ecrã inteiro. Os relacionamentos sem secção própria são alcançados pelo botão **Adicionar relacionamento** no fim da secção. Quando o tipo ligado é hierárquico (capacidade de negócio, organização e afins), a caixa mostra-o como uma árvore indentada em vez de uma lista alfabética, para que possa escolher uma subcapacidade pelo seu ramo. A pesquisa mantém visíveis os pais de cada correspondência como contexto, e os cartões que não pode escolher (já ligados, acabados de adicionar ou o próprio cartão) permanecem no lugar a cinzento, para que os níveis à volta continuem a fazer sentido.
 - **Ordenação** — Os cartões relacionados são listados em ordem alfabética por nome
 - **Remover relacionamento** — Clique no ícone de exclusão para remover um relacionamento
 - **Agrupar por subtipo** — Quando uma seção de relacionamentos tem muitos cards relacionados, eles são agrupados automaticamente em grupos de subtipo recolhíveis (cada um com uma contagem), com um grupo final **Sem subtipo** para os cards não classificados. Use o botão de alternância no cabeçalho da seção para alternar entre a visualização agrupada e a lista simples.
@@ -92,6 +133,12 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 
 ![Cards ligados através de subelementos, agrupados por subtipo](../assets/img/pt/60_ficha_subelementos_relacoes.png)
 
+### Seção de Dependências
+
+Uma [Layered Dependency View](reports.md) do card e de tudo o que está a um salto de distância, agrupado nas quatro camadas de arquitetura. Shift-clique em um card para recentralizar a vista e percorrer o panorama sem sair da página.
+
+O ícone **abrir em nova aba** na barra de ferramentas abre o [relatório de dependências](reports.md) completo em uma nova aba, centralizado no card em que a vista estiver centralizada naquele momento — ou seja, o card para o qual você navegou, não necessariamente o de partida. Útil quando você precisa do que o relatório acrescenta em torno da mesma imagem: viagem no tempo, as marcas de transição, a vista de tabela e salvar a vista como relatório.
+
 ### Seção de Tags
 
 Aplique tags dos [grupos de tags](../admin/tags.md) configurados. Dependendo do modo do grupo, você pode selecionar uma tag (seleção única) ou múltiplas tags (seleção múltipla).
@@ -100,8 +147,8 @@ Aplique tags dos [grupos de tags](../admin/tags.md) configurados. Dependendo do 
 
 A aba de **Recursos** consolida todos os materiais de apoio de um card:
 
-- **Anexos de Arquivos** — Carregue e gerencie arquivos (PDF, DOCX, XLSX, imagens, até 10 MB). Ao carregar, selecione uma **categoria de documento** entre: Arquitetura, Segurança, Conformidade, Operações, Notas de Reunião, Design ou Outro. A categoria aparece como um chip ao lado de cada arquivo.
-- **Links de Documentos** — Referências de documentos baseadas em URL. Ao adicionar um link, selecione um **tipo de link** entre: Documentação, Segurança, Conformidade, Arquitetura, Operações, Suporte ou Outro. O tipo de link aparece como um chip ao lado de cada link, e o ícone muda de acordo com o tipo selecionado.
+- **Anexos de Arquivos** — Carregue e gerencie arquivos (documentos, folhas de cálculo, apresentações, ficheiros OpenDocument e Office antigos, imagens, arquivos, mensagens do Outlook e e-mail, CSV, Markdown, JSON e XML — até 20 MB). Ao carregar, selecione uma **categoria de documento** entre: Arquitetura, Segurança, Conformidade, Operações, Notas de Reunião, Design ou Outro. A categoria aparece como um chip ao lado de cada arquivo. Use o ícone de substituição ao lado de um arquivo para carregar uma nova versão no seu lugar — a entrada passa a ser datada e atribuída como um novo envio, e a versão anterior permanece apenas na aba Histórico do card — e o ícone de lápis para renomeá-lo ou alterar a sua categoria; a extensão deve permanecer a mesma.
+- **Links de Documentos** — Referências de documentos baseadas em URL. Ao adicionar um link, selecione um **tipo de link** entre: Documentação, Segurança, Conformidade, Arquitetura, Operações, Suporte ou Outro. O tipo de link aparece como um chip ao lado de cada link, e o ícone muda de acordo com o tipo selecionado. Use o ícone de lápis ao lado de um link para alterar o seu nome, URL ou tipo de link; a URL deve começar por `http://`, `https://` ou `mailto:`, e cada alteração fica registada na aba Histórico do card.
 - **Diagramas** — Vincule [diagramas](diagrams.pt.md) existentes a este card. Os diagramas vinculados são exibidos como pré-visualizações em miniatura que você pode clicar para abrir no editor de diagramas. Use o botão **Vincular Diagrama** para pesquisar e anexar um diagrama existente, ou clique no ícone de desvincular para remover a associação.
 
 ### Seção EOL
@@ -119,6 +166,7 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 - **Adicionar comentários** — Deixe notas, perguntas ou decisões sobre o componente
 - **Respostas em thread** — Responda a comentários específicos para criar conversações encadeadas
 - **Timestamps** — Veja quando cada comentário foi postado e por quem
+- **Links** — Um endereço web em um comentário é clicável e abre em uma nova aba
 
 ## Aba de Tarefas
 
@@ -142,6 +190,8 @@ Partes interessadas são pessoas com um **papel** específico neste card. Os pap
 
 Atribuições de partes interessadas afetam **permissões**: as permissões efetivas de um usuário em um card são a combinação do seu papel em nível de aplicação e quaisquer papéis de parte interessada que ele possua naquele card.
 
+Quando um papel tem uma **cor** definida no metamodelo, o seu grupo é marcado com ela, permitindo distinguir um proprietário de um observador num relance.
+
 ### Pesquisar e convidar
 
 Escolha uma parte interessada via o **autocompletar pesquisável** — comece a digitar e o menu suspenso filtra tanto por nome quanto por e-mail (o e-mail aparece como linha secundária, para que dois usuários com o mesmo nome possam ser distinguidos num relance).
@@ -155,6 +205,8 @@ O caminho de convite requer a permissão **`users.invite`**, uma forma delegada 
 ![Histórico de Alterações do Card](../assets/img/pt/08_ficha_historico.png)
 
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
+
+Tudo o que move a data **Modificado** do card aparece aqui: uma edição manual, uma importação de planilha, uma migração de plataforma ou sincronização com o ServiceNow, uma alteração de etiqueta, uma edição em massa, ou uma movimentação hierárquica que arrastou este card. A manutenção do sistema não altera nenhum dos dois: recalcular as pontuações de qualidade dos dados, reexecutar os campos calculados e preencher níveis hierárquicos ou identificadores de card deixam o histórico e a data **Modificado** intactos.
 
 ## Aba de ADR
 

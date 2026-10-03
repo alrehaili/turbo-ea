@@ -49,6 +49,8 @@ Les fiches liées sont **regroupées par type de fiche**, triées alphabétiquem
 
 La mitigation est capturée sous forme d'**éléments de travail attribués**, et non en texte libre. Sur la page de détail du risque, le panneau **Tâches de mitigation** remplace l'ancien champ unique « plan de mitigation » — chaque ligne est une vraie tâche avec son propre propriétaire, sa date d'échéance, son historique et (en option) sa règle de récurrence.
 
+![Actions de mitigation sur la page de détail du risque](../assets/img/fr/97_risque_taches_attenuation.png)
+
 ### À un coup vs. récurrente
 
 Une tâche de mitigation est **à un coup** par défaut — adaptée à « Déployer la MFA », « Signer les SCC mises à jour », ou tout travail à dimension projet. Activez **Se répète** dans la boîte de dialogue de la tâche et vous obtenez une **revue de contrôle récurrente** : par ex. « Ré-attester la documentation de transfert transfrontalier tous les 12 mois », « Mener l'exercice tabletop d'incident OT tous les 3 mois », « Auditer les identifiants Jenkins chaque semaine ».
@@ -96,6 +98,8 @@ Quand vous cliquez sur **Créer un risque** sur un constat non conforme (voir [T
 
 Le bouton **Exporter** du Registre des risques écrit un `.xlsx` à deux feuilles : la feuille 1 est la grille de risques filtrée, la feuille 2 est une ligne par cycle pour chaque tâche de chaque risque dans le même filtre, incluant le délai de préavis et l'horodatage d'activation. Utilisez-le pour les dossiers d'audit ou pour les parties prenantes sans compte Turbo EA. Chaque ligne de tâche dans le panneau de détail dispose aussi de son propre bouton **Exporter l'historique** pour un classeur par tâche.
 
+Un risque isolé peut aussi être imprimé depuis sa page de détail : **PDF** (à côté de **Supprimer**) ouvre un dossier prêt à imprimer — identification, évaluation initiale et résiduelle, tâches de mitigation avec leurs derniers cycles, fiches affectées, workflow et justification de l'acceptation — dans un nouvel onglet, prêt pour *Enregistrer au format PDF* du navigateur.
+
 ### Importation {: #import }
 
 Le bouton **Importer** à côté d'« Exporter » charge des risques en masse depuis un fichier `.xlsx`. Cliquez sur **Télécharger le modèle** pour obtenir un classeur de départ avec les bons en-têtes, renseignez un risque par ligne, puis téléchargez-le. Une ligne dont la `reference` correspond à un risque existant est **ignorée** (l'importateur ne met jamais à jour de risques existants), de sorte que la réimportation d'un registre précédemment exporté est idempotente ; chaque autre ligne crée un risque **entièrement nouveau** avec une référence `R-NNNNNN` générée automatiquement. L'aperçu indique combien de lignes seront ignorées avant que vous ne confirmiez.
@@ -104,11 +108,13 @@ Colonnes reconnues : `title` (obligatoire), `description`, `category`, `initial_
 
 ## Matrice des risques
 
+![La matrice de risques 4×4 du registre des risques](../assets/img/fr/78_matrice_risques.png)
+
 La Vue d'ensemble Sécurité de TurboLens comme la page du Registre des risques affichent une carte thermique probabilité × impact 4×4. Les cellules sont **cliquables** — cliquez sur une cellule pour filtrer la liste en dessous sur ce compartiment, cliquez à nouveau (ou sur le × du chip) pour effacer. Dans le Registre des risques, vous pouvez basculer la matrice entre les vues **Initiale** et **Résiduelle** pour visualiser les progrès de la mitigation.
 
 ## Grille du registre
 
-Le registre est une grille AG Grid qui reprend les standards de la page [Inventaire](inventory.md) : colonnes triables, filtrables et redimensionnables avec préférences utilisateur persistées (colonnes visibles, ordre de tri, état de la barre latérale). Un bouton **+ Nouveau risque** dans la barre d'outils ouvre le dialogue de création manuelle. Le bouton **Exporter** de la barre d'outils écrit un `.xlsx` à deux feuilles avec la grille de risques filtrée sur la feuille 1 et une ligne par cycle de tâche de mitigation sur la feuille 2 — voir [Tâches de mitigation → Export](#export) pour le format des colonnes.
+Le registre est une grille AG Grid qui reprend les standards de la page [Inventaire](inventory.md) : colonnes triables, filtrables et redimensionnables avec préférences utilisateur persistées (colonnes visibles, ordre de tri, état de la barre latérale). Un bouton **+ Nouveau risque** dans la barre d'outils ouvre le dialogue de création manuelle. Le bouton **Exporter** de la barre d'outils écrit un `.xlsx` à deux feuilles avec la grille de risques filtrée sur la feuille 1 et une ligne par cycle de tâche de mitigation sur la feuille 2 — voir [Tâches de mitigation → Export](#export) pour le format des colonnes. Une colonne **Source** indique si un risque a été saisi à la main, promu depuis un constat de conformité ou créé par une extension, et suit le filtre Source de la barre latérale.
 
 ### Filtrer par fiches concernées
 

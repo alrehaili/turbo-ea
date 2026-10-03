@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -34,7 +35,9 @@ import {
   useFieldLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
-import type { WebPortal, TagGroup, PortalTileSection } from "@/types";
+import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { useBpmEnabled } from "@/hooks/useBpmEnabled";
+import type { WebPortal, TagGroup, PortalTileSection, PortalView, PpmGroupOption } from "@/types";
 
 interface ToggleEntry {
   card: boolean;
@@ -109,9 +112,24 @@ export default function WebPortalsAdmin() {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
   const [accessMode, setAccessMode] = useState<"public" | "sso">("public");
+  const [view, setView] = useState<PortalView>("cards");
+  const [ppmShowCosts, setPpmShowCosts] = useState(true);
+  const [ppmShowPeople, setPpmShowPeople] = useState(false);
+  const [ppmShowNarrative, setPpmShowNarrative] = useState(true);
+  // What the published board opens on. Visitors can change both; nothing is
+  // persisted, so a reload returns to whatever is configured here.
+  const [ppmGroupBy, setPpmGroupBy] = useState("Organization");
+  const [ppmSubtype, setPpmSubtype] = useState("");
+  const [ppmGroupOptions, setPpmGroupOptions] = useState<PpmGroupOption[]>([]);
+  // Process Navigator portal: one exposure switch plus the state the house opens on.
+  const [bpmShowElementLinks, setBpmShowElementLinks] = useState(false);
+  const [bpmLevel, setBpmLevel] = useState(2);
+  const [bpmOverlay, setBpmOverlay] = useState("processType");
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
   const [domainInput, setDomainInput] = useState("");
   const [ssoEnabled, setSsoEnabled] = useState(false);
+  const { ppmEnabled } = usePpmEnabled();
+  const { bpmEnabled } = useBpmEnabled();
 
   const visibleTypes = types.filter((tp) => !tp.is_hidden);
 
@@ -130,6 +148,12 @@ export default function WebPortalsAdmin() {
       .get<TagGroup[]>("/tag-groups")
       .then(setTagGroups)
       .catch(() => setTagGroups([]));
+    // The same list the board's Group by dropdown is built from, so the admin
+    // cannot configure a grouping the board would not offer.
+    api
+      .get<PpmGroupOption[]>("/reports/ppm/group-options")
+      .then(setPpmGroupOptions)
+      .catch(() => setPpmGroupOptions([]));
     api
       .get<{ enabled: boolean }>("/auth/sso/config")
       .then((cfg) => setSsoEnabled(cfg.enabled === true))
@@ -150,6 +174,15 @@ export default function WebPortalsAdmin() {
     setFilterTagIds([]);
     setShowLogo(true);
     setAccessMode("public");
+    setView("cards");
+    setBpmShowElementLinks(false);
+    setBpmLevel(2);
+    setBpmOverlay("processType");
+    setPpmShowCosts(true);
+    setPpmShowPeople(false);
+    setPpmShowNarrative(true);
+    setPpmGroupBy("Organization");
+    setPpmSubtype("");
     setAllowedDomains([]);
     setDomainInput("");
     setError("");
@@ -184,6 +217,23 @@ export default function WebPortalsAdmin() {
       ((portal.filters as Record<string, unknown>)?.tag_ids as string[]) || []
     );
     setAccessMode(portal.access_mode === "sso" ? "sso" : "public");
+    setView(
+      portal.view === "ppm_portfolio" || portal.view === "process_navigator"
+        ? portal.view
+        : "cards",
+    );
+    const bpmCfg =
+      ((portal.card_config as Record<string, unknown>)?.bpm as Record<string, unknown>) || {};
+    setBpmShowElementLinks(bpmCfg.show_element_links === true);
+    setBpmLevel(typeof bpmCfg.default_level === "number" ? bpmCfg.default_level : 2);
+    setBpmOverlay((bpmCfg.default_overlay as string) || "processType");
+    const ppmCfg =
+      ((portal.card_config as Record<string, unknown>)?.ppm as Record<string, unknown>) || {};
+    setPpmShowCosts(ppmCfg.show_costs !== false);
+    setPpmShowPeople(ppmCfg.show_people === true);
+    setPpmShowNarrative(ppmCfg.show_report_narrative !== false);
+    setPpmGroupBy((ppmCfg.default_group_by as string) || "Organization");
+    setPpmSubtype((ppmCfg.default_subtype as string) || "");
     setAllowedDomains(portal.allowed_email_domains || []);
     setDomainInput("");
     setError("");
@@ -266,8 +316,33 @@ export default function WebPortalsAdmin() {
       }
       return;
     }
-    const hasToggles = Object.keys(toggles).length > 0;
-    const hasCardConfig = hasToggles || !showLogo;
+    const isPortfolio = view === "ppm_portfolio";
+    const isNavigator = view === "process_navigator";
+    const isBoard = isPortfolio || isNavigator;
+    // Per-field toggles are meaningless on the portfolio board, which has a
+    // fixed set of columns; it carries its own three exposure switches instead.
+    const hasToggles = !isBoard && Object.keys(toggles).length > 0;
+    const ppmConfig = isPortfolio
+      ? {
+          show_costs: ppmShowCosts,
+          show_people: ppmShowPeople,
+          show_report_narrative: ppmShowNarrative,
+          default_group_by: ppmGroupBy,
+          default_subtype: ppmSubtype,
+        }
+      : null;
+    // `card_config` collapses to null when there is nothing in it — the PPM
+    // block has to count, or the switches would silently vanish on save.
+    const bpmConfig = isNavigator
+      ? {
+          show_element_links: bpmShowElementLinks,
+          default_level: bpmLevel,
+          default_overlay: bpmOverlay,
+        }
+      : null;
+    // `card_config` collapses to null when there is nothing in it — each board's
+    // block has to count, or its switches silently vanish on save.
+    const hasCardConfig = hasToggles || !showLogo || ppmConfig !== null || bpmConfig !== null;
     // Fold any un-committed text in the domain input into the list on save.
     const effectiveDomains =
       accessMode === "sso" && domainInput.trim()
@@ -278,7 +353,10 @@ export default function WebPortalsAdmin() {
       slug,
       description: description || null,
       kind: "catalogue",
-      card_type: cardType,
+      // The backend pins a portfolio portal to Initiative; send what the form
+      // shows so the two never disagree.
+      card_type: isPortfolio ? "Initiative" : isNavigator ? "BusinessProcess" : cardType,
+      view,
       is_published: isPublished,
       access_mode: accessMode,
       allowed_email_domains:
@@ -292,7 +370,12 @@ export default function WebPortalsAdmin() {
             }
           : null,
       card_config: hasCardConfig
-        ? { ...(hasToggles ? { toggles } : {}), show_logo: showLogo }
+        ? {
+            ...(hasToggles ? { toggles } : {}),
+            ...(ppmConfig ? { ppm: ppmConfig } : {}),
+            ...(bpmConfig ? { bpm: bpmConfig } : {}),
+            show_logo: showLogo,
+          }
         : null,
     };
     try {
@@ -440,7 +523,7 @@ export default function WebPortalsAdmin() {
                   color="text.secondary"
                   sx={{ mt: 0.5 }}
                 >
-                  {portal.description}
+                  <LinkifiedText text={portal.description} />
                 </Typography>
               )}
             </Box>
@@ -791,15 +874,79 @@ export default function WebPortalsAdmin() {
           <TextField
             fullWidth
             select
+            label={t("webPortals.portalType")}
+            value={view}
+            onChange={(e) => {
+              const next = e.target.value as PortalView;
+              setView(next);
+              // Each board is pinned to one card type; the per-field toggles
+              // and filters below key off the card type, so reset them whenever
+              // the target changes.
+              setToggles({});
+              setFilterSubtypes([]);
+              setFilterTagIds([]);
+              if (next === "ppm_portfolio") setCardType("Initiative");
+              if (next === "process_navigator") setCardType("BusinessProcess");
+            }}
+            sx={{ mb: 2 }}
+            helperText={
+              view === "ppm_portfolio"
+                ? t("webPortals.portalTypePpmHelper")
+                : view === "process_navigator"
+                  ? t("webPortals.portalTypeBpmHelper")
+                  : t("webPortals.portalTypeCardsHelper")
+            }
+          >
+            <MenuItem value="cards">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="grid_view" size={18} />
+                {t("webPortals.portalTypeCards")}
+              </Box>
+            </MenuItem>
+            <MenuItem value="ppm_portfolio" disabled={!ppmEnabled}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="view_timeline" size={18} />
+                {t("webPortals.portalTypePpm")}
+                {!ppmEnabled && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t("webPortals.portalTypePpmDisabled")}
+                  </Typography>
+                )}
+              </Box>
+            </MenuItem>
+            <MenuItem value="process_navigator" disabled={!bpmEnabled}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="account_tree" size={18} />
+                {t("webPortals.portalTypeBpm")}
+                {!bpmEnabled && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t("webPortals.portalTypeBpmDisabled")}
+                  </Typography>
+                )}
+              </Box>
+            </MenuItem>
+          </TextField>
+          <TextField
+            fullWidth
+            select
             label={t("common:labels.type")}
             value={cardType}
+            // Pinned for a board portal — kept visible but locked, because the
+            // subtype and tag pickers below still resolve against it.
+            disabled={view !== "cards"}
             onChange={(e) => {
               setCardType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
               setFilterTagIds([]);
             }}
-            helperText={t("webPortals.cardTypeHelper")}
+            helperText={
+              view === "ppm_portfolio"
+                ? t("webPortals.cardTypePinnedHelper")
+                : view === "process_navigator"
+                  ? t("webPortals.cardTypePinnedBpmHelper")
+                  : t("webPortals.cardTypeHelper")
+            }
           >
             {visibleTypes.map((ct) => (
               <MenuItem key={ct.key} value={ct.key}>
@@ -856,7 +1003,209 @@ export default function WebPortalsAdmin() {
             </Box>
           )}
 
-          {cardType && (
+          {view === "ppm_portfolio" && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography
+                variant="overline"
+                sx={{
+                  display: "block",
+                  mb: 0.5,
+                  fontWeight: 700,
+                  color: "text.secondary",
+                  letterSpacing: 1,
+                }}
+              >
+                {t("webPortals.section.displayConfig")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1.5 }}
+              >
+                {t("webPortals.ppm.hint")}
+              </Typography>
+
+              {/* What the board opens on. Distinct from the subtype *filter*
+                  above, which decides which initiatives are published at all —
+                  this only picks the selection the visitor first sees. */}
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.ppm.defaultGroupBy")}
+                  value={ppmGroupBy}
+                  onChange={(e) => setPpmGroupBy(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.ppm.defaultGroupByHelper")}
+                >
+                  {ppmGroupOptions.map((opt) => (
+                    <MenuItem key={opt.type_key} value={opt.type_key}>
+                      {typeLabel(
+                        types.find((tp) => tp.key === opt.type_key) ?? {
+                          key: opt.type_key,
+                          label: opt.type_label,
+                        },
+                      )}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.ppm.defaultSubtype")}
+                  value={ppmSubtype}
+                  onChange={(e) => setPpmSubtype(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.ppm.defaultSubtypeHelper")}
+                >
+                  <MenuItem value="">{t("common:all", "All")}</MenuItem>
+                  {(selectedType?.subtypes || []).map((st) => (
+                    <MenuItem key={st.key} value={st.key}>
+                      {stLabel(st)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ppmShowCosts}
+                    onChange={(e) => setPpmShowCosts(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">{t("webPortals.ppm.showCosts")}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.ppm.showCostsHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ppmShowNarrative}
+                    onChange={(e) => setPpmShowNarrative(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">{t("webPortals.ppm.showNarrative")}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.ppm.showNarrativeHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ppmShowPeople}
+                    onChange={(e) => setPpmShowPeople(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">{t("webPortals.ppm.showPeople")}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.ppm.showPeopleHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start" }}
+              />
+            </>
+          )}
+
+          {view === "process_navigator" && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography
+                variant="overline"
+                sx={{
+                  display: "block",
+                  mb: 0.5,
+                  fontWeight: 700,
+                  color: "text.secondary",
+                  letterSpacing: 1,
+                }}
+              >
+                {t("webPortals.section.displayConfig")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1.5 }}
+              >
+                {t("webPortals.bpm.hint")}
+              </Typography>
+
+              {/* What the house opens on. Distinct from the subtype *filter*
+                  above, which decides which processes are published at all —
+                  this only picks what the visitor first sees, and nothing is
+                  remembered, so a reload returns here. */}
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.bpm.defaultLevel")}
+                  value={bpmLevel}
+                  onChange={(e) => setBpmLevel(Number(e.target.value))}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.bpm.defaultLevelHelper")}
+                >
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <MenuItem key={lvl} value={lvl}>
+                      {lvl}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label={t("webPortals.bpm.defaultOverlay")}
+                  value={bpmOverlay}
+                  onChange={(e) => setBpmOverlay(e.target.value)}
+                  sx={{ minWidth: 220, flex: 1 }}
+                  helperText={t("webPortals.bpm.defaultOverlayHelper")}
+                >
+                  <MenuItem value="processType">{t("webPortals.bpm.overlayType")}</MenuItem>
+                  <MenuItem value="maturity">{t("webPortals.bpm.overlayMaturity")}</MenuItem>
+                  <MenuItem value="automationLevel">
+                    {t("webPortals.bpm.overlayAutomation")}
+                  </MenuItem>
+                  <MenuItem value="riskLevel">{t("webPortals.bpm.overlayRisk")}</MenuItem>
+                </TextField>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={bpmShowElementLinks}
+                    onChange={(e) => setBpmShowElementLinks(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">
+                      {t("webPortals.bpm.showElementLinks")}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("webPortals.bpm.showElementLinksHelper")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ display: "flex", alignItems: "flex-start" }}
+              />
+            </>
+          )}
+
+          {cardType && view === "cards" && (
             <>
             <Divider sx={{ my: 3 }} />
 

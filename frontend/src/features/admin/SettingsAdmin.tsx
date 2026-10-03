@@ -23,6 +23,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { usePageSection } from "@/hooks/usePageTitle";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { currencySymbolOverride } from "@/lib/currency";
@@ -2292,6 +2293,9 @@ export default function SettingsAdmin() {
     t("settings.tabs.auditLog", "Audit log"),
     t("settings.tabs.resources"),
   ];
+
+  // «Settings · Integrations» — the route supplies «Settings».
+  usePageSection(TAB_LABELS[tabIndex]);
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
     const newTab = TAB_KEYS[newIndex];

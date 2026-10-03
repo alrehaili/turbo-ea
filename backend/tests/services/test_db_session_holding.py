@@ -92,8 +92,8 @@ class TestCallAiTakesNoSession:
     ("module", "func", "slow_call"),
     [
         ("app/api/v1/migration.py", "_parse_and_stage_job", "source.parse("),
-        ("app/api/v1/workspace.py", "_preview_job", "parse_bundle("),
-        ("app/api/v1/workspace.py", "_apply_job", "parse_bundle("),
+        ("app/api/v1/workspace.py", "_preview_job", "_parse_bundle_file("),
+        ("app/api/v1/workspace.py", "_apply_job", "_parse_bundle_file("),
         # The update check's network round-trip is bounded by a 10s timeout, but
         # a connection held for 10s of every daily run is still a connection
         # held for no reason.
@@ -105,6 +105,15 @@ class TestCallAiTakesNoSession:
             "app/services/extension_store_check.py",
             "run_extension_store_check",
             "fetch_store_catalog_safe(",
+        ),
+        # Delivering the digests ends in an SMTP connect/TLS/auth handshake per
+        # emailed administrator. It used to run inside ``record_result`` with
+        # the settings transaction open, which is a write transaction holding
+        # one of DB_POOL_SIZE + DB_MAX_OVERFLOW for the length of the send.
+        (
+            "app/services/extension_store_check.py",
+            "run_extension_store_check",
+            "deliver_digests(",
         ),
     ],
 )
@@ -137,6 +146,75 @@ def test_parse_happens_outside_any_session_block(module: str, func: str, slow_ca
             )
 
 
+def test_manual_store_check_releases_the_request_session_first():
+    """``POST /settings/extension-store-check`` runs the daily probe on demand.
+
+    The probe opens its own short sessions, but the *request* has one too — the
+    permission check has already used it, so without an explicit close FastAPI's
+    yield-dependency keeps that connection checked out for the whole outbound
+    round-trip to the store. One admin clicking a button is cheap; the rule is
+    not conditional on how often the path is hit.
+    """
+    body = _function_source("app/api/v1/settings.py", "run_extension_store_check_now")
+    fetch_at = body.find("await fetch_store_catalog_safe(")
+    assert fetch_at != -1, "the endpoint must be the one making the fetch"
+    commit_at = body.rfind("await db.commit()", 0, fetch_at)
+    assert commit_at != -1, (
+        "run_extension_store_check_now must `await db.commit()` before the fetch — "
+        "the commit is what hands the connection back, and get_db is a "
+        "yield-dependency that would otherwise pin it for the whole round-trip."
+    )
+    write_at = body.find("await record_result(")
+    assert fetch_at < write_at, "the writes must come after the fetch, on a fresh transaction"
+
+    # Same rule one step later: the digests are delivered over SMTP, so the
+    # request's connection must be handed back again before the send.
+    deliver_at = body.find("await deliver_digests(")
+    assert deliver_at != -1, "the endpoint must deliver the digests it recorded"
+    assert body.rfind("await db.commit()", 0, deliver_at) > write_at, (
+        "run_extension_store_check_now must `await db.commit()` between recording "
+        "and delivering — delivery is an SMTP round-trip per emailed admin and "
+        "must not sit on this request's pooled connection."
+    )
+
+
+def test_workspace_upload_releases_the_request_session_before_spooling():
+    """``POST /admin/workspace/import`` writes up to 2 GB to disk.
+
+    The permission check has already used the request's session, so without an
+    explicit commit FastAPI's yield-dependency keeps that connection checked
+    out for however long the copy takes — which for a bundle this size is not
+    a moment.
+    """
+    body = _function_source("app/api/v1/workspace.py", "upload_workspace")
+    spool_at = body.find("_spool_upload_to_disk")
+    assert spool_at != -1, "the endpoint must be the one spooling the upload"
+    commit_at = body.rfind("await db.commit()", 0, spool_at)
+    assert commit_at != -1, (
+        "upload_workspace must `await db.commit()` before _spool_upload_to_disk — "
+        "the commit hands the connection back, and get_db would otherwise pin it "
+        "for the whole write."
+    )
+
+
+def test_eol_card_status_releases_the_request_session_first():
+    """``GET /eol/card-status`` resolves EOL data from endoflife.date.
+
+    Unlike the store probe this is hit on every inventory type change, so a
+    connection pinned for the whole outbound round-trip is one of thirty gone
+    for as long as an upstream that is not ours takes to answer.
+    """
+    body = _function_source("app/api/v1/eol.py", "eol_card_status")
+    fetch_at = body.find("await resolve_eol_statuses(")
+    assert fetch_at != -1, "the endpoint must be the one resolving the statuses"
+    commit_at = body.rfind("await db.commit()", 0, fetch_at)
+    assert commit_at != -1, (
+        "eol_card_status must `await db.commit()` before resolve_eol_statuses — "
+        "the commit hands the connection back, and get_db is a yield-dependency "
+        "that would otherwise pin it for the whole endoflife.date round-trip."
+    )
+
+
 # ---------------------------------------------------------------------------
 # AI batch loops must not keep the transaction open across the LLM calls
 # ---------------------------------------------------------------------------
@@ -164,3 +242,93 @@ def test_transaction_is_closed_before_the_first_ai_call(module: str, func: str):
         f"{func} reaches its first call_ai without committing — the reads above it "
         "hold a connection for the whole LLM loop."
     )
+
+
+# ---------------------------------------------------------------------------
+# Extension notification channels must be enqueue-only
+# ---------------------------------------------------------------------------
+
+
+class TestNotificationChannelDispatch:
+    """``create_notification`` calls ``dispatch`` with its transaction open.
+
+    Every other channel in this file is a background job that can be told to
+    close its session first. This one cannot: the dispatch happens mid-request,
+    right after the notification row is flushed, so the *only* thing keeping it
+    safe is that ``dispatch`` neither awaits nor touches the network. Making it
+    a coroutine would put an extension's delivery path inside every notification
+    sender's transaction.
+    """
+
+    def test_dispatch_is_a_plain_function(self):
+        tree = ast.parse(_source("app/services/extensions/notification_channels.py"))
+        for node in tree.body:
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "dispatch":
+                raise AssertionError("dispatch must stay synchronous — enqueue only")
+            if isinstance(node, ast.FunctionDef) and node.name == "dispatch":
+                return
+        raise AssertionError("dispatch not found in notification_channels.py")
+
+    def test_dispatch_body_never_awaits(self):
+        # AST, not a text search: the docstring names ``await`` on purpose.
+        tree = ast.parse(_source("app/services/extensions/notification_channels.py"))
+        target = next(
+            n
+            for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "dispatch"
+        )
+        awaits = [n for n in ast.walk(target) if isinstance(n, ast.Await)]
+        assert not awaits, "dispatch must not await — it runs inside an open transaction"
+
+    def test_create_notification_does_not_await_the_dispatch(self):
+        """The call must be a bare expression statement, never an await."""
+        module = "app/services/notification_service.py"
+        tree = ast.parse(_source(module))
+        target = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "create_notification":
+                target = node
+                break
+        assert target is not None, "create_notification not found"
+
+        found = False
+        for node in ast.walk(target):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "dispatch":
+                found = True
+                parents = [
+                    p for p in ast.walk(target) if isinstance(p, ast.Await) and p.value is node
+                ]
+                assert not parents, "dispatch must not be awaited in create_notification"
+        assert found, "create_notification no longer dispatches to extension channels"
+
+
+# ---------------------------------------------------------------------------
+# The surveys bridge must deliver after its session closed
+# ---------------------------------------------------------------------------
+
+
+def test_surveys_bridge_delivers_after_the_write_session_closed():
+    """``ExtensionSurveys.send`` fans notifications out through
+    ``deliver_notification_batch`` — each emailed one an SMTP round-trip —
+    so the call must sit AFTER the audited write returned, outside any
+    ``async with async_session()`` block (the notify bridge's posture)."""
+    source = _source("app/services/extensions/surveys_bridge.py")
+    tree = ast.parse(source)
+    send = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "ExtensionSurveys":
+            for item in node.body:
+                if isinstance(item, ast.AsyncFunctionDef) and item.name == "send":
+                    send = item
+    assert send is not None, "ExtensionSurveys.send not found"
+    body = ast.get_source_segment(source, send)
+    assert "async with async_session()" not in body, (
+        "send must not open a session of its own — the write goes through _write"
+    )
+    deliver_at = body.find("deliver_notification_batch(")
+    write_at = body.find("await self._write(")
+    assert deliver_at != -1 and write_at != -1
+    assert deliver_at > write_at, "delivery must follow the committed write, never precede it"

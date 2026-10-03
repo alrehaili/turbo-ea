@@ -19,6 +19,24 @@ const { vendorFieldRef } = vi.hoisted(() => ({
 // ---------------------------------------------------------------------------
 
 const mockNavigate = vi.fn();
+// The dialog reads the signed-in user to apply per-card-type create
+// permissions (discussion #1068). It renders inside an AuthProvider in the
+// app; the tests mount it directly, so the context is stubbed. Default is an
+// admin (wildcard grants every type); the per-type tests swap in a member.
+const authRef = vi.hoisted(() => ({
+  user: {
+    id: "u1",
+    email: "a@test.com",
+    display_name: "Admin",
+    permissions: { "*": true } as Record<string, boolean>,
+    type_permissions: undefined as Record<string, Record<string, boolean>> | undefined,
+  },
+}));
+vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
+  useAuthContext: () => ({ user: authRef.user, refreshUser: vi.fn() }),
+}));
+
 vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
   return { ...actual, useNavigate: () => mockNavigate };
@@ -155,6 +173,9 @@ const MOCK_RELATION_TYPES = [
 beforeEach(() => {
   vi.clearAllMocks();
   vendorFieldRef.onProviderSelected = null;
+  // Reset to the admin default; the per-type tests override it.
+  authRef.user.permissions = { "*": true };
+  authRef.user.type_permissions = undefined;
   vi.mocked(useMetamodel).mockReturnValue({
     types: MOCK_TYPES,
     relationTypes: MOCK_RELATION_TYPES,
@@ -172,7 +193,14 @@ beforeEach(() => {
 const onCreate = vi.fn();
 const onClose = vi.fn();
 
-function renderDialog(props: { open?: boolean; initialType?: string } = {}) {
+function renderDialog(
+  props: {
+    open?: boolean;
+    initialType?: string;
+    initialSubtype?: string;
+    initialAttributes?: Record<string, unknown>;
+  } = {},
+) {
   return render(
     <MemoryRouter>
       <CreateCardDialog
@@ -180,6 +208,8 @@ function renderDialog(props: { open?: boolean; initialType?: string } = {}) {
         onClose={onClose}
         onCreate={onCreate}
         initialType={props.initialType}
+        initialSubtype={props.initialSubtype}
+        initialAttributes={props.initialAttributes}
       />
     </MemoryRouter>,
   );
@@ -212,6 +242,30 @@ describe("CreateCardDialog", () => {
 
     await user.click(screen.getByRole("button", { name: /cancel/i }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("presets subtype and attributes for the initial type, and clears them on a type switch", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      initialType: "Application",
+      initialSubtype: "microservice",
+      initialAttributes: { hostingModel: ["cloud"] },
+    });
+
+    // The subtype combobox shows the preset's label.
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes[1]).toHaveTextContent("Microservice");
+
+    // Fill the name and submit — the preset attribute rides the payload.
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "Presets App");
+    // A required cost field exists on Application; fill it so submit enables.
+    const cost = screen.getByRole("spinbutton");
+    await user.type(cost, "10");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalled());
+    const payload = onCreate.mock.calls[0][0];
+    expect(payload.subtype).toBe("microservice");
+    expect(payload.attributes.hostingModel).toEqual(["cloud"]);
   });
 
   it("pre-selects type when initialType is provided", () => {
@@ -529,5 +583,72 @@ describe("CreateCardDialog", () => {
         expect.stringContaining("search=Par"),
       );
     });
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Per-card-type create permissions (discussion #1068)
+// ---------------------------------------------------------------------------
+
+describe("CreateCardDialog — per-card-type create permissions", () => {
+  /** A member who may create everything except the named types. */
+  function memberDeniedOn(...typeKeys: string[]) {
+    authRef.user.permissions = { "inventory.create": true };
+    authRef.user.type_permissions = Object.fromEntries(
+      typeKeys.map((k) => [k, { "inventory.create": false }]),
+    );
+  }
+
+  it("omits a denied type from the type picker", async () => {
+    const user = userEvent.setup();
+    memberDeniedOn("Application");
+    renderDialog();
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+
+    expect(screen.queryByRole("option", { name: /Application/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Objective/ })).toBeInTheDocument();
+  });
+
+  it("offers a type granted by an override to a role that lacks the permission", async () => {
+    const user = userEvent.setup();
+    authRef.user.permissions = { "inventory.create": false };
+    authRef.user.type_permissions = { Objective: { "inventory.create": true } };
+    renderDialog();
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+
+    expect(screen.getByRole("option", { name: /Objective/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /^Application/ })).not.toBeInTheDocument();
+  });
+
+  it("disables Create when the caller pre-selects a type the user may not create", () => {
+    // InventoryPage passes its faceted type as `initialType`, which can be one
+    // the role is denied — the picker alone would not stop the submit.
+    memberDeniedOn("Application");
+    renderDialog({ initialType: "Application" });
+
+    expect(screen.getByRole("button", { name: /create/i })).toBeDisabled();
+  });
+
+  it("keeps Create usable for a permitted pre-selected type", async () => {
+    const user = userEvent.setup();
+    memberDeniedOn("Application");
+    renderDialog({ initialType: "Objective" });
+
+    await user.type(screen.getByLabelText(/name/i), "My Objective");
+
+    expect(screen.getByRole("button", { name: /create/i })).toBeEnabled();
+  });
+
+  it("shows every visible type to an admin", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+
+    expect(screen.getByRole("option", { name: /Application/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Objective/ })).toBeInTheDocument();
   });
 });

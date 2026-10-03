@@ -9,11 +9,36 @@
  * then groups are stacked vertically in EA layer order so they never overlap.
  */
 
-import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
-import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType, RelationType, FieldOption } from "@/types";
+import type { TimelineChange } from "./timelineRange";
+import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
+import {
+  alignLanesX,
+  CATEGORY_COLORS,
+  CATEGORY_ORDER,
+  DRAG_ROOM,
+  GROUP_GAP,
+  LABEL_H,
+  PAD,
+  layoutGroup,
+  type PositionedNode,
+  readFlowDir,
+  typeCategory,
+  typeColor,
+  typeIcon,
+  typeLabel,
+} from "./ldvLayoutShared";
+import type { LdvEdgeLineStyle } from "./ldvLineStyle";
+import {
+  routeLdvEdges,
+  type OrientedEdge,
+  type NodeBounds,
+  type Bounds,
+} from "./ldvEdgeRouting";
+
+export { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
 
 /* ------------------------------------------------------------------ */
 /*  Input types (same as DependencyReport)                             */
@@ -23,11 +48,25 @@ export interface GNode {
   id: string;
   name: string;
   type: string;
+  /** Metamodel subtype key, when the card has one. */
+  subtype?: string;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
   parent_id?: string | null;
   path?: string[];
+  /** When this card's logo was last written, or null when it has none. The
+   *  backend withholds it for types with logos switched off, so the view needs
+   *  no rule of its own. Doubles as the image URL's cache-buster. */
+  logo_updated_at?: string | null;
   proposed?: boolean;
+  /** How this card's presence changes between today and the time-travelled date
+   *  the consumer is showing (set by the consumer — the view has no timeline of
+   *  its own). Drives the "arriving"/"retiring" badge. */
+  changeState?: TimelineChange;
+  /** Set by the consumer: a neighbour comes or goes at the mark being stood on
+   *  while this card stays put (linked to a card retired by then). */
+  gainedLink?: boolean;
+  lostLink?: boolean;
   /** Whether this card has any child card in the full dataset (set by the
    *  consumer, which holds the whole graph). Drives the "has hidden children"
    *  hierarchy marker — the view only sees the visible slice, so it can't
@@ -67,19 +106,60 @@ export function resolveRevealIds(
 }
 
 /**
- * Drop nodes whose current lifecycle phase is `endOfLife`, then drop any edge
- * that lost an endpoint. The centered card (`centerId`) and any proposed/NEW
- * card are always kept, so an end-of-life card can still be inspected when it
- * is the focus of the view.
+ * Drop nodes whose lifecycle phase is `endOfLife`, then drop any edge that lost
+ * an endpoint. Three kinds of node are always kept, because each is something
+ * the consumer put on the diagram on purpose and a generic filter has no
+ * business second-guessing: the centered card (`centerId`), a proposed/NEW card,
+ * and a card the consumer marked `changeState: "retired"` — which is
+ * end-of-life at the viewed date *by definition*, and is precisely what a
+ * time-travelled view is trying to show.
+ *
+ * `asOfMs` evaluates the phase at a time-travelled date instead of today. It is
+ * not optional for a consumer that time-travels: judging "end of life" against
+ * today would delete a card from a past-dated view that was very much alive then.
  */
 export function filterEndOfLifeNodes(
   nodes: GNode[],
   edges: GEdge[],
   centerId?: string,
+  asOfMs?: number,
 ): { nodes: GNode[]; edges: GEdge[] } {
   const visible = nodes.filter(
-    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle) !== "endOfLife",
+    (n) =>
+      n.id === centerId ||
+      n.proposed ||
+      n.changeState === "retired" ||
+      getCurrentPhase(n.lifecycle, asOfMs) !== "endOfLife",
   );
+  const ids = new Set(visible.map((n) => n.id));
+  return {
+    nodes: visible,
+    edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+  };
+}
+
+/**
+ * Drop every card whose type the reader unticked in the Card types menu, then
+ * drop any edge that lost an endpoint.
+ *
+ * The centred card is kept whatever its type: it is the subject of the diagram
+ * rather than one of its neighbours, and hiding it would leave the view with
+ * nothing to be centred on. Same carve-out `filterEndOfLifeNodes` makes, for
+ * the same reason.
+ *
+ * With nothing hidden this returns the very arrays it was given — the view
+ * feeds the result straight into layout memos, and a fresh array every render
+ * would rebuild the whole graph.
+ */
+export function filterHiddenTypes(
+  nodes: GNode[],
+  edges: GEdge[],
+  hidden: Set<string>,
+  centerId?: string,
+): { nodes: GNode[]; edges: GEdge[] } {
+  if (hidden.size === 0) return { nodes, edges };
+  const visible = nodes.filter((n) => n.id === centerId || !hidden.has(n.type));
+  if (visible.length === nodes.length) return { nodes, edges };
   const ids = new Set(visible.map((n) => n.id));
   return {
     nodes: visible,
@@ -95,6 +175,8 @@ export interface LdvNodeData {
   name: string;
   typeKey: string;
   typeLabel: string;
+  /** Raw subtype key; the view resolves it to a label for display. */
+  subtypeKey?: string;
   typeColor: string;
   typeIcon: string;
   category: string;
@@ -104,6 +186,13 @@ export interface LdvNodeData {
   dimmed?: boolean;
   usedHandles?: string[];
   proposed?: boolean;
+  changeState?: TimelineChange;
+  gainedLink?: boolean;
+  lostLink?: boolean;
+  /** The card the graph is built around — injected by the view, not the layout. */
+  isCenter?: boolean;
+  /** A card the reader expanded, pulling its relations onto the canvas. */
+  isExpanded?: boolean;
   [key: string]: unknown;
 }
 
@@ -114,6 +203,11 @@ export interface LdvGroupData {
 }
 
 export interface LdvEdgeData {
+  /** Relation type key this line stands for. Each line is exactly one relation
+   *  type (several may connect the same card pair), so anything derived from the
+   *  view — notably "Create diagram" — can stamp the real type instead of
+   *  guessing one per card pair. `"hierarchy"` marks a synthetic parent/child line. */
+  relType?: string;
   relLabel: string;
   /**
    * Relation flow direction, surfaced separately from `relLabel` so the edge
@@ -123,158 +217,67 @@ export interface LdvEdgeData {
    * exports. Vector shapes rasterise identically live and in export.
    */
   flowDirection?: "forward" | "reverse" | "bidirectional";
+  /** One endpoint is retired at the viewed date: this dependency is being
+   *  severed by the transformation. Rendered in the error colour. */
+  severed?: boolean;
   description?: string;
+  /**
+   * Aggregate mode: how many relations this one connector stands for. Unset on
+   * an ordinary line. Rendered as its own span beside the verb rather than
+   * baked into `relLabel`, so the label's length cap can never swallow it and
+   * hiding the verbs still leaves the count.
+   */
+  count?: number;
+  /**
+   * The card-level endpoints behind this line — one pair on an ordinary line,
+   * every merged relation on an aggregate connector. What hover reads to light
+   * up exactly the cards a connector stands for, and what its tooltip lists.
+   */
+  members?: { source: string; target: string }[];
   connectedToHovered?: boolean;
   isHovered?: boolean;
   highlightMode?: boolean;
+  /** Idle line style, injected by the view from the shared display settings. */
+  lineStyle?: LdvEdgeLineStyle;
   pathOffset?: number;
   minOffset?: number; // minimum offset to clear obstructing nodes
   labelT?: number;
+  /** Explicit y for the horizontal run (staggered + kept clear of cards).
+   *  Unset on side-handle and obstructed edges — those keep the default
+   *  smoothstep shape. */
+  centerY?: number;
+  /** Channel route: bend points of an orthogonal polyline (endpoints
+   *  excluded) for an edge that had to dodge rows of cards between its
+   *  endpoints. Mutually exclusive with centerY. */
+  waypoints?: { x: number; y: number }[];
+  /** Layout-time handle points — lets the renderer detect a stale channel
+   *  after a drag and fall back to the default shape. */
+  anchors?: { sx: number; sy: number; tx: number; ty: number };
   onHover?: () => void;
   onLeave?: () => void;
   [key: string]: unknown;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-export const LDV_NODE_W = 200;
-export const LDV_NODE_H = 72;
-
-const CATEGORY_ORDER = [
-  "Business",
-  "Beneficiary Experience",
-  "Application",
-  "Data",
-  "Technology",
-  "Security",
-];
-
-const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
-
-/** Padding inside each group boundary */
-const PAD = 30;
-/** Extra empty space inside each layer box so cards can be dragged/rearranged
- *  within their layer (they are clamped to the box via extent: "parent"). */
-const DRAG_ROOM = 56;
-/** Height reserved for the category label at top of group */
-const LABEL_H = 32;
-/** Vertical gap between stacked category groups */
-const GROUP_GAP = 72;
-/** Max nodes per row when a category has many nodes with no intra-group edges */
-const MAX_COLS = 3;
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-function typeColor(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.color || "#999";
+/**
+ * Clear the verb from every edge, for the "hide relationship labels" display
+ * option.
+ *
+ * Applied AFTER layout on purpose: the layout detects colliding labels and
+ * spreads them along their own paths, so building without labels would move
+ * the edges — and edges must not shift when the verbs are merely hidden.
+ *
+ * The label the edge component renders is `data.relLabel`, NOT React Flow's
+ * own `label` prop. Clearing the latter type-checks (RF's Edge declares it)
+ * and does exactly nothing, which is how the option shipped inert once —
+ * keeping the field name in one tested place is the point of this helper.
+ */
+export function stripEdgeLabels(edges: Edge[]): Edge[] {
+  return edges.map((e) => {
+    const d = e.data as LdvEdgeData | undefined;
+    return d?.relLabel ? { ...e, data: { ...d, relLabel: "" } } : e;
+  });
 }
 
-function typeLabel(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.label || key;
-}
-
-function typeIcon(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.icon || "category";
-}
-
-function typeCategory(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.category || "Other";
-}
-
-/* ------------------------------------------------------------------ */
-/*  Layout one category group using dagre                              */
-/* ------------------------------------------------------------------ */
-
-interface PositionedNode {
-  id: string;
-  x: number;
-  y: number;
-}
-
-function layoutGroup(
-  catNodes: GNode[],
-  intraEdges: GEdge[],
-): { positioned: PositionedNode[]; width: number; height: number } {
-  if (catNodes.length === 0) return { positioned: [], width: 0, height: 0 };
-
-  const nodeIds = new Set(catNodes.map((n) => n.id));
-
-  // Filter edges to only intra-group ones
-  const edges = intraEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
-
-  if (edges.length > 0) {
-    // Use dagre for connected nodes
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({
-      rankdir: "TB",
-      ranksep: 90,
-      nodesep: 50,
-      marginx: 0,
-      marginy: 0,
-    });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    for (const n of catNodes) {
-      g.setNode(n.id, { width: LDV_NODE_W, height: LDV_NODE_H });
-    }
-    for (const e of edges) {
-      g.setEdge(e.source, e.target);
-    }
-
-    dagre.layout(g);
-
-    const positioned: PositionedNode[] = [];
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-
-    for (const n of catNodes) {
-      const pos = g.node(n.id);
-      if (!pos) continue;
-      const x = pos.x - LDV_NODE_W / 2;
-      const y = pos.y - LDV_NODE_H / 2;
-      positioned.push({ id: n.id, x, y });
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + LDV_NODE_W);
-      maxY = Math.max(maxY, y + LDV_NODE_H);
-    }
-
-    // Normalize to origin
-    for (const p of positioned) {
-      p.x -= minX;
-      p.y -= minY;
-    }
-
-    return {
-      positioned,
-      width: maxX - minX,
-      height: maxY - minY,
-    };
-  }
-
-  // No intra-group edges: grid layout
-  const cols = Math.min(catNodes.length, MAX_COLS);
-  const hGap = 40;
-  const vGap = 30;
-  const positioned: PositionedNode[] = catNodes.map((n, i) => ({
-    id: n.id,
-    x: (i % cols) * (LDV_NODE_W + hGap),
-    y: Math.floor(i / cols) * (LDV_NODE_H + vGap),
-  }));
-
-  const rows = Math.ceil(catNodes.length / cols);
-  return {
-    positioned,
-    width: cols * LDV_NODE_W + (cols - 1) * hGap,
-    height: rows * LDV_NODE_H + (rows - 1) * vGap,
-  };
-}
 
 /* ------------------------------------------------------------------ */
 /*  Build React Flow nodes + edges with per-group layout               */
@@ -323,6 +326,9 @@ export function buildLdvFlow(
 ): { nodes: Node[]; edges: Edge[] } {
   if (gNodes.length === 0) return { nodes: [], edges: [] };
 
+  // For severing edges whose endpoint is retired at the viewed date.
+  const changeStateById = new Map(gNodes.map((n) => [n.id, n.changeState]));
+
   // Build node ID set for edge validation
   const nodeIdSet = new Set(gNodes.map((n) => n.id));
 
@@ -355,6 +361,7 @@ export function buildLdvFlow(
     positioned: PositionedNode[];
     groupW: number;
     groupH: number;
+    hGap: number;
   }
   const groupLayouts: GroupLayout[] = [];
 
@@ -367,29 +374,56 @@ export function buildLdvFlow(
       (e) => catNodeIds.has(e.source) && catNodeIds.has(e.target),
     );
 
-    const { positioned, width: innerW, height: innerH } = layoutGroup(catNodes, intraEdges);
+    const { positioned, width: innerW, height: innerH, hGap } = layoutGroup(catNodes, intraEdges);
 
     groupLayouts.push({
       cat,
       positioned,
       groupW: innerW + 2 * PAD + DRAG_ROOM,
       groupH: innerH + LABEL_H + 2 * PAD + DRAG_ROOM,
+      hGap,
     });
   }
 
   if (groupLayouts.length === 0) return { nodes: [], edges: [] };
 
-  // Find max group width for horizontal centering
-  const maxGroupW = Math.max(...groupLayouts.map((gl) => gl.groupW));
+  // Cross-lane x-alignment: per-lane layouts are blind to edges that span
+  // lanes, so connected cards land horizontally far apart and their edges run
+  // as long diagonals. When cross-lane edges exist, nudge x positions so
+  // linked cards line up vertically; otherwise keep the historical centred
+  // placement (identical output for edge-free graphs).
+  const crossEdges = validEdges.filter(
+    (e) => nodeCatMap.get(e.source) !== nodeCatMap.get(e.target),
+  );
+  let laneGx: number[];
+  if (crossEdges.length > 0) {
+    const intraEdgesAll = validEdges.filter(
+      (e) => nodeCatMap.get(e.source) === nodeCatMap.get(e.target),
+    );
+    const aligned = alignLanesX(
+      groupLayouts.map((gl) => ({ positioned: gl.positioned, hGap: gl.hGap })),
+      crossEdges,
+      intraEdgesAll,
+    );
+    laneGx = aligned.map((a) => a.offsetX);
+    groupLayouts.forEach((gl, i) => {
+      gl.positioned = aligned[i].positioned;
+      gl.groupW = aligned[i].innerW + 2 * PAD + DRAG_ROOM;
+    });
+  } else {
+    const maxGroupW = Math.max(...groupLayouts.map((gl) => gl.groupW));
+    laneGx = groupLayouts.map((gl) => Math.round((maxGroupW - gl.groupW) / 2));
+  }
 
-  // Pass 2: place groups vertically, centered horizontally
+  // Pass 2: place groups vertically at their aligned (or centred) x
   const rfNodes: Node[] = [];
   let yOffset = 0;
 
-  for (const gl of groupLayouts) {
+  for (let gi = 0; gi < groupLayouts.length; gi++) {
+    const gl = groupLayouts[gi];
     const catNodes = groups.get(gl.cat)!;
     const groupId = `group:${gl.cat}`;
-    const gx = Math.round((maxGroupW - gl.groupW) / 2);
+    const gx = laneGx[gi];
     const gy = yOffset;
 
     rfNodes.push({
@@ -421,10 +455,14 @@ export function buildLdvFlow(
           name: nd.name,
           typeKey: nd.type,
           typeLabel: typeLabel(nd.type, types),
+          subtypeKey: nd.subtype,
           typeColor: typeColor(nd.type, types),
           typeIcon: typeIcon(nd.type, types),
           category: gl.cat,
           proposed: nd.proposed,
+          changeState: nd.changeState,
+          gainedLink: nd.gainedLink,
+          lostLink: nd.lostLink,
         } satisfies LdvNodeData,
         style: { width: LDV_NODE_W, height: LDV_NODE_H },
         draggable: false,
@@ -452,192 +490,62 @@ export function buildLdvFlow(
     }
   }
 
-  // Deduplicate edges: merge multiple edges between the same pair into one.
-  // Track labels per-direction so we can pick the correct label when the
-  // visual arrow is flipped for top-to-bottom layout.
-  type FlowDir = "bidirectional" | "forward" | "reverse";
-  const edgePairMap = new Map<
-    string,
-    {
-      fwdLabels: string[];
-      revLabels: string[];
-      description?: string;
-      // flowDirection captured per pair, in pair-normalised orientation
-      // (i.e. relative to lo→hi, not the relation's metamodel direction).
-      flowDirection?: FlowDir;
-    }
-  >();
-  const readFlowDir = (attrs: Record<string, unknown> | undefined): FlowDir | undefined => {
-    const v = attrs?.flowDirection;
-    return v === "bidirectional" || v === "forward" || v === "reverse" ? v : undefined;
-  };
-  for (const e of validEdges) {
-    const isNormalized = e.source < e.target;
-    const [lo, hi] = isNormalized ? [e.source, e.target] : [e.target, e.source];
-    const key = `${lo}||${hi}`;
-    // Append the relation's single-select attribute value (e.g. " [Leading]")
-    // so it flows through the per-pair merge / " / " join / dedup unchanged.
-    const valueSuffix = relValueResolver?.(e) ?? "";
-    // Forward label = label when arrow goes lo→hi; reverse = when hi→lo
-    const fwdLbl =
-      (isNormalized ? (e.label || e.type) : (e.reverse_label || e.label || e.type)) + valueSuffix;
-    const revLbl =
-      (isNormalized ? (e.reverse_label || e.label || e.type) : (e.label || e.type)) + valueSuffix;
-
-    // Re-orient flowDirection to the pair-normalised lo→hi axis so different
-    // relation types between the same pair don't fight each other.
-    let fd = readFlowDir(e.attributes);
-    if (fd && !isNormalized) {
-      if (fd === "forward") fd = "reverse";
-      else if (fd === "reverse") fd = "forward";
-    }
-
-    const existing = edgePairMap.get(key);
-    if (existing) {
-      if (!existing.fwdLabels.includes(fwdLbl)) existing.fwdLabels.push(fwdLbl);
-      if (!existing.revLabels.includes(revLbl)) existing.revLabels.push(revLbl);
-      // If existing pair has no direction yet, adopt this one. If they
-      // disagree (e.g. one forward + one reverse), upgrade to bidirectional.
-      if (fd && existing.flowDirection !== fd) {
-        existing.flowDirection = existing.flowDirection ? "bidirectional" : fd;
-      }
-    } else {
-      edgePairMap.set(key, {
-        fwdLabels: [fwdLbl],
-        revLabels: [revLbl],
-        description: e.description,
-        flowDirection: fd,
-      });
-    }
-  }
-
+  // ONE LINE PER RELATION TYPE.
+  //
+  // Several relation types may connect the same two cards — an Organization that
+  // *owns* an Application and one that *uses* it are different relationships — and
+  // each gets its own line, with its own verb, flow direction and description.
+  // Collapsing them into a single line labelled "uses / owns" hid that distinction
+  // and forced an arbitrary type onto anything derived from the view (the
+  // "Create diagram" action stamped only the first).
+  //
+  // Two rows of the SAME relation type between the same pair (either direction)
+  // still collapse to one line — that is a duplicate edge, not a second
+  // relationship. Mirrors `GET /reports/dependencies`, which keys on
+  // `min:max:type`.
+  //
+  // Note the dependency TREE deliberately does the opposite (see
+  // `dependencyAdjacency.ts`): it renders one child per neighbouring *card*, so
+  // joining the verbs there is structural, not a stylistic choice.
   const seen = new Set<string>();
   const dedupedEdges: typeof validEdges = [];
   for (const e of validEdges) {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
-    const key = `${lo}||${hi}`;
+    const key = `${lo}||${hi}||${e.type ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     dedupedEdges.push(e);
   }
 
-  // Keep metamodel source→target direction on edges.  The arrow (markerEnd)
-  // must always point from the relation's semantic source to its target so that
-  // it matches the metamodel definition.  We only choose the label that matches
-  // the original (un-flipped) direction and track a `flipped` flag so handle
-  // routing can use top→bottom or bottom→top handles as needed for the layout.
-  interface OrientedEdge {
-    source: string;
-    target: string;
-    relLabel: string;
-    description?: string;
-    /** true when the target is visually above the source (arrow goes upward) */
-    flipped: boolean;
-    /** flowDirection re-oriented to the relation's metamodel source→target axis */
-    flowDirection?: FlowDir;
-  }
+  // Keep metamodel source→target direction on edges. The arrow (markerEnd) must
+  // always point from the relation's semantic source to its target so that it
+  // matches the metamodel definition. The label is ALWAYS the forward verb — a
+  // reader follows the arrowhead, so source-verb-target reads correctly whichever
+  // way the layout draws it (see CLAUDE.md on relation edge rendering). `flipped`
+  // only tells handle routing to use top→bottom or bottom→top handles.
   const oriented: OrientedEdge[] = dedupedEdges.map((e) => {
-    const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
-    const merged = edgePairMap.get(`${lo}||${hi}`)!;
     const sP = absPos.get(e.source);
     const tP = absPos.get(e.target);
     // Source→target preserved; flipped when target is above source visually
     const flipped = !!(sP && tP && tP.y < sP.y);
-    // Labels always match the original metamodel direction (source→target)
-    const isNormalized = e.source < e.target;
-    const labels = isNormalized ? merged.fwdLabels : merged.revLabels;
-    // Re-orient the pair-normalised flowDirection back onto the metamodel
-    // source→target axis. When this edge is the "reverse" of the
-    // normalisation pair, swap forward ↔ reverse so the marker logic below
-    // reads relative to (e.source, e.target).
-    let fd = merged.flowDirection;
-    if (fd && !isNormalized) {
-      if (fd === "forward") fd = "reverse";
-      else if (fd === "reverse") fd = "forward";
-    }
+    // Append the relation's single-select attribute value (e.g. " [Leading]").
+    const valueSuffix = relValueResolver?.(e) ?? "";
     // The direction is carried on `flowDirection` and rendered as a vector SVG
     // arrow next to the label by the edge component, so it survives image
     // export (a Unicode glyph baked into the text does not — see LdvEdgeData).
-    const relLabel = labels.join(" / ");
     return {
       source: e.source,
       target: e.target,
-      relLabel,
-      description: merged.description,
+      relType: e.type,
+      relLabel: (e.label || e.type) + valueSuffix,
+      description: e.description,
       flipped,
-      flowDirection: fd,
+      flowDirection: readFlowDir(e.attributes),
     };
   });
 
-  // Handle pair candidates and their Manhattan distance from source→target
-  // 5 handles per edge (12%, 30%, 50%, 70%, 88%) for better spread.
-  // Rules: side handles always pair same-side (left→left, right→right)
-  type HandlePair = { src: string; tgt: string };
-  const HANDLE_PAIRS: HandlePair[] = [
-    // Bottom → Top (direct: same column)
-    { src: "b-1", tgt: "t-1" },
-    { src: "b-2", tgt: "t-2" },
-    { src: "b-3", tgt: "t-3" },
-    { src: "b-4", tgt: "t-4" },
-    { src: "b-5", tgt: "t-5" },
-    // Bottom → Top (adjacent diagonal, |i-j| = 1)
-    { src: "b-1", tgt: "t-2" },
-    { src: "b-2", tgt: "t-1" },
-    { src: "b-2", tgt: "t-3" },
-    { src: "b-3", tgt: "t-2" },
-    { src: "b-3", tgt: "t-4" },
-    { src: "b-4", tgt: "t-3" },
-    { src: "b-4", tgt: "t-5" },
-    { src: "b-5", tgt: "t-4" },
-    // Bottom → Top (wide diagonal, |i-j| = 2)
-    { src: "b-1", tgt: "t-3" },
-    { src: "b-3", tgt: "t-1" },
-    { src: "b-2", tgt: "t-4" },
-    { src: "b-4", tgt: "t-2" },
-    { src: "b-3", tgt: "t-5" },
-    { src: "b-5", tgt: "t-3" },
-    // Bottom → Left side (for sources far to the left of target)
-    { src: "b-1", tgt: "left" },
-    { src: "b-2", tgt: "left" },
-    { src: "b-3", tgt: "left" },
-    // Bottom → Right side (for sources far to the right of target)
-    { src: "b-3", tgt: "right-tgt" },
-    { src: "b-4", tgt: "right-tgt" },
-    { src: "b-5", tgt: "right-tgt" },
-    // Side → Side (same side only)
-    { src: "left-src", tgt: "left" },
-    { src: "right", tgt: "right-tgt" },
-    // Side → Top (wide routing around obstacles)
-    { src: "left-src", tgt: "t-1" },
-    { src: "left-src", tgt: "t-2" },
-    { src: "right", tgt: "t-4" },
-    { src: "right", tgt: "t-5" },
-  ];
-
-  // Handle position offsets relative to node center
-  // 5 positions: 12%, 30%, 50%, 70%, 88% of node width
-  function handleOffset(h: string): { dx: number; dy: number } {
-    switch (h) {
-      case "b-1": case "bt-1": return { dx: -LDV_NODE_W * 0.38, dy: LDV_NODE_H / 2 };
-      case "b-2": case "bt-2": return { dx: -LDV_NODE_W * 0.20, dy: LDV_NODE_H / 2 };
-      case "b-3": case "bt-3": return { dx: 0, dy: LDV_NODE_H / 2 };
-      case "b-4": case "bt-4": return { dx: LDV_NODE_W * 0.20, dy: LDV_NODE_H / 2 };
-      case "b-5": case "bt-5": return { dx: LDV_NODE_W * 0.38, dy: LDV_NODE_H / 2 };
-      case "t-1": case "ts-1": return { dx: -LDV_NODE_W * 0.38, dy: -LDV_NODE_H / 2 };
-      case "t-2": case "ts-2": return { dx: -LDV_NODE_W * 0.20, dy: -LDV_NODE_H / 2 };
-      case "t-3": case "ts-3": return { dx: 0, dy: -LDV_NODE_H / 2 };
-      case "t-4": case "ts-4": return { dx: LDV_NODE_W * 0.20, dy: -LDV_NODE_H / 2 };
-      case "t-5": case "ts-5": return { dx: LDV_NODE_W * 0.38, dy: -LDV_NODE_H / 2 };
-      case "left-src":
-      case "left": return { dx: -LDV_NODE_W / 2, dy: 0 };
-      case "right":
-      case "right-tgt": return { dx: LDV_NODE_W / 2, dy: 0 };
-      default:     return { dx: 0, dy: 0 };
-    }
-  }
-
   // Collect all node bounding boxes for obstruction + label overlap checks
-  const allNodeBounds: { id: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+  const allNodeBounds: NodeBounds[] = [];
   for (const [nid, pos] of absPos) {
     allNodeBounds.push({
       id: nid,
@@ -650,7 +558,7 @@ export function buildLdvFlow(
 
   // Also collect group label areas (top strip of each group box) for label overlap
   // These are not used for obstruction routing, only for label placement.
-  const groupLabelBounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const groupLabelBounds: Bounds[] = [];
   for (const n of rfNodes) {
     if (n.type === "ldvGroup") {
       const w = (n.style?.width as number) ?? 0;
@@ -663,45 +571,7 @@ export function buildLdvFlow(
     }
   }
 
-  /** Check if a vertical-ish line segment from (sx,sy)→(tx,ty) passes through
-   *  any node other than sourceId/targetId. For smooth-step paths the horizontal
-   *  segment sits near sy or ty, so we check a corridor along the X midpoint.
-   *  Returns the required clearance (0 = not obstructed, >0 = half-width of widest obstacle). */
-  function pathObstruction(
-    sx: number, sy: number, tx: number, ty: number,
-    sourceId: string, targetId: string,
-  ): number {
-    const minX = Math.min(sx, tx) - 8;
-    const maxX = Math.max(sx, tx) + 8;
-    const minY = Math.min(sy, ty);
-    const maxY = Math.max(sy, ty);
-    let maxClearance = 0;
-    for (const b of allNodeBounds) {
-      if (b.id === sourceId || b.id === targetId) continue;
-      if (b.x2 > minX && b.x1 < maxX && b.y2 > minY && b.y1 < maxY) {
-        // Compute how far to the side we need to route to clear this node
-        const midX = (sx + tx) / 2;
-        const halfW = (b.x2 - b.x1) / 2;
-        const distFromCenter = Math.abs((b.x1 + b.x2) / 2 - midX);
-        const clearance = halfW - distFromCenter + LDV_NODE_W * 0.15; // extra margin
-        maxClearance = Math.max(maxClearance, clearance);
-      }
-    }
-    return maxClearance;
-  }
-
-  // Track used handles per node to avoid reusing same handle
-  const usedSrcHandles = new Map<string, Set<string>>();
-  const usedTgtHandles = new Map<string, Set<string>>();
-
-  // ---- Compute per-edge path offsets to separate overlapping routes ----
-  // Smooth-step paths have a horizontal segment at sourceY + offset (or
-  // targetY − offset). Edges crossing the same inter-group gap share this
-  // horizontal band, so we must stagger their offsets to prevent overlapping
-  // horizontal segments (and therefore overlapping labels).
-  const BASE_OFFSET = 28;
-
-  // Map each node to its group category
+  // Map each node to its lane group (for gap bucketing + same-lane checks)
   const nodeGroupCat = new Map<string, string>();
   for (const n of rfNodes) {
     if (n.type === "ldvNode" && n.parentId) {
@@ -712,227 +582,15 @@ export function buildLdvFlow(
     }
   }
 
-  // Group edges by the inter-group gap they cross (sourceGroup → targetGroup).
-  // Edges within the same group or crossing the same gap get staggered offsets.
-  const edgesByGap = new Map<string, number[]>();
-  for (let i = 0; i < oriented.length; i++) {
-    const sCat = nodeGroupCat.get(oriented[i].source) ?? "?";
-    const tCat = nodeGroupCat.get(oriented[i].target) ?? "?";
-    const gapKey = `${sCat}||${tCat}`;
-    if (!edgesByGap.has(gapKey)) edgesByGap.set(gapKey, []);
-    edgesByGap.get(gapKey)!.push(i);
-  }
-
-  const pathOffsets = new Array<number>(oriented.length).fill(BASE_OFFSET);
-
-  for (const indices of edgesByGap.values()) {
-    if (indices.length <= 1) continue;
-    // Sort by horizontal midpoint for spatially consistent assignment
-    indices.sort((a, b) => {
-      const aS = absPos.get(oriented[a].source);
-      const aT = absPos.get(oriented[a].target);
-      const bS = absPos.get(oriented[b].source);
-      const bT = absPos.get(oriented[b].target);
-      const aMid = ((aS?.x ?? 0) + (aT?.x ?? 0)) / 2;
-      const bMid = ((bS?.x ?? 0) + (bT?.x ?? 0)) / 2;
-      return aMid - bMid;
-    });
-
-    // Compute the minimum handle-to-handle vertical gap among edges in this
-    // group. absPos stores node centers; handles are at center ± LDV_NODE_H/2.
-    let minVertGap = Infinity;
-    for (const idx of indices) {
-      const sP = absPos.get(oriented[idx].source);
-      const tP = absPos.get(oriented[idx].target);
-      if (sP && tP) {
-        const handleGap = Math.abs(tP.y - sP.y) - LDV_NODE_H;
-        minVertGap = Math.min(minVertGap, Math.max(handleGap, 40));
-      }
-    }
-    if (!isFinite(minVertGap)) minVertGap = 200;
-
-    // The offset extends from both ends, so max useful offset ≈ half the
-    // handle gap. Distribute offsets evenly within [BASE_OFFSET, maxOffset]
-    // like a staircase — even small steps create visible separation.
-    const maxOffset = minVertGap * 0.47;
-    const n = indices.length;
-    const step = n > 1 ? (maxOffset - BASE_OFFSET) / (n - 1) : 0;
-
-    for (let r = 0; r < n; r++) {
-      pathOffsets[indices[r]] = BASE_OFFSET + r * step;
-    }
-  }
-
-  // Helper: for flipped edges (target above source) we swap handle sides so
-  // the arrow exits from the top of the source node and enters the bottom of
-  // the target node while preserving the metamodel arrow direction.
-  function flipHandle(h: string): string {
-    // For flipped edges (upward arrows), bottom source → top source, top target → bottom target.
-    // Uses mirrored handle IDs: "ts-N" (top source) and "bt-N" (bottom target)
-    // so React Flow can match handle type correctly.
-    if (h.startsWith("b-")) return "ts-" + h.slice(2); // bottom source → top source mirror
-    if (h.startsWith("t-")) return "bt-" + h.slice(2); // top target → bottom target mirror
-    return h; // side handles stay unchanged
-  }
-
-  // First pass: pick handles for each edge, tracking obstruction clearance
-  const edgeHandles: { src: string; tgt: string; minOffset: number }[] = oriented.map((e) => {
-    const sPos = absPos.get(e.source);
-    const tPos = absPos.get(e.target);
-
-    let bestSrc = e.flipped ? "ts-3" : "b-3";
-    let bestTgt = e.flipped ? "bt-3" : "t-3";
-    let bestMinOffset = 0;
-
-    if (sPos && tPos) {
-      let bestDist = Infinity;
-      const usedS = usedSrcHandles.get(e.source) ?? new Set();
-      const usedT = usedTgtHandles.get(e.target) ?? new Set();
-
-      for (const pair of HANDLE_PAIRS) {
-        // For flipped edges, swap b↔t handles so arrows route upward
-        const srcH = e.flipped ? flipHandle(pair.src) : pair.src;
-        const tgtH = e.flipped ? flipHandle(pair.tgt) : pair.tgt;
-        let penalty = (usedS.has(srcH) ? 200 : 0) + (usedT.has(tgtH) ? 200 : 0);
-
-        const sOff = handleOffset(srcH);
-        const tOff = handleOffset(tgtH);
-        const sx = sPos.x + sOff.dx;
-        const sy = sPos.y + sOff.dy;
-        const tx = tPos.x + tOff.dx;
-        const ty = tPos.y + tOff.dy;
-
-        // Check if the path would pass through another node
-        const clearance = pathObstruction(sx, sy, tx, ty, e.source, e.target);
-        if (clearance > 0) {
-          penalty += 800;
-        }
-
-        const dist = Math.abs(tx - sx) + Math.abs(ty - sy) + penalty;
-
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestSrc = srcH;
-          bestTgt = tgtH;
-          bestMinOffset = clearance;
-        }
-      }
-
-      if (!usedSrcHandles.has(e.source)) usedSrcHandles.set(e.source, new Set());
-      usedSrcHandles.get(e.source)!.add(bestSrc);
-      if (!usedTgtHandles.has(e.target)) usedTgtHandles.set(e.target, new Set());
-      usedTgtHandles.get(e.target)!.add(bestTgt);
-    }
-
-    return { src: bestSrc, tgt: bestTgt, minOffset: bestMinOffset };
-  });
-
-  // Merge source and target handle usage into a single set per node
-  const allUsedHandles = new Map<string, Set<string>>();
-  for (const [nodeId, handles] of usedSrcHandles) {
-    if (!allUsedHandles.has(nodeId)) allUsedHandles.set(nodeId, new Set());
-    for (const h of handles) allUsedHandles.get(nodeId)!.add(h);
-  }
-  for (const [nodeId, handles] of usedTgtHandles) {
-    if (!allUsedHandles.has(nodeId)) allUsedHandles.set(nodeId, new Set());
-    for (const h of handles) allUsedHandles.get(nodeId)!.add(h);
-  }
-
-  // Approximate label midpoints for collision detection
-  // getSmoothStepPath places the label at the path midpoint ≈ average of endpoints
-  const labelPositions: { lx: number; ly: number }[] = oriented.map((e, i) => {
-    const sPos = absPos.get(e.source);
-    const tPos = absPos.get(e.target);
-    if (!sPos || !tPos) return { lx: 0, ly: 0 };
-    const sOff = handleOffset(edgeHandles[i].src);
-    const tOff = handleOffset(edgeHandles[i].tgt);
-    return {
-      lx: (sPos.x + sOff.dx + tPos.x + tOff.dx) / 2,
-      ly: (sPos.y + sOff.dy + tPos.y + tOff.dy) / 2,
-    };
-  });
-
-  /** Check if a label rect overlaps any node or group label bounding box */
-  function labelOverlapsNode(lx: number, ly: number, lw: number): boolean {
-    const lh = 20; // label height
-    const margin = 4;
-    // Check card nodes
-    for (const b of allNodeBounds) {
-      const bx1 = b.x1 - margin, by1 = b.y1 - margin;
-      const bx2 = b.x2 + margin, by2 = b.y2 + margin;
-      if (
-        lx - lw / 2 < bx2 &&
-        lx + lw / 2 > bx1 &&
-        ly - lh / 2 < by2 &&
-        ly + lh / 2 > by1
-      ) return true;
-    }
-    // Check group label areas (category headers like "Business Architecture")
-    for (const b of groupLabelBounds) {
-      if (
-        lx - lw / 2 < b.x2 + margin &&
-        lx + lw / 2 > b.x1 - margin &&
-        ly - lh / 2 < b.y2 &&
-        ly + lh / 2 > b.y1 - margin
-      ) return true;
-    }
-    return false;
-  }
-
-  // Detect label collisions and spread labels along their own paths
-  const LABEL_COLLISION_H = 22; // vertical space a label occupies
-  const labelTs = new Array<number>(oriented.length).fill(0.5);
-  // Group labels that overlap: within 80px horizontally and LABEL_COLLISION_H vertically
-  const assigned = new Set<number>();
-  for (let i = 0; i < labelPositions.length; i++) {
-    if (assigned.has(i) || !oriented[i].relLabel) continue;
-    const cluster = [i];
-    for (let j = i + 1; j < labelPositions.length; j++) {
-      if (assigned.has(j) || !oriented[j].relLabel) continue;
-      if (
-        Math.abs(labelPositions[i].lx - labelPositions[j].lx) < 80 &&
-        Math.abs(labelPositions[i].ly - labelPositions[j].ly) < LABEL_COLLISION_H
-      ) {
-        cluster.push(j);
-      }
-    }
-    if (cluster.length > 1) {
-      // Sort cluster by lx (left-to-right) for spatially consistent assignment
-      cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
-      const n = cluster.length;
-      for (let k = 0; k < n; k++) {
-        // Spread labelT within [0.2, 0.8] so labels stay on-path but separated
-        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.2 + (k * 0.6) / (n - 1);
-        assigned.add(cluster[k]);
-      }
-    }
-  }
-
-  // Post-pass: push labels that overlap nodes toward the path midpoint
-  for (let i = 0; i < oriented.length; i++) {
-    if (!oriented[i].relLabel) continue;
-    const sPos = absPos.get(oriented[i].source);
-    const tPos = absPos.get(oriented[i].target);
-    if (!sPos || !tPos) continue;
-    const sOff = handleOffset(edgeHandles[i].src);
-    const tOff = handleOffset(edgeHandles[i].tgt);
-    const sx = sPos.x + sOff.dx, sy = sPos.y + sOff.dy;
-    const tx = tPos.x + tOff.dx, ty = tPos.y + tOff.dy;
-    const labelW = Math.min(oriented[i].relLabel.length, 24) * 5.8 + 12;
-
-    // Try current labelT; if it overlaps a node, try shifting toward 0.5
-    let t = labelTs[i];
-    for (let attempt = 0; attempt < 5; attempt++) {
-      // Approximate label position along the smooth step path:
-      // For vertical segments, X stays ~constant and Y interpolates
-      const lx = sx + (tx - sx) * t;
-      const ly = sy + (ty - sy) * t;
-      if (!labelOverlapsNode(lx, ly, labelW)) break;
-      // Shift toward 0.5 (center of path, farthest from nodes)
-      t = t + (0.5 - t) * 0.4;
-    }
-    labelTs[i] = t;
-  }
+  // Route every edge: ordered port assignment, obstruction clearance, offset
+  // staggering, and label placement — see ldvEdgeRouting.ts.
+  const { routes, usedHandles: allUsedHandles } = routeLdvEdges(
+    oriented,
+    absPos,
+    allNodeBounds,
+    groupLabelBounds,
+    nodeGroupCat,
+  );
 
   const rfEdges: Edge[] = oriented.map((e, i) => {
     // Arrowheads encode flow direction:
@@ -940,7 +598,9 @@ export function buildLdvFlow(
     //  - reverse: arrow at source end only — data flows target → source
     //  - bidirectional: arrows on both ends
     //  - unset: keep the historical default (markerEnd only)
-    const arrow = { type: "arrowclosed" as const, color: "#888" };
+    const severed =
+      changeStateById.get(e.source) === "retired" || changeStateById.get(e.target) === "retired";
+    const arrow = { type: "arrowclosed" as const, color: severed ? "#d32f2f" : "#888" };
     const markerStart =
       e.flowDirection === "reverse" || e.flowDirection === "bidirectional" ? arrow : undefined;
     const markerEnd =
@@ -949,17 +609,23 @@ export function buildLdvFlow(
       id: `ldve-${i}`,
       source: e.source,
       target: e.target,
-      sourceHandle: edgeHandles[i].src,
-      targetHandle: edgeHandles[i].tgt,
+      sourceHandle: routes[i].sourceHandle,
+      targetHandle: routes[i].targetHandle,
       type: "ldvEdge",
       label: e.relLabel,
       data: {
+        relType: e.relType,
         relLabel: e.relLabel,
         flowDirection: e.flowDirection,
         description: e.description,
-        pathOffset: pathOffsets[i],
-        minOffset: edgeHandles[i].minOffset,
-        labelT: labelTs[i],
+        severed,
+        pathOffset: routes[i].pathOffset,
+        minOffset: routes[i].minOffset,
+        labelT: routes[i].labelT,
+        ...(routes[i].centerY !== undefined ? { centerY: routes[i].centerY } : {}),
+        ...(routes[i].waypoints
+          ? { waypoints: routes[i].waypoints, anchors: routes[i].anchors }
+          : {}),
       } satisfies LdvEdgeData,
       animated: false,
       ...(markerStart ? { markerStart } : {}),
@@ -977,3 +643,35 @@ export function buildLdvFlow(
 
   return { nodes: rfNodes, edges: rfEdges };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Aggregate mode                                                     */
+/* ------------------------------------------------------------------ */
+
+// Re-exported so every consumer — the view, its tests and the `loadDependencyView`
+// module namespace extensions receive — reaches the aggregate layout through the
+// same module as the plain one.
+export {
+  buildLdvAggregateFlow,
+  LDV_AGGREGATE_LEVELS,
+  CL_PAD,
+  CL_HEADER_H,
+  type LdvAggregateBy,
+  type LdvAggregateFlow,
+  type LdvClusterData,
+} from "./ldvAggregate";
+
+// Moved into `ldvLayoutShared.ts` so the aggregate builder can align its boxes
+// with the very same pass; re-exported here because this module is the public
+// face of the layout engine, and what `loadDependencyView` hands extensions.
+export {
+  alignLanesX,
+  transposeRow,
+  type LaneForAlign,
+  type AlignedLane,
+} from "./ldvLayoutShared";
+
+// The view turns relations stored against their type the type's way before
+// laying them out (#1140); exported from here so a consumer building its own
+// graph from these builders can do the same.
+export { orientEdgesToRelationTypes } from "./ldvLayoutShared";

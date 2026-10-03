@@ -13,6 +13,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
+import { todayIsoDate } from "@/lib/dates";
+import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import type { PpmStatusReport, PpmHealthValue } from "@/types";
 
 interface Props {
@@ -28,6 +30,54 @@ const RAG_COLORS: Record<string, string> = {
   offTrack: "#d32f2f",
 };
 
+/** One RAG picker. Module scope: defined inline it was a fresh component type
+ * on every render, remounting all three groups on each keystroke. */
+function HealthToggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: PpmHealthValue;
+  onChange: (v: PpmHealthValue) => void;
+}) {
+  const { t } = useTranslation("ppm");
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="caption" fontWeight={600} mb={0.5} display="block">
+        {label}
+      </Typography>
+      <ToggleButtonGroup
+        value={value}
+        exclusive
+        onChange={(_, v) => v && onChange(v)}
+        size="small"
+        sx={{ width: { xs: "100%", sm: "auto" } }}
+      >
+        {(["onTrack", "atRisk", "offTrack"] as const).map((v) => (
+          <ToggleButton
+            key={v}
+            value={v}
+            sx={{
+              flex: { xs: 1, sm: "none" },
+              px: { xs: 0.5, sm: 1.5 },
+              fontSize: { xs: "0.7rem", sm: "0.8125rem" },
+              lineHeight: 1.2,
+              "&.Mui-selected": {
+                bgcolor: RAG_COLORS[v],
+                color: "#fff",
+                "&:hover": { bgcolor: RAG_COLORS[v] },
+              },
+            }}
+          >
+            {t(`health_${v}`)}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    </Box>
+  );
+}
+
 export default function StatusReportDialog({
   initiativeId,
   report,
@@ -35,10 +85,11 @@ export default function StatusReportDialog({
   onSaved,
 }: Props) {
   const { t } = useTranslation("ppm");
+  const fullScreen = useFullScreenDialog();
   const isEdit = !!report;
 
   const [reportDate, setReportDate] = useState(
-    report?.report_date || new Date().toISOString().slice(0, 10),
+    report?.report_date || todayIsoDate(),
   );
   const [scheduleHealth, setScheduleHealth] = useState<PpmHealthValue>(
     (report?.schedule_health as PpmHealthValue) || "onTrack",
@@ -81,47 +132,14 @@ export default function StatusReportDialog({
     }
   };
 
-  const HealthToggle = ({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: PpmHealthValue;
-    onChange: (v: PpmHealthValue) => void;
-  }) => (
-    <Box>
-      <Typography variant="caption" fontWeight={600} mb={0.5} display="block">
-        {label}
-      </Typography>
-      <ToggleButtonGroup
-        value={value}
-        exclusive
-        onChange={(_, v) => v && onChange(v)}
-        size="small"
-      >
-        {(["onTrack", "atRisk", "offTrack"] as const).map((v) => (
-          <ToggleButton
-            key={v}
-            value={v}
-            sx={{
-              px: 1.5,
-              "&.Mui-selected": {
-                bgcolor: RAG_COLORS[v],
-                color: "#fff",
-                "&:hover": { bgcolor: RAG_COLORS[v] },
-              },
-            }}
-          >
-            {t(`health_${v}`)}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-    </Box>
-  );
-
   return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      fullScreen={fullScreen}
+    >
       <DialogTitle>{isEdit ? t("editReport") : t("addReport")}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2.5} mt={1}>
@@ -133,7 +151,12 @@ export default function StatusReportDialog({
             sx={{ maxWidth: 200 }}
           />
 
-          <Box display="flex" gap={3} flexWrap="wrap">
+          <Box
+            display="flex"
+            flexDirection={{ xs: "column", sm: "row" }}
+            gap={{ xs: 1.5, sm: 3 }}
+            flexWrap="wrap"
+          >
             <HealthToggle
               label={t("health_schedule")}
               value={scheduleHealth}

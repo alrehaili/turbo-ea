@@ -48,6 +48,9 @@ class CardCreate(BaseModel):
     name: str
     description: str | None = None
     parent_id: str | None = None
+    # Label for this card's link to its parent, from the type's
+    # ``hierarchy_labels`` vocabulary (#1100). Refused when no parent is set.
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     external_id: str | None = None
@@ -82,6 +85,9 @@ class CardUpdate(BaseModel):
     subtype: str | None = None
     description: str | None = None
     parent_id: str | None = None
+    # Omitted leaves the stored label alone (``exclude_unset``); an explicit
+    # ``null`` clears it. Clearing ``parent_id`` clears it either way.
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     status: str | None = None
@@ -143,6 +149,7 @@ class CardResponse(BaseModel):
     name: str
     description: str | None = None
     parent_id: str | None = None
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     status: str
@@ -159,6 +166,11 @@ class CardResponse(BaseModel):
     updated_by: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # When the card's custom logo was last written, or None when it has none —
+    # or when its type has logos switched off, so the client needs no rule of
+    # its own to fall back to the type icon. Doubles as the image URL's
+    # cache-buster.
+    logo_updated_at: datetime | None = None
     tags: list[TagRef] = []
     stakeholders: list[StakeholderRef] = []
 
@@ -170,6 +182,11 @@ class CardListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    # Only in `ids=` mode: requested ids that exist but are hidden from the
+    # caller by a card-type View deny. Lets a caller that already holds the id
+    # (a diagram cell) tell "hidden from me" from "deleted" — without it the
+    # diagram editor would offer to remove every hidden card from the canvas.
+    withheld_ids: list[str] = []
 
 
 class CardRelationSummaryEntry(BaseModel):
@@ -193,6 +210,8 @@ class CardRelationSummaryHierarchy(BaseModel):
     parent_id: str | None = None
     parent_name: str | None = None
     parent_type: str | None = None
+    # This card's own label for its link to that parent (#1100).
+    parent_label: str | None = None
 
 
 class CardRelationSummaryResponse(BaseModel):
@@ -211,6 +230,9 @@ class DescendantRelationSummaryEntry(BaseModel):
     """
 
     relation_type_key: str
+    # The card's side of the type. A self-referencing type yields two entries,
+    # one per side — the Relations section renders it as two groups.
+    direction: Literal["outgoing", "incoming"]
     count: int
 
 
@@ -435,6 +457,7 @@ class CardBulkCreateItem(BaseModel):
     parent_id: str | None = None
     parent_path: list[str] | None = None
     parent_name: str | None = None
+    parent_label: str | None = None
     lifecycle: dict | None = None
     attributes: dict | None = None
     external_id: str | None = None

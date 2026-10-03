@@ -21,8 +21,11 @@ const EVENT_TAB_MAP: Record<string, string> = {
   "adr.linked": "adrs",
   "adr.unlinked": "adrs",
   "document.added": "resources",
+  "document.updated": "resources",
   "document.removed": "resources",
   "file.uploaded": "resources",
+  "file.replaced": "resources",
+  "file.updated": "resources",
   "file.deleted": "resources",
   "card.created": "card",
   "card.updated": "card",
@@ -34,6 +37,8 @@ const EVENT_TAB_MAP: Record<string, string> = {
   "relation.created": "card",
   "relation.updated": "card",
   "relation.deleted": "card",
+  "tag.added": "card",
+  "tag.removed": "card",
 };
 
 type StoreShape = {

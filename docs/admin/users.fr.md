@@ -56,6 +56,9 @@ Cliquez sur l'**icône de modification** sur n'importe quelle ligne d'utilisateu
 - **Mot de passe** (uniquement pour les utilisateurs locaux) : Définir un nouveau mot de passe. Laissez vide pour conserver le mot de passe actuel
 - **Rôle** : Modifier le rôle au niveau de l'application de l'utilisateur
 
+!!! note "Vous ne pouvez ni vous rétrograder ni vous désactiver"
+    Sur votre propre ligne, la liste **Rôle** et le bouton **Désactiver** sont désactivés, et l'API refuse également les deux modifications. Un administrateur qui abandonne son propre rôle perd les écrans d'administration du même clic, et seul un autre administrateur peut les lui rendre. Pour passer la main, demandez à un second administrateur de changer votre rôle. Si plus personne ne peut se connecter en tant qu'administrateur, suivez [Récupérer l'accès administrateur](operations.md#recovering-administrator-access).
+
 #### Lier un compte local existant au SSO
 
 Si un utilisateur possède déjà un compte local et que votre organisation active le SSO, l'utilisateur verra l'erreur « Un compte local avec cet e-mail existe déjà » lorsqu'il tentera de se connecter via SSO. Pour résoudre ce problème :
@@ -74,7 +77,7 @@ Cochez les cases en début de ligne pour sélectionner plusieurs utilisateurs. U
 - **Activer** / **Désactiver** — basculer `is_active` pour la sélection
 - **Supprimer** — supprimer définitivement les utilisateurs sélectionnés (seuls les utilisateurs désactivés sont supprimés ; les utilisateurs actifs présents dans la sélection sont ignorés avec un message explicatif)
 
-Le garde-fou « dernier administrateur » s'applique : un changement de rôle en masse qui laisserait zéro administrateur actif est refusé. Il en va de même pour la désactivation ou la suppression du dernier administrateur.
+Le garde-fou « dernier administrateur » s'applique : un changement de rôle en masse qui laisserait zéro administrateur actif est refusé. Il en va de même pour la désactivation ou la suppression du dernier administrateur. Pour la même raison, votre propre compte est ignoré par les changements de rôle et les désactivations en masse.
 
 #### Importer des utilisateurs depuis un tableur
 
@@ -118,6 +121,10 @@ L'onglet **Rôles** permet de gérer les rôles au niveau de l'application. Chaq
 | **Lecteur** | Accès en lecture seule dans tous les domaines |
 
 Des rôles personnalisés peuvent être créés avec un contrôle granulaire des permissions sur l'inventaire, les relations, les parties prenantes, les commentaires, les documents, les diagrammes, le BPM, les rapports, et plus encore.
+
+Les autorisations s'appliquent à la barre d'adresse comme au menu. Une page qu'un rôle ne peut pas ouvrir affiche la mention **Accès refusé** avec un lien vers le tableau de bord, qu'elle soit atteinte depuis la navigation, un favori ou un lien partagé — masquer une entrée de menu et bloquer la page sont donc toujours la même décision.
+
+Les autorisations d'un rôle s'appliquent par défaut à tous les types de fiches. Un administrateur peut les restreindre par type de fiche — autoriser ou refuser **Voir**, **Créer**, **Modifier**, **Archiver** et **Supprimer** — dans l'onglet **Autorisations** du type de fiche dans le [Métamodèle](metamodel.md#permissions). C'est ainsi que l'on permet à tout le monde de créer des applications tout en réservant les organisations et les initiatives à une équipe centrale. Refuser **Voir** va plus loin : les fiches de ce type disparaissent partout pour le rôle, à l'exception de celles sur lesquelles ses utilisateurs détiennent un rôle de partie prenante (voir [Masquer un type de fiche à un rôle](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Désactiver un utilisateur
 

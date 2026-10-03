@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.api.v1 import extensions as ext_api
@@ -484,6 +485,9 @@ class TestInstallLifecycle:
         entries = res.json()
         assert [e["key"] for e in entries] == ["sample-ext"]
         assert entries[0]["entry"].endswith("/ext-assets/sample-ext/1.0.0/entry.js")
+        # The display name rides along so the bell can say who sent a
+        # notification without a second request.
+        assert entries[0]["name"] == "Sample Extension"
 
     async def test_backend_install_still_needs_restart(self, client, db, vendor):
         """Backend code loads at import time — installing it must keep the
@@ -869,6 +873,172 @@ def catalog_payload(**overrides) -> dict:
     return {"extensions": [item]}
 
 
+class TestExtensionAssets:
+    """``GET /ext-assets/…`` — the unauthenticated static surface.
+
+    Unauthenticated by design (a dynamic ``import()`` and an ``<img src>``
+    cannot carry an Authorization header), so what it will and will not
+    resolve is the whole of its security. The logo widens the reachable set by
+    exactly one path per extension; these pin that it is one path and not a
+    directory.
+    """
+
+    LOGO = b"\x89PNG\r\n\x1a\n" + b"logo-bytes"
+
+    async def _install(self, client, db, admin, vendor, **teax_kwargs):
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(client, db, admin, vendor, **teax_kwargs)
+        await ext_api.run_apply(db, install, admin)
+        return install
+
+    async def _install_content_pack_with_logo(self, client, db, admin, vendor):
+        """A content-only pack: no ``frontend/`` directory exists at all, which
+        is the case the pre-logo route could not serve."""
+        return await self._install(
+            client,
+            db,
+            admin,
+            vendor,
+            files={
+                "content/pack.json": json.dumps(CONTENT_PACK).encode(),
+                "logo.png": self.LOGO,
+            },
+            logo="logo.png",
+        )
+
+    async def test_logo_served_for_a_content_only_pack(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_content_pack_with_logo(client, db, admin, vendor)
+
+        res = await client.get("/api/v1/ext-assets/sample-ext/1.0.0/logo.png")
+        assert res.status_code == 200
+        assert res.content == self.LOGO
+        assert res.headers["content-type"].startswith("image/png")
+        assert res.headers["cache-control"] == "public, max-age=31536000, immutable"
+        assert res.headers["x-content-type-options"] == "nosniff"
+
+    async def test_logo_url_is_reported_on_the_extension_list(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_content_pack_with_logo(client, db, admin, vendor)
+
+        res = await client.get("/api/v1/admin/extensions", headers=auth_headers(admin))
+        (row,) = [e for e in res.json() if e["key"] == "sample-ext"]
+        assert row["logo_url"] == "/api/v1/ext-assets/sample-ext/1.0.0/logo.png"
+
+    async def test_no_logo_reports_none(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install(client, db, admin, vendor)
+        res = await client.get("/api/v1/admin/extensions", headers=auth_headers(admin))
+        (row,) = [e for e in res.json() if e["key"] == "sample-ext"]
+        assert row["logo_url"] is None
+
+    @pytest.mark.parametrize("asset_path", ["manifest.json", "content/pack.json"])
+    async def test_only_the_declared_logo_escapes_the_frontend_dir(
+        self, client, db, vendor, asset_path
+    ):
+        """One extra reachable path per extension, not a directory: a sibling
+        of the logo inside the extension root stays unreachable."""
+        admin = await make_admin(db)
+        await self._install_content_pack_with_logo(client, db, admin, vendor)
+
+        res = await client.get(f"/api/v1/ext-assets/sample-ext/1.0.0/{asset_path}")
+        assert res.status_code == 404
+
+    @pytest.mark.parametrize(
+        "asset_path",
+        [
+            "logo.png/../../manifest.json",
+            "../manifest.json",
+            "../../../../etc/passwd",
+        ],
+    )
+    async def test_traversal_out_of_the_extension_root_is_refused(
+        self, client, db, vendor, asset_path
+    ):
+        """Called on the handler rather than through the client, because httpx
+        normalises ``..`` out of the path before it is ever sent — so the HTTP
+        route would answer 307 for a string the server must still refuse if it
+        ever arrives from a client that does not normalise.
+
+        The gate is string EQUALITY against the signature-covered manifest
+        value, never a prefix: ``logo.png/../..`` is not the declared logo, so
+        it falls into the frontend branch and dies on the containment check.
+        """
+        admin = await make_admin(db)
+        await self._install_content_pack_with_logo(client, db, admin, vendor)
+
+        with pytest.raises(HTTPException) as exc:
+            await ext_api.get_extension_asset("sample-ext", "1.0.0", asset_path)
+        assert exc.value.status_code == 404
+
+    async def test_frontend_assets_still_served(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install(
+            client,
+            db,
+            admin,
+            vendor,
+            files={"frontend/entry.js": b"window.TurboEA.register('sample-ext', {});"},
+            capabilities=["frontend"],
+            frontend={"entry": "frontend/entry.js"},
+        )
+        res = await client.get("/api/v1/ext-assets/sample-ext/1.0.0/entry.js")
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("text/javascript")
+
+    async def test_svg_logo_is_served_sandboxed(self, client, db, vendor):
+        """An SVG never executes inside an <img>, but navigating straight to
+        this URL renders it as a document in the app's own origin."""
+        admin = await make_admin(db)
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg"/>'
+        await self._install(
+            client,
+            db,
+            admin,
+            vendor,
+            files={"content/pack.json": json.dumps(CONTENT_PACK).encode(), "logo.svg": svg},
+            logo="logo.svg",
+        )
+        res = await client.get("/api/v1/ext-assets/sample-ext/1.0.0/logo.svg")
+        assert res.status_code == 200
+        assert "sandbox" in res.headers["content-security-policy"]
+
+    async def test_a_disabled_extension_still_serves_its_logo(self, client, db, vendor):
+        """The Installed tab renders disabled rows, and artwork is not code —
+        so `enabled` gates the frontend branch only."""
+        admin = await make_admin(db)
+        await self._install(
+            client,
+            db,
+            admin,
+            vendor,
+            files={
+                "content/pack.json": json.dumps(CONTENT_PACK).encode(),
+                "logo.png": self.LOGO,
+                "frontend/entry.js": b"window.TurboEA.register('sample-ext', {});",
+            },
+            capabilities=["content", "frontend"],
+            frontend={"entry": "frontend/entry.js"},
+            logo="logo.png",
+        )
+        await client.put(
+            "/api/v1/admin/extensions/sample-ext/enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+
+        assert (await client.get("/api/v1/ext-assets/sample-ext/1.0.0/logo.png")).status_code == 200
+        assert (await client.get("/api/v1/ext-assets/sample-ext/1.0.0/entry.js")).status_code == 404
+
+    async def test_unknown_extension_is_not_found(self, client, db, vendor):
+        res = await client.get("/api/v1/ext-assets/nope-ext/1.0.0/logo.png")
+        assert res.status_code == 404
+
+
 class TestStoreCatalog:
     async def test_unconfigured_store(self, client, db, vendor, monkeypatch):
         admin = await make_admin(db)
@@ -941,6 +1111,7 @@ class TestStoreCatalog:
             catalog=catalog_payload(
                 demo_url="https://youtu.be/demo",
                 trial_link="https://buy.stripe.test/pl_trial_1",
+                monthly_payment_link="https://buy.stripe.test/pl_month_1",
             ),
         )
 
@@ -956,6 +1127,8 @@ class TestStoreCatalog:
         assert item["payment_link"] == "https://buy.stripe.test/pl_1"
         # Trial checkout link passes through; absent from the catalogue → "".
         assert item["trial_link"] == "https://buy.stripe.test/pl_trial_1"
+        # A second billing plan is its own link, beside the yearly one.
+        assert item["monthly_payment_link"] == "https://buy.stripe.test/pl_month_1"
         # A paid (non-trial) entitlement is not flagged as a trial.
         assert item["entitlement_trial"] is False
         assert item["demo_url"] == "https://youtu.be/demo"
@@ -968,6 +1141,7 @@ class TestStoreCatalog:
         assert item["license"] == ""
         assert item["license_url"] == ""
         assert item["screenshots"] == []
+        assert item["logo"] == ""
 
     async def test_catalog_flags_trial_entitlements(self, client, db, vendor, monkeypatch):
         """A trial entitlement (active here; same for expired) surfaces as
@@ -1048,6 +1222,7 @@ class TestStoreCatalog:
                     "https://evil.example.net/y.png",  # off-origin → dropped
                     "/screenshots/sample-ext/b.png",
                 ],
+                logo="/logos/sample-ext.png",
             ),
         )
         res = await client.get(
@@ -1066,6 +1241,31 @@ class TestStoreCatalog:
             f"{STORE_URL}/screenshots/sample-ext/a.png",
             f"{STORE_URL}/screenshots/sample-ext/b.png",
         ]
+        assert item["logo"] == f"{STORE_URL}/logos/sample-ext.png"
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "//evil.example.net/logo.png",  # protocol-relative
+            "https://evil.example.net/logo.png",  # off-origin
+            "logos/sample-ext.png",  # not /-rooted
+            "/logos/sample-ext.html",  # not an image suffix
+            42,  # not even a string
+        ],
+    )
+    async def test_catalog_logo_goes_through_the_same_origin_guard(
+        self, client, db, vendor, monkeypatch, raw
+    ):
+        """The catalogue is external data. A logo path that is not a
+        same-origin, /-rooted image is dropped rather than handed to an
+        <img src>, exactly as a screenshot path is."""
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(logo=raw))
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["logo"] == ""
 
     async def test_catalog_surfaces_sanitized_tags(self, client, db, vendor, monkeypatch):
         """Category tags pass through as slugs only, deduped and capped — the
@@ -1113,6 +1313,42 @@ class TestStoreCatalog:
         (item,) = res.json()["items"]
         assert item["tags"] == []
 
+    async def test_catalog_surfaces_category_slug(self, client, db, vendor, monkeypatch):
+        """The store section slug passes through untouched — the frontend owns
+        the vocabulary and files an unknown slug under its "Other" section."""
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(category="integrations"))
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        (item,) = res.json()["items"]
+        assert item["category"] == "integrations"
+
+    @pytest.mark.parametrize(
+        "raw",
+        ["<script>", "Not A Slug", 123, ["integrations"], "x" * 40],
+    )
+    async def test_catalog_drops_a_category_that_is_not_a_slug(
+        self, client, db, vendor, monkeypatch, raw
+    ):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(category=raw))
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["category"] == ""
+
+    async def test_catalog_without_category_defaults_empty(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["category"] == ""
+
     async def test_unlicensed_uninstalled_item(self, client, db, vendor, monkeypatch):
         admin = await make_admin(db)
         mock_store(monkeypatch, catalog=catalog_payload(key="other-ext", name="Other"))
@@ -1148,6 +1384,51 @@ class TestStoreCatalog:
 
 
 class TestStoreInstall:
+    async def test_service_catalog_item_flag_surfaced(self, client, db, vendor, monkeypatch):
+        # A service listing has nothing to install: no version, no bundle. It
+        # still annotates like any item, and is never "update available".
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(
+                key="support", name="Support", service=True, version="", bundle_url=""
+            ),
+        )
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["service"] is True
+        assert item["version"] == ""
+        assert item["installed_version"] is None
+        assert item["update_available"] is False
+        assert item["entitlement_state"] == "unlicensed"
+
+    async def test_service_flag_defaults_false(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["service"] is False
+
+    async def test_install_from_store_refuses_a_service_listing(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(key="support", service=True, version="", bundle_url=""),
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "support"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 404
+        assert "service" in res.json()["detail"]
+
     async def test_install_from_store_lands_in_upload_pipeline(
         self, client, db, vendor, monkeypatch
     ):

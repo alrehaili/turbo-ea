@@ -26,6 +26,14 @@ Verwenden Sie die Symbolleiste, um:
 
 Diese Filter bleiben in der URL erhalten, sodass eine Seitenaktualisierung Ihre aktuelle Ansicht beibehält.
 
+### Drucken und Exportieren
+
+Das Portfolio bietet dieselben Aktionen in der Titelleiste wie die Berichte:
+
+- **Drucken / Als PDF speichern** — Das Druckersymbol druckt das Portfolio so, wie es auf dem Bildschirm aussieht. Die Registerkartenleiste, die Filterleiste und Hover-Popovers werden ausgeblendet, die aktive Gruppierung, der Subtyp und die Suche erscheinen als kompakte Parameterzeile, und das Zeitplanraster wird nicht mehr beschnitten, sodass alle Spalten auf die Seite passen.
+- **Export nach PowerPoint (.pptx)** — über das **⋮**-Menü. Die erste Folie enthält Titel, Erstellungszeitstempel und die aktiven Filter zusammen mit dem Portfolio in Präsentationsqualität; lange Portfolios werden auf weiteren Folien fortgesetzt und nur zwischen Initiativen getrennt — nie mitten in einer Zeile, einer Gruppenüberschrift oder einer Summenzeile.
+- **Export nach Excel (.xlsx)** — ebenfalls über das **⋮**-Menü. Eine Zeile je Initiative mit Gruppe, Subtyp, Projektleitung, Start- und Enddatum, den drei Gesundheitsbewertungen, CapEx/OpEx geplant und tatsächlich sowie dem Datum des letzten Statusberichts.
+
 ## Initiativ-Detailansicht
 
 Klicken Sie auf eine Initiative, um deren Detailseite mit sieben Tabs zu öffnen:
@@ -67,6 +75,21 @@ Finanzdaten verfolgen mit zwei Arten von Positionen:
 
 Budget- und Kostensummen werden automatisch in die `costBudget`- und `costActual`-Attribute der Initiativ-Karte hochgerechnet.
 
+#### Ausgaben im Zeitverlauf
+
+Über den Budget- und Kostentabellen zeigen drei Diagramme, wie sich die Ausgaben Monat für Monat aufsummieren:
+
+- **Kumulierte Ausgaben nach Kategorie** — kumulierte CapEx und OpEx für das gewählte Geschäftsjahr, mit gepunkteten waagerechten Linien für das CapEx- und OpEx-Budget dieses Jahres
+- **Kumulierte Gesamtausgaben** — dasselbe Geschäftsjahr mit beiden Kategorien zusammengefasst, gegen eine gepunktete Gesamtbudget-Linie
+- **Projekt bis heute** — kumulierte CapEx und OpEx über alle Monate des Projekts, gegen das Gesamtbudget aller Geschäftsjahre
+
+Die Geschäftsjahr-Auswahl gilt für die ersten beiden Diagramme und bietet das laufende Jahr, jedes weitere Jahr mit Daten sowie **Alle Geschäftsjahre**. Geschäftsjahr und der Auf-/Zugeklappt-Zustand werden zwischen Besuchen gespeichert.
+
+Zwei Hinweise zum Lesen der Diagramme:
+
+- Die Linien enden im aktuellen Monat, statt flach bis zum Jahresende weiterzulaufen — so wird ein laufendes Jahr nicht mit einem verwechselt, in dem die Ausgaben gestoppt wurden
+- Kostenpositionen ohne Datum lassen sich zeitlich nicht einordnen und bleiben unberücksichtigt. Ein Hinweis unter den Diagrammen nennt die Anzahl der ausgeschlossenen Positionen, damit sich die Diagrammsummen mit der Übersichtsleiste abgleichen lassen
+
 ### Risikomanagement-Tab
 
 ![PPM Risikomanagement](../assets/img/de/44_ppm_risikomanagement.png)
@@ -94,7 +117,7 @@ Der Aufgabenmanager unterstützt **Kanban-Board** und **Listen**-Ansichten mit v
 - **Erledigt** — Abgeschlossene Aufgaben
 - **Blockiert** — Aufgaben, die nicht fortgesetzt werden können
 
-Aufgaben können nach Projektstrukturplan (PSP)-Element gefiltert und gruppiert werden. Ziehen Sie Karten zwischen Spalten, um den Status zu aktualisieren.
+Aufgaben können nach Projektstrukturplan (PSP)-Element gefiltert und gruppiert werden. Bei Gruppierung erscheint jedes Arbeitspaket als Gruppe — auch eines, das noch keine Aufgaben enthält; es zeigt einen Hinweis und eine Schaltfläche **Aufgabe hinzufügen**, die den Aufgabendialog mit diesem Paket vorausgewählt öffnet. Meilensteine erscheinen erst, sobald sie eine Aufgabe enthalten. Ziehen Sie Karten zwischen Spalten, um den Status zu aktualisieren.
 
 Anzeigefilter (Ansichtsmodus, WBS-Filter, Gruppierungs-Umschalter) bleiben in der URL zwischen Seitenaktualisierungen erhalten.
 
@@ -107,7 +130,7 @@ Das Gantt-Diagramm visualisiert den Projektzeitplan mit:
 - **Arbeitspakete (WBS)** — Hierarchische Projektstrukturplanelemente mit Start-/Enddaten
 - **Aufgaben** — Einzelne Aufgabenbalken, die mit Arbeitspaketen verknüpft sind
 - **Meilensteine** — Wichtige Termine, markiert mit Rautenindikatoren
-- **Fortschrittsbalken** — Visueller Fertigstellungsgrad. Klicken Sie auf den Prozent-Chip einer Aufgabe oder eines Blatt-Arbeitspakets, um einen Schieberegler zu öffnen, der auf **0%, 50% oder 100%** einrastet — entsprechend den drei Aufgabenstatus (Zu erledigen, In Bearbeitung, Erledigt). Übergeordnete Arbeitspakete mit Unterelementen zeigen einen schreibgeschützten Chip, dessen Wert automatisch aus dem Teilbaum hochgerechnet wird.
+- **Fortschrittsbalken** — Visueller Fertigstellungsgrad. Eine Aufgabe hat keinen eigenen Prozentwert: ihre Füllung folgt ihrem Status — **Zu erledigen (0%)**, **In Bearbeitung (50%)**, **Erledigt (100%)**. Klicken Sie auf den Prozent-Chip einer Aufgabe, um einen Schieberegler zu öffnen, dessen drei Stufen mit diesen Status beschriftet sind; die Wahl einer Stufe ändert den Status, und das Ziehen der Füllung auf dem Balken der Aufgabe tut dasselbe. Ein Blatt-Arbeitspaket hat einen freien Schieberegler in 5%-Schritten. Arbeitspakete mit untergeordneten Arbeitspaketen **oder Aufgaben** zeigen einen schreibgeschützten Chip, dessen Wert automatisch aus dem Teilbaum hochgerechnet wird.
 - **Quartalstakte** — Zeitraster zur Orientierung
 
 Interaktion mit dem Gantt-Diagramm:
@@ -115,6 +138,7 @@ Interaktion mit dem Gantt-Diagramm:
 - **Skalenauswahl** — Tag, Woche, Monat, Quartal oder Jahr; die Auswahl wird im Browser gespeichert
 - **Zoom-Schaltflächen (+/−)** — Schrittweises Vergrößern bzw. Verkleinern entlang derselben fünf Skalen
 - **Punkte an den Balkenenden** — Vom rechten Punkt eines Balkens auf den linken Punkt eines anderen ziehen, um eine Finish-to-Start-Abhängigkeit zu erstellen. Funktioniert zwischen Arbeitspaketen und Aufgaben in jeder Kombination. Zyklen werden automatisch zurückgewiesen. **Pfeil doppelklicken**, um ihn zu entfernen.
+- **Die +-Zeile** am Ende der Liste fragt, was erstellt werden soll — ein Arbeitspaket, ein Meilenstein oder eine Aufgabe —, sodass eine dort eingegebene Aufgabe im Aufgaben-Tab landet.
 
 ### Kartendetails-Tab
 
@@ -127,7 +151,7 @@ Der PSP bietet eine hierarchische Zerlegung des Projektumfangs:
 - **Arbeitspakete** — Logische Gruppierungen von Aufgaben mit Start-/Enddaten und Fortschrittsverfolgung
 - **Meilensteine** — Bedeutende Ereignisse oder Abschlusspunkte
 - **Hierarchie** — Eltern-Kind-Beziehungen zwischen PSP-Elementen
-- **Auto-Fertigstellung** — Der Fertigstellungsgrad wird automatisch aus dem Verhältnis erledigter/gesamter Aufgaben berechnet und dann rekursiv durch die WBS-Hierarchie bis zu den übergeordneten Elementen aufgerollt. Der Gesamtfortschritt auf oberster Ebene repräsentiert den Gesamtfortschritt der Initiative
+- **Auto-Fertigstellung** — Der Fertigstellungsgrad wird automatisch aus den Aufgaben im Teilbaum eines Arbeitspakets berechnet: jede Aufgabe zählt als 0% (Zu erledigen, Blockiert), 50% (In Bearbeitung) oder 100% (Erledigt), gewichtet nach ihrer Dauer in Tagen (ein Tag, wenn ein Datum fehlt), und wird dann rekursiv zu den übergeordneten Elementen aufgerollt. Ein Arbeitspaket ohne Aufgaben irgendwo unterhalb behält den von Hand eingetragenen Wert. Der Mittelwert der Arbeitspakete oberster Ebene ist der Gesamtfortschritt der Initiative — die Zahl auf dem Übersicht-Tab und die Variable `ppm.completion`, die ein [berechnetes Feld](../admin/calculations.md#ppm-data-on-initiative-cards) auf der Karte und in einem Portal anzeigen kann
 
 ## Kartendetail-Integration
 
@@ -139,6 +163,6 @@ Umgekehrt zeigt der **Kartendetails**-Tab innerhalb der PPM-Initiativ-Detailansi
 
 | Berechtigung | Beschreibung |
 |-------------|--------------|
-| `ppm.view` | PPM-Dashboard, Gantt-Diagramm und Initiativberichte anzeigen. Standardmäßig für alle Rollen gewährt |
+| `ppm.view` | PPM-Dashboard, Gantt-Diagramm und Initiativberichte anzeigen sowie Initiative-Karten lesen. Standardmäßig für alle Rollen gewährt |
 | `ppm.manage` | Statusberichte, Aufgaben, Kosten, Risiken und WBS-Elemente erstellen und verwalten. Gewährt für Admin-, BPM-Admin- und Mitglied-Rollen |
 | `reports.ppm_dashboard` | PPM-Portfolio-Dashboard anzeigen. Standardmäßig für alle Rollen gewährt |

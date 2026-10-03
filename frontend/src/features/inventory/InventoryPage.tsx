@@ -17,7 +17,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
-import LinearProgress from "@mui/material/LinearProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -44,13 +43,22 @@ import InventoryFilterSidebar, {
   CORE_COLUMN_KEYS,
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
+  LOGO_COLUMN_KEY,
+  EOL_COLUMN_KEY,
   EMPTY_VALUE,
+  eolColumnApplies,
+  hierarchyLabelColumnApplies,
+  logoColumnApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
   valueIsEmpty,
   tagsToFilterText,
   type Filters,
 } from "./InventoryFilterSidebar";
+import CardLogoMenu from "@/components/CardLogoMenu";
+import LogoCell, {
+  INVENTORY_LOGO_ROW_HEIGHT,
+} from "./LogoCell";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import ImportDialog from "./ImportDialog";
@@ -64,24 +72,92 @@ import {
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
+import ExtFieldCell from "./ExtFieldCell";
+import LinkifiedText from "@/components/LinkifiedText";
+import MuiLink from "@mui/material/Link";
+import { isLinkableHref } from "@/lib/linkify";
+import { PercentBar, percentValue } from "@/components/PercentBar";
+
+/**
+ * A `percentage` attribute column: the same bar card detail draws, and the
+ * export carries the caption it is labelled with. Shared by the single-type
+ * and common-fields branches below so the two cannot drift.
+ */
+const percentageColumnDef = {
+  valueFormatter: (p: { value?: unknown }) =>
+    p.value === null || p.value === undefined || p.value === ""
+      ? ""
+      : `${percentValue(Number(p.value))}%`,
+  cellRenderer: (p: { value: unknown }) =>
+    p.value === null || p.value === undefined || p.value === "" ? null : (
+      <PercentBar value={Number(p.value)} width={72} height={6} />
+    ),
+} as const;
+
+/**
+ * A free-text column (`description`, a `text` / `multiline_text` attribute)
+ * renders through the same linkifier card detail uses, so an address pasted
+ * into a description is a link in the grid too. The value stays a plain
+ * string — no `valueFormatter` needed, the export reads the raw text. A
+ * `url`-typed value is one whole link when it passes the scheme allowlist
+ * (mailto included), else plain text.
+ */
+const linkifiedCell = {
+  cellRenderer: (p: { value?: unknown }) =>
+    p.value === null || p.value === undefined || p.value === "" ? null : (
+      <LinkifiedText text={String(p.value)} />
+    ),
+} as const;
+const urlCell = {
+  cellRenderer: (p: { value?: unknown }) => {
+    if (p.value === null || p.value === undefined || p.value === "") return null;
+    const href = String(p.value);
+    if (!isLinkableHref(href)) return href;
+    return (
+      <MuiLink
+        href={href.trim()}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="hover"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Second click of a double-click: edit the cell, don't open a
+          // second tab (same rule as LinkifiedText).
+          if (e.detail > 1) e.preventDefault();
+        }}
+      >
+        {href}
+      </MuiLink>
+    );
+  },
+} as const;
+const isFreeTextField = (type: string) => type === "text" || type === "multiline_text";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { readableCardTypes } from "@/hooks/useReadableCardTypes";
+import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import OptionChip from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, isEolType } from "@/lib/eol";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
+import { sideKey } from "@/lib/relationSort";
+import { buildRelationIndex } from "./relationIndex";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useColumnOrder } from "@/components/grid/useColumnOrder";
-import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import { colIdOf, isInternalColId, isOrderableColumn } from "@/components/grid/columnOrder";
 import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import {
   useCellContextMenu,
@@ -103,7 +179,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -260,37 +336,6 @@ function buildDescendantIndex(items: Card[]): Map<string, string[]> {
   return index;
 }
 
-/**
- * Build a lookup: for each relation type, map cardId → array of related cards.
- * When the selected type is the source, we index by source_id and show targets.
- * When the selected type is the target, we index by target_id and show sources.
- *
- * The far end's **id** is kept, not just its name: the cell text needs the
- * name, but the context menu's Preview action needs to open the card, and
- * resolving a name back to an id is ambiguous the moment two cards share one.
- */
-function buildRelationIndex(
-  relations: Relation[],
-  relationType: RelationType,
-  selectedType: string
-): Map<string, RelatedCardRef[]> {
-  const index = new Map<string, RelatedCardRef[]>();
-  const isSource = relationType.source_type_key === selectedType;
-
-  for (const rel of relations) {
-    const myId = isSource ? rel.source_id : rel.target_id;
-    const other = isSource ? rel.target : rel.source;
-    if (!other?.name || !other.id) continue;
-    const ref: RelatedCardRef = { id: other.id, name: other.name, type: other.type };
-    const existing = index.get(myId);
-    if (existing) {
-      existing.push(ref);
-    } else {
-      index.set(myId, [ref]);
-    }
-  }
-  return index;
-}
 
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
@@ -300,6 +345,7 @@ type InventoryRow = GroupedRow<Card>;
 function urlHasFilterParams(searchParams: URLSearchParams): boolean {
   return (
     searchParams.has("type") ||
+    searchParams.has("subtype") ||
     searchParams.has("search") ||
     searchParams.has("approval_status") ||
     searchParams.has("show_archived") ||
@@ -311,6 +357,8 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("architecture_state") ||
     searchParams.has("change_type") ||
     searchParams.has("segment_id") ||
+    searchParams.has("eol") ||
+    searchParams.has("link") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -469,16 +517,23 @@ const FILL_CONCURRENCY = 6;
  * Everything else is gated by AG Grid's own `editable`, which the hook already
  * consults — so the readonly attributes, the Parent column outside a single
  * hierarchical type, and the stakeholder columns without the manage permission
- * need no special case here. Two exclusions are ours:
+ * need no special case here. Three exclusions are ours:
  *
  *  - **Name** is the card's identity. Copying one name down a column produces
  *    duplicates that the backend rejects on sibling-name uniqueness for every
  *    hierarchical type, so the affordance would be an invitation to fail.
  *  - **Relation columns** are driven by a popover, not an AG Grid editor;
  *    they carry no `editable` and no `field` to write through.
+ *  - **Logo** is an identity, and one drag would rewrite the mark on every row
+ *    it covered with no per-cell undo — re-uploading two hundred marks by hand
+ *    is not a recovery. It is excluded here *by name* rather than left to the
+ *    `colDef.field` test below, which it happens to fail today: that is a
+ *    property of how the column is built, and an unrelated edit could take it
+ *    away silently.
  */
 export function isInventoryFillable(colId: string, colDef: { field?: string }): boolean {
   if (colId === "core_name") return false;
+  if (colId === LOGO_COLUMN_KEY) return false;
   if (colId.startsWith("rel_")) return false;
   // AG Grid's own selection / controls column, and anything with no field to
   // persist through (Path, Data Quality, …).
@@ -502,6 +557,7 @@ export function currentFieldValue(card: Card, field: string): unknown {
   }
   if (field.startsWith("attr_")) return (card.attributes ?? {})[field.slice("attr_".length)];
   if (field === "parent_id") return card.parent_id ?? null;
+  if (field === "parent_label") return card.parent_label ?? null;
   return (card as unknown as Record<string, unknown>)[field];
 }
 
@@ -706,6 +762,9 @@ function savePrefs(prefs: InventoryPrefs) {
 
 export default function InventoryPage() {
   const { t, i18n } = useTranslation(["inventory", "common"]);
+  // EOL status labels belong to the EOL report; the grid borrows them rather
+  // than keeping a second copy that can drift.
+  const { t: tReports } = useTranslation("reports");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatDate, formatDateTime } = useDateFormat();
@@ -716,6 +775,10 @@ export default function InventoryPage() {
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
   const { user } = useAuth();
+  // The types this user may browse. The metamodel stays complete (a card held
+  // through a stakeholder role can be of a type they cannot browse), but the
+  // type filter, the relation columns and mass-edit only offer these.
+  const readableTypes = useMemo(() => readableCardTypes(types, user), [types, user]);
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
   const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
@@ -769,7 +832,9 @@ export default function InventoryPage() {
       return {
         types: searchParams.get("type") ? [searchParams.get("type")!] : [],
         search: searchParams.get("search") || "",
-        subtypes: [],
+        // Repeatable, like the sidebar's subtype filter (client-side over the
+        // fetched page — GET /cards has no subtype param).
+        subtypes: searchParams.getAll("subtype"),
         lifecyclePhases: [],
         dataQualityBands: searchParams.getAll("dq").filter(isDataQualityBand),
         approvalStatuses: searchParams.get("approval_status")
@@ -789,6 +854,8 @@ export default function InventoryPage() {
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
         orphanedOnly: searchParams.get("orphaned") === "true",
         staleOnly: searchParams.get("stale") === "true",
+        eolStatuses: searchParams.getAll("eol"),
+        linkTypes: searchParams.getAll("link"),
       };
     }
 
@@ -813,6 +880,8 @@ export default function InventoryPage() {
         mineScope: saved.filters.mineScope ?? null,
         orphanedOnly: saved.filters.orphanedOnly || false,
         staleOnly: saved.filters.staleOnly || false,
+        eolStatuses: saved.filters.eolStatuses || [],
+        linkTypes: saved.filters.linkTypes || [],
       };
     }
 
@@ -833,6 +902,8 @@ export default function InventoryPage() {
       mineScope: null,
       orphanedOnly: false,
       staleOnly: false,
+      eolStatuses: [],
+      linkTypes: [],
     };
   });
   // Current filters, readable from the facet bindings' stable callbacks
@@ -873,6 +944,27 @@ export default function InventoryPage() {
   const [gridEditMode, setGridEditMode] = useState(false);
   // Card-detail side panel: opened from the eye icon in the Name column.
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
+
+  // Logo column: the cell the change-logo menu hangs off, and the card it acts
+  // on. The target deliberately outlives the menu closing — the file dialog is
+  // browser-modal and comes back long after.
+  const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
+  const [logoTarget, setLogoTarget] = useState<Card | null>(null);
+  const [logoSnack, setLogoSnack] = useState("");
+  const openLogoMenu = useCallback((anchor: HTMLElement, card: Card) => {
+    setLogoTarget(card);
+    setLogoMenuAnchor(anchor);
+  }, []);
+  // A logo write touches nothing else on the card, so refreshing the row in
+  // place beats a reload of every row in the grid.
+  const applyLogoUpdate = useCallback((cardId: string, logoUpdatedAt: string | null) => {
+    setData((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, logo_updated_at: logoUpdatedAt } : c)),
+    );
+    setLogoTarget((prev) =>
+      prev && prev.id === cardId ? { ...prev, logo_updated_at: logoUpdatedAt } : prev,
+    );
+  }, []);
 
   // Relations data: relTypeKey → Map<cardId, relatedCards[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, RelatedCardRef[]>>>(new Map());
@@ -950,7 +1042,7 @@ export default function InventoryPage() {
     () =>
       savedPrefsRef.current?.frozenColumns ??
       (savedPrefsRef.current?.columnState ?? [])
-        .filter((c) => c.pinned === "left" && c.colId)
+        .filter((c) => c.pinned === "left" && c.colId && !isInternalColId(c.colId))
         .map((c) => c.colId),
   );
   // colId order. Seeded from the order of a layout saved before ordering had
@@ -960,7 +1052,7 @@ export default function InventoryPage() {
       savedPrefsRef.current?.columnOrder ??
       (savedPrefsRef.current?.columnState ?? [])
         .map((c) => c.colId)
-        .filter((id): id is string => !!id),
+        .filter((id): id is string => !!id && !isInternalColId(id)),
   );
   // Mirror of the latest columnState for the apply effect (which keys on
   // columnDefs, not columnState, to avoid re-applying on every capture).
@@ -987,11 +1079,17 @@ export default function InventoryPage() {
     // A view carries its freezes inside the layout's `pinned`; hand them to
     // `frozenColumns`, which is what actually drives the grid.
     setFrozenColumns(
-      (layout ?? []).filter((c) => c.pinned === "left" && c.colId).map((c) => c.colId),
+      (layout ?? [])
+        .filter((c) => c.pinned === "left" && c.colId && !isInternalColId(c.colId))
+        .map((c) => c.colId),
     );
     // A view's order rides in its layout's array positions; hand it to
     // `columnOrder`, which is what actually drives the grid.
-    setColumnOrder((layout ?? []).map((c) => c.colId).filter((id): id is string => !!id));
+    setColumnOrder(
+      (layout ?? [])
+        .map((c) => c.colId)
+        .filter((id): id is string => !!id && !isInternalColId(id)),
+    );
     setLayoutNonce((n) => n + 1);
   }, []);
 
@@ -1103,14 +1201,42 @@ export default function InventoryPage() {
   const [relEditOpen, setRelEditOpen] = useState(false);
   const [relEditFsId, setRelEditFsId] = useState("");
   const [relEditFsName, setRelEditFsName] = useState("");
-  const [relEditRelType, setRelEditRelType] = useState<RelationType | null>(null);
+  // Every relation type the clicked column stands for — a column is keyed by the
+  // related card type, and several relation types may share that pair.
+  const [relEditRelTypes, setRelEditRelTypes] = useState<RelationType[]>([]);
 
-  // React to ?create=true search param
+  // Exactly one faceted type drives the per-type affordances below.
+  const facetedType = filters.types.length === 1 ? filters.types[0] : "";
+
+  // Per-card-type permission overrides (discussion #1068). With exactly one
+  // type faceted the affordances follow that type; with none or several, the
+  // Create button only needs *some* creatable type — the dialog's own picker
+  // then narrows it, and the server enforces the rest.
+  const canCreateAnyType = useMemo(() => canCreateAnyCardType(user, types), [types, user]);
+  const canCreateSelectedType = facetedType
+    ? hasTypePermission(user, "inventory.create", facetedType)
+    : canCreateAnyType;
+  // Grid edit mode writes to the faceted type, so it needs edit on that type.
+  // Without a single faceted type the rows span types and the server decides
+  // per card, which is the same posture as the archive/delete buttons below.
+  const canGridEditSelectedType = facetedType
+    ? hasTypePermission(user, "inventory.edit", facetedType)
+    : true;
+
+  // Leaving edit mode on when the user facets to a type they may not edit would
+  // offer editable cells whose every write 403s. The toggle is hidden in that
+  // state, so without this the mode would also be un-exitable.
   useEffect(() => {
-    if (searchParams.get("create") === "true") {
+    if (!canGridEditSelectedType) setGridEditMode(false);
+  }, [canGridEditSelectedType]);
+
+  // React to ?create=true search param. A deep link must not open a dialog for
+  // a type this role may not create — the button is hidden in that case too.
+  useEffect(() => {
+    if (searchParams.get("create") === "true" && canCreateSelectedType) {
       setCreateOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, canCreateSelectedType]);
 
   // Sync ?search= URL param into filters when navigating to inventory from elsewhere (e.g. toolbar)
   useEffect(() => {
@@ -1138,8 +1264,77 @@ export default function InventoryPage() {
   }, []);
 
   // Derive the single selected type for column rendering (only when exactly one type selected)
-  const selectedType = filters.types.length === 1 ? filters.types[0] : "";
+  const selectedType = facetedType;
+  // A field written by an active calculation is read-only everywhere card
+  // detail locks it; the grid and the mass-edit picker owe the same lock.
+  const { calculatedFields } = useCalculatedFields();
+  const calculatedKeys = useMemo(
+    () => new Set(selectedType ? calculatedFields[selectedType] ?? [] : []),
+    [calculatedFields, selectedType],
+  );
   const typeConfig = types.find((t) => t.key === selectedType);
+
+  // --- Logo column -----------------------------------------------------------
+  // Offered only when a type in view can carry a logo (same rule the column
+  // picker applies, from the same helper), and shown only when the user has
+  // ticked it — every row grows taller while it is on screen.
+  const logoColumnAvailable = useMemo(
+    () => logoColumnApplies(types, filters.types),
+    [types, filters.types],
+  );
+  const logoColumnShown = logoColumnAvailable && selectedColumns.has(LOGO_COLUMN_KEY);
+  // The backend authorises each write against the card, but the affordance is
+  // gated here so a viewer is not offered an edit that can only 403.
+  const canEditLogos = hasTypePermission(user, "inventory.edit", selectedType || null);
+  // AG Grid measures each row once; toggling the column changes `rowHeight` but
+  // leaves the rows already laid out at the old height until they are re-measured.
+  useEffect(() => {
+    gridRef.current?.api?.resetRowHeights();
+  }, [logoColumnShown, gridReady]);
+
+  // --- End of life -----------------------------------------------------------
+  // The card stores only the endoflife.date link (or a manual date); the dates
+  // behind it are resolved server-side, so the column and facet need one call
+  // per selected type. Only for a SINGLE EOL-capable type: the endpoint is
+  // per-type, and a column of dates from two different populations answers
+  // nothing. Through `useApiQuery` rather than a bare `api.get` in an effect,
+  // so a slow response for the previous type cannot overwrite the current one
+  // (#882).
+  const eolTypeKey =
+    filters.types.length === 1 && isEolType(filters.types[0]) ? filters.types[0] : null;
+  const canViewEol = !!(user?.permissions?.["*"] || user?.permissions?.["eol.view"]);
+  const { data: eolStatusData, loading: eolLoading } = useApiQuery<EolCardStatusResponse>(
+    eolTypeKey && canViewEol ? `/eol/card-status?type=${encodeURIComponent(eolTypeKey)}` : null,
+  );
+  const eolStatusMap = eolStatusData?.items;
+  const eolOf = useCallback(
+    (card: Card): EolCardStatus | undefined => eolStatusMap?.[card.id],
+    [eolStatusMap],
+  );
+  // Same rule the column picker and the facet use, so all three appear and
+  // disappear together.
+  const eolColumnAvailable = canViewEol && eolColumnApplies(filters.types);
+
+  // --- Hierarchy link labels (#1100) -----------------------------------------
+  // The vocabulary a parent link is labelled from, and whether the column is
+  // offered at all. Same helper the column picker uses, so the checkbox and the
+  // column can never disagree.
+  const hierarchyLabelOptions = useMemo(
+    () => (filters.types.length === 1 ? typeConfig?.hierarchy_labels ?? [] : []),
+    [filters.types, typeConfig],
+  );
+  const hierarchyLabelColumnAvailable = hierarchyLabelColumnApplies(types, filters.types);
+  // Resolve a stored key to its localized label for filtering, sorting and
+  // export. An unknown key falls back to the raw value so a stale one stays
+  // visible and searchable rather than becoming an empty cell.
+  const hierarchyLabelText = useCallback(
+    (key: string | null | undefined): string => {
+      if (!key) return "";
+      const option = hierarchyLabelOptions.find((o) => o.key === key);
+      return option ? optLabel(option) : key;
+    },
+    [hierarchyLabelOptions, optLabel],
+  );
 
   // URL deep-links seed attribute filters as scalar strings (the URL block
   // above runs before the metamodel loads, so it can't know which fields are
@@ -1258,14 +1453,17 @@ export default function InventoryPage() {
     return common;
   }, [types, filters.types]);
 
-  // Relevant relation types for the selected type (excluding relations to hidden types)
-  // Since the API excludes hidden types, check that the other-end type exists in visible types
-  // Deduplicated by other-end type key to avoid showing duplicate columns (e.g. two relation
-  // types both connecting Platform ↔ ITComponent)
-  const visibleTypeKeys = useMemo(() => new Set(types.map((t) => t.key)), [types]);
-  const relevantRelTypes = useMemo(() => {
+  // Every relation type touching the selected type (excluding relations to hidden
+  // types). Several may connect the same pair of card types — this list keeps them
+  // all, and is what the sidebar facets are built from so a card related only
+  // through the second type stays filterable.
+  const visibleTypeKeys = useMemo(
+    () => new Set(readableTypes.map((t) => t.key)),
+    [readableTypes],
+  );
+  const allRelevantRelTypes = useMemo(() => {
     if (!selectedType) return [];
-    const filtered = relationTypes.filter(
+    return relationTypes.filter(
       (rt) =>
         !rt.is_hidden &&
         (rt.source_type_key === selectedType || rt.target_type_key === selectedType) &&
@@ -1273,33 +1471,47 @@ export default function InventoryPage() {
           rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key
         )
     );
-    // Deduplicate by other-end type key — keep first occurrence
+  }, [selectedType, relationTypes, visibleTypeKeys]);
+
+  // One grid column per *related card type*, so relation types sharing a pair
+  // collapse to a single column here. The cell merges their data (`relatedRefsOf`)
+  // and the editor opens a section per type (`relTypeObjGroupMap`) — the column is
+  // the union, never just the first type.
+  const relevantRelTypes = useMemo(() => {
     const seenOtherKeys = new Set<string>();
-    return filtered.filter((rt) => {
+    return allRelevantRelTypes.filter((rt) => {
       const otherKey =
         rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
       if (seenOtherKeys.has(otherKey)) return false;
       seenOtherKeys.add(otherKey);
       return true;
     });
-  }, [selectedType, relationTypes, visibleTypeKeys]);
+  }, [allRelevantRelTypes, selectedType]);
 
-  // Map from other-end type key to all matching relation type keys (for merging data)
-  const relTypeGroupMap = useMemo(() => {
-    if (!selectedType) return new Map<string, string[]>();
-    const map = new Map<string, string[]>();
-    for (const rt of relationTypes) {
-      if (rt.is_hidden) continue;
-      if (rt.source_type_key !== selectedType && rt.target_type_key !== selectedType) continue;
+  // Map from other-end type key to the matching relation types (objects), and the
+  // same grouping reduced to keys (for merging fetched relation data).
+  const relTypeObjGroupMap = useMemo(() => {
+    const map = new Map<string, RelationType[]>();
+    for (const rt of allRelevantRelTypes) {
       const otherKey =
         rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
-      if (!visibleTypeKeys.has(otherKey)) continue;
       const existing = map.get(otherKey);
-      if (existing) existing.push(rt.key);
-      else map.set(otherKey, [rt.key]);
+      if (existing) existing.push(rt);
+      else map.set(otherKey, [rt]);
     }
     return map;
-  }, [selectedType, relationTypes, visibleTypeKeys]);
+  }, [allRelevantRelTypes, selectedType]);
+
+  const relTypeGroupMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const [otherKey, rts] of relTypeObjGroupMap) {
+      map.set(
+        otherKey,
+        rts.map((rt) => rt.key)
+      );
+    }
+    return map;
+  }, [relTypeObjGroupMap]);
 
   // Deep links seed relation filters keyed by the RELATED CARD TYPE
   // (`rel_Provider=Altium`) because the report thinks in related types, but
@@ -1308,7 +1520,15 @@ export default function InventoryPage() {
   // matches nothing and silently empties the grid (#933 follow-up).
   useEffect(() => {
     if (!selectedType || relationTypes.length === 0) return;
-    const relTypeKeys = new Set(relationTypes.map((rt) => rt.key));
+    // Side keys too (`<key>__out` / `__in`): a persisted facet on one side of
+    // a self-referencing type must not be dropped as unresolvable.
+    const relTypeKeys = new Set(
+      relationTypes.flatMap((rt) =>
+        rt.source_type_key === rt.target_type_key
+          ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
+          : [rt.key],
+      ),
+    );
     setFilters((prev) => {
       const relations = normalizeRelationFilterKeys(prev.relations, relTypeKeys, relTypeGroupMap);
       return relations === prev.relations ? prev : { ...prev, relations };
@@ -1541,7 +1761,15 @@ export default function InventoryPage() {
       for (const key of allRelTypeKeys) {
         const rt = relationTypes.find((r) => r.key === key);
         if (!rt) continue;
-        newMap.set(key, buildRelationIndex(byType.get(key) ?? [], rt, selectedType));
+        const bucket = byType.get(key) ?? [];
+        // The union drives the cell, Preview, export and the card-type deep
+        // link; a self-referencing type ALSO gets one index per side so the
+        // sidebar can offer "has site" and "is site of" as separate facets.
+        newMap.set(key, buildRelationIndex(bucket, rt, selectedType));
+        if (rt.source_type_key === rt.target_type_key) {
+          newMap.set(sideKey(rt, true), buildRelationIndex(bucket, rt, selectedType, "out"));
+          newMap.set(sideKey(rt, false), buildRelationIndex(bucket, rt, selectedType, "in"));
+        }
       }
       setRelationsMap(newMap);
       setRelationsLoading(false);
@@ -1592,6 +1820,24 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card) || EMPTY_VALUE));
     }
 
+    // End-of-life filter. "(empty)" matches cards with nothing recorded —
+    // absent from the resolved map is exactly that state, which is why the
+    // endpoint omits them rather than returning a null status.
+    if (filters.eolStatuses.length > 0) {
+      result = result.filter((card) =>
+        filters.eolStatuses.includes(eolOf(card)?.status ?? EMPTY_VALUE),
+      );
+    }
+
+    // Link type — the qualifier on this card's link to its parent (#1100).
+    // "(empty)" matches a child whose link carries no type, and a root, since
+    // neither has one recorded.
+    if ((filters.linkTypes?.length ?? 0) > 0) {
+      result = result.filter((card) =>
+        filters.linkTypes.includes(card.parent_label || EMPTY_VALUE),
+      );
+    }
+
     // Data quality filter — disjoint bands, OR'd (see dataQualityBands.ts)
     if (filters.dataQualityBands.length > 0) {
       const bands = filters.dataQualityBands;
@@ -1640,8 +1886,15 @@ export default function InventoryPage() {
       result = result.filter((card) => {
         return relEntries.every(([relTypeKey, selectedNames]) => {
           if (!Array.isArray(selectedNames) || selectedNames.length === 0) return true;
-          const index = relationsMap.get(relTypeKey);
-          const refs = index?.get(card.id);
+          // A key is normally a relation type. A deep link whose related card
+          // type is reached by several relation types keeps the CARD-TYPE key
+          // instead (see normalizeRelationFilterKeys), and resolves to the union
+          // across them — "related to this card type at all".
+          const refs = relationsMap.has(relTypeKey)
+            ? relationsMap.get(relTypeKey)?.get(card.id)
+            : relTypeGroupMap.has(relTypeKey)
+              ? relatedRefsOf(card.id, relTypeKey)
+              : undefined;
           const wantEmpty = selectedNames.includes(EMPTY_VALUE);
           // No related cards of this type → only matches when "(empty)" is selected.
           if (!refs || refs.length === 0) return wantEmpty;
@@ -1705,7 +1958,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, tagGroups]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.eolStatuses, eolOf, filters.linkTypes, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
   const grouping = useRowGrouping<Card>(gridRef, {
@@ -1782,8 +2035,11 @@ export default function InventoryPage() {
     ): Promise<{ needsReload: boolean }> => {
       if (field === "name" || field === "description") {
         await api.patch(`/cards/${card.id}`, { [field]: newValue });
-      } else if (field === "subtype") {
-        await api.patch(`/cards/${card.id}`, { subtype: (newValue as string) || null });
+      } else if (field === "subtype" || field === "alias") {
+        // An emptied cell clears the column. The grid and the card are the two
+        // places where that intent is unambiguous, which is exactly why the
+        // Excel importer treats an empty cell as "leave it alone" instead.
+        await api.patch(`/cards/${card.id}`, { [field]: (newValue as string) || null });
       } else if (field.startsWith("attr_")) {
         const key = field.replace("attr_", "");
         const fieldDef = typeConfig?.fields_schema
@@ -1798,6 +2054,12 @@ export default function InventoryPage() {
       } else if (field === "parent_id") {
         await api.patch(`/cards/${card.id}`, { parent_id: (newValue as string | null) ?? null });
         return { needsReload: true };
+      } else if (field === "parent_label") {
+        // Per card, never PATCH /cards/bulk — and unlike parent_id this moves
+        // no subtree, so nothing downstream needs reloading.
+        await api.patch(`/cards/${card.id}`, {
+          parent_label: (newValue as string | null) || null,
+        });
       } else if (field === "tags") {
         const oldIds = new Set<string>(((oldValue as TagRef[] | undefined) ?? []).map((v) => v.id));
         const newIds = new Set<string>(((newValue as TagRef[] | undefined) ?? []).map((v) => v.id));
@@ -1841,6 +2103,7 @@ export default function InventoryPage() {
   const cellEditFallback = useCallback(
     (field: string): string => {
       if (field === "parent_id") return t("gridEdit.parentFailed");
+      if (field === "parent_label") return t("gridEdit.parentLabelFailed");
       if (field.startsWith("attr_")) return t("gridEdit.attrFailed");
       return t("gridEdit.saveFailed");
     },
@@ -2056,9 +2319,11 @@ export default function InventoryPage() {
     // Exclude AG Grid's auto-generated columns (the row-selection / controls
     // column, colId `ag-Grid-ControlsColumn` / `ag-Grid-SelectionColumn`) — they
     // carry no data and would otherwise surface as an empty leading column.
+    // The Logo column is excluded too: a workbook cell cannot hold the image,
+    // so it would export as a column of blanks under a "Logo" header.
     const displayed = api
       .getAllDisplayedColumns()
-      .filter((c) => !c.getColId().startsWith("ag-Grid-"));
+      .filter((c) => !c.getColId().startsWith("ag-Grid-") && c.getColId() !== LOGO_COLUMN_KEY);
     const columns = displayed.map((c) => ({
       colId: c.getColId(),
       headerName: api.getDisplayNameForColumn(c, null) || c.getColId(),
@@ -2118,6 +2383,12 @@ export default function InventoryPage() {
     // Collapse/expand is handled by the header renderer's own click handler.
     if ((e.data as InventoryRow | undefined)?.__group) return;
     if (gridEditMode || !e.data || e.event?.defaultPrevented) return;
+    // A click that landed on a link inside a cell (a URL in the description)
+    // is the link's. This is AG Grid's own row listener, native and fired
+    // before React's, so a `stopPropagation` in the cell renderer never
+    // reaches it — and `preventDefault` is not an option, it would cancel the
+    // navigation the link exists for.
+    if ((e.event?.target as Element | null)?.closest?.("a")) return;
     // Let the browser handle Ctrl/Cmd/Shift+Click and middle-click — they're
     // intended for "open in new tab/window" via the real anchor in the Name
     // cell. Re-firing programmatic navigation here would also navigate the
@@ -2130,7 +2401,14 @@ export default function InventoryPage() {
     navigate(`/cards/${e.data.id}`);
   }, [gridEditMode, navigate]);
 
-  // Mass-editable fields for current type
+  // Mass-editable fields for current type.
+  //
+  // The Logo column is deliberately absent, and must stay absent: applying one
+  // mark to every selected card is never what someone means, and there is no
+  // undo for it. A logo is set one card at a time from its cell (or the card
+  // page), or in bulk by an agent over MCP — `set_card_logos`, which previews
+  // under a dry run first and lands in a revertible mutation batch. Drag-fill
+  // is excluded on the same reasoning, in `isInventoryFillable` above.
   type MassEditField = {
     key: string;
     label: string;
@@ -2156,7 +2434,7 @@ export default function InventoryPage() {
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
-          if (field.readonly) continue;
+          if (field.readonly || calculatedKeys.has(field.key)) continue;
           // Same gate the grid columns and the export use: a user without
           // costs.view must not be able to overwrite figures they cannot see.
           if (field.type === "cost" && !canViewCostsGlobally) continue;
@@ -2212,7 +2490,7 @@ export default function InventoryPage() {
       }
     }
     return fields;
-  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, fieldLabel, relLabel, typeLabel, canViewCostsGlobally]);
+  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, fieldLabel, relLabel, typeLabel, canViewCostsGlobally, calculatedKeys]);
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
 
@@ -2766,6 +3044,37 @@ export default function InventoryPage() {
             },
       },
       {
+        // The card's own mark. Only built when a type in view can carry one —
+        // on a grid of types that cannot, the column would be a stripe of
+        // empty cells whose only effect was taller rows.
+        colId: LOGO_COLUMN_KEY,
+        headerName: t("columns.logo"),
+        width: 80,
+        minWidth: 60,
+        hide: !selectedColumns.has(LOGO_COLUMN_KEY),
+        // An image is neither sortable nor filterable, and it exports as
+        // nothing — the Excel writer is handed cells, not pictures.
+        sortable: false,
+        filter: false,
+        // Centres the tile in the cell; the renderer fills the cell so the
+        // type-icon placeholder lands in exactly the same place.
+        cellStyle: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+        },
+        cellRenderer: (p: { data?: Card }) =>
+          p.data ? (
+            <LogoCell
+              card={p.data}
+              type={types.find((x) => x.key === p.data!.type)}
+              editable={canEditLogos && p.data.status !== "ARCHIVED"}
+              onEdit={openLogoMenu}
+            />
+          ) : null,
+      },
+      {
         colId: "core_reference",
         field: "reference",
         headerName: t("columns.id"),
@@ -2773,6 +3082,18 @@ export default function InventoryPage() {
         sortable: true,
         hide: !selectedColumns.has("core_reference"),
         cellStyle: { fontFamily: "monospace", color: "var(--mui-palette-text-secondary)" },
+      },
+      {
+        // The card's other name (#1108). Editable and fill-downable like the
+        // Description column — `isInventoryFillable` needs no special case,
+        // since the column has a `field` to persist through.
+        colId: "core_alias",
+        field: "alias",
+        headerName: t("common:labels.alias"),
+        width: 160,
+        sortable: true,
+        editable: gridEditMode,
+        hide: !selectedColumns.has("core_alias"),
       },
       {
         colId: "core_path",
@@ -2824,6 +3145,53 @@ export default function InventoryPage() {
         valueFormatter: (p: { value?: string | null }) => parentNameOf(p.value),
         cellRenderer: (p: { value: string | null }) => parentNameOf(p.value),
       },
+      ...(hierarchyLabelColumnAvailable
+        ? [
+            {
+              // The label on each row's link to ITS parent (#1100) — its own
+              // column rather than a widening of core_parent, whose cell value
+              // is documented as the raw parent id and whose editor is a card
+              // picker. Keeping them apart also lets a user show one without
+              // the other.
+              colId: "core_parent_label",
+              field: "parent_label",
+              headerName: t("columns.parentLabel"),
+              width: 170,
+              sortable: true,
+              hide: !selectedColumns.has("core_parent_label"),
+              editable: gridEditMode && !!selectedType,
+              cellEditor: "agSelectCellEditor",
+              cellEditorParams: {
+                // The same filter the card-detail popover applies, so one
+                // vocabulary never offers two different choice sets.
+                values: ["", ...hierarchyLabelOptions.filter((o) => !o.hidden).map((o) => o.key)],
+                // The dropdown stores the key but must read as the label.
+                formatValue: (v: string) =>
+                  v ? optLabel(hierarchyLabelOptions.find((o) => o.key === v)) || v : "",
+              },
+              // The stored value is an option key, so the header text filter,
+              // the sort and the export all resolve it to the localized label
+              // first — otherwise each writes a raw slug (#887).
+              filterValueGetter: (p: { data?: Card }) =>
+                hierarchyLabelText(p.data?.parent_label),
+              comparator: (a: string | null, b: string | null) =>
+                hierarchyLabelText(a).localeCompare(hierarchyLabelText(b)),
+              valueFormatter: (p: { value?: string | null }) =>
+                hierarchyLabelText(p.value),
+              cellRenderer: (p: { value?: string | null }) => {
+                if (!p.value) return null;
+                const option = hierarchyLabelOptions.find((o) => o.key === p.value);
+                return (
+                  <OptionChip
+                    option={option}
+                    value={p.value}
+                    label={option ? optLabel(option) : undefined}
+                  />
+                );
+              },
+            },
+          ]
+        : []),
       {
         colId: "core_description",
         field: "description",
@@ -2832,6 +3200,7 @@ export default function InventoryPage() {
         minWidth: 200,
         editable: gridEditMode,
         hide: !selectedColumns.has("core_description"),
+        ...linkifiedCell,
       },
     ];
 
@@ -2892,6 +3261,58 @@ export default function InventoryPage() {
           return <LifecycleBadge lifecycle={lifecycle} />;
         },
       },
+      // End of life. The value is the resolved date, so sorting and the
+      // Excel export both work on a date rather than on a status word; the
+      // renderer adds the status colour, and the tooltip the provenance
+      // (product cycle, or a manually entered date).
+      ...(eolColumnAvailable
+        ? [
+            {
+              colId: EOL_COLUMN_KEY,
+              headerName: t("columns.eol"),
+              width: 160,
+              hide: !selectedColumns.has(EOL_COLUMN_KEY),
+              ...dateColumnFilterDef,
+              valueGetter: (p: { data?: Card }) =>
+                (p.data ? eolOf(p.data)?.eol_date : null) ?? "",
+              valueFormatter: (p: { value?: string }) => (p.value ? formatDate(p.value) : ""),
+              cellRenderer: (p: { data?: Card; value?: string }) => {
+                if (!p.data) return "";
+                const entry = eolOf(p.data);
+                // Absent while the statuses are still resolving means "not
+                // known yet", not "nothing recorded" — a dash either way, but
+                // the column must not claim a gap it has not confirmed.
+                if (!entry) return eolLoading ? "—" : "";
+                const color = EOL_STATUS_COLORS[entry.status];
+                const label = tReports(EOL_STATUS_LABEL_KEYS[entry.status]);
+                const title = [
+                  entry.source === "api"
+                    ? `${entry.eol_product} ${entry.eol_cycle}`
+                    : t("filter.eolManual"),
+                  entry.support_date ? `${t("columns.eolSupport")}: ${formatDate(entry.support_date)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <Tooltip title={title}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          bgcolor: color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span>{p.value ? formatDate(p.value) : label}</span>
+                    </Box>
+                  </Tooltip>
+                );
+              },
+            },
+          ]
+        : []),
       {
         colId: "core_approval_status",
         field: "approval_status",
@@ -2975,38 +3396,11 @@ export default function InventoryPage() {
         // The export carries the caption the bar is labelled with, not the raw
         // float — same rounding, same "missing reads as 0%".
         valueFormatter: (p: { value?: number }) => `${Math.round(p.value || 0)}%`,
-        cellRenderer: (p: { value: number }) => {
-          const v = Math.round(p.value || 0);
+        cellRenderer: (p: { value: number }) => (
           // Band colour, so the bar agrees with the sidebar chip that filters
           // it and with the Data Quality report's segments.
-          const color = bandColor(v);
-          return (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                width: "100%",
-                pr: 1,
-              }}
-            >
-              <LinearProgress
-                variant="determinate"
-                value={v}
-                sx={{
-                  flex: 1,
-                  height: 6,
-                  borderRadius: 3,
-                  bgcolor: "action.selected",
-                  "& .MuiLinearProgress-bar": { bgcolor: color, borderRadius: 3 },
-                }}
-              />
-              <Typography variant="caption" sx={{ minWidth: 32, textAlign: "right" }}>
-                {v}%
-              </Typography>
-            </Box>
-          );
-        },
+          <PercentBar value={p.value} color={bandColor(Math.round(p.value || 0))} width={72} height={6} />
+        ),
       },
       {
         colId: "core_tags",
@@ -3078,7 +3472,7 @@ export default function InventoryPage() {
             headerName: fieldLabel(field),
             width: 150,
             hide: !selectedColumns.has(colKey),
-            editable: gridEditMode && !field.readonly,
+            editable: gridEditMode && !field.readonly && !calculatedKeys.has(field.key),
             valueGetter: (p: { data: Card }) =>
               (p.data?.attributes || {})[field.key] ?? "",
             valueSetter: (p) => {
@@ -3130,6 +3524,8 @@ export default function InventoryPage() {
                   ),
                 }
               : {}),
+            ...(isFreeTextField(field.type) ? linkifiedCell : {}),
+            ...(field.type === "url" ? urlCell : {}),
             ...(field.type === "multiline_text"
               ? {
                   cellEditor: "agLargeTextCellEditor",
@@ -3137,7 +3533,26 @@ export default function InventoryPage() {
                   cellEditorParams: { rows: 8, cols: 60, maxLength: 100000 },
                 }
               : {}),
+            ...(field.type === "percentage"
+              ? {
+                  ...percentageColumnDef,
+                  cellEditor: "agNumberCellEditor",
+                  cellEditorParams: { min: 0, max: 100, precision: 2 },
+                }
+              : {}),
             ...(field.type === "date" ? dateColumnFilterDef : {}),
+            // Extension-typed columns render through the fieldTypes registry
+            // (same display component as card detail) and are never
+            // grid-editable — the spread order deliberately overrides the
+            // `editable` set above.
+            ...(field.type.startsWith("ext.")
+              ? {
+                  editable: false,
+                  cellRenderer: (p: { value: unknown }) => (
+                    <ExtFieldCell field={field} value={p.value} />
+                  ),
+                }
+              : {}),
           });
         }
       }
@@ -3180,7 +3595,17 @@ export default function InventoryPage() {
                 ),
               }
             : {}),
+          ...(isFreeTextField(field.type) ? linkifiedCell : {}),
+          ...(field.type === "url" ? urlCell : {}),
+          ...(field.type === "percentage" ? percentageColumnDef : {}),
           ...(field.type === "date" ? dateColumnFilterDef : {}),
+          ...(field.type.startsWith("ext.")
+            ? {
+                cellRenderer: (p: { value: unknown }) => (
+                  <ExtFieldCell field={field} value={p.value} />
+                ),
+              }
+            : {}),
         });
       }
     }
@@ -3191,7 +3616,9 @@ export default function InventoryPage() {
       const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
       const otherType = types.find((t) => t.key === otherTypeKey);
       const headerName = otherType ? typeLabel(otherType) : otherTypeKey;
-      const relTypeRef = rt;
+      // Edit every relation type behind this column, not just the one that
+      // survived the dedup above.
+      const relTypesRef = relTypeObjGroupMap.get(otherTypeKey) ?? [rt];
       const colKey = `rel_${otherTypeKey}`;
 
       cols.push({
@@ -3217,7 +3644,7 @@ export default function InventoryPage() {
                   setRelEditOpen(true);
                   setRelEditFsId(p.data.id);
                   setRelEditFsName(p.data.name);
-                  setRelEditRelType(relTypeRef);
+                  setRelEditRelTypes(relTypesRef);
                 }}
                 sx={{
                   display: "flex",
@@ -3401,8 +3828,14 @@ export default function InventoryPage() {
       }
     );
 
-    return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(cols));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+    // Dropped rather than never built, so the Logo column keeps its place next
+    // to Name for the types that do carry logos.
+    const applicable = logoColumnAvailable
+      ? cols
+      : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
+
+    return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -3701,7 +4134,7 @@ export default function InventoryPage() {
           PaperProps={{ sx: { width: 300 } }}
         >
           <InventoryFilterSidebar
-            types={types}
+            types={readableTypes}
             filters={filters}
             onFiltersChange={setFilters}
             collapsed={false}
@@ -3709,10 +4142,13 @@ export default function InventoryPage() {
             width={300}
             onWidthChange={() => {}}
             relevantRelTypes={relevantRelTypes}
+            allRelevantRelTypes={allRelevantRelTypes}
             stakeholderRoles={stakeholderRoles}
             relationsMap={relationsMap}
             tagGroups={tagGroups}
             canArchive={canArchive}
+            showEolFacet={eolColumnAvailable}
+            showLinkTypeFacet={hierarchyLabelColumnAvailable}
             canShareBookmarks={canShareBookmarks}
             canOdataBookmarks={canOdataBookmarks}
             currentUserId={user?.id}
@@ -3736,7 +4172,7 @@ export default function InventoryPage() {
         </Drawer>
       ) : (
         <InventoryFilterSidebar
-          types={types}
+          types={readableTypes}
           filters={filters}
           onFiltersChange={setFilters}
           collapsed={sidebarCollapsed}
@@ -3744,10 +4180,13 @@ export default function InventoryPage() {
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
+          allRelevantRelTypes={allRelevantRelTypes}
           stakeholderRoles={stakeholderRoles}
           relationsMap={relationsMap}
           tagGroups={tagGroups}
           canArchive={canArchive}
+          showEolFacet={eolColumnAvailable}
+          showLinkTypeFacet={hierarchyLabelColumnAvailable}
           canShareBookmarks={canShareBookmarks}
           canOdataBookmarks={canOdataBookmarks}
           currentUserId={user?.id}
@@ -3826,11 +4265,13 @@ export default function InventoryPage() {
                   <MaterialSymbol icon="upload" size={20} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title={t("common:actions.create")}>
-                <IconButton color="primary" onClick={() => setCreateOpen(true)} size="small">
-                  <MaterialSymbol icon="add" size={20} />
-                </IconButton>
-              </Tooltip>
+              {canCreateSelectedType && (
+                <Tooltip title={t("common:actions.create")}>
+                  <IconButton color="primary" onClick={() => setCreateOpen(true)} size="small">
+                    <MaterialSymbol icon="add" size={20} />
+                  </IconButton>
+                </Tooltip>
+              )}
             </>
           ) : (
             <>
@@ -3845,15 +4286,17 @@ export default function InventoryPage() {
                   {t("filter.clearColumnFilters")}
                 </Button>
               )}
-              <Button
-                variant={gridEditMode ? "contained" : "outlined"}
-                color={gridEditMode ? "primary" : "inherit"}
-                startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
-                onClick={() => setGridEditMode((v) => !v)}
-                sx={{ textTransform: "none" }}
-              >
-                {gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}
-              </Button>
+              {canGridEditSelectedType && (
+                <Button
+                  variant={gridEditMode ? "contained" : "outlined"}
+                  color={gridEditMode ? "primary" : "inherit"}
+                  startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
+                  onClick={() => setGridEditMode((v) => !v)}
+                  sx={{ textTransform: "none" }}
+                >
+                  {gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 color="inherit"
@@ -3874,14 +4317,16 @@ export default function InventoryPage() {
               >
                 {t("common:actions.import")}
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<MaterialSymbol icon="add" size={18} />}
-                onClick={() => setCreateOpen(true)}
-                sx={{ textTransform: "none" }}
-              >
-                {t("common:actions.create")}
-              </Button>
+              {canCreateSelectedType && (
+                <Button
+                  variant="contained"
+                  startIcon={<MaterialSymbol icon="add" size={18} />}
+                  onClick={() => setCreateOpen(true)}
+                  sx={{ textTransform: "none" }}
+                >
+                  {t("common:actions.create")}
+                </Button>
+              )}
             </>
           )}
         </Box>
@@ -3894,9 +4339,19 @@ export default function InventoryPage() {
         >
           <MenuItem
             onClick={() => {
-              exportToExcel(filteredData, typeConfig, types, relationTypes, {
-                canViewCosts: canViewCostsGlobally,
-              });
+              // No `rel:` column for a relation whose other end the user may
+              // not see — it could only ever be empty for them.
+              exportToExcel(
+                filteredData,
+                typeConfig,
+                types,
+                relationTypes.filter(
+                  (rt) =>
+                    visibleTypeKeys.has(rt.source_type_key) &&
+                    visibleTypeKeys.has(rt.target_type_key),
+                ),
+                { canViewCosts: canViewCostsGlobally },
+              );
               setExportMenuAnchor(null);
             }}
           >
@@ -4079,6 +4534,9 @@ export default function InventoryPage() {
             ref={gridRef}
             rowData={grouping.rowData}
             columnDefs={columnDefs}
+            // Tall enough for a legible logo tile, and only while that column
+            // is on screen — every other configuration keeps the dense default.
+            rowHeight={logoColumnShown ? INVENTORY_LOGO_ROW_HEIGHT : undefined}
             // `searchPending` covers the debounce window too, so the grid never
             // looks settled while it is still showing the previous query's rows.
             loading={loading || searchPending}
@@ -4122,7 +4580,25 @@ export default function InventoryPage() {
       {cellMenu.menu}
       {dragFill.dialog}
 
-      {/* Inline-edit failures (rejected re-parent, …) */}
+      {/* Change-logo menu for the Logo column — the same one the card page uses */}
+      <CardLogoMenu
+        cardId={logoTarget?.id ?? null}
+        hasLogo={!!logoTarget?.logo_updated_at}
+        anchorEl={logoMenuAnchor}
+        onClose={() => setLogoMenuAnchor(null)}
+        onChanged={applyLogoUpdate}
+        onNotify={setLogoSnack}
+        onError={setCellEditError}
+      />
+      <Snackbar
+        open={!!logoSnack}
+        autoHideDuration={3000}
+        onClose={() => setLogoSnack("")}
+        message={logoSnack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
+
+      {/* Inline-edit failures (rejected re-parent, refused logo upload, …) */}
       <Snackbar
         open={!!cellEditError}
         autoHideDuration={8000}
@@ -4452,13 +4928,13 @@ export default function InventoryPage() {
         onClose={() => setPreviewCardId(null)}
       />
 
-      {relEditRelType && (
+      {relEditRelTypes.length > 0 && (
         <RelationCellPopover
           open={relEditOpen}
-          onClose={() => { setRelEditOpen(false); setRelEditFsId(""); setRelEditFsName(""); setRelEditRelType(null); }}
+          onClose={() => { setRelEditOpen(false); setRelEditFsId(""); setRelEditFsName(""); setRelEditRelTypes([]); }}
           cardId={relEditFsId}
           cardName={relEditFsName}
-          relationType={relEditRelType}
+          relationTypes={relEditRelTypes}
           selectedType={selectedType}
           onRelationsChanged={fetchRelations}
         />

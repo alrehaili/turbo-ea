@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
 import type { Relation } from "@/types";
-import { otherEnd, sortRelationsByName } from "./relationSort";
+import {
+  expandSides,
+  onSide,
+  orderRelationTypesByOtherEnd,
+  otherEnd,
+  parseSideKey,
+  runsAgainstType,
+  sideKey,
+  sortRelationsByName,
+} from "./relationSort";
 
 const FS = "fs-1";
 
@@ -111,5 +120,202 @@ describe("sortRelationsByName", () => {
     const rels = [outgoing("1", "Zeta"), outgoing("2", "Alpha")];
     sortRelationsByName(rels, FS);
     expect(rels.map((r) => r.target?.name)).toEqual(["Zeta", "Alpha"]);
+  });
+});
+
+describe("orderRelationTypesByOtherEnd", () => {
+  const rt = (key: string, source_type_key: string, target_type_key: string) => ({
+    key,
+    source_type_key,
+    target_type_key,
+  });
+
+  it("pulls a second type on the same pair up next to the first", () => {
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relOrgToApp", "Organization", "Application"),
+        rt("relOrgToObj", "Organization", "Objective"),
+        rt("relOrgToAppOwns", "Organization", "Application"),
+      ],
+      "Organization",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relOrgToApp",
+      "relOrgToAppOwns",
+      "relOrgToObj",
+    ]);
+  });
+
+  it("anchors each run on its FIRST appearance, so no run jumps ahead", () => {
+    // relOrgToObj came first in the metamodel and stays first; only the
+    // stragglers move, and only far enough to join their own run.
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relOrgToObj", "Organization", "Objective"),
+        rt("relOrgToApp", "Organization", "Application"),
+        rt("relOrgToObj2", "Organization", "Objective"),
+      ],
+      "Organization",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relOrgToObj",
+      "relOrgToObj2",
+      "relOrgToApp",
+    ]);
+  });
+
+  it("groups an incoming type with an outgoing one on the same card type", () => {
+    // Both describe the card's relationship to an Application, so they read
+    // together whichever way the metamodel declared them.
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relOrgToApp", "Organization", "Application"),
+        rt("relOrgToObj", "Organization", "Objective"),
+        rt("relAppToOrg", "Application", "Organization"),
+      ],
+      "Organization",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relOrgToApp",
+      "relAppToOrg",
+      "relOrgToObj",
+    ]);
+  });
+
+  it("keeps a self-referencing type in one run", () => {
+    const ordered = orderRelationTypesByOtherEnd(
+      [
+        rt("relAppDependency", "Application", "Application"),
+        rt("relAppToOrg", "Application", "Organization"),
+        rt("relAppIntegration", "Application", "Application"),
+      ],
+      "Application",
+    );
+    expect(ordered.map((r) => r.key)).toEqual([
+      "relAppDependency",
+      "relAppIntegration",
+      "relAppToOrg",
+    ]);
+  });
+
+  it("leaves an already-contiguous list byte-for-byte alone", () => {
+    const input = [
+      rt("relOrgToApp", "Organization", "Application"),
+      rt("relOrgToObj", "Organization", "Objective"),
+    ];
+    expect(orderRelationTypesByOtherEnd(input, "Organization").map((r) => r.key)).toEqual([
+      "relOrgToApp",
+      "relOrgToObj",
+    ]);
+  });
+
+  it("returns an empty array unchanged", () => {
+    expect(orderRelationTypesByOtherEnd([], "Organization")).toEqual([]);
+  });
+});
+
+describe("expandSides", () => {
+  const rt = (key: string, source_type_key: string, target_type_key: string) => ({
+    key,
+    source_type_key,
+    target_type_key,
+  });
+
+  it("gives a cross-type rt one side, from the right end", () => {
+    const out = rt("relOrgToApp", "Organization", "Application");
+    expect(expandSides([out], "Organization")).toEqual([{ rt: out, isSource: true }]);
+    expect(expandSides([out], "Application")).toEqual([{ rt: out, isSource: false }]);
+  });
+
+  it("gives a self-referencing rt two sides, outgoing first and adjacent", () => {
+    const self = rt("orgToOrg", "Organization", "Organization");
+    const other = rt("relOrgToApp", "Organization", "Application");
+    expect(expandSides([self, other], "Organization")).toEqual([
+      { rt: self, isSource: true },
+      { rt: self, isSource: false },
+      { rt: other, isSource: true },
+    ]);
+  });
+
+  it("drops a type that touches neither end rather than guessing", () => {
+    expect(expandSides([rt("x", "A", "B")], "C")).toEqual([]);
+  });
+});
+
+describe("sideKey", () => {
+  it("keeps a cross-type rt's bare key so persisted filters keep resolving", () => {
+    const out = { key: "relOrgToApp", source_type_key: "Organization", target_type_key: "Application" };
+    expect(sideKey(out, true)).toBe("relOrgToApp");
+    expect(sideKey(out, false)).toBe("relOrgToApp");
+  });
+
+  it("suffixes a self-referencing rt per side, the mass-edit way", () => {
+    const self = { key: "orgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
+    expect(sideKey(self, true)).toBe("orgToOrg__out");
+    expect(sideKey(self, false)).toBe("orgToOrg__in");
+  });
+});
+
+describe("onSide", () => {
+  const row = (source_id: string, target_id: string, type = "orgToOrg") => ({ type, source_id, target_id });
+
+  it("files a row by the card's end, per row", () => {
+    expect(onSide(row("me", "them"), "orgToOrg", "me", true)).toBe(true);
+    expect(onSide(row("me", "them"), "orgToOrg", "me", false)).toBe(false);
+    expect(onSide(row("them", "me"), "orgToOrg", "me", false)).toBe(true);
+    expect(onSide(row("them", "me"), "orgToOrg", "me", true)).toBe(false);
+  });
+
+  it("never matches another type", () => {
+    expect(onSide(row("me", "them", "other"), "orgToOrg", "me", true)).toBe(false);
+  });
+
+  it("puts a self-loop on the outgoing side, once", () => {
+    expect(onSide(row("me", "me"), "orgToOrg", "me", true)).toBe(true);
+    expect(onSide(row("me", "me"), "orgToOrg", "me", false)).toBe(false);
+  });
+});
+
+describe("parseSideKey", () => {
+  it("returns a bare key as 'either side'", () => {
+    expect(parseSideKey("relOrgToApp")).toEqual({ key: "relOrgToApp" });
+  });
+
+  it("splits a side key back into key and side", () => {
+    expect(parseSideKey("orgToOrg__out")).toEqual({ key: "orgToOrg", isSource: true });
+    expect(parseSideKey("orgToOrg__in")).toEqual({ key: "orgToOrg", isSource: false });
+  });
+
+  it("round-trips sideKey", () => {
+    const self = { key: "orgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
+    expect(parseSideKey(sideKey(self, true))).toEqual({ key: "orgToOrg", isSource: true });
+    expect(parseSideKey(sideKey(self, false))).toEqual({ key: "orgToOrg", isSource: false });
+  });
+});
+
+describe("runsAgainstType", () => {
+  const appToIf = { source_type_key: "Application", target_type_key: "Interface" };
+  const selfPair = { source_type_key: "Organization", target_type_key: "Organization" };
+
+  it("is false for a row stored the type's way", () => {
+    expect(runsAgainstType(appToIf, "Application", "Interface")).toBe(false);
+  });
+
+  it("is true for a row stored the other way round (#1140)", () => {
+    expect(runsAgainstType(appToIf, "Interface", "Application")).toBe(true);
+  });
+
+  it("is never true for a self-referencing type", () => {
+    expect(runsAgainstType(selfPair, "Organization", "Organization")).toBe(false);
+  });
+
+  it("is false when anything is unknown", () => {
+    expect(runsAgainstType(undefined, "Interface", "Application")).toBe(false);
+    expect(runsAgainstType(appToIf, undefined, "Application")).toBe(false);
+    expect(runsAgainstType(appToIf, "Interface", undefined)).toBe(false);
+  });
+
+  it("is false for a pair that matches neither orientation", () => {
+    expect(runsAgainstType(appToIf, "ITComponent", "Application")).toBe(false);
   });
 });

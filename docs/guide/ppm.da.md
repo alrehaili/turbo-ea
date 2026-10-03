@@ -26,6 +26,14 @@ Brug værktøjslinjen til at:
 
 Disse filtre vedvarer i URL'en, så opdatering af siden bibeholder din nuværende visning.
 
+### Udskrivning og eksport
+
+Porteføljen tilbyder de samme handlinger i titellinjen som rapporterne:
+
+- **Udskriv / Gem som PDF** — printerikonet udskriver porteføljen, som den ser ud på skærmen. Fanebjælken, filterværktøjslinjen og pop op-vinduer ved museover udelades, den aktive gruppering, undertype og søgning udskrives som en kompakt parameterlinje, og tidslinjegitteret beskæres ikke længere, så alle kolonner er med på siden.
+- **Eksportér til PowerPoint (.pptx)** — fra **⋮**-menuen. Det første dias indeholder titlen, tidsstemplet for genereringen og de aktive filtre sammen med porteføljen i præsentationskvalitet; lange porteføljer fortsætter på flere dias og opdeles kun mellem initiativer — aldrig midt i en række, en gruppeoverskrift eller en totallinje.
+- **Eksportér til Excel (.xlsx)** — også fra **⋮**-menuen. Én række pr. initiativ med gruppe, undertype, projektleder, start- og slutdato, de tre sundhedsvurderinger, planlagt og faktisk CapEx/OpEx samt datoen for den seneste statusrapport.
+
 ## Initiativ-detaljevisning
 
 Klik på et initiativ for at åbne dets detaljeside med syv faner:
@@ -67,6 +75,21 @@ Spor finansielle data med to typer af linjeposter:
 
 Budget- og omkostnings­totaler rulles automatisk op til Initiative-kortets egenskaber `costBudget` og `costActual`. Når PPM-omkostningslinjer findes, markeres disse kort-felter som auto-beregnet og bliver skrivebeskyttede i kortdetaljevisningen.
 
+#### Forbrug over tid
+
+Over budget- og omkostningstabellerne viser tre diagrammer, hvordan forbruget akkumuleres måned for måned:
+
+- **Akkumuleret forbrug efter kategori** — akkumuleret CapEx og OpEx for det valgte regnskabsår med prikkede vandrette linjer, der markerer årets CapEx- og OpEx-budget
+- **Akkumuleret samlet forbrug** — samme regnskabsår med begge kategorier lagt sammen, holdt op mod en prikket linje for det samlede budget
+- **Projektet til dato** — akkumuleret CapEx og OpEx på tværs af alle projektets måneder, holdt op mod det samlede budget for alle regnskabsår
+
+Regnskabsårsvælgeren gælder for de to første diagrammer og tilbyder indeværende år, ethvert andet år med data samt **Alle regnskabsår**. Dine valg af regnskabsår og sammenfoldet eller udfoldet tilstand huskes mellem besøg.
+
+To ting at være opmærksom på, når diagrammerne læses:
+
+- Linjerne stopper ved indeværende måned i stedet for at fortsætte fladt til årets slutning, så et igangværende år ikke forveksles med et, hvor forbruget er stoppet
+- Omkostningsposter uden dato kan ikke placeres på en tidslinje og udelades. En note under diagrammerne oplyser, hvor mange der blev udeladt, så diagrammernes totaler kan afstemmes med oversigtslinjen
+
 ### Risikostyring-fane
 
 ![PPM Risikostyring](../assets/img/da/44_ppm_risk_management.png)
@@ -94,7 +117,7 @@ Opgavestyringen understøtter både **Kanban-tavle**- og **liste**-visninger med
 - **Done** — Fuldførte opgaver
 - **Blocked** — Opgaver der ikke kan fortsætte
 
-Opgaver kan filtreres og grupperes efter Work Breakdown Structure (WBS)-element. Træk og slip kort mellem kolonner for at opdatere status. Hver opgave understøtter:
+Opgaver kan filtreres og grupperes efter Work Breakdown Structure (WBS)-element. Ved gruppering vises hver arbejdspakke som en gruppe — også en, der endnu ikke indeholder opgaver; den viser et hint og en **Tilføj opgave**-knap, som åbner opgavedialogen med den pakke forvalgt. Milepæle vises først, når de indeholder en opgave. Træk og slip kort mellem kolonner for at opdatere status. Hver opgave understøtter:
 
 - Prioritetsniveauer (Critical, High, Medium, Low)
 - Tildelt (med notifikation ved tildeling)
@@ -113,7 +136,7 @@ Gantt-diagrammet visualiserer projekttidslinjen med:
 - **Arbejdspakker (WBS)** — Hierarkiske arbejdsbrydningsstruktur-elementer med start-/slutdatoer
 - **Opgaver** — Individuelle opgavebjælker linket til arbejdspakker
 - **Milepæle** — Nøgledatoer markeret med diamant-indikatorer
-- **Fremgangsbjælker** — Visuel fuldførelsesprocent. Klik på procent-chippen på en opgave eller blad-arbejdspakke for at åbne en skyder, der snapper til **0%, 50% eller 100%** — matchende de tre opgavetilstande (To Do, In Progress, Done). Forældre-arbejdspakker med børn viser en skrivebeskyttet chip, hvis værdi rulles automatisk op fra undertræet.
+- **Fremgangsbjælker** — Visuel fuldførelsesprocent. En opgave har ingen procent i sig selv: dens fyld følger dens status — **To Do (0%)**, **In Progress (50%)**, **Done (100%)**. Klik på procent-chippen på en opgave for at åbne en skyder, hvis tre stop er mærket med disse tilstande; vælger du et stop, ændres status, og det samme sker, når du trækker i fyldet på opgavens bjælke. En blad-arbejdspakke har en fri skyder i trin af 5%. Arbejdspakker med underordnede arbejdspakker **eller opgaver** viser en skrivebeskyttet chip, hvis værdi rulles automatisk op fra undertræet.
 - **Kvartals-mærker** — Tidslinjegitter til orientering
 
 Interager med Gantt-diagrammet ved hjælp af:
@@ -125,6 +148,7 @@ Interager med Gantt-diagrammet ved hjælp af:
 - **View scale-vælger** — vælg mellem Day, Week, Month, Quarter og Year-skalaer; valget huskes i din browser
 - **Zoom ind / Zoom ud-knapper** — gå gennem de samme fem skalaer ét hak ad gangen
 - **Træk prikken på højre kant af én bjælke over på prikken på venstre kant af en anden** for at oprette en finish-to-start-afhængighedspil. Afhængigheder virker mellem enhver kombination af arbejdspakker og opgaver. Cyklusser afvises automatisk. **Dobbeltklik på en pil** for at fjerne den.
+- **+-rækken** nederst på listen spørger, hvad der skal oprettes — en arbejdspakke, en milepæl eller en opgave — så en opgave, der indtastes dér, havner på Tasks-fanen.
 
 ### Card Details-fane
 
@@ -137,7 +161,7 @@ WBS'en tilbyder en hierarkisk nedbrydning af projektets scope:
 - **Arbejdspakker** — Logiske grupperinger af opgaver med start-/slutdatoer og fuldførelses­sporing
 - **Milepæle** — Betydelige hændelser eller fuldførelsespunkter
 - **Hierarki** — Forældre-barn-relationer mellem WBS-elementer
-- **Auto-fuldførelse** — Fuldførelsesprocent beregnes automatisk fra barn-opgavers udført/total-forhold, hvorefter den rulles rekursivt op gennem WBS-hierarkiet til forældre-elementer. Topniveau-fuldførelse repræsenterer det samlede initiativ-fremskridt
+- **Auto-fuldførelse** — Fuldførelse beregnes automatisk ud fra opgaverne i en arbejdspakkes undertræ: hver opgave tæller som 0% (To Do, Blocked), 50% (In Progress) eller 100% (Done), vægtet efter dens varighed i dage (én dag, når en dato mangler), hvorefter den rulles rekursivt op til forældre-elementer. En arbejdspakke uden opgaver noget sted under sig beholder den værdi, der er indtastet manuelt. Gennemsnittet af arbejdspakkerne på øverste niveau er initiativets samlede fremdrift — tallet på Overview-fanen og variablen `ppm.completion`, som et [beregnet felt](../admin/calculations.md#ppm-data-on-initiative-cards) kan vise på kortet og i en portal
 
 ## Kortdetalje-integration
 
@@ -149,6 +173,6 @@ Omvendt viser **Card Details**-fanen inden i PPM Initiativ-detaljevisningen stan
 
 | Tilladelse | Beskrivelse |
 |------------|-------------|
-| `ppm.view` | Se PPM-dashboardet, Gantt-diagram og initiativrapporter. Givet til alle roller som standard |
+| `ppm.view` | Se PPM-dashboardet, Gantt-diagram og initiativrapporter samt læse initiativkort. Givet til alle roller som standard |
 | `ppm.manage` | Opret og administrer statusrapporter, opgaver, omkostninger, risici og WBS-elementer. Givet til Admin-, BPM Admin- og Member-roller |
 | `reports.ppm_dashboard` | Se PPM-portefølje-dashboardet. Givet til alle roller som standard |

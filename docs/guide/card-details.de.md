@@ -10,11 +10,51 @@ Der obere Bereich der Karte zeigt:
 
 - **Typsymbol und -bezeichnung** — Farbcodierter Kartentyp-Indikator
 - **Kartenname** — Inline bearbeitbar
+- **Alias** — Der zweite Name der Karte, unter dem Titel angezeigt, wenn gesetzt. Über das Bearbeiten-Symbol am Titel lassen sich Name und Alias gemeinsam ändern. Aliasse werden von jedem Suchfeld berücksichtigt, sodass eine Karte über den in Ihrer Organisation tatsächlich verwendeten Namen gefunden wird.
 - **Subtyp** — Sekundäre Klassifizierung (falls zutreffend)
 - **Genehmigungsstatus-Badge** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
 - **KI-Vorschlags-Schaltfläche** — Klicken, um eine Beschreibung mit KI zu generieren (sichtbar, wenn KI für diesen Kartentyp aktiviert ist und der Benutzer Bearbeitungsrechte hat)
 - **Datenqualitätsring** — Visueller Indikator der Informationsvollständigkeit (0–100%)
 - **Aktionsmenü** — Archivieren, Löschen und Genehmigungsaktionen. Enthält außerdem eine Ein-Klick-Aktion **Diese Karte beobachten** (sofern der Kartentyp eine Beobachter-Rolle definiert), mit der jeder Benutzer mit Leserechten der Karte folgen kann, ohne den Stakeholder-Tab zu öffnen.
+
+### Eigenes Logo
+
+Karten eines Typs, der dies erlaubt, können ein eigenes **Logo** anstelle des
+allgemeinen Typ-Symbols tragen — eine Anwendung für SAP, Kafka oder Jira zeigt
+dann das Zeichen des jeweiligen Produkts. Wiedererkennbare Logos machen ein
+Inventar deutlich schneller erfassbar, vor allem für Personen, die es lesen und
+nicht pflegen.
+
+Fahren Sie mit der Maus über das Symbol oben links auf der Karte und klicken
+Sie darauf, um das Bild **hochzuladen**, zu **ersetzen** oder zu **entfernen**.
+Das Typ-Symbol verschwindet dabei nicht: Es wandert als kleines Abzeichen in
+die Ecke des Logos, sodass weiterhin auf einen Blick erkennbar bleibt, um
+welche Art von Karte es sich handelt.
+
+- **Zulässige Formate** — PNG, JPEG, WebP oder GIF, bis 1 MB. SVG wird nicht
+  akzeptiert, da es Skripte enthalten kann.
+- **Wo es erscheint** — im Kartenkopf, in der optionalen Spalte **Logo** im
+  [Inventar](inventory.md) und in jedem veröffentlichten Webportal, das auf
+  diesem Kartentyp basiert.
+- **Ohne Logo** — die Karte greift wie bisher auf ihr Typ-Symbol zurück.
+
+Logos stehen für Kartentypen zur Verfügung, für die eine Administratorin oder
+ein Administrator sie aktiviert hat; standardmäßig sind das Anwendung und
+IT-Komponente. Siehe [Metamodell](../admin/metamodel.md).
+
+Klicken Sie auf das Logo und wählen Sie **Markensymbol wählen…**, um aus einem
+integrierten Satz von mehreren tausend Markenzeichen auszuwählen — suchen Sie das
+Produkt nach Namen und wählen Sie es aus; eine Bilddatei ist nicht nötig. Mit
+**Hochladen** verwenden Sie stattdessen eine eigene Datei. Ein über
+[MCP](../admin/mcp.md) verbundener KI-Assistent kann Logos auf demselben Weg in
+großer Zahl setzen und holt das Zeichen selbst, wenn ein Produkt nicht im Satz
+enthalten ist.
+
+Dasselbe Menü steht in der Spalte **Logo** im [Inventar](inventory.md) zur
+Verfügung — mit der Maus über eine Logo-Zelle fahren und klicken —, sodass sich
+eine frisch importierte Landschaft mit Marken versehen lässt, ohne jede Karte
+zu öffnen. Das geschieht bewusst Karte für Karte: Logos werden weder beim
+Ausfüllen nach unten noch in der Massenbearbeitung angeboten.
 
 ### Genehmigungsworkflow
 
@@ -27,7 +67,7 @@ Karten können einen Genehmigungszyklus durchlaufen:
 | **Ungültig** | War genehmigt, wurde aber seitdem bearbeitet — erneute Überprüfung nötig |
 | **Abgelehnt** | Überprüft und abgelehnt, Korrekturen erforderlich |
 
-Wenn eine genehmigte Karte bearbeitet wird, ändert sich ihr Status automatisch auf **Ungültig**, um anzuzeigen, dass eine erneute Überprüfung erforderlich ist.
+Wenn eine genehmigte Karte bearbeitet wird, ändert sich ihr Status automatisch auf **Ungültig**, um anzuzeigen, dass eine erneute Überprüfung erforderlich ist. Das Archivieren einer übergeordneten Karte hat dieselbe Wirkung auf alle genehmigten untergeordneten Karten, die dabei in der Hierarchie verschoben werden. Alle Personen mit einer Stakeholder-Rolle auf der Karte werden benachrichtigt — mit Ausnahme derjenigen, die die Änderung vorgenommen hat — und der Wechsel wird auf dem Tab **Verlauf** der Karte festgehalten. Eine Aktion, die mehrere Karten betrifft, etwa eine Massenbearbeitung, sendet jeder Person eine einzige Zusammenfassung statt einer Benachrichtigung pro Karte.
 
 ## Detail-Tab (Hauptansicht)
 
@@ -36,7 +76,8 @@ Der Detail-Tab ist in **Abschnitte** gegliedert, die pro Kartentyp von einem Adm
 ### Beschreibungsabschnitt
 
 - **Beschreibung** — Rich-Text-Beschreibung der Komponente. Unterstützt die KI-Vorschlagsfunktion zur automatischen Generierung
-- **Zusätzliche Beschreibungsfelder** — Einige Kartentypen enthalten zusätzliche Felder im Beschreibungsabschnitt (z.B. Alias, externe ID)
+- **Zusätzliche Beschreibungsfelder** — Eine Administratorin kann beliebige eigene Felder eines Kartentyps dem Abschnitt Beschreibung zuordnen; dieser Abschnitt kann daher weitere Felder neben der Beschreibung selbst enthalten
+- **Links** — Eine Webadresse (`http://` oder `https://`) in der Beschreibung, in einem beliebigen Textfeld, einem Kommentar oder einer Aufgabe wird zu einem Link, der sich in einem neuen Tab öffnet
 
 ### Lebenszyklusabschnitt
 
@@ -51,6 +92,8 @@ Das Lebenszyklusmodell verfolgt eine Komponente durch fünf Phasen:
 | **Lebensende** | Nicht mehr in Gebrauch oder unterstützt |
 
 Jede Phase verfügt über eine **Datumsauswahl**, damit Sie festhalten können, wann die Komponente in diese Phase eingetreten ist oder eintreten wird. Ein visueller Zeitleistenbalken zeigt die Position der Komponente in ihrem Lebenszyklus.
+
+Liegt das Datum einer Phase nach dem einer folgenden Phase — zum Beispiel **Auslauf** nach **Lebensende** —, erscheint neben diesem Datum ein Warnsymbol, und beim Bearbeiten steht derselbe Hinweis unter dem Feld. Es ist nur ein Hinweis: Die Daten lassen sich trotzdem wie eingegeben speichern.
 
 ### Benutzerdefinierte Attributabschnitte
 
@@ -75,6 +118,7 @@ Für Kartentypen, die Hierarchie unterstützen (z.B. Organisation, Geschäftsfä
 - **Übergeordnete Karte** — Die übergeordnete Karte in der Hierarchie (klicken zum Navigieren)
 - **Untergeordnete Karten** — Liste der untergeordneten Karten (klicken zum Navigieren)
 - **Hierarchie-Brotkrumen** — Zeigt den vollständigen Pfad von der Wurzel zur aktuellen Karte
+- **Verbindungstyp** — Wenn eine Administratorin Verbindungstypen für diesen Kartentyp konfiguriert hat, lässt sich jede Eltern-Kind-Verbindung benennen — zum Beispiel eine Tochtergesellschaft als *Vertrieb* und eine andere als *Verkauf*. Die Bezeichnung gehört zur untergeordneten Karte: Auf der übergeordneten Karte steht sie neben jeder untergeordneten Karte, auf der untergeordneten neben ihrer übergeordneten. Wird eine Karte entfernt oder auf die oberste Ebene verschoben, entfällt ihre Bezeichnung; die Änderung wird im Tab **Verlauf** festgehalten.
 
 ### Beziehungsabschnitt
 
@@ -82,7 +126,7 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 
 - **Name der verwandten Karte** — Klicken zum Navigieren zur verwandten Karte
 - **Beziehungstyp** — Die Art der Verbindung (z.B. «nutzt», «läuft auf», «hängt ab von»)
-- **Beziehung hinzufügen** — Klicken Sie auf **+**, um den Dialog für diese Beziehung zu öffnen. Er listet passende Karten während der Eingabe auf (die besten Treffer zuerst, weitere werden beim Scrollen geladen) und blendet bereits verknüpfte Karten aus; eine Beschriftung nennt ihre Anzahl. Ein Klick auf eine Karte verknüpft sie sofort, und sie erscheint oben als Chip — ein Klick auf das **×** macht diese Zuordnung rückgängig. Der Dialog bleibt geöffnet, sodass Sie beliebig viele hinzufügen können; auf dem Smartphone öffnet er im Vollbild. Beziehungen ohne eigenen Abschnitt erreichen Sie über die Schaltfläche **Beziehung hinzufügen** am Ende des Abschnitts
+- **Beziehung hinzufügen** — Klicken Sie auf **+**, um den Dialog für diese Beziehung zu öffnen. Er listet passende Karten während der Eingabe auf (die besten Treffer zuerst, weitere werden beim Scrollen geladen) und blendet bereits verknüpfte Karten aus; eine Beschriftung nennt ihre Anzahl. Ein Klick auf eine Karte verknüpft sie sofort, und sie erscheint oben als Chip — ein Klick auf das **×** macht diese Zuordnung rückgängig. Der Dialog bleibt geöffnet, sodass Sie beliebig viele hinzufügen können; auf dem Smartphone öffnet er im Vollbild. Beziehungen ohne eigenen Abschnitt erreichen Sie über die Schaltfläche **Beziehung hinzufügen** am Ende des Abschnitts. Wenn der verknüpfte Typ hierarchisch ist — Business Capability, Organisation und Ähnliches —, zeigt der Dialog ihn als eingerückten Baum statt als alphabetische Liste, sodass Sie eine Teilfähigkeit über ihren Zweig auswählen können. Bei der Suche bleiben die übergeordneten Karten eines Treffers als Kontext sichtbar, und nicht auswählbare Karten (bereits verknüpft, gerade hinzugefügt oder die Karte selbst) bleiben ausgegraut an ihrem Platz, damit die Ebenen ringsum weiterhin stimmen.
 - **Sortierung** — Verwandte Karten werden alphabetisch nach Namen aufgelistet
 - **Beziehung entfernen** — Klicken Sie auf das Löschsymbol, um eine Beziehung zu entfernen
 - **Nach Untertyp gruppieren** — Enthält ein Beziehungsabschnitt viele verwandte Karten, werden sie automatisch in aufklappbare Untertyp-Gruppen (jeweils mit Anzahl) gruppiert, mit einer abschließenden Gruppe **Kein Untertyp** für nicht klassifizierte Karten. Über den Umschalter in der Abschnittsüberschrift wechseln Sie zwischen gruppierter und flacher Ansicht.
@@ -92,6 +136,12 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 
 ![Über Unterelemente verknüpfte Karten, nach Untertyp gruppiert](../assets/img/de/60_karte_unterelemente_beziehungen.png)
 
+### Abhängigkeiten-Abschnitt
+
+Eine [Layered Dependency View](reports.md) der Karte und aller Karten in einem Schritt Entfernung, gruppiert nach den vier Architekturebenen. Mit Umschalt-Klick auf eine Karte zentrieren Sie die Ansicht neu und durchlaufen die Landschaft, ohne die Seite zu verlassen.
+
+Das Symbol **in neuem Tab öffnen** in der Werkzeugleiste öffnet den vollständigen [Abhängigkeitsbericht](reports.md) in einem neuen Tab, zentriert auf die Karte, auf die die Ansicht gerade zentriert ist — also auf die Karte, zu der Sie navigiert sind, nicht zwingend auf die Ausgangskarte. Nützlich, wenn Sie das brauchen, was der Bericht rund um dasselbe Bild ergänzt: Zeitreise, die Übergangsmarkierungen, die Tabellenansicht und das Speichern der Ansicht als Bericht.
+
 ### Tags-Abschnitt
 
 Wenden Sie Tags aus den konfigurierten [Tag-Gruppen](../admin/tags.md) an. Je nach Gruppenmodus können Sie ein Tag (Einfachauswahl) oder mehrere Tags (Mehrfachauswahl) auswählen.
@@ -100,8 +150,8 @@ Wenden Sie Tags aus den konfigurierten [Tag-Gruppen](../admin/tags.md) an. Je na
 
 Die **Ressourcen**-Registerkarte bündelt alle unterstützenden Materialien einer Karte:
 
-- **Dateianhänge** — Dateien hochladen und verwalten (PDF, DOCX, XLSX, Bilder, bis zu 10 MB). Beim Hochladen wählen Sie eine **Dokumentenkategorie** aus: Architektur, Sicherheit, Compliance, Betrieb, Besprechungsnotizen, Design oder Sonstiges. Die Kategorie wird als Chip neben jeder Datei angezeigt.
-- **Dokumentenlinks** — URL-basierte Dokumentenverweise. Beim Hinzufügen eines Links wählen Sie einen **Linktyp** aus: Dokumentation, Sicherheit, Compliance, Architektur, Betrieb, Support oder Sonstiges. Der Linktyp wird als Chip neben jedem Link angezeigt, und das Symbol ändert sich je nach ausgewähltem Typ.
+- **Dateianhänge** — Dateien hochladen und verwalten (Dokumente, Tabellen, Präsentationen, OpenDocument- und ältere Office-Dateien, Bilder, Archive, Outlook- und E-Mail-Nachrichten, CSV, Markdown, JSON und XML – bis zu 20 MB). Beim Hochladen wählen Sie eine **Dokumentenkategorie** aus: Architektur, Sicherheit, Compliance, Betrieb, Besprechungsnotizen, Design oder Sonstiges. Die Kategorie wird als Chip neben jeder Datei angezeigt. Über das Austauschsymbol neben einer Datei laden Sie an ihrer Stelle eine neue Version hoch – der Eintrag wird dann wie ein neuer Upload datiert und zugeordnet, und die vorherige Version bleibt nur im Verlauf-Tab der Karte erhalten –, über das Stiftsymbol benennen Sie sie um oder ändern ihre Kategorie; die Dateierweiterung muss dabei gleich bleiben.
+- **Dokumentenlinks** — URL-basierte Dokumentenverweise. Beim Hinzufügen eines Links wählen Sie einen **Linktyp** aus: Dokumentation, Sicherheit, Compliance, Architektur, Betrieb, Support oder Sonstiges. Der Linktyp wird als Chip neben jedem Link angezeigt, und das Symbol ändert sich je nach ausgewähltem Typ. Über das Stiftsymbol neben einem Link ändern Sie dessen Namen, URL oder Linktyp; die URL muss mit `http://`, `https://` oder `mailto:` beginnen, und jede Änderung wird im Verlauf-Tab der Karte festgehalten.
 - **Diagramme** — Verknüpfen Sie bestehende [Diagramme](diagrams.de.md) mit dieser Karte. Verknüpfte Diagramme werden als Miniaturvorschauen angezeigt, die Sie anklicken können, um sie im Diagramm-Editor zu öffnen. Verwenden Sie die Schaltfläche **Diagramm verknüpfen**, um ein vorhandenes Diagramm zu suchen und anzuhängen, oder klicken Sie auf das Entknüpfungssymbol, um die Zuordnung zu entfernen.
 
 ### EOL-Abschnitt
@@ -119,6 +169,7 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 - **Kommentare hinzufügen** — Notizen, Fragen oder Entscheidungen über die Komponente hinterlassen
 - **Verschachtelte Antworten** — Auf bestimmte Kommentare antworten, um Gesprächsfäden zu erstellen
 - **Zeitstempel** — Sehen, wann jeder Kommentar gepostet wurde und von wem
+- **Links** — Eine Webadresse in einem Kommentar ist anklickbar und öffnet sich in einem neuen Tab
 
 ## Aufgaben-Tab
 
@@ -142,6 +193,8 @@ Stakeholder sind Personen mit einer bestimmten **Rolle** auf dieser Karte. Die v
 
 Stakeholder-Zuweisungen beeinflussen **Berechtigungen**: Die effektiven Berechtigungen eines Benutzers auf einer Karte sind die Kombination aus seiner anwendungsweiten Rolle und allen Stakeholder-Rollen, die er auf dieser Karte innehat.
 
+Wenn für eine Rolle im Metamodell eine **Farbe** festgelegt ist, wird ihre Gruppe damit gekennzeichnet, sodass Sie einen Eigentümer auf einen Blick von einem Beobachter unterscheiden können.
+
 ### Suchen und einladen
 
 Wähle einen Stakeholder über das **durchsuchbare Autocomplete** — beginne zu tippen und das Dropdown filtert sowohl nach Name als auch nach E-Mail (die E-Mail erscheint als sekundäre Zeile, sodass zwei Nutzer mit demselben Namen auf einen Blick unterschieden werden können).
@@ -155,6 +208,8 @@ Der Einladungspfad erfordert die **`users.invite`**-Berechtigung, eine delegiert
 ![Kartenänderungsverlauf](../assets/img/de/08_karten_historie.png)
 
 Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
+
+Alles, was das Datum **Geändert** der Karte verschiebt, erscheint hier — eine manuelle Bearbeitung, ein Tabellen-Import, eine Plattform-Migration oder ServiceNow-Synchronisierung, eine Tag-Änderung, eine Massenbearbeitung oder eine Hierarchie-Verschiebung, die diese Karte mitgezogen hat. Systemseitige Wartung ändert beides nicht: Die Neuberechnung von Datenqualitätswerten, das erneute Ausführen berechneter Felder sowie das Nachfüllen von Hierarchieebenen oder Karten-IDs lassen Historie und **Geändert**-Datum unberührt.
 
 ## ADRs-Tab
 

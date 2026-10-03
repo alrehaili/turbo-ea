@@ -45,6 +45,7 @@ import {
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ export default function SoAWEditor() {
 
   // SoAW state
   const [name, setName] = useState("");
+  usePageSubject(name);
   const [initiativeId, setInitiativeId] = useState("");
   const [status, setStatus] = useState("draft");
   const [docInfo, setDocInfo] = useState({
@@ -314,8 +316,11 @@ export default function SoAWEditor() {
       } else {
         const created = await api.post<SoAW>("/soaw", payload);
         soawIdRef.current = created.id;
-        // Update URL without re-rendering
-        window.history.replaceState(null, "", `/ea-delivery/soaw/${created.id}`);
+        // Route to the saved record so `id` resolves: the header, the
+        // Preview and Request-signatures buttons and the `?action=` deep
+        // links all key off it. A bare `history.replaceState` left the
+        // editor in its "new document" shape until a reload.
+        navigate(`/ea-delivery/soaw/${created.id}`, { replace: true });
       }
       setSnack(t("editor.savedSuccessfully"));
     } catch (e) {

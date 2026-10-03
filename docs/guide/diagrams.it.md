@@ -28,17 +28,20 @@ Raggruppa i diagrammi correlati in **gruppi** — etichette condivise a livello 
 
 Aprire un diagramma avvia l'editor DrawIO a schermo intero in un iframe della stessa origine. La barra degli strumenti nativa di DrawIO è disponibile per forme, connettori, testo e layout -- ogni azione propria di Turbo EA è esposta tramite il menu contestuale del clic destro, il pulsante Sync della barra strumenti e il chevron sopra ogni scheda.
 
+![Editor di diagrammi con schede colorate per criticità aziendale](../assets/img/it/99_editor_diagramma.png)
+
 ### Inserire schede
 
 Usate la finestra **Inserisci schede** (dalla barra strumenti o dal menu contestuale) per aggiungere schede alla tela:
 
 - I **chip di tipo con contatori in tempo reale** nella colonna sinistra filtrano i risultati.
-- Cercate per nome nella colonna destra; ogni riga ha una casella di selezione.
-- **Inserisci selezionate** aggiunge le schede scelte in una griglia; **Inserisci tutte** aggiunge ogni scheda che corrisponde al filtro corrente (con conferma oltre 50 risultati).
+- Cercate per nome nella colonna destra; ogni riga ha una casella di selezione. Restringete il filtro a un solo tipo gerarchico e la lista diventa un albero rientrato, così trovate una scheda dal suo ramo.
+- Le schede selezionate compaiono come chip sopra la lista e restano selezionate mentre cambiate filtro o ricerca — rimuovetene una con la sua ×.
+- **Seleziona tutti i visibili** seleziona tutto ciò che il filtro corrente lascia a schermo; **Inserisci selezionate** aggiunge le schede scelte alla tela in una griglia.
 
 La stessa finestra si apre in modalità a selezione singola per **Cambia scheda collegata** e **Collega a scheda esistente**.
 
-Ogni scheda sull'area di lavoro mostra la sua **icona del tipo di scheda** come un piccolo glifo bianco nell'angolo in alto a sinistra, accanto al colore del tipo — così il tipo di una scheda è indicato sia dall'icona sia dal colore. Questo corrisponde alle icone usate in tutta l'applicazione e migliora la leggibilità per gli utenti daltonici. L'icona compare sulle schede inserite d'ora in poi. Per aggiungere le icone alle schede già presenti su un diagramma più vecchio, fai clic su **Applica icone del tipo di scheda** nella barra degli strumenti dell'editor.
+Ogni scheda sull'area di lavoro mostra la sua **icona del tipo di scheda** come un piccolo glifo bianco nell'angolo in alto a sinistra, accanto al colore del tipo — così il tipo di una scheda è indicato sia dall'icona sia dal colore. Questo corrisponde alle icone usate in tutta l'applicazione e migliora la leggibilità per gli utenti daltonici. L'icona compare sulle schede inserite d'ora in poi. Per aggiungere le icone alle schede già presenti su un diagramma più vecchio, fai clic su **Applica icone del tipo di scheda** nella barra degli strumenti dell'editor. Se una scheda possiede un proprio **logo**, viene mostrato quello, mantenendo l'icona del tipo di scheda come piccolo badge nell'angolo: la forma indica così sia il prodotto sia il tipo di scheda. I logo compaiono all'apertura del diagramma e si aggiornano quando uno viene sostituito; una scheda senza logo, e ogni scheda di un tipo per cui un amministratore ha disattivato i logo, viene disegnata esattamente come prima. Una casella **Logo delle schede** nello stesso menu li disattiva se preferisci un diagramma essenziale; è attiva per impostazione predefinita.
 
 ### Azioni del clic destro
 
@@ -79,13 +82,25 @@ Rimuovere un arco che porta una relazione reale apre «Eliminare la relazione tr
 
 ### Prospettive di visualizzazione
 
-Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tela in base a un attributo:
+Il menu a tendina **Colora per** nella barra strumenti ricolora le schede sulla tela:
 
 - **Colori delle schede** (predefinito) -- ogni scheda usa il colore del proprio tipo.
 - **Stato di approvazione** -- ricolora per `approvata` / `in attesa` / `rotta`.
-- **Valori di campo** -- scegliete qualsiasi campo a selezione singola sui tipi di scheda presenti sulla tela (es. *Ciclo di vita*, *Stato*). Le celle senza valore cadono su un grigio neutro.
+- **Valori di campo** -- spuntate un campo a selezione singola sotto qualsiasi tipo di scheda presente sulla tela. **Più tipi di scheda possono portare una regola ciascuno nello stesso momento**: le Applicazioni per criticità *e* i Componenti IT per modello di hosting. Un tipo senza regola mantiene il colore che ha già, compreso un riempimento impostato a mano; diventa grigia solo una scheda la cui regola non trova alcun valore. Un secondo campo all'interno di uno stesso tipo sostituisce il primo, perché una scheda ha un solo riempimento.
 
-Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
+Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola attiva. Le regole di campo e lo **Stato di approvazione** sono alternative, non livelli: sceglierne una cancella l'altra. Togliendo ogni regola la tela torna ai colori delle schede. La scelta viene salvata col diagramma. La stessa legenda compare anche quando il diagramma è aperto in modalità di visualizzazione e sul suo link pubblicato o incorporato, così chi lo legge sa cosa significano i colori.
+
+![Diagramma in modalità visualizzazione con la legenda dei colori](../assets/img/it/99b_diagramma_vista_legenda.png)
+
+#### Mostra sulla scheda
+
+Un secondo pulsante nella barra strumenti, **Mostra sulla scheda**, decide **cosa dice ogni forma**. Spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**. È un pulsante distinto da **Colora per**, così nessuna delle due liste costringe a scorrere l'altra. **Cancella tutto** toglie tutte le spunte in una volta.
+
+Ogni selezione viene disegnata sulla forma, e la forma **cresce per contenerla**. Due righe entrano già in una scheda, quindi nulla si muove finché non ne spuntate una terza; da lì ogni scheda diventa un po' più alta per selezione e si riduce quando ne togliete una. Una scheda che avete ridimensionato a mano mantiene la vostra altezza: guadagna o restituisce soltanto lo spazio di una riga.
+
+Queste righe vengono salvate col diagramma, così ogni lettore — anche chi apre un link pubblicato — vede le stesse forme. Le schede portate sulla tela da **Espandi** riportano le stesse righe di qualsiasi altra scheda e crescono allo stesso modo. Le schede disposte dentro un contenitore **Drill-Down** o **Roll-Up** mostrano ciò che entra nella loro cella: ingrandirle le farebbe sconfinare sulla riga sottostante. La barra del titolo del contenitore, invece, cresce per contenere le sue righe — e il contenuto scende con lei — così trasformare una scheda in contenitore non costa mai ciò che diceva.
+
+Il pulsante **Crea diagramma** del [rapporto sulle dipendenze](reports.md) trasferisce le proprie impostazioni di visualizzazione, così un diagramma generato da un rapporto mostra esattamente le righe che il rapporto mostrava — tutte, comprese quelle per cui il rapporto stesso non aveva spazio.
 
 ### Come vengono disegnati gli archi di relazione
 
@@ -128,6 +143,8 @@ Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto c
     - una **relazione eliminata** -- *Rimuovi il collegamento dal diagramma* toglie il collegamento obsoleto dalla tela;
     - una relazione con **direzione del flusso** cambiata -- *Accetta aggiornamento* allinea la freccia all'inventario.
 
+![Pannello di sincronizzazione dell'editor di diagrammi](../assets/img/it/99a_diagramma_sincronizzazione.png)
+
 Turbo EA **controlla automaticamente le modifiche dell'inventario a ogni apertura di un diagramma** -- un badge blu sul pulsante Sync della barra strumenti conta le modifiche da rivedere. Nulla viene applicato senza la vostra conferma; il badge vi invita solo ad aprire il pannello. Il pulsante **Verifica aggiornamenti** nel pannello riesegue lo stesso controllo su richiesta.
 
 Il pulsante Sync della barra strumenti mostra una pillola pulsante «N non sincronizzate» finché esiste lavoro in sospeso. Lasciare la scheda con modifiche non sincronizzate attiva un avviso del browser, e la tela viene salvata automaticamente nello storage locale ogni cinque secondi per poter essere ripristinata dopo un aggiornamento accidentale.
@@ -145,7 +162,7 @@ Apri il menu **⋮** del diagramma nella galleria e scegli **Condividi / incorpo
 La finestra offre due scelte e due stringhe da copiare:
 
 - **Chiunque abbia il collegamento** — nessun accesso richiesto. Tratta il collegamento come una password: chiunque lo riceva può vedere il diagramma.
-- **Solo chi effettua l'accesso** — i visitatori si autenticano con il tuo provider di identità, eventualmente limitato a domini email specifici. Non viene creato alcun account Turbo EA per loro.
+- **Solo chi effettua l'accesso** — i visitatori si autenticano con il tuo provider di identità, eventualmente limitato a domini email specifici. Non viene creato alcun account Turbo EA per loro. All'interno di un'incorporazione, l'accesso si apre in una piccola finestra pop-up e Turbo EA deve essere servito tramite HTTPS perché la sessione venga mantenuta nel frame; i visitatori accedono una volta per ogni sito in cui il diagramma è incorporato.
 
 La pagina pubblicata mostra solo l'immagine. È possibile spostarla e ingrandirla, ma non si accede ai dettagli delle schede, e gli identificatori delle schede dietro le forme vengono rimossi prima che il diagramma lasci il server. Annullare la pubblicazione ha effetto immediato, anche per chi lo sta guardando. Ripubblicandolo in seguito si ottiene lo stesso collegamento, quindi gli URL già incollati continuano a funzionare.
 
@@ -165,3 +182,6 @@ La pagina pubblicata mostra solo l'immagine. È possibile spostarla e ingrandirl
 3. In Confluence inserisci una macro **HTML** (oppure *Iframe* / *HTML include*, a seconda di ciò che la tua istanza consente) e incolla il codice.
 
 Se il tuo Confluence non consente le macro HTML, incolla invece il **collegamento** semplice: apre la stessa vista in una nuova scheda.
+
+!!! note "Accesso all'interno di un'incorporazione"
+    Un diagramma pubblicato per *Solo chi effettua l'accesso* mostra un pulsante **Accedi** all'interno dell'incorporazione. Apre il tuo provider di identità in una piccola finestra pop-up e il diagramma compare appena quella finestra si chiude. Tre cose possono ostacolarlo: Turbo EA deve essere servito tramite **HTTPS** (i browser conservano la sessione tra siti di cui un'incorporazione ha bisogno solo su un'origine sicura); la pagina ospitante deve consentire i pop-up dai suoi frame (un frame in sandbox senza `allow-popups` blocca sia il pop-up sia il link di riserva); e in Safari usa il link **Apri il diagramma in una nuova scheda** offerto dalla schermata di accesso. A parte questo, Chrome rifiuta di caricare un'incorporazione da un indirizzo di rete privata (un IP o un nome host interno) in una pagina pubblica come Confluence Cloud: pubblica l'istanza su un nome host HTTPS pubblico, oppure incorporala da un wiki della stessa rete.

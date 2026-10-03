@@ -10,11 +10,49 @@ La parte superiore della card mostra:
 
 - **Icona e etichetta del tipo** — Indicatore del tipo di card con codice colore
 - **Nome della card** — Modificabile in linea
+- **Alias** — L'altro nome della card, mostrato sotto il titolo quando è impostato. La matita di modifica del titolo consente di cambiare nome e alias insieme. Gli alias sono considerati da ogni casella di ricerca, così una card si ritrova con il nome realmente usato nella vostra organizzazione.
 - **Sottotipo** — Classificazione secondaria (se applicabile)
 - **Badge dello stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Pulsante suggerimento AI** — Cliccate per generare una descrizione con AI (visibile quando l'AI è abilitata per questo tipo di card e l'utente ha il permesso di modifica)
 - **Anello della qualità dei dati** — Indicatore visivo della completezza delle informazioni (0-100%)
 - **Menu azioni** — Archiviazione, eliminazione e azioni di approvazione. Include anche un'azione con un clic **Osserva questa scheda** (quando il tipo di scheda definisce un ruolo Osservatore) che consente a qualsiasi utente con permessi di lettura di seguire la scheda senza passare dalla scheda Stakeholder.
+
+### Logo personalizzato
+
+Le schede di un tipo che lo consente possono avere un proprio **logo** al posto
+dell'icona generica del tipo: un'Applicazione per SAP, Kafka o Jira mostra
+quindi il marchio del prodotto. I loghi riconoscibili rendono un inventario
+molto più rapido da scorrere, soprattutto per chi lo consulta senza
+mantenerlo.
+
+Passa il puntatore sull'icona in alto a sinistra della scheda e fai clic per
+**caricare**, **sostituire** o **rimuovere** l'immagine. L'icona del tipo non
+scompare: si sposta come piccolo distintivo nell'angolo del logo, così resta
+sempre chiaro a colpo d'occhio di che tipo di scheda si tratta.
+
+- **Formati accettati** — PNG, JPEG, WebP o GIF, fino a 1 MB. Il formato SVG
+  non è accettato perché può contenere script.
+- **Dove compare** — nell'intestazione della scheda, nella colonna **Logo**
+  facoltativa dell'[Inventario](inventory.md) e in qualsiasi portale web
+  pubblicato basato su quel tipo di scheda.
+- **Se non c'è un logo** — la scheda torna alla sua icona di tipo, come prima.
+
+I loghi sono disponibili per i tipi di scheda che un amministratore ha
+attivato; di serie sono Applicazione e Componente IT. Vedi
+[Metamodello](../admin/metamodel.md).
+
+Fai clic sul logo e scegli **Scegli un'icona di marca…** per attingere a un
+insieme integrato di diverse migliaia di marchi: cerca il prodotto per nome e
+selezionalo, non serve alcun file immagine. **Carica** consente invece di usare
+un tuo file. Un assistente IA collegato via [MCP](../admin/mcp.md) può impostare
+i logo allo stesso modo in blocco e, se un prodotto non è nell'insieme, recupera
+il marchio da sé.
+
+Lo stesso menu è disponibile dalla colonna **Logo** dell'[Inventario](inventory.md)
+— passate il mouse su una cella del logo e fate clic —, così da poter applicare
+i marchi a un panorama appena importato senza aprire ogni scheda. È una scheda
+alla volta di proposito: il logo non viene offerto né al riempimento verso il
+basso né alla modifica di massa.
 
 ### Workflow di approvazione
 
@@ -27,7 +65,7 @@ Le card possono attraversare un ciclo di approvazione:
 | **Broken** | Era approvato, ma è stato modificato da allora — necessita una nuova revisione |
 | **Rejected** | Revisionato e rifiutato, necessita correzioni |
 
-Quando una card approvata viene modificata, il suo stato cambia automaticamente in **Broken** per indicare che necessita una nuova revisione.
+Quando una card approvata viene modificata, il suo stato cambia automaticamente in **Broken** per indicare che necessita una nuova revisione. L'archiviazione della card padre ha lo stesso effetto sulle card figlie approvate che vengono spostate nella gerarchia. Tutte le persone con un ruolo di stakeholder sulla card vengono avvisate — tranne chi ha effettuato la modifica — e il cambiamento viene registrato nella scheda **Cronologia** della card. Un'azione che interrompe più card, come una modifica di massa, invia a ciascuno un unico riepilogo anziché una notifica per card.
 
 ## Scheda Dettaglio (Principale)
 
@@ -36,7 +74,8 @@ La scheda dettaglio è organizzata in **sezioni** che possono essere riordinate 
 ### Sezione Descrizione
 
 - **Descrizione** — Descrizione in testo ricco del componente. Supporta la funzionalità di suggerimento AI per la generazione automatica
-- **Campi descrizione aggiuntivi** — Alcuni tipi di card includono campi extra nella sezione descrizione (es. alias, ID esterno)
+- **Campi descrizione aggiuntivi** — Un amministratore può assegnare qualsiasi campo proprio di un tipo di card alla sezione descrizione, che può quindi contenere campi ulteriori oltre alla descrizione stessa
+- **Link** — Un indirizzo web (`http://` o `https://`) inserito nella descrizione, in qualsiasi campo di testo, in un commento o in un'attività diventa un link che si apre in una nuova scheda
 
 ### Sezione Ciclo di vita
 
@@ -51,6 +90,8 @@ Il modello del ciclo di vita traccia un componente attraverso cinque fasi:
 | **End of Life** | Non più in uso o supportato |
 
 Ogni fase ha un **selettore di data** per registrare quando il componente è entrato o entrerà in quella fase. Una barra temporale visiva mostra la posizione del componente nel suo ciclo di vita.
+
+Se una fase ha una data successiva a quella di una fase che dovrebbe seguirla — ad esempio **Phase Out** dopo **End of Life** — accanto a quella data compare un'icona di avviso, e lo stesso avviso è mostrato sotto il campo durante la modifica. È solo un'indicazione: le date possono comunque essere salvate così come sono state inserite.
 
 ### Sezioni attributi personalizzati
 
@@ -75,6 +116,7 @@ Per i tipi di card che supportano la gerarchia (es. Organization, Business Capab
 - **Genitore** — Il genitore della card nella gerarchia (cliccate per navigare)
 - **Figli** — Elenco delle card figlie (cliccate su qualsiasi per navigare)
 - **Breadcrumb gerarchico** — Mostra il percorso completo dalla radice alla card corrente
+- **Tipo di collegamento** — Quando un amministratore ha configurato i tipi di collegamento per questo tipo di card, ogni collegamento padre-figlio può essere etichettato — ad esempio una controllata *commerciale* e un'altra di *vendita*. L'etichetta appartiene alla card figlia: la card padre la mostra accanto a ogni figlia, e la card figlia accanto al proprio padre. Rimuovere una card o spostarla al livello superiore ne cancella l'etichetta, e la modifica viene registrata nella scheda **Cronologia**.
 
 ### Sezione Relazioni
 
@@ -82,7 +124,7 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 
 - **Nome della card correlata** — Cliccate per navigare alla card correlata
 - **Tipo di relazione** — La natura della connessione (es. "utilizza", "funziona su", "dipende da")
-- **Aggiungi relazione** — Cliccate su **+** per aprire la finestra di quella relazione. Elenca le carte corrispondenti mentre digitate (le corrispondenze migliori per prime, altre si caricano scorrendo) e nasconde quelle già collegate, con una didascalia che ne indica il numero. Cliccando una carta la collegate subito e compare come chip in alto: cliccate la **×** di un chip per annullare quell'aggiunta. La finestra resta aperta per aggiungerne quante volete e su smartphone si apre a schermo intero. Le relazioni senza una sezione propria si raggiungono dal pulsante **Aggiungi relazione** in fondo alla sezione
+- **Aggiungi relazione** — Cliccate su **+** per aprire la finestra di quella relazione. Elenca le carte corrispondenti mentre digitate (le corrispondenze migliori per prime, altre si caricano scorrendo) e nasconde quelle già collegate, con una didascalia che ne indica il numero. Cliccando una carta la collegate subito e compare come chip in alto: cliccate la **×** di un chip per annullare quell'aggiunta. La finestra resta aperta per aggiungerne quante volete e su smartphone si apre a schermo intero. Le relazioni senza una sezione propria si raggiungono dal pulsante **Aggiungi relazione** in fondo alla sezione. Quando il tipo collegato è gerarchico (capacità di business, organizzazione e simili), la finestra lo mostra come un albero indentato anziché come elenco alfabetico, così potete scegliere una sotto-capacità dal suo ramo. La ricerca mantiene visibili i genitori di ogni corrispondenza come contesto e le carte non selezionabili (già collegate, appena aggiunte o la carta stessa) restano al loro posto in grigio, così i livelli intorno restano leggibili.
 - **Ordinamento** — Le carte collegate sono elencate in ordine alfabetico per nome
 - **Rimuovi relazione** — Cliccate sull'icona di eliminazione per rimuovere una relazione
 - **Raggruppa per sottotipo** — Quando una sezione di relazioni contiene molte card correlate, vengono raggruppate automaticamente in gruppi di sottotipo comprimibili (ciascuno con un conteggio), con un gruppo finale **Nessun sottotipo** per le card non classificate. Usate il pulsante di attivazione nell'intestazione della sezione per passare dalla vista raggruppata all'elenco semplice.
@@ -92,6 +134,12 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 
 ![Card collegate tramite i sottoelementi, raggruppate per sottotipo](../assets/img/it/60_scheda_sottoelementi_relazioni.png)
 
+### Sezione Dipendenze
+
+Una [Layered Dependency View](reports.md) della scheda e di tutto ciò che si trova a un passo di distanza, raggruppato nei quattro livelli architetturali. Maiusc-clic su una scheda per ricentrare la vista e percorrere il panorama senza lasciare la pagina.
+
+L'icona **apri in una nuova scheda** nella barra degli strumenti apre il [report Dipendenze](reports.md) completo in una nuova scheda del browser, centrato sulla scheda su cui la vista è centrata in quel momento — quindi quella verso cui avete navigato, non necessariamente quella di partenza. Utile quando serve ciò che il report aggiunge attorno alla stessa immagine: il viaggio nel tempo, i segni di transizione, la vista tabellare e il salvataggio della vista come report.
+
 ### Sezione Tag
 
 Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della modalità del gruppo, potete selezionare un tag (selezione singola) o più tag (selezione multipla).
@@ -100,8 +148,8 @@ Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della
 
 La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
-- **Allegati file** — Caricate e gestite file (PDF, DOCX, XLSX, immagini, fino a 10 MB). Durante il caricamento, selezionate una **categoria documento** tra: Architettura, Sicurezza, Conformità, Operazioni, Note di riunione, Design o Altro. La categoria viene visualizzata come chip accanto a ogni file.
-- **Link ai documenti** — Riferimenti a documenti basati su URL. Quando aggiungete un link, selezionate un **tipo di link** tra: Documentazione, Sicurezza, Conformità, Architettura, Operazioni, Supporto o Altro. Il tipo di link viene visualizzato come chip accanto a ogni link e l'icona cambia in base al tipo selezionato.
+- **Allegati file** — Caricate e gestite file (documenti, fogli di calcolo, presentazioni, file OpenDocument e Office legacy, immagini, archivi, messaggi Outlook ed e-mail, CSV, Markdown, JSON e XML — fino a 20 MB). Durante il caricamento, selezionate una **categoria documento** tra: Architettura, Sicurezza, Conformità, Operazioni, Note di riunione, Design o Altro. La categoria viene visualizzata come chip accanto a ogni file. Usate l'icona di sostituzione accanto a un file per caricare una nuova versione al suo posto — la voce viene quindi datata e attribuita come un nuovo caricamento, e la versione precedente resta solo nella scheda Cronologia della card — e l'icona a matita per rinominarlo o cambiarne la categoria; l'estensione deve restare la stessa.
+- **Link ai documenti** — Riferimenti a documenti basati su URL. Quando aggiungete un link, selezionate un **tipo di link** tra: Documentazione, Sicurezza, Conformità, Architettura, Operazioni, Supporto o Altro. Il tipo di link viene visualizzato come chip accanto a ogni link e l'icona cambia in base al tipo selezionato. Usate l'icona a matita accanto a un link per modificarne nome, URL o tipo di link; l'URL deve iniziare con `http://`, `https://` o `mailto:` e ogni modifica viene registrata nella scheda Cronologia della card.
 - **Diagrammi** — Collegate [diagrammi](diagrams.it.md) esistenti a questa card. I diagrammi collegati vengono visualizzati come anteprime in miniatura che potete cliccare per aprire nell'editor di diagrammi. Usate il pulsante **Collega diagramma** per cercare e allegare un diagramma esistente, oppure cliccate sull'icona di scollegamento per rimuovere l'associazione.
 
 ### Sezione EOL
@@ -119,6 +167,7 @@ Se la card è collegata a un prodotto [endoflife.date]( (tramite [Amministrazion
 - **Aggiungi commenti** — Lasciate note, domande o decisioni sul componente
 - **Risposte con thread** — Rispondete a commenti specifici per creare conversazioni con thread
 - **Timestamp** — Visualizzate quando ogni commento è stato pubblicato e da chi
+- **Link** — Un indirizzo web in un commento è cliccabile e si apre in una nuova scheda
 
 ## Scheda Todo
 
@@ -142,6 +191,8 @@ Gli stakeholder sono persone con un **ruolo** specifico su questa card. I ruoli 
 
 Le assegnazioni degli stakeholder influenzano i **permessi**: i permessi effettivi di un utente su una card sono la combinazione del suo ruolo a livello di applicazione e di qualsiasi ruolo di stakeholder che detiene su quella card.
 
+Quando un ruolo ha un **colore** impostato nel metamodello, il suo gruppo ne viene contrassegnato, così da distinguere a colpo d'occhio un proprietario da un osservatore.
+
 ### Ricerca e invito
 
 Scegli uno stakeholder tramite l'**autocomplete ricercabile** — inizia a digitare e il menu a tendina filtra sia per nome che per e-mail (l'e-mail appare come riga secondaria, così due utenti con lo stesso nome possono essere distinti a colpo d'occhio).
@@ -155,6 +206,8 @@ Il percorso di invito richiede il permesso **`users.invite`**, una forma delegat
 ![Cronologia modifiche della card](../assets/img/it/08_scheda_cronologia.png)
 
 Mostra il **registro di audit completo** delle modifiche apportate alla card: **chi** ha effettuato la modifica, **quando** è stata fatta e **cosa** è stato modificato (valore precedente vs. nuovo valore). Questo consente la completa tracciabilità di tutte le modifiche nel tempo.
+
+Tutto ciò che sposta la data **Modificato** della card compare qui: una modifica manuale, un'importazione da foglio di calcolo, una migrazione di piattaforma o una sincronizzazione ServiceNow, un cambio di tag, una modifica di massa, o uno spostamento gerarchico che ha trascinato questa card. La manutenzione di sistema non cambia né l'una né l'altra: il ricalcolo dei punteggi di qualità dei dati, la riesecuzione dei campi calcolati e il popolamento dei livelli gerarchici o degli identificativi delle card lasciano intatti la cronologia e la data **Modificato**.
 
 ## Scheda ADR
 

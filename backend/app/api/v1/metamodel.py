@@ -11,6 +11,11 @@ from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.permissions import (
+    APP_PERMISSIONS,
+    TYPE_SCOPED_APP_PERMISSIONS,
+    validate_type_role_permissions,
+)
 from app.database import get_db
 from app.models.authoritative_source import AuthoritativeSource
 from app.models.card import Card
@@ -20,6 +25,7 @@ from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
+from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.standard import Standard, StandardPrinciple
 from app.models.user import User
@@ -31,7 +37,13 @@ from app.services.hierarchy import (
     hierarchy_level_field_def,
 )
 from app.services.permission_service import PermissionService
-from app.services.seed import DEFAULT_TYPE_COLORS
+from app.services.seed import (
+    DEFAULT_TYPE_COLORS,
+    SUCCESSOR_LABEL,
+    SUCCESSOR_REVERSE_LABEL,
+    SUCCESSOR_TRANSLATIONS,
+    _inject_english_translations_relation,
+)
 
 logger = logging.getLogger("turboea.metamodel")
 
@@ -97,6 +109,7 @@ _BUILTIN_FIELD_TYPES = frozenset(
         "url",
         "single_select",
         "multiple_select",
+        "percentage",
     }
 )
 
@@ -146,9 +159,49 @@ def _enforce_field_gating(
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
+# The five inventory permissions a card type may override, in the order the
+# admin Permissions tab renders them. View leads: a View deny locks the rest.
+_TYPE_PERMISSION_ORDER: tuple[str, ...] = (
+    "inventory.view",
+    "inventory.create",
+    "inventory.edit",
+    "inventory.archive",
+    "inventory.delete",
+)
 
-def _serialize_type(t: CardType) -> dict:
-    return {
+
+async def _validated_role_permissions(db: AsyncSession, raw: object) -> dict:
+    """Validate a ``role_permissions`` payload against the live role list.
+
+    Role keys must exist (archived ones are fine — their overrides are inert
+    but a round-trip of a stored map must not start failing), and a wildcard
+    role can never be overridden.
+    """
+    rows = await db.execute(select(Role.key, Role.permissions))
+    known: set[str] = set()
+    wildcard: set[str] = set()
+    for role_key, perms in rows.all():
+        known.add(role_key)
+        if (perms or {}).get("*"):
+            wildcard.add(role_key)
+    try:
+        return validate_type_role_permissions(
+            raw, known_role_keys=known, wildcard_role_keys=wildcard
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+def _serialize_type(t: CardType, *, include_role_permissions: bool = True) -> dict:
+    """Serialise a card type.
+
+    ``role_permissions`` is the per-role RBAC matrix of the type — which roles
+    may see, create, edit… its cards. Read routes pass
+    ``include_role_permissions=False`` for callers without ``admin.metamodel``:
+    nothing outside the admin Permissions tab needs it, and it would tell any
+    user which types are hidden from which role.
+    """
+    out = {
         "key": t.key,
         "label": t.label,
         "description": t.description,
@@ -157,11 +210,14 @@ def _serialize_type(t: CardType) -> dict:
         "category": t.category,
         "has_hierarchy": t.has_hierarchy,
         "has_successors": t.has_successors,
+        "allow_card_logo": t.allow_card_logo,
         "subtypes": t.subtypes or [],
+        "hierarchy_labels": t.hierarchy_labels or [],
         "fields_schema": t.fields_schema or [],
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
         "reference_config": t.reference_config or {},
+        "role_permissions": t.role_permissions or {},
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
@@ -170,6 +226,9 @@ def _serialize_type(t: CardType) -> dict:
         # admin "reset to default color" affordance.
         "default_color": DEFAULT_TYPE_COLORS.get(t.key),
     }
+    if not include_role_permissions:
+        out.pop("role_permissions", None)
+    return out
 
 
 def _serialize_relation_type(r: RelationType) -> dict:
@@ -444,7 +503,8 @@ async def list_types(
     if not include_hidden:
         q = q.where(CardType.is_hidden == False)  # noqa: E712
     result = await db.execute(q)
-    return [_serialize_type(t) for t in result.scalars().all()]
+    rbac = await PermissionService.has_app_permission(db, user, "admin.metamodel")
+    return [_serialize_type(t, include_role_permissions=rbac) for t in result.scalars().all()]
 
 
 @router.get("/types/{key}")
@@ -455,7 +515,70 @@ async def get_type(
     t = result.scalar_one_or_none()
     if not t:
         raise HTTPException(404, "Card type not found")
-    return _serialize_type(t)
+    rbac = await PermissionService.has_app_permission(db, user, "admin.metamodel")
+    return _serialize_type(t, include_role_permissions=rbac)
+
+
+@router.get("/types/{key}/permissions")
+async def get_type_permissions(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
+    """The per-role permission matrix for one card type (admin Permissions tab).
+
+    Gated on ``admin.metamodel`` because it reveals part of the RBAC matrix.
+    It deliberately exposes only the five type-scoped inventory bits per role —
+    never the full permission set, which stays behind ``admin.roles`` — so an
+    admin who may edit the metamodel can see what a role inherits without
+    being handed the whole role configuration.
+
+    ``inherited`` is what the role grants landscape-wide; ``overrides`` is what
+    this type stores. A cell missing from ``overrides`` inherits. Archived
+    roles are omitted, and a stored override naming a role that no longer
+    exists is simply not listed (it is inert at check time too).
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Card type not found")
+
+    stored = t.role_permissions or {}
+    inventory_descriptions = APP_PERMISSIONS["inventory"]["permissions"]
+    actions = [
+        {"key": perm_key, "description": inventory_descriptions.get(perm_key, "")}
+        for perm_key in _TYPE_PERMISSION_ORDER
+        if perm_key in TYPE_SCOPED_APP_PERMISSIONS
+    ]
+
+    roles_result = await db.execute(
+        select(Role)
+        .where(Role.is_archived == False)  # noqa: E712
+        .order_by(Role.sort_order, Role.key)
+    )
+    roles = []
+    for role in roles_result.scalars().all():
+        perms = role.permissions or {}
+        is_wildcard = bool(perms.get("*"))
+        roles.append(
+            {
+                "key": role.key,
+                "label": role.label,
+                "color": role.color,
+                "is_system": role.is_system,
+                "is_wildcard": is_wildcard,
+                "inherited": {
+                    a["key"]: True if is_wildcard else bool(perms.get(a["key"], False))
+                    for a in actions
+                },
+                "overrides": {
+                    k: v
+                    for k, v in (stored.get(role.key) or {}).items()
+                    if k in TYPE_SCOPED_APP_PERMISSIONS
+                },
+            }
+        )
+
+    return {"actions": actions, "roles": roles}
 
 
 @router.get("/types/{key}/field-usage")
@@ -630,6 +753,40 @@ async def get_option_usage(
     }
 
 
+@router.get("/types/{key}/hierarchy-label-usage")
+async def get_hierarchy_label_usage(
+    key: str,
+    label_key: str = Query(..., description="The hierarchy link label key to check"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return how many active cards carry a given hierarchy link label (#1100).
+
+    Its own endpoint rather than a branch of ``option-usage``: that one
+    dispatches on a ``fields_schema`` field type and reads ``attributes``,
+    whereas a link label is the ``cards.parent_label`` column.
+
+    Deleting the option does **not** rewrite the stored values — they keep
+    rendering as the unknown-option chip, and the card stays editable because
+    the write validator exempts an unchanged value. This count is what lets the
+    admin dialog say how many cards that will affect before they confirm.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    exists = await db.scalar(select(CardType.id).where(CardType.key == key))
+    if not exists:
+        raise HTTPException(404, "Card type not found")
+    count = await db.scalar(
+        select(func.count())
+        .select_from(Card)
+        .where(
+            Card.type == key,
+            Card.status == "ACTIVE",
+            Card.parent_label == label_key,
+        )
+    )
+    return {"label_key": label_key, "card_count": count or 0}
+
+
 def _has_hierarchy_level_field(schema: list) -> bool:
     return any(
         isinstance(s, dict) and f.get("key") == HIERARCHY_LEVEL_KEY
@@ -709,6 +866,7 @@ async def create_type(
         reference_config = card_reference.validate_reference_config(body.get("reference_config"))
     except card_reference.ReferenceConfigError as exc:
         raise HTTPException(400, str(exc)) from exc
+    role_permissions = await _validated_role_permissions(db, body.get("role_permissions"))
     t = CardType(
         key=body["key"],
         label=body["label"],
@@ -718,10 +876,13 @@ async def create_type(
         category=body.get("category"),
         has_hierarchy=body.get("has_hierarchy", False),
         has_successors=body.get("has_successors", False),
+        allow_card_logo=body.get("allow_card_logo", False),
         subtypes=body.get("subtypes", []),
+        hierarchy_labels=body.get("hierarchy_labels", []),
         fields_schema=fields_schema,
         stakeholder_roles=body.get("stakeholder_roles", default_roles),
         reference_config=reference_config,
+        role_permissions=role_permissions,
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
@@ -734,6 +895,9 @@ async def create_type(
         await _ensure_successor_relation_type(db, t.key)
     await db.commit()
     await db.refresh(t)
+    # A lookup of this key before it existed cached "no overrides"; drop it so
+    # overrides created with the type apply at once, not a TTL later.
+    PermissionService.invalidate_type_permission_cache(t.key)
     return _serialize_type(t)
 
 
@@ -803,7 +967,9 @@ async def update_type(
         "category",
         "has_hierarchy",
         "has_successors",
+        "allow_card_logo",
         "subtypes",
+        "hierarchy_labels",
         "fields_schema",
         "stakeholder_roles",
         "section_config",
@@ -872,8 +1038,19 @@ async def update_type(
         # never mint thousands of IDs by surprise. New cards still auto-generate
         # on create; only the historical backlog is generated on demand.
 
+    # ── Per-card-type role permission overrides (discussion #1068) ──
+    # Deliberately outside the generic `updatable` loop: the payload is
+    # validated against the live role list, and a wildcard role is refused.
+    if "role_permissions" in body:
+        t.role_permissions = await _validated_role_permissions(db, body["role_permissions"])
+
     await db.commit()
     await db.refresh(t)
+
+    # The override map is cached per process for the permission checks, so a
+    # save has to drop this type's entry or the change would take up to the
+    # cache TTL to reach the routes.
+    PermissionService.invalidate_type_permission_cache(key)
 
     # Re-score existing cards when the scoring config actually changed, so
     # tuned data-quality weights take effect immediately instead of waiting
@@ -911,6 +1088,7 @@ async def delete_type(
         # Soft-delete built-in types
         t.is_hidden = True
         await db.commit()
+        PermissionService.invalidate_type_permission_cache(key)
         return {"status": "hidden", "key": key, "instance_count": instance_count}
 
     if instance_count > 0:
@@ -936,6 +1114,7 @@ async def delete_type(
 
     await db.delete(t)
     await db.commit()
+    PermissionService.invalidate_type_permission_cache(key)
     return {"status": "deleted", "key": key}
 
 
@@ -943,44 +1122,30 @@ async def delete_type(
 
 # Successor relations (key ends with "Successor") are a separate, UI-isolated
 # category — see frontend RelationsSection/MetamodelGraph/MetamodelAdmin, which all
-# filter on key.endsWith("Successor"). They are exempt from the one-relation-per-pair
-# uniqueness rule so a custom self-relation can coexist with the built-in successor
-# (mirrors the seeded BusinessProcess "depends on" + "succeeds" pair).
+# filter on key.endsWith("Successor"). The suffix is how the auto-provisioned lineage
+# relation type is found and named when an admin enables "Supports Lineage"; it no
+# longer carries a uniqueness exemption, since any number of relation types may share
+# an ordered (source, target) pair.
 SUCCESSOR_KEY_SUFFIX = "Successor"
 
-# Canonical label + i18n for an auto-provisioned successor (lineage) relation type.
-# Mirrors the seeded built-in successors (e.g. ``relAppSuccessor`` in seed.py) so a
-# relation type created when an admin enables "Supports Lineage" carries the same
-# wording/translations as the built-ins. The English label is also injected into the
-# translations dict to match the seed (see ``_inject_english_translations_relation``).
-_SUCCESSOR_LABEL = "succeeds"
-_SUCCESSOR_REVERSE_LABEL = "is preceded by"
-_SUCCESSOR_TRANSLATIONS: dict = {
-    "label": {
-        "en": _SUCCESSOR_LABEL,
-        "de": "folgt auf",
-        "fr": "succède à",
-        "es": "sucede a",
-        "it": "succede a",
-        "pt": "sucede a",
-        "zh": "继承",
-        "ru": "предшествует",
-        "da": "efterfølger",
-        "ar": "يخلف",
-    },
-    "reverse_label": {
-        "en": _SUCCESSOR_REVERSE_LABEL,
-        "de": "wird abgelöst durch",
-        "fr": "est précédé par",
-        "es": "es precedido por",
-        "it": "è preceduto da",
-        "pt": "é precedido por",
-        "zh": "被继承",
-        "ru": "следует за",
-        "da": "efterfølges af",
-        "ar": "مسبوق بـ",
-    },
-}
+# Canonical label + i18n for an auto-provisioned successor (lineage) relation
+# type, imported from the seed so the relation type created when an admin
+# enables "Supports Lineage" is byte-identical to the seeded built-ins. The
+# wording lived here as a hand-copied literal until #1091, where the reverse
+# verb ("is preceded by") turned out to mean the same as the forward one and
+# had to be corrected in seven seed entries, this module and a migration.
+# The English label is injected into the translations dict here exactly as the
+# seed does it, so `translations["label"]["en"]` shadows the raw column the
+# same way for both paths.
+_SUCCESSOR_LABEL = SUCCESSOR_LABEL
+_SUCCESSOR_REVERSE_LABEL = SUCCESSOR_REVERSE_LABEL
+_SUCCESSOR_TRANSLATIONS: dict = _inject_english_translations_relation(
+    {
+        "label": SUCCESSOR_LABEL,
+        "reverse_label": SUCCESSOR_REVERSE_LABEL,
+        "translations": copy.deepcopy(SUCCESSOR_TRANSLATIONS),
+    }
+)["translations"]
 
 
 def _sync_english_verb_translations(r: RelationType, body: dict) -> None:
@@ -1033,6 +1198,10 @@ async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) 
     The caller is responsible for committing.
     """
     # Already have a usable successor relation type for this self-pair? Nothing to do.
+    # `.first()`, not `scalar_one_or_none()`: any number of relation types may share
+    # an ordered pair, so more than one `*Successor` self-relation is possible and
+    # `scalar_one_or_none()` would raise MultipleResultsFound — a 500 on every
+    # card-type create/update with `has_successors`.
     existing = await db.execute(
         select(RelationType).where(
             RelationType.source_type_key == card_type_key,
@@ -1041,7 +1210,7 @@ async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) 
             RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
         )
     )
-    if existing.scalar_one_or_none():
+    if existing.scalars().first() is not None:
         return
 
     key = f"rel{card_type_key}{SUCCESSOR_KEY_SUFFIX}"
@@ -1124,22 +1293,6 @@ async def create_relation_type(
         if not exists.scalar_one_or_none():
             raise HTTPException(400, f"Type '{type_key}' does not exist")
 
-    # Prevent duplicate source+target pair (ignore hidden/soft-deleted + successors)
-    dup = await db.execute(
-        select(RelationType).where(
-            RelationType.source_type_key == body["source_type_key"],
-            RelationType.target_type_key == body["target_type_key"],
-            RelationType.is_hidden == False,  # noqa: E712
-            ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
-        )
-    )
-    if dup.scalar_one_or_none():
-        raise HTTPException(
-            400,
-            f"A relation type from '{body['source_type_key']}' to "
-            f"'{body['target_type_key']}' already exists.",
-        )
-
     max_order = await db.execute(select(func.max(RelationType.sort_order)))
     next_order = (max_order.scalar() or 0) + 1
 
@@ -1196,23 +1349,6 @@ async def update_relation_type(
                 exists = await db.execute(select(CardType.key).where(CardType.key == body[fk]))
                 if not exists.scalar_one_or_none():
                     raise HTTPException(400, f"Type '{body[fk]}' does not exist")
-        # Check for duplicate source+target
-        new_src = body.get("source_type_key", r.source_type_key)
-        new_tgt = body.get("target_type_key", r.target_type_key)
-        dup = await db.execute(
-            select(RelationType).where(
-                RelationType.source_type_key == new_src,
-                RelationType.target_type_key == new_tgt,
-                RelationType.key != key,
-                RelationType.is_hidden == False,  # noqa: E712
-                ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
-            )
-        )
-        if dup.scalar_one_or_none():
-            raise HTTPException(
-                400,
-                f"A relation type from '{new_src}' to '{new_tgt}' already exists.",
-            )
 
     updatable = [
         "label",
@@ -1327,23 +1463,6 @@ async def restore_relation_type(
         raise HTTPException(404, "Relation type not found")
     if not r.is_hidden:
         raise HTTPException(400, "Relation type is not hidden")
-
-    # Check for duplicate source+target before restoring
-    dup = await db.execute(
-        select(RelationType).where(
-            RelationType.source_type_key == r.source_type_key,
-            RelationType.target_type_key == r.target_type_key,
-            RelationType.key != key,
-            RelationType.is_hidden == False,  # noqa: E712
-            ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
-        )
-    )
-    if dup.scalar_one_or_none():
-        raise HTTPException(
-            400,
-            f"Cannot restore: a relation type from '{r.source_type_key}' to "
-            f"'{r.target_type_key}' already exists.",
-        )
 
     r.is_hidden = False
     await db.commit()

@@ -10,7 +10,6 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
@@ -20,9 +19,12 @@ from app.schemas.common import (
     StakeholderBulkResult,
     StakeholderCreate,
 )
+from app.services.card_read_scope import require_card_readable
 from app.services.data_quality import rescore_cards
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.stakeholder_service import role_labels as _role_labels
+from app.services.stakeholder_service import roles_for_type as _roles_for_type
 
 router = APIRouter(tags=["stakeholders"])
 
@@ -30,42 +32,6 @@ _DEFAULT_ROLES = [
     {"key": "responsible", "label": "Responsible"},
     {"key": "observer", "label": "Observer"},
 ]
-
-
-async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
-    """Return active stakeholder roles from stakeholder_role_definitions table."""
-    result = await db.execute(
-        select(StakeholderRoleDefinition)
-        .where(
-            StakeholderRoleDefinition.card_type_key == type_key,
-            StakeholderRoleDefinition.is_archived == False,  # noqa: E712
-        )
-        .order_by(StakeholderRoleDefinition.sort_order)
-    )
-    srds = result.scalars().all()
-    if srds:
-        return [
-            {
-                "key": s.key,
-                "label": s.label,
-                "color": s.color,
-                "translations": s.translations or {},
-            }
-            for s in srds
-        ]
-    # Fallback to JSONB for backward compat during migration
-    result = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
-    roles = result.scalar_one_or_none()
-    if roles:
-        return roles
-    return [
-        {"key": "responsible", "label": "Responsible"},
-        {"key": "observer", "label": "Observer"},
-    ]
-
-
-def _role_labels(roles: list[dict]) -> dict[str, str]:
-    return {r["key"]: r["label"] for r in roles}
 
 
 @router.get("/stakeholder-roles")
@@ -80,6 +46,9 @@ async def list_roles(
             {
                 "key": r["key"],
                 "label": r["label"],
+                # Optional: the JSONB fallback and the hardcoded defaults below
+                # `_roles_for_type` carry no colour, so callers must cope with None.
+                "color": r.get("color"),
                 "translations": r.get("translations", {}),
             }
             for r in roles
@@ -90,6 +59,7 @@ async def list_roles(
         select(
             StakeholderRoleDefinition.key,
             StakeholderRoleDefinition.label,
+            StakeholderRoleDefinition.color,
             StakeholderRoleDefinition.translations,
         )
         .where(StakeholderRoleDefinition.is_archived == False)  # noqa: E712
@@ -100,7 +70,8 @@ async def list_roles(
         {
             "key": row[0],
             "label": row[1],
-            "translations": row[2] or {},
+            "color": row[2],
+            "translations": row[3] or {},
         }
         for row in result.all()
     ]
@@ -115,6 +86,10 @@ async def list_stakeholders(
     await PermissionService.require_permission(db, user, "stakeholders.view")
     card_result = await db.execute(select(Card.type).where(Card.id == uuid.UUID(card_id)))
     card_type_key = card_result.scalar_one_or_none()
+    if card_type_key is not None:
+        await require_card_readable(
+            db, user, uuid.UUID(card_id), mode="module", type_key=card_type_key
+        )
     roles = await _roles_for_type(db, card_type_key) if card_type_key else _DEFAULT_ROLES
     labels = _role_labels(roles)
 

@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.29.0] - 2026-10-03
+
+### Added
+- Merged upstream Turbo EA **v2.72.0 → v2.157.0** into the fork.
+- **Card logos** — per-card logo images (Application and IT Component by default) with bundled brand-icon packs.
+- **Per-user read scope on reports** — every report, the dashboard and the dependency graph only show cards the reader may see; routes are gated by one central permission table.
+- **Web portal views** — portfolio (PPM) and process-navigator portals alongside the card catalogue; NORA hub portals keep working.
+- **BPMN upgrades** — message flows, event definitions, call activities linked to the Business Process they invoke.
+- **Dependency report time travel** — lifecycle slider with transition marks, retiring/arriving badges and connection changes.
+- **LeanIX export** — download the workspace back in LeanIX's own format from the Migration admin.
+- **Fiscal-year cost reporting**, collapsible report filter sections, and an EOL "not covered" bucket.
+
+### Changed
+- Notification types come from one backend registry; the fork's approval-step notification is registered there.
+- Successor relation types read "succeeds / is succeeded by"; Danish metamodel labels corrected (migrations 147, 152).
+- The NORA six-layer order is applied to the new shared layer-order helpers (Layered Dependency View, inventory type filter).
+- The PPM portfolio board is a shared view; the fork's "Transition only" filter is preserved on it.
+
 ## [2.28.0] - 2026-08-21
 
 ### Added

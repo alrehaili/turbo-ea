@@ -81,7 +81,7 @@ APP_PERMISSIONS: dict[str, dict] = {
             "reports.ea_dashboard": "View EA dashboard and reports",
             "reports.bpm_dashboard": "View BPM dashboard and reports",
             "reports.ppm_dashboard": "View PPM dashboard and reports",
-            "reports.portfolio": "View portfolio and cost reports",
+            "reports.portfolio": "View the portfolio reports",
             "reports.roadmap_manage": "Create and edit saved transformation roadmaps",
         },
     },
@@ -349,6 +349,50 @@ for group in APP_PERMISSIONS.values():
     ALL_APP_PERMISSION_KEYS.update(group["permissions"].keys())
 
 # ---------------------------------------------------------------------------
+# Legacy app-level permission keys
+# ---------------------------------------------------------------------------
+#
+# The pre-024 names that migration 033 renamed inside ``roles.permissions``.
+# 033 repairs the rows an install already had, so on any instance that ran it
+# the table is clean — this map exists for the maps that arrive *afterwards*,
+# which no migration is watching: a workspace bundle exported from an instance
+# that never ran 033 is written straight onto the model by the transfer
+# applier, bypassing the validators below.
+#
+# Unlike the card-level keys, these are RENAMED, not dropped. Each one maps to
+# a permission that still exists and still means the same thing, so the stored
+# ``true`` is a grant somebody deliberately made; dropping it would silently
+# revoke access, where renaming preserves exactly what the role had.
+LEGACY_APP_PERMISSION_RENAMES: dict[str, str] = {
+    "subscriptions.view": "stakeholders.view",
+    "subscriptions.manage": "stakeholders.manage",
+    "inventory.quality_seal": "inventory.approval_status",
+}
+
+
+def migrate_legacy_app_permissions(permissions: dict) -> dict:
+    """Rename pre-024 app permission keys to their modern equivalents.
+
+    Mirrors migration 033's semantics: the modern key wins when both are
+    present, so a deliberate newer value is never clobbered by a stale one.
+    Keys outside the map are untouched — an unknown key stays unknown, for the
+    caller to reject.
+    """
+    if not isinstance(permissions, dict):
+        return permissions
+    if not LEGACY_APP_PERMISSION_RENAMES.keys() & permissions.keys():
+        return permissions
+    migrated: dict = {}
+    for key, value in permissions.items():
+        new_key = LEGACY_APP_PERMISSION_RENAMES.get(key)
+        if new_key is None:
+            migrated[key] = value
+        elif new_key not in permissions:
+            migrated[new_key] = value
+    return migrated
+
+
+# ---------------------------------------------------------------------------
 # Card-level permissions (stored in stakeholder_role_definitions.permissions)
 # ---------------------------------------------------------------------------
 
@@ -372,6 +416,43 @@ CARD_PERMISSIONS: dict[str, str] = {
 }
 
 ALL_CARD_PERMISSION_KEYS: set[str] = set(CARD_PERMISSIONS.keys())
+
+# ---------------------------------------------------------------------------
+# Legacy card permission keys
+# ---------------------------------------------------------------------------
+#
+# Migration 024 renamed the ``fs.`` prefix to ``card.`` inside
+# ``stakeholder_role_definitions.permissions`` but never applied the *semantic*
+# half of the same rename, so ``fs.quality_seal`` became ``card.quality_seal``
+# rather than ``card.approval_status``. Migration 033 repaired the equivalent
+# app-level keys in ``roles.permissions`` and stopped there, leaving every
+# install upgraded through 024 carrying keys this catalogue does not contain.
+#
+# That made the stakeholder-role editor unusable: the admin UI renders only the
+# keys in ``CARD_PERMISSIONS`` yet round-trips the stored map verbatim, so every
+# save resent the stale keys and was rejected — taking the colour, label and
+# translations down with it.
+#
+# They are DROPPED, never remapped. ``get_effective_card_permissions`` only ever
+# reads the modern names, so these keys have granted nothing since 024; removing
+# them is behaviour-preserving, whereas remapping would silently *grant*
+# approve/reject and stakeholder-management rights to every holder of the role.
+LEGACY_CARD_PERMISSION_KEYS: frozenset[str] = frozenset(
+    {"card.quality_seal", "card.manage_subscriptions"}
+)
+
+
+def strip_legacy_card_permissions(permissions: dict) -> dict:
+    """Drop known-stale card permission keys from a permissions map.
+
+    Only forgives keys this codebase itself once wrote. Genuinely unknown keys
+    are left in place for the caller to reject, so this stays a targeted repair
+    rather than a hole in the validator.
+    """
+    if not isinstance(permissions, dict):
+        return permissions
+    return {k: v for k, v in permissions.items() if k not in LEGACY_CARD_PERMISSION_KEYS}
+
 
 # ---------------------------------------------------------------------------
 # Mapping: app-level permission → card-level equivalent
@@ -398,6 +479,115 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
 
 # Reverse: card-level → app-level (for check_permission convenience)
 CARD_TO_APP_PERMISSION_MAP: dict[str, str] = {v: k for k, v in APP_TO_CARD_PERMISSION_MAP.items()}
+
+# ---------------------------------------------------------------------------
+# Per-card-type permission overrides
+# ---------------------------------------------------------------------------
+# A card type may override these five app-level permissions per role, so an
+# admin can say "members may not create Organizations", "viewers may create
+# Initiatives" or "viewers may not see Initiatives at all" without minting a
+# role per type. Deliberately a *subset* of ``inventory.*`` and NOT new
+# permission keys: the override map reuses the keys below, so
+# ``ALL_APP_PERMISSION_KEYS`` and every default role dict are untouched.
+#
+# ``inventory.view`` is the odd one out. A View cell does not only decide one
+# action: an explicit View *deny* means the role holds no landscape-wide
+# authority over cards of that type at all (see ``type_cell_decision``), and
+# every read surface — lists, reports, relations, graphs, linked-card chips —
+# omits those cards through ``app.services.card_read_scope``. A stakeholder's
+# own card-level grants on one specific card are never affected.
+TYPE_SCOPED_APP_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        "inventory.view",
+        "inventory.create",
+        "inventory.edit",
+        "inventory.archive",
+        "inventory.delete",
+    }
+)
+
+VIEW_PERMISSION = "inventory.view"
+
+
+def type_cell_decision(cells: dict | None, permission: str) -> bool | None:
+    """What one role's override cells on one card type say about ``permission``.
+
+    Returns ``False`` / ``True`` when the cells decide, ``None`` to inherit the
+    role's landscape-wide grant. The single rule every checker shares —
+    ``PermissionService.has_app_permission``, ``is_type_denied``,
+    ``get_effective_card_permissions`` and the frontend ``hasTypePermission``
+    mirror it — so they can never disagree about a type.
+
+    An explicit View deny wins over everything: a role that may not see a
+    type's cards can hold no landscape-wide authority over them either, so it
+    answers ``False`` for *any* permission, not only the four write actions.
+    Only an explicit ``False`` does this — a role that merely lacks the global
+    ``inventory.view`` keeps whatever else it holds, exactly as before.
+    """
+    cells = cells or {}
+    if cells.get(VIEW_PERMISSION) is False:
+        return False
+    if permission in TYPE_SCOPED_APP_PERMISSIONS:
+        cell = cells.get(permission)
+        if cell is not None:
+            return bool(cell)
+    return None
+
+
+def validate_type_role_permissions(
+    raw: object,
+    *,
+    known_role_keys: set[str],
+    wildcard_role_keys: set[str],
+) -> dict[str, dict[str, bool]]:
+    """Validate and normalise a ``card_types.role_permissions`` map.
+
+    Shape: ``{role_key: {app_permission: bool}}``. Only *explicitly overridden*
+    cells are stored — an absent key means "inherit the role's global grant",
+    which is why empty inner dicts are dropped rather than persisted.
+
+    Raises ``ValueError`` (route layer converts to 400) when the payload names
+    an unknown role, a wildcard role (admin can never be overridden — that is
+    the escape hatch that keeps an instance recoverable), a permission outside
+    ``TYPE_SCOPED_APP_PERMISSIONS``, or a non-boolean value.
+
+    Archived roles are accepted: their overrides are inert but a round-trip of
+    a stored map must never start failing because a role was archived.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("role_permissions must be an object")
+
+    out: dict[str, dict[str, bool]] = {}
+    for role_key, cells in raw.items():
+        if not isinstance(role_key, str):
+            raise ValueError("role_permissions keys must be role keys")
+        if role_key not in known_role_keys:
+            raise ValueError(f"Unknown role key: {role_key}")
+        if role_key in wildcard_role_keys:
+            raise ValueError(
+                f"Role '{role_key}' has full access and cannot be overridden per card type"
+            )
+        if not isinstance(cells, dict):
+            raise ValueError(f"role_permissions['{role_key}'] must be an object")
+
+        clean: dict[str, bool] = {}
+        for perm_key, value in cells.items():
+            if perm_key not in TYPE_SCOPED_APP_PERMISSIONS:
+                raise ValueError(
+                    f"Permission '{perm_key}' cannot be set per card type "
+                    f"(allowed: {', '.join(sorted(TYPE_SCOPED_APP_PERMISSIONS))})"
+                )
+            if not isinstance(value, bool):
+                raise ValueError(f"role_permissions['{role_key}']['{perm_key}'] must be a boolean")
+            clean[perm_key] = value
+
+        # An empty override map is the same as no entry at all.
+        if clean:
+            out[role_key] = clean
+    return out
+
 
 # ---------------------------------------------------------------------------
 # Default permission sets for seeded roles

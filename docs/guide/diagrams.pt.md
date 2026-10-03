@@ -28,17 +28,20 @@ Agrupe diagramas relacionados em **grupos** — rótulos compartilhados em todo 
 
 Abrir um diagrama lança o editor DrawIO em ecrã inteiro num iframe da mesma origem. A barra de ferramentas nativa do DrawIO está disponível para formas, conectores, texto e layout -- cada ação própria do Turbo EA é exposta via o menu de contexto do clique direito, o botão Sync da barra de ferramentas e a seta superior sobre cada cartão.
 
+![Editor de diagramas com fichas coloridas por criticidade de negócio](../assets/img/pt/99_editor_diagrama.png)
+
 ### Inserir cartões
 
 Use a caixa de diálogo **Inserir cartões** (a partir da barra de ferramentas ou do menu de contexto) para adicionar cartões à tela:
 
 - Os **chips de tipo com contadores ao vivo** na coluna esquerda filtram os resultados.
-- Pesquise por nome na coluna direita; cada linha tem uma caixa de seleção.
-- **Inserir selecionados** adiciona os cartões escolhidos em grelha; **Inserir todos** adiciona cada cartão que corresponde ao filtro atual (com confirmação acima de 50 resultados).
+- Pesquise por nome na coluna direita; cada linha tem uma caixa de seleção. Restrinja o filtro a um único tipo hierárquico e a lista passa a ser uma árvore indentada, para encontrar um cartão pelo seu ramo.
+- Os cartões marcados surgem como chips acima da lista e continuam selecionados enquanto muda o filtro ou a pesquisa — remova um com o seu ×.
+- **Selecionar tudo o que é mostrado** marca tudo o que o filtro atual deixa no ecrã; **Inserir selecionados** adiciona os cartões escolhidos à tela em grelha.
 
 A mesma caixa abre em modo seleção única para **Mudar cartão vinculado** e **Vincular a cartão existente**.
 
-Cada cartão na tela mostra o seu **ícone de tipo de cartão** como um pequeno glifo branco no canto superior esquerdo, ao lado da cor do tipo — assim o tipo de um cartão é transmitido tanto pelo ícone quanto pela cor. Isso corresponde aos ícones usados em toda a aplicação e melhora a legibilidade para utilizadores daltónicos. O ícone aparece nos cartões inseridos a partir de agora. Para adicionar ícones aos cartões já presentes num diagrama mais antigo, clique em **Aplicar ícones de tipo de cartão** na barra de ferramentas do editor.
+Cada cartão na tela mostra o seu **ícone de tipo de cartão** como um pequeno glifo branco no canto superior esquerdo, ao lado da cor do tipo — assim o tipo de um cartão é transmitido tanto pelo ícone quanto pela cor. Isso corresponde aos ícones usados em toda a aplicação e melhora a legibilidade para utilizadores daltónicos. O ícone aparece nos cartões inseridos a partir de agora. Para adicionar ícones aos cartões já presentes num diagrama mais antigo, clique em **Aplicar ícones de tipo de cartão** na barra de ferramentas do editor. Se um cartão tiver o seu próprio **logótipo**, é esse que aparece, mantendo o ícone do tipo de cartão como um pequeno emblema no canto — assim a forma indica tanto o produto como o tipo de cartão. Os logótipos surgem ao abrir o diagrama e são atualizados quando algum muda; um cartão sem logótipo, e qualquer cartão de um tipo em que um administrador desativou os logótipos, é desenhado exatamente como antes. Uma caixa **Logótipos dos cartões** no mesmo menu desativa-os se preferir um diagrama sem adornos; está ativada por predefinição.
 
 ### Ações do clique direito
 
@@ -79,13 +82,25 @@ Remover uma aresta que carrega uma relação real abre «Eliminar a relação en
 
 ### Perspetivas de visualização
 
-O menu pendente **Vista** na barra de ferramentas recoloria cada cartão da tela por um atributo:
+O menu pendente **Colorir por** na barra de ferramentas recoloria os cartões da tela:
 
 - **Cores dos cartões** (predefinição) -- cada cartão usa a cor do seu tipo.
 - **Estado de aprovação** -- recoloria por `aprovado` / `pendente` / `quebrado`.
-- **Valores de campo** -- escolha qualquer campo de seleção única nos tipos de cartão presentes na tela (ex.: *Ciclo de vida*, *Estado*). Células sem valor caem num cinzento neutro.
+- **Valores de campo** -- assinale um campo de seleção única sob qualquer tipo de cartão presente na tela. **Vários tipos de cartão podem ter uma regra cada um ao mesmo tempo**: Aplicações por criticidade *e* Componentes de TI por modelo de alojamento. Um tipo sem regra mantém a cor que já tinha, incluindo um preenchimento definido à mão; só fica cinzento um cartão cuja própria regra não encontra valor. Um segundo campo dentro do mesmo tipo substitui o primeiro, porque um cartão tem um preenchimento.
 
-Uma legenda flutuante no canto inferior esquerdo mostra o mapeamento ativo. A vista escolhida é guardada com o diagrama.
+Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ativa. As regras de campo e o **Estado de aprovação** são alternativas, não camadas: escolher uma limpa a outra. Ao desmarcar todas as regras, a tela volta às cores dos cartões. A escolha é guardada com o diagrama. A mesma legenda é apresentada quando o diagrama é aberto no modo de visualização e na sua ligação publicada ou incorporada, para que os leitores saibam o que as cores significam.
+
+![Diagrama em modo de visualização com a legenda de cores](../assets/img/pt/99b_diagrama_visualizacao_legenda.png)
+
+#### Mostrar no cartão
+
+Um segundo botão da barra de ferramentas, **Mostrar no cartão**, decide **o que cada forma diz**. Assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**. É um botão separado de **Colorir por**, para que nenhuma das duas listas obrigue a percorrer a outra. **Limpar tudo** desmarca todas as caixas de uma só vez.
+
+Cada seleção é desenhada na forma, e a forma **cresce para a acolher**. Duas linhas já cabem num cartão, pelo que nada se move até assinalar uma terceira; a partir daí cada cartão fica um pouco mais alto por seleção e volta a encolher quando desmarca uma. Um cartão que tenha redimensionado à mão mantém a sua altura: apenas ganha ou devolve o espaço de uma linha.
+
+Estas linhas são guardadas com o diagrama, pelo que todos os leitores — incluindo quem abra uma ligação publicada — veem as mesmas formas. Os cartões trazidos para a tela por **Expandir** levam as mesmas linhas que qualquer outro cartão e crescem da mesma maneira. Os cartões dispostos dentro de um contentor **Drill-Down** ou **Roll-Up** mostram o que cabe na sua célula: aumentá-los faria com que invadissem a linha de baixo. Já a barra de título do contentor cresce para acolher as suas linhas — e o conteúdo desce com ela — pelo que transformar um cartão em contentor nunca custa aquilo que ele dizia.
+
+O botão **Criar diagrama** do [relatório de dependências](reports.md) transporta as suas próprias definições de exibição, pelo que um diagrama gerado a partir de um relatório mostra exatamente as linhas que o relatório mostrava — todas elas, incluindo as que o próprio relatório não tinha espaço para desenhar.
 
 ### Como as arestas de relação são desenhadas
 
@@ -128,6 +143,8 @@ O botão **Sync** da barra de ferramentas abre o painel lateral com tudo o que e
     - uma **relação excluída** -- *Remover a aresta do diagrama* retira a aresta obsoleta da tela;
     - uma relação cuja **direção do fluxo** mudou -- *Aceitar atualização* alinha a seta com o inventário.
 
+![Painel de sincronização do editor de diagramas](../assets/img/pt/99a_diagrama_sincronizacao.png)
+
 O Turbo EA **verifica automaticamente as alterações do inventário sempre que abre um diagrama** -- um distintivo azul no botão Sync da barra de ferramentas conta as alterações a rever. Nada é aplicado sem a sua confirmação; o distintivo apenas o convida a abrir o painel. O botão **Verificar atualizações** do painel executa novamente a mesma verificação quando quiser.
 
 O botão Sync da barra mostra uma pílula pulsante «N por sincronizar» sempre que haja trabalho pendente. Sair do separador com alterações por sincronizar dispara um aviso do navegador, e a tela é guardada automaticamente no armazenamento local a cada cinco segundos para poder ser restaurada após uma atualização acidental.
@@ -145,7 +162,7 @@ Abra o menu **⋮** do diagrama na galeria e escolha **Partilhar / incorporar…
 A caixa de diálogo oferece duas escolhas e duas cadeias para copiar:
 
 - **Qualquer pessoa com a ligação** — sem início de sessão. Trate a ligação como uma palavra-passe: qualquer pessoa a quem seja reencaminhada pode ver o diagrama.
-- **Apenas quem iniciar sessão** — os visitantes autenticam-se no seu fornecedor de identidade, opcionalmente limitado a domínios de e-mail indicados. Não é criada nenhuma conta Turbo EA para eles.
+- **Apenas quem iniciar sessão** — os visitantes autenticam-se no seu fornecedor de identidade, opcionalmente limitado a domínios de e-mail indicados. Não é criada nenhuma conta Turbo EA para eles. Dentro de uma incorporação, o início de sessão abre numa pequena janela pop-up, e o Turbo EA tem de ser servido por HTTPS para que a sessão se mantenha dentro da moldura; os visitantes iniciam sessão uma vez por cada site em que o diagrama está incorporado.
 
 A página publicada mostra apenas a imagem. É possível deslocar e ampliar, mas não há acesso aos detalhes dos cartões, e os identificadores dos cartões por trás das formas são removidos antes de o diagrama sair do servidor. Cancelar a publicação tem efeito imediato, incluindo para quem já está a ver. Voltar a publicar mais tarde restaura a mesma ligação, pelo que os URL já colados continuam a funcionar.
 
@@ -165,3 +182,6 @@ A página publicada mostra apenas a imagem. É possível deslocar e ampliar, mas
 3. No Confluence, insira uma macro **HTML** (ou *Iframe* / *HTML include*, conforme o que a sua instância permitir) e cole o código.
 
 Se o seu Confluence não permitir macros HTML, cole antes a **ligação** simples — abre a mesma vista num novo separador.
+
+!!! note "Início de sessão dentro de uma incorporação"
+    Um diagrama publicado para *Apenas quem iniciar sessão* mostra um botão **Iniciar sessão** dentro da incorporação. Abre o seu fornecedor de identidade numa pequena janela pop-up, e o diagrama aparece assim que essa janela fecha. Três coisas podem impedi-lo: o Turbo EA tem de ser servido por **HTTPS** (os navegadores só mantêm a sessão entre sites de que uma incorporação precisa numa origem segura); a página que o incorpora tem de permitir pop-ups a partir das suas molduras (uma moldura em sandbox sem `allow-popups` bloqueia tanto o pop-up como a ligação alternativa); e no Safari, use a ligação **Abrir o diagrama num novo separador** que o ecrã de acesso oferece. À parte disso, o Chrome recusa carregar uma incorporação a partir de um endereço de rede privada (um IP ou nome de anfitrião interno) numa página pública como o Confluence Cloud — publique a instância num nome de anfitrião HTTPS público, ou incorpore-a a partir de um wiki na mesma rede.

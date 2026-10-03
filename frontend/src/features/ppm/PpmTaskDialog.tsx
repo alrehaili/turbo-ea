@@ -12,6 +12,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Avatar from "@mui/material/Avatar";
 import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
@@ -19,8 +20,11 @@ import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
+import FormHelperText from "@mui/material/FormHelperText";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { percentFromStatus } from "./taskProgress";
 import { api } from "@/api/client";
+import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type {
   PpmTask,
@@ -64,6 +68,7 @@ export default function PpmTaskDialog({
   onSaved,
 }: Props) {
   const { t } = useTranslation("ppm");
+  const fullScreen = useFullScreenDialog();
   const { formatDateTime } = useDateFormat();
   const isEdit = !!task;
 
@@ -181,6 +186,7 @@ export default function PpmTaskDialog({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={fullScreen}
       disableRestoreFocus
     >
       <DialogTitle>
@@ -194,7 +200,7 @@ export default function PpmTaskDialog({
             onChange={(e) => setTitle(e.target.value)}
             fullWidth
             required
-            autoFocus
+            autoFocus={!fullScreen}
           />
           <TextField
             label={t("taskDescription")}
@@ -205,7 +211,11 @@ export default function PpmTaskDialog({
             rows={3}
           />
 
-          <Box display="flex" gap={2}>
+          <Box
+          display="flex"
+          flexDirection={{ xs: "column", sm: "row" }}
+          gap={2}
+        >
             <FormControl fullWidth size="small">
               <InputLabel>{t("taskStatus")}</InputLabel>
               <Select
@@ -224,6 +234,9 @@ export default function PpmTaskDialog({
                   {t("statusBlocked")}
                 </MenuItem>
               </Select>
+              <FormHelperText>
+                {t("completionFromStatus", { percent: percentFromStatus(status) })}
+              </FormHelperText>
             </FormControl>
             <FormControl fullWidth size="small">
               <InputLabel>{t("taskPriority")}</InputLabel>
@@ -262,7 +275,11 @@ export default function PpmTaskDialog({
             size="small"
           />
 
-          <Box display="flex" gap={2}>
+          <Box
+          display="flex"
+          flexDirection={{ xs: "column", sm: "row" }}
+          gap={2}
+        >
             <DateField
               label={t("taskStartDate")}
               value={startDate}
@@ -346,7 +363,7 @@ export default function PpmTaskDialog({
                       variant="body2"
                       sx={{ whiteSpace: "pre-wrap" }}
                     >
-                      {c.content}
+                      <LinkifiedText text={c.content} />
                     </Typography>
                   </Box>
                   <IconButton

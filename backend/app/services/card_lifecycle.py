@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import HTTPException
 from sqlalchemy import or_, select, text
@@ -19,15 +19,12 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.services.card_approval import break_approval
+
+if TYPE_CHECKING:
+    from app.services.card_read_scope import CardReadScope
 
 ChildStrategy = Literal["cascade", "disconnect", "reparent"]
-
-# Mirrors the existing approval-break rule in update_card. Direct children whose
-# `parent_id` is mutated by `disconnect` / `reparent` get `approval_status` flipped
-# to BROKEN if they were previously APPROVED — same semantics as a manual edit.
-STATUS_BREAKING_FIELDS: frozenset[str] = frozenset(
-    {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
-)
 
 # Defensive cap so a corrupted parent_id chain or a typo can't blow up the worker.
 _MAX_DESCENDANTS = 10_000
@@ -57,6 +54,15 @@ class ChildStrategyResult:
     disconnected_ids: list[uuid.UUID] = field(default_factory=list)
     reparent_target_id: uuid.UUID | None = None
     approval_broken_ids: list[uuid.UUID] = field(default_factory=list)
+    #: Each mutated child's parent *before* the move. The row already carries
+    #: the new value by the time the caller records the change, so without this
+    #: the `card.updated` event it owes could only say where the child ended up
+    #: — which is not something an audit trail can be rolled back from.
+    previous_parent_ids: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
+    #: Same, for the hierarchy link label of each child that lost its parent
+    #: outright. Only populated where the label was actually cleared, so the
+    #: caller emits a `parent_label` change only for children that had one.
+    previous_parent_labels: dict[uuid.UUID, str | None] = field(default_factory=dict)
 
 
 async def collect_descendants(
@@ -106,8 +112,12 @@ async def apply_child_strategy(
     - `reparent`: each direct child's `parent_id` becomes `primary.parent_id`.
       Falls back to `disconnect` if the primary has no parent.
 
-    Mirrors the manual-edit approval-break rule: APPROVED direct children whose
-    `parent_id` is mutated become BROKEN.
+    Mirrors the manual-edit approval-break rule (`card_approval.break_approval`):
+    APPROVED direct children whose `parent_id` is mutated become BROKEN. The ids
+    land in `approval_broken_ids` and the **caller** owes each of them a
+    `card.updated` event and a re-approval notification — moving a card in the
+    tree is a change its stakeholders own, not a silent side effect of archiving
+    something else.
     """
     result = ChildStrategyResult(strategy=strategy)
     children = await direct_children(db, primary.id)
@@ -126,10 +136,18 @@ async def apply_child_strategy(
         if old == new_parent_id:
             continue
         child.parent_id = new_parent_id
+        result.previous_parent_ids[child.id] = old
+        # A link label describes an edge. `reparent` hands the child to the
+        # grandparent — still a parent, so the label (the child's role, e.g.
+        # "commercial") survives the move. Landing at the top level leaves no
+        # edge for it to describe, so it goes (#1100). Same rule as
+        # `update_card`: cleared exactly when the final parent is NULL.
+        if new_parent_id is None and child.parent_label is not None:
+            result.previous_parent_labels[child.id] = child.parent_label
+            child.parent_label = None
         if user_id is not None:
             child.updated_by = user_id
-        if child.approval_status == "APPROVED":
-            child.approval_status = "BROKEN"
+        if break_approval(child, ("parent_id",)):
             result.approval_broken_ids.append(child.id)
         result.disconnected_ids.append(child.id)
 
@@ -151,7 +169,7 @@ async def apply_child_strategy(
 
 
 async def gather_archive_impact(
-    db: AsyncSession, primary: Card
+    db: AsyncSession, primary: Card, read_scope: CardReadScope | None = None
 ) -> tuple[
     list[Card],
     Card | None,
@@ -161,11 +179,15 @@ async def gather_archive_impact(
 
     Returns (active direct children, grandparent_card_or_none, related_rows).
     Each related row is `(relation, peer_card, direction, localised_label)`.
-    Hidden card-types are filtered out, mirroring the relations list endpoint.
+    Hidden card-types are filtered out, mirroring the relations list endpoint,
+    and so is anything outside the caller's ``read_scope`` (module mode): the
+    dialog lists what the user can see. The archive itself still applies its
+    side effects to every child and relation — that is a system write.
     """
     children_res = await db.execute(
         select(Card)
         .where(Card.parent_id == primary.id, Card.status == "ACTIVE")
+        .where(*(read_scope.where(Card, mode="module") if read_scope else ()))
         .order_by(Card.name)
     )
     active_children = list(children_res.scalars().all())
@@ -174,6 +196,12 @@ async def gather_archive_impact(
     if primary.parent_id:
         gp_res = await db.execute(select(Card).where(Card.id == primary.parent_id))
         grandparent = gp_res.scalar_one_or_none()
+        if (
+            grandparent is not None
+            and read_scope is not None
+            and not read_scope.readable(grandparent.id, grandparent.type, mode="module")
+        ):
+            grandparent = None
 
     # Exclude peers that are hidden by type OR already archived. Archived peers
     # should never appear in an active card's archive-impact dialog because
@@ -210,6 +238,8 @@ async def gather_archive_impact(
         peer = peers_by_id.get(peer_id)
         if peer is None:
             continue
+        if read_scope is not None and not read_scope.readable(peer.id, peer.type, mode="module"):
+            continue
         rt = rel_types_by_key.get(rel.type)
         if rt is None:
             label = rel.type
@@ -221,20 +251,29 @@ async def gather_archive_impact(
     return active_children, grandparent, related_rows
 
 
-async def expand_cascade_all_related(db: AsyncSession, primary_id: uuid.UUID) -> list[uuid.UUID]:
+async def expand_cascade_all_related(
+    db: AsyncSession, primary_id: uuid.UUID, read_scope: CardReadScope | None = None
+) -> list[uuid.UUID]:
     """Resolve direct peer-card IDs for `cascade_all_related=true` (bulk mode).
 
-    Hidden types are filtered, matching `gather_archive_impact`.
+    Hidden types are filtered, matching `gather_archive_impact` — and so are
+    peers outside ``read_scope``: "archive everything related" means
+    everything related *that the user was shown*.
     """
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden.is_(True))
     excluded_card_ids_sq = select(Card.id).where(Card.type.in_(hidden_types_sq))
-    res = await db.execute(
-        select(Relation.source_id, Relation.target_id).where(
-            or_(Relation.source_id == primary_id, Relation.target_id == primary_id),
-            Relation.source_id.not_in(excluded_card_ids_sq),
-            Relation.target_id.not_in(excluded_card_ids_sq),
-        )
+    q = select(Relation.source_id, Relation.target_id).where(
+        or_(Relation.source_id == primary_id, Relation.target_id == primary_id),
+        Relation.source_id.not_in(excluded_card_ids_sq),
+        Relation.target_id.not_in(excluded_card_ids_sq),
     )
+    readable = read_scope.clause(Card, mode="module") if read_scope else None
+    if readable is not None:
+        readable_ids_sq = select(Card.id).where(readable)
+        q = q.where(
+            Relation.source_id.in_(readable_ids_sq), Relation.target_id.in_(readable_ids_sq)
+        )
+    res = await db.execute(q)
     peers: set[uuid.UUID] = set()
     for source_id, target_id in res.all():
         peers.add(target_id if source_id == primary_id else source_id)
@@ -276,8 +315,13 @@ async def find_latest_archive_batch(db: AsyncSession, card_id: uuid.UUID) -> dic
     return row[0] if row else None
 
 
-async def gather_restore_impact(db: AsyncSession, primary: Card) -> list[tuple[Card, str]]:
-    """Return passengers (still-archived cards from the latest batch) with role."""
+async def gather_restore_impact(
+    db: AsyncSession, primary: Card, read_scope: CardReadScope | None = None
+) -> list[tuple[Card, str]]:
+    """Return passengers (still-archived cards from the latest batch) with role.
+
+    Passengers outside ``read_scope`` (module mode) are left out of the list.
+    """
     batch = await find_latest_archive_batch(db, primary.id)
     if not batch:
         return []
@@ -290,6 +334,8 @@ async def gather_restore_impact(db: AsyncSession, primary: Card) -> list[tuple[C
         select(Card).where(Card.id.in_(all_ids), Card.status == "ARCHIVED").order_by(Card.name)
     )
     rows = list(res.scalars().all())
+    if read_scope is not None:
+        rows = [c for c in rows if read_scope.readable(c.id, c.type, mode="module")]
     role_for: dict[uuid.UUID, str] = {}
     for cid in child_ids:
         role_for[cid] = "child"

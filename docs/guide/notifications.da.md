@@ -26,11 +26,21 @@ Klik på en hvilken som helst notifikation for at navigere direkte til det relev
 | **SoAW underskrevet** | En SoAW, du sporer, modtager en underskrift |
 | **Undersøgelsesanmodning** | En undersøgelse sendes, der kræver dit svar |
 
+**Godkendelsesstatus ændret** dækker også det automatiske tilfælde. Et godkendt
+kort falder til **Brudt**, så snart nogen redigerer det, eller når arkivering af
+dets overordnede kort flytter det i hierarkiet — du får besked i begge tilfælde,
+og ændringen registreres på kortets fane **Historik**. Når én handling bryder
+flere af dine kort på én gang, for eksempel en masseredigering, modtager du én
+samlet besked i stedet for én pr. kort.
+
+
 ## Levering i realtid
 
 Notifikationer leveres i realtid ved hjælp af Server-Sent Events (SSE). Du behøver ikke at opdatere siden — nye notifikationer vises automatisk, og mærkeantallet opdateres øjeblikkeligt.
 
 ## Notifikationspræferencer
+
+![Dialogen «Notifikationsindstillinger»](../assets/img/da/81_notification_preferences.png)
 
 Klik på **tandhjulsikonet** i notifikationsdropdownen (eller gå til din profilmenu) for at konfigurere dine notifikationspræferencer.
 
@@ -40,3 +50,17 @@ For hver notifikationstype kan du uafhængigt slå til/fra:
 - **E-mail** — Om en e-mail også sendes (kræver, at e-mail-afsendelse er konfigureret af en administrator)
 
 Nogle notifikationstyper (f.eks. undersøgelsesanmodninger) kan have e-maillevering håndhævet af systemet og kan ikke deaktiveres.
+
+Hver kanal er uafhængig: at slå en type fra i klokken stopper ikke dens e-mail,
+og omvendt. Nogle få typer går kun via klokken — for eksempel
+opgraderingsmeddelelsen, der når alle konti — og deres øvrige kontakter er låst
+fra.
+
+Hvis en udvidelse, der leverer notifikationer et andet sted (for eksempel som en
+chatbesked), er installeret og licenseret, tilføjer den sin egen kolonne ved
+siden af «I appen» og «E-mail», og du vælger pr. type, om notifikationen sendes
+dertil. De kolonner starter altid **fra**. Deaktiveres udvidelsen, eller udløber
+dens licens, skjules kolonnen og leveringen sættes på pause, men alt hvad du
+valgte, bevares — det kommer tilbage sammen med udvidelsen. [Slack Notifications](../extensions/slack-notify.md) er en sådan udvidelse.
+
+En udvidelse kan også erklære sine egne notifikationstyper — f.eks. **Automatiseringsnotifikationer** — som vises her som egne rækker (i appen slået til, e-mail slået fra som standard), så du kan indstille dem adskilt fra den generiske række **Udvidelsesbesked**. Hvis udvidelsen deaktiveres eller dens licens udløber, forsvinder dens rækker, indtil den vender tilbage; dine valg bevares. Nogle udvidelsesnotifikationer åbner deres **detaljer** i appen, når du klikker på dem, i stedet for at føre dig til en side: den fulde besked plus knapper til at åbne det tilknyttede kort eller udvidelsens egen side, når du har adgang.

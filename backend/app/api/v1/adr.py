@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -23,7 +23,8 @@ from app.schemas.adr import (
     ADRSignRequest,
     ADRUpdate,
 )
-from app.services import notification_service
+from app.services import adr_service, notification_service
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.search_rank import search_filter, search_rank
@@ -34,39 +35,6 @@ router = APIRouter(prefix="/adr", tags=["adr"])
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-async def _next_reference_number(db: AsyncSession) -> str:
-    """Generate the next ADR reference number (ADR-001, ADR-002, etc.)."""
-    result = await db.execute(select(func.max(ArchitectureDecision.reference_number)))
-    max_ref = result.scalar_one_or_none()
-    if max_ref:
-        num = int(max_ref.replace("ADR-", "")) + 1
-    else:
-        num = 1
-    return f"ADR-{num:03d}"
-
-
-async def _resolve_card_ids(db: AsyncSession, card_ids: list[str]) -> list[uuid.UUID]:
-    """Parse and verify a list of card UUIDs, raising 400/404 with the
-    offending values so a bad link list never silently no-ops."""
-    parsed: list[uuid.UUID] = []
-    seen: set[uuid.UUID] = set()
-    for cid in card_ids:
-        try:
-            parsed_id = uuid.UUID(cid)
-        except (ValueError, AttributeError, TypeError):
-            raise HTTPException(400, f"Invalid card id: {cid!r}") from None
-        if parsed_id not in seen:
-            seen.add(parsed_id)
-            parsed.append(parsed_id)
-    if parsed:
-        result = await db.execute(select(Card.id).where(Card.id.in_(parsed)))
-        found = set(result.scalars().all())
-        missing = [str(cid) for cid in parsed if cid not in found]
-        if missing:
-            raise HTTPException(404, f"Cards not found: {', '.join(missing)}")
-    return parsed
 
 
 async def _publish_adr_card_event(
@@ -104,8 +72,13 @@ async def _get_adr(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
     return adr
 
 
-async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
-    """Convert an ADR model to a response dict, including linked cards and names."""
+async def _adr_to_dict(
+    db: AsyncSession, adr: ArchitectureDecision, read_scope: CardReadScope | None = None
+) -> dict:
+    """Convert an ADR model to a response dict, including linked cards and names.
+
+    ``read_scope`` leaves out linked cards hidden from the reader.
+    """
     # Get creator name
     creator_name = None
     if adr.created_by:
@@ -122,6 +95,7 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
             ArchitectureDecisionCard.card_id == Card.id,
         )
         .where(ArchitectureDecisionCard.architecture_decision_id == adr.id)
+        .where(*(read_scope.where(Card, mode="module") if read_scope is not None else ()))
     )
     linked_cards = [{"id": str(row.id), "name": row.name, "type": row.type} for row in result.all()]
 
@@ -238,8 +212,9 @@ async def list_adrs(
                 ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
             )
             joined_junction = True
+        # Filtering by a type must not surface decisions through hidden cards.
         stmt = stmt.join(Card, ArchitectureDecisionCard.card_id == Card.id).where(
-            Card.type == card_type
+            Card.type == card_type, *(await CardReadScope.load(db, user)).where(Card, mode="module")
         )
 
     # Date range filters
@@ -299,6 +274,7 @@ async def list_adrs(
             )
             .join(Card, ArchitectureDecisionCard.card_id == Card.id)
             .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
+            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
         )
         for row in cards_result.all():
             cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
@@ -330,10 +306,11 @@ async def create_adr(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
-    card_ids = await _resolve_card_ids(db, body.linked_card_ids or [])
-    ref_num = await _next_reference_number(db)
-    adr = ArchitectureDecision(
-        reference_number=ref_num,
+    card_ids = await adr_service.resolve_card_ids(db, body.linked_card_ids or [])
+    # The shared writer (also behind the analysis commit flow and the
+    # extension decisions bridge) — one reference-number sequence for all.
+    adr = await adr_service.create_decision(
+        db,
         title=body.title,
         context=body.context,
         decision=body.decision,
@@ -343,15 +320,12 @@ async def create_adr(
         meeting_date=body.meeting_date,
         stage_no=body.stage_no,
         related_decisions=body.related_decisions or [],
+        linked_card_ids=card_ids,
         created_by=user.id,
     )
-    db.add(adr)
-    await db.flush()
-    for cid in card_ids:
-        db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.commit()
     await db.refresh(adr)
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.get("/{adr_id}")
@@ -362,7 +336,7 @@ async def get_adr(
 ):
     await PermissionService.require_permission(db, user, "adr.view")
     adr = await _get_adr(db, adr_id)
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.patch("/{adr_id}")
@@ -430,13 +404,18 @@ async def update_adr(
         adr.status = body.status
 
     if body.linked_card_ids is not None:
-        desired = set(await _resolve_card_ids(db, body.linked_card_ids))
+        read_scope = await CardReadScope.load(db, user)
+        desired = set(await adr_service.resolve_card_ids(db, body.linked_card_ids))
+        if await read_scope.hidden_card_ids(db, desired, mode="module"):
+            raise HTTPException(404, "Card not found")
         result = await db.execute(
             select(ArchitectureDecisionCard).where(
                 ArchitectureDecisionCard.architecture_decision_id == adr.id
             )
         )
         existing_links = {link.card_id: link for link in result.scalars().all()}
+        # The client was only shown the readable links — keep the hidden ones.
+        desired |= await read_scope.hidden_card_ids(db, existing_links.keys(), mode="module")
         for card_id, link in existing_links.items():
             if card_id not in desired:
                 await db.delete(link)
@@ -450,7 +429,7 @@ async def update_adr(
 
     await db.commit()
     await db.refresh(adr)
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.delete("/{adr_id}", status_code=204)
@@ -489,7 +468,7 @@ async def duplicate_adr(
     """Duplicate an ADR as a new draft with a new reference number."""
     await PermissionService.require_permission(db, user, "adr.manage")
     original = await _get_adr(db, adr_id)
-    ref_num = await _next_reference_number(db)
+    ref_num = await adr_service.next_reference_number(db)
     dup = ArchitectureDecision(
         reference_number=ref_num,
         title=f"{original.title} (copy)",
@@ -523,7 +502,7 @@ async def duplicate_adr(
         )
     await db.commit()
     await db.refresh(dup)
-    return await _adr_to_dict(db, dup)
+    return await _adr_to_dict(db, dup, await CardReadScope.load(db, user))
 
 
 # ---------------------------------------------------------------------------
@@ -579,6 +558,7 @@ async def request_signatures(
         await notification_service.create_notification(
             db,
             user_id=uuid.UUID(sig["user_id"]),
+            actor_id=user.id,
             notif_type="adr_sign_requested",
             title="ADR Signature Requested",
             message=(
@@ -604,7 +584,7 @@ async def request_signatures(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.post("/{adr_id}/sign")
@@ -664,6 +644,7 @@ async def sign_adr(
             await notification_service.create_notification(
                 db,
                 user_id=adr.created_by,
+                actor_id=user.id,
                 notif_type="adr_signed",
                 title="ADR Fully Signed",
                 message=(f'All signatories have signed "{adr.reference_number} — {adr.title}"'),
@@ -676,6 +657,7 @@ async def sign_adr(
             await notification_service.create_notification(
                 db,
                 user_id=adr.created_by,
+                actor_id=user.id,
                 notif_type="adr_signed",
                 title="ADR Signature Received",
                 message=(
@@ -703,7 +685,7 @@ async def sign_adr(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.post("/{adr_id}/recall-signatures")
@@ -737,6 +719,7 @@ async def recall_adr_signatures(
             await notification_service.create_notification(
                 db,
                 user_id=uuid.UUID(sig["user_id"]),
+                actor_id=user.id,
                 notif_type="adr_sign_recalled",
                 title="ADR Signature Request Recalled",
                 message=(
@@ -765,7 +748,7 @@ async def recall_adr_signatures(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.post("/{adr_id}/reject")
@@ -803,6 +786,7 @@ async def reject_adr(
         await notification_service.create_notification(
             db,
             user_id=adr.created_by,
+            actor_id=user.id,
             notif_type="adr_rejected",
             title="ADR Rejected",
             message=(
@@ -823,6 +807,7 @@ async def reject_adr(
             await notification_service.create_notification(
                 db,
                 user_id=uuid.UUID(sig["user_id"]),
+                actor_id=user.id,
                 notif_type="adr_rejected",
                 title="ADR Rejected",
                 message=(
@@ -859,7 +844,7 @@ async def reject_adr(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 # ---------------------------------------------------------------------------
@@ -880,7 +865,7 @@ async def revise_adr(
     if adr.status != "signed":
         raise HTTPException(400, "Only signed decisions can be revised")
 
-    ref_num = await _next_reference_number(db)
+    ref_num = await adr_service.next_reference_number(db)
     new_revision = ArchitectureDecision(
         reference_number=ref_num,
         title=adr.title,
@@ -917,7 +902,7 @@ async def revise_adr(
     await db.commit()
     await db.refresh(new_revision)
 
-    return await _adr_to_dict(db, new_revision)
+    return await _adr_to_dict(db, new_revision, await CardReadScope.load(db, user))
 
 
 @router.get("/{adr_id}/revisions")
@@ -973,10 +958,8 @@ async def link_card(
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
 
-    # Verify card exists
-    result = await db.execute(select(Card).where(Card.id == uuid.UUID(body.card_id)))
-    if not result.scalar_one_or_none():
-        raise HTTPException(404, "Card not found")
+    # Verify the card exists and is visible to the caller
+    await require_card_readable(db, user, uuid.UUID(body.card_id), mode="module")
 
     # Check if link already exists
     result = await db.execute(
@@ -996,7 +979,7 @@ async def link_card(
     await db.commit()
 
     await _publish_adr_card_event(db, adr, "adr.linked", uuid.UUID(body.card_id), actor_id=user.id)
-    return await _adr_to_dict(db, adr)
+    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
 
 
 @router.delete("/{adr_id}/cards/{card_id}", status_code=204)
@@ -1011,6 +994,8 @@ async def unlink_card(
     # Read the ADR up front — after the delete + commit its reference/title are
     # still needed for the card-history event.
     adr = await _get_adr(db, adr_id)
+    # A link to a card hidden from the caller does not exist for them.
+    await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
     result = await db.execute(
         select(ArchitectureDecisionCard).where(
             ArchitectureDecisionCard.architecture_decision_id == adr.id,
@@ -1043,6 +1028,7 @@ async def list_adrs_for_card(
         cid = uuid.UUID(card_id)
     except ValueError as exc:
         raise HTTPException(400, "Invalid card id") from exc
+    await require_card_readable(db, user, cid, mode="module")
     stmt = (
         select(ArchitectureDecision)
         .join(
@@ -1068,6 +1054,7 @@ async def list_adrs_for_card(
             )
             .join(Card, ArchitectureDecisionCard.card_id == Card.id)
             .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
+            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
         )
         for row in cards_result.all():
             cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})

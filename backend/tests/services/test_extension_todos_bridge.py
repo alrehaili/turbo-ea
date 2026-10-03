@@ -145,6 +145,39 @@ class TestWrites:
         assert ev.data["origin"] == "ext"
         assert ev.batch_id == row.id
 
+    async def test_create_carries_a_validated_in_app_link(self, db, env):
+        # SDK 1.7: the deep link a todo's Open button navigates to. Same
+        # validation as a human-created todo — relative in-app path only.
+        load_registry(grants=["core.todos.write"])
+        bridge = ExtensionTodos(KEY)
+        todo = await bridge.create(description="review the plan", link="/ext/some-page?x=1")
+        assert todo.link == "/ext/some-page?x=1"
+
+        moved = await bridge.update(todo.id, link="/ext/some-page?x=2")
+        assert moved.link == "/ext/some-page?x=2"
+
+    async def test_link_refuses_absolute_and_protocol_relative_urls(self, db, env):
+        # An extension must not turn someone's Open button into an off-site
+        # jump — external references belong on external_url.
+        load_registry(grants=["core.todos.write"])
+        bridge = ExtensionTodos(KEY)
+        with pytest.raises(ExtensionDataError):
+            await bridge.create(description="bad", link="https://evil.example/x")
+        with pytest.raises(ExtensionDataError):
+            await bridge.create(description="bad", link="//evil.example/x")
+
+    async def test_system_todo_still_refuses_link(self, db, env):
+        # The mirror carve-out stays external_ref/external_url ONLY: a system
+        # todo's link points at the core page that completes it, and
+        # redirecting that is exactly what the carve-out exists to prevent.
+        load_registry(grants=["core.todos.write"])
+        db.add(Todo(description="sign the ADR", is_system=True, link="/adr/1"))
+        await db.flush()
+        system = (await db.execute(select(Todo).where(Todo.is_system.is_(True)))).scalar_one()
+        bridge = ExtensionTodos(KEY)
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id), link="/ext/elsewhere")
+
     async def test_update_own_row_and_complete(self, db, env):
         load_registry(grants=["core.todos.write"])
         bridge = ExtensionTodos(KEY)
@@ -307,3 +340,48 @@ class TestReads:
         bridge = ExtensionTodos(KEY)
         assert await bridge.get("not-a-uuid") is None
         assert await bridge.get("00000000-0000-0000-0000-000000000000") is None
+
+
+class TestContextBatch:
+    """SDK 1.13: ``ctx.batch(label)`` — the batch scope for an extension that
+    holds no inventory grant, so a connector whose writes all go through the
+    todos bridge can make one poll cycle one Audit Log row."""
+
+    def _patch_data_service(self, monkeypatch):
+        from app.services.extensions import data_service as ds_mod
+
+        ds_mod.reset_rate_limiter()
+        monkeypatch.setattr(ds_mod, "async_session", bridge_mod.async_session)
+        return ds_mod
+
+    async def test_todo_writes_join_a_context_batch(self, db, env, monkeypatch):
+        ds_mod = self._patch_data_service(monkeypatch)
+        load_registry(grants=["core.todos.write"])
+        bridge = ExtensionTodos(KEY)
+        async with ds_mod.open_context_batch(KEY, "Tracker sync (poll)") as b:
+            await bridge.create(description="One", external_ref="P-1")
+            await bridge.create(description="Two", external_ref="P-2")
+        rows = (await db.execute(select(MutationBatch))).scalars().all()
+        assert len(rows) == 1 and str(rows[0].id) == b.id
+        assert rows[0].tool_name == f"ext:{KEY}"
+        assert rows[0].summary == {"label": "Tracker sync (poll)", "writes": 2}
+        events = (
+            (await db.execute(select(Event).where(Event.event_type == "todo.created")))
+            .scalars()
+            .all()
+        )
+        assert len(events) == 2 and {str(e.batch_id) for e in events} == {b.id}
+
+    async def test_context_batch_that_wrote_nothing_leaves_no_row(self, db, env, monkeypatch):
+        ds_mod = self._patch_data_service(monkeypatch)
+        load_registry(grants=["core.todos.write"])
+        async with ds_mod.open_context_batch(KEY, "Tracker sync (poll)"):
+            await ExtensionTodos(KEY).list()
+        assert (await db.execute(select(MutationBatch))).scalars().all() == []
+
+    async def test_context_batch_needs_a_write_grant(self, db, env, monkeypatch):
+        ds_mod = self._patch_data_service(monkeypatch)
+        load_registry(grants=["core.todos.read"])
+        with pytest.raises(ExtensionPermissionError, match="write grant"):
+            ds_mod.open_context_batch(KEY, "Tracker sync (poll)")
+        assert (await db.execute(select(MutationBatch))).scalars().all() == []

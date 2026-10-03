@@ -270,7 +270,7 @@ def _coerce_default_value(value: object, field_type: str) -> object | None:
         if isinstance(value, bool):
             return value
         return str(value).strip().lower() in ("true", "1", "yes")
-    if field_type in ("number", "cost"):
+    if field_type in ("number", "cost", "percentage"):
         if isinstance(value, (int, float)):
             return value
         s = str(value).strip()
@@ -698,11 +698,15 @@ async def update_mapping(
 
     await db.commit()
 
-    # Reload
+    # Reload. ``populate_existing`` is what makes this a reload: the mapping
+    # is already in the session with its field_mappings collection loaded,
+    # and a plain select leaves a loaded collection as it is — the response
+    # then carried the rows just deleted and none of the rows just added.
     result = await db.execute(
         select(SnowMapping)
         .options(selectinload(SnowMapping.field_mappings))
         .where(SnowMapping.id == mapping.id)
+        .execution_options(populate_existing=True)
     )
     return _mapping_to_out(result.scalar_one())
 

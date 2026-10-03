@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import PortfolioReport from "./PortfolioReport";
@@ -40,8 +40,24 @@ vi.mock("./SaveReportDialog", () => ({
   default: () => null,
 }));
 
+// Captured so the milestone/delta/spotlight wiring can be asserted at the
+// slider boundary, same pattern as DependencyReport.test.tsx.
+type SliderProps = {
+  milestones?: { value: number; activating: number; disappearing: number }[];
+  delta?: { arriving: number; retiring: number };
+  onMilestoneClick?: (from: number, to: number) => void;
+  milestoneCards?: (
+    from: number,
+    to: number,
+  ) => { id: string; name: string; kind: string; color?: string }[];
+  onMilestoneCardClick?: (card: { id: string; name: string; kind: string }) => void;
+};
+const sliderProps: SliderProps[] = [];
 vi.mock("@/components/TimelineSlider", () => ({
-  default: () => <div data-testid="timeline-slider" />,
+  default: (props: SliderProps) => {
+    sliderProps.push(props);
+    return <div data-testid="timeline-slider" />;
+  },
 }));
 
 // The real one pulls in CardDetailContent, which needs an AuthProvider.
@@ -114,6 +130,7 @@ const MOCK_API_RESPONSE = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sliderProps.length = 0;
 
   vi.mocked(useMetamodel).mockReturnValue({
     types: [
@@ -573,5 +590,325 @@ describe("PortfolioReport group drawer", () => {
     // Reopening the same group must still render it — an in-place sort of a
     // memoized array is the kind of thing that only breaks on the second open.
     expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Collapsible filters section
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport collapsible filters", () => {
+  /** The filters header toggle — a real button, so addressable by role. */
+  const filtersToggle = () =>
+    screen.getByRole("button", { name: /Application Filters/ });
+
+  it("starts expanded, with the filter controls visible", async () => {
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("restores a collapsed section from the saved config", async () => {
+    mockSavedConfig({ filtersCollapsed: true });
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "false");
+    // The header stays readable so the section can be found and reopened.
+    expect(screen.getByText("Application Filters")).toBeVisible();
+  });
+
+  it("restores an explicitly stored expanded state", async () => {
+    // Guards the `!= null` restore idiom: a truthiness check would drop a
+    // stored `false` — invisible here (the default is also false) but the
+    // pairing with the collapsed case above pins the intent.
+    mockSavedConfig({ filtersCollapsed: false });
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("persists the collapse when the header is clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization" });
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    await user.click(filtersToggle());
+
+    // Asserted only after an interaction: `skipFirstPersistRef` swallows the
+    // mount-time call.
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ filtersCollapsed: true }),
+      ),
+    );
+  });
+
+  it("shows the active-filter count on the collapsed header", async () => {
+    mockSavedConfig({
+      filtersCollapsed: true,
+      attrFilters: { businessCriticality: ["high"] },
+    });
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    // Same integer the report puts in its print params, so a collapsed
+    // section on screen and the printed header cannot disagree.
+    expect(within(filtersToggle()).getByText("1")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Time travel — transition marks, delta, spotlight
+// ---------------------------------------------------------------------------
+
+const ms = (iso: string) => new Date(iso).getTime();
+const TODAY = ms("2026-08-22");
+const FUTURE = ms("2028-06-01");
+const OLD_EOL = ms("2027-06-01");
+
+const TT_API_RESPONSE = {
+  items: [
+    {
+      id: "app-old",
+      name: "Old System",
+      subtype: "Business Application",
+      attributes: { businessCriticality: "medium" },
+      lifecycle: { active: "2015-01-01", endOfLife: "2027-06-01" },
+      relations: [],
+      org_ids: [],
+    },
+    {
+      id: "app-new",
+      name: "New System",
+      subtype: "Business Application",
+      attributes: { businessCriticality: "high" },
+      lifecycle: { active: "2027-09-01" },
+      relations: [],
+      org_ids: [],
+    },
+    {
+      id: "app-steady",
+      name: "Steady App",
+      subtype: "SaaS",
+      attributes: { businessCriticality: "high" },
+      lifecycle: { active: "2020-01-01" },
+      relations: [],
+      org_ids: [],
+    },
+  ],
+  fields_schema: MOCK_API_RESPONSE.fields_schema,
+  relation_types: [],
+  groupable_types: {},
+  organizations: [],
+};
+
+function mockTimeTravel() {
+  vi.mocked(useTimeline).mockReturnValue({
+    timelineDate: FUTURE,
+    setTimelineDate: vi.fn(),
+    todayMs: TODAY,
+    isTimeTraveling: true,
+    persistValue: FUTURE,
+    printParam: { label: "Time Travel", value: "Jun 1, 2028" },
+    restore: vi.fn(),
+    reset: vi.fn(),
+  });
+}
+
+describe("PortfolioReport time travel — transition marks", () => {
+  it("marks come from the statically-filtered set: a date-hidden app still marks its dates", async () => {
+    vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+    mockTimeTravel();
+    renderPortfolio();
+    await screen.findByText("Steady App");
+
+    // Old System is hidden at the travelled 2028 date — its chip is gone …
+    expect(screen.queryByText("Old System")).not.toBeInTheDocument();
+    // … but its retirement is still a mark, and the delta still counts it.
+    const props = sliderProps.at(-1)!;
+    expect(props.milestones).toContainEqual({ value: OLD_EOL, activating: 0, disappearing: 1 });
+    expect(props.delta).toEqual({ arriving: 1, retiring: 1 });
+  });
+
+  it("an app excluded by an attribute filter contributes no mark and no delta", async () => {
+    vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+    mockTimeTravel();
+    // Filter to "high" criticality — Old System (medium) drops out of scope.
+    mockSavedConfig({ attrFilters: { businessCriticality: ["high"] } });
+    renderPortfolio();
+    await screen.findByText("Steady App");
+
+    const props = sliderProps.at(-1)!;
+    expect(props.milestones?.some((m) => m.value === OLD_EOL)).toBe(false);
+    expect(props.delta).toEqual({ arriving: 1, retiring: 0 });
+  });
+
+  it("clicking a retirement mark reveals the hidden chip for the pulse, then re-hides it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+      mockTimeTravel();
+      const { container } = renderPortfolio();
+      await screen.findByText("Steady App");
+      expect(screen.queryByText("Old System")).not.toBeInTheDocument();
+      expect(container.innerHTML).not.toContain("tl-pulse-retire");
+
+      act(() => sliderProps.at(-1)!.onMilestoneClick!(OLD_EOL, OLD_EOL));
+      // The retiring app's chip appears as the spotlight's ghost, and the
+      // pulse keyframes are injected while it runs.
+      await waitFor(() => expect(screen.getByText("Old System")).toBeInTheDocument());
+      expect(container.innerHTML).toContain("tl-pulse-retire");
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(screen.queryByText("Old System")).not.toBeInTheDocument());
+      expect(container.innerHTML).not.toContain("tl-pulse-retire");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("names the changing apps as pills and spotlights one on a pill click", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+      mockTimeTravel();
+      const { container } = renderPortfolio();
+      await screen.findByText("Steady App");
+
+      const props = sliderProps.at(-1)!;
+      const pills = props.milestoneCards!(ms("2027-01-01"), ms("2028-01-01"));
+      expect(pills.map((p) => p.name).sort()).toEqual(["New System", "Old System"]);
+
+      act(() =>
+        props.onMilestoneCardClick!({ id: "app-new", name: "New System", kind: "activating" }),
+      );
+      await waitFor(() => expect(container.innerHTML).toContain("tl-pulse-live"));
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(container.innerHTML).not.toContain("tl-pulse-live"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("pulses table rows too", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+      mockTimeTravel();
+      mockSavedConfig({ view: "table" });
+      const { container } = renderPortfolio();
+      await screen.findByText("Steady App");
+
+      act(() => sliderProps.at(-1)!.onMilestoneClick!(OLD_EOL, OLD_EOL));
+      await waitFor(() => expect(container.innerHTML).toContain("tl-pulse-row-retire"));
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(container.innerHTML).not.toContain("tl-pulse-row-retire"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Column picker
+//
+// Portfolio is the one report with two card grids — the flat group grid and
+// the nested group tree — so both have to honour the same pick.
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport column picker", () => {
+  const grid = () =>
+    document.querySelector(
+      ".report-chart-area [class*='report-print-grid-']",
+    ) as HTMLElement;
+
+  it("defaults the flat group grid to three columns", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization" });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByText("Finance HQ")).toBeInTheDocument());
+    expect(grid()).toHaveClass("report-print-grid-3");
+  });
+
+  it("reflows the flat grid and persists the pick", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization" });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByText("Finance HQ")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Two columns" }));
+
+    expect(grid()).toHaveClass("report-print-grid-2");
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(expect.objectContaining({ columns: 2 })),
+    );
+  });
+
+  it("applies the same pick to the nested group tree", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockHierarchicalMetamodel();
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      nestedGroups: true,
+      groupDepth: 99,
+      columns: 1,
+    });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByLabelText("Display Depth")).toBeInTheDocument());
+    expect(grid()).toHaveClass("report-print-grid-1");
+  });
+
+  it("is not offered in table view, where there is no grid to reflow", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization", view: "table" });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByText("SAP ERP")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Two columns" })).not.toBeInTheDocument();
+  });
+});
+
+describe("PortfolioReport nested column taper", () => {
+  const colsAround = (name: string) =>
+    screen.getByText(name).closest("[data-nested-cols]")?.getAttribute("data-nested-cols");
+
+  const renderNested = async (columns: number) => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockHierarchicalMetamodel();
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      nestedGroups: true,
+      groupDepth: 99,
+      columns,
+    });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByLabelText("Display Depth")).toBeInTheDocument());
+  };
+
+  it("gives the nested group tree three columns when one is picked", async () => {
+    await renderNested(1);
+    // Payments Team is a child of Finance HQ, so it sits in a depth-2 grid.
+    expect(colsAround("Payments Team")).toBe("3");
+  });
+
+  it("stacks the nested group tree when three columns are picked", async () => {
+    await renderNested(3);
+    expect(colsAround("Payments Team")).toBe("1");
   });
 });

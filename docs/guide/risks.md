@@ -52,6 +52,8 @@ Linked cards are **grouped by card type**, ordered alphabetically inside each gr
 
 Mitigation is captured as **owned work items**, not free-text. On the risk detail page the **Mitigation tasks** panel replaces the old single-field "mitigation plan" — each row is a real task with its own owner, due date, history and (optionally) a recurrence rule.
 
+![Mitigation tasks on the risk detail page](../assets/img/en/97_risk_mitigation_tasks.png)
+
 ### One-shot vs. recurring
 
 A mitigation task is **one-shot** by default — fitness-for-purpose for "Roll out MFA", "Sign updated SCCs", or any project-shaped piece of work. Toggle **Repeats** in the task dialog and you get a **recurring control review**: e.g. "Re-attest cross-border transfer documentation every 12 months", "Run the OT incident response tabletop every 3 months", "Audit Jenkins credentials every week".
@@ -99,6 +101,8 @@ When you click **Create risk** on a non-compliant finding (see [TurboLens](turbo
 
 The Risk Register's **Export** button writes a two-sheet `.xlsx`: sheet 1 is the filtered risk grid, sheet 2 is one row per cycle across every task on every risk in the same filter set, including the lead-time and activation timestamps. Use it for audit packs or for hand-off to stakeholders who don't have a Turbo EA login. Each task row in the detail panel also has its own **Export history** button for a per-task workbook.
 
+A single risk can also be printed from its detail page: **PDF** (next to **Delete**) opens a print-ready dossier — identification, initial and residual assessment, mitigation tasks with their most recent cycles, affected cards, workflow and acceptance rationale — in a new tab, ready for the browser's *Save as PDF*.
+
 ### Import {: #import }
 
 The **Import** button next to Export loads risks in bulk from an `.xlsx` file. Click **Download template** to get a starter workbook with the right headers, fill in one risk per row, and upload it. A row whose `reference` matches an existing risk is **skipped** (the importer never updates existing risks), so re-importing a previously exported register is idempotent; every other row creates a **brand-new** risk with a freshly generated `R-NNNNNN` reference. The preview tells you how many rows will be skipped before you confirm.
@@ -107,11 +111,13 @@ Recognised columns: `title` (required), `description`, `category`, `initial_prob
 
 ## Risk matrix
 
+![The 4x4 risk matrix on the Risk Register](../assets/img/en/78_risk_matrix.png)
+
 Both the TurboLens Security Overview and the Risk Register page render a 4×4 probability × impact heatmap. Cells are **clickable** — click one to filter the list below to just that bucket, click again (or the chip's ×) to clear. On the Risk Register you can toggle the matrix between **Initial** and **Residual** views so mitigation progress shows up visually.
 
 ## Register grid
 
-The register is an AG Grid that mirrors the [Inventory](inventory.md) standards: sortable, filterable, resizable columns with per-user persistent preferences (visible columns, sort order, sidebar state). A toolbar **+ New risk** opens the manual create dialog. The toolbar **Export** button writes a two-sheet `.xlsx` carrying the filtered risk grid on sheet 1 and one row per mitigation-task cycle on sheet 2 — see [Mitigation tasks → Export](#export) for the column shape.
+The register is an AG Grid that mirrors the [Inventory](inventory.md) standards: sortable, filterable, resizable columns with per-user persistent preferences (visible columns, sort order, sidebar state). A toolbar **+ New risk** opens the manual create dialog. The toolbar **Export** button writes a two-sheet `.xlsx` carrying the filtered risk grid on sheet 1 and one row per mitigation-task cycle on sheet 2 — see [Mitigation tasks → Export](#export) for the column shape. A **Source** column shows whether a risk was entered by hand, promoted from a compliance finding or filed by an extension, and it follows the sidebar's Source filter.
 
 ### Filtering by affected cards
 

@@ -45,6 +45,7 @@ from app.database import async_session
 from app.models.todo import Todo
 from app.services import mutation_batch_service, todo_service
 from app.services.event_bus import request_batch_id, request_origin
+from app.services.extensions import data_service
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import (
     ExtensionDataError,
@@ -177,6 +178,18 @@ class ExtensionTodos(TodosBridge):
         """Run ``op(db)`` inside a fresh session with ext provenance: origin
         contextvar ``"ext"`` plus an explicit committed mutation batch."""
         self._require(write=True)
+        if data_service.active_batch_id() is not None:
+            # Inside ``ctx.data.batch(...)``: join it — the batch scope already
+            # set the origin and batch contextvars, so the write lands in the
+            # same audit row as the card writes around it.
+            data_service.count_write_in_active_batch()
+            async with async_session() as db:
+                try:
+                    result = await op(db)
+                except TodoError as e:
+                    raise ExtensionDataError(e.message) from e
+                await db.commit()
+                return result
         origin_token = request_origin.set("ext")
         batch_token = None
         try:
@@ -208,6 +221,7 @@ class ExtensionTodos(TodosBridge):
         card_id: str | None = None,
         assigned_to: str | None = None,
         due_date: str | None = None,
+        link: str | None = None,
         external_ref: str | None = None,
         external_url: str | None = None,
     ) -> ExtTodo:
@@ -219,6 +233,10 @@ class ExtensionTodos(TodosBridge):
                 card_id=uuid.UUID(card_id) if card_id else None,
                 assigned_to=assigned_to,
                 due_date=due_date,
+                # SDK 1.7: the in-app deep link, validated exactly like a
+                # human-created todo's (relative path only) — an extension
+                # must not turn someone's Open button into an off-site jump.
+                link=link,
                 external_ref=external_ref,
                 external_url=external_url,
                 # Never a parameter: the mirror is stamped with the writing
@@ -237,6 +255,7 @@ class ExtensionTodos(TodosBridge):
         status: str | None = None,
         assigned_to: str | None = None,
         due_date: str | None = None,
+        link: str | None = None,
         external_ref: str | None = None,
         external_url: str | None = None,
     ) -> ExtTodo:
@@ -247,6 +266,11 @@ class ExtensionTodos(TodosBridge):
                 "status": status,
                 "assigned_to": assigned_to,
                 "due_date": due_date,
+                # Not in _SYSTEM_WRITABLE_FIELDS on purpose: a system todo's
+                # link points at the core page that completes it, and an
+                # extension redirecting that is exactly what the mirror
+                # carve-out exists to prevent.
+                "link": link,
                 "external_ref": external_ref,
                 "external_url": external_url,
             }.items()

@@ -15,6 +15,7 @@ from app.core.logging_config import configure_logging
 from app.core.rate_limit import limiter
 from app.database import engine
 from app.models import Base
+from app.services.startup_lock import startup_lock
 
 configure_logging(environment=settings.ENVIRONMENT)
 logger = logging.getLogger(__name__)
@@ -80,6 +81,33 @@ _KPI_SNAPSHOT_HOUR_UTC = 2  # Capture daily snapshot at 02:00 UTC
 _TASK_PROMOTION_HOUR_UTC = 3  # Promote scheduled task occurrences at 03:00 UTC
 
 
+async def _purge_mutation_batches_once(db, *, now=None) -> int:
+    """Delete the ``mutation_batches`` rows older than the retention window.
+
+    Returns the number of rows deleted; commits only when there were any.
+    ``now`` defaults to the current time (a test pins it).
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import delete
+
+    from app.models.mutation_batch import MutationBatch
+
+    retention_days = max(1, settings.MUTATION_BATCH_RETENTION_DAYS)
+    cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=retention_days)
+    result = await db.execute(delete(MutationBatch).where(MutationBatch.created_at <= cutoff))
+    deleted = result.rowcount or 0
+    if deleted:
+        await db.commit()
+        logger.info(
+            "Auto-purged %d mutation batch(es) older than %s (%d-day retention).",
+            deleted,
+            cutoff.isoformat(),
+            retention_days,
+        )
+    return deleted
+
+
 async def _purge_mutation_batches_loop() -> None:
     """Background loop that permanently deletes mutation_batches rows
     older than ``settings.MUTATION_BATCH_RETENTION_DAYS`` (default 15).
@@ -90,35 +118,54 @@ async def _purge_mutation_batches_loop() -> None:
     audit log just loses the handle to roll those old batches back,
     which is the point of retention.
     """
-    from datetime import datetime, timedelta, timezone
-
-    from sqlalchemy import delete
-
     from app.database import async_session
-    from app.models.mutation_batch import MutationBatch
 
     while True:
         try:
             await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
-            retention_days = max(1, settings.MUTATION_BATCH_RETENTION_DAYS)
-            cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
             async with async_session() as db:
-                result = await db.execute(
-                    delete(MutationBatch).where(MutationBatch.created_at <= cutoff)
-                )
-                deleted = result.rowcount or 0
-                if deleted:
-                    await db.commit()
-                    logger.info(
-                        "Auto-purged %d mutation batch(es) older than %s (%d-day retention).",
-                        deleted,
-                        cutoff.isoformat(),
-                        retention_days,
-                    )
+                await _purge_mutation_batches_once(db)
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception("Error in mutation-batch purge loop")
+
+
+async def _ops_access_maintenance_once(db, *, now=None) -> tuple[int, int]:
+    """Deactivate rescue accounts past ``access_expires_at`` and purge the
+    signed-request nonces older than an hour. Returns ``(accounts, nonces)``
+    and commits. ``now`` defaults to the current time (a test pins it).
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import delete, select
+
+    from app.models.ops_nonce import OpsRequestNonce
+    from app.models.user import User
+
+    now = now or datetime.now(timezone.utc)
+    expired = (
+        (
+            await db.execute(
+                select(User).where(
+                    User.access_expires_at.isnot(None),
+                    User.access_expires_at < now,
+                    User.is_active == True,  # noqa: E712
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for user in expired:
+        user.is_active = False
+        user.password_setup_token = None
+        logger.info("Deactivated expired rescue account %s", user.id)
+    result = await db.execute(
+        delete(OpsRequestNonce).where(OpsRequestNonce.created_at < now - timedelta(hours=1))
+    )
+    await db.commit()
+    return len(expired), result.rowcount or 0
 
 
 async def _ops_access_maintenance_loop() -> None:
@@ -126,46 +173,95 @@ async def _ops_access_maintenance_loop() -> None:
     rescue accounts past ``access_expires_at`` (defense in depth on top of the
     ``get_current_user`` check) and purge old signed-request nonces. A no-op on
     self-hosted installs — no rescue accounts, no nonces ever exist."""
-    from datetime import datetime, timedelta, timezone
-
-    from sqlalchemy import delete, select
-
     from app.database import async_session
-    from app.models.ops_nonce import OpsRequestNonce
-    from app.models.user import User
 
     while True:
         try:
             await asyncio.sleep(3600)
             async with async_session() as db:
-                now = datetime.now(timezone.utc)
-                expired = (
-                    (
-                        await db.execute(
-                            select(User).where(
-                                User.access_expires_at.isnot(None),
-                                User.access_expires_at < now,
-                                User.is_active == True,  # noqa: E712
-                            )
-                        )
-                    )
-                    .scalars()
-                    .all()
-                )
-                for user in expired:
-                    user.is_active = False
-                    user.password_setup_token = None
-                    logger.info("Deactivated expired rescue account %s", user.id)
-                await db.execute(
-                    delete(OpsRequestNonce).where(
-                        OpsRequestNonce.created_at < now - timedelta(hours=1)
-                    )
-                )
-                await db.commit()
+                await _ops_access_maintenance_once(db)
         except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception("Error in ops access maintenance loop")
+
+
+async def _purge_archived_cards_once(db, *, now=None) -> int | None:
+    """Permanently delete the cards archived past the retention window.
+
+    The window is read from the singleton ``app_settings`` row
+    (``general_settings.archiveRetentionDays``, default 30); ``0`` disables
+    the purge, in which case ``None`` is returned and nothing is touched.
+    Otherwise returns the number of cards purged (their relations go with
+    them, and a live child still pointing at a purged parent is disconnected
+    first) and commits when there were any. ``now`` defaults to the current
+    time (a test pins it).
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import or_, select
+
+    from app.models.app_settings import AppSettings
+    from app.models.card import Card
+    from app.models.relation import Relation
+
+    settings_row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    general = (settings_row.general_settings if settings_row else None) or {}
+    retention_days = general.get("archiveRetentionDays", _PURGE_RETENTION_DAYS)
+    cutoff = _archive_purge_cutoff(retention_days, now or datetime.now(timezone.utc))
+    if cutoff is None:
+        # Retention disabled (0) — keep archived cards indefinitely.
+        return None
+    result = await db.execute(
+        select(Card).where(
+            Card.status == "ARCHIVED",
+            Card.archived_at.isnot(None),
+            Card.archived_at <= cutoff,
+        )
+    )
+    cards_to_purge = result.scalars().all()
+    if not cards_to_purge:
+        return 0
+
+    purged_ids = [c.id for c in cards_to_purge]
+    # Delete relations referencing these cards
+    rels = await db.execute(
+        select(Relation).where(
+            or_(
+                Relation.source_id.in_(purged_ids),
+                Relation.target_id.in_(purged_ids),
+            )
+        )
+    )
+    for rel in rels.scalars().all():
+        await db.delete(rel)
+
+    # Self-heal stranded children: any card whose `parent_id` still
+    # points at a card we're about to purge gets disconnected first.
+    # Without this the self-FK on `cards.parent_id` (no ON DELETE
+    # rule) blocks the delete. Covers historical data created before
+    # the child-strategy feature shipped.
+    stranded_res = await db.execute(
+        select(Card).where(Card.parent_id.in_(purged_ids), Card.id.not_in(purged_ids))
+    )
+    stranded_count = 0
+    for stranded in stranded_res.scalars().all():
+        stranded.parent_id = None
+        stranded_count += 1
+
+    for card in cards_to_purge:
+        await db.delete(card)
+
+    await db.commit()
+    logger.info(
+        "Auto-purged %d archived cards (archived before %s); disconnected %d stranded child(ren).",
+        len(purged_ids),
+        cutoff.isoformat(),
+        stranded_count,
+    )
+    return len(purged_ids)
 
 
 async def _purge_archived_cards_loop() -> None:
@@ -178,76 +274,13 @@ async def _purge_archived_cards_loop() -> None:
     their history — are kept indefinitely. Because it is re-read every cycle,
     changing the setting takes effect without a restart.
     """
-    from datetime import datetime, timezone
-
-    from sqlalchemy import or_, select
-
     from app.database import async_session
-    from app.models.app_settings import AppSettings
-    from app.models.card import Card
-    from app.models.relation import Relation
 
     while True:
         try:
             await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
             async with async_session() as db:
-                settings_row = (
-                    await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-                ).scalar_one_or_none()
-                general = (settings_row.general_settings if settings_row else None) or {}
-                retention_days = general.get("archiveRetentionDays", _PURGE_RETENTION_DAYS)
-                cutoff = _archive_purge_cutoff(retention_days, datetime.now(timezone.utc))
-                if cutoff is None:
-                    # Retention disabled (0) — keep archived cards indefinitely.
-                    continue
-                result = await db.execute(
-                    select(Card).where(
-                        Card.status == "ARCHIVED",
-                        Card.archived_at.isnot(None),
-                        Card.archived_at <= cutoff,
-                    )
-                )
-                cards_to_purge = result.scalars().all()
-                if not cards_to_purge:
-                    continue
-
-                purged_ids = [c.id for c in cards_to_purge]
-                # Delete relations referencing these cards
-                rels = await db.execute(
-                    select(Relation).where(
-                        or_(
-                            Relation.source_id.in_(purged_ids),
-                            Relation.target_id.in_(purged_ids),
-                        )
-                    )
-                )
-                for rel in rels.scalars().all():
-                    await db.delete(rel)
-
-                # Self-heal stranded children: any card whose `parent_id` still
-                # points at a card we're about to purge gets disconnected first.
-                # Without this the self-FK on `cards.parent_id` (no ON DELETE
-                # rule) blocks the delete. Covers historical data created before
-                # the child-strategy feature shipped.
-                stranded_res = await db.execute(
-                    select(Card).where(Card.parent_id.in_(purged_ids), Card.id.not_in(purged_ids))
-                )
-                stranded_count = 0
-                for stranded in stranded_res.scalars().all():
-                    stranded.parent_id = None
-                    stranded_count += 1
-
-                for card in cards_to_purge:
-                    await db.delete(card)
-
-                await db.commit()
-                logger.info(
-                    "Auto-purged %d archived cards (archived before %s); "
-                    "disconnected %d stranded child(ren).",
-                    len(purged_ids),
-                    cutoff.isoformat(),
-                    stranded_count,
-                )
+                await _purge_archived_cards_once(db)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -643,22 +676,17 @@ async def _ensure_ollama_model() -> None:
         logger.exception("[ai] Unexpected error pulling model '%s'", model)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # ── C2: Refuse startup with default secret key in non-development envs ──
-    if settings.SECRET_KEY in _DEFAULT_SECRET_KEYS:
-        env = settings.ENVIRONMENT
-        if env != "development":
-            raise RuntimeError(
-                "SECRET_KEY must be set to a strong random value in production. "
-                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
-            )
-        else:
-            logger.warning(
-                "Using default SECRET_KEY — acceptable for development only. "
-                "Set a strong SECRET_KEY before deploying to production."
-            )
+async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
+    """Bring the database to the current schema and seed it.
 
+    Runs the Alembic upgrade (or ``create_all`` on a fresh database), loads
+    the persisted settings, seeds the metamodel and the optional demo data,
+    mints the instance ID and initialises the extensions — everything that
+    writes to the database before the app serves its first request. Called
+    under :func:`startup_lock` so two overlapping instances never do this at
+    once; returns the extension job tasks so the caller can cancel them on
+    shutdown.
+    """
     from alembic.config import Config
     from sqlalchemy import inspect as sa_inspect
     from sqlalchemy import text
@@ -1087,6 +1115,40 @@ async def lifespan(app: FastAPI):
             else:
                 print("[seed_extended] Skipped: already seeded")
 
+    # Seed card logos (brand marks from the bundled packs + NexaTech house
+    # marks). After the base cards and the admin user, both of which it needs.
+    if settings.SEED_DEMO:
+        from app.services.seed_demo_logos import seed_logo_demo_data
+
+        async with async_session() as db:
+            result = await seed_logo_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_logos] Seeded {result['brand_logos']} brand logos, "
+                    f"{result['house_logos']} house logos"
+                )
+            else:
+                print(f"[seed_logos] Skipped: {result.get('reason', 'unknown')}")
+
+    # Seed workspace organisation: web portals, diagram groups, one published
+    # diagram and favourites. Last, because it attaches to the diagrams the
+    # extras seeder creates and needs the ppmEnabled flag the PPM seeder sets.
+    if settings.SEED_DEMO:
+        from app.services.seed_demo_workspace import seed_workspace_demo_data
+
+        async with async_session() as db:
+            result = await seed_workspace_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_workspace] Seeded {result['portals']} web portals, "
+                    f"{result['diagram_groups']} diagram groups, "
+                    f"{result['published_diagrams']} published diagrams, "
+                    f"{result['card_favorites']} card favourites, "
+                    f"{result['diagram_favorites']} diagram favourites"
+                )
+            else:
+                print(f"[seed_workspace] Skipped: {result.get('reason', 'unknown')}")
+
     # ── Extension Store: mint/load the instance ID (licensing identity —
     # must exist before the registry evaluates license binding), then
     # reconcile statuses, load license/registry, run per-extension
@@ -1096,7 +1158,27 @@ async def lifespan(app: FastAPI):
 
     async with async_session() as db:
         await ensure_instance_id(db)
-    extension_job_tasks = await initialize_extensions(extension_load_report)
+    return await initialize_extensions(extension_load_report)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── C2: Refuse startup with default secret key in non-development envs ──
+    if settings.SECRET_KEY in _DEFAULT_SECRET_KEYS:
+        env = settings.ENVIRONMENT
+        if env != "development":
+            raise RuntimeError(
+                "SECRET_KEY must be set to a strong random value in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
+            )
+        else:
+            logger.warning(
+                "Using default SECRET_KEY — acceptable for development only. "
+                "Set a strong SECRET_KEY before deploying to production."
+            )
+
+    async with startup_lock(engine):
+        extension_job_tasks = await _migrate_and_seed(extension_load_report)
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None

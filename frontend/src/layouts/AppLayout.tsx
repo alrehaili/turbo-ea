@@ -9,16 +9,16 @@ import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import Switch from "@mui/material/Switch";
+import Snackbar from "@mui/material/Snackbar";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import Collapse from "@mui/material/Collapse";
-import Snackbar from "@mui/material/Snackbar";
-import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -33,10 +33,11 @@ import { api, auth, setToken } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
 import { useEventStream } from "@/hooks/useEventStream";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { canCreateAnyCardType } from "@/components/RequirePermission";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
 import { useFrameworkProfile } from "@/hooks/useFrameworkProfile";
-import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
@@ -51,17 +52,21 @@ import { useNavbarStyle } from "@/hooks/useNavbarStyle";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import SearchDialog from "@/components/SearchDialog";
-import { getExtensionRoutesForGroup, useExtensionUI } from "@/lib/extensionHost";
+import {
+  EXTENSION_NAV_GROUPS,
+  getExtensionRoutesForGroup,
+  useExtensionUI,
+} from "@/lib/extensionHost";
 import CreateCardDialog from "@/components/CreateCardDialog";
+import {
+  ADMIN_ITEM_DEFS,
+  NAV_ITEM_DEFS,
+  resolveNavPlacement,
+  type NavItemDef,
+} from "@/layouts/navItems";
+import { hasPermission, routePermissionsFor } from "@/components/RequirePermission";
+import { canAccessPath, permissionForPath } from "@/lib/routePermissions";
 import type { BadgeCounts, Card } from "@/types";
-
-interface NavItemDef {
-  labelKey: string;
-  icon: string;
-  path?: string;
-  children?: { labelKey: string; icon: string; path: string; permission?: string | string[]; dividerLabel?: string }[];
-  permission?: string | string[];
-}
 
 interface NavItem {
   label: string;
@@ -70,176 +75,6 @@ interface NavItem {
   children?: { label: string; icon: string; path: string; permission?: string | string[]; dividerLabel?: string }[];
   permission?: string | string[];
 }
-
-const NAV_ITEM_DEFS: NavItemDef[] = [
-  { labelKey: "dashboard", icon: "dashboard", path: "/" },
-  { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
-  { labelKey: "viewLibrary", icon: "travel_explore", path: "/view-library" },
-  {
-    // EA layers — one rich swim-lane overview per architecture layer. Kept
-    // as its own top-level tab (not under Reports) so the layered mental
-    // model is a first-class navigation concept.
-    labelKey: "layers",
-    icon: "layers",
-    permission: "inventory.view",
-    children: [
-      { labelKey: "reports.layersOverview", icon: "space_dashboard", path: "/layers/overview", permission: "inventory.view" },
-      { labelKey: "reports.traceability", icon: "hub", path: "/layers/traceability", permission: "inventory.view" },
-      { labelKey: "reports.businessLayer", icon: "domain", path: "/layers/business", permission: "inventory.view" },
-      { labelKey: "reports.businessSummary", icon: "article", path: "/layers/business-summary", permission: "inventory.view" },
-      { labelKey: "reports.beneficiaryLayer", icon: "diversity_3", path: "/layers/beneficiary", permission: "inventory.view" },
-      { labelKey: "reports.beneficiarySummary", icon: "article", path: "/layers/beneficiary-summary", permission: "inventory.view" },
-      { labelKey: "reports.applicationLayer", icon: "apps", path: "/layers/application", permission: "inventory.view" },
-      { labelKey: "reports.applicationSummary", icon: "article", path: "/layers/application-summary", permission: "inventory.view" },
-      { labelKey: "reports.dataLayer", icon: "database", path: "/layers/data", permission: "inventory.view" },
-      { labelKey: "reports.dataSummary", icon: "article", path: "/layers/data-summary", permission: "inventory.view" },
-      { labelKey: "reports.technologyLayer", icon: "memory", path: "/layers/technology", permission: "inventory.view" },
-      { labelKey: "reports.technologySummary", icon: "article", path: "/layers/technology-summary", permission: "inventory.view" },
-      { labelKey: "reports.securityLayer", icon: "security", path: "/layers/security", permission: "risks.view" },
-      { labelKey: "reports.securitySummary", icon: "article", path: "/layers/security-summary", permission: "inventory.view" },
-    ],
-  },
-  {
-    labelKey: "reports",
-    icon: "analytics",
-    permission: "reports.ea_dashboard",
-    children: [
-      // ── EA Delivery ──
-      { labelKey: "reports.admWorkspaces", icon: "account_tree", path: "/ea-delivery/adm", permission: "adm.view", dividerLabel: "reports.groupDelivery" },
-      // ── Portfolio & Landscape ──
-      { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio", dividerLabel: "reports.groupLandscape" },
-      { labelKey: "reports.flexiblePortfolio", icon: "dashboard_customize", path: "/reports/flexible-portfolio" },
-      { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
-      { labelKey: "reports.technologyLandscape", icon: "apartment", path: "/reports/technology-landscape" },
-      { labelKey: "reports.appModules", icon: "widgets", path: "/reports/application-modules" },
-      { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
-      { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
-      { labelKey: "reports.changeImpact", icon: "electric_bolt", path: "/reports/impact" },
-      // ── Strategy & Transformation (incl. current-vs-target & gap views) ──
-      { labelKey: "reports.strategicHouse", icon: "home_work", path: "/reports/strategic-house", dividerLabel: "reports.groupStrategy" },
-      { labelKey: "reports.strategyCascade", icon: "account_tree", path: "/reports/strategy-cascade" },
-      { labelKey: "reports.strategyMap", icon: "flag", path: "/reports/strategy-map" },
-      { labelKey: "reports.valueChain", icon: "linear_scale", path: "/reports/value-chain" },
-      { labelKey: "reports.transformationRoadmap", icon: "route", path: "/reports/transformation-roadmap" },
-      { labelKey: "reports.transitionRoadmap", icon: "map", path: "/reports/transition-roadmap" },
-      { labelKey: "reports.kpiScorecard", icon: "speed", path: "/reports/kpi-scorecard" },
-      { labelKey: "reports.currentVsTarget", icon: "compare_arrows", path: "/reports/current-vs-target" },
-      { labelKey: "reports.gapAnalysis", icon: "compare_arrows", path: "/reports/gap-analysis" },
-      { labelKey: "reports.gapSummary", icon: "difference", path: "/reports/gap-summary" },
-      { labelKey: "reports.initiativeGaps", icon: "assignment_turned_in", path: "/reports/initiative-gap-traceability" },
-      // ── Business & Services ──
-      { labelKey: "reports.orgChart", icon: "corporate_fare", path: "/reports/org-chart", dividerLabel: "reports.groupBusiness" },
-      { labelKey: "reports.serviceCatalogue", icon: "assured_workload", path: "/reports/service-catalogue", permission: "inventory.view" },
-      { labelKey: "reports.serviceTraceability", icon: "conversion_path", path: "/reports/service-traceability" },
-      { labelKey: "reports.processMap", icon: "account_tree", path: "/reports/process-map", permission: "reports.bpm_dashboard" },
-      // ── Data & Integration (incl. data-architecture views) ──
-      { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality", dividerLabel: "reports.groupData" },
-      { labelKey: "reports.freshness", icon: "fact_check", path: "/reports/freshness" },
-      { labelKey: "reports.dataFlow", icon: "schema", path: "/reports/data-flow" },
-      { labelKey: "reports.dataRelationships", icon: "mediation", path: "/reports/data-relationships" },
-      { labelKey: "reports.dataClassification", icon: "label", path: "/reports/data-classification" },
-      { labelKey: "reports.dataDomains", icon: "category", path: "/reports/data-domain" },
-      { labelKey: "reports.dataOwnership", icon: "person_check", path: "/reports/data-ownership" },
-      { labelKey: "reports.appDataCrud", icon: "grid_3x3", path: "/reports/app-data-crud" },
-      { labelKey: "reports.integration", icon: "sync", path: "/reports/integration-status" },
-      { labelKey: "reports.interoperability", icon: "lan", path: "/reports/interoperability" },
-      { labelKey: "reports.dataExchangeMap", icon: "swap_horiz", path: "/reports/data-exchange-map" },
-      { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
-      // ── Operations & Cost ──
-      { labelKey: "reports.resilience", icon: "health_and_safety", path: "/reports/resilience", dividerLabel: "reports.groupOps" },
-      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost", permission: "costs.view" },
-      { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
-      { labelKey: "reports.referenceModels", icon: "hub", path: "/reports/reference-models" },
-      { labelKey: "reports.cloudAdoption", icon: "cloud", path: "/reports/cloud-adoption", dividerLabel: "reports.phase7" },
-      { labelKey: "reports.techPortfolio", icon: "storage", path: "/reports/tech-portfolio" },
-      { labelKey: "reports.techStack", icon: "stack", path: "/reports/tech-stack" },
-      { labelKey: "reports.exceptionsWaivers", icon: "rule", path: "/reports/exceptions-waivers", dividerLabel: "reports.phase8" },
-      { labelKey: "reports.principlesTraceability", icon: "rule_folder", path: "/reports/principles-traceability" },
-      { labelKey: "reports.securityControls", icon: "lock", path: "/reports/security-controls" },
-      { labelKey: "reports.standardsCompliance", icon: "verified", path: "/reports/standards-matrix" },
-      // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
-      // is disabled the nav memo below promotes EA Delivery to a top-level
-      // nav item (in PPM's old slot) so the surface stays reachable.
-      { labelKey: "reports.saved", icon: "bookmarks", path: "/reports/saved" },
-    ],
-  },
-  {
-    // Reference Models browse (RMPlan Phase 1) — NORA-only, filtered below.
-    // Per-domain children are injected dynamically from the published-model
-    // probe so only domains with an active model appear.
-    labelKey: "referenceModels",
-    icon: "schema",
-    permission: "reference_models.view",
-    children: [
-      {
-        labelKey: "referenceModels.all",
-        icon: "apps",
-        path: "/reference-models",
-      },
-    ],
-  },
-  {
-    // Change-governance workflow tools (full CRUD), kept distinct from the
-    // read-only analytics under Reports.
-    labelKey: "governance",
-    icon: "account_balance",
-    permission: [
-      "scenarios.view",
-      "rationalization.view",
-      "tech_standards.view",
-      "arb.view",
-      "maturity.view",
-    ],
-    children: [
-      {
-        labelKey: "governance.scenarios",
-        icon: "account_tree",
-        path: "/scenarios",
-        permission: "scenarios.view",
-      },
-      {
-        labelKey: "governance.rationalization",
-        icon: "recycling",
-        path: "/rationalization",
-        permission: "rationalization.view",
-      },
-      {
-        labelKey: "governance.techStandards",
-        icon: "radar",
-        path: "/tech-standards",
-        permission: "tech_standards.view",
-      },
-      { labelKey: "governance.arb", icon: "gavel", path: "/arb", permission: "arb.view" },
-      // NORA-only (filtered out below when the profile isn't "nora").
-      {
-        labelKey: "governance.maturity",
-        icon: "monitoring",
-        path: "/maturity",
-        permission: "maturity.view",
-      },
-      {
-        labelKey: "governance.referenceModels",
-        icon: "schema",
-        path: "/reference-models/manage",
-        permission: "reference_models.manage",
-      },
-    ],
-  },
-  { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
-  { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
-  { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
-  { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
-  { labelKey: "noraProgram", icon: "account_balance", path: "/nora-program", permission: "nora.view" },
-  { labelKey: "todos", icon: "checklist", path: "/todos" },
-];
-
-const ADMIN_ITEM_DEFS: NavItemDef[] = [
-  { labelKey: "admin.metamodel", icon: "manufacturing", path: "/admin/metamodel", permission: "admin.metamodel" },
-  { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
-  { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { labelKey: "admin.extensions", icon: "extension", path: "/admin/extensions", permission: "admin.manage_extensions" },
-  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
-];
 
 interface PermissionMap {
   [key: string]: boolean;
@@ -346,6 +181,16 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     [user.permissions]
   );
 
+  // "Create card" is offered when the user can create at least ONE card type.
+  // A per-card-type deny (discussion #1068) can take `inventory.create` away
+  // for every type, and a per-type allow can grant it to a role that lacks it
+  // globally — so the button follows the types, not the bare permission.
+  const { types: metamodelTypes } = useMetamodel();
+  const canCreateAnyType = useMemo(
+    () => canCreateAnyCardType(user, metamodelTypes),
+    [metamodelTypes, user]
+  );
+
   // Resolve nav item labels via i18n and filter based on BPM/PPM/TurboLens/permissions
   const navItems = useMemo(() => {
     let items = NAV_ITEM_DEFS as NavItemDef[];
@@ -377,7 +222,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         labelKey: "delivery",
         icon: "architecture",
         path: "/reports/ea-delivery",
-        permission: "soaw.view",
       };
       const diagramsIdx = items.findIndex((i) => i.labelKey === "diagrams");
       const insertAt = diagramsIdx >= 0 ? diagramsIdx : items.length;
@@ -418,31 +262,71 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       );
     }
 
-    const hasPerm = (perm?: string | string[]) => {
-      if (!perm) return true;
-      if (Array.isArray(perm)) return perm.some((p) => can(p));
-      return can(perm);
+    // Delegates to the shared helper rather than re-deriving the semantics —
+    // OR over a list, wildcard, fail-closed — so the nav can never drift from
+    // what RouteGuard enforces.
+    // `routePermissionsFor` widens `inventory.view` to "may read some card
+    // type", matching what RouteGuard enforces for the Inventory route.
+    const routePerms = routePermissionsFor(user);
+    const hasPerm = (perm?: string | string[]) => !perm || hasPermission(routePerms, perm);
+
+    // A nav entry that points at a route inherits that route's permission from
+    // ROUTE_PERMISSIONS, so the menu and the router can never disagree. An
+    // explicit `permission` still wins — that is how the pathless Reports group
+    // and extension-contributed entries carry their own.
+    const hasNavPerm = (def: { path?: string; permission?: string | string[] }) => {
+      if (def.permission) return hasPerm(def.permission);
+      if (def.path) return hasPerm(permissionForPath(def.path));
+      return true;
     };
 
-    // Inject extension routes that requested the Reports group as children of
-    // the Reports menu (desktop dropdown + mobile drawer both read `children`).
-    // Placed before the "saved" entry so they sit with the core reports. Labels
-    // are plain strings from the bundle, so t() falls through to them.
-    const reportExtChildren = getExtensionRoutesForGroup("reports").map(({ route }) => ({
-      labelKey: route.label,
-      icon: route.icon,
-      path: route.path,
-      permission: route.permission,
-    }));
-    if (reportExtChildren.length) {
+    // Inject extension routes that requested a core nav group as children of
+    // that group's menu (desktop dropdown + mobile drawer both read `children`).
+    // Reports places them before the "saved" entry so they sit with the core
+    // reports; other groups append. Labels are plain strings from the bundle,
+    // so t() falls through to them.
+    //
+    // A group whose nav item is absent for this user — the module is off, or
+    // they lack its permission — would otherwise swallow the route entirely, so
+    // those fall back to a TOP-LEVEL entry: a licensed extension page stays
+    // reachable whatever a core module toggle says.
+    const groupedFallbacks: NavItemDef[] = [];
+    for (const group of EXTENSION_NAV_GROUPS) {
+      // The admin group has no top-bar host: its routes render in the Admin
+      // section of the user menu and the drawer (`adminItems` below), and
+      // deliberately never fall back to the bar.
+      if (group === "admin") continue;
+      const groupRoutes = getExtensionRoutesForGroup(group).map(({ route }) => ({
+        labelKey: route.label,
+        icon: route.icon,
+        path: route.path,
+        permission: route.permission,
+      }));
+      if (!groupRoutes.length) continue;
+      const host = items.find((item) => item.labelKey === group);
+      // The permission check matters here, not only below: injecting into a
+      // host that the final filter then drops would swallow the route silently.
+      // Via hasNavPerm, so a core host whose permission is derived from
+      // ROUTE_PERMISSIONS rather than declared inline is still checked.
+      if (!host || !hasNavPerm(host)) {
+        groupedFallbacks.push(...groupRoutes);
+        continue;
+      }
       items = items.map((item) => {
-        if (item.labelKey !== "reports") return item;
+        if (item.labelKey !== group) return item;
         const kids = [...(item.children || [])];
+        // A group that is itself a page (GRC) turns into a dropdown the moment
+        // it gains children, so seed its own link as the first entry or the
+        // page becomes unreachable from the nav.
+        if (item.path && !kids.some((c) => c.path === item.path)) {
+          kids.unshift({ labelKey: item.labelKey, icon: item.icon, path: item.path });
+        }
         const savedIdx = kids.findIndex((c) => c.path === "/reports/saved");
-        kids.splice(savedIdx >= 0 ? savedIdx : kids.length, 0, ...reportExtChildren);
+        kids.splice(savedIdx >= 0 ? savedIdx : kids.length, 0, ...groupRoutes);
         return { ...item, children: kids };
       });
     }
+    items = [...items, ...groupedFallbacks];
 
     // Append pages contributed by installed UI extensions as top-level entries.
     // Routes that requested a core nav group (e.g. Reports, handled above) are
@@ -452,40 +336,91 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     for (const { plugin } of uiExtensions) {
       for (const route of plugin.routes ?? []) {
         if (route.navGroup) continue;
-        items = [
-          ...items,
-          {
-            labelKey: route.label,
-            icon: route.icon,
-            path: route.path,
-            permission: route.permission,
-          },
-        ];
+        const entry: NavItemDef = {
+          labelKey: route.label,
+          icon: route.icon,
+          path: route.path,
+          permission: route.permission,
+        };
+        // The index is recomputed per route, against the list AS IT NOW
+        // STANDS. That is what keeps two routes sharing one placement in
+        // registration order: the first lands before the anchor, the second
+        // then lands before the anchor and after the first, rather than both
+        // resolving to the same stale index and coming out reversed.
+        const at = resolveNavPlacement(
+          items.map((item) => item.labelKey),
+          route.navPlacement,
+        );
+        items = [...items.slice(0, at), entry, ...items.slice(at)];
       }
     }
 
-    const resolve = (def: NavItemDef): NavItem => ({
-      ...def,
-      label: t(def.labelKey),
-      children: def.children
-        ?.filter((c) => hasPerm(c.permission))
-        .map((c) => ({ ...c, label: t(c.labelKey) })),
-    });
+    const resolve = (def: NavItemDef): NavItem => {
+      const children = def.children
+        ?.filter((c) => hasNavPerm(c))
+        .map((c) => ({ ...c, label: t(c.labelKey) }));
+      return {
+        ...def,
+        label: t(def.labelKey),
+        // Normalise an empty list to undefined: a group host whose children are
+        // all filtered out (or that has none installed) renders as a plain link
+        // rather than a dropdown that opens onto nothing.
+        children: children && children.length ? children : undefined,
+      };
+    };
 
-    return items.filter((item) => hasPerm(item.permission)).map(resolve);
-  }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, rmSummary, uiExtensions, can, t]);
+    return items.filter((item) => hasNavPerm(item)).map(resolve);
+  }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, rmSummary, uiExtensions, can, user, t]);
 
-  // Resolve admin item labels via i18n and filter based on permissions
+  // Resolve admin item labels via i18n and filter based on permissions.
+  // Extension routes that requested the "admin" nav group follow the core
+  // entries, gated by the permission the extension declared on the route
+  // (an `/ext/*` path is ungated in ROUTE_PERMISSIONS, so that is the only
+  // gate); a user without it simply does not see the entry. Labels are plain
+  // strings from the bundle, so t() falls through to them.
   const adminItems = useMemo(() => {
-    return ADMIN_ITEM_DEFS.filter((item) => {
-      if (!item.permission) return true;
-      if (Array.isArray(item.permission)) return item.permission.some((p) => can(p));
-      return can(item.permission);
-    }).map((def) => ({ ...def, label: t(def.labelKey) }));
-  }, [can, t]);
+    const routePerms = routePermissionsFor(user);
+    const core = ADMIN_ITEM_DEFS.filter((item) => canAccessPath(routePerms, item.path ?? "/")).map(
+      (def) => ({ ...def, label: t(def.labelKey) }),
+    );
+    const contributed = uiExtensions
+      .flatMap(({ plugin }) => (plugin.routes ?? []).filter((r) => r.navGroup === "admin"))
+      .filter((route) => !route.permission || hasPermission(user.permissions, route.permission))
+      .map((route) => ({
+        labelKey: route.label,
+        icon: route.icon,
+        path: route.path,
+        permission: route.permission,
+        label: t(route.label),
+      }));
+    return [...core, ...contributed];
+  }, [user, t, uiExtensions]);
 
   // Should the admin section be shown at all?
   const showAdmin = adminItems.length > 0;
+
+  // A deep link the user asked for before signing in, that their role cannot
+  // actually open — SsoCallback lands them here and leaves the path in router
+  // state. Copied into local state so the message survives clearing that
+  // state, and cleared immediately so a refresh cannot resurrect it.
+  const [deniedPath, setDeniedPath] = useState<string | null>(null);
+  const deniedFromState = (location.state as { deniedPath?: string } | null)?.deniedPath;
+  useEffect(() => {
+    if (!deniedFromState) return;
+    setDeniedPath(deniedFromState);
+    navigate(location.pathname + location.search, { replace: true, state: null });
+  }, [deniedFromState, location.pathname, location.search, navigate]);
+
+  // Reference Catalogue links, gated by the same table as their routes.
+  const canOpen = useCallback(
+    (path: string) => canAccessPath(routePermissionsFor(user), path),
+    [user],
+  );
+  const canOpenAnyCatalogue =
+    canOpen("/capability-catalogue") ||
+    canOpen("/process-catalogue") ||
+    canOpen("/value-stream-catalogue") ||
+    canOpen("/principles-catalogue");
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
@@ -524,7 +459,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // from any route without navigating to /inventory first.
   const [createOpen, setCreateOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
+  // Keyed by group label — a single boolean expanded every group together.
+  const [drawerGroupOpen, setDrawerGroupOpen] = useState<Record<string, boolean>>({});
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [sponsorshipOpen, setSponsorshipOpen] = useState(false);
@@ -606,6 +542,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       },
       [debouncedBadgeRefresh],
     ),
+    // Same reasoning as the bell: events missed while the stream was down are
+    // gone, so re-read the counts on reconnect instead of waiting for the next
+    // navigation.
+    debouncedBadgeRefresh,
   );
 
   // Also refresh when navigating (covers completing a todo, responding to a survey)
@@ -701,7 +641,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           item.children ? (
             <Box key={item.label}>
               <ListItemButton
-                onClick={() => setDrawerReportsOpen((p) => !p)}
+                onClick={() =>
+                  setDrawerGroupOpen((p) => ({ ...p, [item.label]: !p[item.label] }))
+                }
                 sx={{
                   borderRadius: 1,
                   color: isGroupActive(item.children) ? nav.fg : nav.fgMuted,
@@ -713,12 +655,12 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 </ListItemIcon>
                 <ListItemText primary={item.label} />
                 <MaterialSymbol
-                  icon={drawerReportsOpen ? "expand_less" : "expand_more"}
+                  icon={drawerGroupOpen[item.label] ? "expand_less" : "expand_more"}
                   size={18}
                   color="inherit"
                 />
               </ListItemButton>
-              <Collapse in={drawerReportsOpen}>
+              <Collapse in={!!drawerGroupOpen[item.label]}>
                 <List disablePadding sx={{ pl: 2 }}>
                   {item.children.map((child) => (
                     <Box key={child.path}>
@@ -818,7 +760,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </>
         )}
 
-        {can("inventory.create") && (
+        {canCreateAnyType && (
           <>
             <Divider sx={{ my: 1, borderColor: nav.divider }} />
 
@@ -977,7 +919,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </Box>
           )}
 
-          {/* Reports dropdown menu */}
+          {/* Nav group dropdown menu (Reports, GRC, …) */}
           <Menu
             anchorEl={reportsMenu}
             open={!!reportsMenu}
@@ -1035,7 +977,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           )}
 
           {/* Create button — icon-only on mobile */}
-          {can("inventory.create") && (
+          {canCreateAnyType && (
             isMobile ? (
               <Tooltip title={t("create")}>
                 <IconButton
@@ -1160,8 +1102,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>{t("userMenu.userManual")}</ListItemText>
             </MenuItem>
-            {(can("inventory.view") || can("admin.metamodel")) && <Divider />}
-            {(can("inventory.view") || can("admin.metamodel")) && (
+            {canOpenAnyCatalogue && <Divider />}
+            {canOpenAnyCatalogue && (
               <MenuItem
                 onClick={toggleRefCat}
                 sx={{ minHeight: 32 }}
@@ -1187,7 +1129,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </MenuItem>
             )}
             <Collapse in={refCatExpanded} timeout="auto" unmountOnExit>
-              {can("inventory.view") && (
+              {canOpen("/capability-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/capability-catalogue"
@@ -1200,7 +1142,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <ListItemText>{t("userMenu.capabilityCatalogue")}</ListItemText>
                 </MenuItem>
               )}
-              {can("inventory.view") && (
+              {canOpen("/process-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/process-catalogue"
@@ -1213,7 +1155,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <ListItemText>{t("userMenu.processCatalogue")}</ListItemText>
                 </MenuItem>
               )}
-              {can("inventory.view") && (
+              {canOpen("/value-stream-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/value-stream-catalogue"
@@ -1226,7 +1168,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   <ListItemText>{t("userMenu.valueStreamCatalogue")}</ListItemText>
                 </MenuItem>
               )}
-              {can("admin.metamodel") && (
+              {canOpen("/principles-catalogue") && (
                 <MenuItem
                   component={RouterLink}
                   to="/principles-catalogue"
@@ -1323,7 +1265,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       {/* Create card dialog — global so the top-nav Create button works from
           any route without first navigating to /inventory. CreateCardDialog
           handles routing to /cards/{newId} on success. */}
-      {can("inventory.create") && (
+      {canCreateAnyType && (
         <CreateCardDialog
           open={createOpen}
           onClose={() => setCreateOpen(false)}
@@ -1480,6 +1422,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         )}
         <Box sx={{ p: { xs: 1.5, sm: 3 } }}>{children}</Box>
       </Box>
+      <Snackbar
+        open={!!deniedPath}
+        autoHideDuration={6000}
+        onClose={() => setDeniedPath(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity="info"
+          variant="filled"
+          onClose={() => setDeniedPath(null)}
+          sx={{ width: "100%" }}
+        >
+          {t("common:accessDenied.redirectedToDashboard")}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

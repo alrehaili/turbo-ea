@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
-import DOMPurify from "dompurify";
+import { sanitizeRichHtml } from "@/lib/richHtml";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -19,6 +19,7 @@ import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import type { SoawDocType } from "./soawTemplate";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import type { SoAW, SoAWSectionData } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -44,6 +45,7 @@ export default function SoAWPreview() {
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [soaw, setSoaw] = useState<SoAW | null>(null);
+  usePageSubject(soaw?.name);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
@@ -190,7 +192,7 @@ export default function SoAWPreview() {
       <Box
         className="soaw-preview"
         sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bodyHtml) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(bodyHtml) }}
       />
 
       {/* Signature Block */}

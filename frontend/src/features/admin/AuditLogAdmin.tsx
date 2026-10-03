@@ -38,7 +38,8 @@ import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -221,7 +222,13 @@ export default function AuditLogAdmin() {
   }, [filters, pageSize]);
 
   // ── Data fetch ─────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
+  // Through the request guard: a filter or page-size change while on a later
+  // page issues the page-reset re-query right behind the stale one, and only
+  // the latest reply may land (the request-hook rule in CLAUDE.md, #882).
+  const { run } = useLatestRequest();
+  const load = useCallback(
+    () =>
+      run(async ({ signal, isCurrent }) => {
     setLoading(true);
     setError("");
     try {
@@ -249,15 +256,19 @@ export default function AuditLogAdmin() {
         total: number;
         page: number;
         page_size: number;
-      }>(`/mutation-batches?${params.toString()}`);
+      }>(`/mutation-batches?${params.toString()}`, { signal });
+      if (!isCurrent()) return;
       setBatches(data.items);
       setTotal(data.total);
     } catch (err) {
+      if (!isCurrent() || isAbortError(err)) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [filters, page, pageSize]);
+      }),
+    [run, filters, page, pageSize],
+  );
 
   useEffect(() => {
     load();
@@ -413,10 +424,11 @@ export default function AuditLogAdmin() {
         filter: "agNumberColumnFilter",
         valueGetter: (p) => {
           // Best-effort: `summary` carries per-row counts when the
-          // wrapper recorded them. Falls back to "—" otherwise; the
-          // exact event count is in the drawer.
+          // wrapper recorded them — `writes` is what an extension batch
+          // scope stamps. Falls back to "—" otherwise; the exact event
+          // count is in the drawer.
           const s = (p.data?.summary ?? {}) as Record<string, unknown>;
-          const candidates = [s.created, s.updated, s.would_update, s.rows];
+          const candidates = [s.created, s.updated, s.would_update, s.rows, s.writes];
           const n = candidates.find((v) => typeof v === "number") as
             | number
             | undefined;

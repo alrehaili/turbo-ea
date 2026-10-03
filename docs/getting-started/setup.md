@@ -51,7 +51,7 @@ To change the host port, set `HOST_PORT` in `.env` (default `8920`). Direct HTTP
 
 ## Step 3: Load demo data (optional)
 
-Turbo EA can start empty (just the built-in metamodel) or with the **NexaTech Industries** demo dataset, which is ideal for evaluation, training, and exploring features.
+Turbo EA can start empty (just the built-in metamodel) or with the **NexaTech Industries** demo dataset, which is ideal for evaluation, training, and exploring features. It ships with product logos on applications and IT components, three published web portals (an application catalogue, a delivery portfolio and the process house), a published diagram, grouped and starred diagrams, and a capability map that starts at the macro tier.
 
 Set the seed flag in `.env` **before the first startup**:
 
@@ -171,7 +171,19 @@ TLS_HOST_PORT=443
 
 Place `cert.pem` and `key.pem` in `./certs/` (the directory is mounted read-only into the nginx container). The image derives `server_name` and the forwarded scheme from `TURBO_EA_PUBLIC_URL`, serves both HTTP and HTTPS, and redirects HTTP to HTTPS automatically.
 
-For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS.
+For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS. If that proxy also authenticates your users (Azure App Service EasyAuth, oauth2-proxy, Authelia), Turbo EA can accept that identity directly with no OIDC client at all — see [Reverse proxy authentication](../admin/sso.md#reverse-proxy-authentication).
+
+## Network exposure
+
+Turbo EA holds a map of your entire IT landscape (applications, vendors, costs and risks), so run it as an internal application. It needs no inbound access from the internet, and its optional outbound calls (the Extension Store, the daily check for a newer release, an AI provider) leave through your normal egress.
+
+- **Keep it off the open internet.** Publish it on your private network, or behind an internal load balancer or ingress, rather than on a public address.
+- **Let only approved corporate devices in.** Reach it through your VPN or a zero-trust access gateway (for example Cloudflare Access in front of a Cloudflare Tunnel, Microsoft Entra Private Access or Zscaler Private Access), and require a compliant, managed device in your identity provider's conditional-access policy.
+- **Keep single sign-on.** Network restrictions add to [SSO](../admin/sso.md) and roles; they do not replace them.
+
+A few features exist to reach people outside that boundary: a [published diagram](../guide/diagrams.md) embedded in an external site, a public [web portal](../admin/web-portals.md), and an AI assistant that connects to the [MCP server](../admin/mcp.md) from its vendor's cloud. Each of them needs a route to Turbo EA, so enable them deliberately: keep them on the internal network where you can, and otherwise expose only what they need.
+
+Most cloud examples in [Kubernetes & Cloud](../admin/kubernetes.md) and every template in [Managed container services](../admin/managed-containers.md) publish a public endpoint so that a first deployment can be reached. Both pages explain how to make it private before production.
 
 ## Allowing diagram embedding (optional)
 
@@ -198,6 +210,9 @@ Released versions are tagged `:<full-version>`, `:<major>.<minor>`, `:<major>`, 
 ## Use an existing PostgreSQL
 
 If you already run a managed or shared PostgreSQL instance, point the backend at it and skip the bundled `db` service.
+
+!!! tip "Running on Kubernetes?"
+    The [Helm chart](../admin/kubernetes.md) installs Turbo EA on EKS, AKS, GKE or any cluster against exactly this kind of external PostgreSQL, and the same page walks through each cloud. Without a cluster, the [managed container services](../admin/managed-containers.md) page covers Azure Container Apps, Cloud Run and ECS Fargate.
 
 Create the database and user on your existing server:
 

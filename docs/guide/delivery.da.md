@@ -46,6 +46,7 @@ Turbo EA tilbyder en indbygget SoAW-editor med TOGAF-tilpassede sektions­skabel
 Editoren tilbyder:
 
 - **Rich text-redigering** — Komplet formateringsværktøjslinje (overskrifter, fed, kursiv, lister, links) drevet af TipTap-editoren
+- **Links** — En URL, du skriver eller indsætter, bliver til et link, mens du skriver, og hvert link i et dokument åbner i en ny fane. Adresser i dokumenter skrevet før links blev understøttet, linkes når dokumentet vises
 - **Sektions­skabeloner** — Foruddefinerede sektioner, der følger TOGAF-standarder (f.eks. Problembeskrivelse, Mål, Tilgang, Interessenter, Begrænsninger, Arbejdsplan)
 - **Indlejret redigerbare tabeller** — Tilføj og rediger tabeller inden for en sektion
 - **Status­arbejdsproces** — Dokumenter bevæger sig gennem definerede stadier:
@@ -65,6 +66,7 @@ Når en SoAW er godkendt, kan du anmode om underskrifter fra interessenter. Klik
 
 - **Preview-tilstand** — Skrivebeskyttet visning af det komplette SoAW-dokument
 - **DOCX-eksport** — Download SoAW'en som et formateret Word-dokument til offline-deling eller udskrift
+- **PDF-eksport** — Åbner en printklar visning i en ny fane; brug browserens *Gem som PDF*. Tillad pop op-vinduer for dette websted, hvis intet åbnes.
 
 ### SoAW-fane på initiativkort
 
@@ -85,5 +87,5 @@ Det **centrale ADR-register** — hvor hver ADR på tværs af landskabet filtrer
 Kort indeholder nu en **Resources**-fane, der konsoliderer:
 
 - **Architecture Decisions** — ADR'er vises ikke længere her. Hvert kort har nu sin egen **ADRs**-fane; se [Kortdetaljer](card-details.md) for hvad den viser, og hvordan du tilknytter, opretter eller frakobler beslutninger fra et kort.
-- **Filvedhæftninger** — Upload og administrer filer (PDF, DOCX, XLSX, billeder, op til 10 MB). Når du uploader, skal du vælge en **dokumentkategori** fra: Architecture, Security, Compliance, Operations, Meeting Notes, Design eller Other. Kategorien vises som en chip ved siden af hver fil.
+- **Filvedhæftninger** — Upload og administrer filer (dokumenter, regneark, præsentationer, OpenDocument- og ældre Office-filer, billeder, arkiver, Outlook- og e-mailbeskeder, CSV, Markdown, JSON og XML — op til 20 MB). Når du uploader, skal du vælge en **dokumentkategori** fra: Architecture, Security, Compliance, Operations, Meeting Notes, Design eller Other. Kategorien vises som en chip ved siden af hver fil.
 - **Dokumentlinks** — URL-baserede dokumentreferencer. Når du tilføjer et link, skal du vælge en **linktype** fra: Documentation, Security, Compliance, Architecture, Operations, Support eller Other. Linktypen vises som en chip ved siden af hvert link, og ikonet skifter baseret på den valgte type.

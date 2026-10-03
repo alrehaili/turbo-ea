@@ -26,6 +26,14 @@ Utilizzare la barra degli strumenti per:
 
 Questi filtri vengono mantenuti nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente.
 
+### Stampa ed esportazione
+
+Il portafoglio offre le stesse azioni nella barra del titolo dei report:
+
+- **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina.
+- **Esporta in PowerPoint (.pptx)** — dal menu **⋮**. La prima diapositiva riporta titolo, data e ora di generazione e filtri attivi insieme al portafoglio in qualità da presentazione; i portafogli lunghi proseguono su altre diapositive, tagliate solo tra le iniziative — mai attraverso una riga, un'intestazione di gruppo o una riga dei totali.
+- **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato.
+
 ## Vista Dettagliata dell'Iniziativa
 
 Cliccare su qualsiasi iniziativa per aprire la sua pagina di dettaglio con sette schede:
@@ -67,6 +75,21 @@ Monitoraggio dei dati finanziari con due tipi di voci:
 
 I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.
 
+#### Spesa nel tempo
+
+Sopra le tabelle di budget e costi, tre grafici mostrano come la spesa si accumula mese per mese:
+
+- **Spesa cumulata per categoria** — CapEx e OpEx cumulate per l'esercizio selezionato, con linee orizzontali tratteggiate che indicano il budget CapEx e OpEx di quell'esercizio
+- **Spesa totale cumulata** — lo stesso esercizio con entrambe le categorie combinate, rispetto a una linea tratteggiata di budget totale
+- **Progetto a oggi** — CapEx e OpEx cumulate su tutti i mesi del progetto, rispetto al budget totale di tutti gli esercizi
+
+Il selettore dell'esercizio si applica ai primi due grafici e propone l'esercizio corrente, qualsiasi altro esercizio con dati e **Tutti gli esercizi**. Le scelte di esercizio e stato aperto o chiuso vengono ricordate tra una visita e l'altra.
+
+Due aspetti da tenere presenti nella lettura dei grafici:
+
+- Le linee si fermano al mese corrente anziché proseguire piatte fino a fine esercizio, così un esercizio in corso non viene scambiato per uno in cui la spesa si è fermata
+- Le voci di costo senza data non possono essere collocate su una linea temporale e vengono escluse. Una nota sotto i grafici riporta quante ne sono state escluse, per riconciliare i totali del grafico con la barra di riepilogo
+
 ### Scheda Gestione dei Rischi
 
 ![Gestione dei Rischi PPM](../assets/img/it/44_ppm_gestione_rischi.png)
@@ -94,7 +117,7 @@ Il gestore delle attività supporta le viste **board Kanban** e **lista** con qu
 - **Completato** — Attività completate
 - **Bloccato** — Attività che non possono procedere
 
-Le attività possono essere filtrate e raggruppate per elemento della Struttura di Scomposizione del Lavoro (WBS).
+Le attività possono essere filtrate e raggruppate per elemento della Struttura di Scomposizione del Lavoro (WBS). Quando sono raggruppate, ogni pacchetto di lavoro compare come gruppo — compreso uno che non contiene ancora attività, che mostra un suggerimento e un pulsante **Aggiungi attività** che apre la finestra di dialogo dell'attività con quel pacchetto preselezionato. Le milestone compaiono solo quando contengono un'attività. Trascina le card tra le colonne per aggiornare lo stato.
 
 I filtri di visualizzazione (modalità vista, filtro WBS, interruttore raggruppamento) vengono mantenuti nell'URL tra gli aggiornamenti della pagina.
 
@@ -107,7 +130,7 @@ Il diagramma di Gantt visualizza la tempistica del progetto con:
 - **Pacchetti di lavoro (WBS)** — Elementi gerarchici della struttura di scomposizione del lavoro con date di inizio/fine
 - **Attività** — Barre di attività individuali collegate ai pacchetti di lavoro
 - **Milestone** — Date chiave contrassegnate con indicatori a diamante
-- **Barre di avanzamento** — Percentuale di completamento visiva. Fai clic sul chip percentuale di un'attività o di un pacchetto di lavoro foglia per aprire un cursore che si aggancia a **0%, 50% o 100%** — corrispondente ai tre stati delle attività (Da fare, In corso, Completato). I pacchetti di lavoro padre con figli mostrano un chip in sola lettura il cui valore viene calcolato automaticamente dal sottoalbero.
+- **Barre di avanzamento** — Percentuale di completamento visiva. Un'attività non ha una percentuale propria: il suo riempimento segue lo stato — **Da fare (0%)**, **In corso (50%)**, **Completato (100%)**. Fai clic sul chip percentuale di un'attività per aprire un cursore i cui tre scatti riportano quegli stati; scegliere uno scatto cambia lo stato, e trascinare il riempimento sulla barra dell'attività fa lo stesso. Un pacchetto di lavoro foglia ha un cursore libero a passi del 5%. I pacchetti di lavoro che hanno pacchetti di lavoro figli **o attività** mostrano un chip in sola lettura il cui valore viene calcolato automaticamente dal sottoalbero.
 - **Segni trimestrali** — Griglia temporale per orientamento
 
 Interagisci con il diagramma di Gantt:
@@ -115,6 +138,7 @@ Interagisci con il diagramma di Gantt:
 - **Selettore della scala** — Scegli tra Giorno, Settimana, Mese, Trimestre e Anno; la scelta viene memorizzata nel browser
 - **Pulsanti di zoom +/−** — Naviga di un livello alla volta lungo le stesse cinque scale
 - **Punti alle estremità delle barre** — Trascina dal punto destro di una barra al punto sinistro di un'altra per creare una dipendenza finish-to-start. Funziona tra pacchetti di lavoro e attività in qualsiasi combinazione. I cicli vengono rifiutati automaticamente. **Fai doppio clic su una freccia** per rimuoverla.
+- **La riga +** in fondo all'elenco chiede cosa creare — un pacchetto di lavoro, una milestone o un'attività — così un'attività digitata lì finisce nella scheda Attività.
 
 ### Scheda Dettagli della Card
 
@@ -127,7 +151,7 @@ La WBS fornisce una scomposizione gerarchica dell'ambito del progetto:
 - **Pacchetti di lavoro** — Raggruppamenti logici di attività con date di inizio/fine e monitoraggio del completamento
 - **Milestone** — Eventi significativi o punti di completamento
 - **Gerarchia** — Relazioni genitore-figlio tra elementi WBS
-- **Auto-completamento** — La percentuale di completamento viene calcolata automaticamente dai rapporti attività completate/totali, cumulato ricorsivamente attraverso la gerarchia WBS fino agli elementi padre. Il completamento al livello superiore rappresenta il progresso complessivo dell'iniziativa
+- **Auto-completamento** — Il completamento viene calcolato automaticamente dalle attività nel sottoalbero di un pacchetto di lavoro: ogni attività conta come 0% (Da fare, Bloccato), 50% (In corso) o 100% (Completato), ponderata per la sua durata in giorni (un giorno quando manca una data), e poi cumulato ricorsivamente fino agli elementi padre. Un pacchetto di lavoro senza alcuna attività al di sotto conserva il valore inserito a mano. La media dei pacchetti di lavoro di primo livello è il progresso complessivo dell'iniziativa — il numero nella scheda Panoramica e la variabile `ppm.completion` che un [campo calcolato](../admin/calculations.md#ppm-data-on-initiative-cards) può mostrare sulla card e in un portale
 
 ## Integrazione con i dettagli della card
 
@@ -139,6 +163,6 @@ Al contrario, la scheda **Dettagli della card** all'interno della vista dettagli
 
 | Permesso | Descrizione |
 |----------|-------------|
-| `ppm.view` | Visualizzare il dashboard PPM, il diagramma di Gantt e i report delle iniziative. Concesso a tutti i ruoli per impostazione predefinita |
+| `ppm.view` | Visualizzare il dashboard PPM, il diagramma di Gantt e i report delle iniziative, e leggere le card Iniziativa. Concesso a tutti i ruoli per impostazione predefinita |
 | `ppm.manage` | Creare e gestire report di stato, attività, costi, rischi ed elementi WBS. Concesso ai ruoli Admin, Admin BPM e Membro |
 | `reports.ppm_dashboard` | Visualizzare il dashboard del portafoglio PPM. Concesso a tutti i ruoli per impostazione predefinita |

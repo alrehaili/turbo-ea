@@ -3,8 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,13 +14,13 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
-from app.models.stakeholder import Stakeholder
+from app.models.relation_type import RelationType
 from app.models.survey import Survey, SurveyResponse
-from app.models.tag import CardTag
 from app.models.user import User
-from app.services import notification_service
+from app.services import notification_service, survey_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.relation_orientation import direction_for
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
@@ -100,135 +99,6 @@ def _response_to_dict(r: SurveyResponse) -> dict:
         "applied_at": r.applied_at.isoformat() if r.applied_at else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
-
-
-async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
-    """Resolve survey filters into a list of {card, users} dicts."""
-    filters = survey.target_filters or {}
-    roles = survey.target_roles or []
-
-    # Start with all active cards of the target type
-    q = select(Card).where(
-        Card.type == survey.target_type_key,
-        Card.status == "ACTIVE",
-    )
-
-    # Specific cards filter — direct selection of target cards (intersected with type)
-    card_ids = filters.get("card_ids") or []
-    if card_ids:
-        card_uuids = [uuid.UUID(c) for c in card_ids]
-        q = q.where(Card.id.in_(card_uuids))
-
-    # Tag filter
-    tag_ids = filters.get("tag_ids") or []
-    if tag_ids:
-        tag_uuids = [uuid.UUID(t) for t in tag_ids]
-        tagged_fs = select(CardTag.card_id).where(CardTag.tag_id.in_(tag_uuids))
-        q = q.where(Card.id.in_(tagged_fs))
-
-    # Related card filter — cards that have a Relation to/from one of these IDs
-    related_ids = filters.get("related_ids") or []
-    if related_ids:
-        related_uuids = [uuid.UUID(r) for r in related_ids]
-        # Find cards related to any of these IDs (as source or target)
-        related_fs = (
-            select(Relation.source_id)
-            .where(Relation.target_id.in_(related_uuids))
-            .union(select(Relation.target_id).where(Relation.source_id.in_(related_uuids)))
-        )
-        q = q.where(Card.id.in_(related_fs))
-
-    # Attribute filters
-    attr_filters = filters.get("attribute_filters") or []
-    for af in attr_filters:
-        key = af.get("key")
-        op = af.get("op", "eq")
-        value = af.get("value")
-
-        if not key:
-            continue
-
-        col = Card.attributes[key].astext
-
-        if op == "is_empty":
-            # NULL or missing key in JSONB, or empty string
-            q = q.where(
-                (Card.attributes[key] == None)  # noqa: E711
-                | (col == "")
-            )
-        elif op == "is_not_empty":
-            q = q.where(
-                Card.attributes[key] != None,  # noqa: E711
-                col != "",
-            )
-        elif value is not None:
-            str_val = str(value)
-            if op == "eq":
-                q = q.where(col == str_val)
-            elif op == "ne":
-                q = q.where(col != str_val)
-            elif op in ("gt", "lt", "gte", "lte"):
-                # Cast to numeric for comparisons
-                num_col = Card.attributes[key].astext.cast(sqlalchemy.Numeric)
-                try:
-                    num_val = float(value)
-                except (ValueError, TypeError):
-                    continue
-                if op == "gt":
-                    q = q.where(num_col > num_val)
-                elif op == "lt":
-                    q = q.where(num_col < num_val)
-                elif op == "gte":
-                    q = q.where(num_col >= num_val)
-                elif op == "lte":
-                    q = q.where(num_col <= num_val)
-            elif op == "contains":
-                q = q.where(col.ilike(f"%{str_val}%"))
-
-    result = await db.execute(q)
-    cards = result.scalars().all()
-
-    if not cards:
-        return []
-
-    # Find subscribers for these cards with matching roles
-    card_ids = [card.id for card in cards]
-    sub_q = (
-        select(Stakeholder)
-        .where(Stakeholder.card_id.in_(card_ids))
-        .options(selectinload(Stakeholder.user))
-    )
-    if roles:
-        sub_q = sub_q.where(Stakeholder.role.in_(roles))
-
-    sub_result = await db.execute(sub_q)
-    subs = sub_result.scalars().all()
-
-    # Group subscribers by card
-    card_map = {card.id: card for card in cards}
-    targets: dict[uuid.UUID, dict] = {}
-    for sub in subs:
-        if sub.card_id not in targets:
-            card = card_map[sub.card_id]
-            targets[sub.card_id] = {
-                "card_id": str(card.id),
-                "card_name": card.name,
-                "card_type": card.type,
-                "users": [],
-            }
-        # Avoid duplicate users
-        user_ids = {u["user_id"] for u in targets[sub.card_id]["users"]}
-        if str(sub.user_id) not in user_ids and sub.user:
-            targets[sub.card_id]["users"].append(
-                {
-                    "user_id": str(sub.user_id),
-                    "display_name": sub.user.display_name,
-                    "email": sub.user.email,
-                    "role": sub.role,
-                }
-            )
-
-    return list(targets.values())
 
 
 async def _get_response_stats(db: AsyncSession, survey_id: uuid.UUID) -> dict:
@@ -337,7 +207,13 @@ async def _apply_relation_change(
     from app.services.card_write_service import _emit_relation_events
 
     rtk = field_def["relation_type_key"]
-    direction = field_def["direction"]
+    # The field's direction is the builder's; the relation type is the
+    # authority on which end this card sits at, so a stale or hand-edited field
+    # can never look up — or write — a relation the wrong way round (#1140).
+    rt = (
+        await db.execute(select(RelationType).where(RelationType.key == rtk))
+    ).scalar_one_or_none()
+    direction = direction_for(rt, card.type, field_def["direction"])
     desired_ids = _relation_peer_ids(new_value)
 
     if direction == "outgoing":
@@ -618,12 +494,20 @@ async def preview_survey(
     if not survey:
         raise HTTPException(404, "Survey not found")
 
-    targets = await _resolve_targets(db, survey)
-    total_cards = len(targets)
-    total_users = sum(len(t["users"]) for t in targets)
+    targets, matched = await survey_service.resolve_targets(db, survey)
     return {
-        "total_cards": total_cards,
-        "total_users": total_users,
+        "total_cards": len(targets),
+        # Everything the filters matched, recipient or not. `total_cards` is a
+        # subset of this, and the gap is the number the builder has to explain.
+        "total_matched": len(matched),
+        # Distinct people. Summing the per-card lists counts one person once per
+        # card they hold a role on, which is a request count, not a headcount —
+        # and the tile above it reads "Users to Notify".
+        "total_users": len({u["user_id"] for t in targets for u in t["users"]}),
+        # What `send` will actually create: one SurveyResponse per (card, user),
+        # equal to `targets_created` by construction. Notifications are one per
+        # user — that count is the tile above.
+        "total_requests": sum(len(t["users"]) for t in targets),
         "targets": targets,
     }
 
@@ -631,6 +515,7 @@ async def preview_survey(
 @router.post("/{survey_id}/send")
 async def send_survey(
     survey_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -649,7 +534,7 @@ async def send_survey(
     if not survey.target_roles:
         raise HTTPException(400, "Survey must target at least one stakeholder role")
 
-    targets = await _resolve_targets(db, survey)
+    targets, _matched = await survey_service.resolve_targets(db, survey)
     if not targets:
         raise HTTPException(
             400,
@@ -657,35 +542,23 @@ async def send_survey(
             "Check that cards have subscribers with the selected roles.",
         )
 
-    # Create response records
-    created = 0
-    for target in targets:
-        card_id = uuid.UUID(target["card_id"])
-        for u in target["users"]:
-            u_id = uuid.UUID(u["user_id"])
-            resp = SurveyResponse(
-                survey_id=survey.id,
-                card_id=card_id,
-                user_id=u_id,
-            )
-            db.add(resp)
-            created += 1
-
-            # Send notification
-            await notification_service.create_notification(
-                db,
-                user_id=u_id,
-                notif_type="survey_request",
-                title=f"Survey: {survey.name}",
-                message=survey.message or "You have been asked to review data for a survey.",
-                link=f"/surveys/{survey.id}/respond/{card_id}",
-                data={"survey_id": str(survey.id), "card_id": str(card_id)},
-                actor_id=user.id,
-            )
-
-    survey.status = "active"
-    survey.sent_at = datetime.now(timezone.utc)
+    # Create response records. Notifications are handed to a background task
+    # after the commit: each emailed one opens its own SMTP connection, and a
+    # send fanning out to dozens of stakeholders used to sit on that loop
+    # inline — the Send button hung for the sum of the handshakes. The response
+    # rows are what make the survey real (My Surveys reads them); the
+    # notifications are delivery, and delivery can lag the click by seconds.
+    activation = await survey_service.activate_survey(db, survey, targets, actor_id=user.id)
+    created = activation.created
+    recipients = activation.recipients
     await db.commit()
+
+    background_tasks.add_task(
+        notification_service.deliver_notification_batch,
+        recipients,
+        notif_type="survey_request",
+        actor_id=user.id,
+    )
     result = await db.execute(
         select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))
     )

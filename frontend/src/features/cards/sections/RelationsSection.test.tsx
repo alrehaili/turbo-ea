@@ -7,17 +7,40 @@
  *    silent no-op);
  *  - the picker stays open so several relations can be added in a row, and
  *    that batch costs one reconcile fetch, not one per add.
+ *
+ * Plus, since several relation types may share one card-type pair: the groups
+ * for one pair render next to each other, and a card reached through more than
+ * one of them says so on every one of its rows.
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// These components read the signed-in user to apply per-card-type create
+// permissions (discussion #1068). They render deep in the tree, always inside
+// an AuthProvider in the app; the tests mount them directly, so the context is
+// stubbed with an admin (whose wildcard grants every type).
+/** The user the type-read filter sees; `null` (no user) filters nothing. */
+const authRef = vi.hoisted(() => ({ user: null as Record<string, unknown> | null }));
+
+vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => authRef.user,
+  useAuthContext: () => ({
+    user: { id: "u1", email: "a@test.com", display_name: "Admin", permissions: { "*": true } },
+    refreshUser: vi.fn(),
+  }),
+}));
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class extends Error {},
 }));
 
+/** Mutable so a test can put a second relation type on the same pair. */
+const mm = vi.hoisted(() => ({ relationTypes: [] as Record<string, unknown>[] }));
+
 const ORG_TYPE = { key: "Organization", label: "Organization", color: "#2889ff", subtypes: [] };
+const OBJ_TYPE = { key: "Objective", label: "Objective", color: "#c7527d", subtypes: [] };
 const APP_TYPE = { key: "Application", label: "Application", color: "#0f7eb5", subtypes: [] };
 
 const appToOrg = {
@@ -34,16 +57,45 @@ const appToOrg = {
   attributes_schema: [],
 };
 
+/** Same shape as `appToOrg`, differing only in key + verbs. */
+function relType(key: string, label: string, targetTypeKey = "Organization") {
+  return { ...appToOrg, key, label, reverse_label: `reverse ${label}`, target_type_key: targetTypeKey };
+}
+
+const appToOrgOwns = relType("appToOrgOwns", "owns");
+const appToObj = relType("appToObj", "supports", "Objective");
+
+/** The reported case: Organization → Organization, "has site" / "is site of". */
+const orgToOrg = {
+  ...appToOrg,
+  key: "orgToOrg",
+  label: "has site",
+  reverse_label: "is site of",
+  source_type_key: "Organization",
+  target_type_key: "Organization",
+};
+
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
     getType: (key: string) =>
-      key === "Organization" ? ORG_TYPE : key === "Application" ? APP_TYPE : undefined,
-    types: [APP_TYPE, ORG_TYPE],
-    relationTypes: [appToOrg],
+      key === "Organization"
+        ? ORG_TYPE
+        : key === "Application"
+          ? APP_TYPE
+          : key === "Objective"
+            ? OBJ_TYPE
+            : undefined,
+    types: [APP_TYPE, ORG_TYPE, OBJ_TYPE],
+    relationTypes: mm.relationTypes,
   }),
 }));
 
 vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
+
+beforeEach(() => {
+  mm.relationTypes = [appToOrg];
+  authRef.user = null;
+});
 
 import { api } from "@/api/client";
 import type { Relation } from "@/types";
@@ -51,14 +103,14 @@ import RelationsSection from "./RelationsSection";
 
 const FS = "app-1";
 
-function relation(id: string, name: string): Relation {
+function relation(id: string, name: string, type = "appToOrg", orgId = `org-${id}`): Relation {
   return {
     id,
-    type: "appToOrg",
+    type,
     source_id: FS,
-    target_id: `org-${id}`,
+    target_id: orgId,
     source: { id: FS, type: "Application", name: "NexaCore ERP" },
-    target: { id: `org-${id}`, type: "Organization", name },
+    target: { id: orgId, type: "Organization", name },
   };
 }
 
@@ -90,8 +142,8 @@ function mockApi(rows: Relation[], catalogue: { id: string; name: string }[]) {
   return state;
 }
 
-async function openSection() {
-  render(<RelationsSection fsId={FS} cardTypeKey="Application" initialExpanded />);
+async function openSection(cardTypeKey = "Application", fsId = FS) {
+  render(<RelationsSection fsId={fsId} cardTypeKey={cardTypeKey} initialExpanded />);
   await waitFor(() => expect(api.get).toHaveBeenCalled());
 }
 
@@ -263,5 +315,237 @@ describe("RelationsSection add dialog", () => {
     // text rather than role: an open dialog aria-hides everything behind it.
     await waitFor(() => expect(screen.getAllByText("Legal")).toHaveLength(2));
     expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("RelationsSection with several relation types on one pair", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.post).mockReset();
+  });
+
+  it("puts the two groups for one card-type pair next to each other", async () => {
+    // `sort_order` is flat and knows nothing about pairs, so the metamodel can
+    // hand back the two Organization types with an unrelated one between them.
+    mm.relationTypes = [appToOrg, appToObj, appToOrgOwns];
+    mockApi([], []);
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("owns")).toBeInTheDocument());
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("is used by")).toBeLessThan(text.indexOf("owns"));
+    expect(text.indexOf("owns")).toBeLessThan(text.indexOf("supports"));
+  });
+
+  it("tells each row that the same card is also linked by the other type", async () => {
+    mm.relationTypes = [appToOrg, appToOrgOwns];
+    // One Organization reached twice, plus one reached once — only the first
+    // should carry the caption.
+    mockApi(
+      [
+        relation("1", "Finance", "appToOrg", "org-shared"),
+        relation("2", "Finance", "appToOrgOwns", "org-shared"),
+        relation("3", "Legal"),
+      ],
+      [],
+    );
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("Legal")).toBeInTheDocument());
+    // The verb named is the OTHER type's, once per row, and never its own.
+    expect(screen.getByText("Also owns")).toBeInTheDocument();
+    expect(screen.getByText("Also is used by")).toBeInTheDocument();
+    const legalRow = screen.getAllByRole("listitem").find((el) => el.textContent?.includes("Legal"));
+    expect(legalRow?.textContent).not.toContain("Also");
+  });
+});
+
+describe("RelationsSection with a card type the role may not view", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+  });
+
+  it("offers no group for a relation type whose other end is hidden", async () => {
+    // A View deny means the Objective cards do not exist for this role, so a
+    // group headed "supports" would only ever be an empty promise (and its Add
+    // button a picker with nothing in it).
+    mm.relationTypes = [appToOrg, appToObj];
+    authRef.user = {
+      id: "u2",
+      permissions: { "inventory.view": true, "inventory.edit": true },
+      type_permissions: { Objective: { "inventory.view": false } },
+    };
+    mockApi([], []);
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("is used by")).toBeInTheDocument());
+    expect(screen.queryByText("supports")).not.toBeInTheDocument();
+  });
+});
+
+describe("RelationsSection with a self-referencing relation type", () => {
+  const HQ = "org-hq";
+  const orgRef = (id: string, name: string) => ({ id, type: "Organization", name });
+  /** HQ → other: HQ "has site" other. */
+  const outgoing = (id: string, name: string): Relation => ({
+    id,
+    type: "orgToOrg",
+    source_id: HQ,
+    target_id: `org-${id}`,
+    source: orgRef(HQ, "Palfinger India Pvt. Ltd"),
+    target: orgRef(`org-${id}`, name),
+  });
+  /** other → HQ: HQ "is site of" other. */
+  const incoming = (id: string, name: string): Relation => ({
+    id,
+    type: "orgToOrg",
+    source_id: `org-${id}`,
+    target_id: HQ,
+    source: orgRef(`org-${id}`, name),
+    target: orgRef(HQ, "INCHN"),
+  });
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.post).mockReset();
+    mm.relationTypes = [orgToOrg];
+  });
+
+  it("heads the group with the REVERSE verb when the card is the target", async () => {
+    // The reported bug: "am I the source" was read off the type, which is
+    // true at both ends of a self-referencing type — so INCHN's page said
+    // "has site Palfinger" instead of "is site of Palfinger".
+    mockApi([incoming("1", "Palfinger India Pvt. Ltd")], []);
+
+    await openSection("Organization", HQ);
+
+    await waitFor(() => expect(screen.getByText("Palfinger India Pvt. Ltd")).toBeInTheDocument());
+    expect(screen.getByText("is site of")).toBeInTheDocument();
+    // The outgoing group is visible too (its side is visible) but holds no row —
+    // the row must not be listed under the forward verb.
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("is site of")).toBeLessThan(text.indexOf("Palfinger India Pvt. Ltd"));
+    expect(text.indexOf("has site")).toBeGreaterThan(-1);
+    expect(text.indexOf("Palfinger India Pvt. Ltd")).toBeLessThan(
+      text.lastIndexOf("has site") === text.indexOf("has site")
+        ? Infinity
+        : text.lastIndexOf("has site"),
+    );
+  });
+
+  it("renders one group per side, adjacent, each with its own rows", async () => {
+    mockApi([outgoing("1", "INCHN"), incoming("2", "Palfinger Group")], []);
+
+    await openSection("Organization", HQ);
+
+    await waitFor(() => expect(screen.getByText("INCHN")).toBeInTheDocument());
+    const text = document.body.textContent ?? "";
+    // has site → INCHN, then is site of → Palfinger Group.
+    expect(text.indexOf("has site")).toBeLessThan(text.indexOf("INCHN"));
+    expect(text.indexOf("INCHN")).toBeLessThan(text.indexOf("is site of"));
+    expect(text.indexOf("is site of")).toBeLessThan(text.indexOf("Palfinger Group"));
+    // Each side has its own add button, named by its verb.
+    expect(screen.getByRole("button", { name: /Add Organization · has site/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add Organization · is site of/ })).toBeInTheDocument();
+  });
+
+  it("captions a mutual link with the other side's verb", async () => {
+    // HQ has site X AND X has site HQ: same type, both sides.
+    const mutual = incoming("2", "INCHN");
+    mutual.source_id = "org-1";
+    mutual.source = orgRef("org-1", "INCHN");
+    mockApi([outgoing("1", "INCHN"), mutual], []);
+
+    await openSection("Organization", HQ);
+
+    await waitFor(() => expect(screen.getAllByText("INCHN")).toHaveLength(2));
+    expect(screen.getByText("Also is site of")).toBeInTheDocument();
+    expect(screen.getByText("Also has site")).toBeInTheDocument();
+  });
+
+  it("offers both verbs in the Add menu when neither side has a group", async () => {
+    mm.relationTypes = [{ ...orgToOrg, source_visible: false, target_visible: false }];
+    mockApi([], []);
+
+    await openSection("Organization", HQ);
+
+    // The Material Symbol ligature text prefixes the accessible name.
+    await userEvent.click(await screen.findByRole("button", { name: /Add Relation/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual([
+      "Organization — has site",
+      "Organization — is site of",
+    ]);
+  });
+});
+
+/**
+ * The per-relation attribute row — the pattern card detail's Hierarchy link
+ * type was rebuilt to copy, so it is now the shared reference and worth
+ * pinning: a dense value pill, a `label` button that is outlined-dashed while
+ * nothing is set, and no affordance at all for a read-only user.
+ */
+describe("RelationsSection attribute row", () => {
+  /** `appToOrg` with a non-directional single-select, like `usageType`. */
+  const withUsage = {
+    ...appToOrg,
+    attributes_schema: [
+      {
+        key: "usageType",
+        label: "Usage Type",
+        type: "single_select",
+        options: [
+          { key: "owner", label: "Owner", color: "#1976d2" },
+          { key: "user", label: "User", color: "#66bb6a" },
+        ],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.patch).mockReset();
+    mm.relationTypes = [withUsage];
+  });
+
+  it("renders the value as a pill and tooltips the button with it", async () => {
+    const set = relation("1", "Finance");
+    set.attributes = { usageType: "owner" };
+    mockApi([set, relation("2", "Legal")], []);
+
+    await openSection();
+
+    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
+    // The value reads as its own pill, not folded into the row's text.
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    // The tooltip names the field as well, since the pill alone says only the
+    // value — and that name is what tells the two rows' buttons apart.
+    expect(screen.getByRole("button", { name: "Usage Type: Owner" })).toBeInTheDocument();
+    // The unset row advertises itself as an empty slot instead.
+    const unset = screen.getByRole("button", { name: "Edit details" });
+    expect(unset).toHaveStyle({ borderStyle: "dashed" });
+  });
+
+  it("offers no attribute editing to a read-only user", async () => {
+    const set = relation("1", "Finance");
+    set.attributes = { usageType: "owner" };
+    mockApi([set], []);
+
+    render(
+      <RelationsSection
+        fsId={FS}
+        cardTypeKey="Application"
+        initialExpanded
+        canManageRelations={false}
+      />,
+    );
+
+    // The pill still renders — a viewer can read the value, same as the
+    // Hierarchy section's link type; only the affordance goes.
+    await waitFor(() => expect(screen.getByText("Owner")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Usage Type/ })).not.toBeInTheDocument();
   });
 });

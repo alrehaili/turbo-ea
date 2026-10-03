@@ -28,17 +28,20 @@ Organize related diagrams into **groups** — shared, workspace-wide labels. A d
 
 Opening a diagram launches the full-screen DrawIO editor in a same-origin iframe. The native DrawIO toolbar is available for shapes, connectors, text, and layout — every Turbo EA action is exposed via the right-click context menu, the toolbar Sync button, and the chevron overlay that sits on top of each card.
 
+![Diagram editor with cards coloured by business criticality](../assets/img/en/99_diagram_editor.png)
+
 ### Inserting cards
 
 Use the **Insert Cards** dialog (opened from the toolbar or the right-click menu) to add cards to the canvas:
 
 - Type **chips with live counts** on the left rail filter the results.
-- Search by name on the right rail; each row carries a checkbox.
-- **Insert selected** adds the picked cards in a grid; **Insert all** adds every card matching the current filter (with a confirm step past 50 results).
+- Search by name on the right rail; each row carries a checkbox. Narrow the filter to a single hierarchical type and the list becomes an indented tree, so you can find a card by its branch.
+- Ticked cards appear as chips above the list and stay picked while you change the filter or the search — remove one with its ×.
+- **Select all shown** ticks everything the current filter leaves on screen; **Insert selected** adds the picked cards to the canvas in a grid.
 
 The same dialog opens in single-select mode for **Change Linked Card** and **Link to Existing Card**.
 
-Each card on the canvas shows its **card-type icon** as a small white glyph in the top-left corner, next to the type colour — so a card's type is conveyed by both icon and colour. This matches the icons used across the app and improves readability for colour-blind users. The icon appears on cards inserted from now on. To add icons to cards already on an older diagram, click **Apply card-type icons** in the editor toolbar.
+Each card on the canvas shows its **card-type icon** as a small white glyph in the top-left corner, next to the type colour — so a card's type is conveyed by both icon and colour. This matches the icons used across the app and improves readability for colour-blind users. The icon appears on cards inserted from now on. To add icons to cards already on an older diagram, click **Apply card-type icons** in the editor toolbar. A card that carries its own **logo** shows that instead, with the card-type icon kept as a small badge in its corner — so the shape says both which product it is and what kind of card. Logos appear when the diagram opens and refresh when one is changed; a card with no logo, and every card of a type where an administrator has switched logos off, is drawn exactly as before. A **Card logos** tick in the same menu turns them off if you want an unadorned diagram; it is on by default.
 
 ### Right-click actions
 
@@ -79,13 +82,26 @@ Removing an edge that carries a real relation opens *"Delete the relation betwee
 
 ### View perspectives
 
-The **View** dropdown in the toolbar recolors every card on the canvas by an attribute:
+The **Color by** dropdown in the toolbar recolors the cards on the canvas:
 
 - **Card colors** (default) — each card uses its card-type color.
 - **Approval status** — recolors by `approved` / `pending` / `broken`.
-- **Field values** — pick any single-select field on the card types currently on the canvas (e.g., *Lifecycle*, *Status*). Cells with no value fall back to a neutral grey.
+- **Field values** — tick a single-select field under any card type on the canvas. **Several card types can each carry one rule at the same time** — Applications by criticality *and* IT Components by hosting model. A card type you give no rule keeps the colour it already has, including a fill you set by hand; only a card whose own rule finds no value turns grey. Ticking a second field within one card type replaces the first, because a card has one fill.
 
-A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
+A floating legend in the bottom-left shows one scale per active rule. Field rules and **Approval status** are alternatives rather than layers: choosing one clears the other. Untick every rule and the canvas returns to card colors. The choice is saved with the diagram. The same legend is shown when the diagram is opened in view mode and on its published or embedded link, so readers can tell what the colours mean.
+
+![Diagram in view mode with its colour legend](../assets/img/en/99b_diagram_viewer_legend.png)
+
+#### Show on card
+
+A second toolbar button, **Show on card**, chooses **what each shape says**. Tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. It is a separate button from **Color by** so that neither list has to be scrolled past to reach the other. **Clear all** empties every tick at once.
+
+Every selection is drawn on the shape, and the shape **grows to hold it**. Two rows fit in a card as it stands, so nothing moves until you tick a third; from there each card gets a little taller per selection and shrinks back when you untick one. A card you have resized by hand keeps your height: it only gains or gives back the room a row needs.
+
+These lines are saved with the diagram, so every reader — including anyone opening a published link — sees the same shapes. Cards pulled onto the canvas by **Expand** carry the same rows as any other card and grow the same way. Cards tiled inside a **Drill-Down** or **Roll-Up** container show what fits in their slot: growing one would push it over the row beneath. The container's own title bar, though, grows to hold its rows — and its contents move down with it — so turning a card into a container never costs you what it was saying.
+
+The **Create diagram** button on the [Dependencies report](reports.md#dependencies-report) carries its own card-display settings across, so a diagram generated from a report opens showing exactly the rows the report showed — all of them, even the ones the report itself had no room to draw.
+
 
 ### How relation edges are drawn
 
@@ -128,6 +144,8 @@ The **Sync** button in the toolbar opens the side drawer with everything queued 
     - a **deleted relation** — *Remove edge from diagram* takes the stale edge off the canvas;
     - a relation whose **flow direction** changed — *Accept update* moves the arrowhead to match the inventory.
 
+![Sync drawer in the diagram editor](../assets/img/en/99a_diagram_sync_drawer.png)
+
 Turbo EA **checks for inventory changes automatically every time you open a diagram** — a blue badge on the toolbar Sync button counts the changes awaiting review. Nothing is applied without your confirmation; the badge only invites you into the drawer. The **Check updates** button in the drawer re-runs the same check on demand.
 
 The toolbar Sync button shows a pulsing "N unsynced" pill whenever pending work exists. Leaving the tab with unsynced changes triggers a browser warning, and the canvas autosaves to local storage every five seconds so an accidental refresh can be restored on reopen.
@@ -145,7 +163,7 @@ Open the diagram's **⋮** menu in the gallery and choose **Share / embed…**. 
 The dialog gives you two choices and two strings to copy:
 
 - **Anyone with the link** — no sign-in. Treat the link like a password: anyone it is forwarded to can view the diagram.
-- **Only people who sign in** — visitors authenticate with your identity provider, optionally restricted to named email domains. No Turbo EA account is created for them.
+- **Only people who sign in** — visitors authenticate with your identity provider, optionally restricted to named email domains. No Turbo EA account is created for them. Inside an embed, the sign-in opens in a small pop-up window, and Turbo EA must be served over HTTPS for the session to hold inside the frame; visitors sign in once per site the diagram is embedded in.
 
 The published page shows the picture only. It is pannable and zoomable, but there is no click-through to card details, and the card identifiers behind the shapes are stripped before the diagram leaves the server. Turning publishing off takes effect immediately, including for anyone already viewing. Re-publishing later restores the same link, so URLs already pasted into a wiki keep working.
 
@@ -165,3 +183,6 @@ The published page shows the picture only. It is pannable and zoomable, but ther
 3. In Confluence, insert an **HTML** macro (or *Iframe* / *HTML include*, depending on what your instance allows) and paste the embed code.
 
 If your Confluence does not allow HTML macros, paste the plain **Link** instead — it opens the same view in a new tab.
+
+!!! note "Sign-in inside an embed"
+    A diagram published for *Only people who sign in* shows a **Sign in** button inside the embed. It opens your identity provider in a small pop-up window, and the diagram appears once that window closes. Three things can get in the way: Turbo EA must be served over **HTTPS** (browsers only keep the cross-site session an embed needs on a secure origin); the embedding page must allow pop-ups from its frames (a sandboxed frame without `allow-popups` blocks both the pop-up and the fallback link); and in Safari, use the **Open the diagram in a new tab** link the gate offers. Separately, Chrome refuses to load an embed from a private-network address (an internal IP or hostname) into a public page such as Confluence Cloud — publish the instance on a public HTTPS hostname, or embed it from a wiki on the same network.

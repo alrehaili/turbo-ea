@@ -20,6 +20,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
+import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import type { PpmWbs } from "@/types";
 
 interface UserOption {
@@ -31,6 +32,9 @@ interface Props {
   initiativeId: string;
   wbs?: PpmWbs;
   wbsList: PpmWbs[];
+  /** The package already holds tasks, so its completion is rolled up from
+   *  them and the slider would be overwritten on the next task save. */
+  hasTasks?: boolean;
   defaultMilestone?: boolean;
   defaultStartDate?: string;
   onClose: () => void;
@@ -57,12 +61,14 @@ export default function PpmWbsDialog({
   initiativeId,
   wbs,
   wbsList,
+  hasTasks,
   defaultMilestone,
   defaultStartDate,
   onClose,
   onSaved,
 }: Props) {
   const { t } = useTranslation("ppm");
+  const fullScreen = useFullScreenDialog();
   const isEdit = !!wbs;
 
   const [title, setTitle] = useState(wbs?.title || "");
@@ -81,6 +87,20 @@ export default function PpmWbsDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
 
+  // The dialog serves work packages and milestones alike, switched by the
+  // Milestone toggle below — so every label follows `isMilestone` live rather
+  // than the mode the dialog happened to open in (#1018).
+  const titleLabel = isEdit
+    ? t(isMilestone ? "editMilestone" : "editWbs")
+    : t(isMilestone ? "addMilestone" : "addWbs");
+  const submitLabel = isEdit
+    ? t("common:actions.save", "Save")
+    : t(isMilestone ? "addMilestone" : "addWbs");
+  const deleteLabel = t(isMilestone ? "deleteMilestone" : "deleteWbs");
+  const confirmDeleteLabel = t(
+    isMilestone ? "confirmDeleteMilestone" : "confirmDeleteWbs",
+  );
+
   useEffect(() => {
     api
       .get<UserOption[]>("/users")
@@ -93,8 +113,9 @@ export default function PpmWbsDialog({
       .catch(() => {});
   }, []);
 
-  // Check if this WBS has children (completion will be auto-rolled up)
-  const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id);
+  // Completion is auto-rolled up when the package has child packages OR
+  // tasks — either way the slider is read-only.
+  const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id) || !!hasTasks;
 
   // Filter parent options: exclude self and descendants
   const excludeIds = wbs ? getDescendantIds(wbs.id, wbsList) : new Set<string>();
@@ -135,8 +156,15 @@ export default function PpmWbsDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
-      <DialogTitle>{isEdit ? t("editWbs") : t("addWbs")}</DialogTitle>
+    <Dialog
+      open
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={fullScreen}
+      disableRestoreFocus
+    >
+      <DialogTitle>{titleLabel}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
           <TextField
@@ -145,7 +173,7 @@ export default function PpmWbsDialog({
             onChange={(e) => setTitle(e.target.value)}
             fullWidth
             required
-            autoFocus
+            autoFocus={!fullScreen}
           />
           <TextField
             label={t("wbsDescription")}
@@ -194,7 +222,11 @@ export default function PpmWbsDialog({
             }
             label={t("milestone")}
           />
-          <Box display="flex" gap={2}>
+          <Box
+          display="flex"
+          flexDirection={{ xs: "column", sm: "row" }}
+          gap={2}
+        >
             <DateField
               label={isMilestone ? t("milestoneDate") : t("wbsStartDate")}
               value={startDate}
@@ -253,7 +285,7 @@ export default function PpmWbsDialog({
             </Box>
           }
         >
-          {t("confirmDeleteWbs")}
+          {confirmDeleteLabel}
         </Alert>
       )}
       <DialogActions>
@@ -263,7 +295,7 @@ export default function PpmWbsDialog({
             onClick={() => setConfirmDelete(true)}
             sx={{ mr: "auto" }}
           >
-            {t("deleteWbs")}
+            {deleteLabel}
           </Button>
         )}
         <Button onClick={onClose}>{t("common:actions.cancel", "Cancel")}</Button>
@@ -273,7 +305,7 @@ export default function PpmWbsDialog({
           disabled={saving || !title.trim()}
           startIcon={saving ? <CircularProgress size={16} /> : undefined}
         >
-          {isEdit ? t("common:actions.save", "Save") : t("addWbs")}
+          {submitLabel}
         </Button>
       </DialogActions>
     </Dialog>

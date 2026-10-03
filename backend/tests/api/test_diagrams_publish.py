@@ -14,6 +14,7 @@ make that safe:
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import pytest
@@ -22,12 +23,21 @@ from app.api.v1.diagrams import sanitise_public_xml
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.core.security import create_portal_token
 from app.services.public_access import PUBLIC_ACCESS_COOKIE
-from tests.conftest import auth_headers, create_role, create_user
+from tests.conftest import (
+    auth_headers,
+    create_card,
+    create_card_type,
+    create_role,
+    create_user,
+)
 
 # A realistic fragment: a card-shaped cell plus a relation-stamped edge.
 CARD_XML = (
     '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>'
-    '<object label="NexaCore ERP" cardId="11111111-1111-1111-1111-111111111111" '
+    '<object label="&lt;b&gt;NexaCore ERP&lt;/b&gt;&lt;div&gt;Type: Application&lt;/div&gt;" '
+    'cardName="NexaCore ERP" cardDetail="[{&quot;label&quot;:&quot;Type&quot;,'
+    '&quot;value&quot;:&quot;Application&quot;}]" '
+    'cardId="11111111-1111-1111-1111-111111111111" '
     'cardType="Application" parentGroupCell="c9"><mxCell style="fillColor=#0f7eb5" '
     'vertex="1" parent="1"/></object>'
     '<object label="" relationId="22222222-2222-2222-2222-222222222222" '
@@ -45,6 +55,23 @@ async def publish_env(db):
     member = await create_user(db, email="member@test.com", role="member")
     viewer = await create_user(db, email="viewer@test.com", role="viewer")
     return {"admin": admin, "member": member, "viewer": viewer}
+
+
+def _fake_exchange(email="user@company.com"):
+    """Stand in for the IdP code exchange (same shape as the portal tests)."""
+
+    async def _exchange(db, code, redirect_uri):
+        claims = {"email": email, "sub": "subject-123", "name": "Visitor"}
+        return claims, {"enabled": True, "provider": "microsoft"}, "microsoft"
+
+    return _exchange
+
+
+def _set_cookie_header(resp) -> str:
+    """The raw Set-Cookie line for the access cookie, lower-cased for matching."""
+    lines = [h for h in resp.headers.get_list("set-cookie") if h.startswith(PUBLIC_ACCESS_COOKIE)]
+    assert len(lines) == 1, lines
+    return lines[0].lower()
 
 
 async def _make_diagram(client, user, *, name="Landscape", xml=CARD_XML) -> str:
@@ -67,6 +94,8 @@ class TestSanitiser:
         out = sanitise_public_xml(CARD_XML)
         for attr in (
             "cardId=",
+            "cardName=",
+            "cardDetail=",
             "cardType=",
             "relationId=",
             "relationType=",
@@ -81,6 +110,17 @@ class TestSanitiser:
         assert "fillColor=#0f7eb5" in out
         assert 'edge="1"' in out
         assert out.startswith("<mxGraphModel>")
+
+    def test_keeps_the_detail_rows_the_publisher_chose_to_show(self):
+        """A composed label IS the picture: the rows under a card's name are
+        exactly what the publisher selected, so they survive — while the
+        `cardName` stamp behind them does not."""
+        out = sanitise_public_xml(CARD_XML)
+        assert "Type: Application" in out
+        assert "&lt;b&gt;NexaCore ERP&lt;/b&gt;" in out
+        assert "cardName=" not in out
+        # The rows are carried as data on the cell too; that copy is internal.
+        assert "cardDetail=" not in out
 
     def test_handles_missing_xml(self):
         assert sanitise_public_xml(None) == ""
@@ -138,15 +178,23 @@ class TestPublishPermission:
 
     async def test_slug_is_not_derived_from_the_name(self, client, db, publish_env):
         """For a public diagram the URL is the capability, so the slug must not
-        be guessable from the title."""
-        did = await _make_diagram(client, publish_env["admin"], name="Q3 Landscape")
+        be guessable from the title.
+
+        Every token in the name is deliberately long. The slug is
+        ``secrets.token_urlsafe(24)`` — 32 random characters — so a short token
+        turns this into a dice roll rather than a check: the name used to be
+        "Q3 Landscape", and a random slug contains "q3" about 1.5% of the time,
+        which failed roughly one CI run in 68 for reasons having nothing to do
+        with how the slug is built. At nine characters the odds are ~1e-13.
+        """
+        did = await _make_diagram(client, publish_env["admin"], name="Quarterly Landscape")
         resp = await client.post(
             f"/api/v1/diagrams/{did}/publish",
             json={"access_mode": "public"},
             headers=auth_headers(publish_env["admin"]),
         )
         slug = resp.json()["public_slug"]
-        assert "q3" not in slug.lower()
+        assert "quarterly" not in slug.lower()
         assert "landscape" not in slug.lower()
         assert len(slug) >= 20
 
@@ -199,10 +247,68 @@ class TestPublicAccess:
         slug = await self._publish(client, admin, did)
 
         body = (await client.get(f"/api/v1/diagrams/public/{slug}")).json()
-        assert set(body) == {"name", "xml"}
+        assert set(body) == {"name", "xml", "legend"}
+        assert body["legend"] is None  # coloured by card type: nothing to key
         assert "cardId" not in body["xml"]
         assert "relationId" not in body["xml"]
         assert "11111111-1111-1111-1111-111111111111" not in body["xml"]
+
+    async def test_public_legend_is_aggregate_only(self, client, db, publish_env):
+        """The colour legend travels with the picture — labels, colours and
+        counts only; never a card's id, name or value."""
+        admin = publish_env["admin"]
+        await create_card_type(
+            db,
+            key="Application",
+            fields_schema=[
+                {
+                    "section": "Main",
+                    "fields": [
+                        {
+                            "key": "criticality",
+                            "label": "Criticality",
+                            "type": "single_select",
+                            "options": [
+                                {"key": "high", "label": "High", "color": "#ff0000"},
+                                {"key": "low", "label": "Low", "color": "#00ff00"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        coloured = await create_card(
+            db, name="Secret ERP", attributes={"criticality": "high", "costTotalAnnual": 999}
+        )
+        blank = await create_card(db, name="Secret CRM")
+        xml = CARD_XML.replace("11111111-1111-1111-1111-111111111111", str(coloured.id)).replace(
+            "</root>",
+            f'<object label="x" cardId="{blank.id}">'
+            '<mxCell vertex="1" parent="1"/></object></root>',
+        )
+        resp = await client.post(
+            "/api/v1/diagrams",
+            json={
+                "name": "Landscape",
+                "data": {
+                    "xml": xml,
+                    "view": {"kind": "card_fields", "fields": {"Application": "criticality"}},
+                },
+            },
+            headers=auth_headers(admin),
+        )
+        did = resp.json()["id"]
+        slug = await self._publish(client, admin, did)
+
+        legend = (await client.get(f"/api/v1/diagrams/public/{slug}")).json()["legend"]
+        assert legend["kind"] == "card_fields"
+        assert legend["coloured"] == 1
+        assert legend["rules"] == [
+            {"type_key": "Application", "field_key": "criticality", "has_missing": True}
+        ]
+        dumped = json.dumps(legend)
+        for leak in (str(coloured.id), str(blank.id), "Secret ERP", "Secret CRM", "999"):
+            assert leak not in dumped
 
     async def test_unpublished_diagram_is_404_not_403(self, client, db, publish_env):
         """An unpublished slug must be indistinguishable from a nonexistent one."""
@@ -320,6 +426,63 @@ class TestSsoGate:
             client, admin, did, domains=["  Corp.COM ", "@other.com", "", "corp.com"]
         )
         assert body["allowed_email_domains"] == ["corp.com", "other.com"]
+
+    async def test_callback_cookie_is_partitioned_over_https(
+        self, client, db, publish_env, monkeypatch
+    ):
+        """The embed page is a cross-site iframe (Confluence). A Lax cookie is
+        never sent from inside one, so a visitor who signed in would still get
+        401 from the frame forever (#1126). Over HTTPS the diagram cookie must
+        be SameSite=None; Secure; Partitioned."""
+        import app.services.sso_service as svc
+
+        admin = publish_env["admin"]
+        did = await _make_diagram(client, admin)
+        slug = (await self._publish_sso(client, admin, did))["public_slug"]
+        monkeypatch.setattr(svc, "exchange_code_for_claims", _fake_exchange())
+
+        resp = await client.post(
+            f"/api/v1/diagrams/public/{slug}/sso/callback",
+            json={"code": "authz", "redirect_uri": "https://test/auth/callback"},
+            headers={"X-Forwarded-Proto": "https"},
+        )
+        assert resp.status_code == 200, resp.text
+        cookie = _set_cookie_header(resp)
+        assert "samesite=none" in cookie
+        assert "secure" in cookie
+        assert "partitioned" in cookie
+        assert "httponly" in cookie
+        assert f"path=/api/v1/diagrams/public/{slug.lower()}" in cookie
+        # The test client is http://test, so it will not replay a Secure cookie;
+        # the unlock itself is covered by the plain-HTTP case below.
+        client.cookies.clear()
+
+    async def test_callback_cookie_degrades_to_lax_over_http(
+        self, client, db, publish_env, monkeypatch
+    ):
+        """SameSite=None is only valid with Secure, so plain HTTP keeps the Lax
+        cookie: the standalone page still unlocks, the embed cannot."""
+        import app.services.sso_service as svc
+
+        admin = publish_env["admin"]
+        did = await _make_diagram(client, admin)
+        slug = (await self._publish_sso(client, admin, did))["public_slug"]
+        monkeypatch.setattr(svc, "exchange_code_for_claims", _fake_exchange())
+
+        resp = await client.post(
+            f"/api/v1/diagrams/public/{slug}/sso/callback",
+            json={"code": "authz", "redirect_uri": "http://test/auth/callback"},
+        )
+        assert resp.status_code == 200, resp.text
+        cookie = _set_cookie_header(resp)
+        assert "samesite=lax" in cookie
+        assert "partitioned" not in cookie
+        try:
+            unlocked = await client.get(f"/api/v1/diagrams/public/{slug}")
+            assert unlocked.status_code == 200
+            assert unlocked.json()["name"] == "Landscape"
+        finally:
+            client.cookies.clear()
 
     async def test_sso_callback_rejected_on_a_public_diagram(self, client, db, publish_env):
         admin = publish_env["admin"]

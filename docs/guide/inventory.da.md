@@ -10,14 +10,16 @@
 
 Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
-- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K**), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder
-- **Typer** — Filtrer efter en eller flere korttyper: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
+- **Søg** — Friform tekstsøgning på tværs af kortnavne, allerede fra første bogstav. De bedste match står øverst: eksakte navne, derefter navne der begynder med det, du skrev, så dem hvor det begynder et ord, og til sidst resten. Alle søgefelter i Turbo EA sorterer sådan — den globale søgning (**Ctrl+K** / **⌘K**), enhver kortvælger, risikoregistret, beslutninger og publicerede portaler — medmindre du selv har valgt en sortering, som altid vinder. Et korts **alias** og dets beskrivelse matches også, så et kort kan findes med det navn, din organisation faktisk bruger — og et alias, der matcher eksakt, rangerer lige så højt som et navn, der gør
+- **Typer** — Filtrer efter en eller flere korttyper, grupperet efter det arkitekturlag, hver type hører til: Strategy & Transformation (Objective, Platform, Initiative), Business Architecture (Organization, Business Capability, Business Context, Business Process), Application & Data (Application, Interface, Data Object) og Technical Architecture (IT Component, Tech Category, Provider). En type, som din administrator placerer i sit eget lag, får sin egen overskrift efter de fire, og enhver type uden lag vises til sidst under **Ukategoriseret**
 - **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
 - **Livscyklus** — Filtrer efter livscyklus-fase: Plan, Phase In, Active, Phase Out, End of Life
 - **Datakvalitet** — Båndfiltrering (multivalg): Komplet (≥80%), Delvis (40–79%), Minimal (under 40%). Samme bånd som [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et bjælkesegment der lander her.
 - **Forældreløse** — Kun kort uden relationer i nogen retning. Vurderes på serveren og virker derfor uden en valgt korttype.
 - **Forældede** — Kun kort, der ikke er opdateret de seneste 90 dage. Begge spejler felterne i [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et felt lander her.
+- **End of life** — For applikationer og it-komponenter kan du filtrere efter den supportstatus, Turbo EA udleder af kortets [EOL-link](../admin/eol.md): End of life, På vej, Understøttet eller Ukendt. **(tom)** viser de kort, hvor intet er registreret. Den tilhørende kolonne **End of life** viser datoen ved siden af en statusprik og sorteres og eksporteres som en dato.
+- **Forbindelsestype** — Når der er valgt én hierarkisk korttype, og en administrator har defineret [forbindelsestyper](../admin/metamodel.md) for den, kan du filtrere efter typen af hvert korts forbindelse til sit overordnede kort — for eksempel de datterselskaber, der er *kommercielle* frem for *salg*. **(tom)** viser de kort, hvis forbindelse ikke bærer nogen type, samt kortene på øverste niveau, da der ikke er registreret noget for nogen af dem. Den tilhørende kolonne **Forbindelsestype** viser værdien som en farvet chip og kan redigeres i gitterets redigeringstilstand.
 - **Tags** — Filtrer efter tags fra en hvilken som helst tag-gruppe
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
 - **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)
@@ -55,7 +57,7 @@ Kolonner er grupperet i fem kategorier:
 | Kategori | Beskrivelse |
 |----------|-------------|
 | **Standardkolonner** | Altid-aktive kolonner: Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality. Afmarker en hvilken som helst af disse for at skjule dem fra gitteret — nyttigt ved stramning af en gemt visning til bare de kolonner, du faktisk bruger. |
-| **Metadata** | Created, Modified, Created by, Modified by |
+| **Metadata** | Created, Modified, Created by, Modified by. **Modified** er, hvornår kortets indhold sidst blev ændret — af en person eller en integration, aldrig når systemet sidst genberegnede en score — så du kan filtrere på datoen for at finde kort, der trænger til et gennemsyn af deres ejer. |
 | **Attributes** | Brugerdefinerede felter defineret i metamodellen (text, number, cost, date, select, osv.) |
 | **Relationer** | Relaterede korttyper (f.eks. applikationer linket til en Business Capability) |
 | **Interessenter** | Én kolonne pr. interessentrolle defineret for den valgte korttype (f.eks. *Interessenter: Responsible*), der viser de tildelte brugere som chips. I gitter-redigeringstilstand kan du dobbeltklikke på en celle for at tildele eller fjerne brugere for rollen direkte fra gitteret (kræver tilladelsen til at administrere interessenter). |
@@ -63,6 +65,10 @@ Kolonner er grupperet i fem kategorier:
 Kolonnen **Overordnet** viser kun kortet lige ovenover, mens **Path** viser hele kæden. I gitterredigeringstilstand kan du dobbeltklikke på en Overordnet-celle for at flytte kortet eller rydde feltet for at flytte det til øverste niveau. Kolonnen kan kun redigeres, når gitteret er filtreret til én korttype, der understøtter hierarki. Hvis en flytning afvises — fordi den ville skabe en løkke, kollidere med et kort med samme navn under målet eller overskride den maksimale dybde — vises årsagen nederst på skærmen, og cellen føres tilbage.
 
 Kolonnen **Path** viser kortets hierarki-brødkrumme (f.eks. `North America / Sales / Inside Sales`) uden at inkludere kortets eget navn, så du kan beholde både Name og Path på skærmen samtidig.
+
+Kolonnen **Logo** viser kortets eget logo, eller dets typeikon når der ikke er sat et, så et landskab kan skimmes efter produktmærker frem for navne. Den tilbydes kun for korttyper, der tillader logoer (som standard Application og IT Component), er slået fra som standard og gør rækkerne højere, mens den vises, så mærkerne forbliver læsbare. Hvis du må redigere kortet, kan du holde musen over dets logo-celle og klikke for at uploade, erstatte, vælge et brand-ikon eller fjerne logoet uden at forlade gitteret — samme menu som på kortsiden. Logoer er bevidst udeladt fra udfyld-nedad og Mass Edit: ét mærke pr. kort, sat med vilje.
+
+Kolonnen **Alias** viser kortets andet navn — det interne, din organisation omtaler det med. Den er slået fra som standard, da de fleste landskaber ikke har nogen: slå den til i fanen **Kolonner**. Den redigeres i cellen i gitterets redigeringstilstand og fyldes nedad som enhver anden tekstkolonne, og den følger med Excel-eksport og -import, så en liste af alias kan indlæses i én omgang.
 
 Hver kategori har et **Vælg alle**-afkrydsningsfelt til hurtigt at skifte alle kolonner i den gruppe. Et søgefelt øverst lader dig finde specifikke kolonner efter navn. Badget på hver sektionsoverskrift viser, hvor mange kolonner fra den gruppe der aktuelt er synlige.
 
@@ -80,12 +86,14 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 |---------|-------------|
 | **Type** | Korttype med farvekodet ikon |
 | **Name** | Komponent-navn (klik for at åbne kortdetalje). Hver navne-celle har et 👁 øje-ikon — klik på det for at åbne kortdetaljen i et sidepanel uden at forlade gitteret. Ctrl/Cmd-klik på navnet for at åbne kortet i en ny browser-fane. |
+| **Logo** | Kortets eget logo, eller dets typeikon når det ikke har et. Slået fra som standard — slå den til under fanen Kolonner; klik på en celle for at ændre logoet |
+| **Alias** | Kortets andet navn. Slået fra som standard — slå den til under fanen Kolonner; matches af alle søgefelter |
 | **Path** | Hierarki-brødkrumme op til kortets forælder — tom for rod-kort |
-| **Description** | Kort beskrivelse |
+| **Description** | Kort beskrivelse — en webadresse i den er et klikbart link |
 | **Lifecycle** | Aktuel livscyklus-tilstand |
 | **Approval Status** | Gennemgangs-status-badge |
 | **Data Quality** | Fuldstændigheds-procent med visuel ring |
-| **Relations** | Navne på relaterede kort, sorteret alfabetisk, med en klikbar popover til at tilføje eller fjerne relationer — kort, der allerede er tilknyttet, skjules fra dens vælger |
+| **Relations** | Navne på relaterede kort, sorteret alfabetisk, med en klikbar popover til at tilføje eller fjerne relationer — kort, der allerede er tilknyttet, skjules fra dens vælger, undtagen ved en hierarkisk type, hvor vælgeren viser hele hierarkiet som et indrykket træ og lader de kort blive liggende nedtonet |
 
 **Tabel-funktioner:**
 
@@ -128,6 +136,8 @@ Rullelisten **Felt** grupperer det, du kan ændre:
 - **Attributter** — ethvert redigerbart felt, der er defineret for den valgte korttype
 - **Relationer** — én post pr. relationstype og retning (for eksempel *kører på → It-komponent*)
 
+![Dialogen Masseredigering](../assets/img/da/98_inventory_mass_edit.png)
+
 Tags, relationer og overordnet har hver en **tilføj / fjern**-knap, så du udvider eller beskærer eksisterende værdier i stedet for at erstatte dem.
 
 Værdifeltet retter sig efter felttypen: et multivalgsfelt viser sine valgmuligheder med afkrydsningsfelter, et ja/nej-felt en kontakt og et datofelt en datovælger. Lader du værdien stå tom, ryddes feltet på alle de valgte kort. Felter, der beregnes af en formel, og omkostningsfelter, du ikke har tilladelse til at se, tilbydes ikke.
@@ -150,6 +160,8 @@ Et kort tager sine egne underordnede kort med sig, når det flyttes, og godkendt
 ## Gruppér lageret { #group-by }
 
 Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af elementer) for at organisere tabellen i sammenfoldelige grupper. Livscyklusfase og godkendelsesstatus er altid tilgængelige; når tabellen er filtreret til én korttype, kommer dens undertype og alle attributter med enkeltvalg til.
+
+![Lageret grupperet efter TIME-model](../assets/img/da/98a_inventory_group_by.png)
 
 - Kort uden værdi i det valgte felt havner i gruppen **Ikke angivet** øverst — det naturlige udgangspunkt for at klassificere uklassificerede kort.
 - Klik på en gruppeoverskrift for at folde gruppen sammen eller ud. Overskriften viser antallet af kort i gruppen.
@@ -211,7 +223,9 @@ Lager-eksporter og -importer bruger en **Excel-projektmappe med flere ark**, der
 En enkelt eksport producerer:
 
 - **Ét ark pr. korttype** til stede i eksporten (Application, Business Capability, IT Component, …). Hvert ark bærer typens kerne-kolonner, dets brugerdefinerede `attr_<field_key>`-kolonner, dets livscyklus-kolonner dets `rel:<relation_type_key>`-relations-kolonner og dets `stakeholder:<role_key>`-interessent-kolonner.
-- **Et `Relations`-ark** for relations­typer, der bærer egenskaber (f.eks. omkostning, beskrivelse). Simple relationer lever inline på kort-arket; egenskabs-bærende relationer lever her.
+- **Et `Relations`-ark** med de **værdier**, relationer bærer — én række pr. relation, hvis type har værdier at udfylde.
+
+Delingen er enkel og uden undtagelser: **kortarket siger, hvilke kort der er forbundet; `Relations`-arket siger, hvad de forbindelser indeholder.** Hver relationstype får en `rel:`-kolonne på kortarket for den type, den udgår fra — uanset om den bærer værdier.
 - **Et `_Meta`-ark**, der bærer projektmappens format-version. Importøren læser det for at detektere ældre formater og udskrive et banner.
 
 ### Identifikation af kort (ingen GUID'er nødvendige)
@@ -226,18 +240,20 @@ Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele
 
 ### Inline relations-celler
 
-På hvert kort-ark lader `rel:<relation_type_key>`-kolonner dig udtrykke udgående relationer som **semikolon-separerede** mål-referencer:
+På hvert kort-ark lader `rel:<relation_type_key>`-kolonner dig udtrykke udgående relationer som **semikolon-separerede** mål-referencer: Der er én kolonne pr. relationstype, der udgår fra arkets korttype — **alle**, også dem der bærer værdier. Mål sorteres alfabetisk, så en ny eksport af et uændret landskab giver en identisk fil.
 
 ```text
 rel:supports     →  NexaCore ERP; BillingApp; Salesforce
 rel:depends_on   →  Sales / Customer Mgmt / CRM
 ```
 
-Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig; kun hånd-skrevne celler har brug for escapes.
+Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\`, og et `;` som `\;` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig; kun hånd-skrevne celler har brug for escapes.
 
 Celler er **deklarative**: sættet af mål i cellen bliver det komplette sæt af udgående relationer af den type fra den kilde efter import. **At fjerne et mål fra listen dropper den relation**; at tømme cellen dropper dem alle. At udelade kolonnen helt (ingen `rel:supports`-kolonne overhovedet) efterlader eksisterende relationer urørt.
 
-For bagudkompatibilitet accepterer importøren også komma-separerede celler (projektmapper eksporteret før denne konvention). En celle, der indeholder et `;`, behandles altid som semikolon-separeret.
+I en projektmappe eksporteret af Turbo EA (den har et `_Meta`-ark) er et komma aldrig en separator, så en celle med ét mål som `This is X, it does Y` forbliver ét mål. Et ark uden `_Meta` (bygget i hånden eller eksporteret før 1.23) kan stadig adskille mål med kommaer: en celle, der indeholder et `;`, er semikolon-separeret, og en celle uden læses som ét mål, når hele cellen navngiver et kort, og ellers som komma-separeret.
+
+Kolonnen `tags` følger samme regel: `Gruppe: Tag`-poster adskilt af `; ` (f.eks. `Vendor: Acme, Inc.; Region: EU`), hvor et `;` i et tagnavn skrives som `\;`. Projektmapper eksporteret før 2.156.1 adskilte tags med kommaer og importeres stadig som før.
 
 ### Interessent-celler
 
@@ -249,7 +265,17 @@ På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er t
 
 ### Relations-ark
 
-For relationer, der bærer egenskaber (f.eks. årlig omkostning på en `Application` → `IT Component`-link), brug det dedikerede `Relations`-ark:
+En relation kan bære sine egne værdier — en *brugstype* på en `Organization` → `Application`-forbindelse, en årlig omkostning eller en fritekstbeskrivelse. En `rel:`-celle er en navneliste uden plads til dem, så værdierne bor på `Relations`-arket, én række pr. relation, med kolonnerne `relation_type`, `source_type`, `source_ref`, `target_type`, `target_ref`, `attr_<felt>` og `description`.
+
+Arket indeholder de relationer, hvis type rent faktisk har værdier — de øvrige har intet at udfylde og bor udelukkende på kortarkene. Relationer, der peger *på* et eksporteret kort, er også med; `source_ref` og `target_ref` viser retningen. `attr_<felt>`-kolonnerne er dem fra relationstyperne i denne projektmappe. Der sorteres efter kildekort, så relationstype, så mål.
+
+**Dette ark sætter kun værdier. Det opretter og fjerner aldrig en relation** — det er kortarkets opgave: **at slette en række sletter ingenting**; at redigere dens værdier erstatter det, relationen indeholder; og en række, der nævner to kort, som ikke er forbundet, rapporteres i forhåndsvisningen og springes over — forbind dem i `rel:`-kolonnen, gerne i samme import.
+
+Ældre projektmapper har en `action`-kolonne. Den ignoreres; en række med `action = delete` rapporteres og springes over. Er kortarket og `Relations`-arket uenige, **vinder fjernelsen**.
+
+Arket viser **hver relation for de eksporterede kort**, uanset om typen bærer værdier lige nu — så en relationstype, du netop har givet en værdi, har allerede sin række der. Relationer, der peger *på* et eksporteret kort, er også med; `source_ref` og `target_ref` viser retningen. `attr_<felt>`-kolonnerne er dem fra relationstyperne i denne projektmappe, ikke alle dem, der er defineret i systemet.
+
+En relationstype, der bærer værdier, har **ingen `rel:`-kolonne** — en navneliste kan ikke rumme dem; den redigeres på dette ark. Er kortarket og `Relations`-arket uenige, **vinder fjernelsen**, og forhåndsvisningen siger det.
 
 | relation_type | source_ref | target_ref | action | attr_costTotalAnnual | description |
 |---------------|------------|------------|--------|----------------------|-------------|
@@ -261,6 +287,8 @@ For relationer, der bærer egenskaber (f.eks. årlig omkostning på en `Applicat
 ### Import
 
 Klik på **Import** i værktøjslinjen, slip projektmappen, og gennemgå forhåndsvisningen før anvendelse. Forhåndsvisningen viser:
+
+![Dialogen Importér kort](../assets/img/da/98b_inventory_import.png)
 
 - **Kort der skal oprettes / opdateres** — samme som før
 - **Relationer der skal tilføjes / fjernes** — hver relations-operation kø-stillet af projektmappen

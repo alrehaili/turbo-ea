@@ -4,13 +4,15 @@ import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
+import { usePageSection, usePageSubject } from "@/hooks/usePageTitle";
 import PpmOverviewTab from "./PpmOverviewTab";
 import PpmReportsTab from "./PpmReportsTab";
 import PpmCostTab from "./PpmCostTab";
@@ -21,12 +23,22 @@ import CardDetailContent from "@/features/cards/CardDetailContent";
 import type { Card, CardEffectivePermissions, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
 
 const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "gantt", "details"];
+// The `ppm`-namespace key each tab renders its label from, in TAB_KEYS order.
+const PPM_TAB_LABEL_KEYS = [
+  "overview",
+  "statusReports",
+  "budgetAndCosts",
+  "riskManagement",
+  "tasks",
+  "gantt",
+  "cardDetails",
+];
 
 export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation("ppm");
+  const { t } = useTranslation(["ppm", "common"]);
 
   const subtypeLabel = useCardSubtypeLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
@@ -44,6 +56,10 @@ export default function PpmProjectDetail() {
     [setSearchParams],
   );
   const [card, setCard] = useState<Card | null>(null);
+  // «Apollo Migration · Budget & Costs | Turbo EA» — an initiative page is the
+  // one place both slots are live at once.
+  usePageSubject(card?.name);
+  usePageSection(t(PPM_TAB_LABEL_KEYS[tab]));
   const [reports, setReports] = useState<PpmStatusReport[]>([]);
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
   const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);
@@ -67,9 +83,11 @@ export default function PpmProjectDetail() {
     can_view_costs: true,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const loadData = useCallback(async () => {
     if (!id) return;
+    setError("");
     try {
       const [c, r, cl, bl, ri] = await Promise.all([
         api.get<Card>(`/cards/${id}`),
@@ -88,10 +106,18 @@ export default function PpmProjectDetail() {
         .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`)
         .then((res) => setPerms(res.effective))
         .catch(() => {});
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) {
+        setError(t("common:errors.forbidden"));
+      } else if (e instanceof ApiError && e.status === 404) {
+        setError(t("common:errors.notFound"));
+      } else {
+        setError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     loadData();
@@ -113,26 +139,44 @@ export default function PpmProjectDetail() {
     );
   }
 
-  if (!card) return null;
+  if (error || !card) {
+    return (
+      <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1400, mx: "auto" }}>
+        <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <IconButton sx={{ flexShrink: 0 }} onClick={() => navigate("/ppm")}>
+            <MaterialSymbol icon="arrow_back" size={20} />
+          </IconButton>
+        </Box>
+        <Alert severity="error">{error || t("common:errors.notFound")}</Alert>
+      </Box>
+    );
+  }
 
   const latestReport = reports[0] || null;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1400, mx: "auto" }}>
       {/* Header */}
       <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <IconButton onClick={() => navigate("/ppm")}>
+        <IconButton sx={{ flexShrink: 0 }} onClick={() => navigate("/ppm")}>
           <MaterialSymbol icon="arrow_back" size={20} />
         </IconButton>
-        <Typography variant="h5" fontWeight={700}>
-          {card.name}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="h5"
+            fontWeight={700}
+            noWrap
+            sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}
+          >
+            {card.name}
+          </Typography>
+        </Box>
         {card.subtype && (
           <Chip
             label={subtypeLabel(card.type, card.subtype)}
             size="small"
             variant="outlined"
-            sx={{ ml: 1 }}
+            sx={{ marginInlineStart: 1, flexShrink: 0 }}
           />
         )}
       </Box>

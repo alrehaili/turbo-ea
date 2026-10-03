@@ -28,17 +28,20 @@ Gruppieren Sie zusammengehörige Diagramme in **Gruppen** — gemeinsame, arbeit
 
 Beim Öffnen eines Diagramms startet der DrawIO-Editor im Vollbildmodus in einem Same-Origin-iframe. Die native DrawIO-Symbolleiste steht für Formen, Verbinder, Text und Layout zur Verfügung -- jede Turbo-EA-Aktion ist über das Rechtsklick-Kontextmenü, die Sync-Schaltfläche in der Symbolleiste und das Chevron-Overlay über jeder Karte erreichbar.
 
+![Diagramm-Editor mit nach Geschäftskritikalität eingefärbten Karten](../assets/img/de/99_diagramm_editor.png)
+
 ### Karten einfügen
 
 Verwenden Sie den Dialog **Karten einfügen** (aus der Symbolleiste oder dem Kontextmenü), um Karten zur Leinwand hinzuzufügen:
 
 - **Typen-Chips mit Live-Zählern** in der linken Spalte filtern die Ergebnisse.
-- Suchen Sie rechts nach Namen; jede Zeile hat ein Kontrollkästchen.
-- **Ausgewählte einfügen** fügt die markierten Karten als Raster ein; **Alle einfügen** fügt jede Karte ein, die dem aktuellen Filter entspricht (mit Bestätigung ab 50 Ergebnissen).
+- Suchen Sie rechts nach Namen; jede Zeile hat ein Kontrollkästchen. Beschränken Sie den Filter auf einen einzigen hierarchischen Typ, wird die Liste zu einem eingerückten Baum, sodass Sie eine Karte über ihren Zweig finden.
+- Markierte Karten erscheinen als Chips über der Liste und bleiben ausgewählt, während Sie Filter oder Suche ändern — entfernen Sie eine mit ihrem ×.
+- **Alle angezeigten auswählen** markiert alles, was der aktuelle Filter übrig lässt; **Ausgewählte einfügen** fügt die markierten Karten als Raster auf der Leinwand ein.
 
 Derselbe Dialog öffnet sich im Einzelauswahlmodus für **Verknüpfte Karte ändern** und **Mit bestehender Karte verknüpfen**.
 
-Jede Karte auf der Arbeitsfläche zeigt ihr **Kartentyp-Symbol** als kleines weißes Glyph in der oberen linken Ecke, neben der Typfarbe — der Typ einer Karte wird also sowohl durch Symbol als auch durch Farbe vermittelt. Das entspricht den in der gesamten Anwendung verwendeten Symbolen und verbessert die Lesbarkeit für farbenblinde Benutzer. Das Symbol erscheint auf ab jetzt eingefügten Karten. Um Symbole zu Karten hinzuzufügen, die bereits auf einem älteren Diagramm liegen, klicken Sie in der Editor-Symbolleiste auf **Kartentyp-Symbole anwenden**.
+Jede Karte auf der Arbeitsfläche zeigt ihr **Kartentyp-Symbol** als kleines weißes Glyph in der oberen linken Ecke, neben der Typfarbe — der Typ einer Karte wird also sowohl durch Symbol als auch durch Farbe vermittelt. Das entspricht den in der gesamten Anwendung verwendeten Symbolen und verbessert die Lesbarkeit für farbenblinde Benutzer. Das Symbol erscheint auf ab jetzt eingefügten Karten. Um Symbole zu Karten hinzuzufügen, die bereits auf einem älteren Diagramm liegen, klicken Sie in der Editor-Symbolleiste auf **Kartentyp-Symbole anwenden**. Trägt eine Karte ein eigenes **Logo**, wird stattdessen dieses angezeigt; das Kartentyp-Symbol bleibt als kleines Abzeichen in der Ecke erhalten — so zeigt die Form sowohl, um welches Produkt es sich handelt, als auch um welchen Kartentyp. Logos erscheinen beim Öffnen des Diagramms und werden bei einer Änderung aktualisiert; eine Karte ohne Logo und jede Karte eines Typs, für den ein Administrator Logos deaktiviert hat, wird genau wie zuvor gezeichnet. Ein Häkchen **Kartenlogos** im selben Menü schaltet sie ab, wenn Sie ein schmuckloses Diagramm möchten; standardmäßig ist es aktiv.
 
 ### Rechtsklick-Aktionen
 
@@ -79,13 +82,25 @@ Das Entfernen einer Kante, die eine echte Beziehung trägt, öffnet «Beziehung 
 
 ### Ansichts-Perspektiven
 
-Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand nach einem Attribut um:
+Das Dropdown **Färben nach** in der Symbolleiste färbt die Karten auf der Leinwand ein:
 
 - **Kartenfarben** (Standard) -- jede Karte nutzt ihre Kartentyp-Farbe.
 - **Genehmigungsstatus** -- färbt nach `genehmigt` / `ausstehend` / `defekt`.
-- **Feldwerte** -- wählen Sie ein beliebiges Einzelauswahl-Feld der aktuell auf der Leinwand vorhandenen Kartentypen (z. B. *Lebenszyklus*, *Status*). Zellen ohne Wert fallen auf neutrales Grau zurück.
+- **Feldwerte** -- haken Sie ein Einzelauswahl-Feld unter einem beliebigen Kartentyp auf der Leinwand an. **Mehrere Kartentypen können gleichzeitig je eine Regel tragen** -- Anwendungen nach Kritikalität *und* IT-Komponenten nach Hosting-Modell. Ein Kartentyp ohne Regel behält seine bisherige Farbe, auch eine von Hand gesetzte Füllung; grau wird nur eine Karte, deren eigene Regel keinen Wert findet. Ein zweites Feld innerhalb eines Kartentyps ersetzt das erste, denn eine Karte hat eine Füllung.
 
-Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
+Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregeln und **Genehmigungsstatus** sind Alternativen, keine Ebenen: die Wahl der einen löscht die andere. Werden alle Regeln abgewählt, kehrt die Leinwand zu den Kartenfarben zurück. Die Wahl wird mit dem Diagramm gespeichert. Dieselbe Legende erscheint auch, wenn das Diagramm im Ansichtsmodus geöffnet oder über seinen veröffentlichten bzw. eingebetteten Link angezeigt wird, damit Leser die Bedeutung der Farben erkennen.
+
+![Diagramm im Ansichtsmodus mit Farblegende](../assets/img/de/99b_diagramm_ansicht_legende.png)
+
+#### Auf Karte anzeigen
+
+Eine zweite Schaltfläche in der Symbolleiste, **Auf Karte anzeigen**, bestimmt, **was jede Form aussagt**. Wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**. Eine eigene Schaltfläche neben **Färben nach**, damit für keine der beiden Listen an der anderen vorbeigescrollt werden muss. **Alle löschen** entfernt sämtliche Häkchen auf einmal.
+
+Jede Auswahl wird auf der Form gezeichnet, und die Form **wächst mit**. Zwei Zeilen passen ohnehin in eine Karte, es ändert sich also nichts, bis Sie eine dritte anhaken; ab dann wird jede Karte pro Auswahl etwas höher und schrumpft wieder, wenn Sie eine wegnehmen. Eine von Hand vergrößerte Karte behält Ihre Höhe: sie gewinnt oder gibt lediglich den Platz einer Zeile.
+
+Diese Zeilen werden mit dem Diagramm gespeichert, sodass alle Lesenden — auch beim Öffnen eines veröffentlichten Links — dieselben Formen sehen. Karten, die über **Ausklappen** auf die Leinwand kommen, tragen dieselben Zeilen wie jede andere Karte und wachsen genauso. Karten in einem **Drill-Down**- oder **Roll-Up**-Container zeigen, was in ihre Kachel passt: eine höhere Karte würde die Zeile darunter überdecken. Die Titelleiste des Containers selbst wächst dagegen mit ihren Zeilen — und sein Inhalt rückt mit nach unten —, sodass die Umwandlung einer Karte in einen Container nie kostet, was sie ausgesagt hat.
+
+Die Schaltfläche **Diagramm erstellen** im [Abhängigkeitsbericht](reports.md) überträgt ihre eigenen Kartenanzeige-Einstellungen, sodass ein aus einem Bericht erzeugtes Diagramm genau die Zeilen zeigt, die der Bericht zeigte — und zwar alle, auch die, für die der Bericht selbst keinen Platz hatte.
 
 ### Wie Beziehungskanten gezeichnet werden
 
@@ -128,6 +143,8 @@ Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit all
     - eine **gelöschte Relation** -- *Kante vom Diagramm entfernen* nimmt die veraltete Kante von der Leinwand;
     - eine Relation mit geänderter **Flussrichtung** -- *Update übernehmen* richtet die Pfeilspitze nach dem Inventar aus.
 
+![Synchronisierungsleiste im Diagramm-Editor](../assets/img/de/99a_diagramm_synchronisierung.png)
+
 Turbo EA **prüft bei jedem Öffnen eines Diagramms automatisch auf Inventaränderungen** -- ein blaues Badge auf der Sync-Schaltfläche der Symbolleiste zählt die zu prüfenden Änderungen. Nichts wird ohne Ihre Bestätigung angewendet; das Badge lädt nur in die Seitenleiste ein. Die Schaltfläche **Updates prüfen** in der Seitenleiste führt dieselbe Prüfung bei Bedarf erneut aus.
 
 Die Sync-Schaltfläche der Symbolleiste zeigt eine pulsierende «N unsynchron»-Pille, sobald ausstehende Arbeit existiert. Das Verlassen des Tabs mit nicht synchronisierten Änderungen löst eine Browser-Warnung aus, und die Leinwand wird alle fünf Sekunden im lokalen Speicher gespeichert, damit ein versehentlicher Refresh beim erneuten Öffnen wiederhergestellt werden kann.
@@ -145,7 +162,7 @@ Ein Diagramm kann als **schreibgeschützter Link veröffentlicht werden, der sic
 Der Dialog bietet zwei Optionen und zwei Zeichenfolgen zum Kopieren:
 
 - **Jeder mit dem Link** — keine Anmeldung. Behandeln Sie den Link wie ein Passwort: Wer ihn weitergeleitet bekommt, kann das Diagramm sehen.
-- **Nur angemeldete Personen** — Besucher authentifizieren sich über Ihren Identitätsanbieter, optional beschränkt auf bestimmte E-Mail-Domains. Es wird kein Turbo-EA-Konto für sie angelegt.
+- **Nur angemeldete Personen** — Besucher authentifizieren sich über Ihren Identitätsanbieter, optional beschränkt auf bestimmte E-Mail-Domains. Es wird kein Turbo-EA-Konto für sie angelegt. In einer Einbettung öffnet sich die Anmeldung in einem kleinen Pop-up-Fenster, und Turbo EA muss über HTTPS bereitgestellt werden, damit die Sitzung im Frame erhalten bleibt; Besucher melden sich einmal pro Website an, in die das Diagramm eingebettet ist.
 
 Die veröffentlichte Seite zeigt nur das Bild. Sie lässt sich verschieben und zoomen, es gibt jedoch keinen Absprung zu Kartendetails, und die Kartenkennungen hinter den Formen werden entfernt, bevor das Diagramm den Server verlässt. Das Deaktivieren der Veröffentlichung wirkt sofort, auch für Personen, die gerade zusehen. Ein späteres erneutes Veröffentlichen stellt denselben Link wieder her, sodass bereits eingefügte URLs weiter funktionieren.
 
@@ -165,3 +182,6 @@ Die veröffentlichte Seite zeigt nur das Bild. Sie lässt sich verschieben und z
 3. Fügen Sie in Confluence ein **HTML**-Makro ein (oder *Iframe* / *HTML include*, je nachdem, was Ihre Instanz zulässt) und setzen Sie den Einbettungscode ein.
 
 Erlaubt Ihr Confluence keine HTML-Makros, fügen Sie stattdessen den einfachen **Link** ein — er öffnet dieselbe Ansicht in einem neuen Tab.
+
+!!! note "Anmeldung in einer Einbettung"
+    Ein für *Nur angemeldete Personen* veröffentlichtes Diagramm zeigt in der Einbettung eine Schaltfläche **Anmelden**. Sie öffnet Ihren Identitätsanbieter in einem kleinen Pop-up-Fenster; sobald sich dieses Fenster schließt, erscheint das Diagramm. Drei Dinge können im Weg stehen: Turbo EA muss über **HTTPS** bereitgestellt werden (Browser behalten die websiteübergreifende Sitzung, die eine Einbettung braucht, nur auf einem sicheren Ursprung); die einbettende Seite muss Pop-ups aus ihren Frames zulassen (ein Sandbox-Frame ohne `allow-popups` blockiert sowohl das Pop-up als auch den Ersatzlink); und in Safari verwenden Sie den Link **Diagramm in einem neuen Tab öffnen**, den die Anmeldeseite anbietet. Unabhängig davon weigert sich Chrome, eine Einbettung von einer Adresse im privaten Netz (eine interne IP oder ein interner Hostname) in eine öffentliche Seite wie Confluence Cloud zu laden — veröffentlichen Sie die Instanz unter einem öffentlichen HTTPS-Hostnamen oder betten Sie sie aus einem Wiki im selben Netz ein.

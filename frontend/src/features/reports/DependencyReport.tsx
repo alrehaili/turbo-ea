@@ -6,6 +6,7 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import Table from "@mui/material/Table";
@@ -15,6 +16,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
@@ -26,18 +29,39 @@ import ArchitectureStateFilter from "@/components/ArchitectureStateFilter";
 import TimelineSlider from "@/components/TimelineSlider";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { resolveRevealIds } from "./layeredDependencyLayout";
+import { buildAdjacency } from "./dependencyAdjacency";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useTimeline } from "@/hooks/useTimeline";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import {
+  cardsChangingBetween,
+  classifyTimelineChange,
+  computeConnectionChanges,
+  computeTimelineMilestones,
+  computeTimelineRange,
+  isPresentAtDate,
+  isVisibleAtDate,
+} from "./timelineRange";
+import { isRetiredByDate } from "./portfolioHelpers";
+import LinkChangeIcon from "./LinkChangeIcon";
+import { TIMELINE_PULSE_KEYFRAMES, useMilestoneSpotlight } from "./useMilestoneSpotlight";
+import type { TimelineChange } from "./timelineRange";
+import type { GNode, GEdge } from "./layeredDependencyLayout";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
 import { useSegments } from "@/hooks/useSegments";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import type { CardType } from "@/types";
+import { compareByRank, searchRank } from "@/lib/searchRank";
 
 interface Plateau {
   id: string;
@@ -46,28 +70,9 @@ interface Plateau {
   target_date: string | null;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Data types                                                         */
-/* ------------------------------------------------------------------ */
-
-interface GNode {
-  id: string;
-  name: string;
-  type: string;
-  lifecycle?: Record<string, string>;
-  attributes?: Record<string, unknown>;
-  parent_id?: string | null;
-  path?: string[];
-}
-
-interface GEdge {
-  source: string;
-  target: string;
-  type: string;
-  label?: string;
-  reverse_label?: string;
-  description?: string;
-}
+// GNode / GEdge are the Layered Dependency View's own input types, re-used here
+// rather than mirrored: this report is where they are fetched, and a local copy
+// drifted from the layout module's (it silently lacked `changeState`).
 
 /* ------------------------------------------------------------------ */
 /*  Layout types                                                       */
@@ -153,6 +158,110 @@ const FALLBACK_COLORS: Record<string, string> = {
 function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
+
+/**
+ * Filter + rank the "Center on" options against what has been typed.
+ *
+ * The same shape as `CardPicker.filterAndRank`: the list is already in memory,
+ * so it narrows from the first character with no debounce, and the tiers match
+ * the server's so the order never jumps. Matched on the name — the dependency
+ * graph payload carries no other text to match against.
+ */
+function filterAndRank(options: GNode[], query: string): GNode[] {
+  const q = query.trim();
+  if (!q) return options;
+  return options.filter((o) => searchRank(o.name, q) >= 0).sort(compareByRank(q));
+}
+
+/** Tolerance for matching the debounced date to the mark's span — the same
+ *  one-day slack the slider uses to decide it is standing on a mark. */
+const ONE_DAY_MS = 86_400_000;
+
+/** Badge states the tree and table views render as compact chips. */
+type BadgeState = TimelineChange;
+
+/** Accent per badge state — the same trio the LDV corner badges use. */
+function changeColor(state: BadgeState): string {
+  if (state === "arriving" || state === "planned") return TIMELINE_COLORS.future;
+  return STATUS_COLORS.error;
+}
+
+/**
+ * Compact "UPCOMING" / "RETIRED" marker for the tree and table views, so the
+ * transformation is legible outside the diagram too. The LDV draws its own
+ * corner badge (it has no room for a chip).
+ *
+ * Renders nothing for a card that IS part of the landscape at the viewed date —
+ * the same `isPresentAtDate` rule the diagram applies, shared so the two cannot
+ * drift. A card whose CONNECTIONS change at the mark is marked by an icon
+ * instead, not by a word — see `LinkChangeIcon`.
+ */
+function ChangeBadge({
+  state,
+  t,
+}: {
+  state: BadgeState;
+  t: (key: string) => string;
+}) {
+  if (isPresentAtDate(state)) return null;
+  const labelKey =
+    state === "planned" ? "dependency.plannedBadge" : "dependency.retiredBadge";
+  const color = changeColor(state);
+  return (
+    <Chip
+      size="small"
+      label={t(labelKey)}
+      sx={{
+        height: 17,
+        fontSize: "0.6rem",
+        fontWeight: 700,
+        letterSpacing: 0.4,
+        bgcolor: `${color}18`,
+        color,
+        border: `1px solid ${color}55`,
+        "& .MuiChip-label": { px: 0.6 },
+      }}
+    />
+  );
+}
+
+/**
+ * The same two icons the diagram draws, for the tree and table rows — one
+ * vocabulary across all three views.
+ */
+function LinkChangeMarks({
+  node,
+  t,
+}: {
+  node: { gainedLink?: boolean; lostLink?: boolean };
+  t: (key: string) => string;
+}) {
+  if (!node.gainedLink && !node.lostLink) return null;
+  return (
+    <Box sx={{ display: "flex", gap: 0.25, lineHeight: 0, alignSelf: "center" }}>
+      {node.gainedLink && (
+        <Box component="span" title={t("dependency.gainedConnection")} sx={{ display: "flex" }}>
+          <LinkChangeIcon kind="gained" color={TIMELINE_COLORS.goLive} />
+        </Box>
+      )}
+      {node.lostLink && (
+        <Box component="span" title={t("dependency.lostConnection")} sx={{ display: "flex" }}>
+          <LinkChangeIcon kind="lost" color={STATUS_COLORS.error} />
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+/** Legend entries for the time-travel change badges drawn by the LDV. */
+const CHANGE_LEGEND = [
+  { key: "arriving", color: TIMELINE_COLORS.future, labelKey: "dependency.legendArriving" },
+  { key: "planned", color: TIMELINE_COLORS.future, labelKey: "dependency.legendPlanned" },
+  { key: "retired", color: STATUS_COLORS.error, labelKey: "dependency.legendRetired" },
+  { key: "gainedLink", color: TIMELINE_COLORS.goLive, labelKey: "dependency.legendGainedLink" },
+  { key: "lostLink", color: STATUS_COLORS.error, labelKey: "dependency.legendLostLink" },
+] as const;
+
 function tl(key: string, types: CardType[], locale?: string): string {
   const t = types.find((t) => t.key === key);
   return resolveTypeLabel(t, locale) || key;
@@ -365,6 +474,8 @@ function computeTreeLayout(
 export default function DependencyReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types } = useMetamodel();
+  // Report type pickers offer only the types the user may see.
+  const readableTypes = useReadableCardTypes("module");
   const { user } = useAuthContext();
   const canCreateDiagram =
     !!user?.permissions?.["*"] || !!user?.permissions?.["diagrams.manage"];
@@ -372,12 +483,26 @@ export default function DependencyReport() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const saved = useSavedReport("dependencies");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const timeline = useTimeline();
+  // The slider itself tracks `timeline.timelineDate` so the handle never lags, but the
+  // filter (which re-runs the LDV's dagre layout) keys off a settled value —
+  // dragging fires onChange on every pixel.
+  const [timelineFilterDate] = useDebouncedValue(timeline.timelineDate, 150);
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
+  const { formatDate } = useDateFormat();
   const [cardTypeKey, setCardTypeKey] = useState("");
+  // Keep retired cards on the canvas — ghosted and badged — at any date after
+  // their retirement. On by default: seeing what a transformation removes is
+  // half the point of the timeline.
+  const [persistRetired, setPersistRetired] = useState(true);
+  // Show not-yet-started cards — ghosted and badged — at any date before their
+  // start. Off by default so today's landscape stays today's landscape.
+  const [previewPlanned, setPreviewPlanned] = useState(false);
   const [center, setCenter] = useState("");
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
-  const [nodes, setNodes] = useState<GNode[]>([]);
-  const [edges, setEdges] = useState<GEdge[]>([]);
+  const [rawNodes, setRawNodes] = useState<GNode[]>([]);
+  const [rawEdges, setRawEdges] = useState<GEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"chart" | "table">("chart");
   // chartMode value "c4" is a stable identifier persisted in saved reports —
@@ -399,10 +524,19 @@ export default function DependencyReport() {
 
   /* -- picker state -- */
   const [pickerSearch, setPickerSearch] = useState("");
+  // Picker-only: drop cards already at End of Life today. Off by default — the
+  // picker's job is to present the whole inventory, and hiding is opt-in. Not
+  // persisted in the saved report, like the other two picker-local filters.
+  const [hideEndOfLife, setHideEndOfLife] = useState(false);
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
 
   /* -- LDV expanded nodes (expand mode digs into a card's relations) -- */
   const [ldvExpandedNodes, setLdvExpandedNodes] = useState<Set<string>>(new Set());
+
+  /* -- The transition mark the slider is standing on, or null between marks.
+        Reported by the slider on every path onto a mark, so "at this marker"
+        means one thing however it was reached. -- */
+  const [activeSpan, setActiveSpan] = useState<{ from: number; to: number } | null>(null);
 
   /* -- LDV targeted reveals (hierarchy parent / children tools); tracked
         separately so toggling one tool off clears only its own reveals -- */
@@ -446,29 +580,62 @@ export default function DependencyReport() {
     setNavIndex(-1);
   }, []);
 
-  // Load saved report config. An explicit ``?type=`` deep-link (used by the
-  // NEA View-Library "Interaction Model by Org Unit" preset, ?type=Organization)
-  // takes precedence over stale localStorage so the preset scopes to the
-  // intended card type.
-  const [presetParams] = useSearchParams();
+  // Load saved report config, then let a deep link override it.
   useEffect(() => {
     const cfg = saved.consumeConfig();
+    timeline.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
       if (cfg.cardTypeKey !== undefined) setCardTypeKey(cfg.cardTypeKey as string);
       if (cfg.center) setCenter(cfg.center as string);
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.chartMode) setChartMode(cfg.chartMode as "tree" | "c4");
+      if (cfg.persistRetired != null) setPersistRetired(cfg.persistRetired as boolean);
+      if (cfg.previewPlanned != null) setPreviewPlanned(cfg.previewPlanned as boolean);
     }
-    const presetType = presetParams.get("type");
+
+    // `?center=` — arriving from a card's Dependencies section. A fourth
+    // persistence layer above the three `useSavedReport` owns (saved report >
+    // localStorage > defaults), applied last so it wins over whatever this tab
+    // was last looking at.
+    const linkedCenter = searchParams.get("center");
+    if (linkedCenter) {
+      setCenter(linkedCenter);
+      // A deep link means "show me this card's graph", whichever view and mode
+      // the tab happened to be left in.
+      setView("chart");
+      setChartMode(searchParams.get("mode") === "tree" ? "tree" : "c4");
+      // The type filter scopes the centre picker and the toolbar autocomplete,
+      // not the graph — a stored "Application" would leave a linked
+      // BusinessCapability centred but missing from its own autocomplete. The
+      // link names the centre outright, so the filter has nothing left to do.
+      setCardTypeKey("");
+      // Consume it: a deep link is an entry point, not persistent state. Left
+      // in the URL, navigating to another centre and reloading would snap back
+      // to the linked card. The auto-persist effect below has written the
+      // centre to localStorage by then, so a reload still lands correctly.
+      const next = new URLSearchParams(searchParams);
+      next.delete("center");
+      next.delete("mode");
+      setSearchParams(next, { replace: true });
+    }
+    const presetType = searchParams.get("type");
     if (presetType) setCardTypeKey(presetType);
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, center, view, chartMode });
+  const getConfig = () => ({
+    cardTypeKey,
+    center,
+    view,
+    chartMode,
+    timelineDate: timeline.persistValue,
+    persistRetired,
+    previewPlanned,
+  });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, center, view, chartMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, center, view, chartMode, timeline.timelineDate, persistRetired, previewPlanned]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -479,6 +646,10 @@ export default function DependencyReport() {
     setChartMode("c4");
     setPickerSearch("");
     setPickerTypeFilter(null);
+    setHideEndOfLife(false);
+    setPersistRetired(true);
+    setPreviewPlanned(false);
+    timeline.reset();
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch plateaus on mount
@@ -521,32 +692,223 @@ export default function DependencyReport() {
     };
   }, [plateaus]);
 
-  // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
+  // Fetch the WHOLE graph once, for both chart modes. The type filter is
+  // applied client-side (picker chips, centre autocomplete) — sending it to the
+  // server, as tree mode used to, dropped every cross-type neighbour and left a
+  // centre whose relations are all cross-type rendering alone, while the LDV
+  // (which always fetched unfiltered) showed the full neighbourhood.
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
       setLoading(true);
       const p = new URLSearchParams();
-      if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
       if (selectedPlateauId) p.set("plateau_id", selectedPlateauId);
       if (selectedSegmentId) p.set("segment_id", selectedSegmentId);
       try {
-        const r = await api.get<{ nodes: GNode[]; edges: GEdge[] }>(
-          `/reports/dependencies?${p}`,
-          { signal },
-        );
+        const r = await api.get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`, {
+          signal,
+        });
         if (!isCurrent()) return;
-        setNodes(r.nodes);
-        setEdges(r.edges);
+        setRawNodes(r.nodes);
+        setRawEdges(r.edges);
       } finally {
         // Previously only cleared inside `.then`, so a failed request span
         // forever; and only the winner may clear it (#882).
         if (isCurrent()) setLoading(false);
       }
     },
-    [cardTypeKey, chartMode, selectedPlateauId, selectedSegmentId],
+    [selectedPlateauId, selectedSegmentId],
   );
 
-  // Filter nodes and edges by architecture_state
+  /* ---------------------------------------------------------------- */
+  /*  Time travel                                                       */
+  /* ---------------------------------------------------------------- */
+
+  // Slider bounds come from the lifecycle dates actually present in the graph.
+  const { dateRange, yearMarks, hasLifecycleData } = useMemo(
+    () => computeTimelineRange(rawNodes.map((n) => n.lifecycle), timeline.todayMs),
+    [rawNodes, timeline.todayMs],
+  );
+
+  // Transition marks describe the cards on the DISPLAYED diagram, not the whole
+  // fetched graph — an inventory of hundreds of dated cards would smear the
+  // track with marks that have nothing to do with what the user is looking at.
+  //
+  // The scope is built on the RAW (unfiltered) adjacency on purpose: the
+  // rendered neighbourhood shrinks and grows as the slider moves, and marks
+  // that churn mid-drag can never be clicked. So: the centred card plus its
+  // raw depth-1 neighbours, widened by the same expand/reveal sets the LDV
+  // view honours. Without a centre nothing is centred yet — the picker and the
+  // table genuinely show the whole fetched set, so the marks do too.
+  const rawNeighborIds = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const e of rawEdges) {
+      if (!m.has(e.source)) m.set(e.source, []);
+      m.get(e.source)!.push(e.target);
+      if (!m.has(e.target)) m.set(e.target, []);
+      m.get(e.target)!.push(e.source);
+    }
+    return m;
+  }, [rawEdges]);
+
+  // Past transitions are marked as well as future ones: a landscape whose
+  // story is mostly historical would otherwise show an empty track, and the
+  // stateful RETIRED / UPCOMING badges need their mark whichever side of today
+  // it falls on. (This once marked only the future, hence the scope name.)
+  const milestoneScope = useMemo(() => {
+    if (!(view === "chart" && center)) return rawNodes;
+    const rawIds = new Set(rawNodes.map((n) => n.id));
+    const visited = new Set<string>([center]);
+    for (const nb of rawNeighborIds.get(center) ?? []) if (rawIds.has(nb)) visited.add(nb);
+    if (chartMode === "c4") {
+      for (const expId of ldvExpandedNodes) {
+        if (!visited.has(expId)) continue;
+        for (const nb of rawNeighborIds.get(expId) ?? []) if (rawIds.has(nb)) visited.add(nb);
+      }
+      for (const id of revealedParentIds) if (rawIds.has(id)) visited.add(id);
+      for (const id of revealedChildIds) if (rawIds.has(id)) visited.add(id);
+    } else {
+      // Tree mode renders the neighbours of every EXPANDED node, so a card
+      // deep in an expanded branch can visibly retire — its transition must be
+      // marked too. Tree instance ids are colon-joined paths ("root:A:B"); the
+      // last segment is the card id (UUIDs never contain a colon).
+      for (const instanceId of expanded) {
+        const nodeId = instanceId.split(":").pop();
+        if (!nodeId || !rawIds.has(nodeId)) continue;
+        visited.add(nodeId);
+        for (const nb of rawNeighborIds.get(nodeId) ?? []) if (rawIds.has(nb)) visited.add(nb);
+      }
+    }
+    return rawNodes.filter((n) => visited.has(n.id));
+  }, [
+    rawNodes,
+    rawNeighborIds,
+    view,
+    center,
+    chartMode,
+    ldvExpandedNodes,
+    expanded,
+    revealedParentIds,
+    revealedChildIds,
+  ]);
+
+  const milestones = useMemo(
+    () => computeTimelineMilestones(milestoneScope.map((n) => n.lifecycle)),
+    [milestoneScope],
+  );
+
+  /* ---------------------------------------------------------------- */
+  /*  Clicking a transition mark                                        */
+  /* ---------------------------------------------------------------- */
+
+  // Pill accents come from the metamodel type colour — the scope the marks are
+  // computed from is multi-type here, unlike Portfolio / Capability Map.
+  const milestoneCardColors = useMemo(
+    () => new Map(milestoneScope.map((n) => [n.id, tc(n.type, types)])),
+    [milestoneScope, types],
+  );
+  const milestoneCardColor = useCallback(
+    (id: string) => milestoneCardColors.get(id),
+    [milestoneCardColors],
+  );
+
+  const {
+    pulseCards,
+    revealedForPulse,
+    pulsing,
+    handleMilestoneClick,
+    milestoneCards,
+    handleMilestoneCardClick,
+  } = useMilestoneSpotlight({ scope: milestoneScope, getColor: milestoneCardColor });
+
+  // The transformation between today and the selected date, over the same
+  // scope as the marks and computed BEFORE the persist filter — hiding retired
+  // cards must not make the count lie. Cards dead before today are landscape,
+  // not transformation, so "retiring" is the in-window half of "retired".
+  const timelineDelta = useMemo(() => {
+    const at = timelineFilterDate;
+    if (at <= timeline.todayMs) return { arriving: 0, retiring: 0 };
+    let arriving = 0;
+    let retiring = 0;
+    for (const n of milestoneScope) {
+      if (classifyTimelineChange(n.lifecycle, timeline.todayMs, at) === "arriving") arriving++;
+      else if (isRetiredByDate(n.lifecycle, at) && !isRetiredByDate(n.lifecycle, timeline.todayMs))
+        retiring++;
+    }
+    return { arriving, retiring };
+  }, [milestoneScope, timelineFilterDate, timeline.todayMs]);
+
+  // The landscape as it stands on the selected date. Every downstream consumer
+  // (adjacency, LDV BFS, tree layout, centre picker, table) reads `nodes` /
+  // `edges`, so filtering once here covers all of them. `isVisibleAtDate` owns
+  // the rule; the centred card is additionally always kept, so travelling past
+  // its retirement doesn't strip the view's anchor (and with it the
+  // back/forward history).
+  const { nodes, edges } = useMemo(() => {
+    const at = timelineFilterDate;
+    const visibility = { persistRetired, previewPlanned };
+    // The span arrives undebounced while the filter runs on the debounced date,
+    // so mid-drag they can disagree. Trust it only once the date has caught up,
+    // using the same one-day tolerance the slider matches marks with — otherwise
+    // a fast drag flashes badges for a mark the view has not reached.
+    const span =
+      activeSpan &&
+      at >= activeSpan.from - ONE_DAY_MS &&
+      at <= activeSpan.to + ONE_DAY_MS
+        ? activeSpan
+        : null;
+    // A card retiring AT this mark stays on the canvas — ghosted and badged —
+    // even with persist off, for as long as the slider stands here. Without it
+    // the pill row names a card that is nowhere to be seen.
+    const retiringHere = new Set(
+      span
+        ? cardsChangingBetween(rawNodes, span.from, span.to)
+            .filter((c) => c.kind === "disappearing")
+            .map((c) => c.id)
+        : [],
+    );
+    const filtered = rawNodes
+      .map((n) => ({
+        ...n,
+        changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
+      }))
+      .filter(
+        (n) =>
+          n.id === center ||
+          revealedForPulse.has(n.id) ||
+          retiringHere.has(n.id) ||
+          isVisibleAtDate(n.lifecycle, at, visibility),
+      );
+    const ids = new Set(filtered.map((n) => n.id));
+    // What the mark does to the cards that stay put: a neighbour arriving hands
+    // them a connection, a neighbour retiring takes one away. Nothing off a mark
+    // — this says "changed here", not "changed at some point on the way".
+    const links = span
+      ? computeConnectionChanges(rawNodes, rawEdges, span.from, span.to)
+      : null;
+    const visible = filtered.map((n) =>
+      links?.gained.has(n.id) || links?.lost.has(n.id)
+        ? { ...n, gainedLink: links.gained.has(n.id), lostLink: links.lost.has(n.id) }
+        : n,
+    );
+    return {
+      nodes: visible,
+      edges: rawEdges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+    };
+  }, [
+    rawNodes,
+    rawEdges,
+    timelineFilterDate,
+    timeline.todayMs,
+    center,
+    persistRetired,
+    previewPlanned,
+    revealedForPulse,
+    activeSpan,
+  ]);
+
+  // Adjacency map — one entry per neighbouring CARD, not per edge, since two
+  // cards may be connected by several relation types. See dependencyAdjacency.ts.
+  // [FORK] Filter nodes and edges by architecture_state
   const { filteredNodes, filteredEdges } = useMemo(() => {
     const validNodeIds = new Set(
       nodes
@@ -562,26 +924,23 @@ export default function DependencyReport() {
     };
   }, [nodes, edges, architectureStates]);
 
-  // Adjacency map
-  const adjMap = useMemo(() => {
-    const m = new Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>();
-    for (const e of filteredEdges) {
-      if (!m.has(e.source)) m.set(e.source, []);
-      m.get(e.source)!.push({ nodeId: e.target, relType: e.type, relLabel: e.label || e.type, relDescription: e.description });
-      if (!m.has(e.target)) m.set(e.target, []);
-      m.get(e.target)!.push({ nodeId: e.source, relType: e.type, relLabel: e.reverse_label || e.label || e.type, relDescription: e.description });
-    }
-    return m;
-  }, [filteredEdges]);
+  const adjMap = useMemo(() => buildAdjacency(filteredEdges), [filteredEdges]);
 
   const nodeMap = useMemo(() => new Map(filteredNodes.map((n) => [n.id, n])), [filteredNodes]);
 
-  // Connection counts
+  // Connection counts, over the RAW graph: this map serves the centre picker
+  // alone, and the picker lists the whole inventory rather than the landscape at
+  // the viewed date. Counting over the timeline-filtered `adjMap` would score
+  // every card the timeline hides as 0 and sort it to the bottom of its group —
+  // "worth centring on?" is a property of the card, not of where the slider is.
   const connCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const n of filteredNodes) m.set(n.id, (adjMap.get(n.id) || []).length);
+    for (const e of rawEdges) {
+      m.set(e.source, (m.get(e.source) ?? 0) + 1);
+      m.set(e.target, (m.get(e.target) ?? 0) + 1);
+    }
     return m;
-  }, [filteredNodes, adjMap]);
+  }, [rawEdges]);
 
   // LDV mode: BFS from center to get dependency neighborhood (all types)
   // Also include depth-1 neighbors of any nodes that have been "expanded"
@@ -727,12 +1086,64 @@ export default function DependencyReport() {
     return s;
   }, [hovered, layout]);
 
-  // Picker: used types
+  // Legend: types present on the displayed graph
   const usedTypes = useMemo(() => [...new Set(nodes.map((n) => n.type))], [nodes]);
+
+  // Picker chips: types within the dropdown scope (all, when no type is picked).
+  // Sourced from the RAW graph, not `usedTypes` — that one describes the
+  // displayed diagram and feeds the legend, while the picker answers "what is
+  // in the inventory?" and must not lose a whole type because nothing of it is
+  // alive at the viewed date.
+  const rawTypes = useMemo(() => [...new Set(rawNodes.map((n) => n.type))], [rawNodes]);
+  const pickerTypes = useMemo(
+    () => (cardTypeKey ? [cardTypeKey] : rawTypes),
+    [cardTypeKey, rawTypes],
+  );
+
+  // Only legend the change states actually on screen — retired cards are
+  // hidden when "Persist retired cards" is off, so an unconditional entry
+  // would advertise a badge the user cannot see.
+  const usedChangeStates = useMemo(() => {
+    const set = new Set<string>(nodes.map((n) => n.changeState).filter(Boolean) as string[]);
+    if (nodes.some((n) => n.gainedLink)) set.add("gainedLink");
+    if (nodes.some((n) => n.lostLink)) set.add("lostLink");
+    return set;
+  }, [nodes]);
+
+  /**
+   * Cards already at End of Life TODAY — judged against `todayMs`, never against
+   * the slider. "Has this been retired?" is a fact about the landscape as it
+   * stands, and the picker is reached by a button that hides the slider.
+   */
+  const eolTodayIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const n of rawNodes) if (isRetiredByDate(n.lifecycle, timeline.todayMs)) s.add(n.id);
+    return s;
+  }, [rawNodes, timeline.todayMs]);
+
+  /**
+   * The picker's base set: the whole inventory (minus archived, which the
+   * endpoint never sends), narrowed only by the type dropdown and the
+   * end-of-life toggle.
+   *
+   * Deliberately `rawNodes`, NOT the timeline-filtered `nodes`. The picker is
+   * where you choose what to look at, and the slider plus its two visibility
+   * switches are hidden at this stage (`diagramShown`) — so reading the filtered
+   * set meant cards were dropped by controls the user could not see, and a card
+   * that has not gone live yet never appeared at all.
+   */
+  const pickerBase = useMemo(() => {
+    let items = rawNodes;
+    // The type dropdown used to be applied by the fetch; it scopes the picker
+    // client-side now (the graph itself stays cross-type in every view).
+    if (cardTypeKey) items = items.filter((n) => n.type === cardTypeKey);
+    if (hideEndOfLife) items = items.filter((n) => !eolTodayIds.has(n.id));
+    return items;
+  }, [rawNodes, cardTypeKey, hideEndOfLife, eolTodayIds]);
 
   // Picker: filtered items
   const pickerItems = useMemo(() => {
-    let items = nodes;
+    let items = pickerBase;
     if (pickerTypeFilter) items = items.filter((n) => n.type === pickerTypeFilter);
     if (pickerSearch.trim()) {
       const q = pickerSearch.trim().toLowerCase();
@@ -743,7 +1154,7 @@ export default function DependencyReport() {
       );
     }
     return items;
-  }, [nodes, pickerTypeFilter, pickerSearch]);
+  }, [pickerBase, pickerTypeFilter, pickerSearch]);
 
   // Picker: group by type
   const pickerGroups = useMemo(() => {
@@ -761,17 +1172,46 @@ export default function DependencyReport() {
       const sb = types.find((t) => t.key === b)?.sort_order ?? 99;
       return sa - sb;
     });
-    for (const arr of groups.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
+    // Best-connected first, name as the tiebreak. The picker's job is to
+    // answer "which card is worth centring on?", and a card with two
+    // neighbours makes a poor centre for a dependency graph however early its
+    // name sorts. Finding a card you can already name is what the search box
+    // above is for, and alphabetical order survives within each count.
+    for (const arr of groups.values())
+      arr.sort(
+        (a, b) =>
+          (connCounts.get(b.id) ?? 0) - (connCounts.get(a.id) ?? 0) ||
+          a.name.localeCompare(b.name),
+      );
     return { groups, order };
-  }, [pickerItems, types]);
+  }, [pickerItems, types, connCounts]);
 
-  // Autocomplete options for toolbar
+  // Autocomplete options for toolbar. Raw, for the same reason as the picker:
+  // "Center on" chooses a starting point, and centring is always honoured (the
+  // `nodes` memo keeps `n.id === center` at every date), so filtering the list
+  // by the slider only made a retired card impossible to reach.
+  //
+  // Sorted, though: `/reports/dependencies` builds its node list by iterating a
+  // set, so the order it arrives in is arbitrary and the drop-down read as
+  // random (#1107). `compareByRank("")` ranks every row equally and falls
+  // through to its locale-aware name compare, which is the ordering every
+  // other browse-on-open list in the app uses. `rawNodes` itself is left
+  // alone — the full-page picker below deliberately ranks by connection count,
+  // and the table has its own sort.
   const acOptions = useMemo(
-    () => (cardTypeKey ? nodes.filter((n) => n.type === cardTypeKey) : nodes),
-    [nodes, cardTypeKey],
+    () =>
+      (cardTypeKey ? rawNodes.filter((n) => n.type === cardTypeKey) : rawNodes)
+        .slice()
+        .sort(compareByRank("")),
+    [rawNodes, cardTypeKey],
   );
 
   const centerNode = nodes.find((n) => n.id === center);
+
+  // The picker stage displays no diagram, so the timeline has nothing to act
+  // on there. The table without a centre genuinely shows the whole relation
+  // list, so it keeps the timeline.
+  const diagramShown = view === "table" || (view === "chart" && !!center);
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     if (cardTypeKey) {
@@ -779,11 +1219,17 @@ export default function DependencyReport() {
       const tpLabel = typeLabel(tp) || cardTypeKey;
       params.push({ label: t("common:labels.type"), value: tpLabel });
     }
-    if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
+    if (centerNode) params.push({ label: t("dependency.centerOn"), value: centerNode.name });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.ldvView") });
+    if (timeline.printParam) params.push(timeline.printParam);
+    if (timelineDelta.arriving > 0 || timelineDelta.retiring > 0)
+      params.push({
+        label: t("common:timelineSlider.deltaLabel"),
+        value: `+${timelineDelta.arriving} / −${timelineDelta.retiring}`,
+      });
     return params;
-  }, [cardTypeKey, types, centerNode, view, chartMode, typeLabel, t]);
+  }, [cardTypeKey, types, centerNode, view, chartMode, typeLabel, t, timeline.printParam, timelineDelta]);
 
   if (loading)
     return (
@@ -938,7 +1384,7 @@ export default function DependencyReport() {
             sx={{ minWidth: 150 }}
           >
             <MenuItem value="">{t("dependency.allTypes")}</MenuItem>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => (
+            {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => (
               <MenuItem key={tp.key} value={tp.key}>
                 {typeLabel(tp)}
               </MenuItem>
@@ -948,6 +1394,21 @@ export default function DependencyReport() {
           <Autocomplete
             size="small"
             options={acOptions}
+            // MUI's default filter is an unranked "contains", which buries the
+            // obvious answers — typing `work` would list "Cloud Work Hub"
+            // above "Workday". The list is already in memory, so it filters on
+            // the raw input with no debounce, exactly like `CardPicker`.
+            filterOptions={(opts, state) => filterAndRank(opts, state.inputValue)}
+            // MUI pins the popper to the input's width, and each row spends
+            // ~120px of it on the dot, the gaps and the type caption — so a
+            // card name was left about 95px and most of them were clipped. The
+            // list sizes to its content instead, while the input keeps the
+            // width a toolbar control should take. `90vw` is the same phone
+            // guard the other wide popups in the app use.
+            slotProps={{
+              popper: { style: { width: "fit-content" } },
+              paper: { sx: { minWidth: 280, maxWidth: "min(560px, 90vw)" } },
+            }}
             getOptionLabel={(o) => o.name}
             value={nodes.find((n) => n.id === center) || null}
             onChange={(_, v) => setCenter(v?.id || "")}
@@ -963,7 +1424,11 @@ export default function DependencyReport() {
                     flexShrink: 0,
                   }}
                 />
-                <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                {/* Not `noWrap`: a name longer than the popper's max wraps
+                    onto a second line rather than being clipped, matching
+                    `CardPicker`. Stays `body2` (a `<p>`) — the #1107 tests
+                    read option names with `querySelector("p")`. */}
+                <Typography variant="body2" sx={{ flex: 1 }}>
                   {option.name}
                 </Typography>
                 <Typography
@@ -976,10 +1441,55 @@ export default function DependencyReport() {
               </li>
             )}
             renderInput={(params) => (
-              <TextField {...params} label={t("dependency.centerOn")} sx={{ minWidth: 220 }} />
+              <TextField
+                {...params}
+                label={t("dependency.centerOn")}
+                // Hovering the collapsed field names the card in full, which a
+                // 280px input cannot always show.
+                inputProps={{ ...params.inputProps, title: centerNode?.name ?? "" }}
+              />
             )}
-            sx={{ minWidth: 220 }}
+            sx={{ minWidth: 280 }}
           />
+
+          {hasLifecycleData && diagramShown && (
+            <>
+              <Tooltip title={t("dependency.persistRetiredHint")} arrow>
+                <FormControlLabel
+                  sx={{ ml: 0 }}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={persistRetired}
+                      onChange={(e) => setPersistRetired(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      {t("dependency.persistRetired")}
+                    </Typography>
+                  }
+                />
+              </Tooltip>
+              <Tooltip title={t("dependency.previewPlannedHint")} arrow>
+                <FormControlLabel
+                  sx={{ ml: 0 }}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={previewPlanned}
+                      onChange={(e) => setPreviewPlanned(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      {t("dependency.previewPlanned")}
+                    </Typography>
+                  }
+                />
+              </Tooltip>
+            </>
+          )}
 
           {center && chartMode === "tree" && (
             <Tooltip title={t("dependency.collapseAll")}>
@@ -1013,6 +1523,25 @@ export default function DependencyReport() {
               </ToggleButton>
             </ToggleButtonGroup>
           )}
+
+          {/* Time travel — full-width row (the toolbar Box wraps) */}
+          {hasLifecycleData && diagramShown && (
+            <Box sx={{ width: "100%" }}>
+              <TimelineSlider
+                value={timeline.timelineDate}
+                onChange={timeline.setTimelineDate}
+                dateRange={dateRange}
+                yearMarks={yearMarks}
+                todayMs={timeline.todayMs}
+                milestones={milestones}
+                delta={timelineDelta}
+                onMilestoneClick={handleMilestoneClick}
+                milestoneCards={milestoneCards}
+                onMilestoneCardClick={handleMilestoneCardClick}
+                onActiveSpanChange={setActiveSpan}
+              />
+            </Box>
+          )}
         </>
       }
       legend={
@@ -1032,9 +1561,25 @@ export default function DependencyReport() {
               </Typography>
             </Box>
           ))}
+          {CHANGE_LEGEND.filter((c) => usedChangeStates.has(c.key)).map((c) => (
+            <Box key={c.key} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "2px",
+                  border: `2px dashed ${c.color}`,
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {t(c.labelKey)}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       }
     >
+      {pulsing && <style>{TIMELINE_PULSE_KEYFRAMES}</style>}
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
         chartMode === "c4" && center && ldvData.nodes.length > 0 ? (
@@ -1057,6 +1602,9 @@ export default function DependencyReport() {
               hasNext={hasNext}
               centerName={centerNode?.name}
               centerId={center || undefined}
+              expandedIds={ldvExpandedNodes}
+              asOfMs={timelineFilterDate}
+              pulseCards={pulseCards}
               canCreateDiagram={canCreateDiagram}
             />
           </Box>
@@ -1204,7 +1752,7 @@ export default function DependencyReport() {
                     )}
                     {hoveredConn.conn.relDescription && (
                       <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.5, lineHeight: 1.3, fontStyle: "italic" }}>
-                        {hoveredConn.conn.relDescription}
+                        <LinkifiedText text={hoveredConn.conn.relDescription} />
                       </Typography>
                     )}
                   </Paper>
@@ -1261,7 +1809,7 @@ export default function DependencyReport() {
                         {t("dependency.connections", { count: card.connectionCount })}
                         {card.isDuplicate ? ` · ${t("dependency.alsoAppears")}` : ""}
                         <br />
-                        <em>{t("dependency.clickHint")}</em>
+                        <em>{t("dependency.clickToExpand")}</em>
                       </span>
                     }
                     placement="top"
@@ -1313,6 +1861,30 @@ export default function DependencyReport() {
                             borderStyle: "dashed",
                             borderLeftStyle: "solid",
                           }),
+                        ...(pulsing && {
+                          opacity: pulseCards[card.id] ? 1 : 0.3,
+                          transition: "opacity 0.2s, box-shadow 0.2s",
+                          ...(pulseCards[card.id] && {
+                            boxShadow: `0 0 0 4px ${
+                              pulseCards[card.id] === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
+                            }55`,
+                            animation: `tl-pulse-${
+                              pulseCards[card.id] === "live" ? "live" : "retire"
+                            } 0.65s ease-in-out 2`,
+                          }),
+                        }),
+                        ...(card.node.changeState && {
+                          // Solid where the card is part of this date's
+                          // landscape, dashed where it is drawn despite not
+                          // being — the grammar the diagram uses.
+                          border: `1.5px ${
+                            isPresentAtDate(card.node.changeState) ? "solid" : "dashed"
+                          } ${changeColor(card.node.changeState)}`,
+                          borderLeft: `3.5px solid ${color}`,
+                          ...(!isPresentAtDate(card.node.changeState) && {
+                            opacity: dimmed ? 0.4 : 0.6,
+                          }),
+                        }),
                       }}
                       onClick={() => toggleExpand(card.instanceId)}
                       onMouseEnter={() => setHovered(card.instanceId)}
@@ -1388,12 +1960,15 @@ export default function DependencyReport() {
                       )}
 
                       {card.isDuplicate && !card.isRoot && (
-                        <Tooltip title={t("dependency.alsoAppearsTree")} arrow>
+                        <Tooltip title={t("dependency.alsoAppears")} arrow>
                           <Box sx={{ display: "flex" }}>
                             <MaterialSymbol icon="link" size={14} color="#bbb" />
                           </Box>
                         </Tooltip>
                       )}
+
+                      {card.node.changeState && <ChangeBadge state={card.node.changeState} t={t} />}
+                      <LinkChangeMarks node={card.node} t={t} />
 
                       {/* Open in new tab */}
                       <Tooltip title={t("dependency.openCard")} arrow>
@@ -1468,7 +2043,7 @@ export default function DependencyReport() {
                   {t("dependency.selectCard")}
                 </Typography>
                 <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 400, mx: "auto" }}>
-                  {t("dependency.selectHint")}
+                  {t("dependency.selectCardDesc")}
                 </Typography>
               </Box>
 
@@ -1502,7 +2077,9 @@ export default function DependencyReport() {
               />
 
               {/* Type filter chips */}
-              <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mb: 1.5 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mb: 1.5 }}
+              >
                 <Chip
                   label={t("dependency.all")}
                   size="small"
@@ -1512,10 +2089,10 @@ export default function DependencyReport() {
                     fontWeight: pickerTypeFilter === null ? 700 : 400,
                   }}
                 />
-                {usedTypes.map((tk) => {
+                {pickerTypes.map((tk) => {
                   const active = pickerTypeFilter === tk;
                   const color = tc(tk, types);
-                  const count = nodes.filter((n) => n.type === tk).length;
+                  const count = pickerBase.filter((n) => n.type === tk).length;
                   return (
                     <Chip
                       key={tk}
@@ -1548,6 +2125,26 @@ export default function DependencyReport() {
                     />
                   );
                 })}
+                {/* Judged at today, not at the slider: the picker is reached by a
+                    button that hides the timeline, so an end-of-life card here is
+                    one that is retired now — whatever date the diagram was on. */}
+                {eolTodayIds.size > 0 && (
+                  <FormControlLabel
+                    sx={{ ml: "auto", mr: 0 }}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={hideEndOfLife}
+                        onChange={(e) => setHideEndOfLife(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary">
+                        {t("dependency.hideEndOfLife")}
+                      </Typography>
+                    }
+                  />
+                )}
               </Box>
             </Box>
 
@@ -1555,9 +2152,9 @@ export default function DependencyReport() {
             {pickerItems.length === 0 ? (
               <Box sx={{ py: 4, textAlign: "center" }}>
                 <Typography color="text.disabled" variant="body2">
-                  {nodes.length === 0
+                  {rawNodes.length === 0
                     ? t("dependency.noCards")
-                    : t("dependency.noResults")}
+                    : t("common:labels.noResults")}
                 </Typography>
               </Box>
             ) : (
@@ -1598,6 +2195,7 @@ export default function DependencyReport() {
                       {items.map((n) => {
                         const conns = connCounts.get(n.id) || 0;
                         const path = n.path || [];
+                        const atEol = eolTodayIds.has(n.id);
                         return (
                           <Box
                             key={n.id}
@@ -1636,6 +2234,20 @@ export default function DependencyReport() {
                                 {n.name}
                               </Typography>
                             </Box>
+                            {atEol && (
+                              <Tooltip
+                                arrow
+                                title={t("dependency.endOfLifeOn", {
+                                  date: formatDate(n.lifecycle?.endOfLife),
+                                })}
+                              >
+                                {/* The same RETIRED chip the tree and table rows
+                                    carry — one vocabulary for one fact. */}
+                                <Box sx={{ display: "flex" }}>
+                                  <ChangeBadge state="retired" t={t} />
+                                </Box>
+                              </Tooltip>
+                            )}
                             {conns > 0 && (
                               <Chip
                                 size="small"
@@ -1678,16 +2290,40 @@ export default function DependencyReport() {
             <TableBody>
               {edges.map((e, i) => {
                 const s = nodes.find((n) => n.id === e.source);
-                const t = nodes.find((n) => n.id === e.target);
+                const target = nodes.find((n) => n.id === e.target);
+                const pulsed = pulseCards[e.source] ?? pulseCards[e.target];
                 return (
-                  <TableRow key={i} hover>
+                  <TableRow
+                    key={i}
+                    hover
+                    sx={
+                      pulsing
+                        ? {
+                            opacity: pulsed ? 1 : 0.35,
+                            transition: "opacity 0.2s, background-color 0.2s",
+                            ...(pulsed && {
+                              bgcolor: `${
+                                pulsed === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
+                              }1f`,
+                              animation: `tl-pulse-row-${
+                                pulsed === "live" ? "live" : "retire"
+                              } 0.65s ease-in-out 2`,
+                            }),
+                          }
+                        : undefined
+                    }
+                  >
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>
                         s && setSidePanelCardId(s.id)
                       }
                     >
-                      {s?.name}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        {s?.name}
+                        {s?.changeState && <ChangeBadge state={s.changeState} t={t} />}
+                        {s && <LinkChangeMarks node={s} t={t} />}
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Tooltip title={e.description || e.type} arrow>
@@ -1701,10 +2337,14 @@ export default function DependencyReport() {
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>
-                        t && setSidePanelCardId(t.id)
+                        target && setSidePanelCardId(target.id)
                       }
                     >
-                      {t?.name}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        {target?.name}
+                        {target?.changeState && <ChangeBadge state={target.changeState} t={t} />}
+                        {target && <LinkChangeMarks node={target} t={t} />}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 );

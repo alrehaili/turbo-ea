@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import uuid
 from typing import Literal
 
@@ -13,7 +14,13 @@ from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
 from app.models.sso_invitation import SsoInvitation
-from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, DEFAULT_UI_PREFERENCES, User
+from app.models.user import (
+    DEFAULT_NOTIFICATION_PREFERENCES,
+    DEFAULT_UI_PREFERENCES,
+    NOTIFICATION_TYPE_SPECS,
+    User,
+)
+from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
 
@@ -49,6 +56,14 @@ class UserUpdate(BaseModel):
 class NotificationPreferencesUpdate(BaseModel):
     in_app: dict[str, bool] | None = None
     email: dict[str, bool] | None = None
+    # Extension-delivered channels, namespaced under "channels" so a channel
+    # key can never collide with a core one. Keys for channels that are not
+    # currently registered are IGNORED, not rejected: the dialog sends the
+    # whole object, so a 400 for a channel that de-registered between the GET
+    # and the PATCH would stop the user saving their in-app settings too.
+    # Stored values for such channels are preserved, so an opt-in survives a
+    # license lapse and reappears when the extension comes back.
+    channels: dict[str, dict[str, bool]] | None = None
 
 
 class UiPreferencesUpdate(BaseModel):
@@ -267,7 +282,34 @@ async def delete_invitation(
 async def get_notification_preferences(
     current_user: User = Depends(get_current_user),
 ):
-    return current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
+    """Stored opt-ins, plus what the dialog needs to render itself.
+
+    ``types`` is served rather than hardcoded in the frontend because the two
+    lists had already drifted: fourteen emitted types appeared in neither, so
+    they could not be configured at all. The dialog renders one row per entry
+    here, so adding a type to ``NOTIFICATION_TYPE_SPECS`` is all it takes.
+    """
+    prefs = current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
+    return {
+        **prefs,
+        "available_channels": notification_channels.channel_descriptors(),
+        "types": [
+            {
+                "key": spec.key,
+                "in_app_default": spec.in_app_default,
+                "email_default": spec.email_default,
+                "in_app_only": spec.in_app_only,
+                "email_locked": spec.email_locked,
+            }
+            for spec in NOTIFICATION_TYPE_SPECS
+            if spec.user_configurable
+        ]
+        # Types a live extension declared in its manifest (SDK 1.11), after
+        # core's own so the dialog keeps its familiar order. These carry a
+        # ``label`` resolved for the viewer's locale — core has no i18n key
+        # for a type it did not define — and the owning ``extension_key``.
+        + notification_types.type_descriptors(current_user.locale),
+    }
 
 
 @router.patch("/me/notification-preferences")
@@ -276,12 +318,30 @@ async def update_notification_preferences(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    prefs = dict(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
+    # deepcopy, not dict(): the column default shares its inner per-channel
+    # dicts with DEFAULT_NOTIFICATION_PREFERENCES, so a nested in-place write
+    # here would edit the module constant for the life of the process.
+    prefs = copy.deepcopy(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
 
     if body.in_app is not None:
         prefs["in_app"] = {**prefs.get("in_app", {}), **body.in_app}
     if body.email is not None:
         prefs["email"] = {**prefs.get("email", {}), **body.email}
+    if body.channels is not None:
+        live = set(notification_channels.registered_channel_keys())
+        known_types = {spec.key for spec in NOTIFICATION_TYPE_SPECS if spec.user_configurable}
+        known_types |= set(notification_types.registered_type_keys())
+        stored = dict(prefs.get("channels") or {})
+        for channel_key, values in body.channels.items():
+            if channel_key not in live:
+                continue
+            stored[channel_key] = {
+                **stored.get(channel_key, {}),
+                # Bounded to the types the dialog actually offers, so this
+                # surface cannot be used to grow the JSONB blob arbitrarily.
+                **{t: v for t, v in values.items() if t in known_types},
+            }
+        prefs["channels"] = stored
 
     current_user.notification_preferences = prefs
     await db.commit()
@@ -356,6 +416,28 @@ async def bulk_update_users(
     users = result.scalars().all()
     if not users:
         raise HTTPException(404, "No matching users found")
+
+    # Self-lockout guard. Distinct from the last-admin guard below: that one asks
+    # "does *an* admin remain?", this one asks "are you demoting or deactivating
+    # *yourself*?" — a mistake that stays possible with other admins around, and
+    # one only another admin can undo. ``current_user.role`` is the DB column, so
+    # an impersonation session cannot dodge it. Hard 400 rather than the
+    # skip-with-reason shape used by bulk-delete: this endpoint returns a bare
+    # list of users, and the UI already excludes the caller before it gets here.
+    if current_user.id in {u.id for u in users}:
+        if data.get("is_active") is False:
+            raise HTTPException(
+                400,
+                "Your own account is in the selection. You cannot deactivate your "
+                "own account — deselect it first.",
+            )
+        if current_user.role == "admin" and data.get("role", "admin") != "admin":
+            raise HTTPException(
+                400,
+                "Your own account is in the selection. You cannot change your own "
+                "role away from admin — ask another administrator, or deselect "
+                "yourself first.",
+            )
 
     # Guard against losing the last admin via bulk role change or deactivation.
     # We evaluate the *post-change* state and refuse if zero active admins
@@ -689,6 +771,18 @@ async def update_user(
         role_result = await db.execute(select(Role).where(Role.key == data["role"]))
         if not role_result.scalar_one_or_none():
             raise HTTPException(400, f"Unknown role '{data['role']}'")
+        # Self-demotion guard, checked before the last-admin count so the more
+        # specific message wins. An admin who drops their own role loses the
+        # admin UI in the same request, and only another admin can give it back
+        # — the fact that other admins happen to exist does not make that a
+        # recoverable mistake for the person who made it. Re-sending your own
+        # current role is a no-op and stays allowed.
+        if is_self and u.role == "admin" and data["role"] != "admin":
+            raise HTTPException(
+                400,
+                "Cannot change your own role away from admin. "
+                "Ask another administrator to change it for you.",
+            )
         # Prevent last admin from losing admin role
         if u.role == "admin" and data["role"] != "admin":
             admin_count = await db.execute(
@@ -696,6 +790,13 @@ async def update_user(
             )
             if (admin_count.scalar() or 0) <= 1:
                 raise HTTPException(400, "Cannot remove the last admin role")
+
+    # Deactivating yourself signs you out of administration exactly like a
+    # self-demotion does, so it is refused on the same grounds. Role-independent
+    # and mirrors "Cannot delete your own account" below: only ``admin.users``
+    # holders can reach this field at all (non-admin self-updates 403 above).
+    if is_self and data.get("is_active") is False:
+        raise HTTPException(400, "Cannot deactivate your own account.")
 
     if "email" in data:
         existing = await db.execute(

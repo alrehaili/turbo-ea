@@ -14,7 +14,9 @@ vi.mock("@/api/client", () => ({
     patch: vi.fn(),
     post: vi.fn(),
     delete: vi.fn(),
+    upload: vi.fn(),
   },
+  ApiError: class ApiError extends Error {},
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({
@@ -70,6 +72,7 @@ vi.mock("@/features/bpm/ProcessAssessmentPanel", () => ({
 }));
 
 vi.mock("@/hooks/AuthContext", () => ({
+  useOptionalAuthUser: () => null,
   useAuthContext: () => ({
     user: {
       id: "user-1",
@@ -624,7 +627,10 @@ describe("CardDetail", () => {
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", { name: "Renamed App" });
+      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
+        name: "Renamed App",
+        alias: null,
+      });
     });
     await waitFor(() => {
       expect(screen.getByText("Renamed App")).toBeInTheDocument();
@@ -683,6 +689,104 @@ describe("CardDetail", () => {
     expect(editBtn).toBeNull();
   });
 
+  it("shows the alias under the name, and nothing when there is none", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, alias: "CRM-v2" });
+    });
+
+    const { unmount } = renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByTestId("card-alias")).toHaveTextContent("CRM-v2");
+    });
+    unmount();
+
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+    renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("card-alias")).not.toBeInTheDocument();
+  });
+
+  it("saves the name and the alias in one patch", async () => {
+    // One PATCH means one history entry and one approval break — an editor
+    // renaming a card and correcting its alias did not do two things (#1108).
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, alias: "CRM-v1" });
+    });
+    vi.mocked(api.patch).mockResolvedValueOnce({
+      ...mockCard,
+      name: "Renamed App",
+      alias: "CRM-v2",
+    });
+
+    renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    await user.click(
+      heading.parentElement!.querySelector("button[aria-label='Edit']") as HTMLElement,
+    );
+
+    const nameInput = screen.getByDisplayValue("My Application");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Renamed App");
+    const aliasInput = screen.getByDisplayValue("CRM-v1");
+    await user.clear(aliasInput);
+    await user.type(aliasInput, "CRM-v2");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledTimes(1);
+    });
+    expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
+      name: "Renamed App",
+      alias: "CRM-v2",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("card-alias")).toHaveTextContent("CRM-v2");
+    });
+  });
+
+  it("clears the alias when the box is emptied", async () => {
+    // The card is where clearing is unambiguous, which is why the Excel
+    // importer treats an empty cell as "leave it alone" instead.
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, alias: "CRM-v1" });
+    });
+    vi.mocked(api.patch).mockResolvedValueOnce({ ...mockCard, alias: null });
+
+    renderCardDetail();
+    await waitFor(() => {
+      expect(screen.getByText("My Application")).toBeInTheDocument();
+    });
+
+    const heading = screen.getByText("My Application");
+    await user.click(
+      heading.parentElement!.querySelector("button[aria-label='Edit']") as HTMLElement,
+    );
+    await user.clear(screen.getByDisplayValue("CRM-v1"));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/cards/card-1", {
+        name: "My Application",
+        alias: null,
+      });
+    });
+  });
+
   it("switches to Comments tab", async () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
@@ -701,5 +805,95 @@ describe("CardDetail", () => {
     await waitFor(() => {
       expect(screen.getByTestId("comments-tab")).toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Custom logo (discussion #1024)
+// ---------------------------------------------------------------------------
+
+describe("CardDetail custom logo", () => {
+  const LOGO_TYPE = { ...APPLICATION_TYPE, allow_card_logo: true };
+  const NO_LOGO_TYPE = { ...APPLICATION_TYPE, allow_card_logo: false };
+
+  function mockTypes(type: typeof APPLICATION_TYPE) {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [type],
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => (key === type.key ? type : undefined),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    } as unknown as ReturnType<typeof useMetamodel>);
+  }
+
+  function mockCardWith(card: Record<string, unknown>) {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(card);
+    });
+  }
+
+  it("renders the logo when the card has one", async () => {
+    mockTypes(LOGO_TYPE);
+    mockCardWith({ ...mockCard, logo_updated_at: "2026-08-28T10:00:00Z" });
+
+    renderCardDetail();
+
+    await waitFor(() => {
+      const img = document.querySelector("img");
+      expect(img?.getAttribute("src")).toContain("/api/v1/cards/card-1/logo");
+    });
+  });
+
+  it("offers no logo menu when the type has logos switched off", async () => {
+    mockTypes(NO_LOGO_TYPE);
+    mockCardWith(mockCard);
+
+    renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    expect(screen.queryByRole("menuitem", { name: /logo/i })).toBeNull();
+  });
+
+  it("uploads a picked image and shows it without a refetch", async () => {
+    const user = userEvent.setup();
+    mockTypes(LOGO_TYPE);
+    mockCardWith(mockCard);
+    vi.mocked(api.upload).mockResolvedValue({
+      ok: true,
+      logo_updated_at: "2026-08-28T12:00:00Z",
+    });
+
+    const { container } = renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "kafka.png", {
+      type: "image/png",
+    });
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(vi.mocked(api.upload)).toHaveBeenCalledWith("/cards/card-1/logo", file);
+    });
+    // The response timestamp lands in state, so the header updates in place.
+    await waitFor(() => {
+      const img = document.querySelector("img");
+      expect(img?.getAttribute("src")).toContain("2026-08-28T12");
+    });
+  });
+
+  it("only accepts the image formats the backend allows", async () => {
+    mockTypes(LOGO_TYPE);
+    mockCardWith(mockCard);
+
+    const { container } = renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input.getAttribute("accept")).toBe("image/png,image/jpeg,image/webp,image/gif");
+    // SVG is refused server-side; offering it in the picker would invite a 400.
+    expect(input.getAttribute("accept")).not.toContain("svg");
   });
 });

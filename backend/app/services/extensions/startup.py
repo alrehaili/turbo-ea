@@ -19,6 +19,8 @@ from app.services.extensions.events import start_extension_event_dispatchers
 from app.services.extensions.jobs import build_context, start_extension_jobs
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.migrations import run_extension_migrations
+from app.services.extensions.notification_channels import start_notification_channels
+from app.services.extensions.notification_types import start_notification_types
 from app.services.extensions.registry import extension_registry
 
 logger = logging.getLogger(__name__)
@@ -103,4 +105,12 @@ async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
         except Exception:
             logger.exception("Extension %s on_startup() failed", ext.key)
 
-    return start_extension_jobs(report) + start_extension_event_dispatchers(report)
+    # Manifest-driven, no task: the types must be known before the first
+    # job or event handler sends under one of them.
+    start_notification_types(report)
+
+    return (
+        start_extension_jobs(report)
+        + start_extension_event_dispatchers(report)
+        + start_notification_channels(report)
+    )

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import type { KeyboardEvent } from "react";
 import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -25,6 +26,8 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardLogoMenu from "@/components/CardLogoMenu";
+import CardLogoAvatar from "@/components/CardLogoAvatar";
 import ApprovalStatusBadge, { type ApprovalAction } from "@/components/ApprovalStatusBadge";
 import ApprovalStepsStrip from "@/components/ApprovalStepsStrip";
 import ArchitectureStateBadge, {
@@ -37,6 +40,7 @@ import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { usePageSubject } from "@/hooks/usePageTitle";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
@@ -85,6 +89,9 @@ export default function CardDetail() {
   const stLabel = useSubtypeLabel();
   const resolveSubtypeLabel = useCardSubtypeLabel();
   const [card, setCard] = useState<Card | null>(null);
+  // Browser tab title; falls back to the route's «Card» label while loading,
+  // and follows an inline rename without a reload.
+  usePageSubject(card?.name);
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
@@ -97,6 +104,10 @@ export default function CardDetail() {
   const { governanceMode } = useGovernanceMode();
   const [stepsRefreshKey, setStepsRefreshKey] = useState(0);
 
+  // Custom logo (discussion #1024). The menu itself lives in CardLogoMenu,
+  // shared with the Inventory grid's Logo column.
+  const [logoMenuAnchor, setLogoMenuAnchor] = useState<HTMLElement | null>(null);
+
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
@@ -106,9 +117,13 @@ export default function CardDetail() {
   const [observerRoleAvailable, setObserverRoleAvailable] = useState(false);
   const [observeSaving, setObserveSaving] = useState(false);
 
-  // Inline title editing
+  // Inline title editing. The alias rides along with the name: it IS a name —
+  // the internal one a company calls the thing by — so the two are edited
+  // together and saved in one PATCH, which is also one history entry and one
+  // approval break rather than two (#1108).
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [aliasDraft, setAliasDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
@@ -116,7 +131,9 @@ export default function CardDetail() {
   // their dirty state up through CardDetailContent; combine that with the
   // inline title edit for the page-level unsaved-changes flag.
   const [sectionsDirty, setSectionsDirty] = useState(false);
-  const titleDirty = editingName && nameDraft !== (card?.name ?? "");
+  const titleDirty =
+    editingName &&
+    (nameDraft !== (card?.name ?? "") || aliasDraft !== (card?.alias ?? ""));
   useUnsavedChangesGuard(
     sectionsDirty || titleDirty,
     t("cards:detail.unsavedLeaveConfirm"),
@@ -326,6 +343,7 @@ export default function CardDetail() {
     }
     performApprovalAction(action, undefined);
   };
+  const canEditLogo = !!typeConfig?.allow_card_logo && perms.can_edit && !isArchived;
 
   const performApprovalAction = async (action: ApprovalAction, comment?: string) => {
     try {
@@ -369,6 +387,7 @@ export default function CardDetail() {
   // ── Inline title editing ─────────────────────────────────────
   const beginEditName = () => {
     setNameDraft(card.name);
+    setAliasDraft(card.alias ?? "");
     setNameError(null);
     setEditingName(true);
   };
@@ -378,20 +397,38 @@ export default function CardDetail() {
     setNameError(null);
   };
 
+  /** Enter saves, Escape cancels — from either field of the title editor. */
+  const titleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveName();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEditName();
+    }
+  };
+
   const saveName = async () => {
     const trimmed = nameDraft.trim();
     if (!trimmed) {
       setNameError(t("validation:required"));
       return;
     }
-    if (trimmed === card.name) {
+    // An emptied box clears the column — the card and the grid are where
+    // clearing an alias is unambiguous, which is why the Excel importer
+    // deliberately treats an empty cell as "leave it alone" instead.
+    const alias = aliasDraft.trim() || null;
+    if (trimmed === card.name && alias === (card.alias ?? null)) {
       setEditingName(false);
       return;
     }
     setNameSaving(true);
     setNameError(null);
     try {
-      const updated = await api.patch<Card>(`/cards/${card.id}`, { name: trimmed });
+      const updated = await api.patch<Card>(`/cards/${card.id}`, {
+        name: trimmed,
+        alias,
+      });
       setCard(updated);
       setEditingName(false);
     } catch (err) {
@@ -494,68 +531,98 @@ export default function CardDetail() {
           <MaterialSymbol icon="arrow_back" size={24} />
         </IconButton>
         {typeConfig && (
-          <Box
-            sx={{
-              width: { xs: 32, sm: 40 },
-              height: { xs: 32, sm: 40 },
-              borderRadius: 2,
-              bgcolor: typeConfig.color + "18",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialSymbol
-              icon={typeConfig.icon}
-              size={isMobile ? 20 : 24}
-              color={typeConfig.color}
-            />
-          </Box>
+          <Tooltip title={canEditLogo ? t("cards:logo.edit") : ""}>
+            <Box
+              onClick={canEditLogo ? (e) => setLogoMenuAnchor(e.currentTarget) : undefined}
+              sx={{
+                position: "relative",
+                cursor: canEditLogo ? "pointer" : "default",
+                // The affordance is the hover, so the tile stays quiet until
+                // the pointer is on it.
+                "&:hover .card-logo-edit": { opacity: canEditLogo ? 1 : 0 },
+              }}
+            >
+              <CardLogoAvatar
+                cardId={card.id}
+                logoUpdatedAt={card.logo_updated_at}
+                typeIcon={typeConfig.icon}
+                typeColor={typeConfig.color}
+                size={isMobile ? 32 : 40}
+              />
+              {canEditLogo && (
+                <Box
+                  className="card-logo-edit"
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: 2,
+                    bgcolor: "rgba(0,0,0,0.45)",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: 0,
+                    transition: "opacity 120ms",
+                  }}
+                >
+                  <MaterialSymbol icon="photo_camera" size={isMobile ? 16 : 20} color="#fff" />
+                </Box>
+              )}
+            </Box>
+          </Tooltip>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {editingName ? (
-            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                <TextField
+                  autoFocus
+                  fullWidth
+                  size="small"
+                  label={t("common:labels.name")}
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onKeyDown={titleKeyDown}
+                  disabled={nameSaving}
+                  error={!!nameError}
+                  helperText={nameError ?? undefined}
+                  InputProps={{
+                    sx: {
+                      fontSize: isMobile ? "1.25rem" : "1.5rem",
+                      fontWeight: 700,
+                    },
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={saveName}
+                  disabled={nameSaving}
+                  aria-label={t("common:actions.save")}
+                >
+                  <MaterialSymbol icon="check" size={20} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={cancelEditName}
+                  disabled={nameSaving}
+                  aria-label={t("common:actions.cancel")}
+                >
+                  <MaterialSymbol icon="close" size={20} />
+                </IconButton>
+              </Box>
               <TextField
-                autoFocus
                 fullWidth
                 size="small"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    saveName();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    cancelEditName();
-                  }
-                }}
+                label={t("common:labels.alias")}
+                placeholder={t("cards:detail.aliasPlaceholder")}
+                value={aliasDraft}
+                onChange={(e) => setAliasDraft(e.target.value)}
+                onKeyDown={titleKeyDown}
                 disabled={nameSaving}
-                error={!!nameError}
-                helperText={nameError ?? undefined}
-                InputProps={{
-                  sx: {
-                    fontSize: isMobile ? "1.25rem" : "1.5rem",
-                    fontWeight: 700,
-                  },
-                }}
+                // The buttons above act on both fields, so the alias row keeps
+                // their width free rather than growing under them.
+                sx={{ pr: { sm: 9 } }}
               />
-              <IconButton
-                size="small"
-                onClick={saveName}
-                disabled={nameSaving}
-                aria-label={t("common:actions.save")}
-              >
-                <MaterialSymbol icon="check" size={20} />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={cancelEditName}
-                disabled={nameSaving}
-                aria-label={t("common:actions.cancel")}
-              >
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
             </Box>
           ) : (
             <Box
@@ -587,6 +654,21 @@ export default function CardDetail() {
                 </Tooltip>
               )}
             </Box>
+          )}
+          {/* The card's other name, under the one it is filed under. Rendered
+              only when set, so a card without an alias looks exactly as it
+              always did (#1108). */}
+          {!editingName && card.alias && (
+            <Tooltip title={t("common:labels.alias")}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                noWrap
+                data-testid="card-alias"
+              >
+                {card.alias}
+              </Typography>
+            </Tooltip>
           )}
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
             <Typography
@@ -901,6 +983,19 @@ export default function CardDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Custom logo: hidden file picker, menu and brand-icon dialog ── */}
+      <CardLogoMenu
+        cardId={card.id}
+        hasLogo={!!card.logo_updated_at}
+        anchorEl={logoMenuAnchor}
+        onClose={() => setLogoMenuAnchor(null)}
+        onChanged={(_id, logoUpdatedAt) =>
+          setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev))
+        }
+        onNotify={setSnack}
+        onError={setError}
+      />
 
       <Snackbar
         open={!!snack}

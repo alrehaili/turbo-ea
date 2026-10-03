@@ -10,11 +10,46 @@ Toppen af kortet viser:
 
 - **Type-ikon og etikette** — Farvekodet korttype-indikator
 - **Kortnavn** — Redigerbar inline
+- **Alias** — Kortets andet navn, vist under titlen når det er sat. Blyanten ved titlen ændrer navn og alias samtidig. Alias matches af alle søgefelter, så et kort kan findes med det navn, din organisation faktisk bruger.
 - **Undertype** — Sekundær klassifikation (hvis relevant)
 - **Godkendelsesstatus-badge** — Draft, Approved, Broken eller Rejected
 - **AI suggest-knap** — Klik for at generere en beskrivelse med AI (synlig når AI er aktiveret for denne korttype, og brugeren har redigeringstilladelse)
 - **Datakvalitets­ring** — Visuel indikator for informationsfuldstændighed (0–100%)
 - **Handlingsmenu** — Arkivér, slet og godkendelseshandlinger. Indeholder også en ét-klik **Observe this card**-skifter (når korttypen definerer en Observer-rolle), så enhver bruger med læseadgang kan følge kortet uden at skulle gå gennem Stakeholders-fanen.
+
+### Eget logo
+
+Kort af en type, der tillader det, kan have deres eget **logo** i stedet for
+det generiske typeikon — så et Application-kort for SAP, Kafka eller Jira viser
+produktets eget mærke. Genkendelige logoer gør en fortegnelse langt hurtigere
+at skimme, især for dem, der læser den frem for at vedligeholde den.
+
+Hold musen over ikonet øverst til venstre på kortet og klik for at **uploade**,
+**erstatte** eller **fjerne** billedet. Typeikonet forsvinder ikke: det flytter
+ned som et lille mærke i hjørnet af logoet, så man stadig kan se med det samme,
+hvilken slags kort man har foran sig.
+
+- **Tilladte formater** — PNG, JPEG, WebP eller GIF på op til 1 MB. SVG
+  accepteres ikke, da formatet kan indeholde scripts.
+- **Hvor det vises** — i kortets overskrift, i den valgfri **Logo**-kolonne i
+  [Inventory](inventory.md) og i enhver offentliggjort webportal bygget på den
+  korttype.
+- **Uden logo** — kortet falder tilbage til sit typeikon præcis som før.
+
+Logoer er tilgængelige for de korttyper, en administrator har slået dem til
+for; fra start er det Application og IT Component. Se
+[Metamodel](../admin/metamodel.md).
+
+Klik på logoet og vælg **Vælg et brandikon…** for at hente det fra et indbygget
+sæt på flere tusinde brandmærker — søg efter produktet på navn og vælg det; der
+skal ingen billedfil til. **Upload** bruger din egen fil i stedet. En
+AI-assistent forbundet via [MCP](../admin/mcp.md) kan sætte logoer på samme måde
+i stor skala, og er et produkt ikke i sættet, henter den selv mærket.
+
+Den samme menu findes i **Logo**-kolonnen i [Inventory](inventory.md) — hold
+musen over en logo-celle og klik — så et netop importeret landskab kan få
+mærker uden at åbne hvert enkelt kort. Det er ét kort ad gangen med vilje: et
+logo tilbydes hverken til udfyld-nedad eller Mass Edit.
 
 ### Godkendelses­arbejdsproces
 
@@ -27,7 +62,7 @@ Kort kan gå gennem en godkendelses­cyklus:
 | **Broken** | Var godkendt, men er blevet redigeret siden — kræver gen-gennemgang |
 | **Rejected** | Gennemgået og afvist, kræver rettelser |
 
-Når et godkendt kort redigeres, ændres dets status automatisk til **Broken** for at angive, at det kræver gen-gennemgang.
+Når et godkendt kort redigeres, ændres dets status automatisk til **Broken** for at angive, at det kræver gen-gennemgang. Arkivering af et korts overordnede kort har samme virkning på de godkendte underordnede kort, det flytter i hierarkiet. Alle med en interessentrolle på kortet får besked — bortset fra den, der foretog ændringen — og skiftet registreres på kortets fane **Historik**. Én handling, der bryder flere kort, for eksempel en masseredigering, sender hver person én samlet besked i stedet for én pr. kort.
 
 ## Detalje-fane (hoved)
 
@@ -36,7 +71,8 @@ Detalje-fanen er organiseret i **sektioner**, der kan omarrangeres og konfigurer
 ### Beskrivelses-sektion
 
 - **Description** — Rich text-beskrivelse af komponenten. Understøtter AI-forslagsfunktionen til automatisk generering
-- **Yderligere beskrivelsesfelter** — Nogle korttyper inkluderer ekstra felter i beskrivelses-sektionen (f.eks. alias, ekstern ID)
+- **Yderligere beskrivelsesfelter** — En administrator kan placere et vilkårligt af korttypens egne felter i beskrivelses-sektionen, så den kan bære flere felter end selve beskrivelsen
+- **Links** — En webadresse (`http://` eller `https://`) skrevet i beskrivelsen, i et vilkårligt tekstfelt, en kommentar eller en opgave bliver til et link, der åbner i en ny fane
 
 ### Livscyklus-sektion
 
@@ -51,6 +87,8 @@ Livscyklus-modellen sporer en komponent gennem fem faser:
 | **End of Life** | Ikke længere i brug eller understøttet |
 
 Hver fase har en **datovælger**, så du kan registrere, hvornår komponenten er trådt eller vil træde ind i den fase. En visuel tidslinje-bjælke viser komponentens position i sin livscyklus.
+
+Hvis en fase er dateret efter en fase, der burde komme efter den — for eksempel **Phase Out** efter **End of Life** — vises et advarselsikon ved siden af datoen, og den samme advarsel vises under feltet under redigering. Det er kun et hint: datoerne kan stadig gemmes, som de er indtastet.
 
 ### Brugerdefinerede egenskabs-sektioner
 
@@ -75,6 +113,7 @@ For korttyper der understøtter hierarki (f.eks. Organization, Business Capabili
 - **Parent** — Kortets forælder i hierarkiet (klik for at navigere)
 - **Children** — Liste over barnekort (klik på et for at navigere)
 - **Hierarki-brødkrumme** — Viser den fulde sti fra rod til aktuelt kort
+- **Forbindelsestype** — Når en administrator har konfigureret forbindelsestyper for denne korttype, kan hver forælder-barn-forbindelse få en etiket — for eksempel ét datterselskab, der er *kommercielt*, og et andet, der står for *salg*. Etiketten hører til barnekortet: forælderkortet viser den ud for hvert barn, og barnekortet ud for sin forælder. Fjernes et kort, eller flyttes det til øverste niveau, ryddes etiketten, og ændringen registreres under fanen **Historik**.
 
 ### Relations-sektion
 
@@ -82,7 +121,7 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 
 - **Relateret kortnavn** — Klik for at navigere til det relaterede kort
 - **Relations­type** — Forbindelsens karakter (f.eks. "uses", "runs on", "depends on")
-- **Tilføj relation** — Klik på **+** for at åbne dialogen for den relation. Den viser matchende kort, mens du skriver (de bedste match først, flere hentes, når du ruller), og skjuler dem, der allerede er tilknyttet, med en billedtekst der viser hvor mange. Et klik på et kort tilknytter det med det samme, og det vises som en chip øverst — klik på chippens **×** for at fortryde den tilføjelse. Dialogen forbliver åben, så du kan tilføje så mange du vil, og på telefon åbner den i fuld skærm. Relationer uden deres eget afsnit nås fra knappen **Tilføj relation** nederst i afsnittet
+- **Tilføj relation** — Klik på **+** for at åbne dialogen for den relation. Den viser matchende kort, mens du skriver (de bedste match først, flere hentes, når du ruller), og skjuler dem, der allerede er tilknyttet, med en billedtekst der viser hvor mange. Et klik på et kort tilknytter det med det samme, og det vises som en chip øverst — klik på chippens **×** for at fortryde den tilføjelse. Dialogen forbliver åben, så du kan tilføje så mange du vil, og på telefon åbner den i fuld skærm. Relationer uden deres eget afsnit nås fra knappen **Tilføj relation** nederst i afsnittet. Når den tilknyttede type er hierarkisk (forretningsevne, organisation og lignende), viser dialogen den som et indrykket træ i stedet for en alfabetisk liste, så du kan vælge en underevne ud fra dens gren. Søgningen bevarer et træfs overordnede kort som kontekst, og kort du ikke kan vælge (allerede tilknyttet, netop tilføjet eller kortet selv) bliver liggende nedtonet, så niveauerne omkring dem stadig kan læses.
 - **Sortering** — Relaterede kort vises alfabetisk efter navn
 - **Fjern relation** — Klik på slet-ikonet for at fjerne en relation
 - **Gruppér efter undertype** — Når en relationssektion har mange relaterede kort, grupperes de automatisk i sammenklappelige undertype-grupper (hver med et antal), med en afsluttende **Ingen undertype**-gruppe til uklassificerede kort. Brug gruppe/liste-knappen i sektionsoverskriften for at skifte mellem den grupperede og den flade visning.
@@ -92,6 +131,12 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 
 ![Kort forbundet via underelementer, grupperet efter undertype](../assets/img/da/60_card_subitem_relations.png)
 
+### Afhængighedssektion
+
+En [Layered Dependency View](reports.md) af kortet og alt, hvad der ligger ét hop væk, grupperet i de fire arkitekturlag. Shift-klik på et kort for at centrere visningen på ny og gennemgå landskabet uden at forlade siden.
+
+Ikonet **åbn i ny fane** i værktøjslinjen åbner den fulde [afhængighedsrapport](reports.md) i en ny fane, centreret om det kort, visningen er centreret om i det øjeblik — altså det kort, du har navigeret til, ikke nødvendigvis det, du startede fra. Brug det, når du har brug for det, rapporten tilføjer omkring det samme billede: tidsrejse, overgangsmarkeringerne, tabelvisningen og at gemme visningen som en rapport.
+
 ### Tags-sektion
 
 Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af gruppe-tilstanden kan du vælge ét tag (single select) eller flere tags (multi select).
@@ -100,8 +145,8 @@ Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af 
 
 **Resources**-fanen konsoliderer al understøttende materiale for et kort:
 
-- **Filvedhæftninger** — Upload og administrer filer (PDF, DOCX, XLSX, billeder, op til 10 MB). Når du uploader, skal du vælge en **dokumentkategori** fra: Architecture, Security, Compliance, Operations, Meeting Notes, Design eller Other. Kategorien vises som en chip ved siden af hver fil.
-- **Dokumentlinks** — URL-baserede dokumentreferencer. Når du tilføjer et link, skal du vælge en **linktype** fra: Documentation, Security, Compliance, Architecture, Operations, Support eller Other. Linktypen vises som en chip ved siden af hvert link, og ikonet skifter baseret på den valgte type.
+- **Filvedhæftninger** — Upload og administrer filer (dokumenter, regneark, præsentationer, OpenDocument- og ældre Office-filer, billeder, arkiver, Outlook- og e-mailbeskeder, CSV, Markdown, JSON og XML — op til 20 MB). Når du uploader, skal du vælge en **dokumentkategori** fra: Architecture, Security, Compliance, Operations, Meeting Notes, Design eller Other. Kategorien vises som en chip ved siden af hver fil. Brug erstat-ikonet ved siden af en fil til at uploade en ny version i dens sted — posten dateres og tilskrives derefter som en ny upload, og den tidligere version findes kun under kortets fane Historik — og blyantikonet til at omdøbe den eller ændre dens kategori; filtypen skal forblive den samme.
+- **Dokumentlinks** — URL-baserede dokumentreferencer. Når du tilføjer et link, skal du vælge en **linktype** fra: Documentation, Security, Compliance, Architecture, Operations, Support eller Other. Linktypen vises som en chip ved siden af hvert link, og ikonet skifter baseret på den valgte type. Brug blyantikonet ved siden af et link til at ændre dets navn, URL eller linktype; URL'en skal begynde med `http://`, `https://` eller `mailto:`, og hver ændring registreres under kortets fane Historik.
 - **Diagrams** — Link eksisterende [diagrammer](diagrams.md) til dette kort. Linkede diagrammer vises som miniature-forhåndsvisninger, som du kan klikke på for at åbne i diagramredaktøren. Brug knappen **Link Diagram** til at søge efter og vedhæfte et eksisterende diagram, eller klik på afkoblingsikonet for at fjerne tilknytningen.
 
 ### EOL-sektion
@@ -119,6 +164,7 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 - **Tilføj kommentarer** — Efterlad noter, spørgsmål eller beslutninger om komponenten
 - **Trådede svar** — Svar på specifikke kommentarer for at oprette samtaletråde
 - **Tidsstempler** — Se hvornår hver kommentar blev sendt og af hvem
+- **Links** — En webadresse i en kommentar kan klikkes på og åbner i en ny fane
 
 ## Todos-fane
 
@@ -142,6 +188,8 @@ Interessenter er personer med en specifik **rolle** på dette kort. De tilgænge
 
 Interessenttildelinger påvirker **tilladelser**: en brugers effektive tilladelser på et kort er kombinationen af deres app-niveau-rolle og enhver interessentrolle, de har på det kort.
 
+Når en rolle har en **farve** angivet i metamodellen, markeres dens gruppe med den, så du med et enkelt blik kan skelne en ejer fra en observatør.
+
 ### Søgning og invitation
 
 Vælg en interessent via den **søgbare autocomplete** — begynd at skrive, og dropdownen filtrerer på både navn og e-mail (e-mail vises som den sekundære linje, så to brugere med samme navn kan skelnes med et øjekast).
@@ -155,6 +203,8 @@ Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `
 ![Kortets ændringshistorik](../assets/img/da/08_card_history.png)
 
 Viser det **komplette audit-spor** over ændringer foretaget på kortet: **hvem** der foretog ændringen, **hvornår** den blev foretaget, og **hvad** der blev ændret (tidligere værdi vs. ny værdi). Dette giver fuld sporbarhed over alle ændringer over tid.
+
+Alt, der flytter kortets **Ændret**-dato, vises her — en manuel redigering, et regnearksimport, en platformsmigrering eller ServiceNow-synkronisering, en tag-ændring, en masseredigering eller en hierarkiflytning, der trak dette kort med. Systemvedligeholdelse ændrer ingen af delene: genberegning af datakvalitetsscorer, genkørsel af beregnede felter og udfyldning af hierarkiniveauer eller kort-id'er lader både historikken og **Ændret**-datoen være i fred.
 
 ## ADRs-fane
 

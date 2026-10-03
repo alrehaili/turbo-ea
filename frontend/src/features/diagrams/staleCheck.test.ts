@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { api } from "@/api/client";
 import { diffStaleItems, fetchInventoryState } from "./staleCheck";
 import type { InventoryState } from "./staleCheck";
+import { composeCardLabel, scanDiagramItems } from "./drawio-shapes";
 import type { ScannedSyncedEdge, ScannedSyncedFS } from "./drawio-shapes";
 import type { Card, Relation } from "@/types";
 
@@ -115,6 +116,20 @@ describe("diffStaleItems", () => {
         typeColor: "#0f7eb5",
       },
     ]);
+  });
+
+  it("never flags a card hidden from the user by a type deny, nor its edges", () => {
+    // The card exists but the server withheld it: not deleted, and the
+    // relation touching it was left out for the same reason.
+    const items = diffStaleItems(
+      [cell("c1", "id1", "Visible"), cell("c2", "hidden", "Secret")],
+      [edge("e1", "r1", "id1", "hidden")],
+      { ...inv([card("id1", "Visible")]), withheldCardIds: new Set(["hidden"]) },
+      color,
+      relLabel,
+      flowOf,
+    );
+    expect(items).toEqual([]);
   });
 
   it("flags a hard-deleted card (absent from the batch response)", () => {
@@ -247,6 +262,27 @@ describe("diffStaleItems", () => {
     ]);
   });
 
+  it("reads a relation stored against its type on the type's axis (#1140)", () => {
+    // Edge drawn id1 → id2 over a relation stored the same way round, but that
+    // row runs against its type (the Interface is its source), so its flow is
+    // read on the type's axis: the edge is drawn against the relation.
+    const items = diffStaleItems(
+      [],
+      [edge("e1", "r1", "id1", "id2")],
+      inv(
+        [card("id1", "A"), card("id2", "B")],
+        [rel("r1", "id1", "id2", { flowDirection: "forward" })],
+      ),
+      color,
+      relLabel,
+      flowOf,
+      (relation) => relation.id === "r1",
+    );
+    expect(items).toEqual([
+      expect.objectContaining({ kind: "relationFlowChanged", newFlow: "forward", incoming: true }),
+    ]);
+  });
+
   it("flags a flow the inventory gained after the edge was drawn", () => {
     const items = diffStaleItems(
       [],
@@ -360,5 +396,69 @@ describe("fetchInventoryState", () => {
     for (const call of mockGet.mock.calls) {
       expect(call[1]).toEqual({ signal: ctrl.signal });
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Detail lines must not look like a rename                           */
+/* ------------------------------------------------------------------ */
+
+/** Minimal scan frame — enough for scanDiagramItems to walk one card cell. */
+function labelledCanvas(attrs: Record<string, string>) {
+  const bag = { ...attrs };
+  const cells = {
+    c1: {
+      id: "c1",
+      value: {
+        getAttribute: (k: string) => (k in bag ? bag[k] : null),
+        setAttribute: (k: string, v: string) => {
+          bag[k] = v;
+        },
+        removeAttribute: (k: string) => {
+          delete bag[k];
+        },
+      },
+    },
+  };
+  const model = { cells, getTerminal: () => null };
+  const graph = { getModel: () => model };
+  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+}
+
+describe("diffStaleItems — composed card labels", () => {
+  it("does not report a rename just because the shape shows detail lines", () => {
+    const frame = labelledCanvas({
+      cardId: "a1",
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      label: composeCardLabel("NexaCore ERP", [{ label: "Type", value: "Application" }]),
+    });
+    const scanned = scanDiagramItems(frame).syncedFS;
+    const inventory: InventoryState = {
+      cardById: new Map([["a1", card("a1", "NexaCore ERP")]]),
+      relationById: new Map(),
+    };
+    expect(diffStaleItems(scanned, [], inventory, color, relLabel, flowOf)).toEqual([]);
+  });
+
+  it("still reports a genuine rename, showing the plain diagram name", () => {
+    const frame = labelledCanvas({
+      cardId: "a1",
+      cardType: "Application",
+      cardName: "Old Name",
+      label: composeCardLabel("Old Name", [{ label: "Type", value: "Application" }]),
+    });
+    const scanned = scanDiagramItems(frame).syncedFS;
+    const inventory: InventoryState = {
+      cardById: new Map([["a1", card("a1", "New Name")]]),
+      relationById: new Map(),
+    };
+    const items = diffStaleItems(scanned, [], inventory, color, relLabel, flowOf);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "renamed",
+      diagramName: "Old Name",
+      inventoryName: "New Name",
+    });
   });
 });

@@ -9,10 +9,11 @@ import InventoryPage, {
   buildInventoryFacetBindings,
   normalizeAttrValue,
 } from "./InventoryPage";
+import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
 import type { RelatedCardRef } from "@/types";
 import MultiSelectCellEditor from "./MultiSelectCellEditor";
-import { EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
+import { CORE_COLUMN_KEYS, EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
 
 /** Baseline sidebar filter state for the facet-binding tests. */
 const EMPTY_FILTERS: Filters = {
@@ -23,6 +24,8 @@ const EMPTY_FILTERS: Filters = {
   dataQualityBands: [],
   orphanedOnly: false,
   staleOnly: false,
+  eolStatuses: [],
+  linkTypes: [],
   approvalStatuses: [],
   showArchived: false,
   attributes: {},
@@ -47,98 +50,12 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 
-// AG Grid is complex in jsdom — stub it to avoid layout engine issues.
-// The `select-all-rows` escape hatch lets tests drive row selection the way a
-// user would, since the mass-edit toolbar only appears once rows are selected.
-vi.mock("ag-grid-react", () => {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  /**
-   * The slice of AG Grid's api the page actually calls, faithful enough to
-   * drive "Export current view" — which reads its values back *out of the
-   * grid*, not from `rowData`. `getCellValue` reproduces ValueService: run the
-   * valueGetter, then the valueFormatter, then fall back to the raw value.
-   * That fallback is the whole of issue #887, so the double has to keep it.
-   *
-   * Anything not modelled here answers with a no-op, so a code path that
-   * happens to reach for another api method can't fail the test that isn't
-   * about it.
-   */
-  function makeGridApi(columnDefs: any[], rowData: any[]) {
-    const cols = (columnDefs ?? []).map((def) => ({
-      def,
-      getColId: () => def.colId ?? def.field,
-      // The cell context menu reads the colDef to pick a filter kind.
-      getColDef: () => def,
-    }));
-    const stubs: Record<string, any> = {
-      getDisplayedRowCount: () => (rowData ?? []).length,
-      getAllDisplayedColumns: () => cols.filter((c) => !c.def.hide),
-      getDisplayNameForColumn: (c: any) => c.def.headerName,
-      forEachNodeAfterFilterAndSort: (fn: any) =>
-        (rowData ?? []).forEach((data) => fn({ data })),
-      getCellValue: ({ rowNode, colKey, useFormatter }: any) => {
-        // Real AG Grid takes either a Column or a colId string; the export
-        // path passes the column, the cell context menu passes the id.
-        const def =
-          typeof colKey === "string"
-            ? cols.find((c) => c.getColId() === colKey)?.def
-            : colKey.def;
-        if (!def) return undefined;
-        const value = def.valueGetter
-          ? def.valueGetter({ data: rowNode.data })
-          : rowNode.data?.[def.field];
-        if (!useFormatter) return value;
-        const formatted = def.valueFormatter?.({ value, data: rowNode.data });
-        return formatted ?? (Array.isArray(value) ? value.join(", ") : value);
-      },
-      getSelectedRows: () => rowData ?? [],
-      getFilterModel: () => ({}),
-    };
-    return new Proxy(stubs, {
-      get: (target, prop: string) => target[prop] ?? (() => undefined),
-    });
-  }
-
-  return {
-    AgGridReact: vi.fn(
-      ({
-        rowData,
-        columnDefs,
-        onSelectionChanged,
-        loading,
-        ref,
-      }: {
-        rowData: unknown[];
-        columnDefs?: unknown[];
-        onSelectionChanged?: (event: {
-          api: { getSelectedRows: () => unknown[] };
-        }) => void;
-        loading?: boolean;
-        ref?: { current: unknown };
-      }) => {
-        // React 19 hands `ref` to a function component as an ordinary prop.
-        if (ref && typeof ref === "object") {
-          ref.current = { api: makeGridApi(columnDefs as any[], rowData) };
-        }
-        return (
-          <div
-            data-testid="ag-grid"
-            data-row-count={rowData?.length ?? 0}
-            data-loading={String(Boolean(loading))}
-          >
-            <button
-              data-testid="select-all-rows"
-              onClick={() =>
-                onSelectionChanged?.({ api: { getSelectedRows: () => rowData ?? [] } })
-              }
-            />
-          </div>
-        );
-      },
-    ),
-  };
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-});
+// AG Grid is complex in jsdom — stub it to avoid layout engine issues. The
+// shared stub keeps the `select-all-rows` escape hatch (the mass-edit toolbar
+// only appears once rows are selected) and a grid api faithful enough to drive
+// "Export current view", which reads its values back *out of the grid* through
+// `getCellValue` (#887). See `@/test/agGridStub`.
+vi.mock("ag-grid-react", () => import("@/test/agGridStub").then((m) => m.agGridReactModule()));
 
 // Stub sub-components not under test
 // Stubbed, but with escape hatches so tests can drive filter changes the way a
@@ -178,6 +95,14 @@ vi.mock("./InventoryFilterSidebar", async () => {
         <button
           data-testid="select-objective"
           onClick={() => onFiltersChange({ ...filters, types: ["Objective"] })}
+        />
+        <button
+          data-testid="apply-eol-status"
+          onClick={() => onFiltersChange({ ...filters, eolStatuses: ["eol"] })}
+        />
+        <button
+          data-testid="apply-eol-empty"
+          onClick={() => onFiltersChange({ ...filters, eolStatuses: ["__empty__"] })}
         />
       </div>
     ),
@@ -222,6 +147,7 @@ interface ColDefLike {
   /** Attribute and relation columns are declared with `field`, not `colId`. */
   field?: string;
   headerName?: string;
+  hide?: boolean;
   editable?: boolean;
   cellEditor?: unknown;
   cellEditorPopup?: boolean;
@@ -805,6 +731,16 @@ describe("InventoryPage mass edit parent", () => {
     expect(await screen.findByText(/1 updated, 1 blocked/i)).toBeInTheDocument();
     expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
   });
+
+  it("never offers the Logo as a mass-editable field", async () => {
+    // Applying one mark to every selected card is never what someone means,
+    // and there is no undo for it. Logos are set one card at a time from the
+    // grid's Logo cell, or in bulk over MCP where a dry run previews first.
+    await openMassEdit("select-application");
+
+    const listbox = await openFieldMenu();
+    expect(within(listbox).queryByRole("option", { name: /logo/i })).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -871,9 +807,13 @@ describe("InventoryPage parent column", () => {
     // which never consults cellRenderer — so the workbook showed the parent's
     // UUID for a child card and nothing at all for a root one.
     renderInventory();
-    await waitFor(() => expect(parentCol()).toBeDefined());
-
-    expect(parentCol()!.valueFormatter!({ value: "p1" })).toBe("Finance Suite");
+    // Same race as the renderer test above, and the same fix: `valueFormatter`
+    // and `cellRenderer` are the one `parentNameOf`, resolving against the
+    // LOADED rows. Waiting only for the column def asserts before the fetch
+    // lands, which is what flaked on a slow CI runner.
+    await waitFor(() =>
+      expect(parentCol()?.valueFormatter?.({ value: "p1" })).toBe("Finance Suite"),
+    );
     expect(parentCol()!.valueFormatter!({ value: null })).toBe("");
     // An id that resolves to nothing must not leak into the sheet either.
     expect(parentCol()!.valueFormatter!({ value: "gone" })).toBe("");
@@ -1058,6 +998,17 @@ describe("InventoryPage exported cell values", () => {
     // than to an empty cell — the key is still more use than nothing.
     expect(fmt({ value: "Retired" })).toBe("Retired");
     expect(fmt({ value: undefined })).toBe("");
+  });
+
+  it("offers the Alias column, hidden until it is switched on", async () => {
+    // Opt-in (#1108): most landscapes carry no aliases, so a column of empty
+    // cells for everybody is a worse default than one people switch on.
+    await renderTyped();
+    const alias = col("core_alias")!;
+    expect(alias).toBeDefined();
+    expect(alias.field).toBe("alias");
+    expect(alias.hide).toBe(true);
+    expect(CORE_COLUMN_KEYS).not.toContain("core_alias");
   });
 
   it("exports the subtype's label, not its key", async () => {
@@ -2048,5 +1999,243 @@ describe("InventoryPage multi-select attribute cells", () => {
     expect(col("attr_regions")!.valueFormatter!({ value: ["emea", "apac", "amer", "latam"] })).toBe(
       "EMEA, APAC, Americas, LATAM",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// End of life (#1065)
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage — end of life", () => {
+  const ITC_CARDS = {
+    items: [
+      {
+        id: "itc1",
+        name: "Nginx LB",
+        type: "ITComponent",
+        status: "ACTIVE",
+        approval_status: "APPROVED",
+        data_quality: 70,
+        lifecycle: {},
+        attributes: { eol_product: "nginx", eol_cycle: "1.25" },
+      },
+      {
+        id: "itc2",
+        name: "Unknown Box",
+        type: "ITComponent",
+        status: "ACTIVE",
+        approval_status: "DRAFT",
+        data_quality: 20,
+        lifecycle: {},
+        attributes: {},
+      },
+    ],
+    total: 2,
+    page: 1,
+    page_size: 500,
+  };
+
+  const EOL_STATUSES = {
+    items: {
+      itc1: {
+        status: "eol",
+        source: "api",
+        eol_product: "nginx",
+        eol_cycle: "1.25",
+        eol_date: "2020-01-01",
+        support_date: "2019-06-01",
+        latest: "1.25.3",
+      },
+    },
+  };
+
+  function mockItcApi() {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/eol/card-status")) return Promise.resolve(EOL_STATUSES);
+      if (path.startsWith("/cards")) return Promise.resolve(ITC_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  }
+
+  const eolPaths = () =>
+    vi.mocked(api.get).mock.calls
+      .map((c) => c[0] as string)
+      .filter((p) => p.startsWith("/eol/card-status"));
+
+  it("resolves statuses and builds the column for an EOL-capable type", async () => {
+    mockItcApi();
+    renderInventory();
+    await screen.findByTestId("ag-grid");
+
+    await userEvent.click(screen.getByTestId("select-itcomponent"));
+
+    await waitFor(() => expect(eolPaths()).toContain("/eol/card-status?type=ITComponent"));
+    await waitFor(() => expect(col("core_eol")).toBeDefined());
+    // The cell VALUE is the date, so sorting and the Excel export work on a
+    // date rather than on a status word.
+    expect(col("core_eol")?.valueGetter?.({ data: ITC_CARDS.items[0] as never })).toBe(
+      "2020-01-01",
+    );
+    expect(col("core_eol")?.valueGetter?.({ data: ITC_CARDS.items[1] as never })).toBe("");
+  });
+
+  it("neither fetches nor offers the column for a type with no end of life", async () => {
+    mockItcApi();
+    renderInventory();
+    await screen.findByTestId("ag-grid");
+
+    await userEvent.click(screen.getByTestId("select-objective"));
+
+    await waitFor(() => expect(col("core_eol")).toBeUndefined());
+    expect(eolPaths()).toHaveLength(0);
+  });
+
+  it("filters by resolved status, and by (empty) for cards with nothing recorded", async () => {
+    mockItcApi();
+    renderInventory();
+    await screen.findByTestId("ag-grid");
+    await userEvent.click(screen.getByTestId("select-itcomponent"));
+    await waitFor(() => expect(eolPaths()).toContain("/eol/card-status?type=ITComponent"));
+
+    const rowCount = () => screen.getByTestId("ag-grid").getAttribute("data-row-count");
+
+    await userEvent.click(screen.getByTestId("apply-eol-status"));
+    await waitFor(() => expect(rowCount()).toBe("1"));
+
+    // Absent from the resolved map IS "nothing recorded" — which is why the
+    // endpoint omits those cards rather than returning a null status.
+    await userEvent.click(screen.getByTestId("apply-eol-empty"));
+    await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+});
+
+/**
+ * The Link type facet (#1100). The column was modelled on End of life, which
+ * ships a column *and* a sidebar facet; this one shipped with only the column,
+ * so the two single-type value facets behaved differently.
+ */
+describe("InventoryPage link type facet", () => {
+  const ORG = {
+    key: "Organization",
+    label: "Organization",
+    icon: "corporate_fare",
+    color: "#2889ff",
+    category: "Business Architecture",
+    has_hierarchy: true,
+    subtypes: [],
+    fields_schema: [],
+    is_hidden: false,
+    hierarchy_labels: [
+      { key: "commercial", label: "Commercial", color: "#2889ff" },
+      { key: "sales", label: "Sales", color: "#33cc58" },
+    ],
+  };
+
+  const ORG_CARDS = {
+    items: [
+      { id: "o1", name: "Alpha", type: "Organization", status: "ACTIVE", approval_status: "APPROVED", data_quality: 50, lifecycle: {}, attributes: {}, parent_label: "commercial" },
+      { id: "o2", name: "Beta", type: "Organization", status: "ACTIVE", approval_status: "APPROVED", data_quality: 50, lifecycle: {}, attributes: {}, parent_label: "sales" },
+      { id: "o3", name: "Gamma", type: "Organization", status: "ACTIVE", approval_status: "APPROVED", data_quality: 50, lifecycle: {}, attributes: {}, parent_label: null },
+    ],
+    total: 3,
+    page: 1,
+    page_size: 500,
+  };
+
+  beforeEach(() => {
+    const types = [...MOCK_TYPES, ORG];
+    vi.mocked(useMetamodel).mockReturnValue({
+      types,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => types.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(ORG_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  const rowCount = () => screen.getByTestId("ag-grid").getAttribute("data-row-count");
+
+  // Whether the facet is *shown* is `hierarchyLabelColumnApplies`, covered
+  // directly in `filterEmpty.test.ts` — the sidebar is stubbed in this file.
+
+  it("filters rows down to the chosen link type", async () => {
+    renderInventory("/inventory?type=Organization&link=commercial");
+    await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+
+  it("treats (empty) as the cards with no link type recorded", async () => {
+    renderInventory(`/inventory?type=Organization&link=${encodeURIComponent(EMPTY_VALUE)}`);
+    await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+
+  it("ORs several link types together", async () => {
+    renderInventory("/inventory?type=Organization&link=commercial&link=sales");
+    await waitFor(() => expect(rowCount()).toBe("2"));
+  });
+});
+
+describe("InventoryPage — calculated columns", () => {
+  const CALC_TYPES = [
+    {
+      key: "Application",
+      label: "Application",
+      icon: "apps",
+      color: "#0f7eb5",
+      category: "Application & Data",
+      has_hierarchy: false,
+      subtypes: [],
+      fields_schema: [
+        {
+          section: "Delivery",
+          fields: [
+            { key: "progress", label: "Progress", type: "percentage" },
+            { key: "notes", label: "Notes", type: "text" },
+          ],
+        },
+      ],
+      is_hidden: false,
+    },
+  ];
+
+  beforeEach(() => {
+    // An earlier test leaves a never-settling request in the hook's inflight
+    // slot (its "loading" double); a real page never sees that, so reset it.
+    invalidateCalculatedFields();
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: CALC_TYPES,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => CALC_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/calculations/calculated-fields"))
+        return Promise.resolve({ Application: ["progress"] });
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  it("never lets grid edit mode open an editor on a calculated field", async () => {
+    // The same lock card detail applies: a value typed here would be
+    // overwritten by the calculation on save.
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_progress")).toBeDefined());
+    await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
+    await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
+    await waitFor(() => expect(col("attr_progress")!.editable).toBe(false));
   });
 });

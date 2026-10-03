@@ -13,18 +13,28 @@ from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.common import TodoCreate, TodoUpdate
 from app.services import todo_service
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.permission_service import PermissionService
 from app.services.todo_service import TodoActor, TodoError
 
 router = APIRouter(tags=["todos"])
 
 
-def _todo_to_dict(t: Todo) -> dict:
+def _todo_to_dict(t: Todo, read_scope: CardReadScope | None = None) -> dict:
+    """A todo as the caller sees it.
+
+    A todo on a card hidden from the caller keeps everything that is the
+    caller's own (description, status, due date) but loses the card reference.
+    """
+    card = t.card
+    if card is not None and read_scope is not None:
+        if not read_scope.readable(card.id, card.type, mode="module"):
+            card = None
     return {
         "id": str(t.id),
-        "card_id": str(t.card_id) if t.card_id else None,
-        "card_name": t.card.name if t.card else None,
-        "card_type": t.card.type if t.card else None,
+        "card_id": str(card.id) if card else None,
+        "card_name": card.name if card else None,
+        "card_type": card.type if card else None,
         "description": t.description,
         "status": t.status,
         "link": t.link,
@@ -32,6 +42,10 @@ def _todo_to_dict(t: Todo) -> dict:
         "assigned_to": str(t.assigned_to) if t.assigned_to else None,
         "assignee_name": t.assignee.display_name if t.assignee else None,
         "created_by": str(t.created_by) if t.created_by else None,
+        "creator_name": t.creator.display_name if t.creator else None,
+        # Computed provenance (ppm/risk/adr/soaw/bpm/extension/manual) —
+        # drives the origin filter chips on the My Tasks page.
+        "origin": todo_service.derive_origin(t),
         "due_date": str(t.due_date) if t.due_date else None,
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "series_id": str(t.series_id) if t.series_id else None,
@@ -78,9 +92,10 @@ async def list_all_todos(
         # Default: todos assigned to OR created by the caller.
         q = q.where((Todo.assigned_to == user.id) | (Todo.created_by == user.id))
 
-    q = q.options(selectinload(Todo.card), selectinload(Todo.assignee))
+    q = q.options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
     result = await db.execute(q)
-    return [_todo_to_dict(t) for t in result.scalars().all()]
+    read_scope = await CardReadScope.load(db, user)
+    return [_todo_to_dict(t, read_scope) for t in result.scalars().all()]
 
 
 @router.get("/cards/{card_id}/todos")
@@ -90,10 +105,11 @@ async def list_card_todos(
     user: User = Depends(get_current_user),
 ):
     card_uuid = uuid.UUID(card_id)
+    await require_card_readable(db, user, card_uuid, mode="module")
     q = (
         select(Todo)
         .where(Todo.card_id == card_uuid)
-        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+        .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
         .order_by(Todo.created_at.desc())
     )
     result = await db.execute(q)
@@ -127,7 +143,13 @@ async def _create_todo(
     result = await db.execute(
         select(Todo)
         .where(Todo.id == todo.id)
-        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+        .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
+        # The route's first, option-less SELECT left this instance in the
+        # identity map with its noload relationships initialised to None;
+        # expire_on_commit=False means commit() does not expire it, so a
+        # plain re-select would keep those Nones. Force a refresh so the
+        # response carries the card/assignee/creator names.
+        .execution_options(populate_existing=True)
     )
     return _todo_to_dict(result.scalar_one())
 
@@ -180,7 +202,13 @@ async def update_todo(
     result = await db.execute(
         select(Todo)
         .where(Todo.id == todo.id)
-        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+        .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
+        # The route's first, option-less SELECT left this instance in the
+        # identity map with its noload relationships initialised to None;
+        # expire_on_commit=False means commit() does not expire it, so a
+        # plain re-select would keep those Nones. Force a refresh so the
+        # response carries the card/assignee/creator names.
+        .execution_options(populate_existing=True)
     )
     todo = result.scalar_one()
     return _todo_to_dict(todo)
@@ -215,7 +243,13 @@ async def promote_todo(
     result = await db.execute(
         select(Todo)
         .where(Todo.id == todo.id)
-        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+        .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
+        # The route's first, option-less SELECT left this instance in the
+        # identity map with its noload relationships initialised to None;
+        # expire_on_commit=False means commit() does not expire it, so a
+        # plain re-select would keep those Nones. Force a refresh so the
+        # response carries the card/assignee/creator names.
+        .execution_options(populate_existing=True)
     )
     todo = result.scalar_one()
     return _todo_to_dict(todo)

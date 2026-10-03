@@ -391,6 +391,7 @@
   "adr.filter.none": "لا يوجد متاح",
   "adr.confirm.delete": "حذف قرار البنية هذا؟",
   "adr.export.title": "سجلات قرارات البنية",
+  "adr.export.documentTitle": "سجل قرار معماري",
   "adr.export.subtitle_one": "قرار {{count}}",
   "adr.export.subtitle_other": "{{count}} قرار",
   "adr.export.generatedOn": "تم الإنشاء بتاريخ {{date}}",

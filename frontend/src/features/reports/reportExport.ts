@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { toPng } from "html-to-image";
 import PptxGenJS from "pptxgenjs";
 import i18n from "@/i18n";
+import { toIsoDate } from "@/lib/dates";
 
 export type ExportColumnType = "text" | "number" | "currency" | "date";
 
@@ -68,8 +69,7 @@ export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
       cells.forEach((td, i) => {
         const text = (td.textContent || "").replace(/\s+/g, " ").trim();
         if (columns[i]?.type === "number") {
-          const num = Number(text.replace(/[^0-9.-]/g, ""));
-          row[`c${i}`] = Number.isFinite(num) && text !== "" ? num : text;
+          row[`c${i}`] = parseDisplayedNumber(text) ?? text;
         } else {
           row[`c${i}`] = text;
         }
@@ -97,6 +97,47 @@ export function extractSheetsFromDOM(node: HTMLElement | null): ExportSheet[] {
   return sheets;
 }
 
+export interface NumberSeparators {
+  group: string;
+  decimal: string;
+}
+
+/** The separators the runtime locale writes numbers with — what the DOM shows. */
+export function localeNumberSeparators(locale?: string): NumberSeparators {
+  const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+  return {
+    group: parts.find((p) => p.type === "group")?.value ?? ",",
+    decimal: parts.find((p) => p.type === "decimal")?.value ?? ".",
+  };
+}
+
+const RUNTIME_SEPARATORS = localeNumberSeparators();
+
+/**
+ * Read a number back off a rendered cell: `1,234.50` here, `1.234,50` under a
+ * German locale, `12 %`, `€ 99`, and an accounting `(500)`. `null` when the
+ * text carries no digits (`n/a`, `—`) or is not one number (`2024-01-05`), so
+ * the caller keeps the text instead of exporting a zero.
+ */
+export function parseDisplayedNumber(
+  text: string,
+  separators: NumberSeparators = RUNTIME_SEPARATORS,
+): number | null {
+  let s = text.trim();
+  const accounting = /^\(.*\)$/.test(s);
+  if (accounting) s = s.slice(1, -1);
+  // A locale grouping on a (narrow no-break) space reaches the DOM as a plain
+  // space after whitespace collapsing, so any space is a group separator then.
+  if (/\s/.test(separators.group)) s = s.replace(/\s+/g, "");
+  else if (separators.group) s = s.split(separators.group).join("");
+  if (separators.decimal !== ".") s = s.split(separators.decimal).join(".");
+  const cleaned = s.replace(/[^0-9.-]/g, "");
+  if (!/\d/.test(cleaned)) return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  return accounting ? -Math.abs(n) : n;
+}
+
 const sanitizeFilename = (s: string): string =>
   s.replace(/[\\/:*?"<>|]/g, "_").replace(/\s+/g, "_").slice(0, 60) || "report";
 
@@ -110,7 +151,7 @@ const formatCellValue = (value: unknown, type?: ExportColumnType): unknown => {
     return Number.isFinite(n) ? n : value;
   }
   if (type === "date") {
-    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    if (value instanceof Date) return toIsoDate(value);
     return String(value);
   }
   if (Array.isArray(value)) return value.join(", ");
@@ -187,10 +228,14 @@ export async function exportReportToXlsx(data: ReportExportData): Promise<void> 
       return { wch: Math.min(maxLen + 2, 60) };
     });
 
-    let name = sanitizeSheetName(sheet.name);
+    const base = sanitizeSheetName(sheet.name);
+    let name = base;
     let suffix = 1;
     while (usedNames.has(name)) {
-      name = sanitizeSheetName(`${sheet.name} ${++suffix}`);
+      // Make room for the suffix inside Excel's 31 characters: a 31-character
+      // base re-sliced to the same 31 characters never became unique.
+      const tag = ` ${++suffix}`;
+      name = sanitizeSheetName(`${base.slice(0, 31 - tag.length)}${tag}`);
     }
     usedNames.add(name);
     XLSX.utils.book_append_sheet(wb, ws, name);
@@ -302,6 +347,15 @@ async function captureChartImage(
       backgroundColor: "#ffffff",
       width: captureWidth,
       height: captureHeight,
+      // Neutralise any positioning on the capture root. html-to-image copies
+      // the node's computed cssText onto the clone it renders inside a
+      // foreignObject, so a root parked off-screen (position:absolute with a
+      // large negative left — the usual way to mount an export-only chart
+      // without display:none) lays out entirely outside the canvas and the
+      // PNG comes back blank. options.style is applied last, so this pins the
+      // clone at the canvas origin; core's own chart nodes are static and
+      // unaffected.
+      style: { position: "static", left: "0", top: "0", margin: "0" },
       // Skip Material Symbols icon spans — they rely on a font ligature
       // that html-to-image can't reliably embed, so they otherwise leak
       // through as raw glyph names ("payments", "trending_up", etc.).
@@ -546,15 +600,20 @@ export async function exportReportToPptx(data: ReportExportData): Promise<void> 
       // always render the chart on a single slide and scale it to fit —
       // visualizations like treemaps, heatmaps and network graphs lose
       // meaning when split horizontally, so don't risk it.
-      const pages = data.paginateRowSelector
+      const paginated = data.paginateRowSelector
         ? await paginateChartImage(captured, chartWidth, chartHeight)
-        : [
-            {
-              dataUrl: captured.dataUrl,
-              sourceWidth: captured.width,
-              sourceHeight: captured.height,
-            },
-          ];
+        : [];
+      // No pages back (no canvas to slice with) means one slide, not no export.
+      const pages =
+        paginated.length > 0
+          ? paginated
+          : [
+              {
+                dataUrl: captured.dataUrl,
+                sourceWidth: captured.width,
+                sourceHeight: captured.height,
+              },
+            ];
       const firstPage = pages[0];
       const firstFit = fitImageInBox(
         firstPage.sourceWidth,

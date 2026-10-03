@@ -31,23 +31,83 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
       mcp: ${{ steps.filter.outputs.mcp == 'true' || steps.filter.outputs.ci == 'true' }}
       docs: ${{ steps.filter.outputs.docs == 'true' || steps.filter.outputs.ci == 'true' }}
+      devcontainer: ${{ steps.filter.outputs.devcontainer == 'true' || steps.filter.outputs.ci == 'true' }}
+      helm: ${{ steps.filter.outputs.helm == 'true' || steps.filter.outputs.ci == 'true' }}
+      deploy: ${{ steps.filter.outputs.deploy == 'true' || steps.filter.outputs.ci == 'true' }}
+      terraform: ${{ steps.filter.outputs.terraform == 'true' || steps.filter.outputs.ci == 'true' }}
+      e2e: ${{ steps.filter.outputs.e2e == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
+          # Detect changes with local git, NOT the REST API. On a pull request
+          # the action's default is `GET /pulls/{n}/files`, which returns at
+          # most 3000 entries — and a PR past that limit does not fail, it
+          # reports the files that fell off the end as *unchanged*. PR #1030
+          # added 3453 icon files under `backend/`, which consumed the whole
+          # allowance alphabetically: `frontend/`, `mcp-server/` and `docs/`
+          # were invisible, so their suites were skipped and CI went green
+          # having never run them. A skipped suite is worse than a red one —
+          # nothing on the PR says the tests did not run.
+          #
+          # An empty `token` is the action's documented switch to git mode; it
+          # then uses `git merge-base` against `base` and fetches history as
+          # needed. `base` is empty on push-to-main, where the action compares
+          # against the commit before the push.
+          token: ""
+          base: ${{ github.event.pull_request.base.ref }}
           filters: |
             backend:
               - 'backend/**'
               - 'scripts/dump_openapi.py'
             frontend:
               - 'frontend/**'
+              - '.github/audit-ci.jsonc'
             mcp:
               - 'mcp-server/**'
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
               - 'requirements-docs.txt'
+            devcontainer:
+              - '.devcontainer/**'
+            helm:
+              - 'charts/**'
+              # The edge nginx entrypoint reads the NGINX_*_UPSTREAM overrides
+              # the chart depends on, so a Dockerfile change re-runs the kind test.
+              - 'Dockerfile'
+              - 'nginx/**'
+            deploy:
+              - 'deploy/**'
+              # The Terraform modules have their own job below.
+              - '!deploy/terraform/**'
+              - 'scripts/check_cloud_run_manifest.py'
+              - 'scripts/check_deploy_versions.py'
+              # Every template sets NGINX_HTTP_PORT, which the edge entrypoint reads.
+              - 'Dockerfile'
+            terraform:
+              - 'deploy/terraform/**'
+              - 'scripts/check_deploy_versions.py'
+            # The browser smoke suite: its own files, the frontend build inputs
+            # and the five widget features it drives (frontend/e2e/README in
+            # CLAUDE.md's Testing Conventions). The Dockerfile pins the DrawIO
+            # tag the suite installs.
+            e2e:
+              - 'frontend/e2e/**'
+              - 'frontend/playwright.config.ts'
+              - 'frontend/package.json'
+              - 'frontend/package-lock.json'
+              - 'frontend/vite.config.ts'
+              - 'frontend/drawio-config/**'
+              - 'frontend/src/features/diagrams/**'
+              - 'frontend/src/features/bpm/**'
+              - 'frontend/src/features/ppm/**'
+              - 'frontend/src/features/reports/**'
+              - 'frontend/src/features/admin/metamodel/**'
+              - 'frontend/src/features/admin/MetamodelAdmin.tsx'
+              - 'scripts/e2e/**'
+              - 'Dockerfile'
             ci:
               - '.github/workflows/**'
 
@@ -88,15 +148,33 @@ jobs:
         working-directory: backend
 
   # Integration suite — exercises the full HTTP stack against a real
-  # Postgres. Slow (~15 min). Informational by default so PRs aren't
-  # blocked on it; flip continue-on-error to false (or remove the line)
-  # to make it required again.
-  backend-test-integration:
-    name: Backend Integration Tests
+  # Postgres. It is the only job that runs tests/api/, i.e. most of the
+  # backend suite, so it blocks: it ran as informational
+  # (continue-on-error) until 2026-10, which meant a red API suite could not
+  # stop a merge on its own.
+  #
+  # The suite (~6,400 tests) took 16 min of pytest on one 4-core runner even
+  # with `-n auto`, so it runs as four shards on four runners (~4 min each)
+  # and the aggregate job below combines their coverage. `--shard K/N` is a
+  # hook in backend/tests/shard_plugin.py (imported by tests/conftest.py)
+  # that deals every test FILE to one shard, largest first into the lightest
+  # shard, so the shards partition the suite exactly and are balanced. A
+  # shard measures coverage but neither reports nor gates on it: the
+  # suite-wide floor (`fail_under` in backend/pyproject.toml) and the
+  # diff-coverage gate only mean something on the combined data. The matrix
+  # is the ONLY place the shard count is set: `strategy.job-total` carries it
+  # into the job name, the pytest command and the aggregate's count check.
+  backend-test-shards:
+    name: Backend Integration Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    outputs:
+      count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     services:
       postgres:
         image: postgres:16-alpine
@@ -120,16 +198,22 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - name: Run all tests with coverage
-        # Runs the full suite (unit + integration) so the 40% coverage gate
-        # reflects total covered code, not just what tests/api/ exercises.
-        # The unit subset is also run by the fast Backend Unit Tests job
-        # for quick PR feedback — the duplication here costs ~30s out of
-        # the integration job and keeps coverage meaningful.
-        # `-n auto` enables pytest-xdist parallelism — conftest.py allocates
-        # a per-worker Postgres schema (test_gw0, test_gw1, ...) so workers
-        # don't collide on the savepoint-rollback fixture.
-        run: python -m pytest -n auto --cov=app --cov-report=term-missing --cov-fail-under=40 -q
+      - id: meta
+        run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} with coverage
+        # The shard holds its quarter of the full suite (unit + integration)
+        # so the combined coverage reflects total covered code, not just what
+        # tests/api/ exercises; the unit subset is also run by the fast
+        # Backend Unit Tests job for quick PR feedback.
+        # `-n auto` enables pytest-xdist parallelism within the shard —
+        # conftest.py allocates a per-worker Postgres schema (test_gw0,
+        # test_gw1, ...) so workers don't collide on the savepoint-rollback
+        # fixture. `--cov-report=` skips the per-shard report and
+        # `--cov-fail-under=0` the per-shard floor; both belong to the
+        # aggregate job.
+        run: >-
+          python -m pytest -n auto --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+          --cov=app --cov-report= --cov-fail-under=0 -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost
@@ -137,6 +221,90 @@ jobs:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
           TEST_POSTGRES_DB: turboea_test
+      - name: Hand the coverage data to the aggregate job
+        # Not a dotfile: upload-artifact skips hidden files by default.
+        run: mv .coverage "coverage.shard-${{ matrix.shard }}"
+        working-directory: backend
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-coverage-${{ matrix.shard }}
+          path: backend/coverage.shard-${{ matrix.shard }}
+          if-no-files-found: error
+          overwrite: true # "Re-run failed jobs" uploads the same name again
+          retention-days: 1
+
+  # The required check (CONTRIBUTING.md, branch protection table). It
+  # combines the shards' coverage data, enforces the suite-wide floor and the
+  # diff-coverage gate, and writes the per-file table to the job summary.
+  # It must RUN when a shard fails, and fail itself: `needs` alone would skip
+  # it, and branch protection treats a skipped required check as passing.
+  # When the backend did not change, `changes` gates it off exactly as before.
+  backend-test-integration:
+    name: Backend Integration Tests
+    needs: [changes, backend-test-shards]
+    if: always() && needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard must have passed
+        id: shards-ok
+        run: |
+          echo "shard jobs: ${{ needs.backend-test-shards.result }}"
+          test "${{ needs.backend-test-shards.result }}" = "success"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # coverage reads [tool.coverage.*] from backend/pyproject.toml; the
+      # report needs the sources checked out above, the data comes from the
+      # shards.
+      - run: pip install "coverage[toml]>=7" diff-cover==10.6.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: backend-coverage-*
+          merge-multiple: true
+          path: backend
+      - name: Combine the shards' coverage and enforce the floor
+        # A missing artifact is silent at download, so the count is checked
+        # first: a shard whose data never arrived would otherwise drop its
+        # files from the total. `coverage report` exits non-zero when the
+        # total is under `fail_under` (backend/pyproject.toml — the one place
+        # it is set); `xml` would too, so it runs after. The XML report feeds
+        # the diff-coverage gate below.
+        run: |
+          expected="${{ needs.backend-test-shards.outputs.count }}"
+          found=$(ls coverage.shard-* | wc -l)
+          test "$found" -eq "$expected" || { echo "::error::$found of $expected shard data files"; exit 1; }
+          python -m coverage combine coverage.shard-*
+          python -m coverage report
+          python -m coverage xml
+        working-directory: backend
+      - name: Coverage summary
+        # Runs when the floor step failed (that is when the table matters), not
+        # when the shard guard did: nothing is checked out then.
+        if: always() && steps.shards-ok.outcome == 'success'
+        # Informational (`--fail-under=0`): the floor was enforced above.
+        run: |
+          echo "## Backend coverage" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown --skip-covered --sort=-miss --fail-under=0 \
+            >> "$GITHUB_STEP_SUMMARY" || echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
+        working-directory: backend
+      # Every change must be tested (CLAUDE.md, Testing Conventions): the
+      # lines a PR adds or changes must themselves be ≥ 80% covered, whatever
+      # the suite-wide total. diff-cover runs offline against the base branch;
+      # a line it cannot attribute to the PR is not counted. Push-to-main has
+      # no base to diff against, so the step runs on pull requests only. The
+      # diff is base...HEAD, so the checkout above keeps the full history: a
+      # shallow clone has no merge base and diff-cover aborts before reporting.
+      - name: Diff coverage (changed lines must be tested)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=80 --format markdown:diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
+        working-directory: backend
 
   backend-typecheck:
     name: Backend Type Check
@@ -158,14 +326,47 @@ jobs:
         run: python -m mypy app/
         working-directory: backend
 
+  # ── Secret scanning ──────────────────────────────────────────────────
+  # Deliberately NOT path-filtered: a credential can land in any file, so
+  # this job runs on every PR and every push to main. The action scans the
+  # commit range of the event (base^..head), so fetch-depth: 0 is required.
+  # Known non-secrets (test fixtures, a truncated example JWT in the manual)
+  # are allowlisted by exact value in /.gitleaks.toml — never by directory.
+  secrets:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # the action comments the finding on the PR
+      security-events: write # SARIF upload to the Security tab below
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1 # same release as the pre-commit hook
+          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
+      # The action only stores the SARIF as a run artifact; this puts the
+      # finding in the Security tab next to CodeQL / Trivy / Scout.
+      - name: Upload SARIF to the Security tab
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: results.sarif
+          category: gitleaks
+
   # ── Security Scanning ────────────────────────────────────────────────
   security-backend:
     name: Backend Security Scan
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    # Informational only — does not block PRs until findings are triaged
-    continue-on-error: true
+    # Blocking since 2.154.0: a production dependency with an open advisory
+    # fails the PR. An advisory with no upstream fix is ignored with a
+    # rationale comment on the `--ignore-vuln` flag below, never by making
+    # the job informational again (see .github/SECURITY_PIPELINE.md).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -177,30 +378,30 @@ jobs:
         # `allow_editables` a required keyword-only argument of
         # RequirementCommand.make_requirement_preparer(); pip-tools 7.6.0 still
         # calls it the old way, so pip-compile dies with a TypeError before it
-        # reads a single dependency — which silently turned this whole scan
-        # into a no-op rather than failing loudly (the job is
-        # continue-on-error). Drop the pin once pip-tools supports pip 26.2.
+        # reads a single dependency — which, while the job was still
+        # continue-on-error, silently turned this whole scan into a no-op
+        # rather than failing loudly. Drop the pin once pip-tools supports
+        # pip 26.2.
         run: pip install "pip<26.2" pip-audit pip-tools
       - name: Generate requirements and audit
-        # PYSEC-2025-183 (PyJWT "weak encryption"): disputed upstream. The
-        # advisory targets HMAC key length, which PyJWT cannot enforce — it
-        # is the operator's responsibility. Turbo EA's `.env.example` tells
-        # operators to generate SECRET_KEY via `python -c "import secrets;
-        # print(secrets.token_urlsafe(64))"` (512 bits of entropy), and the
-        # lifespan check in app/main.py rejects the default placeholder
-        # keys in non-development environments.
+        # No ignores are carried. An advisory with no upstream fix gets an
+        # `--ignore-vuln` here with its rationale and is re-checked at the
+        # quarterly review: pip-compile resolves from pyproject.toml, so an
+        # ignore for a version no longer installed is invisible (the PyJWT
+        # one for PYSEC-2025-183 outlived its 2.10.1 by five releases).
         run: |
           pip-compile --quiet --strip-extras -o /tmp/requirements.txt backend/pyproject.toml
-          pip-audit --strict --desc -r /tmp/requirements.txt \
-            --ignore-vuln PYSEC-2025-183
+          pip-audit --strict --desc -r /tmp/requirements.txt
 
   security-frontend:
     name: Frontend Security Scan
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    # Informational only — does not block PRs until findings are triaged
-    continue-on-error: true
+    # Blocking since 2.154.0: a production dependency with an open advisory
+    # fails the PR. An advisory with no patched version is allowlisted with
+    # a rationale in .github/audit-ci.jsonc, never by making the job
+    # informational again (see .github/SECURITY_PIPELINE.md).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -316,11 +517,27 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
-  frontend-test:
-    name: Frontend Tests
+  # The Vitest suite (~6,100 tests) took 9 min on one 4-core runner, so it
+  # runs as three shards on three runners and the aggregate job below merges
+  # their results and coverage. Vitest's own `--shard` assigns every test
+  # file to one shard by a stable hash of its path; `--reporter=blob` writes
+  # the results AND the raw coverage map to .vitest-reports/ for the merge.
+  # Vitest checks the coverage thresholds on every run, sharded or not, so a
+  # shard zeroes them — a third of the suite cannot meet the suite-wide floors
+  # in frontend/vitest.config.ts; the merge run enforces them. The matrix is
+  # the ONLY place the shard count is set: `strategy.job-total` carries it
+  # into the job name, the vitest command and the aggregate's count check.
+  frontend-test-shards:
+    name: Frontend Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    outputs:
+      count: ${{ steps.meta.outputs.count }} # every leg writes the same value
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -330,10 +547,186 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npx vitest run --coverage.enabled --coverage.reporter=text
+      - id: meta
+        run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
+      - name: Run shard ${{ matrix.shard }} of ${{ strategy.job-total }} with coverage
+        # `--reporter=default` keeps the console output a failing shard
+        # needs; `blob` alone prints nothing.
+        run: >-
+          npx vitest run --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+          --reporter=default --reporter=blob --coverage.enabled
+          --coverage.thresholds.lines=0 --coverage.thresholds.statements=0
+          --coverage.thresholds.branches=0 --coverage.thresholds.functions=0
+        working-directory: frontend
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-blob-${{ matrix.shard }}
+          path: frontend/.vitest-reports/
+          if-no-files-found: error
+          include-hidden-files: true # the directory is a dotdir
+          overwrite: true # "Re-run failed jobs" uploads the same name again
+          retention-days: 1
+
+  # The required check (CONTRIBUTING.md, branch protection table). Same
+  # shape as Backend Integration Tests: it must RUN when a shard fails and
+  # fail itself, because a skipped required check reads as passing.
+  frontend-test:
+    name: Frontend Tests
+    needs: [changes, frontend-test-shards]
+    if: always() && needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard must have passed
+        id: shards-ok
+        run: |
+          echo "shard jobs: ${{ needs.frontend-test-shards.result }}"
+          test "${{ needs.frontend-test-shards.result }}" = "success"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # vitest and @vitest/coverage-v8 do the merge, so the install is needed.
+      - run: npm ci
+        working-directory: frontend
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: frontend-blob-*
+          merge-multiple: true
+          path: frontend/.vitest-reports
+      - name: Merge the shards' results and coverage, enforce the floors
+        # A missing blob is silent at download, so the count is checked first.
+        # The merge re-emits the reporters configured in
+        # frontend/vitest.config.ts (text, lcov, json-summary) from the merged
+        # coverage map and checks the thresholds there.
+        run: |
+          expected="${{ needs.frontend-test-shards.outputs.count }}"
+          found=$(ls .vitest-reports/blob-*.json | wc -l)
+          test "$found" -eq "$expected" || { echo "::error::$found of $expected shard reports"; exit 1; }
+          npx vitest run --merge-reports --coverage.enabled
+        working-directory: frontend
+      - name: Coverage summary
+        # As in the backend aggregate: after a failed floor, not a failed guard.
+        if: always() && steps.shards-ok.outcome == 'success'
+        run: |
+          echo "## Frontend coverage" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f coverage/coverage-summary.json ]; then
+            jq -r '.total | "| | Covered | Total | % |\n|---|---|---|---|",
+              (to_entries[] | "| \(.key) | \(.value.covered) | \(.value.total) | \(.value.pct) |")' \
+              coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
+          fi
+        working-directory: frontend
+      # Same gate as the backend job: the lines a PR touches must be ≥ 80%
+      # covered. diff-cover reads the LCOV report vitest.config.ts emits.
+      - name: Diff coverage (changed lines must be tested)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          pip install diff-cover==10.6.0
+          diff-cover coverage/lcov.info --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=80 --format markdown:diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: frontend
 
   # ── MCP Server ───────────────────────────────────────────────────────
+  # The browser smoke suite: the diagram editor, the BPMN modeler, the Gantt,
+  # the dependency view and the metamodel graph in a real Chromium, against a
+  # backend booted with the demo seed and the built SPA served by
+  # `vite preview` (which proxies /api to the backend). The backend starts
+  # first so its seed, a few minutes cold, overlaps the frontend build. The
+  # DrawIO editor is the build the image ships, installed by
+  # scripts/e2e/install-drawio.sh from the tag the Dockerfile pins. No
+  # `continue-on-error`: a red run blocks like every other test job.
+  frontend-e2e:
+    name: Frontend E2E
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    # Pinned, not `ubuntu-latest`: `playwright install --with-deps` installs
+    # Chromium's system libraries from a per-release apt list, and a runner
+    # image Playwright does not know yet fails that step. `ubuntu-latest`
+    # moves to Ubuntu 26 on 2026-10-19 (actions/runner-images#14748); move
+    # this pin once the pinned @playwright/test lists the new release.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U turboea -d turboea"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e .
+        working-directory: backend
+      - name: Start the backend with the demo data
+        run: nohup uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/uvicorn.log" 2>&1 &
+        working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: turboea
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          SEED_DEMO: "true"
+          ENVIRONMENT: development
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - name: Install the DrawIO build the image ships
+        run: scripts/e2e/install-drawio.sh frontend/dist/drawio
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Wait for the backend
+        # /api/health answers only once the lifespan — migrations and the
+        # demo seed — has finished.
+        run: |
+          for _ in $(seq 1 72); do
+            if curl -fsS http://localhost:8000/api/health > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          echo "the backend did not come up in 6 minutes"
+          tail -n 60 "$RUNNER_TEMP/uvicorn.log"
+          exit 1
+      - run: npx playwright test
+        working-directory: frontend
+      - name: Upload traces, screenshots and the backend log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-e2e
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+            ${{ runner.temp }}/uvicorn.log
+          if-no-files-found: ignore
+      - name: Backend log tail
+        if: always()
+        run: tail -n 40 "$RUNNER_TEMP/uvicorn.log" || true
+
   mcp-test:
     name: MCP Server Tests
     needs: changes
@@ -341,6 +734,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # diff-cover needs the merge base with the base branch
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -348,7 +743,24 @@ jobs:
           cache-dependency-path: mcp-server/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: mcp-server
-      - run: python -m pytest -q
+      # The coverage floor is `fail_under` in mcp-server/pyproject.toml.
+      - run: python -m pytest -q --cov=turbo_ea_mcp --cov-report=term-missing --cov-report=xml
+        working-directory: mcp-server
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "## MCP server coverage" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown --skip-covered --sort=-miss \
+            >> "$GITHUB_STEP_SUMMARY" || echo "No coverage data." >> "$GITHUB_STEP_SUMMARY"
+        working-directory: mcp-server
+      - name: Diff coverage (changed lines must be tested)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          pip install diff-cover==10.6.0
+          diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=80 --format markdown:diff-cover.md
+          cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: mcp-server
 
   # ── OpenAPI Spec (auto-regenerated for the docs site) ────────────────
@@ -421,3 +833,347 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-docs.txt
       - run: mkdocs build
+
+  # ── Devcontainer (Codespaces demo) ───────────────────────────────────
+  # Guards the one-click demo behind the README's "Try the Demo" button.
+  #
+  # Issue #1104: nothing in this repository changed. `devcontainer.json`
+  # asked for `mcr.microsoft.com/devcontainers/base:ubuntu`, a floating
+  # alias that MCR rolled onto Ubuntu 26.04 (`resolute`). The
+  # docker-in-docker feature's install.sh carries a hard-coded list of the
+  # codenames it can install moby packages for; `resolute` is not on it and
+  # `moby` is the default, so install.sh exits 1, the container build
+  # fails, and every new codespace lands in recovery mode. Bumping the
+  # feature does not help -- v4.1.0 carries the identical codename list.
+  #
+  # Pinning alone is NOT the invariant: `base:ubuntu26.04` is fully pinned
+  # and just as broken. So this asserts the tag names a release the feature
+  # actually supports, which also rejects, for free, every floating alias
+  # and the dashed `ubuntu-24.04` form (a stale alias MCR stopped
+  # rebuilding in Oct 2025).
+  #
+  # `devcontainer.json` is kept as strict JSON rather than JSONC: the
+  # repo-wide `check-json` pre-commit hook covers it, and a `//` rationale
+  # comment would have to be bought with an exclude that switches that
+  # validation off for the one file whose corruption takes the demo down.
+  # The rationale lives here and in the error message below instead -- a
+  # comment is deleted by the same edit that unpins the tag; a red job is not.
+  devcontainer-check:
+    name: Devcontainer Check
+    needs: changes
+    if: needs.changes.outputs.devcontainer == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Assert the base image names a supported OS release
+        run: |
+          set -euo pipefail
+          # devcontainers/base tags whose codename appears in the
+          # docker-in-docker feature's DOCKER_MOBY_ARCHIVE_VERSION_CODENAMES
+          # and is not caught by its explicit trixie/resolute rejection.
+          # Add a release here only once the feature actually ships support
+          # for it -- not when MCR publishes the image.
+          allowed="noble ubuntu24.04 jammy ubuntu22.04 bookworm debian12"
+          file=.devcontainer/devcontainer.json
+          image=$(jq -r '.image // empty' "$file")
+          if [ -z "$image" ]; then
+            echo "::error file=${file}::No 'image' key. If this container is now built from a Dockerfile, update this guard to check the base image there -- do not delete it."
+            exit 1
+          fi
+          repo="${image%:*}"
+          tag="${image##*:}"
+          if [ "$repo" = "$image" ]; then
+            echo "::error file=${file}::Base image '${image}' carries no tag, so it resolves to ':latest' and will roll onto an unsupported OS release with no commit to blame. Pin one of: ${allowed}"
+            exit 1
+          fi
+          if [ "$repo" != "mcr.microsoft.com/devcontainers/base" ]; then
+            echo "::error file=${file}::Base image is '${repo}'. This guard only knows the release tags of mcr.microsoft.com/devcontainers/base; update it in the same commit that changes the image."
+            exit 1
+          fi
+          case " ${allowed} " in
+            *" ${tag} "*)
+              echo "OK: ${image} names a release the docker-in-docker feature supports." ;;
+            *)
+              echo "::error file=${file}::Base image tag ':${tag}' is not a pinned, docker-in-docker-supported release. Use one of: ${allowed}"
+              echo "Floating aliases (':ubuntu', ':debian', ':latest') roll onto the newest release without a commit -- that is issue #1104, where ':ubuntu' became Ubuntu 26.04 (resolute), the docker-in-docker feature refused to install on it, and every codespace came up in recovery mode. Dashed forms like ':ubuntu-24.04' are stale aliases MCR no longer rebuilds."
+              exit 1 ;;
+          esac
+
+      - name: Syntax-check the demo scripts
+        # A syntax error here breaks the codespace as completely as a bad
+        # base image, and nothing else in the repo lints these files.
+        # Parse-only (`-n`) deliberately: a correctness gate, not a style policy.
+        run: |
+          bash -n .devcontainer/setup-demo.sh
+          bash -n .devcontainer/start-demo.sh
+
+  # ── Helm chart ───────────────────────────────────────────────────────
+  # Two layers. `helm-lint` is static: lint + render every fixture and every
+  # cloud example through kubeconform. `helm-kind-test` installs the chart on
+  # a kind cluster against a throwaway PostgreSQL and runs `helm test` — an
+  # untested chart is exactly the failure mode a one-command install must not
+  # have. The kind job builds the edge nginx from THIS checkout (the stage is
+  # cheap: no npm, no pip) because the chart depends on the NGINX_*_UPSTREAM
+  # overrides its entrypoint reads; the other images come from GHCR `:latest`
+  # — the chart is under test here, not the application build.
+  helm-lint:
+    name: Helm Lint
+    needs: changes
+    if: needs.changes.outputs.helm == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CHART: charts/turbo-ea
+      KUBECONFORM_VERSION: v0.7.0
+      KUBECONFORM_SHA256: c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          curl -fsSLo kubeconform.tgz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum -c -
+          tar -xzf kubeconform.tgz kubeconform
+          sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+
+      - name: Lint every fixture
+        run: |
+          set -euo pipefail
+          for f in "$CHART"/ci/*-values.yaml; do
+            echo "::group::helm lint -f $f"
+            helm lint --strict "$CHART" -f "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Render fixtures and examples through kubeconform
+        run: |
+          set -euo pipefail
+          for f in "$CHART"/ci/*-values.yaml "$CHART"/examples/*.yaml; do
+            echo "::group::helm template -f $f"
+            helm template turbo-ea "$CHART" --namespace turbo-ea -f "$f" \
+              | kubeconform -strict -summary -kubernetes-version 1.30.0 -ignore-missing-schemas
+            echo "::endgroup::"
+          done
+
+      # The chart must refuse to render without its required values, and the
+      # backend must never scale past one replica (in-process SSE bus, unlocked
+      # boot-time migrations, ReadWriteOnce data volume).
+      - name: Guard rails
+        run: |
+          set -euo pipefail
+          if helm template turbo-ea "$CHART" >/dev/null 2>err.log; then
+            echo "::error::bare 'helm template' rendered; required-value validation is gone"
+            exit 1
+          fi
+          grep -q 'publicUrl' err.log
+          rendered="$(helm template turbo-ea "$CHART" --namespace turbo-ea -f "$CHART/ci/minimal-values.yaml")"
+          backend="$(printf '%s\n' "$rendered" | awk '/^kind: Deployment/{d=1} d && /name: turbo-ea-backend$/{b=1} b && /^---/{exit} b')"
+          printf '%s\n' "$backend" | grep -q '^  replicas: 1$'
+          printf '%s\n' "$backend" | grep -q 'type: Recreate'
+          if helm template turbo-ea "$CHART" --namespace turbo-ea -f "$CHART/ci/minimal-values.yaml" --set backend.replicaCount=3 >/dev/null 2>&1; then
+            echo "::error::backend.replicaCount was accepted; values.schema.json must reject it"
+            exit 1
+          fi
+
+  helm-kind-test:
+    name: Helm Kind Smoke Test
+    needs: [changes, helm-lint]
+    if: needs.changes.outputs.helm == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CHART: charts/turbo-ea
+      NS: turbo-ea
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        with:
+          cluster_name: turbo-ea
+
+      - name: Build the edge nginx from this checkout
+        run: |
+          docker build --target nginx -t turbo-ea-ci/nginx:ci .
+          kind load docker-image --name turbo-ea turbo-ea-ci/nginx:ci
+
+      - name: Start a throwaway PostgreSQL
+        run: |
+          kubectl create namespace "$NS"
+          kubectl apply -n "$NS" -f "$CHART/ci/postgres.yaml"
+          kubectl rollout status -n "$NS" deployment/turbo-ea-ci-postgres --timeout=180s
+
+      - name: Install the chart
+        run: |
+          helm install turbo-ea "$CHART" --namespace "$NS" \
+            -f "$CHART/ci/kind-values.yaml" \
+            --set image.tag=latest \
+            --set nginx.image.registry=docker.io \
+            --set nginx.image.repository=turbo-ea-ci \
+            --set nginx.image.tag=ci \
+            --set nginx.image.pullPolicy=Never \
+            --wait --timeout 12m
+
+      - name: helm test
+        run: helm test turbo-ea --namespace "$NS" --logs
+
+      - name: Probe through the edge nginx
+        run: |
+          set -euo pipefail
+          kubectl port-forward -n "$NS" svc/turbo-ea-nginx 8080:80 >/dev/null 2>&1 &
+          sleep 3
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root"'
+          # MCP routing: the OAuth discovery document is served by the MCP pod.
+          curl -fsS http://localhost:8080/.well-known/oauth-protected-resource | grep -q resource
+          # The backend root filesystem is read-only; only the data volume is writable.
+          pod="$(kubectl get pod -n "$NS" -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}')"
+          if kubectl exec -n "$NS" "$pod" -- touch /app/ro-probe 2>/dev/null; then
+            echo "::error::backend root filesystem is writable"
+            exit 1
+          fi
+          kubectl exec -n "$NS" "$pod" -- sh -c 'touch /app/data/rw-probe && rm /app/data/rw-probe'
+
+      - name: Upgrade keeps working
+        run: |
+          helm upgrade turbo-ea "$CHART" --namespace "$NS" \
+            -f "$CHART/ci/kind-values.yaml" \
+            --set image.tag=latest \
+            --set nginx.image.registry=docker.io \
+            --set nginx.image.repository=turbo-ea-ci \
+            --set nginx.image.tag=ci \
+            --set nginx.image.pullPolicy=Never \
+            --set backend.podAnnotations.ci-upgrade=\"1\" \
+            --wait --timeout 12m
+          helm test turbo-ea --namespace "$NS"
+
+      - name: Diagnostics
+        if: always()
+        run: |
+          kubectl get pods,svc,pvc,ingress -n "$NS" -o wide || true
+          kubectl describe pods -n "$NS" || true
+          for c in backend frontend nginx mcp; do
+            echo "::group::logs $c"
+            kubectl logs -n "$NS" -l app.kubernetes.io/component=$c --tail=200 || true
+            echo "::endgroup::"
+          done
+
+  # ── Managed-container templates (deploy/) ───────────────────────────
+  # Bicep, CloudFormation and the Cloud Run manifest have no unit tests, so
+  # this is the whole safety net: each must at least compile / lint, the
+  # Cloud Run manifest must keep the properties the guide depends on, and the
+  # edge nginx must honour NGINX_HTTP_PORT — every template moves it to 8920
+  # because the frontend sidecar owns 8080 on the same localhost.
+  deploy-templates-lint:
+    name: Deploy Templates Lint
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Bicep (Azure Container Apps)
+        run: |
+          set -euo pipefail
+          az bicep install --version v0.47.16
+          az bicep build --file deploy/azure-container-apps/main.bicep --stdout > /dev/null
+          az bicep build-params --file deploy/azure-container-apps/main.bicepparam --stdout > /dev/null
+
+      - name: CloudFormation (ECS Fargate)
+        run: |
+          set -euo pipefail
+          pip install cfn-lint==1.41.0 pyyaml
+          cfn-lint deploy/ecs-fargate/template.yaml
+
+      - name: Cloud Run manifest
+        run: python3 scripts/check_cloud_run_manifest.py
+
+      - name: Release pins under deploy/ agree and exist in the changelog
+        run: python3 scripts/check_deploy_versions.py
+
+      # The kind job covers the default port; this covers the override the
+      # templates rely on, in the real image.
+      - name: Edge nginx honours NGINX_HTTP_PORT
+        run: |
+          set -euo pipefail
+          docker build --target nginx -t turbo-ea-ci/nginx:ci .
+          docker run -d --name edge -p 18920:8920 \
+            -e NGINX_HTTP_PORT=8920 -e NGINX_ENABLE_IPV6=true \
+            -e NGINX_BACKEND_UPSTREAM=http://127.0.0.1:8000 \
+            turbo-ea-ci/nginx:ci
+          for i in $(seq 1 20); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18920/api/health || true)"
+            [ "$code" = "502" ] && break
+            sleep 1
+          done
+          echo "GET /api/health on 8920 -> $code (502 = listening, no backend behind it)"
+          test "$code" = "502"
+          docker exec edge nginx -T 2>/dev/null | grep -q 'listen \[::\]:8920;'
+          docker rm -f edge
+          if docker run --rm -e NGINX_HTTP_PORT=abc turbo-ea-ci/nginx:ci; then
+            echo "::error::an invalid NGINX_HTTP_PORT must fail the container start"
+            exit 1
+          fi
+
+  # ── Terraform (deploy/terraform) ─────────────────────────────────────
+  # No cloud credentials in CI: `terraform test` runs against mock providers
+  # (real schemas, invented values), so it checks the wiring the guide depends
+  # on — NGINX_HTTP_PORT=8920, one backend, secrets by reference, the data
+  # volume — not whether a cloud would accept the plan. tflint's cloud rulesets
+  # cover the literal values (instance classes, SKUs) that mocks never see.
+  terraform-lint:
+    name: Terraform (${{ matrix.module }})
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [ecs-fargate, azure-container-apps, cloud-run, kubernetes]
+    defaults:
+      run:
+        working-directory: deploy/terraform/${{ matrix.module }}
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.3"
+          terraform_wrapper: false
+
+      - name: Format
+        run: terraform fmt -check -diff -recursive
+
+      # -lockfile=readonly: the committed lock file must already carry the
+      # linux_amd64 hashes (terraform providers lock -platform=…).
+      - name: Init
+        run: terraform init -backend=false -lockfile=readonly
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Tests (mock providers)
+        run: terraform test
+
+      - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: v0.64.0
+
+      - name: tflint
+        env:
+          # Ruleset plugins are fetched from GitHub releases.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init
+          tflint --format compact
+
+      - name: Release pins under deploy/ agree and exist in the changelog
+        if: matrix.module == 'ecs-fargate'
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/check_deploy_versions.py

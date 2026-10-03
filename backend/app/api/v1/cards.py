@@ -4,8 +4,9 @@ import csv
 import io
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,16 +73,31 @@ from app.schemas.card import (
     StakeholderRef,
     TagRef,
 )
-from app.services import card_lifecycle, card_reference, card_write_service, notification_service
+from app.services import (
+    card_approval,
+    card_lifecycle,
+    card_reference,
+    card_write_service,
+    notification_service,
+)
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_flags import orphaned_condition, stale_condition
+from app.services.card_logo_service import logo_updated_map
+from app.services.card_read_scope import (
+    CardReadScope,
+    require_card_readable,
+    require_inventory_browse,
+    scrub_event_payloads,
+)
 from app.services.card_resolver import CardResolver
+from app.services.card_search import card_search_filter, card_search_rank
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.card_write_service import (
     MACRO_CAPABILITY_LEVEL_KEY,  # noqa: F401 - re-exported for legacy importers
     _assign_reference_on_create,  # noqa: F401
     _check_hierarchy_depth,
+    _check_hierarchy_label,
     _check_parent_not_descendant,
     _check_required_not_cleared,
     _check_select_options,
@@ -90,9 +106,12 @@ from app.services.card_write_service import (
     _max_descendant_depth,  # noqa: F401
     _recalc_changed_descendants,
     _sync_hierarchy_levels,
+    _validate_hierarchy_label,
+    _validate_percentage_attributes,
     _validate_strict_attributes,
     _validate_url_attributes,
     _walk_ancestor_chain,  # noqa: F401
+    emit_hierarchy_cascade_events,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality
@@ -100,12 +119,16 @@ from app.services.event_bus import event_bus
 from app.services.lifecycle import lifecycle_rank
 from app.services.nora_landscape import get_segment_card_ids
 from app.services.permission_service import PermissionService
-from app.services.search_rank import search_filter, search_rank
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
 
-def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset()) -> CardResponse:
+def _card_to_response(
+    card: Card,
+    *,
+    strip_cost_keys: frozenset[str] = frozenset(),
+    logo_updated_at: datetime | None = None,
+) -> CardResponse:
     tags = []
     for t in card.tags or []:
         tags.append(
@@ -137,6 +160,7 @@ def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset
         name=card.name,
         description=card.description,
         parent_id=str(card.parent_id) if card.parent_id else None,
+        parent_label=card.parent_label,
         lifecycle=card.lifecycle,
         attributes=attributes,
         status=card.status,
@@ -153,6 +177,7 @@ def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset
         updated_by=str(card.updated_by) if card.updated_by else None,
         created_at=card.created_at,
         updated_at=card.updated_at,
+        logo_updated_at=logo_updated_at,
         tags=tags,
         stakeholders=stakeholder_refs,
     )
@@ -195,7 +220,41 @@ async def _cost_redaction_map(
 async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Card) -> CardResponse:
     """Build a CardResponse, redacting cost fields per the cost permission rule."""
     redact = await _cost_redaction_map(db, user, [card])
-    return _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()))
+    logos = await logo_updated_map(db, [card])
+    return _card_to_response(
+        card,
+        strip_cost_keys=redact.get(card.id, frozenset()),
+        logo_updated_at=logos.get(card.id),
+    )
+
+
+async def _require_card_read(db: AsyncSession, user: User, card_id: uuid.UUID) -> str:
+    """Read gate for card-scoped GETs; returns the card's type key.
+
+    Readable = `inventory.view` (per-type aware) OR stakeholder `card.view`
+    OR — when the card is an Initiative — the PPM module's `ppm.view`. The PPM
+    detail page (/ppm/:id, route-gated on ppm.view) fronts the Initiative card
+    itself, so ppm.view must be able to read it (#1043). An explicit View deny
+    on the card's type wins over that fallback (`has_app_permission` answers
+    False for every permission on a View-denied type).
+
+    404 when the card does not exist *or* is hidden from the caller by a type
+    deny — a hidden card does not exist for them. 403 otherwise.
+    """
+    type_key = await PermissionService._card_type_key(db, card_id)
+    if type_key is None:
+        raise HTTPException(404, "Card not found")
+    if await PermissionService.check_permission(
+        db, user, "inventory.view", card_id, "card.view", card_type_key=type_key
+    ):
+        return type_key
+    if type_key == "Initiative" and await PermissionService.has_app_permission(
+        db, user, "ppm.view", card_type_key=type_key
+    ):
+        return type_key
+    if await PermissionService.is_type_denied(db, user, "inventory.view", type_key):
+        raise HTTPException(404, "Card not found")
+    raise HTTPException(403, "Insufficient permissions")
 
 
 _ALLOWED_SORT_COLUMNS = {
@@ -281,7 +340,7 @@ async def list_cards(
     ),
     sort_dir: str | None = Query(None, description="`asc` (default) or `desc`."),
 ):
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
     q = select(Card)
     count_q = select(func.count(Card.id))
 
@@ -289,6 +348,10 @@ async def list_cards(
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     q = q.where(Card.type.not_in(hidden_types_sq))
     count_q = count_q.where(Card.type.not_in(hidden_types_sq))
+    # ...and cards the caller may not read (card-type View deny).
+    q = q.where(*read_scope.where(Card, mode="inventory"))
+    count_q = count_q.where(*read_scope.where(Card, mode="inventory"))
+    withheld_ids: list[str] = []
 
     if ids:
         # Skip silently-malformed UUIDs so a single bad id doesn't 500 a batch.
@@ -305,6 +368,13 @@ async def list_cards(
             return CardListResponse(items=[], total=0, page=page, page_size=page_size)
         q = q.where(Card.id.in_(id_list))
         count_q = count_q.where(Card.id.in_(id_list))
+        if not read_scope.is_unrestricted(mode="inventory"):
+            rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(id_list)))
+            withheld_ids = [
+                str(cid)
+                for cid, ctype in rows.all()
+                if not read_scope.readable(cid, ctype, mode="inventory")
+            ]
 
     if type:
         types_list = [t.strip() for t in type.split(",") if t.strip()]
@@ -329,7 +399,7 @@ async def list_cards(
         q = q.where(Card.status == "ACTIVE")
         count_q = count_q.where(Card.status == "ACTIVE")
     if search:
-        match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
+        match = card_search_filter(search)
         q = q.where(match)
         count_q = count_q.where(match)
     if parent_id:
@@ -392,7 +462,7 @@ async def list_cards(
     # Relevance first, but only when the caller expressed no sort preference of
     # their own — an explicit `sort_by`/`sort_dir` always wins (#918).
     if search and sort_by is None and sort_dir is None:
-        order.insert(0, search_rank(Card.name, search).asc())
+        order.insert(0, card_search_rank(search).asc())
     # Stable tiebreaker: without it two same-named cards can be duplicated or
     # skipped across pages, which corrupts any paged consumer's append.
     order.append(Card.id.asc())
@@ -409,11 +479,19 @@ async def list_cards(
     result = await db.execute(q)
     cards = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, cards)
+    logos = await logo_updated_map(db, cards)
     items = [
-        _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset())) for card in cards
+        _card_to_response(
+            card,
+            strip_cost_keys=redact.get(card.id, frozenset()),
+            logo_updated_at=logos.get(card.id),
+        )
+        for card in cards
     ]
 
-    return CardListResponse(items=items, total=total, page=page, page_size=page_size)
+    return CardListResponse(
+        items=items, total=total, page=page, page_size=page_size, withheld_ids=withheld_ids
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -457,7 +535,7 @@ async def list_my_stakeholder_cards(
 
     # Self-lookups need the same gate as the rest of the workspace; cross-user
     # lookups additionally require `stakeholders.view`.
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
     if target_user_id != user.id:
         target = await db.get(User, target_user_id)
         if target is None:
@@ -481,6 +559,7 @@ async def list_my_stakeholder_cards(
         .join(roles_subq, roles_subq.c.card_id == Card.id)
         .where(Card.status == "ACTIVE")
         .where(Card.type.not_in(hidden_types_sq))
+        .where(*read_scope.where(Card, mode="inventory"))
         .order_by(Card.updated_at.desc())
         .limit(limit)
         .options(
@@ -549,15 +628,17 @@ async def list_my_created_cards(
     Workspace → Cards I Created section can offer a "Show more" button
     on long lists.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
 
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    readable = read_scope.where(Card, mode="inventory")
 
     base = (
         select(Card)
         .where(Card.created_by == user.id)
         .where(Card.status == "ACTIVE")
         .where(Card.type.not_in(hidden_types_sq))
+        .where(*readable)
     )
 
     total = (
@@ -567,6 +648,7 @@ async def list_my_created_cards(
             .where(Card.created_by == user.id)
             .where(Card.status == "ACTIVE")
             .where(Card.type.not_in(hidden_types_sq))
+            .where(*readable)
         )
     ).scalar() or 0
 
@@ -600,7 +682,14 @@ async def create_card(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "inventory.create")
+    # Per-card-type overrides apply here: the role's global `inventory.create`
+    # can be denied for this type, or granted where the role lacks it.
+    await PermissionService.require_permission(
+        db, user, "inventory.create", card_type_key=body.type
+    )
+    if body.parent_id:
+        # A parent hidden from the caller does not exist for them.
+        await require_card_readable(db, user, uuid.UUID(body.parent_id), mode="module")
     card = await card_write_service.create_card(
         db,
         card_write_service.WriteActor.from_user(user),
@@ -609,6 +698,7 @@ async def create_card(
         subtype=body.subtype,
         description=body.description,
         parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
+        parent_label=body.parent_label,
         lifecycle=body.lifecycle,
         attributes=body.attributes,
         external_id=body.external_id,
@@ -663,9 +753,24 @@ async def bulk_create_cards(
     Single transaction per request — partial failures still roll back
     succeeded rows in the same batch. Permission: `inventory.create`.
     """
-    await PermissionService.require_permission(db, user, "inventory.create")
-
     rows = list(body.cards)
+
+    # A batch may span card types, and `inventory.create` is overridable per
+    # type — so the check runs once per *distinct* type rather than once for
+    # the request. Denied types are named so a spreadsheet importer can tell
+    # the user which sheet to drop, and this runs before anything is built so
+    # an unauthorised batch creates nothing.
+    denied_types: list[str] = []
+    for type_key in sorted({r.type for r in rows}):
+        if not await PermissionService.has_app_permission(
+            db, user, "inventory.create", card_type_key=type_key
+        ):
+            denied_types.append(type_key)
+    if denied_types:
+        raise HTTPException(
+            403,
+            "Not enough permissions to create cards of type: " + ", ".join(denied_types),
+        )
 
     # `row_index` is used as a dict key throughout this handler (parent
     # resolution, topo sort, per-row results) and by the caller to pair each
@@ -705,7 +810,9 @@ async def bulk_create_cards(
     # That's any type referenced by a `parent_path/name` ref. We always
     # include the rows' own types so resolution against the live DB works.
     parent_types: set[str] = {r.type for r in rows}
-    resolver = await CardResolver.load(db, parent_types)
+    # A parent the caller may not read resolves as missing, as if it did not exist.
+    read_scope = await CardReadScope.load(db, user)
+    resolver = await CardResolver.load(db, parent_types, read_scope=read_scope, mode="module")
 
     # Build a dep graph: each row → its parent row (if the parent is in the
     # same batch). Rows that resolve their parent against the live DB or
@@ -818,6 +925,7 @@ async def bulk_create_cards(
         row_sp = await db.begin_nested()
         try:
             await _validate_url_attributes(db, r.type, r.attributes or {})
+            await _validate_percentage_attributes(db, r.type, r.attributes or {})
             _check_select_options(r.type, schemas_by_type.get(r.type), r.attributes or {}, {})
 
             # Resolve parent_id.
@@ -827,6 +935,12 @@ async def bulk_create_cards(
                     resolved_parent = uuid.UUID(r.parent_id)
                 except ValueError as exc:
                     raise HTTPException(422, f"Invalid parent_id UUID: {r.parent_id}") from exc
+                if not read_scope.readable(
+                    resolved_parent,
+                    await PermissionService._card_type_key(db, resolved_parent),
+                    mode="module",
+                ):
+                    raise HTTPException(404, "Parent card not found")
             elif r.parent_name:
                 # Look up against same-batch created rows first.
                 ref_keys = [
@@ -868,12 +982,19 @@ async def bulk_create_cards(
                 name=r.name,
             )
 
+            # Same vocabulary check the single-card path runs, so a spreadsheet
+            # cannot land a hierarchy label the metamodel never declared.
+            await _validate_hierarchy_label(
+                db, r.type, r.parent_label, None, has_parent=resolved_parent is not None
+            )
+
             card = Card(
                 type=r.type,
                 subtype=r.subtype,
                 name=r.name,
                 description=r.description,
                 parent_id=resolved_parent,
+                parent_label=r.parent_label if resolved_parent is not None else None,
                 lifecycle=r.lifecycle or {},
                 attributes=r.attributes or {},
                 external_id=r.external_id,
@@ -984,10 +1105,10 @@ async def resolve_card_refs(
     `missing`. Ambiguous results include up to a handful of candidate
     paths so the UI can render a useful disambiguation hint.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
 
     type_keys: set[str] = {r.type for r in body.refs}
-    resolver = await CardResolver.load(db, type_keys)
+    resolver = await CardResolver.load(db, type_keys, read_scope=read_scope, mode="inventory")
 
     results: list[CardRefResolveResult] = []
     for ref in body.refs:
@@ -1021,11 +1142,12 @@ async def cards_counts(
     Declared above /{card_id} so the literal `counts` segment isn't shadowed
     by the UUID-typed catch-all and parsed as a (broken) UUID.
     """
-    await PermissionService.require_permission(db, user, "inventory.view")
+    read_scope = await require_inventory_browse(db, user)
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     rows = await db.execute(
         select(Card.type, func.count(Card.id))
         .where(Card.status == "ACTIVE", Card.type.not_in(hidden_types_sq))
+        .where(*read_scope.where(Card, mode="inventory"))
         .group_by(Card.type)
     )
     by_type = [CardTypeCount(type=tp, count=int(cnt)) for tp, cnt in rows.all()]
@@ -1037,9 +1159,7 @@ async def cards_counts(
 async def get_card(
     card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uuid.UUID(card_id), card_permission="card.view"
-    )
+    await _require_card_read(db, user, uuid.UUID(card_id))
     result = await db.execute(
         select(Card)
         .where(Card.id == uuid.UUID(card_id))
@@ -1058,18 +1178,33 @@ async def get_card(
 async def get_hierarchy(
     card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    """Return ancestors (root→parent), children, and computed level."""
+    """Return ancestors (root→parent), children, and computed level.
+
+    Two link labels are in play and they are NOT the same field (#1100):
+
+    * each ``children`` node carries **its own** ``parent_label`` — the label on
+      that child's edge to this card;
+    * the top-level ``parent_label`` is **this card's** label for its edge to
+      its own parent, i.e. what the Parent chip renders. It is deliberately not
+      hung off the last ancestor node, whose ``parent_label`` would be that
+      ancestor's link to *its* parent one level further up.
+    """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
+    read_scope = await CardReadScope.load(db, user)
     result = await db.execute(select(Card).where(Card.id == uid))
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
 
-    # Walk up parent chain to collect ancestors
+    # Walk up parent chain to collect ancestors. The walk covers the full
+    # chain (the level is structural), but an ancestor hidden from the caller
+    # by a type deny is left out of the list they are shown. Module mode, like
+    # the card's other sub-reads (relation summary, descendants, history): the
+    # gate above admits a card through `ppm.view` or a stakeholder role too,
+    # and inventory mode would show such a reader an empty tree.
     ancestors: list[dict] = []
+    depth = 0
     current = card
     seen: set[uuid.UUID] = {uid}
     while current.parent_id and current.parent_id not in seen:
@@ -1078,22 +1213,41 @@ async def get_hierarchy(
         parent = res.scalar_one_or_none()
         if not parent:
             break
-        ancestors.append({"id": str(parent.id), "name": parent.name, "type": parent.type})
+        depth += 1
+        if read_scope.readable(parent.id, parent.type, mode="module"):
+            ancestors.append(
+                {
+                    "id": str(parent.id),
+                    "name": parent.name,
+                    "type": parent.type,
+                    "parent_label": parent.parent_label,
+                }
+            )
         current = parent
     ancestors.reverse()  # root first
 
     # Direct children
     children_result = await db.execute(
-        select(Card).where(Card.parent_id == uid, Card.status == "ACTIVE").order_by(Card.name)
+        select(Card)
+        .where(Card.parent_id == uid, Card.status == "ACTIVE")
+        .where(*read_scope.where(Card, mode="module"))
+        .order_by(Card.name)
     )
     children = [
-        {"id": str(c.id), "name": c.name, "type": c.type} for c in children_result.scalars().all()
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "type": c.type,
+            "parent_label": c.parent_label,
+        }
+        for c in children_result.scalars().all()
     ]
 
     return {
         "ancestors": ancestors,
         "children": children,
-        "level": len(ancestors) + 1,
+        "level": depth + 1,
+        "parent_label": card.parent_label,
     }
 
 
@@ -1114,15 +1268,16 @@ async def relation_summary(
     relations.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
 
-    # Same hidden-type / archived filter rules as GET /relations so counts
-    # match what the user would actually see if they clicked through.
+    # Same hidden-type / archived / read-scope filter rules as GET /relations
+    # (module mode there too) so counts match what the user would actually
+    # see if they clicked through.
+    read_scope = await CardReadScope.load(db, user)
+    peer_readable = read_scope.where(Card, mode="module")
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
     excluded_card_sq = select(Card.id).where(
         or_(Card.type.in_(hidden_types_sq), Card.status == "ARCHIVED")
@@ -1134,6 +1289,7 @@ async def relation_summary(
         .where(
             Relation.source_id == uid,
             Relation.target_id.not_in(excluded_card_sq),
+            *peer_readable,
         )
         .group_by(Relation.type, Card.type)
     )
@@ -1143,6 +1299,7 @@ async def relation_summary(
         .where(
             Relation.target_id == uid,
             Relation.source_id.not_in(excluded_card_sq),
+            *peer_readable,
         )
         .group_by(Relation.type, Card.type)
     )
@@ -1190,14 +1347,20 @@ async def relation_summary(
     # Hierarchy snapshot — children count + parent info. ACTIVE children
     # only, matching what the diagram editor would actually drill into.
     children_count = await db.scalar(
-        select(func.count(Card.id)).where(Card.parent_id == uid, Card.status == "ACTIVE")
+        select(func.count(Card.id)).where(
+            Card.parent_id == uid, Card.status == "ACTIVE", *peer_readable
+        )
     )
     parent_id_str: str | None = None
     parent_name: str | None = None
     parent_type: str | None = None
     if card.parent_id is not None:
         parent = await db.get(Card, card.parent_id)
-        if parent and parent.status == "ACTIVE":
+        if (
+            parent
+            and parent.status == "ACTIVE"
+            and read_scope.readable(parent.id, parent.type, mode="module")
+        ):
             parent_id_str = str(parent.id)
             parent_name = parent.name
             parent_type = parent.type
@@ -1207,6 +1370,10 @@ async def relation_summary(
         parent_id=parent_id_str,
         parent_name=parent_name,
         parent_type=parent_type,
+        # Tied to `parent_id_str`, not read straight off the card: an archived
+        # parent is reported as no parent here, and a label for a parent this
+        # response does not name would be unattributable.
+        parent_label=card.parent_label if parent_id_str else None,
     )
     return CardRelationSummaryResponse(by_type=entries, hierarchy=hierarchy)
 
@@ -1226,13 +1393,24 @@ async def relation_summary(
 _MAX_DESCENDANT_RELATIONS = 20_000
 
 
+RelationDirection = Literal["outgoing", "incoming"]
+
+
 async def _descendant_relation_map(
     db: AsyncSession,
     root: Card,
     *,
     relation_type: str | None = None,
-) -> dict[str, dict[uuid.UUID, list[Card]]]:
-    """Map ``relation_type_key -> {peer_card_id: [descendants linking it]}``.
+    direction: RelationDirection | None = None,
+    read_scope: CardReadScope | None = None,
+) -> dict[tuple[str, RelationDirection], dict[uuid.UUID, list[Card]]]:
+    """Map ``(relation_type_key, direction) -> {peer_card_id: [descendants linking it]}``.
+
+    ``direction`` is the DESCENDANT's side of the row — ``outgoing`` when it is
+    the source. A self-referencing type therefore rolls up twice, once per
+    side, matching the two groups the Relations section renders for it; a
+    cross-type type still yields exactly one bucket. Pass ``direction`` to keep
+    only one side.
 
     Rules (all three agreed on discussion #863):
 
@@ -1244,9 +1422,12 @@ async def _descendant_relation_map(
     - **Peers inside the subtree are excluded** — a relation between two
       descendants is internal to the tree, not an additional related card.
 
-    Archived cards and cards of hidden types are filtered on both ends, so the
+    Archived cards, cards of hidden types and cards outside ``read_scope``
+    (module mode, as ``GET /relations``) are filtered on both ends, so the
     roll-up matches what ``GET /relations`` would show the same user.
     """
+    read_scope = read_scope or CardReadScope.everything()
+    readable = read_scope.clause(Card, mode="module")
     try:
         descendant_ids = await card_lifecycle.collect_descendants(db, root.id)
     except HTTPException:
@@ -1258,7 +1439,11 @@ async def _descendant_relation_map(
 
     # ACTIVE descendants only, mirroring the hierarchy section + relation-summary.
     desc_rows = await db.execute(
-        select(Card).where(Card.id.in_(descendant_ids), Card.status == "ACTIVE")
+        select(Card).where(
+            Card.id.in_(descendant_ids),
+            Card.status == "ACTIVE",
+            *read_scope.where(Card, mode="module"),
+        )
     )
     descendants = {c.id: c for c in desc_rows.scalars().all()}
     if not descendants:
@@ -1277,6 +1462,11 @@ async def _descendant_relation_map(
         Relation.source_id.not_in(excluded_card_sq),
         Relation.target_id.not_in(excluded_card_sq),
     )
+    if readable is not None:
+        readable_ids_sq = select(Card.id).where(readable)
+        rel_q = rel_q.where(
+            Relation.source_id.in_(readable_ids_sq), Relation.target_id.in_(readable_ids_sq)
+        )
     if relation_type:
         rel_q = rel_q.where(Relation.type == relation_type)
     rel_rows = await db.execute(rel_q.limit(_MAX_DESCENDANT_RELATIONS))
@@ -1291,29 +1481,37 @@ async def _descendant_relation_map(
     if relation_type:
         direct_q = direct_q.where(Relation.type == relation_type)
     direct_rows = await db.execute(direct_q)
-    already_linked: set[tuple[str, uuid.UUID]] = set()
+    # Keyed per side too: a direct "root has site P" must not hide P from the
+    # INCOMING roll-up when a descendant is P's site — that is exactly the row
+    # the incoming chip has to say something new about.
+    already_linked: set[tuple[str, RelationDirection, uuid.UUID]] = set()
     for r in direct_rows.scalars().all():
-        peer_id = r.target_id if r.source_id == root.id else r.source_id
-        already_linked.add((r.type, peer_id))
+        if r.source_id == root.id:
+            already_linked.add((r.type, "outgoing", r.target_id))
+        else:
+            already_linked.add((r.type, "incoming", r.source_id))
 
     inside_tree = set(descendants.keys()) | {root.id}
-    out: dict[str, dict[uuid.UUID, list[Card]]] = {}
+    out: dict[tuple[str, RelationDirection], dict[uuid.UUID, list[Card]]] = {}
     for r in relations:
         # Resolve which end is the descendant and which is the peer. A relation
         # with both ends inside the subtree is skipped by the `inside_tree`
         # check below regardless of which end we pick here.
+        side: RelationDirection
         if r.source_id in descendants:
-            owner_id, peer_id = r.source_id, r.target_id
+            owner_id, peer_id, side = r.source_id, r.target_id, "outgoing"
         else:
-            owner_id, peer_id = r.target_id, r.source_id
+            owner_id, peer_id, side = r.target_id, r.source_id, "incoming"
+        if direction is not None and side != direction:
+            continue
         if peer_id in inside_tree:
             continue
-        if (r.type, peer_id) in already_linked:
+        if (r.type, side, peer_id) in already_linked:
             continue
         owner = descendants.get(owner_id)
         if owner is None:
             continue
-        by_peer = out.setdefault(r.type, {})
+        by_peer = out.setdefault((r.type, side), {})
         vias = by_peer.setdefault(peer_id, [])
         # Dedup provenance: one descendant may link the same peer more than
         # once if the metamodel ever allows parallel edges.
@@ -1334,20 +1532,22 @@ async def descendant_relation_summary(
     empty list for leaf cards and for non-hierarchical types.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
 
-    by_type = await _descendant_relation_map(db, card)
+    by_side = await _descendant_relation_map(
+        db, card, read_scope=await CardReadScope.load(db, user)
+    )
     entries = [
-        DescendantRelationSummaryEntry(relation_type_key=rt_key, count=len(peers))
-        for rt_key, peers in by_type.items()
+        DescendantRelationSummaryEntry(relation_type_key=rt_key, direction=side, count=len(peers))
+        for (rt_key, side), peers in by_side.items()
         if peers
     ]
-    entries.sort(key=lambda e: e.relation_type_key)
+    # The key alone is no longer a total order — a self-referencing type has
+    # two entries. Outgoing first, as `relation_summary` orders its sides.
+    entries.sort(key=lambda e: (e.relation_type_key, 0 if e.direction == "outgoing" else 1))
     return entries
 
 
@@ -1355,6 +1555,13 @@ async def descendant_relation_summary(
 async def descendant_relations(
     card_id: str,
     relation_type: str = Query(..., description="Relation type key to roll up"),
+    direction: RelationDirection | None = Query(
+        None,
+        description=(
+            "Which side of the relation type to roll up — the card's outgoing or "
+            "incoming rows. Omit for both, which only differ for a self-referencing type."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -1367,15 +1574,29 @@ async def descendant_relations(
     entries. Read-only by design — there is no matching write route.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
 
-    by_type = await _descendant_relation_map(db, card, relation_type=relation_type)
-    peers = by_type.get(relation_type, {})
+    by_side = await _descendant_relation_map(
+        db,
+        card,
+        relation_type=relation_type,
+        direction=direction,
+        read_scope=await CardReadScope.load(db, user),
+    )
+    # Union the requested sides. A peer reached on both sides of a
+    # self-referencing type is one row; its `via` owners are re-deduped here
+    # because the builder only dedups within a side.
+    peers: dict[uuid.UUID, list[Card]] = {}
+    for (rt_key, _side), by_peer in by_side.items():
+        if rt_key != relation_type:
+            continue
+        for peer_id, owners in by_peer.items():
+            vias = peers.setdefault(peer_id, [])
+            seen = {v.id for v in vias}
+            vias.extend(o for o in owners if o.id not in seen)
     if not peers:
         return DescendantRelationsResponse(rows=[], total=0, via_total=0)
 
@@ -1431,6 +1652,7 @@ async def descendant_relations(
 @router.patch("/bulk")
 async def bulk_update(
     body: CardBulkUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1438,6 +1660,25 @@ async def bulk_update(
     uuids = [uuid.UUID(i) for i in body.ids]
     result = await db.execute(select(Card).where(Card.id.in_(uuids)))
     sheets = list(result.scalars().all())
+
+    # Per-card-type overrides reach bulk edit asymmetrically, on purpose: a
+    # type that *denies* `inventory.edit` for this role blocks bulk edits of
+    # that type, while a type that *allows* it grants nothing extra here —
+    # `inventory.bulk_edit` above remains the authority to edit in bulk at
+    # all. Anything else would turn a per-type allow into a silent grant of a
+    # landscape-wide capability the role was never given.
+    denied_types = sorted(
+        {
+            card.type
+            for card in sheets
+            if await PermissionService.is_type_denied(db, user, "inventory.edit", card.type)
+        }
+    )
+    if denied_types:
+        raise HTTPException(
+            403,
+            "Not enough permissions to edit cards of type: " + ", ".join(denied_types),
+        )
     updates = body.updates.model_dump(exclude_unset=True)
     strict_attrs = updates.pop("strict_attributes", False)
     # The human-readable reference is per-card and uniqueness-gated; it is never
@@ -1452,6 +1693,7 @@ async def bulk_update(
                 continue
             seen_types.add(card.type)
             await _validate_url_attributes(db, card.type, updates["attributes"])
+            await _validate_percentage_attributes(db, card.type, updates["attributes"])
             if strict_attrs:
                 await _validate_strict_attributes(db, card.type, updates["attributes"])
     # Preserve cost-typed keys for any card the user may not see costs on —
@@ -1476,6 +1718,25 @@ async def bulk_update(
                 select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys))
             )
             req_schemas = {key: schema for key, schema in rows.all()}
+
+    # Same prefetch for the hierarchy-label vocabulary — the check is per card
+    # (each compares against its own stored label and its own final parent), so
+    # only the type lookup can be deduplicated.
+    hierarchy_vocab: dict[str, list | None] = {}
+    if "parent_label" in updates and updates["parent_label"]:
+        type_keys = {c.type for c in sheets}
+        if type_keys:
+            rows = await db.execute(
+                select(CardType.key, CardType.hierarchy_labels).where(CardType.key.in_(type_keys))
+            )
+            hierarchy_vocab = {key: vocab for key, vocab in rows.all()}
+
+    # A bulk edit that clears the parent takes every card's link label with it,
+    # whether or not the caller sent one — the label describes an edge that no
+    # longer exists (#1100). Applies to the whole batch, so it belongs here
+    # rather than in the per-card loop.
+    if "parent_id" in updates and not updates["parent_id"]:
+        updates["parent_label"] = None
 
     # Guard: a bulk re-parent has to clear the same bar as the per-card PATCH.
     # Without this the endpoint happily builds cycles, blows past the capability
@@ -1555,16 +1816,36 @@ async def bulk_update(
                 _check_select_options(
                     card.type, req_schemas.get(card.type), value or {}, dict(card.attributes or {})
                 )
+            elif field == "parent_label" and value:
+                # Per card: the vocabulary is per type, and whether an edge
+                # exists at all depends on this card's own final parent.
+                final_pid = (
+                    (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None)
+                    if "parent_id" in updates
+                    else card.parent_id
+                )
+                _check_hierarchy_label(
+                    card.type,
+                    hierarchy_vocab.get(card.type),
+                    value,
+                    card.parent_label,
+                    has_parent=final_pid is not None,
+                )
             old_val = getattr(card, field)
             if old_val != value:
                 before[field] = str(old_val) if field == "parent_id" and old_val else old_val
                 after[field] = str(value) if field == "parent_id" and value else value
-            if not body.dry_run:
-                setattr(card, field, value)
+                # Only write what actually moved. Assigning an unchanged value
+                # is free (SQLAlchemy compares by equality), but `updated_by`
+                # below is not — and a card the bulk edit did not change must
+                # not surface as "changed just now" in the Inventory while its
+                # History tab stays empty (#995).
+                if not body.dry_run:
+                    setattr(card, field, value)
         if before:
             diffs.append({"id": str(card.id), "before": before, "after": after})
-        if not body.dry_run:
-            card.updated_by = user.id
+            if not body.dry_run:
+                card.updated_by = user.id
 
     if body.dry_run:
         return {
@@ -1582,31 +1863,32 @@ async def bulk_update(
     # descendant — same cascade update_card runs. Do this before the
     # data-quality pass so scores see the fresh level attributes.
     changed_levels_by_card: list[tuple[Card, list[Card]]] = []
+    previous_levels: dict[uuid.UUID, dict] = {}
     for card in moved:
-        changed_levels_by_card.append((card, await _sync_hierarchy_levels(db, card)))
+        changed_levels_by_card.append(
+            (card, await _sync_hierarchy_levels(db, card, previous=previous_levels))
+        )
 
-    # Mirror update_card: substantive edits break an approved card.
-    status_breaking = {
-        "name",
-        "description",
-        "lifecycle",
-        "attributes",
-        "subtype",
-        "alias",
-        "parent_id",
-    }
+    # Mirror update_card: substantive edits break an approved card. `diffs` was
+    # computed before the flip, so the broken ids are carried separately and
+    # folded into each card's event payload below.
+    broken_ids: set[str] = set()
     for diff in diffs:
-        if not (status_breaking & set(diff["after"].keys())):
-            continue
         card = next((c for c in sheets if str(c.id) == diff["id"]), None)
-        if card is not None and card.approval_status == "APPROVED":
-            card.approval_status = "BROKEN"
+        if card is not None and card_approval.break_approval(card, diff["after"].keys()):
+            broken_ids.add(diff["id"])
 
     # Recompute completeness score and calculated fields per card, mirroring
     # create_card / bulk_create_cards / update_card. Without this a bulk edit
     # persists the new values but leaves data_quality and calculated fields
     # frozen at their prior (often creation-time) value.
+    changed_ids = {diff["id"] for diff in diffs}
     for card in sheets:
+        # Only the cards this edit actually touched. Recomputing a card the
+        # bulk edit left alone can still move a stale calculated field, which
+        # UPDATEs the row and moves Last-changed with nothing in History (#995).
+        if str(card.id) not in changed_ids:
+            continue
         ppm_excl = await _get_ppm_exclusions(db, card)
         await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
         # After the calculations — see the note in `create_card`.
@@ -1621,21 +1903,40 @@ async def bulk_update(
     # id / origin stamping in event_bus.publish is what lets an admin
     # reconstruct (or roll back) an MCP-driven bulk write.
     for diff in diffs:
+        changes: dict[str, dict] = {
+            field: {"old": diff["before"].get(field), "new": diff["after"].get(field)}
+            for field in diff["after"]
+        }
+        if diff["id"] in broken_ids:
+            changes["approval_status"] = card_approval.approval_change_entry()
         await event_bus.publish(
             "card.updated",
-            {
-                "id": diff["id"],
-                "changes": {
-                    field: {"old": diff["before"].get(field), "new": diff["after"].get(field)}
-                    for field in diff["after"]
-                },
-            },
+            {"id": diff["id"], "changes": changes},
             db=db,
             card_id=uuid.UUID(diff["id"]),
             user_id=user.id,
         )
 
+    # Descendants dragged along by a bulk re-parent get their own entry — their
+    # Modified date moved too (see the updated_at invariant in CLAUDE.md).
+    for card, changed_levels in changed_levels_by_card:
+        await emit_hierarchy_cascade_events(db, changed_levels, previous_levels, card.id, user.id)
+
+    # One notification per person, however many of their cards this edit broke
+    # — a five-hundred-card mass edit must not put five hundred bell entries on
+    # every stakeholder. Built before the commit (the rows are in the session),
+    # delivered after the response.
+    broken_recipients = await card_approval.build_approval_broken_recipients(
+        db,
+        cards=[c for c in sheets if str(c.id) in broken_ids],
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+    )
+
     await db.commit()
+    await card_approval.deliver_approval_broken(
+        db, broken_recipients, actor_id=user.id, background_tasks=background_tasks
+    )
     result = await db.execute(
         select(Card)
         .where(Card.id.in_(uuids))
@@ -1654,6 +1955,7 @@ async def bulk_update(
 @router.post("/bulk-archive", response_model=CardBulkArchiveResponse)
 async def bulk_archive_cards(
     body: CardBulkArchiveRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1724,13 +2026,16 @@ async def bulk_archive_cards(
     primary_id_set = {p.id for p in primaries}
     descendants_set: set[uuid.UUID] = set()
     related_set: set[uuid.UUID] = set()
+    read_scope = await CardReadScope.load(db, user)
 
     for p in primaries:
         per_primary_body = CardArchiveRequest(
             child_strategy=body.child_strategy,
             cascade_all_related=body.cascade_all_related,
         )
-        descendants, related, _ = await _resolve_archive_delete_set(db, p, per_primary_body)
+        descendants, related, _ = await _resolve_archive_delete_set(
+            db, p, per_primary_body, read_scope
+        )
         for did in descendants:
             if did not in primary_id_set:
                 descendants_set.add(did)
@@ -1743,14 +2048,19 @@ async def bulk_archive_cards(
         db, user, full_affected, app_perm="inventory.archive", card_perm="card.archive"
     )
 
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if body.child_strategy in ("disconnect", "reparent"):
         for p in primaries:
-            await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            )
     for rid in related_set:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None and rcard.status == "ACTIVE":
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            )
 
     flip_res = await db.execute(
         select(Card)
@@ -1766,6 +2076,19 @@ async def bulk_archive_cards(
     flipped_ids = {c.id for c in flipped}
     archived_card_ids = [str(p.id) for p in primaries if p.id in flipped_ids]
     cascaded_card_ids = [str(cid) for cid in (descendants_set | related_set) if cid in flipped_ids]
+
+    # A child moved out of the way keeps its event, but one we archived in the
+    # same breath is excluded from the notification — telling somebody to
+    # re-approve a card that has just left the active landscape is how a bell
+    # gets muted.
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=child_results,
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+        archived_ids=frozenset(flipped_ids),
+        background_tasks=background_tasks,
+    )
 
     for fcard in flipped:
         event_data = {"id": str(fcard.id), "type": fcard.type, "name": fcard.name}
@@ -1804,6 +2127,7 @@ async def bulk_archive_cards(
 @router.post("/bulk-delete", response_model=CardBulkDeleteResponse)
 async def bulk_delete_cards(
     body: CardBulkDeleteRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1864,13 +2188,16 @@ async def bulk_delete_cards(
     primary_id_set = {p.id for p in primaries}
     descendants_set: set[uuid.UUID] = set()
     related_set: set[uuid.UUID] = set()
+    read_scope = await CardReadScope.load(db, user)
 
     for p in primaries:
         per_primary_body = CardDeleteRequest(
             child_strategy=body.child_strategy,
             cascade_all_related=body.cascade_all_related,
         )
-        descendants, related, _ = await _resolve_archive_delete_set(db, p, per_primary_body)
+        descendants, related, _ = await _resolve_archive_delete_set(
+            db, p, per_primary_body, read_scope
+        )
         for did in descendants:
             if did in primary_id_set:
                 continue
@@ -1885,14 +2212,19 @@ async def bulk_delete_cards(
         db, user, full_affected, app_perm="inventory.delete", card_perm="card.delete"
     )
 
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if body.child_strategy in ("disconnect", "reparent"):
         for p in primaries:
-            await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, p, body.child_strategy, user.id)
+            )
     for rid in related_set:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None:
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            )
 
     # Order the DELETE leaves-first across the entire target set so the self-FK
     # on `parent_id` is satisfied at every step. The naive "primaries last,
@@ -1928,6 +2260,17 @@ async def bulk_delete_cards(
     deleted_payload: list[tuple[uuid.UUID, str, str]] = [
         (c.id, c.type, c.name) for c in target_objs
     ]
+
+    # Before the deletes, and before the `card.deleted` events: a child we are
+    # about to remove gets neither an event nor a nudge to re-approve it.
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=child_results,
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+        removed_ids=frozenset(target_by_id),
+        background_tasks=background_tasks,
+    )
 
     for did, dtype, dname in deleted_payload:
         await event_bus.publish(
@@ -2080,6 +2423,11 @@ async def update_card(
     # `strict_attributes` is a request-side flag, not a column.
     strict_attrs = updates.pop("strict_attributes", False)
 
+    new_parent = updates.get("parent_id")
+    if new_parent and str(new_parent) != str(card.parent_id):
+        # A parent hidden from the caller does not exist for them.
+        await require_card_readable(db, user, uuid.UUID(str(new_parent)), mode="module")
+
     # Preserve cost-typed keys when the user lacks cost access on this card.
     # PATCH does a full replace on `attributes`, so simply dropping the
     # forbidden keys from the incoming payload would wipe whatever the card
@@ -2137,17 +2485,22 @@ async def get_archive_impact(
     the relations list endpoint at `/api/v1/relations`.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     res = await db.execute(select(Card).where(Card.id == uid))
     primary = res.scalar_one_or_none()
     if not primary:
         raise HTTPException(404, "Card not found")
 
-    children, grandparent, related_rows = await card_lifecycle.gather_archive_impact(db, primary)
+    read_scope = await CardReadScope.load(db, user)
+    children, grandparent, related_rows = await card_lifecycle.gather_archive_impact(
+        db, primary, read_scope
+    )
 
-    descendants = await card_lifecycle.collect_descendants(db, uid)
+    descendants = list(
+        await read_scope.readable_card_ids(
+            db, await card_lifecycle.collect_descendants(db, uid), mode="module"
+        )
+    )
     descendant_count = len(descendants)
     approved_descendant_count = 0
     if descendants:
@@ -2162,7 +2515,9 @@ async def get_archive_impact(
     if children:
         for child in children:
             sub = await card_lifecycle.collect_descendants(db, child.id)
-            children_per_descendant[child.id] = len(sub)
+            children_per_descendant[child.id] = len(
+                await read_scope.readable_card_ids(db, sub, mode="module")
+            )
 
     return ArchiveImpactResponse(
         child_count=len(children),
@@ -2209,6 +2564,7 @@ async def _resolve_archive_delete_set(
     db: AsyncSession,
     primary: Card,
     body: CardArchiveRequest | CardDeleteRequest,
+    read_scope: CardReadScope | None = None,
 ) -> tuple[list[uuid.UUID], list[uuid.UUID], list[uuid.UUID]]:
     """Resolve (descendants, related_card_ids, full_affected_excluding_primary).
 
@@ -2221,6 +2577,7 @@ async def _resolve_archive_delete_set(
         child_strategy=body.child_strategy,
         related_card_ids=body.related_card_ids,
         cascade_all_related=body.cascade_all_related,
+        read_scope=read_scope,
     )
 
 
@@ -2234,23 +2591,41 @@ async def _ensure_permission_on_each(
 ) -> None:
     if not card_ids:
         return
+    # One query for every card's type, so the per-type override lookup inside
+    # `check_permission` does not re-read each row.
+    type_rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
+    type_by_id = {row_id: row_type for row_id, row_type in type_rows.all()}
+    read_scope = await CardReadScope.load(db, user)
     denied: list[str] = []
+    hidden_denied = 0
     for cid in card_ids:
-        if not await PermissionService.check_permission(db, user, app_perm, cid, card_perm):
-            denied.append(str(cid))
-            if len(denied) >= 5:
+        if not await PermissionService.check_permission(
+            db, user, app_perm, cid, card_perm, card_type_key=type_by_id.get(cid)
+        ):
+            # Never echo the id of a card the caller cannot see.
+            if read_scope.readable(cid, type_by_id.get(cid), mode="module"):
+                denied.append(str(cid))
+            else:
+                hidden_denied += 1
+            if len(denied) + hidden_denied >= 5:
                 break
-    if denied:
+    if denied or hidden_denied:
+        parts = []
+        if denied:
+            parts.append(", ".join(denied))
+        if hidden_denied:
+            parts.append(f"{hidden_denied} card(s) you cannot see")
         raise HTTPException(
             403,
-            f"Not enough permissions for cards: {', '.join(denied)}"
-            + (" (and possibly more)" if len(denied) >= 5 else ""),
+            f"Not enough permissions for cards: {'; '.join(parts)}"
+            + (" (and possibly more)" if len(denied) + hidden_denied >= 5 else ""),
         )
 
 
 @router.post("/{card_id}/archive", response_model=CardArchiveResponse)
 async def archive_card(
     card_id: str,
+    background_tasks: BackgroundTasks,
     body: CardArchiveRequest = Body(default_factory=CardArchiveRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2291,7 +2666,7 @@ async def archive_card(
         )
 
     descendants, related_card_ids, full_affected = await _resolve_archive_delete_set(
-        db, primary, body
+        db, primary, body, await CardReadScope.load(db, user)
     )
     await _ensure_permission_on_each(
         db,
@@ -2310,6 +2685,7 @@ async def archive_card(
         related_card_ids=related_card_ids,
         full_affected=full_affected,
         direct_children=direct_children,
+        background_tasks=background_tasks,
     )
 
     await db.commit()
@@ -2343,14 +2719,14 @@ async def get_restore_impact(
     individually restored are filtered out.
     """
     uid = uuid.UUID(card_id)
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uid, card_permission="card.view"
-    )
+    await _require_card_read(db, user, uid)
     res = await db.execute(select(Card).where(Card.id == uid))
     primary = res.scalar_one_or_none()
     if not primary:
         raise HTTPException(404, "Card not found")
-    rows = await card_lifecycle.gather_restore_impact(db, primary)
+    rows = await card_lifecycle.gather_restore_impact(
+        db, primary, await CardReadScope.load(db, user)
+    )
     return RestoreImpactResponse(
         passengers=[
             RestoreImpactPassenger(
@@ -2459,6 +2835,7 @@ async def restore_card(
 @router.delete("/{card_id}", response_model=CardDeleteResponse)
 async def delete_card(
     card_id: str,
+    background_tasks: BackgroundTasks,
     body: CardDeleteRequest = Body(default_factory=CardDeleteRequest),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -2494,7 +2871,7 @@ async def delete_card(
         )
 
     descendants, related_card_ids, _full_affected = await _resolve_archive_delete_set(
-        db, primary, body
+        db, primary, body, await CardReadScope.load(db, user)
     )
     permission_targets = [*descendants, *related_card_ids]
     await _ensure_permission_on_each(
@@ -2506,15 +2883,20 @@ async def delete_card(
     )
 
     # For disconnect/reparent, mutate the primary's children before deletion.
+    child_results: list[card_lifecycle.ChildStrategyResult] = []
     if direct_children and body.child_strategy in ("disconnect", "reparent"):
-        await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+        child_results.append(
+            await card_lifecycle.apply_child_strategy(db, primary, body.child_strategy, user.id)
+        )
     # Single-hop: any ticked related card's children get disconnected before
     # the related card is deleted, so the FK on `cards.parent_id` doesn't trip.
     for rid in related_card_ids:
         rel_res = await db.execute(select(Card).where(Card.id == rid))
         rcard = rel_res.scalar_one_or_none()
         if rcard is not None:
-            await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            child_results.append(
+                await card_lifecycle.apply_child_strategy(db, rcard, "disconnect", user.id)
+            )
 
     # Capture what we'll be reporting before the rows are gone.
     affected_children_ids = list(descendants)
@@ -2535,6 +2917,17 @@ async def delete_card(
         deleted_payload.append((cobj.id, cobj.type, cobj.name))
     target_objs.append(primary)
     deleted_payload.append((primary.id, primary.type, primary.name))
+
+    # Before the deletes, and before the `card.deleted` events: a child we are
+    # about to remove gets neither an event nor a nudge to re-approve it.
+    await card_approval.record_child_strategy_effects(
+        db,
+        results=child_results,
+        actor_id=user.id,
+        actor_display_name=user.display_name,
+        removed_ids=frozenset(c.id for c in target_objs),
+        background_tasks=background_tasks,
+    )
 
     for did, dtype, dname in deleted_payload:
         await event_bus.publish(
@@ -2616,12 +3009,17 @@ async def get_history(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
-    await PermissionService.require_permission(
-        db, user, "inventory.view", card_id=uuid.UUID(card_id), card_permission="card.view"
+    await _require_card_read(db, user, uuid.UUID(card_id))
+    # A relation event names its peer; drop the ones whose peer is hidden from
+    # the caller, so History does not list a card the Relations section omits.
+    read_scope = await CardReadScope.load(db, user)
+    peer_ok = read_scope.ref_clause(
+        Event.data["peer_type"].astext, Event.data["peer_id"].astext, mode="module"
     )
     q = (
         select(Event)
         .where(Event.card_id == uuid.UUID(card_id))
+        .where(*(() if peer_ok is None else (peer_ok,)))
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .offset((page - 1) * page_size)
@@ -2629,16 +3027,17 @@ async def get_history(
     )
     result = await db.execute(q)
     events = result.scalars().all()
+    payloads = await scrub_event_payloads(db, read_scope, [e.data for e in events])
     return [
         {
             "id": str(e.id),
             "event_type": e.event_type,
-            "data": e.data,
+            "data": data,
             "user_id": str(e.user_id) if e.user_id else None,
             "user_display_name": e.user.display_name if e.user else None,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in events
+        for e, data in zip(events, payloads)
     ]
 
 
@@ -3198,9 +3597,7 @@ async def my_permissions(
     user: User = Depends(get_current_user),
 ):
     """Return the current user's effective permissions on a specific card."""
-    result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
-    if not result.scalar_one_or_none():
-        raise HTTPException(404, "Card not found")
+    await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
 
     return await PermissionService.get_effective_card_permissions(db, user, uuid.UUID(card_id))
 
@@ -3226,9 +3623,11 @@ async def export_json(
     if len(type_list) > 20:
         raise HTTPException(400, "Maximum 20 type keys allowed")
 
+    read_scope = await CardReadScope.load(db, user)
     q = (
         select(Card)
         .where(Card.status == "ACTIVE", Card.type.in_(type_list))
+        .where(*read_scope.where(Card, mode="module"))
         .options(selectinload(Card.tags).selectinload(Tag.group))
     )
     if include_stakeholders:
@@ -3262,7 +3661,9 @@ async def export_json(
             provider_card_ids -= set(card_ids)
 
             if provider_card_ids:
-                prov_q = select(Card.id, Card.name).where(Card.id.in_(provider_card_ids))
+                prov_q = select(Card.id, Card.name).where(
+                    Card.id.in_(provider_card_ids), *read_scope.where(Card, mode="module")
+                )
                 prov_result = await db.execute(prov_q)
                 prov_name_map = {row.id: row.name for row in prov_result.all()}
 
@@ -3276,7 +3677,11 @@ async def export_json(
                         prov_name = prov_name_map[rel.target_id]
                     else:
                         continue
-                    provider_names_by_card.setdefault(card_key, []).append(prov_name)
+                    # Name each provider once per card: a card may be linked to
+                    # the same provider through several relation types.
+                    names = provider_names_by_card.setdefault(card_key, [])
+                    if prov_name not in names:
+                        names.append(prov_name)
 
     redact = await _cost_redaction_map(db, user, list(cards))
     items = []
@@ -3329,9 +3734,11 @@ async def export_csv(
     type: str | None = Query(None),
 ):
     await PermissionService.require_permission(db, user, "inventory.export")
+    read_scope = await CardReadScope.load(db, user)
     q = (
         select(Card)
         .where(Card.status == "ACTIVE")
+        .where(*read_scope.where(Card, mode="module"))
         .options(selectinload(Card.stakeholders).selectinload(Stakeholder.user))
     )
     if type:

@@ -26,6 +26,14 @@ Use la barra de herramientas para:
 
 Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual.
 
+### Impresión y exportación
+
+La cartera ofrece las mismas acciones en la barra de título que los informes:
+
+- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página.
+- **Exportar a PowerPoint (.pptx)** — desde el menú **⋮**. La primera diapositiva incluye el título, la marca de tiempo de generación y los filtros activos junto con la cartera con calidad de presentación; las carteras largas continúan en más diapositivas, cortadas solo entre iniciativas, nunca a través de una fila, un encabezado de grupo o una línea de totales.
+- **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado.
+
 ## Vista de detalle de iniciativa
 
 Haga clic en cualquier iniciativa para abrir su página de detalle con siete pestañas:
@@ -67,6 +75,21 @@ Seguimiento de datos financieros con dos tipos de partidas:
 
 Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
 
+#### Gasto a lo largo del tiempo
+
+Encima de las tablas de presupuesto y costes, tres gráficos muestran cómo se acumula el gasto mes a mes:
+
+- **Gasto acumulado por categoría** — CapEx y OpEx acumulados del ejercicio seleccionado, con líneas horizontales punteadas que marcan el presupuesto CapEx y OpEx de ese ejercicio
+- **Gasto total acumulado** — el mismo ejercicio con ambas categorías combinadas, frente a una línea punteada de presupuesto total
+- **Proyecto hasta la fecha** — CapEx y OpEx acumulados a lo largo de todos los meses del proyecto, frente al presupuesto total de todos los ejercicios
+
+El selector de ejercicio se aplica a los dos primeros gráficos y ofrece el ejercicio actual, cualquier otro ejercicio con datos y **Todos los ejercicios fiscales**. Sus elecciones de ejercicio y estado plegado o desplegado se recuerdan entre visitas.
+
+Dos aspectos a tener en cuenta al leer los gráficos:
+
+- Las líneas se detienen en el mes actual en lugar de continuar planas hasta el final del ejercicio, de modo que un ejercicio en curso no se confunda con uno en el que el gasto se ha detenido
+- Las partidas de coste sin fecha no pueden situarse en una línea temporal y quedan excluidas. Una nota bajo los gráficos indica cuántas se excluyeron, para poder conciliar los totales del gráfico con la barra de resumen
+
 ### Pestaña de gestión de riesgos
 
 ![Pestaña de gestión de riesgos](../assets/img/es/44_ppm_gestion_riesgos.png)
@@ -94,7 +117,7 @@ El gestor de tareas admite vistas de **tablero Kanban** y **lista** con cuatro c
 - **Hecho** — Tareas completadas
 - **Bloqueado** — Tareas que no pueden avanzar
 
-Las tareas se pueden filtrar y agrupar por elemento de Estructura de Desglose del Trabajo (WBS). Arrastre y suelte tarjetas entre columnas para actualizar el estado.
+Las tareas se pueden filtrar y agrupar por elemento de Estructura de Desglose del Trabajo (WBS). Al agrupar, cada paquete de trabajo aparece como un grupo —incluido uno que aún no contiene tareas, que muestra una indicación y un botón **Agregar tarea** que abre el diálogo de tarea con ese paquete preseleccionado—. Los hitos aparecen solo cuando contienen una tarea. Arrastre y suelte tarjetas entre columnas para actualizar el estado.
 
 Los filtros de visualización (modo de vista, filtro WBS, alternancia de agrupación) se mantienen en la URL entre actualizaciones de página.
 
@@ -107,7 +130,7 @@ El diagrama de Gantt visualiza el cronograma del proyecto con:
 - **Paquetes de trabajo (WBS)** — Elementos jerárquicos de estructura de desglose del trabajo con fechas de inicio/fin
 - **Tareas** — Barras de tareas individuales vinculadas a paquetes de trabajo
 - **Hitos** — Fechas clave marcadas con indicadores de diamante
-- **Barras de progreso** — Porcentaje de finalización visual. Haga clic en el chip de porcentaje de una tarea o paquete de trabajo hoja para abrir un control deslizante que se ajusta a **0%, 50% o 100%** — correspondiente a los tres estados de tarea (Por hacer, En progreso, Hecho). Los paquetes de trabajo padre con hijos muestran un chip de solo lectura cuyo valor se calcula automáticamente a partir del subárbol.
+- **Barras de progreso** — Porcentaje de finalización visual. Una tarea no tiene porcentaje propio: su relleno sigue su estado — **Por hacer (0%)**, **En progreso (50%)**, **Hecho (100%)**. Haga clic en el chip de porcentaje de una tarea para abrir un control deslizante cuyas tres posiciones llevan el nombre de esos estados; elegir una posición cambia el estado, y arrastrar el relleno en la barra de la tarea hace lo mismo. Un paquete de trabajo hoja tiene un control deslizante libre en pasos del 5%. Los paquetes de trabajo que tienen paquetes de trabajo hijos **o tareas** muestran un chip de solo lectura cuyo valor se calcula automáticamente a partir del subárbol.
 - **Marcas trimestrales** — Cuadrícula de cronograma para orientación
 
 Interactúa con el diagrama de Gantt:
@@ -115,6 +138,7 @@ Interactúa con el diagrama de Gantt:
 - **Selector de escala** — Elige entre Día, Semana, Mes, Trimestre y Año; la elección se recuerda en tu navegador
 - **Botones de zoom +/−** — Avanza un nivel a la vez por las mismas cinco escalas
 - **Puntos en los extremos de las barras** — Arrastra desde el punto derecho de una barra hasta el punto izquierdo de otra para crear una dependencia «finish-to-start». Funciona entre paquetes de trabajo y tareas en cualquier combinación. Los ciclos se rechazan automáticamente. **Haz doble clic en una flecha** para eliminarla.
+- **La fila +** al final de la lista pregunta qué crear —un paquete de trabajo, un hito o una tarea—, de modo que una tarea escrita ahí aparece en la pestaña de tareas.
 
 ### Pestaña de detalles de tarjeta
 
@@ -127,7 +151,7 @@ La WBS proporciona una descomposición jerárquica del alcance del proyecto:
 - **Paquetes de trabajo** — Agrupaciones lógicas de tareas con fechas de inicio/fin y seguimiento de finalización
 - **Hitos** — Eventos significativos o puntos de finalización
 - **Jerarquía** — Relaciones padre-hijo entre elementos WBS
-- **Auto-finalización** — El porcentaje de finalización se calcula automáticamente a partir de las proporciones de tareas hechas/totales, acumulándose recursivamente a través de la jerarquía WBS hasta los elementos padre. El completamiento del nivel superior representa el progreso general de la iniciativa
+- **Auto-finalización** — La finalización se calcula automáticamente a partir de las tareas del subárbol de un paquete de trabajo: cada tarea cuenta como 0% (Por hacer, Bloqueado), 50% (En progreso) o 100% (Hecho), ponderada por su duración en días (un día cuando falta una fecha), y luego se acumula recursivamente hasta los elementos padre. Un paquete de trabajo sin ninguna tarea por debajo conserva el valor escrito a mano. La media de los paquetes de trabajo de nivel superior es el progreso general de la iniciativa: el número de la pestaña de visión general y la variable `ppm.completion` que un [campo calculado](../admin/calculations.md#ppm-data-on-initiative-cards) puede mostrar en la ficha y en un portal
 
 ## Integración con los detalles de la ficha
 
@@ -139,6 +163,6 @@ A la inversa, la pestaña **Detalles de la ficha** dentro de la vista detallada 
 
 | Permiso | Descripción |
 |---------|-------------|
-| `ppm.view` | Ver el panel de PPM, diagrama de Gantt e informes de iniciativas. Concedido a todos los roles por defecto |
+| `ppm.view` | Ver el panel de PPM, diagrama de Gantt e informes de iniciativas, y leer las tarjetas de iniciativa. Concedido a todos los roles por defecto |
 | `ppm.manage` | Crear y gestionar informes de estado, tareas, costos, riesgos y elementos WBS. Concedido a los roles Admin, BPM Admin y Miembro |
 | `reports.ppm_dashboard` | Ver el panel del portafolio PPM. Concedido a todos los roles por defecto |

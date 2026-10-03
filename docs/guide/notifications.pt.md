@@ -26,11 +26,21 @@ Clique em qualquer notificação para navegar diretamente até o card ou documen
 | **SoAW assinado** | Um SoAW que você acompanha recebe uma assinatura |
 | **Solicitação de pesquisa** | Uma pesquisa é enviada que requer sua resposta |
 
+**Status de aprovação alterado** também abrange o caso automático. Um card
+aprovado passa a **Quebrado** assim que alguém o edita, ou quando arquivar o card
+pai o desloca na hierarquia — você é notificado nos dois casos, e a alteração fica
+registada na aba **Histórico** do card. Quando uma única ação quebra vários dos
+seus cards de uma vez, como uma edição em massa, você recebe um único resumo em
+vez de uma notificação por card.
+
+
 ## Entrega em Tempo Real
 
 As notificações são entregues em tempo real usando Server-Sent Events (SSE). Você não precisa atualizar a página — novas notificações aparecem automaticamente e a contagem do badge é atualizada instantaneamente.
 
 ## Preferências de Notificação
+
+![A caixa de diálogo de preferências de notificação](../assets/img/pt/81_preferencias_notificacoes.png)
 
 Clique no **ícone de engrenagem** no dropdown de notificações (ou vá ao menu do seu perfil) para configurar suas preferências de notificação.
 
@@ -40,3 +50,17 @@ Para cada tipo de notificação, você pode alternar independentemente:
 - **E-mail** — Se um e-mail também é enviado (requer que o envio de e-mail esteja configurado por um administrador)
 
 Alguns tipos de notificação (ex.: solicitações de pesquisa) podem ter entrega por e-mail imposta pelo sistema e não podem ser desabilitados.
+
+Cada canal é independente: desativar um tipo no sino não interrompe o seu e-mail,
+e vice-versa. Alguns tipos passam apenas pelo sino — o aviso de atualização que
+chega a todas as contas, por exemplo — e os restantes interruptores ficam fixos
+em «desativado».
+
+Se estiver instalada e licenciada uma extensão que entrega notificações noutro
+sítio (uma mensagem de chat, por exemplo), esta acrescenta a sua própria coluna
+ao lado de «Na aplicação» e «E-mail», e escolhe tipo a tipo se a notificação
+segue para lá. Essas colunas começam sempre **desativadas**. Desativar a extensão
+ou deixar caducar a licença oculta a coluna e coloca a entrega em pausa, mas
+conserva tudo o que escolheu: volta com a extensão. [Slack Notifications](../extensions/slack-notify.md) é uma dessas extensões.
+
+Uma extensão também pode declarar tipos de notificação próprios — por exemplo **Notificações de automações** —, que aparecem aqui como linhas próprias (na aplicação ligado, e-mail desligado por predefinição), para os ajustar separadamente da linha genérica **Aviso de extensão**. Se a extensão for desativada ou a licença expirar, as suas linhas desaparecem até ela voltar; as suas escolhas são mantidas. Algumas notificações de extensões abrem os seus **detalhes** na aplicação ao clicar em vez de o levarem a uma página: a mensagem completa, mais botões para abrir a ficha relacionada ou a página da extensão quando tiver permissão.

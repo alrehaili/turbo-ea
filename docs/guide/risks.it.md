@@ -49,6 +49,8 @@ Le schede collegate sono **raggruppate per tipo di scheda**, ordinate alfabetica
 
 La mitigazione è catturata come **voci di lavoro assegnate**, non come testo libero. Sulla pagina di dettaglio del rischio il pannello **Attività di mitigazione** sostituisce il vecchio campo singolo «piano di mitigazione» — ogni riga è un'attività reale con proprio proprietario, scadenza, cronologia e (opzionalmente) regola di ricorrenza.
 
+![Attività di mitigazione nella pagina di dettaglio del rischio](../assets/img/it/97_rischio_attivita_mitigazione.png)
+
 ### Una tantum vs. ricorrente
 
 Un'attività di mitigazione è **una tantum** per impostazione predefinita — adatta a «Distribuire MFA», «Firmare SCC aggiornate» o qualsiasi lavoro a forma di progetto. Attivate **Si ripete** nel dialogo dell'attività e ottenete una **revisione di controllo ricorrente**: ad es. «Ri-attestare la documentazione di trasferimento transfrontaliero ogni 12 mesi», «Eseguire il tabletop di risposta agli incidenti OT ogni 3 mesi», «Auditare le credenziali Jenkins ogni settimana».
@@ -96,6 +98,8 @@ Quando cliccate **Crea rischio** su un riscontro non conforme (vedi [TurboLens](
 
 Il pulsante **Esporta** del Registro dei Rischi scrive un `.xlsx` a due fogli: il foglio 1 è la griglia di rischi filtrata, il foglio 2 una riga per ciclo di ciascuna attività di ciascun rischio nello stesso filtro, inclusi tempo di preavviso e timestamp di attivazione. Usatelo per dossier di audit o per stakeholder senza accesso a Turbo EA. Ogni riga di attività nel pannello di dettaglio dispone inoltre del proprio pulsante **Esporta cronologia** per una cartella di lavoro per attività.
 
+Un singolo rischio può anche essere stampato dalla sua pagina di dettaglio: **PDF** (accanto a **Elimina**) apre un dossier pronto per la stampa — identificazione, valutazione iniziale e residua, attività di mitigazione con i cicli più recenti, schede interessate, workflow e motivazione dell'accettazione — in una nuova scheda, pronto per *Salva come PDF* del browser.
+
 ### Importazione {: #import }
 
 Il pulsante **Importa** accanto a «Esporta» carica rischi in blocco da un file `.xlsx`. Fai clic su **Scarica modello** per ottenere una cartella di lavoro iniziale con le intestazioni corrette, inserisci un rischio per riga e caricala. Una riga il cui `reference` corrisponde a un rischio esistente viene **saltata** (l'importatore non aggiorna mai i rischi esistenti), così la reimportazione di un registro esportato in precedenza è idempotente; ogni altra riga crea un rischio **completamente nuovo** con un riferimento `R-NNNNNN` generato automaticamente. L'anteprima indica quante righe verranno saltate prima della conferma.
@@ -104,11 +108,13 @@ Colonne riconosciute: `title` (obbligatorio), `description`, `category`, `initia
 
 ## Matrice dei rischi
 
+![La matrice dei rischi 4×4 nel registro dei rischi](../assets/img/it/78_matrice_rischi.png)
+
 Sia la Panoramica Sicurezza di TurboLens sia la pagina del Registro dei Rischi mostrano una heatmap probabilità × impatto 4×4. Le celle sono **cliccabili** — cliccate su una per filtrare la lista sottostante su quel bucket, cliccate di nuovo (o sulla × del chip) per pulire. Nel Registro dei Rischi potete alternare la matrice fra le viste **Iniziale** e **Residua** per vedere visivamente il progresso della mitigazione.
 
 ## Griglia del registro
 
-Il registro è un AG Grid che segue gli standard della pagina [Inventario](inventory.md): colonne ordinabili, filtrabili e ridimensionabili con preferenze utente persistite (colonne visibili, ordinamento, stato della sidebar). Il pulsante **+ Nuovo rischio** in barra strumenti apre il dialogo di creazione manuale. Il pulsante **Esporta** della barra strumenti scrive un `.xlsx` a due fogli con la griglia di rischi filtrata nel foglio 1 e una riga per ciclo di attività di mitigazione nel foglio 2 — vedi [Attività di mitigazione → Esportazione](#export) per il formato delle colonne.
+Il registro è un AG Grid che segue gli standard della pagina [Inventario](inventory.md): colonne ordinabili, filtrabili e ridimensionabili con preferenze utente persistite (colonne visibili, ordinamento, stato della sidebar). Il pulsante **+ Nuovo rischio** in barra strumenti apre il dialogo di creazione manuale. Il pulsante **Esporta** della barra strumenti scrive un `.xlsx` a due fogli con la griglia di rischi filtrata nel foglio 1 e una riga per ciclo di attività di mitigazione nel foglio 2 — vedi [Attività di mitigazione → Esportazione](#export) per il formato delle colonne. Una colonna **Origine** indica se un rischio è stato inserito a mano, promosso da un rilievo di conformità o creato da un'estensione, e segue il filtro Origine della sidebar.
 
 ### Filtrare per schede interessate
 

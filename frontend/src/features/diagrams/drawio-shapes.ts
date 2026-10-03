@@ -7,8 +7,9 @@
  * it avoids XML merge root-cell conflicts and plugin lifecycle issues.
  */
 
+import { logoGutterFor } from "./cardLogoImage";
 import { ICON_PATHS } from "./iconPaths";
-import { readableTextColor } from "@/lib/color";
+import { readableTextColor, tint } from "@/lib/color";
 
 /** Escape a string for safe inclusion in XML attribute/text content. */
 function escapeXml(value: string): string {
@@ -17,18 +18,6 @@ function escapeXml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-/** Mix a hex color toward white by a factor (0-1) for a faint background tint. */
-function tint(hex: string, factor = 0.88): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const t = (v: number) =>
-    Math.round(v + (255 - v) * factor)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${t(r)}${t(g)}${t(b)}`;
 }
 
 /** Darken a hex color by a factor (0-1) for stroke color */
@@ -54,6 +43,20 @@ const BASE_FILL_KEY = "turboBaseFill";
 const BASE_STROKE_KEY = "turboBaseStroke";
 /** Sentinel recorded when the cell had no explicit value for that style key. */
 const NO_STYLE_VALUE = "-";
+
+/**
+ * Stamped onto a cell whose image slot a card logo has taken over, recording
+ * what the slot held beforehand: `icon` (a card-type glyph, restore it) or
+ * `none` (the cell had no image, and must not gain one).
+ *
+ * Deliberately a two-value marker rather than the previous image itself, the
+ * way {@link BASE_FILL_KEY} stores the previous colour: an image token is a
+ * data URI, and stamping one would put a second URI inside a style part — more
+ * than doubling every card's style and re-raising the `;`/`=` question the
+ * encoding above exists to answer. The icon is cheap to re-derive instead,
+ * because the caller already holds the metamodel map it came from.
+ */
+const LOGO_STAMP_KEY = "turboLogo";
 
 /** mxGraph suppresses a cell's label when its style carries this part. The
  *  label *value* is left untouched — hiding is a display decision, and the
@@ -93,6 +96,21 @@ export interface RelationEdgeStyleOptions {
   pending?: boolean;
   /** The diagram is hiding relation verbs (see setRelationLabelsHidden). */
   hideLabel?: boolean;
+  /** Route with right-angled bends through explicit waypoints instead of the
+   *  default ER router. The ER router ignores fixed perimeter anchors and
+   *  re-routes freely, so a view handing over its own computed path needs
+   *  this. Only that caller sets it; everyone else keeps the ER routing. */
+  orthogonal?: boolean;
+  /** Fixed attachment point on the source / target shape, as {x, y} fractions
+   *  of its box (mxGraph `exitX/exitY`, `entryX/entryY`). */
+  exit?: { x: number; y: number };
+  /** How many relations the edge stands for. Set only by the aggregated
+   *  Layered Dependency View's export, where one line joins two boxes: the
+   *  stroke thickens with the count, as the view draws it, and the label is
+   *  boxed so the number reads as a chip rather than a verb. Left undefined,
+   *  the edge is an ordinary one-relation line. */
+  weight?: number;
+  entry?: { x: number; y: number };
 }
 
 /**
@@ -143,9 +161,22 @@ function relationArrowParts(opts: RelationEdgeStyleOptions): string {
  */
 export function relationEdgeStyle(opts: RelationEdgeStyleOptions = {}): string {
   const arrow = relationArrowParts(opts);
+  const router = opts.orthogonal ? "orthogonalEdgeStyle;rounded=1" : "entityRelationEdgeStyle";
+  const anchor = (p: { x: number; y: number } | undefined, kind: "exit" | "entry") =>
+    p ? `${kind}X=${p.x};${kind}Y=${p.y};${kind}Dx=0;${kind}Dy=0;` : "";
+  const weight = opts.weight ?? 0;
+  // Same curve as the view's connectors: 1 → 1.5, 2 → 2.5, 8 → 4.3.
+  const strokeWidth = weight > 0 ? (1.5 + Math.min(2.8, Math.log2(weight))).toFixed(1) : "1.5";
+  const chip =
+    weight > 0
+      ? `labelBackgroundColor=#ffffff;labelBorderColor=${RELATION_EDGE_COLOR};fontStyle=1;`
+      : "";
   return (
-    `edgeStyle=entityRelationEdgeStyle;strokeColor=${RELATION_EDGE_COLOR};` +
-    `strokeWidth=1.5;${arrow};fontSize=10;fontColor=#666;` +
+    `edgeStyle=${router};strokeColor=${RELATION_EDGE_COLOR};` +
+    `strokeWidth=${strokeWidth};${arrow};fontSize=10;fontColor=#666;` +
+    chip +
+    anchor(opts.exit, "exit") +
+    anchor(opts.entry, "entry") +
     (opts.pending ? "dashed=1;dashPattern=5 3;" : "") +
     (opts.hideLabel ? `${NO_LABEL_PART};` : "")
   );
@@ -186,9 +217,41 @@ function buildIconImage(icon?: string): string | null {
  * Using `shape=label` bakes the icon into the single cell — it drags, copies
  * and exports with the shape, with no child cells or groups to manage.
  */
-function iconStyleParts(icon?: string): string[] {
-  const image = buildIconImage(icon);
+function iconStyleParts(
+  icon?: string,
+  logoImage?: string | null,
+  cardW = 210,
+  cardH = CARD_BASE_H,
+): string[] {
+  // A card's own logo wins the single image slot — it already carries the type
+  // glyph as a badge (see `cardLogoImage.ts`), so nothing is lost by it.
+  const image = logoImage || buildIconImage(icon);
   if (!image) return [];
+  if (logoImage) {
+    // A logo's composite IS the card: that is the only way to put the type
+    // glyph in the card's own top-right corner, since a `shape=label` cell has
+    // exactly one image slot. `cardW`/`cardH` therefore have to match the
+    // cell's real geometry, and the image is rebuilt when that changes.
+    //
+    // The gutter comes from the same helper that sizes the drawn logo, so a
+    // short card reserves the room its smaller mark actually takes — and it
+    // counts the logo's own inset, or the name ends up touching the plate.
+    const gutter = logoGutterFor(cardH);
+    return [
+      "shape=label",
+      `image=${image}`,
+      "imageAlign=left",
+      "imageVerticalAlign=top",
+      `imageWidth=${cardW}`,
+      `imageHeight=${cardH}`,
+      "spacing=0",
+      // Symmetric gutters. `spacingLeft` alone centres the label in what is
+      // LEFT of the card, not on the card — a 52px gutter pushed the name 26px
+      // right of true centre, which is exactly what it looked like.
+      `spacingLeft=${gutter}`,
+      `spacingRight=${gutter}`,
+    ];
+  }
   return [
     "shape=label",
     `image=${image}`,
@@ -196,13 +259,37 @@ function iconStyleParts(icon?: string): string[] {
     "imageVerticalAlign=top",
     "imageWidth=18",
     "imageHeight=18",
-    // `spacing` insets the icon from the top-left corner; `spacingLeft`
-    // reserves a matching left gutter for the label so the (centered) card
-    // name is always laid out to the right of the glyph and never overlaps it,
-    // even when it wraps to several lines.
+    // `spacing` insets the icon from the top-left corner; the gutters reserve
+    // room on BOTH sides so the centred card name stays centred on the card
+    // and never overlaps the glyph, even when it wraps to several lines.
     "spacing=4",
     "spacingLeft=24",
+    "spacingRight=24",
   ];
+}
+
+/**
+ * Drop every style part that makes up the image family, so it can be rebuilt.
+ *
+ * One list, used by both writers of that family — the logo pass and the
+ * "Apply card-type icons" action. They used to carry a copy each, which is
+ * exactly the shape of drift that lets one of them leave an orphaned
+ * `imageWidth` behind after the other has removed the `image` it sized.
+ */
+function stripImageParts(parts: string[]): string[] {
+  return parts.filter(
+    (p) =>
+      !(
+        p === "shape=label" ||
+        p.startsWith("image=") ||
+        p.startsWith("imageAlign=") ||
+        p.startsWith("imageVerticalAlign=") ||
+        p.startsWith("imageWidth=") ||
+        p.startsWith("imageHeight=") ||
+        p.startsWith("spacing") ||
+        p.startsWith(`${LOGO_STAMP_KEY}=`)
+      ),
+  );
 }
 
 /** Carry an existing cell's icon tokens across a full style rebuild. */
@@ -222,6 +309,390 @@ function iconTokensFromStyle(style: string): string[] {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Card label — exactly one renderer, exactly one reader               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * XML attribute holding a card cell's plain, unformatted name.
+ *
+ * `label` may carry composed HTML once the user asks for detail lines, so it
+ * can no longer answer "what is this card called?". Everything that needs the
+ * name — the rename diff against the inventory, the `POST /cards` payload for
+ * a pending cell, every confirm dialog — reads this instead, via
+ * {@link readCardName}. Cells created before the feature existed carry no
+ * `cardName`, hence the fallback to `label`.
+ */
+const CARD_NAME_ATTR = "cardName";
+
+/**
+ * XML attribute holding the detail rows as data.
+ *
+ * The rows live here rather than being recovered by re-reading the rendered
+ * `label`. Splicing an HTML suffix out of one label and into another re-emits
+ * whatever markup that label happened to carry — and a label is hand-editable
+ * (F2), so "whatever it carried" is user input. Every recomposition goes back
+ * to this data and through `composeCardLabel`'s escaping.
+ */
+const CARD_DETAIL_ATTR = "cardDetail";
+
+/** Escape a string for safe inclusion in an HTML label. Card names and
+ *  attribute values are user data and must never be able to inject markup
+ *  into the DrawIO iframe. */
+function escapeHtml(value: string): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** One `Label: Value` row rendered under a card's name. */
+export interface CardDetailLine {
+  label: string;
+  value: string;
+}
+
+/**
+ * Vertical room one detail row needs.
+ *
+ * A card cell renders every row it is given — there is no cap here, unlike the
+ * Layered Dependency View, whose nodes are laid out at a fixed size. mxGraph
+ * paints label overflow *outside* the shape, so the room has to come from
+ * somewhere: {@link applyCardLabels} grows the cell by this much per row and
+ * shrinks it back by the same when rows are removed.
+ *
+ * Rows render at `font-size:9px`; 14px covers the line box plus mxGraph's own
+ * label padding.
+ */
+export const CARD_DETAIL_LINE_H = 14;
+
+/** Natural height of a freshly inserted top-level card cell. */
+export const CARD_BASE_H = 60;
+
+/**
+ * How many detail rows a card cell holds without growing.
+ *
+ * Every insertion size was drawn around a name plus a couple of small lines —
+ * which is exactly what the old two-row cap was measuring — so the first two
+ * rows are free at 210x60, 190x40 and 180x50 alike, and no diagram already
+ * showing them changes height on upgrade.
+ */
+export const CARD_FREE_DETAIL_ROWS = 2;
+
+/**
+ * Height a cell owes to `count` detail rows — zero for the first
+ * {@link CARD_FREE_DETAIL_ROWS}, which every base size already had room for.
+ *
+ * Exported because more than the resizer needs it: the collapse-confirm check
+ * subtracts it before comparing a child's height against the baseline captured
+ * at expand time, so a cell the display pass grew doesn't read as a cell the
+ * user resized.
+ */
+export function detailRowsHeight(count: number): number {
+  return Math.max(0, count - CARD_FREE_DETAIL_ROWS) * CARD_DETAIL_LINE_H;
+}
+
+/** Height of a swimlane container's title strip with no detail rows on it. */
+export const CONTAINER_HEADER_H = 28;
+
+/**
+ * Header height for a container showing `count` detail rows.
+ *
+ * No free allowance, unlike {@link detailRowsHeight}: the strip was drawn for
+ * the name alone, where a 210x60 card had room for two small lines already.
+ */
+export function containerHeaderHeight(count: number): number {
+  return CONTAINER_HEADER_H + count * CARD_DETAIL_LINE_H;
+}
+
+/** True when a cell's style renders it as a swimlane container. */
+export function isSwimlaneStyle(style: unknown): boolean {
+  return String(style ?? "").includes("shape=swimlane");
+}
+
+/** A vertical span in a frame's own client coordinates. */
+export interface VisibleBand {
+  top: number;
+  bottom: number;
+}
+
+interface ViewportLike {
+  offsetTop?: number;
+  height: number;
+}
+
+interface FrameWindowLike {
+  innerHeight: number;
+  visualViewport?: ViewportLike | null;
+  frameElement?: { getBoundingClientRect(): { top: number } } | null;
+  parent?: { innerHeight: number; visualViewport?: ViewportLike | null } | null;
+}
+
+/**
+ * The part of a frame's height that is actually on screen.
+ *
+ * DrawIO's right-click menu lives inside the editor iframe, so the iframe's own
+ * `innerHeight` / `visualViewport` only say how tall the *frame* is. On an iPad
+ * the frame's bottom sits below what Safari shows (its toolbars and the app bar
+ * take the difference), so a menu fitted to the frame still ran off the screen.
+ * Intersect with the parent's visual viewport, mapped through the frame's
+ * position; a parent that cannot be read degrades to the frame alone.
+ */
+export function visibleBand(win: FrameWindowLike): VisibleBand {
+  let top = 0;
+  let bottom = win.innerHeight;
+  const own = win.visualViewport;
+  if (own) {
+    top = Math.max(top, own.offsetTop ?? 0);
+    bottom = Math.min(bottom, (own.offsetTop ?? 0) + own.height);
+  }
+  try {
+    const frame = win.frameElement;
+    const parent = win.parent;
+    if (frame && parent && parent !== (win as unknown)) {
+      const frameTop = frame.getBoundingClientRect().top;
+      const pv = parent.visualViewport ?? { offsetTop: 0, height: parent.innerHeight };
+      const pvTop = pv.offsetTop ?? 0;
+      top = Math.max(top, pvTop - frameTop);
+      bottom = Math.min(bottom, pvTop + pv.height - frameTop);
+    }
+  } catch {
+    // Cross-origin or detached: the frame's own band is all we know.
+  }
+  return { top, bottom: Math.max(top, bottom) };
+}
+
+/**
+ * Keep a DrawIO popup menu inside `band`, scrolling when it is taller.
+ *
+ * `mxPopupMenu.showMenu` only *moves* the menu into the frame (`mxUtils.fit`),
+ * never shrinks it, and fits it to the frame rather than the screen, so the
+ * editor's ~25-row right-click menu ran off the bottom of an iPad and cropped
+ * the card actions. Called once before DrawIO shows the menu with
+ * `reposition = false` (height cap only) and again after its deferred fit
+ * (position), so it has the last word.
+ */
+export function fitMenuToBand(
+  div: HTMLElement | null | undefined,
+  band: VisibleBand,
+  margin = 8,
+  reposition = true,
+): void {
+  if (!div) return;
+  const s = div.style;
+  // Border-box so the cap includes the menu's own padding and border.
+  s.boxSizing = "border-box";
+  s.maxHeight = `${Math.max(0, Math.floor(band.bottom - band.top - 2 * margin))}px`;
+  s.overflowY = "auto";
+  s.overflowX = "hidden";
+  s.setProperty("-webkit-overflow-scrolling", "touch");
+  // A scroll that reaches the menu's end must not carry on into the page.
+  s.setProperty("overscroll-behavior", "contain");
+  // Before DrawIO shows the menu it is not in the document yet, so its
+  // offsets read 0 — position only once it has been placed.
+  if (!reposition) return;
+  const top = div.offsetTop;
+  const height = div.offsetHeight;
+  if (top + height > band.bottom - margin) {
+    s.top = `${Math.max(band.top + margin, band.bottom - margin - height)}px`;
+  } else if (top < band.top + margin) {
+    s.top = `${band.top + margin}px`;
+  }
+}
+
+/** Movement, in px, before a touch on the menu counts as a scroll, not a tap. */
+const MENU_DRAG_THRESHOLD = 6;
+
+/**
+ * Let a finger scroll a DrawIO popup menu.
+ *
+ * On iPadOS Safari (which reports itself as a Mac) DrawIO registers touch
+ * listeners on the menu rows and `preventDefault`s every `touchstart`, so the
+ * browser never starts a native scroll: the capped menu could not be scrolled,
+ * a swipe ended as a tap on whatever row it lifted from, and the gesture fell
+ * through to the page. These capture-phase listeners run before the rows'.
+ * They act only while `touchmove` is still `cancelable` — i.e. while the
+ * browser is *not* scrolling natively — so where native scrolling works
+ * (pointer-event browsers) they stand aside and there is no double scroll.
+ * A tap still reaches the row untouched. Installed once per menu element.
+ */
+export function enableMenuTouchScroll(div: HTMLElement | null | undefined): void {
+  if (!div || div.dataset.turboTouchScroll === "1") return;
+  div.dataset.turboTouchScroll = "1";
+  let startY = 0;
+  let startScroll = 0;
+  let dragging = false;
+  div.addEventListener(
+    "touchstart",
+    (e: TouchEvent) => {
+      startY = e.touches[0]?.clientY ?? 0;
+      startScroll = div.scrollTop;
+      dragging = false;
+    },
+    { capture: true, passive: true },
+  );
+  div.addEventListener(
+    "touchmove",
+    (e: TouchEvent) => {
+      if (!e.cancelable) return; // the browser is scrolling natively
+      const dy = (e.touches[0]?.clientY ?? startY) - startY;
+      if (!dragging && Math.abs(dy) < MENU_DRAG_THRESHOLD) return;
+      dragging = true;
+      div.scrollTop = startScroll - dy;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true, passive: false },
+  );
+  div.addEventListener(
+    "touchend",
+    (e: TouchEvent) => {
+      if (!dragging) return;
+      // The end of a swipe is not a tap on the row it lifted from.
+      dragging = false;
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true, passive: false },
+  );
+}
+
+/** The part of an mxCell the context-menu resolver reads. */
+export interface MenuCellLike {
+  value?: { getAttribute?: (name: string) => string | null } | null;
+  parent?: MenuCellLike | null;
+}
+
+/**
+ * The card cell a right-click belongs to, or `null` when it landed on no card.
+ *
+ * DrawIO hands the popup menu the cell it hit-tested, and a swimlane is only
+ * hit on its header and border: right-clicking the open body of a card that
+ * was drilled down into a container passes no cell at all, which used to drop
+ * every card action (View Card Details…, Unlink, …) from the menu. So when the
+ * hit cell resolves to no card, fall back to the container under the pointer
+ * (`swimlaneAt`, the graph's `getSwimlaneAt`). Walks up either way, so a click
+ * on an inner label still resolves to its card.
+ */
+export function resolveMenuCardCell<T extends MenuCellLike>(
+  cell: T | null | undefined,
+  swimlaneAt: () => T | null | undefined,
+): T | null {
+  const walk = (start: T | null | undefined): T | null => {
+    let c: MenuCellLike | null | undefined = start;
+    while (c && !c.value?.getAttribute?.("cardId")) c = c.parent;
+    return (c as T | null | undefined) ?? null;
+  };
+  return walk(cell) ?? (cell ? null : walk(swimlaneAt()));
+}
+
+/**
+ * Build a card cell's `label` value. **The single renderer** — every path that
+ * labels a card goes through here, the same rule `relationEdgeStyle` enforces
+ * for edges, so a card cannot read one way when inserted from the picker and
+ * another when pulled in by an expand.
+ *
+ * Every row is rendered: a card cell is resizable, so the answer to "more rows
+ * than fit" is a taller cell ({@link CARD_DETAIL_LINE_H}), not a truncated
+ * label. Whatever the reader ticked, the shape says.
+ *
+ * With no detail lines the result is the escaped bare name, byte-identical to
+ * what shipped before for any name without `& < > " '` — so an untouched
+ * diagram is untouched.
+ *
+ * Every interpolated value is HTML-escaped here rather than at the call sites,
+ * so no caller can bypass it. `font-weight:normal` on the rows is required:
+ * the card style carries `fontStyle=1`, which bolds the whole label.
+ */
+export function composeCardLabel(name: string, lines: CardDetailLine[] = []): string {
+  const safeName = escapeHtml(name);
+  if (lines.length === 0) return safeName;
+  const detail = lines
+    .map(
+      (l) =>
+        `<div style="font-size:9px;font-weight:normal">` +
+        `${escapeHtml(l.label)}: ${escapeHtml(l.value)}</div>`,
+    )
+    .join("");
+  return `<b>${safeName}</b>${detail}`;
+}
+
+/**
+ * Write a card cell's name and detail lines onto its user object. Always sets
+ * both `label` (composed, for display) and `cardName` (raw, for identity).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setCardLabel(obj: any, name: string, lines: CardDetailLine[] = []): void {
+  if (!obj?.setAttribute) return;
+  obj.setAttribute("label", composeCardLabel(name, lines));
+  obj.setAttribute(CARD_NAME_ATTR, name);
+  if (lines.length > 0) {
+    obj.setAttribute(CARD_DETAIL_ATTR, JSON.stringify(lines));
+  } else if (obj.removeAttribute) {
+    obj.removeAttribute(CARD_DETAIL_ATTR);
+  }
+}
+
+/**
+ * Read a card cell's plain name. **The single reader** — never read `label`
+ * off a card cell directly, it may be HTML.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function readCardName(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (!value.getAttribute) return "";
+  const stored = value.getAttribute(CARD_NAME_ATTR);
+  if (stored != null && stored !== "") return stored;
+  return value.getAttribute("label") || "";
+}
+
+/** Read the detail rows back off a cell. Defensive: the attribute is
+ *  hand-editable in the DrawIO XML like any other. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function readCardDetail(value: any): CardDetailLine[] {
+  const raw = value?.getAttribute?.(CARD_DETAIL_ATTR);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((l) => l && typeof l.label === "string" && typeof l.value === "string")
+      .map((l) => ({ label: l.label, value: l.value }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Recover the plain name a user typed into a hand-edited (F2) label.
+ *
+ * Parses with the DOM rather than stripping tags with a regex. A regex that
+ * tries to match HTML tags cannot be made correct — comments and attribute
+ * values containing `>` both defeat `<[^>]*>` — which is why CodeQL rates the
+ * attempt as a high-severity `js/bad-tag-filter`. `DOMParser` with `text/html`
+ * builds an inert document: no script runs and no resource loads, so this is
+ * safe on a hand-edited label as well as on one we wrote.
+ *
+ * The detail rows are `<div>`s, so they are dropped: the name is what is left.
+ */
+export function firstLineText(html: string): string {
+  const raw = String(html ?? "");
+  if (!raw) return "";
+  if (typeof DOMParser === "undefined") {
+    // No DOM (a bare, non-jsdom test host). Returning the input whole beats
+    // half-stripping it with a regex we just removed for being unsound.
+    return raw.trim();
+  }
+  const body = new DOMParser().parseFromString(raw, "text/html").body;
+  for (const row of Array.from(body.querySelectorAll("div"))) row.remove();
+  // A hand-typed multi-line name arrives as <br>-separated text.
+  for (const br of Array.from(body.querySelectorAll("br"))) br.replaceWith(" ");
+  return (body.textContent || "").replace(/\s+/g, " ").trim();
+}
+
 export interface InsertCardOpts {
   cardId: string;
   cardType: string;
@@ -229,6 +700,8 @@ export interface InsertCardOpts {
   color: string;
   /** Card-type Material Symbols icon name (e.g. "apps"). Optional. */
   icon?: string;
+  /** Attribute rows to render under the name (max {@link MAX_CARD_DETAIL_LINES}). */
+  detailLines?: CardDetailLine[];
   x: number;
   y: number;
 }
@@ -236,7 +709,11 @@ export interface InsertCardOpts {
 /** Shape data needed for direct mxGraph API insertion */
 export interface CardCellData {
   cellId: string;
+  /** Composed display label — HTML when `detailLines` is non-empty. */
   label: string;
+  /** The plain card name, stamped separately so identity survives composition. */
+  name: string;
+  detailLines: CardDetailLine[];
   cardId: string;
   cardType: string;
   x: number;
@@ -251,6 +728,7 @@ export interface CardCellData {
  */
 export function buildCardCellData(opts: InsertCardOpts): CardCellData {
   const { cardId, cardType, name, color, icon, x, y } = opts;
+  const detailLines = opts.detailLines ?? [];
   const stroke = darken(color);
   const cellId = `card-${cardId.slice(0, 8)}-${Date.now()}`;
 
@@ -270,13 +748,15 @@ export function buildCardCellData(opts: InsertCardOpts): CardCellData {
 
   return {
     cellId,
-    label: name,
+    label: composeCardLabel(name, detailLines),
+    name,
+    detailLines,
     cardId,
     cardType,
     x,
     y,
     width: 210,
-    height: 60,
+    height: CARD_BASE_H,
     style,
   };
 }
@@ -310,7 +790,7 @@ export function insertCardIntoGraph(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const xmlDoc = (win.mxUtils as any).createXmlDocument();
     const obj = xmlDoc.createElement("object");
-    obj.setAttribute("label", data.label);
+    setCardLabel(obj, data.name, data.detailLines);
     obj.setAttribute("cardId", data.cardId);
     obj.setAttribute("cardType", data.cardType);
 
@@ -430,7 +910,9 @@ export function insertPendingCard(
 
   const xmlDoc = win.mxUtils.createXmlDocument();
   const obj = xmlDoc.createElement("object");
-  obj.setAttribute("label", opts.name);
+  // Never composed: `scanDiagramItems` feeds this name straight into
+  // `POST /cards` when the pending card is synced.
+  setCardLabel(obj, opts.name);
   obj.setAttribute("cardId", opts.tempId);
   obj.setAttribute("cardType", opts.type);
   obj.setAttribute("pending", "1");
@@ -592,7 +1074,10 @@ export function updateCellLabel(
   model.beginUpdate();
   try {
     if (cell.value?.setAttribute) {
-      cell.value.setAttribute("label", newLabel);
+      // Keep the detail rows the cell carries — the caller knows the new name,
+      // not the field values behind those rows. Read as data and re-rendered,
+      // so no markup from the old label survives into the new one.
+      setCardLabel(cell.value, newLabel, readCardDetail(cell.value));
     }
     graph.refresh(cell);
   } finally {
@@ -688,8 +1173,8 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         relationLabel: cell.value.getAttribute("label") || relType,
         sourceCardId: src?.value?.getAttribute?.("cardId") || "",
         targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
-        sourceName: src?.value?.getAttribute?.("label") || "?",
-        targetName: tgt?.value?.getAttribute?.("label") || "?",
+        sourceName: readCardName(src?.value) || "?",
+        targetName: readCardName(tgt?.value) || "?",
         reversed: cell.value.getAttribute("reversed") === "1",
       });
     } else if (fsId && isPending) {
@@ -698,14 +1183,14 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         cellId: cell.id,
         tempId: fsId,
         type: cell.value.getAttribute("cardType") || "",
-        name: cell.value.getAttribute("label") || "",
+        name: readCardName(cell.value),
       });
     } else if (fsId && !isPending) {
       // Synced card vertex — top-level or expanded-group child
       const entry: ScannedSyncedFS = {
         cellId: cell.id,
         cardId: fsId,
-        name: cell.value.getAttribute("label") || "",
+        name: readCardName(cell.value),
         type: cell.value.getAttribute("cardType") || "",
       };
       if (cell.value.getAttribute("parentGroupCell")) {
@@ -761,8 +1246,8 @@ export function scanSyncedRelationEdges(
       edgeLabel: cell.value.getAttribute("label") || "",
       sourceCardId: src?.value?.getAttribute?.("cardId") || "",
       targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
-      sourceName: src?.value?.getAttribute?.("label") || "?",
-      targetName: tgt?.value?.getAttribute?.("label") || "?",
+      sourceName: readCardName(src?.value) || "?",
+      targetName: readCardName(tgt?.value) || "?",
       flowDirection: readFlowDirection(cell.value.getAttribute("flowDirection")),
     });
   }
@@ -846,6 +1331,54 @@ const CHILD_GAP_Y = 10;
 const CHILD_GAP_X = 60;
 const TYPE_GROUP_GAP = 16;
 
+/** Height of a card tiled inside a container by drill-down / roll-up. Shared
+ *  by both so {@link baseCardHeight} cannot drift from what they insert. */
+const NESTED_CARD_H = 50;
+
+/**
+ * The height a card cell would have with no detail rows on it.
+ *
+ * {@link applyCardLabels} floors its resize at `base + extra rows`, so this has
+ * to match what each insertion path actually creates: an expanded child is
+ * {@link CHILD_CARD_H}, a drill-down / roll-up child sits at
+ * {@link NESTED_CARD_H}, and everything else is a full card.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function baseCardHeight(cell: any): number {
+  if (!cell?.value?.getAttribute) return CARD_BASE_H;
+  if (cell.value.getAttribute("parentGroupCell")) return CHILD_CARD_H;
+  if (isContainerChild(cell)) return NESTED_CARD_H;
+  return CARD_BASE_H;
+}
+
+/** A card sitting inside a swimlane container: tiled there by drill-down /
+ *  roll-up, or exported into a group box by the aggregated Layered Dependency
+ *  View (`groupChild`). All three are managed by their container — fixed
+ *  height, capped detail rows, never a paste candidate. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isContainerChild(cell: any): boolean {
+  if (!cell?.value?.getAttribute) return false;
+  return Boolean(
+    cell.value.getAttribute("drillDownChild") ||
+      cell.value.getAttribute("rollUpChild") ||
+      cell.value.getAttribute("groupChild"),
+  );
+}
+
+/**
+ * The most detail rows a cell may render.
+ *
+ * Free-standing cards — top level or expanded out of a group — have none: they
+ * grow. A drill-down / roll-up child does **not**, because it sits in a fixed
+ * grid slot inside its container: making it taller would push it through the
+ * container's floor and over the row beneath it. It shows what fits for free
+ * and stops there.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function detailRowCap(cell: any): number {
+  return isContainerChild(cell) ? CARD_FREE_DETAIL_ROWS : Number.POSITIVE_INFINITY;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getMxGraph(iframe: HTMLIFrameElement): { win: any; graph: any } | null {
   try {
@@ -869,6 +1402,10 @@ export interface ChildLayout {
   width: number;
   height: number;
   style: string;
+  /** The detail rows the child was showing. Restored with the geometry: a
+   *  height without the rows that earned it reads as a cell with room to
+   *  spare, and the next display pass would grow it a second time. */
+  detail: CardDetailLine[];
 }
 
 export interface ExpandChildData {
@@ -893,9 +1430,24 @@ export interface ExpandChildData {
   /** Backend relation id, when known. Stamped onto the connecting edge so
    *  canvas deletions can fire `DELETE /relations/{id}`. */
   relationId?: string;
+  /** Further relations to the SAME card, beyond the one above. Any number of
+   *  relation types may connect a pair of card types, so a neighbour can be
+   *  reached by several at once — each gets its own edge (the card itself stays
+   *  a single vertex; a second vertex with the same `cardId` would trip the
+   *  canvas dedup and unlink one of them). */
+  extraRelations?: ExpandChildRelation[];
   /** Placement to restore instead of the computed default, when this child has
    *  been expanded and collapsed before and the user had moved or restyled it. */
   layout?: ChildLayout;
+}
+
+/** One additional relation between an expanded card and an already-drawn child. */
+export interface ExpandChildRelation {
+  relationType: string;
+  relationId?: string;
+  relationLabel?: string;
+  incoming?: boolean;
+  flow?: RelationFlowDirection;
 }
 
 /**
@@ -932,6 +1484,7 @@ export function captureGroupChildLayout(
       width: geo.width,
       height: geo.height,
       style: (model.getStyle(cell) || "") as string,
+      detail: readCardDetail(cell.value),
     });
   }
   return out;
@@ -985,6 +1538,187 @@ export interface ExpandedEdgeInfo {
   relationId?: string;
   relationType?: string;
   relationLabel?: string;
+  /** The child's FURTHER relations, each already drawn as its own edge on the
+   *  same vertex. Kept separate from the fields above so callers that key on the
+   *  child cell (chevron overlays, `childCellIds`) stay one-entry-per-child,
+   *  while the editor can still seed its edge → relation side-table for all of
+   *  them. */
+  extraEdges?: ExpandedRelationEdge[];
+}
+
+/** One relation drawn between an expanded card and a child, for the side-table. */
+export interface ExpandedRelationEdge {
+  edgeCellId: string;
+  relationId?: string;
+  relationType?: string;
+  relationLabel?: string;
+}
+
+/** Gap between the lines of a fanned relation group, in px. */
+const FAN_SPACING = 34;
+
+/**
+ * How far along the run the fanned lines split off and rejoin, as a fraction
+ * of the centre-to-centre distance. 0.25 holds the offset lines apart over the
+ * middle HALF of the run.
+ */
+const FAN_SPLIT = 0.25;
+
+/** Below this centre-to-centre distance a corridor has no room; pinch instead. */
+const FAN_MIN_RUN = 80;
+
+/**
+ * Waypoints that hold one line of a fanned group apart from its siblings.
+ *
+ * Two of them, not one: a single mid-run waypoint pinches the lines back
+ * together at both cards, so a pair separates only at the very middle and
+ * still reads as one line. A matched pair of waypoints gives each relation a
+ * parallel corridor over the middle half of the run instead — and carries its
+ * verb out there with it, so the two labels separate too.
+ *
+ * The offset is perpendicular to the run, decided by whichever axis dominates:
+ * nudging two vertically-stacked cards' edges further apart *vertically* moves
+ * them along the same corridor and separates nothing. Cards a user has dragged
+ * almost on top of each other have no room for a corridor, so those fall back
+ * to the single mid-run point.
+ */
+export function fanWaypoints(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  from: { x: number; y: number; width: number; height: number },
+  to: { x: number; y: number; width: number; height: number },
+  offset: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any[] {
+  const ax = from.x + from.width / 2;
+  const ay = from.y + from.height / 2;
+  const bx = to.x + to.width / 2;
+  const by = to.y + to.height / 2;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const midX = (ax + bx) / 2;
+  const midY = (ay + by) / 2;
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
+  const run = Math.abs(horizontal ? dx : dy);
+
+  if (run < FAN_MIN_RUN) {
+    return horizontal
+      ? [new win.mxPoint(midX, midY + offset)]
+      : [new win.mxPoint(midX + offset, midY)];
+  }
+  const split = run * FAN_SPLIT;
+  return horizontal
+    ? [
+        new win.mxPoint(midX - split, midY + offset),
+        new win.mxPoint(midX + split, midY + offset),
+      ]
+    : [
+        new win.mxPoint(midX + offset, midY - split),
+        new win.mxPoint(midX + offset, midY + split),
+      ];
+}
+
+/**
+ * Draw EVERY relation between an expanded card and one child.
+ *
+ * The child is a single vertex however many relations reach it — a second vertex
+ * carrying the same `cardId` would trip the canvas dedup and unlink one of them —
+ * so each relation becomes its own edge on that one vertex, stamped with its own
+ * `relationId`. That stamp is what `collectExistingEdgeRelations` reads back, so
+ * deleting any one of them still fires `DELETE /relations/{id}` for the right
+ * relation, and the returned infos let the editor seed its side-table too.
+ *
+ * When more than one relation shares the pair the group is FANNED: the default
+ * `entityRelationEdgeStyle` router ignores fixed anchors and would route every
+ * line identically, drawing them exactly on top of each other — two verbs
+ * superimposed on what looks like one line. A fanned group therefore routes
+ * orthogonally through waypoints offset per line, which the orthogonal router
+ * does respect — see `fanWaypoints` for why that is a corridor rather than a
+ * single point. A lone relation keeps the default ER curve, so nothing changes
+ * for the overwhelmingly common case.
+ */
+function insertRelationEdges(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  graph: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  root: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parentCell: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vertex: any,
+  baseEdgeCellId: string,
+  ch: ExpandChildData,
+  hideLabels: boolean,
+): ExpandedRelationEdge[] {
+  const model = graph.getModel();
+  const xmlDoc = win.mxUtils.createXmlDocument();
+
+  const rels: ExpandChildRelation[] = [
+    {
+      relationType: ch.relationType,
+      relationId: ch.relationId,
+      relationLabel: ch.relationLabel,
+      incoming: ch.incoming,
+      flow: ch.flow,
+    },
+    ...(ch.extraRelations ?? []),
+  ];
+  const fan = rels.length > 1;
+
+  // Both cards' boxes, the basis for every fanned line's corridor.
+  const fromGeo = fan ? model.getGeometry(parentCell) : null;
+  const toGeo = fan ? model.getGeometry(vertex) : null;
+  const canFan = fan && !!fromGeo && !!toGeo;
+
+  const out: ExpandedRelationEdge[] = [];
+  rels.forEach((rel, i) => {
+    const cellId = i === 0 ? baseEdgeCellId : `${baseEdgeCellId}-x${i - 1}`;
+    const edge = graph.insertEdge(
+      root,
+      cellId,
+      "",
+      parentCell,
+      vertex,
+      relationEdgeStyle({
+        incoming: rel.incoming,
+        flow: rel.flow,
+        hideLabel: hideLabels,
+        ...(fan ? { orthogonal: true } : {}),
+      }),
+    );
+
+    if (canFan) {
+      const geo = model.getGeometry(edge);
+      if (geo) {
+        const g = geo.clone();
+        // Spread the lines symmetrically around the straight run.
+        g.points = fanWaypoints(
+          win,
+          fromGeo,
+          toGeo,
+          (i - (rels.length - 1) / 2) * FAN_SPACING,
+        );
+        model.setGeometry(edge, g);
+      }
+    }
+
+    const edgeObj = xmlDoc.createElement("object");
+    edgeObj.setAttribute("label", rel.relationLabel ?? "");
+    if (rel.flow) edgeObj.setAttribute("flowDirection", rel.flow);
+    if (rel.relationType) edgeObj.setAttribute("relationType", rel.relationType);
+    if (rel.relationId) edgeObj.setAttribute("relationId", rel.relationId);
+    model.setValue(edge, edgeObj);
+
+    out.push({
+      edgeCellId: cellId,
+      relationId: rel.relationId,
+      relationType: rel.relationType,
+      relationLabel: rel.relationLabel,
+    });
+  });
+  return out;
 }
 
 export function expandCardGroup(
@@ -1039,7 +1773,7 @@ export function expandCardGroup(
 
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
-      obj.setAttribute("label", ch.name);
+      setCardLabel(obj, ch.name, ch.layout?.detail ?? []);
       obj.setAttribute("cardId", ch.id);
       obj.setAttribute("cardType", ch.type);
       obj.setAttribute("parentGroupCell", parentCellId);
@@ -1055,33 +1789,24 @@ export function expandCardGroup(
         ch.layout?.style || style,
       );
 
-      // Stamp the connecting edge with the backend relation id (when known)
-      // so canvas-side deletions can fire DELETE /relations/{id}. Insert
-      // with an empty value first, then setValue so the XML user-object
-      // survives mxGraph's silent string-coercion of the insertEdge value.
-      // The editor also maintains a cellId → relation-meta side-table as
-      // the authoritative source for in-session deletes, since DrawIO
-      // sometimes drops user-object attributes on edges created inside an
-      // open transaction.
-      const edge = graph.insertEdge(
-        root, edgeCellId, "",
-        parentCell, vertex,
-        relationEdgeStyle({ incoming: ch.incoming, flow: ch.flow, hideLabel: hideLabels }),
+      // Every relation to this child, each stamped with its own relation id so
+      // canvas-side deletions can fire DELETE /relations/{id}. The editor also
+      // maintains a cellId → relation-meta side-table as the authoritative
+      // source for in-session deletes, since DrawIO sometimes drops user-object
+      // attributes on edges created inside an open transaction — which is why
+      // every edge here is reported back, not just the first.
+      const edgeInfos = insertRelationEdges(
+        win, graph, root, parentCell, vertex, edgeCellId, ch, hideLabels,
       );
-      const edgeObj = xmlDoc.createElement("object");
-      edgeObj.setAttribute("label", ch.relationLabel ?? "");
-      if (ch.flow) edgeObj.setAttribute("flowDirection", ch.flow);
-      if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
-      if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
-      model.setValue(edge, edgeObj);
 
       inserted.push({
         cellId: cid,
         cardId: ch.id,
-        edgeCellId,
-        relationId: ch.relationId,
-        relationType: ch.relationType,
-        relationLabel: ch.relationLabel,
+        edgeCellId: edgeInfos[0].edgeCellId,
+        relationId: edgeInfos[0].relationId,
+        relationType: edgeInfos[0].relationType,
+        relationLabel: edgeInfos[0].relationLabel,
+        ...(edgeInfos.length > 1 ? { extraEdges: edgeInfos.slice(1) } : {}),
       });
       yOff += CHILD_CARD_H;
     }
@@ -1272,6 +1997,39 @@ export function getGroupChildCardIds(
 }
 
 /**
+ * Relation ids still drawn between an expanded card and its children.
+ *
+ * The card-level companion {@link getGroupChildCardIds} cannot answer "which
+ * relations survive" once a child can carry several edges — it reports a card as
+ * connected while any one edge remains. Collapse diffs this against what it drew
+ * so a deleted relation is not resurrected by the next expand.
+ */
+export function getGroupChildRelationIds(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+): Set<string> {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return new Set();
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return new Set();
+
+  const result = new Set<string>();
+  const cells = model.cells || {};
+  for (const k of Object.keys(cells)) {
+    const c = cells[k];
+    if (c?.value?.getAttribute?.("parentGroupCell") !== parentCellId) continue;
+    for (const e of graph.getEdgesBetween(parentCell, c, false) || []) {
+      const relId = e?.value?.getAttribute?.("relationId");
+      if (relId) result.add(relId);
+    }
+  }
+  return result;
+}
+
+/**
  * Add a resync overlay (orange "!" icon) at the top-left of a card cell.
  * Indicates the cell's expanded children are out of sync with inventory.
  * Must be called AFTER addExpandOverlay (which clears all overlays first).
@@ -1418,8 +2176,7 @@ export function attachCellLifecycleListeners(
     // are managed by their parent and must not be treated as paste
     // candidates — their cardId is intentional, not a clone.
     if (cell.value.getAttribute("parentGroupCell")) return;
-    if (cell.value.getAttribute("drillDownChild") === "1") return;
-    if (cell.value.getAttribute("rollUpChild") === "1") return;
+    if (isContainerChild(cell)) return;
     const cardId = cell.value.getAttribute("cardId");
     if (!cardId) return;
     if (handlers.isRegistered(cell.id)) return;
@@ -1442,10 +2199,27 @@ export function attachCellLifecycleListeners(
   // and we shouldn't pester them about every connected edge.
   const pendingIncidentalEdgeRemovals = new Set<string>();
 
+  // Every card / shape vertex and every edge seen so far, for the CHANGE-diff
+  // fallback below. A batch that CELLS_REMOVED reports is dropped from these
+  // maps as it is handled, so the diff never reports the same removal twice
+  // (which handed the editor a second tombstone for an edge it had already
+  // consumed or suppressed).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const knownVertexCells = new Map<string, any>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const knownEdgeCells = new Map<string, any>();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const removedListener = (_sender: unknown, evt: any) => {
     const cells = evt.getProperty("cells") || [];
     if (cells.length === 0) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const cell of cells as any[]) {
+      if (cell?.id) {
+        knownVertexCells.delete(cell.id);
+        knownEdgeCells.delete(cell.id);
+      }
+    }
     // eslint-disable-next-line no-console
     console.debug("[turbo-ea] CELLS_REMOVED", {
       count: cells.length,
@@ -1454,7 +2228,7 @@ export function attachCellLifecycleListeners(
         id: c?.id,
         edge: !!c?.edge,
         cardId: c?.value?.getAttribute?.("cardId"),
-        label: c?.value?.getAttribute?.("label"),
+        label: readCardName(c?.value),
       })),
     });
 
@@ -1553,16 +2327,8 @@ export function attachCellLifecycleListeners(
         continue;
       }
 
-      const srcLabel: string =
-        srcName ||
-        srcCell?.value?.getAttribute?.("label") ||
-        (typeof srcCell?.value === "string" ? srcCell.value : "") ||
-        "";
-      const tgtLabel: string =
-        tgtName ||
-        tgtCell?.value?.getAttribute?.("label") ||
-        (typeof tgtCell?.value === "string" ? tgtCell.value : "") ||
-        "";
+      const srcLabel: string = srcName || readCardName(srcCell?.value) || "";
+      const tgtLabel: string = tgtName || readCardName(tgtCell?.value) || "";
       const liveStyle = String(model.getStyle(cell) || "");
       tombstones.push({
         kind: "relation",
@@ -1682,10 +2448,6 @@ export function attachCellLifecycleListeners(
   // model CHANGE, detect which ones disappeared since last tick. The
   // synthesised removal then routes through the same `removedListener`
   // so cascade-edge-removal works for these paths too.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const knownVertexCells = new Map<string, any>();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const knownEdgeCells = new Map<string, any>();
   const seedKnownCells = () => {
     const allCells = model.cells || {};
     for (const k of Object.keys(allCells)) {
@@ -1731,7 +2493,7 @@ export function attachCellLifecycleListeners(
       vertices: goneVertices.map((v) => ({
         id: v?.id,
         cardId: v?.value?.getAttribute?.("cardId"),
-        label: v?.value?.getAttribute?.("label"),
+        label: readCardName(v?.value),
       })),
       edges: goneEdges.map((e) => ({ id: e?.id })),
     });
@@ -1959,18 +2721,23 @@ export function describeEdgeEndpoints(
       style: "",
       label: "",
     };
-  const labelOf = (c: { value?: { getAttribute?: (k: string) => string | null } | string | null } | null | undefined) => {
+  // Endpoints are card cells (name lives in `cardName`); the edge itself is a
+  // relation cell whose `label` IS the verb. Two readers, deliberately — one
+  // shared helper here would put HTML into the restore dialog's card names.
+  const edgeLabelOf = (
+    c: { value?: { getAttribute?: (k: string) => string | null } | string | null } | null | undefined,
+  ) => {
     if (!c?.value) return "";
     if (typeof c.value === "string") return c.value;
     return c.value.getAttribute?.("label") || "";
   };
   return {
-    sourceName: labelOf(cell.source),
-    targetName: labelOf(cell.target),
+    sourceName: readCardName(cell.source?.value),
+    targetName: readCardName(cell.target?.value),
     sourceCellId: cell.source?.id ?? null,
     targetCellId: cell.target?.id ?? null,
     style: String(ctx.graph.getModel().getStyle(cell) || ""),
-    label: labelOf(cell),
+    label: edgeLabelOf(cell),
   };
 }
 
@@ -2116,7 +2883,7 @@ export function dedupClonedCell(
 ): { mode: "regenerated"; tempId: string } | { mode: "unlinked" } | null {
   const ctx = getMxGraph(iframe);
   if (!ctx) return null;
-  const { graph } = ctx;
+  const { win, graph } = ctx;
 
   const model = graph.getModel();
   const cell = model.getCell(cellId);
@@ -2133,6 +2900,13 @@ export function dedupClonedCell(
       return { mode: "regenerated", tempId };
     }
 
+    // Collapse the label first, while cardId is still readable: an unlinked
+    // stub must not keep showing attribute rows for a card it no longer
+    // points at, and nothing manages them once the link is gone. Give back the
+    // height those rows were occupying too — the label pass skips a cell with
+    // no cardId, so nothing else ever will.
+    resizeForDetailRows(win, graph, cell, readCardDetail(cell.value).length, 0);
+    setCardLabel(cell.value, readCardName(cell.value));
     cell.value.removeAttribute("cardId");
     if (cell.value.removeAttribute) {
       cell.value.removeAttribute("expanded");
@@ -2179,7 +2953,7 @@ export function unlinkCell(
 ): string | null {
   const ctx = getMxGraph(iframe);
   if (!ctx) return null;
-  const { graph } = ctx;
+  const { win, graph } = ctx;
 
   const model = graph.getModel();
   const cell = model.getCell(cellId);
@@ -2189,6 +2963,10 @@ export function unlinkCell(
 
   model.beginUpdate();
   try {
+    // Same reasoning as `dedupClonedCell`: drop the detail rows, and the height
+    // they were occupying, with the link.
+    resizeForDetailRows(win, graph, cell, readCardDetail(cell.value).length, 0);
+    setCardLabel(cell.value, readCardName(cell.value));
     cell.value.removeAttribute("cardId");
     if (cell.value.removeAttribute) {
       cell.value.removeAttribute("pending");
@@ -2253,7 +3031,9 @@ export function relinkCell(
     }
     value.setAttribute("cardId", opts.cardId);
     value.setAttribute("cardType", opts.cardType);
-    value.setAttribute("label", opts.name);
+    // Bare name: relink has no field values to hand. The next display pass
+    // fills the detail rows in.
+    setCardLabel(value, opts.name);
     if (value.removeAttribute) {
       value.removeAttribute("pending");
       value.removeAttribute("expanded");
@@ -2324,9 +3104,9 @@ export function getCellLabel(iframe: HTMLIFrameElement, cellId: string): string 
   if (!ctx) return "";
   const cell = ctx.graph.getModel().getCell(cellId);
   if (!cell) return "";
-  const v = cell.value;
-  if (typeof v === "string") return v;
-  return v?.getAttribute?.("label") || "";
+  // A card cell's `label` may be composed HTML — `readCardName` unwraps it and
+  // falls through to `label` for plain shapes, which is what the caller wants.
+  return readCardName(cell.value);
 }
 
 /**
@@ -2351,7 +3131,7 @@ export function convertShapeToPendingCard(
   try {
     const xmlDoc = win.mxUtils.createXmlDocument();
     const obj = xmlDoc.createElement("object");
-    obj.setAttribute("label", opts.name);
+    setCardLabel(obj, opts.name);
     obj.setAttribute("cardId", opts.tempId);
     obj.setAttribute("cardType", opts.type);
     obj.setAttribute("pending", "1");
@@ -2391,6 +3171,7 @@ export function convertShapeToContainer(
     // Ensure the cell carries an XML user-object so the swimlane header
     // can show a label.
     let value = cell.value;
+    let headerRows = 0;
     if (!value?.setAttribute) {
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
@@ -2399,8 +3180,14 @@ export function convertShapeToContainer(
       obj.setAttribute("label", seedLabel || fallbackLabel);
       model.setValue(cell, obj);
       value = obj;
-    } else if (!value.getAttribute("label")) {
-      value.setAttribute("label", fallbackLabel);
+    } else {
+      // A composed card turning into a swimlane keeps its detail rows: the
+      // header strip below is sized for them. Re-composed rather than carried
+      // over verbatim so the label goes back through the one renderer.
+      const plain = readCardName(value);
+      const rows = readCardDetail(value);
+      headerRows = rows.length;
+      value.setAttribute("label", composeCardLabel(plain || fallbackLabel, rows));
     }
 
     // Make sure the container is big enough to hold cells — 320×220 is
@@ -2424,7 +3211,7 @@ export function convertShapeToContainer(
       cell,
       [
         "shape=swimlane",
-        "startSize=28",
+        `startSize=${containerHeaderHeight(headerRows)}`,
         "horizontal=1",
         `fillColor=${fill}`,
         `fontColor=${readableTextColor(fill)}`,
@@ -2551,7 +3338,7 @@ export function attachParentChangeListener(
       cellId: cell.id,
       cardId,
       cardType: cell.value.getAttribute("cardType") || "",
-      label: cell.value.getAttribute("label") || "",
+      label: readCardName(cell.value),
     };
   };
 
@@ -2696,9 +3483,16 @@ export function attachParentChangeListener(
   } catch {
     // ignore — older mxGraph builds without MOVE_CELLS
   }
+  // The deferred check must not run once the listener is detached: the
+  // editor that would receive the event is gone, and re-parenting cells
+  // behind its back is not a cleanup.
+  let disposed = false;
+  let pendingMouseUp: ReturnType<typeof setTimeout> | null = null;
   const onMouseUp = () => {
     // Defer one tick so any open transaction has settled.
-    setTimeout(() => {
+    pendingMouseUp = setTimeout(() => {
+      pendingMouseUp = null;
+      if (disposed) return;
       // Force-detach: walk every card cell and check whether its visual
       // bounds escape its parent's bounds. mxGraph's
       // `shouldRemoveCellsFromParent` override sometimes fails in
@@ -2765,6 +3559,7 @@ export function attachParentChangeListener(
             if (v?.removeAttribute) {
               v.removeAttribute("drillDownChild");
               v.removeAttribute("rollUpChild");
+              v.removeAttribute("groupChild");
             }
             const existing = cell.getGeometry();
             const newGeo = new win.mxGeometry(
@@ -2792,6 +3587,11 @@ export function attachParentChangeListener(
     // ignore
   }
   return () => {
+    disposed = true;
+    if (pendingMouseUp) {
+      clearTimeout(pendingMouseUp);
+      pendingMouseUp = null;
+    }
     try {
       model.removeListener(listener);
     } catch {
@@ -3048,7 +3848,7 @@ function insertChildVertex(
 
   const xmlDoc = win.mxUtils.createXmlDocument();
   const obj = xmlDoc.createElement("object");
-  obj.setAttribute("label", ch.name);
+  setCardLabel(obj, ch.name, ch.layout?.detail ?? []);
   obj.setAttribute("cardId", ch.id);
   obj.setAttribute("cardType", ch.type);
   obj.setAttribute("parentGroupCell", parentCellId);
@@ -3065,32 +3865,23 @@ function insertChildVertex(
     ch.layout?.height ?? CHILD_CARD_H,
     ch.layout?.style || style,
   );
-  // Stamp the edge with relationId both on the XML user-object (so saves
+  // Stamp every edge with its relationId both on the XML user-object (so saves
   // serialise correctly) and via the returned info so the editor's
   // cellId → relation-meta side-table can mirror it. The side-table is
   // the authoritative source for in-session deletes — see the
   // `getRelationIdForEdge` resolver in CellLifecycleHandlers.
-  const edge = graph.insertEdge(
-    root,
-    edgeCellId,
-    "",
-    parentCell,
-    vertex,
-    relationEdgeStyle({ incoming: ch.incoming, flow: ch.flow, hideLabel: hideLabels }),
+  const edgeInfos = insertRelationEdges(
+    win, graph, root, parentCell, vertex, edgeCellId, ch, hideLabels,
   );
-  const edgeObj = xmlDoc.createElement("object");
-  edgeObj.setAttribute("label", ch.relationLabel ?? "");
-  if (ch.flow) edgeObj.setAttribute("flowDirection", ch.flow);
-  if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
-  if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
-  graph.getModel().setValue(edge, edgeObj);
+
   return {
     cellId: cid,
     cardId: ch.id,
-    edgeCellId,
-    relationId: ch.relationId,
-    relationType: ch.relationType,
-    relationLabel: ch.relationLabel,
+    edgeCellId: edgeInfos[0].edgeCellId,
+    relationId: edgeInfos[0].relationId,
+    relationType: edgeInfos[0].relationType,
+    relationLabel: edgeInfos[0].relationLabel,
+    ...(edgeInfos.length > 1 ? { extraEdges: edgeInfos.slice(1) } : {}),
   };
 }
 
@@ -3106,8 +3897,7 @@ export function isContainerCell(iframe: HTMLIFrameElement, cellId: string): bool
   const { graph } = ctx;
   const cell = graph.getModel().getCell(cellId);
   if (!cell) return false;
-  const style = String(graph.getModel().getStyle(cell) || "");
-  return style.includes("shape=swimlane");
+  return isSwimlaneStyle(graph.getModel().getStyle(cell));
 }
 
 /** Return true when the cell currently lives INSIDE another swimlane
@@ -3125,8 +3915,7 @@ export function isInsideContainer(iframe: HTMLIFrameElement, cellId: string): bo
   // Default parent / layer cells are not containers.
   if (parent === graph.getDefaultParent()) return false;
   if (!parent.value?.getAttribute) return false;
-  const parentStyle = String(graph.getModel().getStyle(parent) || "");
-  return parentStyle.includes("shape=swimlane");
+  return isSwimlaneStyle(graph.getModel().getStyle(parent));
 }
 
 /** Return the set of cardIds currently nested as direct children of
@@ -3213,10 +4002,9 @@ export function drillDownInto(
   if (!geo) return [];
 
   // Layout constants tuned to feel like LeanIX's container drill-down.
-  const HEADER = 28;
   const PAD = 12;
   const CHILD_W = 180;
-  const CHILD_H = 50;
+  const CHILD_H = NESTED_CARD_H;
   const GAP = 10;
 
   // Is the cell already rendered as a swimlane container? If so, we
@@ -3225,11 +4013,20 @@ export function drillDownInto(
   // backfill a child they previously removed without rebuilding the
   // group from scratch.
   const currentStyle = String(model.getStyle(parentCell) || "");
-  const isAlreadyContainer = currentStyle.includes("shape=swimlane");
+  const isAlreadyContainer = isSwimlaneStyle(currentStyle);
   const existingChildCount =
     isAlreadyContainer && typeof model.getChildCount === "function"
       ? model.getChildCount(parentCell)
       : 0;
+
+  // The title strip has to hold the card's detail rows as well as its name.
+  // On a re-drill the style is deliberately left alone, so the live `startSize`
+  // is what the grid must clear — a backfilled child laid out against the bare
+  // constant would be tucked under a header that has since grown.
+  const HEADER = isAlreadyContainer
+    ? Number(readStylePart(currentStyle.split(";").filter(Boolean), "startSize")) ||
+      CONTAINER_HEADER_H
+    : containerHeaderHeight(readCardDetail(parentCell.value).length);
 
   const totalCount = existingChildCount + children.length;
   const COLS = Math.min(3, Math.max(1, totalCount));
@@ -3259,7 +4056,7 @@ export function drillDownInto(
         parentCell,
         [
           "shape=swimlane",
-          "startSize=" + HEADER,
+          `startSize=${HEADER}`,
           "horizontal=1",
           `fillColor=${parentColor}`,
           `fontColor=${readableTextColor(parentColor)}`,
@@ -3301,7 +4098,7 @@ export function drillDownInto(
 
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
-      obj.setAttribute("label", ch.name);
+      setCardLabel(obj, ch.name);
       obj.setAttribute("cardId", ch.id);
       obj.setAttribute("cardType", ch.type);
       // Mark as a drill-down child so future scans don't mistake the inner
@@ -3354,10 +4151,12 @@ export function rollUpInto(
   // Build the list of vertices to nest: the current card + a vertex per
   // sibling. Siblings that already exist on the canvas keep their cell;
   // missing ones are freshly inserted.
-  const HEADER = 28;
+  // Bare label at creation, so the strip starts at its natural height; the
+  // display pass grows it (and moves these children down) once the rows land.
+  const HEADER = CONTAINER_HEADER_H;
   const PAD = 12;
   const CHILD_W = 180;
-  const CHILD_H = 50;
+  const CHILD_H = NESTED_CARD_H;
   const GAP = 10;
   const count = 1 + siblings.length;
   const COLS = Math.min(3, Math.max(1, count));
@@ -3376,7 +4175,7 @@ export function rollUpInto(
     // current card so the user sees the relationship.
     const xmlDoc = win.mxUtils.createXmlDocument();
     const parentObj = xmlDoc.createElement("object");
-    parentObj.setAttribute("label", parent.name);
+    setCardLabel(parentObj, parent.name);
     parentObj.setAttribute("cardId", parent.id);
     parentObj.setAttribute("cardType", parent.type);
 
@@ -3392,7 +4191,7 @@ export function rollUpInto(
       containerH,
       [
         "shape=swimlane",
-        "startSize=" + HEADER,
+        `startSize=${HEADER}`,
         "horizontal=1",
         `fillColor=${parent.color}`,
         `fontColor=${readableTextColor(parent.color)}`,
@@ -3457,7 +4256,7 @@ export function rollUpInto(
       ].join(";");
 
       const childObj = xmlDoc.createElement("object");
-      childObj.setAttribute("label", card.name);
+      setCardLabel(childObj, card.name);
       childObj.setAttribute("cardId", card.id);
       childObj.setAttribute("cardType", card.type);
       childObj.setAttribute("rollUpChild", "1");
@@ -3494,15 +4293,20 @@ export function rollUpInto(
 export function applyViewToGraph(
   iframe: HTMLIFrameElement,
   colorByCardId: Map<string, string>,
-  defaultColor: string,
-): number {
+  restore: { colorByType: Map<string, string>; fallback: string },
+): { painted: number; restored: number } {
   const ctx = getMxGraph(iframe);
-  if (!ctx) return 0;
+  if (!ctx) return { painted: 0, restored: 0 };
   const { graph } = ctx;
   const model = graph.getModel();
   const cells = model.cells || {};
 
-  let touched = 0;
+  let painted = 0;
+  let restored = 0;
+  // One update — one undo step. Two passes would cost the reader two Ctrl+Z
+  // presses per view change, and doing them in the wrong order is fatal:
+  // painting first stamps every cell, so a following restore would undo the
+  // paint it just did.
   model.beginUpdate();
   try {
     for (const k of Object.keys(cells)) {
@@ -3512,12 +4316,46 @@ export function applyViewToGraph(
       if (cell.edge) continue;
       const cardId = cell.value.getAttribute("cardId");
       if (!cardId || cardId.startsWith("pending-")) continue;
-      const color = colorByCardId.get(cardId) || defaultColor;
-      const stroke = darken(color);
+
       const styleStr = (model.getStyle(cell) || "") as string;
       const parts = styleStr.split(";").filter(Boolean);
+      const color = colorByCardId.get(cardId);
+
+      if (color === undefined) {
+        // The view says nothing about this card. If a previous view took it
+        // over, hand it back; otherwise leave it exactly as the user has it.
+        //
+        // Leaving it alone is the whole point: painting every uncovered card a
+        // single fallback colour is what greyed out an entire canvas the moment
+        // one card type was coloured by a field.
+        const baseFill = readStylePart(parts, BASE_FILL_KEY);
+        if (baseFill == null) continue;
+        const baseStroke = readStylePart(parts, BASE_STROKE_KEY);
+        const cardType = cell.value.getAttribute("cardType") || "";
+        const typeColor = restore.colorByType.get(cardType) || restore.fallback;
+        const back = baseFill === NO_STYLE_VALUE ? typeColor : baseFill;
+        const backStroke =
+          baseStroke == null || baseStroke === NO_STYLE_VALUE ? darken(back) : baseStroke;
+        const next = parts
+          .filter(
+            (p) =>
+              !p.startsWith("fillColor=") &&
+              !p.startsWith("strokeColor=") &&
+              !p.startsWith(`${BASE_FILL_KEY}=`) &&
+              !p.startsWith(`${BASE_STROKE_KEY}=`),
+          )
+          .concat([`fillColor=${back}`, `strokeColor=${backStroke}`])
+          .join(";");
+        if (next !== styleStr) {
+          model.setStyle(cell, next);
+          restored += 1;
+        }
+        continue;
+      }
+
+      const stroke = darken(color);
       // Remember what the cell looked like BEFORE the view took it over, once.
-      // `resetViewColors` restores from this stamp, which is what makes a view
+      // The restore branch above reads this stamp, which is what makes a view
       // reversible and — crucially — lets it tell its own colours apart from a
       // fill the user set by hand (discussion #905).
       const stamped = parts.some((p) => p.startsWith(`${BASE_FILL_KEY}=`));
@@ -3532,13 +4370,15 @@ export function applyViewToGraph(
         .concat(baseStamps)
         .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
         .join(";");
-      model.setStyle(cell, next);
-      touched += 1;
+      if (next !== styleStr) {
+        model.setStyle(cell, next);
+      }
+      painted += 1;
     }
   } finally {
     model.endUpdate();
   }
-  return touched;
+  return { painted, restored };
 }
 
 /**
@@ -3663,6 +4503,275 @@ export function resetViewColors(
 }
 
 /**
+ * Show each card's own logo on the canvas, and take it back off again.
+ *
+ * Modelled on {@link applyViewToGraph}, and for the same reason: this owns one
+ * slot on a cell the user also controls, so it has to be able to tell what it
+ * put there from what was there already. A cell it takes over is stamped with
+ * {@link LOGO_STAMP_KEY}; only stamped cells are ever restored, and a cell that
+ * carried no image before gets none back.
+ *
+ * `logoByCardId` holds the composed logo-plus-badge images (see
+ * `cardLogoImage.ts`), already built; this pass does no I/O and no decoding, so
+ * it is a single synchronous model update — one undo step for the reader.
+ */
+/** One card-shaped cell on a canvas, and the size a logo must be built for. */
+export interface CardCellBox {
+  cardId: string;
+  w: number;
+  h: number;
+}
+
+/** Default geometry for a cell whose own geometry cannot be read. */
+const DEFAULT_CARD_BOX = { w: 210, h: CARD_BASE_H };
+
+/**
+ * Is this cell one a logo may be painted on? The guards are shared by every
+ * pass below so they cannot drift: a cell the reader has turned into a
+ * swimlane, an ellipse or any other shape keeps what they chose.
+ */
+function isLogoTarget(cell: unknown): boolean {
+  const c = cell as { value?: { getAttribute?: (k: string) => string | null }; edge?: boolean };
+  if (!c?.value?.getAttribute) return false;
+  if (c.edge) return false;
+  return true;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function boxOf(graph: any, cell: unknown): { w: number; h: number } {
+  try {
+    const geo = graph.getCellGeometry?.(cell);
+    if (geo && geo.width > 0 && geo.height > 0) {
+      return { w: Math.round(geo.width), h: Math.round(geo.height) };
+    }
+  } catch {
+    /* fall through to the plain card */
+  }
+  return DEFAULT_CARD_BOX;
+}
+
+/**
+ * Every card-shaped cell on the canvas, with the geometry its logo must match.
+ *
+ * The composite that carries a logo IS the card (see `cardLogoImage.ts`), so it
+ * has to be built at the cell's real size — and composing is asynchronous while
+ * applying is one synchronous model update. This is the read that lets the
+ * caller do the first before the second. The same card may appear more than
+ * once, at different sizes; each occurrence is its own entry.
+ */
+export function readCardCellBoxes(iframe: HTMLIFrameElement): CardCellBox[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  const out: CardCellBox[] = [];
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!isLogoTarget(cell)) continue;
+    const cardId = cell.value.getAttribute("cardId");
+    if (!cardId || cardId.startsWith("pending-")) continue;
+    const styleStr = (model.getStyle(cell) || "") as string;
+    const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+    if (shapeMatch && shapeMatch[1] !== "label") continue;
+    const { w, h } = boxOf(graph, cell);
+    out.push({ cardId, w, h });
+  }
+  return out;
+}
+
+/**
+ * The composed image for a card at a given cell size, or nothing.
+ *
+ * A lookup rather than a map because one card can be on the canvas at several
+ * sizes and each needs its own picture.
+ */
+export type CardLogoLookup = (cardId: string, w: number, h: number) => string | undefined;
+
+/** Cache key for one card's composite at one cell size. */
+export function logoKey(cardId: string, w: number, h: number): string {
+  return `${cardId}|${w}x${h}`;
+}
+
+/**
+ * Build a lookup over a map keyed by {@link logoKey}.
+ *
+ * A miss on the exact size falls back to any picture this card has, because
+ * the alternative is worse: "Apply card-type icons" reads this lookup so it
+ * does not wipe logos, and a card resized since the last logo pass would
+ * otherwise come back a miss and lose its logo to a generic glyph. A picture
+ * built for the previous size is briefly off; the next logo pass corrects it.
+ */
+export function logoLookupFor(map: Map<string, string>): CardLogoLookup {
+  const anySize = new Map<string, string>();
+  for (const [key, image] of map) {
+    const cardId = key.slice(0, key.lastIndexOf("|"));
+    if (!anySize.has(cardId)) anySize.set(cardId, image);
+  }
+  return (cardId, w, h) => map.get(logoKey(cardId, w, h)) ?? anySize.get(cardId);
+}
+
+export function applyCardLogos(
+  iframe: HTMLIFrameElement,
+  logoFor: CardLogoLookup,
+  iconByType: Map<string, string>,
+): { painted: number; restored: number } {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return { painted: 0, restored: 0 };
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  let painted = 0;
+  let restored = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!isLogoTarget(cell)) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId || cardId.startsWith("pending-")) continue;
+
+      const styleStr = (model.getStyle(cell) || "") as string;
+      // Preserve swimlane containers / ellipses / user shapes, exactly as
+      // `applyCardTypeIcons` does — only plain card rectangles and cells this
+      // pass or that action has already turned into `shape=label`.
+      const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
+      if (shapeMatch && shapeMatch[1] !== "label") continue;
+
+      const parts = styleStr.split(";").filter(Boolean);
+      const stamp = readStylePart(parts, LOGO_STAMP_KEY);
+      const { w, h } = boxOf(graph, cell);
+      const logo = logoFor(cardId, w, h);
+
+      let next: string;
+      if (logo) {
+        // Record what the slot held the first time we take it, never again —
+        // re-stamping on a refresh would record our own logo as the base.
+        const had = stamp ?? (parts.some((p) => p.startsWith("image=")) ? "icon" : "none");
+        next = stripImageParts(parts)
+          .concat([`${LOGO_STAMP_KEY}=${had}`])
+          // The picture is sized to THIS cell, not to the plain card — a
+          // composite built for 210×60 puts its type glyph off a 190×40 one.
+          .concat(iconStyleParts(undefined, logo, w, h))
+          .join(";");
+      } else if (stamp != null) {
+        const cardType = cell.value.getAttribute("cardType") || "";
+        next = stripImageParts(parts)
+          .concat(stamp === "icon" ? iconStyleParts(iconByType.get(cardType)) : [])
+          .join(";");
+      } else {
+        // No logo and never taken over: leave the cell exactly as the user has
+        // it. This is what stops the pass imposing icons on a diagram drawn
+        // before icons existed.
+        continue;
+      }
+
+      if (next !== styleStr) {
+        model.setStyle(cell, next);
+        if (logo) painted += 1;
+        else restored += 1;
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return { painted, restored };
+}
+
+/** The geometry an `<mxCell>` carries in stored XML, or the plain card. */
+function boxFromXmlCell(cell: Element): { w: number; h: number } {
+  const geo = cell.getElementsByTagName("mxGeometry")[0];
+  const w = Number(geo?.getAttribute("width"));
+  const h = Number(geo?.getAttribute("height"));
+  return w > 0 && h > 0 ? { w: Math.round(w), h: Math.round(h) } : DEFAULT_CARD_BOX;
+}
+
+/**
+ * Every card-shaped cell in stored XML, with the geometry its logo must match.
+ *
+ * The viewer's counterpart to {@link readCardCellBoxes}: composing is
+ * asynchronous and needs the size up front, so the document is read once for
+ * geometry before anything is drawn and once again to write the styles.
+ */
+export function readCardBoxesFromXml(xml: string): CardCellBox[] {
+  if (!xml) return [];
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xml, "text/xml");
+  } catch {
+    return [];
+  }
+  if (doc.getElementsByTagName("parsererror").length > 0) return [];
+  const out: CardCellBox[] = [];
+  for (const obj of Array.from(doc.getElementsByTagName("object"))) {
+    const cardId = obj.getAttribute("cardId");
+    if (!cardId) continue;
+    const cell = obj.getElementsByTagName("mxCell")[0];
+    if (!cell) continue;
+    const style = cell.getAttribute("style") || "";
+    const shape = style.match(/(?:^|;)shape=([^;]+)/);
+    if (shape && shape[1] !== "label") continue;
+    const { w, h } = boxFromXmlCell(cell);
+    out.push({ cardId, w, h });
+  }
+  return out;
+}
+
+/**
+ * Draw each card's logo into a diagram's stored XML, without a live graph.
+ *
+ * The read-only viewer hands DrawIO its XML in the URL fragment and never
+ * constructs a graph this side of the iframe, so `applyCardLogos` has nothing
+ * to walk. Rewriting the styles in the document itself is the only seam — and
+ * it has to exist, because otherwise a diagram would show its logos in the
+ * editor and lose them the moment anyone merely *looked* at it.
+ *
+ * Purely additive and non-destructive: cells with no logo are returned byte
+ * for byte, so this can run over any diagram. Returns the original string
+ * unchanged when there is nothing to do or the document will not parse — a
+ * viewer must never fail to render because a logo could not be drawn.
+ */
+export function applyCardLogosToXml(xml: string, logoFor: CardLogoLookup): string {
+  if (!xml) return xml;
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(xml, "text/xml");
+  } catch {
+    return xml;
+  }
+  if (doc.getElementsByTagName("parsererror").length > 0) return xml;
+
+  let touched = 0;
+  // The cardId lives on the user object that WRAPS the cell, so walk the
+  // objects and reach down to the mxCell they carry.
+  for (const obj of Array.from(doc.getElementsByTagName("object"))) {
+    const cardId = obj.getAttribute("cardId");
+    if (!cardId) continue;
+    const cell = obj.getElementsByTagName("mxCell")[0];
+    if (!cell) continue;
+    const { w, h } = boxFromXmlCell(cell);
+    const logo = logoFor(cardId, w, h);
+    if (!logo) continue;
+    const style = cell.getAttribute("style") || "";
+    // Same guard as the live pass: never touch a swimlane, ellipse or any
+    // other shape the user chose.
+    const shape = style.match(/(?:^|;)shape=([^;]+)/);
+    if (shape && shape[1] !== "label") continue;
+    const next = stripImageParts(style.split(";").filter(Boolean))
+      .concat([`${LOGO_STAMP_KEY}=icon`])
+      .concat(iconStyleParts(undefined, logo, w, h))
+      .join(";");
+    if (next !== style) {
+      cell.setAttribute("style", next);
+      touched += 1;
+    }
+  }
+  if (touched === 0) return xml;
+  return new XMLSerializer().serializeToString(doc);
+}
+
+/**
  * Add (or refresh) the card-type icon on every card-shaped cell already on the
  * canvas. Used by the "Apply card-type icons" toolbar action so cards placed on
  * a diagram before the icon feature existed can be upgraded in one click.
@@ -3677,6 +4786,7 @@ export function resetViewColors(
 export function applyCardTypeIcons(
   iframe: HTMLIFrameElement,
   iconByType: Map<string, string>,
+  logoFor: CardLogoLookup = () => undefined,
 ): number {
   const ctx = getMxGraph(iframe);
   if (!ctx) return 0;
@@ -3698,22 +4808,18 @@ export function applyCardTypeIcons(
       // `shape=label` cells are eligible.
       const shapeMatch = styleStr.match(/(?:^|;)shape=([^;]+)/);
       if (shapeMatch && shapeMatch[1] !== "label") continue;
-      const kept = styleStr
-        .split(";")
-        .filter(Boolean)
-        .filter(
-          (p) =>
-            !(
-              p === "shape=label" ||
-              p.startsWith("image=") ||
-              p.startsWith("imageAlign=") ||
-              p.startsWith("imageVerticalAlign=") ||
-              p.startsWith("imageWidth=") ||
-              p.startsWith("imageHeight=") ||
-              p.startsWith("spacing")
-            ),
-        );
-      const next = kept.concat(iconStyleParts(iconByType.get(cardType))).join(";");
+      const kept = stripImageParts(styleStr.split(";").filter(Boolean));
+      // A card showing its own logo keeps it: this action re-applies icons from
+      // the current metamodel, and without the logo map it would strip the
+      // image family and silently replace every logo on the canvas with a
+      // generic type glyph.
+      const cardId = cell.value.getAttribute("cardId") || "";
+      const { w, h } = boxOf(graph, cell);
+      const logo = logoFor(cardId, w, h);
+      const next = kept
+        .concat(logo ? [`${LOGO_STAMP_KEY}=icon`] : [])
+        .concat(iconStyleParts(iconByType.get(cardType), logo, w, h))
+        .join(";");
       if (next !== styleStr) {
         model.setStyle(cell, next);
         touched += 1;
@@ -3723,6 +4829,279 @@ export function applyCardTypeIcons(
     model.endUpdate();
   }
   return touched;
+}
+
+/**
+ * Re-render every card cell's label with the caller's detail rows, resizing
+ * each cell to hold them.
+ *
+ * Modelled on `applyCardTypeIcons`: one pass over the live model, no fetches,
+ * returns how many cells it touched. A card whose id is absent from the map is
+ * reset to its bare name and shrunk back, which is how turning a field off
+ * clears the canvas.
+ *
+ * **Every** cell bound to a card is covered — including the children of an
+ * expanded group, a drill-down container and a roll-up container. They used to
+ * be skipped because a 190x40 child could not hold rows and mxGraph paints
+ * label overflow outside the shape; now the cell grows instead, so a card reads
+ * the same whether it was inserted from the picker or pulled in with `+`. The
+ * one exception is a container child, which is pinned in a grid slot and so
+ * shows only what fits without growing — see {@link detailRowCap}.
+ *
+ * Deliberately skipped:
+ *  - **pending cells** (`pending-…` ids) — `scanDiagramItems` feeds their name
+ *    straight into `POST /cards`, so a composed label there would create a card
+ *    literally named `<b>Foo</b>…`;
+ *  - **cells with no `cardId`** — unlinked stubs and plain DrawIO shapes are
+ *    nobody's to rewrite.
+ */
+export function applyCardLabels(
+  iframe: HTMLIFrameElement,
+  linesByCardId: Map<string, CardDetailLine[]>,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { win, graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.value?.getAttribute) continue;
+      if (cell.edge) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId || cardId.startsWith("pending-")) continue;
+      // Adopting a cell that predates `cardName`: its `label` is the name, but
+      // it may carry hand-applied markup, which would otherwise be escaped and
+      // rendered as literal text. `firstLineText` recovers the plain name.
+      const stamped = cell.value.getAttribute(CARD_NAME_ATTR);
+      const name = stamped || firstLineText(cell.value.getAttribute("label") || "");
+      if (!name) continue;
+      const rows = (linesByCardId.get(cardId) ?? []).slice(0, detailRowCap(cell));
+      const next = composeCardLabel(name, rows);
+      const changed = next !== (cell.value.getAttribute("label") || "");
+      if (changed) {
+        // `readCardDetail` BEFORE the write — the row count the cell is
+        // currently sized for is what the resize below measures against.
+        const was = readCardDetail(cell.value).length;
+        // A container carries its label in a title strip, not in the body, so
+        // the room has to come out of `startSize` rather than the cell height.
+        if (isSwimlaneStyle(model.getStyle(cell))) {
+          resizeContainerHeader(win, graph, model, cell, was, rows.length);
+        } else {
+          resizeForDetailRows(win, graph, cell, was, rows.length);
+        }
+        setCardLabel(cell.value, name, rows);
+        graph.refresh(cell);
+        touched += 1;
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
+}
+
+/**
+ * Grow or shrink a card cell to hold `newCount` detail rows.
+ *
+ * The height moves by the **delta** rather than being recomputed from scratch,
+ * because this pass re-runs on every diagram open: snapping to
+ * `base + rows * step` each time would silently undo a height the user had
+ * dragged themselves. The floor is the safety net — it guarantees the rows fit
+ * whatever the current height is, and repairs a cell whose stored row count and
+ * height disagree (a diagram generated by the Layered Dependency View before
+ * card cells could grow carries every row in a fixed 72px box).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resizeForDetailRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  graph: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cell: any,
+  oldCount: number,
+  newCount: number,
+): void {
+  const geo = graph.getCellGeometry?.(cell);
+  if (!geo) return;
+  // Only rows past what the cell already had room for cost height.
+  const owed = detailRowsHeight(newCount);
+  const target = Math.max(
+    geo.height + owed - detailRowsHeight(oldCount),
+    baseCardHeight(cell) + owed,
+  );
+  if (target === geo.height) return;
+  graph.resizeCell(cell, new win.mxRectangle(geo.x, geo.y, geo.width, target));
+}
+
+/**
+ * Grow or shrink a swimlane container's title strip to hold `newCount` rows.
+ *
+ * Three moves, and the order matters: widen `startSize`, give the container the
+ * same amount of extra height so its body keeps exactly the room its grid
+ * needs, then push every child down by that amount — the top grid row would
+ * otherwise end up underneath the header. Children move last so mxGraph's
+ * `constrainChild` has somewhere to put them.
+ *
+ * Delta-plus-floor like {@link resizeForDetailRows}, so a header divider the
+ * user dragged themselves survives the pass, and a second identical pass
+ * computes a zero delta and touches nothing.
+ */
+function resizeContainerHeader(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  graph: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  model: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cell: any,
+  oldCount: number,
+  newCount: number,
+): void {
+  const geo = graph.getCellGeometry?.(cell);
+  if (!geo) return;
+  const parts = String(model.getStyle(cell) || "").split(";").filter(Boolean);
+  const current = Number(readStylePart(parts, "startSize") ?? CONTAINER_HEADER_H);
+  if (!Number.isFinite(current)) return;
+  const next = Math.max(
+    current + (newCount - oldCount) * CARD_DETAIL_LINE_H,
+    containerHeaderHeight(newCount),
+  );
+  const delta = next - current;
+  // Everything below moves together — read the geometry first so a cell that
+  // has none cannot end up with a widened strip and an unchanged box.
+  if (delta === 0) return;
+
+  model.setStyle(
+    cell,
+    parts
+      .filter((part) => !part.startsWith("startSize="))
+      .concat([`startSize=${next}`])
+      .join(";"),
+  );
+  graph.resizeCell(
+    cell,
+    new win.mxRectangle(geo.x, geo.y, geo.width, geo.height + delta),
+  );
+
+  const count = typeof model.getChildCount === "function" ? model.getChildCount(cell) : 0;
+  for (let i = 0; i < count; i++) {
+    const child = model.getChildAt(cell, i);
+    if (!child || child.edge) continue;
+    const cgeo = graph.getCellGeometry?.(child);
+    if (!cgeo) continue;
+    graph.resizeCell(
+      child,
+      new win.mxRectangle(cgeo.x, cgeo.y + delta, cgeo.width, cgeo.height),
+    );
+  }
+}
+
+/**
+ * Listen for hand edits to a card's label (F2 / double-click rename) and keep
+ * `cardName` in step, via {@link normaliseEditedCardLabel}.
+ *
+ * Without this the inventory-rename diff would go dead on any cell the user
+ * renamed by hand: DrawIO writes only `label`, so `cardName` would keep the old
+ * value and `staleCheck` would keep comparing that instead of what is on screen.
+ */
+/**
+ * Call back when the reader finishes resizing cells, so a logo can be rebuilt
+ * at the new size.
+ *
+ * A logo composite is card-shaped and therefore size-specific: drag a card
+ * wider and the type glyph baked into the old picture is suddenly short of the
+ * corner it belongs in. Nothing else on a cell cares about a resize, which is
+ * why this listener did not exist before.
+ *
+ * Debounced, because mxGraph fires `CELLS_RESIZED` once per drag *step* on some
+ * paths, and each callback costs an image decode per affected card.
+ */
+export function attachCardResizeListener(
+  iframe: HTMLIFrameElement,
+  onResized: () => void,
+  delayMs = 300,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const listener = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(onResized, delayMs);
+  };
+  graph.addListener(win.mxEvent.CELLS_RESIZED, listener);
+  return () => {
+    if (timer) clearTimeout(timer);
+    try {
+      graph.removeListener(listener);
+    } catch {
+      // Editor already torn down.
+    }
+  };
+}
+
+export function attachCardLabelEditListener(
+  iframe: HTMLIFrameElement,
+  onRenamed?: (cellId: string, name: string) => void,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  const listener = (_sender: unknown, evt: { getProperty?: (k: string) => unknown }) => {
+    const cell = evt?.getProperty?.("cell") as { id?: string } | undefined;
+    if (!cell?.id) return;
+    const name = normaliseEditedCardLabel(iframe, cell.id);
+    if (name != null) onRenamed?.(cell.id, name);
+  };
+  graph.addListener(win.mxEvent.LABEL_CHANGED, listener);
+  return () => {
+    try {
+      graph.removeListener(listener);
+    } catch {
+      // Editor already torn down.
+    }
+  };
+}
+
+/**
+ * Normalise a card cell after DrawIO wrote a hand-typed (F2) label straight
+ * onto it. DrawIO only ever sets `label`, so without this the plain name in
+ * `cardName` would silently keep the old value and the inventory rename diff
+ * would go dead for that cell.
+ *
+ * The first line becomes the new name; the detail rows below it are re-rendered
+ * from what the cell already carries rather than from whatever the user typed
+ * over them — they are data, not prose. Returns the recovered name, or null
+ * when the cell is not a card cell.
+ */
+export function normaliseEditedCardLabel(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+): string | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell?.value?.getAttribute || cell.edge) return null;
+  if (!cell.value.getAttribute("cardId")) return null;
+  const raw = cell.value.getAttribute("label") || "";
+  const name = firstLineText(raw);
+  if (!name) return null;
+  model.beginUpdate();
+  try {
+    setCardLabel(cell.value, name, readCardDetail(cell.value));
+    graph.refresh(cell);
+  } finally {
+    model.endUpdate();
+  }
+  return name;
 }
 
 /* ------------------------------------------------------------------ */
@@ -3737,10 +5116,16 @@ export interface DiagramCardInput {
   color: string;
   /** Card-type Material Symbols icon name (e.g. "apps"). Optional. */
   icon?: string;
+  /** Attribute rows the source view was showing, carried onto the shape so a
+   *  generated diagram reads like the report it came from. */
+  detailLines?: CardDetailLine[];
   x: number;
   y: number;
   w: number;
   h: number;
+  /** The group box the card sits in, when the source view had it in one.
+   *  `x` / `y` are then RELATIVE to that box, as an mxGraph child's are. */
+  groupKey?: string;
 }
 
 /** A relation edge between two cards on a generated diagram. */
@@ -3749,6 +5134,16 @@ export interface DiagramRelInput {
   targetCardId: string;
   relationType: string;
   label: string;
+  /** Which way the data flows, so the generated diagram puts the arrowhead
+   *  where the source view drew it. */
+  flow?: RelationFlowDirection;
+  /** Where the edge meets each card, as {x, y} fractions of its box. */
+  exit?: { x: number; y: number };
+  entry?: { x: number; y: number };
+  /** Bend points of the source view's own route, in the same coordinate space
+   *  as the card positions. Given these, the edge is routed orthogonally
+   *  through them instead of being re-routed by DrawIO. */
+  waypoints?: { x: number; y: number }[];
 }
 
 /** A background swim-lane box (one per EA layer). */
@@ -3759,6 +5154,38 @@ export interface DiagramLayerInput {
   y: number;
   w: number;
   h: number;
+}
+
+/** A group box of the aggregated Layered Dependency View: a swimlane
+ *  container whose member cards are its mxGraph children. */
+export interface DiagramGroupInput {
+  /** The view's own id for the box; cards and connectors reference it. */
+  key: string;
+  label: string;
+  color: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * A merged connector of the aggregated view: ONE line standing for `count`
+ * relations between two groups, or between a group and a card left on its
+ * own (the centred card). It is decoration — it carries no relation identity,
+ * so the editor's sync never creates, deletes or flags anything for it.
+ */
+export interface DiagramConnectorInput {
+  /** A group key or a card id. */
+  sourceKey: string;
+  targetKey: string;
+  /** The verb, while the connector stands for one relation type; "" otherwise. */
+  label: string;
+  count: number;
+  flow?: RelationFlowDirection;
+  exit?: { x: number; y: number };
+  entry?: { x: number; y: number };
+  waypoints?: { x: number; y: number }[];
 }
 
 /**
@@ -3775,11 +5202,25 @@ export interface DiagramLayerInput {
  *
  * Layer boxes are plain cells with no `cardId`, so they're ignored by card-ref
  * extraction and render behind the cards (emitted first).
+ *
+ * An **aggregated** view adds two more kinds. A group box becomes a swimlane
+ * container (the very style drill-down and roll-up use) with its member cards
+ * as real mxGraph children, stamped `groupChild="1"` so every container-child
+ * rule of the editor applies to them — they move with the box, keep a fixed
+ * height, and are never mistaken for a paste. The cards stay live: `cardId`
+ * is on them exactly as on a top-level card. A merged connector is emitted as
+ * a bare `<mxCell>` edge — no `<object>`, no `relationType`, no `relationId`,
+ * no `pending` — because it stands for N relations and is a picture of them,
+ * not one of them: `scanDiagramItems` falls through every branch for it, the
+ * stale check never sees it, and deleting it asks nothing. Its label carries
+ * the count, and its stroke thickens with it (`relationEdgeStyle({ weight })`).
  */
 export function buildLdvDiagramXml(
   cards: DiagramCardInput[],
   rels: DiagramRelInput[],
   layers: DiagramLayerInput[],
+  groups: DiagramGroupInput[] = [],
+  connectors: DiagramConnectorInput[] = [],
 ): string {
   const r = (n: number) => Math.round(n);
   const parts: string[] = [];
@@ -3811,26 +5252,74 @@ export function buildLdvDiagramXml(
     );
   });
 
+  // Group boxes: swimlane containers, painted before their members so the
+  // members (their mxGraph children) draw on top. Connectors reference them.
+  const cellIdByGroup = new Map<string, string>();
+  groups.forEach((g, i) => {
+    const cellId = `group-${i}`;
+    cellIdByGroup.set(g.key, cellId);
+    const style = [
+      "shape=swimlane",
+      `startSize=${CONTAINER_HEADER_H}`,
+      "horizontal=1",
+      `fillColor=${tint(g.color)}`,
+      `fontColor=${darken(g.color)}`,
+      `strokeColor=${g.color}`,
+      "fontSize=12",
+      "fontStyle=1",
+      "rounded=1",
+      "arcSize=12",
+      "html=1",
+      "whiteSpace=wrap",
+      "swimlaneLine=0",
+    ].join(";");
+    parts.push(
+      `<mxCell id="${cellId}" value="${escapeXml(g.label)}" style="${escapeXml(style)}" ` +
+        `vertex="1" parent="1">` +
+        `<mxGeometry x="${r(g.x)}" y="${r(g.y)}" width="${r(g.w)}" height="${r(g.h)}" ` +
+        `as="geometry"/></mxCell>`,
+    );
+  });
+
   // Cards. The id lives on the wrapping <object> (mxGraph's UserObject
   // encoding); edges reference these ids.
   const cellIdByCard = new Map<string, string>();
   cards.forEach((c, i) => {
     const cellId = `card-${i}-${c.cardId.slice(0, 8)}`;
     cellIdByCard.set(c.cardId, cellId);
-    const { style } = buildCardCellData({
+    // A card inside a group box is the box's mxGraph child, at the relative
+    // position the view had it. A key naming no exported box falls back to
+    // the root rather than vanishing.
+    const groupCellId = c.groupKey ? cellIdByGroup.get(c.groupKey) : undefined;
+    const parentId = groupCellId ?? "1";
+    const childAttr = groupCellId ? `groupChild="1" ` : "";
+    const { style, label } = buildCardCellData({
       cardId: c.cardId,
       cardType: c.cardType,
       name: c.name,
       color: c.color,
       icon: c.icon,
+      detailLines: c.detailLines,
       x: c.x,
       y: c.y,
     });
+    // The source view renders at most two rows in a fixed-size node but exports
+    // every row the reader ticked, so its own height cannot be trusted to hold
+    // them. Take whichever is taller.
+    const h = Math.max(c.h, CARD_BASE_H + detailRowsHeight(c.detailLines?.length ?? 0));
+    // Two escaping layers, in this order: `composeCardLabel` escaped for HTML
+    // (it is rendered under `html=1`), `escapeXml` now escapes for the XML
+    // attribute. Reverse them and every `&` in a card name renders as `&amp;`.
     parts.push(
-      `<object id="${escapeXml(cellId)}" label="${escapeXml(c.name)}" ` +
+      `<object id="${escapeXml(cellId)}" label="${escapeXml(label)}" ` +
+        `cardName="${escapeXml(c.name)}" ` +
+        (c.detailLines?.length
+          ? `cardDetail="${escapeXml(JSON.stringify(c.detailLines))}" `
+          : "") +
+        `${childAttr}` +
         `cardId="${escapeXml(c.cardId)}" cardType="${escapeXml(c.cardType)}">` +
-        `<mxCell style="${escapeXml(style)}" vertex="1" parent="1">` +
-        `<mxGeometry x="${r(c.x)}" y="${r(c.y)}" width="${r(c.w)}" height="${r(c.h)}" ` +
+        `<mxCell style="${escapeXml(style)}" vertex="1" parent="${parentId}">` +
+        `<mxGeometry x="${r(c.x)}" y="${r(c.y)}" width="${r(c.w)}" height="${r(h)}" ` +
         `as="geometry"/></mxCell></object>`,
     );
   });
@@ -3843,7 +5332,20 @@ export function buildLdvDiagramXml(
     if (!src || !tgt) continue;
     // Edges are emitted source -> target, so the default (end) arrowhead
     // already points at the relation's target.
-    const style = `${relationEdgeStyle()}html=1;`;
+    const routed = !!rel.waypoints?.length || !!rel.exit || !!rel.entry;
+    const style = `${relationEdgeStyle({
+      flow: rel.flow,
+      orthogonal: routed,
+      exit: rel.exit,
+      entry: rel.entry,
+    })}html=1;`;
+    // A route the caller computed travels as explicit waypoints; without one
+    // the edge keeps an empty geometry and DrawIO routes it itself.
+    const geometry = rel.waypoints?.length
+      ? `<mxGeometry relative="1" as="geometry"><Array as="points">` +
+        rel.waypoints.map((p) => `<mxPoint x="${r(p.x)}" y="${r(p.y)}"/>`).join("") +
+        `</Array></mxGeometry>`
+      : `<mxGeometry relative="1" as="geometry"/>`;
     // Only stamp a relationType for real relations; synthetic/hierarchy edges
     // (empty type) render as plain labelled lines.
     const relTypeAttr = rel.relationType
@@ -3853,10 +5355,39 @@ export function buildLdvDiagramXml(
       `<object id="edge-${edgeIdx}" label="${escapeXml(rel.label)}"${relTypeAttr}>` +
         `<mxCell style="${escapeXml(style)}" edge="1" parent="1" ` +
         `source="${escapeXml(src)}" target="${escapeXml(tgt)}">` +
-        `<mxGeometry relative="1" as="geometry"/></mxCell></object>`,
+        `${geometry}</mxCell></object>`,
     );
     edgeIdx += 1;
   }
+
+  // Merged connectors: decoration edges between boxes (or a box and a lone
+  // card). Deliberately a bare <mxCell>, never an <object> — see the doc
+  // comment above for why they must carry no relation identity at all.
+  const cellIdByKey = (key: string) => cellIdByGroup.get(key) ?? cellIdByCard.get(key);
+  connectors.forEach((c, i) => {
+    const src = cellIdByKey(c.sourceKey);
+    const tgt = cellIdByKey(c.targetKey);
+    if (!src || !tgt) return;
+    const routed = !!c.waypoints?.length || !!c.exit || !!c.entry;
+    const style = `${relationEdgeStyle({
+      flow: c.flow,
+      orthogonal: routed,
+      exit: c.exit,
+      entry: c.entry,
+      weight: c.count,
+    })}html=1;`;
+    const geometry = c.waypoints?.length
+      ? `<mxGeometry relative="1" as="geometry"><Array as="points">` +
+        c.waypoints.map((p) => `<mxPoint x="${r(p.x)}" y="${r(p.y)}"/>`).join("") +
+        `</Array></mxGeometry>`
+      : `<mxGeometry relative="1" as="geometry"/>`;
+    const label = c.label ? `${c.label} · ${c.count}` : String(c.count);
+    parts.push(
+      `<mxCell id="connector-${i}" value="${escapeXml(label)}" style="${escapeXml(style)}" ` +
+        `edge="1" parent="1" source="${escapeXml(src)}" target="${escapeXml(tgt)}">` +
+        `${geometry}</mxCell>`,
+    );
+  });
 
   return (
     `<mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" ` +

@@ -56,6 +56,9 @@ Klik på **redigeringsikonet** på enhver brugerrække for at åbne dialogen Red
 - **Adgangskode** (kun for lokale brugere): Indstil en ny adgangskode. Lad være tom for at beholde den nuværende adgangskode
 - **Rolle**: Skift brugerens applikationsrolle
 
+!!! note "Du kan ikke nedgradere eller deaktivere dig selv"
+    På din egen række er rullelisten **Rolle** og knappen **Deaktivér** slået fra, og API'et afviser også begge ændringer. En administrator, der opgiver sin egen rolle, mister administrationsskærmene med samme klik, og kun en anden administrator kan give dem tilbage. Vil du træde tilbage, så bed en anden administrator om at ændre din rolle. Kan ingen længere logge ind som administrator, så følg [Gendan administratoradgang](operations.md#recovering-administrator-access).
+
 #### Tilknytning af en eksisterende lokal konto til SSO
 
 Hvis en bruger allerede har en lokal konto, og din organisation aktiverer SSO, vil brugeren se fejlen "A local account with this email already exists", når de forsøger at logge ind via SSO. For at løse dette:
@@ -74,7 +77,7 @@ Brug række-checkboksene i brugergittret til at vælge flere brugere på én gan
 - **Aktivér** / **Deaktivér** — vend `is_active` for udvælgelsen
 - **Slet** — slet permanent de valgte brugere (kun deaktiverede brugere fjernes; aktive brugere i udvælgelsen springes over med en forklaring)
 
-Vagten "sidste admin" gælder: bulk-rolleændringer, der ville efterlade nul aktive admins, afvises, og det samme gælder for deaktivering eller sletning af den sidste admin.
+Vagten "sidste admin" gælder: bulk-rolleændringer, der ville efterlade nul aktive admins, afvises, og det samme gælder for deaktivering eller sletning af den sidste admin. Af samme grund springes din egen konto over ved bulk-rolleændringer og bulk-deaktivering.
 
 #### Import af brugere fra et regneark
 
@@ -118,6 +121,9 @@ Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hve
 | **Viewer** | Skrivebeskyttet adgang på tværs af alle områder |
 
 Brugerdefinerede roller kan oprettes med granulær tilladelseskontrol over lager, relationer, interessenter, kommentarer, dokumenter, diagrammer, BPM, rapporter og mere.
+
+Tilladelser gælder for adresselinjen såvel som for menuen. En side, som en rolle ikke må åbne, viser meddelelsen **Adgang nægtet** med et link tilbage til dashboardet — uanset om den nås fra navigationen, et bogmærke eller et delt link. At skjule et menupunkt og at blokere siden er dermed altid den samme beslutning.
+En rolles tilladelser gælder som standard for alle korttyper. En administrator kan indsnævre dem pr. korttype — tillade eller nægte **Vis**, **Opret**, **Rediger**, **Arkivér** og **Slet** — på fanen **Tilladelser** for korttypen i [Metamodellen](metamodel.md#permissions). At nægte **Vis** går videre: kort af den type forsvinder overalt for rollen, undtagen de kort, hvor dens brugere har en interessentrolle (se [Skjul en korttype for en rolle](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Deaktivering af en bruger
 

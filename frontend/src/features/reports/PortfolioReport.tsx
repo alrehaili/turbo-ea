@@ -33,12 +33,25 @@ import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
+import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ColumnCountPicker from "@/components/ColumnCountPicker";
+import {
+  columnGridProps,
+  isColumnCount,
+  nestedColumns,
+  nestedGridProps,
+  CARD_TITLE_MIN_WIDTH,
+  DEFAULT_COLUMNS,
+  type ColumnCount,
+} from "@/components/cardColumns";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import ReportFilterSection from "./ReportFilterSection";
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -60,9 +73,9 @@ import {
   extractRelSubtypes,
   getAppColor,
   getAppColorLabel,
-  LIFECYCLE_PHASES,
-  matchesFilters,
-  parseDate,
+  isAppAliveAtDate,
+  isRetiredByDate,
+  matchesStaticFilters,
   pickSelectFields,
   relationMemberMatchesSubtypeFilters,
   relSubtypeComposite,
@@ -70,6 +83,17 @@ import {
   resolveColorBy,
   UNSET_COLOR,
 } from "./portfolioHelpers";
+import {
+  classifyTimelineChange,
+  computeTimelineMilestones,
+  computeTimelineRange,
+} from "./timelineRange";
+import {
+  PULSE_COLORS,
+  TIMELINE_PULSE_KEYFRAMES,
+  useMilestoneSpotlight,
+} from "./useMilestoneSpotlight";
+import type { PulseKind } from "./useMilestoneSpotlight";
 import type {
   AppData,
   ColorLabels,
@@ -137,7 +161,12 @@ interface DrawerData {
 /*  Grouping logic                                                     */
 /* ------------------------------------------------------------------ */
 
-type GroupByMode = { kind: "attribute"; fieldKey: string } | { kind: "relation"; typeKey: string };
+type GroupByMode =
+  | { kind: "attribute"; fieldKey: string }
+  /** `relTypeKey` narrows the axis to ONE relation type; without it the axis
+   *  means "related to `typeKey` at all", which is what every saved report
+   *  carrying a `rel:<cardType>` key has always meant. */
+  | { kind: "relation"; typeKey: string; relTypeKey?: string };
 
 function groupApps(
   apps: AppData[],
@@ -214,12 +243,18 @@ function AppChip({
   colorLabels,
   colorMemberId,
   onClick,
+  pulse,
+  dimmed,
 }: {
   app: AppData;
   colorRes: ColorResolution;
   colorLabels: ColorLabels;
   colorMemberId?: string;
   onClick: () => void;
+  /** Mark-click spotlight: this chip's card changes at the clicked mark. */
+  pulse?: PulseKind;
+  /** A spotlight is running and this chip is not part of it. */
+  dimmed?: boolean;
 }) {
   const color = getAppColor(app, colorRes, colorLabels, colorMemberId);
   const colorLabel = getAppColorLabel(app, colorRes, colorLabels, colorMemberId);
@@ -243,6 +278,11 @@ function AppChip({
           maxWidth: 180,
           cursor: "pointer",
           "&:hover": { opacity: 0.85 },
+          ...(dimmed && { opacity: 0.3, transition: "opacity 0.2s, box-shadow 0.2s" }),
+          ...(pulse && {
+            boxShadow: `0 0 0 3px ${PULSE_COLORS[pulse]}55`,
+            animation: `tl-pulse-${pulse} 0.65s ease-in-out 2`,
+          }),
         }}
       />
     </Tooltip>
@@ -257,6 +297,8 @@ function GroupCard({
   onGroupClick,
   onAppClick,
   countLabel,
+  pulseCards,
+  pulsing,
 }: {
   group: GroupData;
   colorRes: ColorResolution;
@@ -266,6 +308,8 @@ function GroupCard({
   onGroupClick: (g: GroupData) => void;
   onAppClick: (id: string) => void;
   countLabel: (count: number) => string;
+  pulseCards: Record<string, PulseKind>;
+  pulsing: boolean;
 }) {
   const count = group.apps.length;
 
@@ -299,13 +343,14 @@ function GroupCard({
           borderBottom: count > 0 ? 1 : "none",
           borderColor: "divider",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           gap: 1,
         }}
       >
         <Typography
           variant="subtitle2"
-          sx={{ fontWeight: 700, flex: 1 }}
+          sx={{ fontWeight: 700, flex: 1, minWidth: CARD_TITLE_MIN_WIDTH }}
           noWrap
         >
           {group.label}
@@ -361,6 +406,8 @@ function GroupCard({
                 colorLabels={colorLabels}
                 colorMemberId={colorMemberId}
                 onClick={() => onAppClick(app.id)}
+                pulse={pulseCards[app.id]}
+                dimmed={pulsing && !pulseCards[app.id]}
               />
             ))}
         </Box>
@@ -372,15 +419,23 @@ function GroupCard({
 function NestedGroupCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   colorRes,
   colorLabels,
   perMemberColor,
   onNodeClick,
   onAppClick,
   countLabel,
+  pulseCards,
+  pulsing,
 }: {
   node: GroupNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. */
+  depth?: number;
   colorRes: ColorResolution;
   colorLabels: ColorLabels;
   /** When colouring by a relation subtype, each chip uses its own member. */
@@ -388,6 +443,8 @@ function NestedGroupCard({
   onNodeClick: (n: GroupNode) => void;
   onAppClick: (id: string) => void;
   countLabel: (count: number) => string;
+  pulseCards: Record<string, PulseKind>;
+  pulsing: boolean;
 }) {
   const isLeaf = isLeafAtDepth(node, displayLevel);
   const visibleApps = useMemo(
@@ -410,6 +467,7 @@ function NestedGroupCard({
         borderBottom: 1,
         borderColor: "divider",
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
         gap: 1,
         cursor: "pointer",
@@ -420,7 +478,11 @@ function NestedGroupCard({
         onNodeClick(node);
       }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 700, flex: 1, minWidth: CARD_TITLE_MIN_WIDTH }}
+        noWrap
+      >
         {node.label}
       </Typography>
       <Chip
@@ -469,6 +531,8 @@ function NestedGroupCard({
           colorLabels={colorLabels}
           colorMemberId={perMemberColor ? entry.memberId : undefined}
           onClick={() => onAppClick(entry.app.id)}
+          pulse={pulseCards[entry.app.id]}
+          dimmed={pulsing && !pulseCards[entry.app.id]}
         />
       ))}
     </Box>
@@ -509,18 +573,27 @@ function NestedGroupCard({
       {header}
       {colorBar}
       {chips}
-      <Box sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-start" }}>
+      <Box
+        {...nestedGridProps(nestedColumns(columns, depth + 1), {
+          gap: 1.5,
+          sx: { p: 1.5, alignItems: "start" },
+        })}
+      >
         {node.children.map((child) => (
-          <Box key={child.key} sx={{ flex: "1 1 220px", minWidth: 200 }}>
+          <Box key={child.key}>
             <NestedGroupCard
               node={child}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               colorRes={colorRes}
               colorLabels={colorLabels}
               perMemberColor={perMemberColor}
               onNodeClick={onNodeClick}
               onAppClick={onAppClick}
               countLabel={countLabel}
+              pulseCards={pulseCards}
+              pulsing={pulsing}
             />
           </Box>
         ))}
@@ -557,6 +630,8 @@ export default function PortfolioReport({
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
+  // The type selector offers only the types the user may see.
+  const readableTypes = useReadableCardTypes("module");
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
@@ -597,6 +672,7 @@ export default function PortfolioReport({
   // Nested groups (only offered when grouping by a hierarchical related type)
   const [nestedGroups, setNestedGroups] = useState(false);
   const [groupDepth, setGroupDepth] = useState(2);
+  const [columns, setColumns] = useState<ColumnCount>(DEFAULT_COLUMNS);
 
   // Filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
@@ -605,6 +681,9 @@ export default function PortfolioReport({
   const [relSubtypeFilters, setRelSubtypeFilters] = useState<Record<string, string[]>>({});
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
+  // Fold the (tall) filter block away. Expanded by default; persisted with
+  // the rest of the report config, so a missing key means expanded.
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   // Timeline
   const tl = useTimeline();
@@ -627,8 +706,10 @@ export default function PortfolioReport({
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       if (cfg.relSubtypeFilters)
         setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
+      if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
+      if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
         setTagFilterIds(cfg.tagFilterIds as string[]);
@@ -647,7 +728,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -664,7 +745,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -679,11 +760,13 @@ export default function PortfolioReport({
     setRelSubtypeFilters({});
     setTagFilterIds([]);
     setShowAllRelFilters(false);
+    setFiltersCollapsed(false);
     tl.reset();
     setSortK("name");
     setSortD("asc");
     setNestedGroups(false);
     setGroupDepth(2);
+    setColumns(DEFAULT_COLUMNS);
     setDefaultsApplied(false);
   }, [saved, initialCardType]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -790,18 +873,36 @@ export default function PortfolioReport({
       }
     }
 
-    // Relation-based grouping
+    // Relation-based grouping. `rel:<cardType>` means "related to this card type
+    // at all" and is what every existing saved report carries, so it stays. When
+    // several relation types reach that card type they are genuinely different
+    // axes — "owned by" is not "used by" — so each also gets its own
+    // `relt:<relationType>` option, labelled with its verb.
     for (const [typeKey, members] of Object.entries(data.groupable_types)) {
-      if (members.length > 0) {
-        const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-        const label = typeLabel(typeMeta) || typeKey;
-        const icon = typeMeta?.icon || "link";
-        opts.push({ key: `rel:${typeKey}`, label, icon });
+      if (members.length === 0) continue;
+      const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
+      const label = typeLabel(typeMeta) || typeKey;
+      const icon = typeMeta?.icon || "link";
+      opts.push({ key: `rel:${typeKey}`, label, icon });
+
+      // Per SIDE, not per type: a self-referencing type is two axes ("has
+      // site" / "is site of"), and its verb must be read from this card
+      // type's end of the row — not from "is the source the other type",
+      // which is true at both ends of such a type.
+      const reaching = expandSides(
+        (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
+        cardType,
+      );
+      if (reaching.length > 1) {
+        for (const { rt, isSource } of reaching) {
+          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+          opts.push({ key: `relt:${sideKey(rt, isSource)}`, label: `${label} · ${verb}`, icon });
+        }
       }
     }
 
     return opts;
-  }, [data, selectFields, metamodelTypes, typeLabel]);
+  }, [data, selectFields, metamodelTypes, typeLabel, relLabel]);
 
   // Apply defaults once data is available. Skip when `data` is stale (loaded
   // for a previous card type) — otherwise we'd pick options from the old
@@ -828,13 +929,22 @@ export default function PortfolioReport({
     if (groupByKey.startsWith("attr:")) {
       return { kind: "attribute", fieldKey: groupByKey.slice(5) };
     }
+    if (groupByKey.startsWith("relt:")) {
+      // One relation type. The axis still groups by cards of its other end, so
+      // `typeKey` is resolved from the relation type itself.
+      const relTypeKey = groupByKey.slice(5);
+      const bare = parseSideKey(relTypeKey).key;
+      const rt = (data?.relation_types || []).find((r) => r.key === bare);
+      return { kind: "relation", typeKey: rt?.other_type_key ?? "", relTypeKey };
+    }
     return { kind: "relation", typeKey: groupByKey.slice(4) };
-  }, [groupByKey]);
+  }, [groupByKey, data]);
 
   // Relation subtypes are only meaningful relative to a related card type, so
-  // we surface them only while grouping by that type. Each card chip then sits
-  // under exactly one related card (the group member), which lets us colour by
-  // that single relation rather than aggregating across all of them.
+  // we surface them only while grouping by that type. Each subtype stays scoped
+  // to its own relation type (`${relTypeKey}::${fieldKey}`), so when several
+  // relation types reach that card type each contributes its own options and a
+  // chip is coloured by the relation it actually came through.
   const relSubtypes = useMemo<RelSubtype[]>(() => {
     if (groupByMode.kind !== "relation") return [];
     return allRelSubtypes.filter((s) => s.relatedTypeKey === groupByMode.typeKey);
@@ -883,60 +993,43 @@ export default function PortfolioReport({
   }, [relSubtypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timeline range
-  const { dateRange, yearMarks, hasLifecycleData } = useMemo(() => {
-    const now = tl.todayMs;
-    const pad3y = 3 * 365.25 * 86400000;
-    const empty = {
-      dateRange: { min: now - pad3y, max: now + pad3y },
-      yearMarks: [] as { value: number; label: string }[],
-      hasLifecycleData: false,
-    };
-    if (!data) return empty;
+  const { dateRange, yearMarks, hasLifecycleData } = useMemo(
+    () => computeTimelineRange(data?.items.map((a) => a.lifecycle) ?? [], tl.todayMs),
+    [data, tl.todayMs],
+  );
 
-    let minD = Infinity;
-    let maxD = -Infinity;
-    let hasLC = false;
-    for (const app of data.items) {
-      const lc = app.lifecycle || {};
-      for (const p of LIFECYCLE_PHASES) {
-        const d = parseDate(lc[p]);
-        if (d != null) {
-          minD = Math.min(minD, d);
-          maxD = Math.max(maxD, d);
-          hasLC = true;
-        }
-      }
-    }
+  // Build filters state — the timeline date is deliberately kept OUT of this
+  // memo: the transition marks, delta and pills are computed from the
+  // statically-filtered set, and marks that churn while the slider is dragged
+  // can never be clicked.
+  /** Every relation-type key the payload knows, so a relation filter keyed by a
+   *  relation type is told apart from one keyed by a card type. */
+  // Bare keys plus, for a self-referencing type, its two side keys — the
+  // matcher tells a relation-type facet from a card-type one by this set.
+  const allRelTypeKeys = useMemo(
+    () =>
+      new Set(
+        (data?.relation_types || []).flatMap((rt) =>
+          rt.source_type_key === rt.target_type_key
+            ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
+            : [rt.key],
+        ),
+      ),
+    [data],
+  );
 
-    if (!hasLC) return empty;
-
-    const pad = 365.25 * 86400000;
-    minD -= pad;
-    maxD += pad;
-    const marks: { value: number; label: string }[] = [];
-    const sy = new Date(minD).getFullYear();
-    const ey = new Date(maxD).getFullYear();
-    for (let y = sy; y <= ey + 1; y++) {
-      const t = new Date(y, 0, 1).getTime();
-      if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
-    }
-
-    return { dateRange: { min: minD, max: maxD }, yearMarks: marks, hasLifecycleData: hasLC };
-  }, [data, tl.todayMs]);
-
-  // Build filters state
-  const filters = useMemo<FilterState>(
+  const staticFilters = useMemo<Omit<FilterState, "timelineDate">>(
     () => ({
       attributeFilters: attrFilters,
       relationFilters,
+      relTypeKeys: allRelTypeKeys,
       relSubtypeFilters,
       relSubtypes,
       tagFilterIds,
       tagGroups: data?.tag_groups || [],
-      timelineDate: tl.timelineDate,
       search,
     }),
-    [attrFilters, relationFilters, relSubtypeFilters, relSubtypes, tagFilterIds, data, tl.timelineDate, search],
+    [attrFilters, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, tagFilterIds, data, search],
   );
 
   // Resolve the active Color By into a descriptor + shared bucket labels.
@@ -953,11 +1046,66 @@ export default function PortfolioReport({
   // member and is coloured by that single relation (no false "Multiple").
   const perMemberColor = colorRes.kind === "rel";
 
-  // Filtered apps
+  // Transition marks, delta and pills are computed from the statically-
+  // filtered set (timeline filter NOT applied): what changes over time must
+  // not vanish from the track the moment the travelled date hides it.
+  const milestoneScope = useMemo(
+    () => (data ? data.items.filter((a) => matchesStaticFilters(a, staticFilters)) : []),
+    [data, staticFilters],
+  );
+  const milestones = useMemo(
+    () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
+    [milestoneScope],
+  );
+
+  // Pill accents reuse the report's own colour-by, so the pill row matches
+  // the chips it spotlights.
+  const appById = useMemo(() => new Map((data?.items ?? []).map((a) => [a.id, a])), [data]);
+  const milestoneCardColor = useCallback(
+    (id: string) => {
+      const app = appById.get(id);
+      return app ? getAppColor(app, colorRes, colorLabels) : undefined;
+    },
+    [appById, colorRes, colorLabels],
+  );
+
+  const {
+    pulseCards,
+    revealedForPulse,
+    pulsing,
+    handleMilestoneClick,
+    milestoneCards,
+    handleMilestoneCardClick,
+  } = useMilestoneSpotlight({ scope: milestoneScope, getColor: milestoneCardColor });
+
+  // The transformation between today and the selected date, over the same
+  // scope as the marks and computed BEFORE the alive-at-date filter — hiding
+  // retired cards must not make the count lie.
+  const timelineDelta = useMemo(() => {
+    const at = tl.timelineDate;
+    if (at <= tl.todayMs) return { arriving: 0, retiring: 0 };
+    let arriving = 0;
+    let retiring = 0;
+    for (const a of milestoneScope) {
+      if (classifyTimelineChange(a.lifecycle, tl.todayMs, at) === "arriving") arriving++;
+      else if (isRetiredByDate(a.lifecycle, at) && !isRetiredByDate(a.lifecycle, tl.todayMs))
+        retiring++;
+    }
+    return { arriving, retiring };
+  }, [milestoneScope, tl.timelineDate, tl.todayMs]);
+
+  // Filtered apps — static filters plus "alive at the travelled date", with
+  // retiring cards transiently revealed while a retirement mark's spotlight
+  // runs (the report hides retired cards, so the pulse needs a ghost to point
+  // at; the reveal ends with the pulse).
   const filteredApps = useMemo(() => {
     if (!data) return [];
-    return data.items.filter((a) => matchesFilters(a, filters));
-  }, [data, filters]);
+    return data.items.filter(
+      (a) =>
+        matchesStaticFilters(a, staticFilters) &&
+        (isAppAliveAtDate(a, tl.timelineDate) || revealedForPulse.has(a.id)),
+    );
+  }, [data, staticFilters, tl.timelineDate, revealedForPulse]);
 
   // When grouping by a related type, honour active relation-subtype filters
   // per group-member, so a card lands only under the related cards whose
@@ -992,6 +1140,7 @@ export default function PortfolioReport({
       groupByMode.typeKey,
       data.groupable_types[groupByMode.typeKey] || [],
       relMemberMatch,
+      groupByMode.relTypeKey,
     );
   }, [data, nestedActive, groupByMode, filteredApps, relMemberMatch]);
   const maxGroupLevel = useMemo(() => (groupTree ? getMaxGroupLevel(groupTree) : 0), [groupTree]);
@@ -1031,7 +1180,7 @@ export default function PortfolioReport({
     setTagFilterIds([]);
     setSearch("");
     tl.reset();
-  }, [tl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tl]);
 
   const handleAppClick = useCallback((id: string) => {
     setDrawer(null);
@@ -1146,13 +1295,18 @@ export default function PortfolioReport({
   const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
     const relations: Record<string, string[]> = {};
     if (data) {
-      for (const [typeKey, memberIds] of Object.entries(relationFilters)) {
+      for (const [key, memberIds] of Object.entries(relationFilters)) {
         if (memberIds.length === 0) continue;
-        const members = data.groupable_types[typeKey] || [];
+        // A key is a card type or a relation type; the members to resolve names
+        // against always live under the CARD type at the relation's other end.
+        const relType = (data.relation_types || []).find((rt) => rt.key === key);
+        const members = data.groupable_types[relType?.other_type_key ?? key] || [];
         const names = memberIds
           .map((id) => members.find((m) => m.id === id)?.name)
           .filter((n): n is string => !!n);
-        if (names.length > 0) relations[typeKey] = names;
+        // The inventory keys relation filters the same way, so the key travels
+        // through unchanged and lands on exactly the relationship the user picked.
+        if (names.length > 0) relations[key] = names;
       }
     }
     return {
@@ -1174,15 +1328,28 @@ export default function PortfolioReport({
       const directMembers = members.filter((m) => !m.ancestor_only);
       if (directMembers.length === 0) continue;
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-      out.push({
-        typeKey,
-        label: typeLabel(typeMeta) || typeKey,
-        icon: typeMeta?.icon || "link",
-        options: directMembers.map((m) => ({ key: m.id, label: m.name })),
-      });
+      const label = typeLabel(typeMeta) || typeKey;
+      const icon = typeMeta?.icon || "link";
+      const options = directMembers.map((m) => ({ key: m.id, label: m.name }));
+      out.push({ typeKey, label, icon, options });
+
+      // When several relation types reach this card type, "related to an
+      // Organization" is not the question a user wants to ask — "owned by" and
+      // "used by" are. Add a facet per relation type, keyed by the relation-type
+      // key (the matcher tells the two kinds of key apart via `relTypeKeys`).
+      const reaching = expandSides(
+        (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
+        cardType,
+      );
+      if (reaching.length > 1) {
+        for (const { rt, isSource } of reaching) {
+          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+          out.push({ typeKey: sideKey(rt, isSource), label: `${label} · ${verb}`, icon, options });
+        }
+      }
     }
     return out;
-  }, [data, metamodelTypes, typeLabel]);
+  }, [data, metamodelTypes, typeLabel, relLabel]);
 
   // Table helpers
   const tableSort = (k: string) => {
@@ -1218,7 +1385,7 @@ export default function PortfolioReport({
   // Visible card types — populates the optional type selector and resolves
   // the localised label of the currently-selected type for dynamic strings.
   const cardTypeOptions = useMemo(() => {
-    return metamodelTypes
+    return readableTypes
       .filter((tp) => !tp.is_hidden)
       .map((tp) => ({
         key: tp.key,
@@ -1227,7 +1394,7 @@ export default function PortfolioReport({
         color: tp.color,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [metamodelTypes, typeLabel]);
+  }, [readableTypes, typeLabel]);
   const currentType = metamodelTypes.find((tp) => tp.key === cardType);
   const currentTypeLabel = typeLabel(currentType) || cardType;
   const typeIcon = currentType?.icon || "dashboard";
@@ -1332,10 +1499,16 @@ export default function PortfolioReport({
     if (colorBy) params.push({ label: t("common.colorBy"), value: colorByLabel });
     if (search) params.push({ label: t("common.search"), value: search });
     if (tl.printParam) params.push(tl.printParam);
+    if (timelineDelta.arriving > 0 || timelineDelta.retiring > 0)
+      params.push({
+        label: t("common:timelineSlider.deltaLabel"),
+        value: `+${timelineDelta.arriving} / −${timelineDelta.retiring}`,
+      });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    else params.push({ label: t("common:cardColumns.label"), value: String(columns) });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [groupByLabel, nestedActive, depthLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount, t]);
+  }, [groupByLabel, nestedActive, depthLabel, colorBy, colorByLabel, search, tl.printParam, timelineDelta, view, columns, activeFilterCount, t]);
 
   if (loadFailed)
     return (
@@ -1488,6 +1661,10 @@ export default function PortfolioReport({
             </TextField>
           )}
 
+          {view === "chart" && (
+            <ColumnCountPicker value={columns} onChange={setColumns} />
+          )}
+
           <TextField
             select
             size="small"
@@ -1551,6 +1728,11 @@ export default function PortfolioReport({
               dateRange={dateRange}
               yearMarks={yearMarks}
               todayMs={tl.todayMs}
+              milestones={milestones}
+              delta={timelineDelta}
+              onMilestoneClick={handleMilestoneClick}
+              milestoneCards={milestoneCards}
+              onMilestoneCardClick={handleMilestoneCardClick}
             />
           )}
 
@@ -1597,222 +1779,195 @@ export default function PortfolioReport({
             </Box>
           )}
 
-          {/* Row 2: Filters */}
-          <Box sx={{ width: "100%", pt: 0.5 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                mb: 1,
-              }}
-            >
-              <MaterialSymbol icon="filter_alt" size={16} color="#999" />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontWeight: 600 }}
+          {/* Row 2: Filters — collapsible, state persisted as filtersCollapsed */}
+          <ReportFilterSection
+            label={t("portfolio.typeFilters", { type: currentTypeLabel })}
+            collapsed={filtersCollapsed}
+            onToggle={() => setFiltersCollapsed((v) => !v)}
+            count={activeFilterCount}
+            clearAllLabel={hasActiveFilters ? t("portfolio.clearAll") : undefined}
+            onClearAll={hasActiveFilters ? clearFilters : undefined}
+          >
+            {/* Related By section */}
+            {relationFilterOptions.length > 0 && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  bgcolor: "action.hover",
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  py: 0.75,
+                }}
               >
-                {t("portfolio.typeFilters", { type: currentTypeLabel })}
-              </Typography>
-              {hasActiveFilters && (
-                <Chip
-                  size="small"
-                  label={t("portfolio.clearAll")}
-                  variant="outlined"
-                  onDelete={clearFilters}
-                  sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
-                />
-              )}
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                flexWrap: "wrap",
-              }}
-            >
-              {/* Related By section */}
-              {relationFilterOptions.length > 0 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    flexWrap: "wrap",
-                    bgcolor: "action.hover",
-                    borderRadius: 1.5,
-                    px: 1.5,
-                    py: 0.75,
-                  }}
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                 >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                  >
-                    {t("portfolio.relatedBy")}
-                  </Typography>
-                  {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
-                    <FilterSelect
-                      key={rf.typeKey}
-                      label={rf.label}
-                      options={rf.options}
-                      value={relationFilters[rf.typeKey] || []}
-                      onChange={(v) =>
-                        setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
-                      }
-                    />
-                  ))}
-                  {!showAllRelFilters && relationFilterOptions.length > 2 && (
-                    <Tooltip title={t("portfolio.showMore", { count: relationFilterOptions.length - 2 })}>
-                      <Chip
-                        size="small"
-                        icon={<MaterialSymbol icon="add" size={14} />}
-                        label={t("portfolio.more", { count: relationFilterOptions.length - 2 })}
-                        onClick={() => setShowAllRelFilters(true)}
-                        sx={{
-                          height: 26,
-                          fontSize: "0.72rem",
-                          fontWeight: 500,
-                          cursor: "pointer",
-                          bgcolor: "background.paper",
-                          border: "1px dashed",
-                          borderColor: "divider",
-                          "&:hover": { bgcolor: "action.hover" },
-                        }}
-                      />
-                    </Tooltip>
-                  )}
-                  {showAllRelFilters && relationFilterOptions.length > 2 && (
+                  {t("portfolio.relatedBy")}
+                </Typography>
+                {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
+                  <FilterSelect
+                    key={rf.typeKey}
+                    label={rf.label}
+                    options={rf.options}
+                    value={relationFilters[rf.typeKey] || []}
+                    onChange={(v) =>
+                      setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
+                    }
+                  />
+                ))}
+                {!showAllRelFilters && relationFilterOptions.length > 2 && (
+                  <Tooltip title={t("portfolio.showMore", { count: relationFilterOptions.length - 2 })}>
                     <Chip
                       size="small"
-                      label={t("portfolio.less")}
-                      onClick={() => setShowAllRelFilters(false)}
+                      icon={<MaterialSymbol icon="add" size={14} />}
+                      label={t("portfolio.more", { count: relationFilterOptions.length - 2 })}
+                      onClick={() => setShowAllRelFilters(true)}
                       sx={{
                         height: 26,
                         fontSize: "0.72rem",
+                        fontWeight: 500,
                         cursor: "pointer",
                         bgcolor: "background.paper",
-                        border: 1,
+                        border: "1px dashed",
                         borderColor: "divider",
+                        "&:hover": { bgcolor: "action.hover" },
                       }}
                     />
-                  )}
-                </Box>
-              )}
-
-              {/* Tags section */}
-              {(data?.tag_groups || []).length > 0 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    flexWrap: "wrap",
-                    bgcolor: "action.hover",
-                    borderRadius: 1.5,
-                    px: 1.5,
-                    py: 0.75,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                  >
-                    {t("portfolio.tags")}
-                  </Typography>
-                  <TagPicker
-                    groups={(data?.tag_groups || []) as unknown as TagGroup[]}
-                    value={tagFilterIds}
-                    onChange={setTagFilterIds}
+                  </Tooltip>
+                )}
+                {showAllRelFilters && relationFilterOptions.length > 2 && (
+                  <Chip
                     size="small"
-                    label={t("portfolio.tags")}
-                    placeholder=""
-                    sx={{ minWidth: 180, maxWidth: 320 }}
+                    label={t("portfolio.less")}
+                    onClick={() => setShowAllRelFilters(false)}
+                    sx={{
+                      height: 26,
+                      fontSize: "0.72rem",
+                      cursor: "pointer",
+                      bgcolor: "background.paper",
+                      border: 1,
+                      borderColor: "divider",
+                    }}
                   />
-                </Box>
-              )}
+                )}
+              </Box>
+            )}
 
-              {/* Own Fields section */}
-              {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    flexWrap: "wrap",
-                    bgcolor: "action.hover",
-                    borderRadius: 1.5,
-                    px: 1.5,
-                    py: 0.75,
-                  }}
+            {/* Tags section */}
+            {(data?.tag_groups || []).length > 0 && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  bgcolor: "action.hover",
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  py: 0.75,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                 >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                  >
-                    {t("portfolio.fields")}
-                  </Typography>
-                  {selectFields
-                    .filter((f) => f.options && f.options.length > 0)
-                    .map((f) => (
-                      <FilterSelect
-                        key={f.key}
-                        label={f.label}
-                        options={(f.options || []).map((o) => ({
-                          key: o.key,
-                          label: o.label,
-                          color: o.color,
-                        }))}
-                        value={attrFilters[f.key] || []}
-                        onChange={(v) =>
-                          setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                        }
-                      />
-                    ))}
-                </Box>
-              )}
+                  {t("portfolio.tags")}
+                </Typography>
+                <TagPicker
+                  groups={(data?.tag_groups || []) as unknown as TagGroup[]}
+                  value={tagFilterIds}
+                  onChange={setTagFilterIds}
+                  size="small"
+                  label={t("portfolio.tags")}
+                  placeholder=""
+                  sx={{ minWidth: 180, maxWidth: 320 }}
+                />
+              </Box>
+            )}
 
-              {/* Relation Subtypes section — hidden when the card type's
-                  relations carry no single_select subtype attributes. */}
-              {relSubtypes.length > 0 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    flexWrap: "wrap",
-                    bgcolor: "action.hover",
-                    borderRadius: 1.5,
-                    px: 1.5,
-                    py: 0.75,
-                  }}
+            {/* Own Fields section */}
+            {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  bgcolor: "action.hover",
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  py: 0.75,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                 >
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                  >
-                    {t("portfolio.relationSubtypes")}
-                  </Typography>
-                  {relSubtypes.map((sub) => (
+                  {t("portfolio.fields")}
+                </Typography>
+                {selectFields
+                  .filter((f) => f.options && f.options.length > 0)
+                  .map((f) => (
                     <FilterSelect
-                      key={sub.composite}
-                      label={sub.comboLabel}
-                      options={sub.options.map((o) => ({
+                      key={f.key}
+                      label={f.label}
+                      options={(f.options || []).map((o) => ({
                         key: o.key,
                         label: o.label,
                         color: o.color,
                       }))}
-                      value={relSubtypeFilters[sub.composite] || []}
+                      value={attrFilters[f.key] || []}
                       onChange={(v) =>
-                        setRelSubtypeFilters((prev) => ({ ...prev, [sub.composite]: v }))
+                        setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
                       }
                     />
                   ))}
-                </Box>
-              )}
-            </Box>
-          </Box>
+              </Box>
+            )}
+
+            {/* Relation Subtypes section — hidden when the card type's
+                relations carry no single_select subtype attributes. */}
+            {relSubtypes.length > 0 && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  bgcolor: "action.hover",
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  py: 0.75,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                >
+                  {t("portfolio.relationSubtypes")}
+                </Typography>
+                {relSubtypes.map((sub) => (
+                  <FilterSelect
+                    key={sub.composite}
+                    label={sub.comboLabel}
+                    options={sub.options.map((o) => ({
+                      key: o.key,
+                      label: o.label,
+                      color: o.color,
+                    }))}
+                    value={relSubtypeFilters[sub.composite] || []}
+                    onChange={(v) =>
+                      setRelSubtypeFilters((prev) => ({ ...prev, [sub.composite]: v }))
+                    }
+                  />
+                ))}
+              </Box>
+            )}
+          </ReportFilterSection>
         </>
       }
       legend={
@@ -1906,6 +2061,7 @@ export default function PortfolioReport({
         </Box>
       }
     >
+      {pulsing && <style>{TIMELINE_PULSE_KEYFRAMES}</style>}
       {/* AI Insights panel */}
       <Collapse in={aiOpen}>
         <Paper
@@ -2008,50 +2164,28 @@ export default function PortfolioReport({
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {nestedActive && groupTree ? (
                 /* Nested group tree — boxes within boxes per hierarchy */
-                <Box
-                  className={groupDepth <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "1fr 1fr",
-                      md: groupDepth <= 1 ? "1fr 1fr 1fr" : "1fr 1fr",
-                      lg: groupDepth <= 1 ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr",
-                    },
-                    gap: 2,
-                    alignItems: "start",
-                  }}
-                >
+                <Box {...columnGridProps(columns, { sx: { alignItems: "start" } })}>
                   {groupTree.map((n) => (
                     <Box key={n.key} data-export-row>
                       <NestedGroupCard
                         node={n}
                         displayLevel={groupDepth}
+                        columns={columns}
                         colorRes={colorRes}
                         colorLabels={colorLabels}
                         perMemberColor={perMemberColor}
                         onNodeClick={handleNodeClick}
                         onAppClick={handleAppClick}
                         countLabel={countLabel}
+                        pulseCards={pulseCards}
+                        pulsing={pulsing}
                       />
                     </Box>
                   ))}
                 </Box>
               ) : (
                 /* Flat group cards grid */
-                <Box
-                  className="report-print-grid-4"
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "1fr 1fr",
-                      md: "1fr 1fr 1fr",
-                      lg: "1fr 1fr 1fr 1fr",
-                    },
-                    gap: 2,
-                  }}
-                >
+                <Box {...columnGridProps(columns)}>
                   {groups.map((g) => (
                     <Box key={g.key} data-export-row>
                       <GroupCard
@@ -2062,6 +2196,8 @@ export default function PortfolioReport({
                         onGroupClick={handleGroupClick}
                         onAppClick={handleAppClick}
                         countLabel={countLabel}
+                        pulseCards={pulseCards}
+                        pulsing={pulsing}
                       />
                     </Box>
                   ))}
@@ -2163,6 +2299,8 @@ export default function PortfolioReport({
                           colorRes={colorRes}
                           colorLabels={colorLabels}
                           onClick={() => handleAppClick(app.id)}
+                          pulse={pulseCards[app.id]}
+                          dimmed={pulsing && !pulseCards[app.id]}
                         />
                       ))}
                   </Box>
@@ -2254,11 +2392,22 @@ export default function PortfolioReport({
                   ? getAppColor(app, colorRes, colorLabels)
                   : null;
 
+                const pulsed = pulseCards[app.id];
                 return (
                   <TableRow
                     key={app.id}
                     hover
-                    sx={{ cursor: "pointer" }}
+                    sx={{
+                      cursor: "pointer",
+                      ...(pulsing && {
+                        opacity: pulsed ? 1 : 0.35,
+                        transition: "opacity 0.2s, background-color 0.2s",
+                        ...(pulsed && {
+                          bgcolor: `${PULSE_COLORS[pulsed]}1f`,
+                          animation: `tl-pulse-row-${pulsed} 0.65s ease-in-out 2`,
+                        }),
+                      }),
+                    }}
                     onClick={() => setSidePanelCardId(app.id)}
                   >
                     <TableCell sx={{ fontWeight: 500 }}>

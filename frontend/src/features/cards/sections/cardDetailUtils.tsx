@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import LinkifiedText from "@/components/LinkifiedText";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
 import Select from "@mui/material/Select";
@@ -19,8 +20,11 @@ import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import { DateField } from "@/components/DateField";
+import { PercentBar } from "@/components/PercentBar";
+import { PercentageInput } from "@/components/PercentageInput";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
+import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   RM_CODE_FIELD_DOMAINS,
@@ -149,7 +153,7 @@ export function FieldHelp({ text }: { text: string }) {
           color="text.secondary"
           sx={{ display: "block", mt: 0.25, whiteSpace: "pre-wrap" }}
         >
-          {text}
+          <LinkifiedText text={text} />
         </Typography>
       </Collapse>
     </Box>
@@ -323,7 +327,10 @@ export function CardIdPill({
 }
 
 // ── Lifecycle Phase Labels ──────────────────────────────────────
-export const PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
+// `PHASES` / `getPhaseLabels` moved to the leaf `@/lib/lifecyclePhases` so the
+// extension host can re-export them without importing this module, which
+// imports the host. Re-exported here so every existing call site is unchanged.
+export { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 export const PHASE_LABELS: Record<string, string> = {
   plan: "Plan",
   phaseIn: "Phase In",
@@ -331,15 +338,6 @@ export const PHASE_LABELS: Record<string, string> = {
   phaseOut: "Phase Out",
   endOfLife: "End of Life",
 };
-export function getPhaseLabels(t: (key: string) => string): Record<string, string> {
-  return {
-    plan: t("common:lifecycle.plan"),
-    phaseIn: t("common:lifecycle.phaseIn"),
-    active: t("common:lifecycle.active"),
-    phaseOut: t("common:lifecycle.phaseOut"),
-    endOfLife: t("common:lifecycle.endOfLife"),
-  };
-}
 
 // ── Safe string coercion (never returns an object/array) ────────
 export function safeString(value: unknown): string {
@@ -350,21 +348,11 @@ export function safeString(value: unknown): string {
   try { return JSON.stringify(value); } catch { return "[invalid]"; }
 }
 
-// Consistent chip style for all select fields (same fixed width for visual alignment)
-// Base chip style -- width is computed per-field from the longest option label
-export const SELECT_CHIP_BASE = {
-  maxWidth: "100%",
-  justifyContent: "center",
-  "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
-} as const;
-
-/** Compute a uniform chip width for a field based on its longest option label. */
-export function chipWidthForField(options: FieldDef["options"]): number {
-  if (!options || options.length === 0) return 180;
-  const maxLen = Math.max(...options.map((o) => o.label.length));
-  // ~7.5px per char + 28px chip padding, clamped between 180 and 300
-  return Math.max(180, Math.min(300, Math.round(maxLen * 7.5 + 28)));
-}
+// The select-option pill lives in `@/components/OptionChip` (a leaf module, so
+// the extension SDK can re-export it without a cycle back into this file).
+// Re-exported here because these two names are imported from `cardDetailUtils`
+// across the app.
+export { SELECT_CHIP_BASE, chipWidthForField };
 
 // ── Read-only field value renderer ──────────────────────────────
 export function FieldValue({
@@ -427,13 +415,7 @@ export function FieldValue({
     const w = chipWidthForField(field.options);
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
-    return opt ? (
-      <Chip size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: readableTextColor(opt.color) } : {}) }} />
-    ) : (
-      <Tooltip title={t("utils.unknownOption", { key: strVal })}>
-        <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
-      </Tooltip>
-    );
+    return <OptionChip option={opt} value={strVal} label={opt && optLabel(opt)} width={w} />;
   }
 
   if (field.type === "multiple_select" && field.options) {
@@ -444,10 +426,14 @@ export function FieldValue({
         {arr.map((v, i) => {
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
-          return opt ? (
-            <Chip key={key + i} size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: readableTextColor(opt.color) } : {}) }} />
-          ) : (
-            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
+          return (
+            <OptionChip
+              key={key + i}
+              option={opt}
+              value={key}
+              label={opt && optLabel(opt)}
+              width={w}
+            />
           );
         })}
       </Box>
@@ -489,12 +475,22 @@ export function FieldValue({
   if (field.type === "multiline_text") {
     return (
       <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-        {safeString(value) || "—"}
+        {safeString(value) ? <LinkifiedText text={safeString(value)} /> : "—"}
       </Typography>
     );
   }
+  if (field.type === "percentage") {
+    // A percentage is drawn, not just printed: the same bar the portal and
+    // the inventory use, in the neutral primary — a quantity, not a verdict.
+    if (value === null || value === undefined || value === "") {
+      return <Typography variant="body2">—</Typography>;
+    }
+    return <PercentBar value={Number(value)} width={120} height={6} />;
+  }
   return (
-    <Typography variant="body2">{safeString(value) || "—"}</Typography>
+    <Typography variant="body2">
+      {safeString(value) ? <LinkifiedText text={safeString(value)} /> : "—"}
+    </Typography>
   );
 }
 
@@ -669,14 +665,12 @@ export function FieldEditor({
       const labelText = fieldLabel(field);
       return (
         <FormControl size="small" required={isRequired} error={!!error} sx={{ minWidth: 200 }}>
-          {/* `shrink` + `notched` keep the label on the outline while the
-              displayEmpty placeholder renders inside — without them the
-              un-shrunk label and the placeholder overlap when nothing is
-              selected (MUI never auto-shrinks for multiple + value=[]). */}
-          <InputLabel shrink>{labelText}</InputLabel>
+          {/* The theme floats every label and notches every outline
+              (UI_GUIDELINES §3.5), so the displayEmpty placeholder below
+              renders under a label that is already on the border. */}
+          <InputLabel>{labelText}</InputLabel>
           <Select
             multiple
-            notched
             value={arrVal}
             label={labelText}
             onChange={(e) => {
@@ -791,6 +785,16 @@ export function FieldEditor({
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
           sx={{ minWidth: 200 }}
+        />
+      );
+    case "percentage":
+      return (
+        <PercentageInput
+          label={fieldLabel(field)}
+          required={isRequired}
+          error={error}
+          value={value}
+          onChange={onChange}
         />
       );
     case "boolean":

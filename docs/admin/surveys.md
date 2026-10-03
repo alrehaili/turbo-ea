@@ -34,11 +34,12 @@ Select which card type the survey applies to (e.g., Application, IT Component). 
 
 ### Filters
 
-Optionally narrow the scope by filtering cards. Three filter types are available and can be combined:
+Optionally narrow the scope by filtering cards. Four filter types are available and can be combined:
 
 - **Specific cards** — Pick one or more cards directly (filtered to the selected target type). Use this to target a single card or a hand-picked subset.
 - **Cards related to** — Only include cards that have a relation to one of the listed items (e.g., all Applications related to the Sales organization).
 - **Tags** and **Attribute filters** — Match cards by tag or by attribute conditions (e.g., cost greater than 10 000, TIME rating is missing).
+- **Last update** — Only include cards nobody has changed for a while: 30 days, 90 days, 6 months, 1 year, or a custom number of days or months. The builder shows the cutoff date it resolves to as you pick. The window is relative to when the survey is **sent**, not when you design it, so a draft parked for a while still finds the cards that are stale then. It measures the card's **Modified** date — the same one the inventory column and the card's History tab show.
 
 ### Questions
 
@@ -53,7 +54,7 @@ Design your questions. Each question can be:
 
 ### Relationships
 
-Beyond attributes, a survey can also ask respondents to keep a card's **relationships** current. In the **Fields** step, the **Relations** section lists every relationship the target card type can have, in both directions (for example, for an Application: *supports → IT Component* and *used by ← Organization*). For each one you pick, choose an action:
+Beyond attributes, a survey can also ask respondents to keep a card's **relationships** current. In the **Fields** step, the **Relations** section lists every relationship the target card type can have, in both directions (for example, for an Application: *supports → IT Component* and *used by ← Organization*). A card type that supports lineage appears here like any other relationship, in both directions and under its own verbs — for an Application, *succeeds* collects the cards it replaced and *is succeeded by* collects the ones replacing it. Sides an administrator has hidden on the card type are not offered. For each one you pick, choose an action:
 
 - **Maintain** — The respondent sees the currently linked cards and can add or remove links using a search picker.
 - **Confirm** — The respondent simply acknowledges that the current links are correct, or turns the toggle off to propose changes.
@@ -71,6 +72,13 @@ Once your survey is in **Active** status:
 1. Click **Send** to distribute the survey
 2. Each targeted card generates a todo for the assigned stakeholders
 3. Stakeholders see the survey in their **My Surveys** tab on the [Tasks page](../guide/tasks.md)
+4. Each stakeholder receives **one** notification — and one email, where enabled — however many of their cards are in the survey; the email lists those cards, each linking straight to its response form
+
+!!! note "A card needs someone to ask"
+
+    A card is only surveyed if at least one person holds one of the **target stakeholder roles** on it. Cards that match your filters but have no such stakeholder are skipped, and the **Preview & send** step reports how many, so you can assign owners rather than wonder why the count is low.
+
+A survey can also be created and sent by an installed extension — a scheduled rule, say, that asks the owners of every card matching a condition to complete it. Such a survey lists no author, its fields are the ones the card type defines, and it behaves like any other: you close it and apply its answers here. Rolling back the extension's run in **Admin → Audit log** closes the survey and withdraws the requests nobody had answered yet.
 
 ## Viewing Results
 

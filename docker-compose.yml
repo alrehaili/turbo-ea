@@ -59,6 +59,29 @@ services:
       AI_SEARCH_URL: ${AI_SEARCH_URL:-}
       AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-false}
       NVD_API_KEY: ${NVD_API_KEY:-}
+      # Trusted reverse-proxy authentication. Compose uses .env only to
+      # interpolate this file, so every one of these has to be forwarded
+      # explicitly — without the passthrough, setting them in .env leaves the
+      # backend seeing the defaults and /auth/proxy/session answering 404.
+      TURBO_EA_PROXY_AUTH_ENABLED: ${TURBO_EA_PROXY_AUTH_ENABLED:-false}
+      TURBO_EA_PROXY_AUTH_MODE: ${TURBO_EA_PROXY_AUTH_MODE:-azure_easyauth}
+      TURBO_EA_PROXY_AUTH_SHARED_SECRET: ${TURBO_EA_PROXY_AUTH_SHARED_SECRET:-}
+      TURBO_EA_PROXY_AUTH_SECRET_HEADER: ${TURBO_EA_PROXY_AUTH_SECRET_HEADER:-X-Turbo-EA-Proxy-Secret}
+      TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS: ${TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS:-false}
+      TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN: ${TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN:-false}
+      TURBO_EA_PROXY_AUTH_ISSUER: ${TURBO_EA_PROXY_AUTH_ISSUER:-}
+      TURBO_EA_PROXY_AUTH_AUDIENCE: ${TURBO_EA_PROXY_AUTH_AUDIENCE:-}
+      TURBO_EA_PROXY_AUTH_JWKS_URI: ${TURBO_EA_PROXY_AUTH_JWKS_URI:-}
+      TURBO_EA_PROXY_AUTH_EMAIL_HEADER: ${TURBO_EA_PROXY_AUTH_EMAIL_HEADER:-X-Forwarded-Email}
+      TURBO_EA_PROXY_AUTH_NAME_HEADER: ${TURBO_EA_PROXY_AUTH_NAME_HEADER:-X-Forwarded-User}
+      TURBO_EA_PROXY_AUTH_SUBJECT_HEADER: ${TURBO_EA_PROXY_AUTH_SUBJECT_HEADER:-X-Forwarded-Subject}
+      TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS: ${TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS:-}
+      TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN: ${TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN:-false}
+      TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL: ${TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL:-}
+      TURBO_EA_PROXY_AUTH_LOGOUT_URL: ${TURBO_EA_PROXY_AUTH_LOGOUT_URL:-}
+      TURBO_EA_PROXY_AUTH_ROLE_CLAIM: ${TURBO_EA_PROXY_AUTH_ROLE_CLAIM:-roles}
+      TURBO_EA_PROXY_AUTH_ROLE_MAP: ${TURBO_EA_PROXY_AUTH_ROLE_MAP:-}
+      TURBO_EA_PROXY_AUTH_ROLE_HEADER: ${TURBO_EA_PROXY_AUTH_ROLE_HEADER:-X-Forwarded-Groups}
     depends_on:
       db:
         condition: service_healthy
@@ -110,6 +133,11 @@ services:
       TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
       MCP_PORT: ${MCP_PORT:-8001}
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
+      # Logo fetching. Passed through so the kill switch is reachable without
+      # editing the compose file: an empty host list means the built-in
+      # allowlist of public icon CDNs.
+      MCP_LOGO_FETCH_ENABLED: ${MCP_LOGO_FETCH_ENABLED:-true}
+      MCP_LOGO_FETCH_HOSTS: ${MCP_LOGO_FETCH_HOSTS:-}
     depends_on:
       backend:
         condition: service_healthy
@@ -151,13 +179,27 @@ services:
       - "${TLS_HOST_PORT:-9443}:8443"
 
   ollama:
-    image: ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG:-latest}
+    # Upstream's own image, pinned to a release tag (bumped by Dependabot's
+    # docker-compose entry). Turbo EA published a thin non-root patch over it
+    # in 2.154.0 to 2.154.2 and stopped: the patch added nothing but a user,
+    # and in exchange the repo was signing, gating and re-scanning a binary
+    # it cannot rebuild. It runs as root the way upstream ships it because
+    # the image has no /models directory for Docker to seed the volume from,
+    # so a non-root user could not write a fresh volume; capabilities are
+    # still dropped, no host port is published and only the backend talks
+    # to it. OLLAMA_MODELS keeps the volume path the patched image used, so
+    # models pulled before 2.155.0 stay in place.
+    image: ollama/ollama:0.35.0
     profiles:
       - ai
     restart: unless-stopped
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+      OLLAMA_MODELS: /models
     volumes:
       - ollama_models:/models
     expose:

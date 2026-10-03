@@ -17,6 +17,7 @@ from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
+from app.models.card_logo import CardLogo
 from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
@@ -46,6 +47,7 @@ from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
+from app.models.process_message_flow import ProcessMessageFlow
 from app.models.rationalization import AssessmentDecision, RationalizationAssessment
 from app.models.reference_model import (
     ReferenceModel,
@@ -106,6 +108,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         filename_column="name",  # keep the original filename + extension
     ),
     EntitySection(
+        "CardLogos",
+        CardLogo,
+        card_fk_columns=("card_id",),
+        user_fk_columns=("created_by",),
+        asset_columns=(("data", "bytes", "bin"),),
+    ),
+    EntitySection(
         "Diagrams",
         Diagram,
         user_fk_columns=("created_by",),
@@ -141,7 +150,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     EntitySection(
         "ProcessElements",
         ProcessElement,
-        card_fk_columns=("process_id", "application_id", "data_object_id", "it_component_id"),
+        card_fk_columns=(
+            "process_id",
+            "application_id",
+            "data_object_id",
+            "it_component_id",
+            "business_process_id",
+        ),
     ),
     # After ProcessElements so the junction's element_id (an intra-module FK,
     # preserved verbatim) resolves; organization_id is remapped by card ref.
@@ -149,6 +164,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "ProcessElementOrgs",
         ProcessElementOrganization,
         card_fk_columns=("organization_id",),
+    ),
+    # Message flows between pools; `interface_id` is the one EA link a flow
+    # carries, remapped by card ref like an element's Application link.
+    EntitySection(
+        "ProcessMessageFlows",
+        ProcessMessageFlow,
+        card_fk_columns=("process_id", "interface_id"),
     ),
     EntitySection(
         "ProcessFlowVersions",

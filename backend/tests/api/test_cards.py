@@ -164,6 +164,74 @@ class TestGetCard:
         assert response.status_code == 404
 
 
+class TestPpmViewCardRead:
+    """ppm.view alone must open an Initiative card (#1043) — and nothing else."""
+
+    @pytest.fixture
+    async def ppm_view_env(self, db, cards_env):
+        await create_card_type(db, key="Initiative", label="Initiative")
+        await create_role(
+            db,
+            key="ppm_only",
+            label="PPM Only",
+            permissions={"ppm.view": True, "inventory.view": False},
+        )
+        await create_role(db, key="no_view", label="No View", permissions={})
+        ppm_user = await create_user(db, email="ppmonly@test.com", role="ppm_only")
+        no_view_user = await create_user(db, email="noview@test.com", role="no_view")
+        initiative = await create_card(db, card_type="Initiative", name="Init A")
+        application = await create_card(db, card_type="Application", name="App A")
+        return {
+            "ppm_user": ppm_user,
+            "no_view_user": no_view_user,
+            "initiative": initiative,
+            "application": application,
+        }
+
+    async def test_ppm_view_can_read_initiative(self, client, db, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['initiative'].id}",
+            headers=auth_headers(ppm_view_env["ppm_user"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Init A"
+
+    async def test_ppm_view_cannot_read_other_types(self, client, db, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['application'].id}",
+            headers=auth_headers(ppm_view_env["ppm_user"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_ppm_view_can_read_initiative_hierarchy_and_history(
+        self, client, db, ppm_view_env
+    ):
+        headers = auth_headers(ppm_view_env["ppm_user"])
+        initiative_id = ppm_view_env["initiative"].id
+        await create_card(db, card_type="Initiative", name="Init A child", parent_id=initiative_id)
+        resp = await client.get(f"/api/v1/cards/{initiative_id}/hierarchy", headers=headers)
+        assert resp.status_code == 200
+        # The tree is read in module mode: a role without the global
+        # `inventory.view` still sees the children of a card it may open.
+        assert [c["name"] for c in resp.json()["children"]] == ["Init A child"]
+        resp = await client.get(f"/api/v1/cards/{initiative_id}/history", headers=headers)
+        assert resp.status_code == 200
+
+    async def test_no_permission_still_denied_on_initiative(self, client, db, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['initiative'].id}",
+            headers=auth_headers(ppm_view_env["no_view_user"]),
+        )
+        assert resp.status_code == 403
+
+    async def test_inventory_view_still_reads_initiative(self, client, db, cards_env, ppm_view_env):
+        resp = await client.get(
+            f"/api/v1/cards/{ppm_view_env['initiative'].id}",
+            headers=auth_headers(cards_env["viewer"]),
+        )
+        assert resp.status_code == 200
+
+
 # ---------------------------------------------------------------------------
 # GET /cards  (list)
 # ---------------------------------------------------------------------------
@@ -296,6 +364,73 @@ class TestListCards:
             headers=auth_headers(admin),
         )
         assert response.json()["total"] == 0
+
+    async def test_search_matches_the_alias(self, client, db, cards_env):
+        """An alias IS a name — searching for one has to find the card (#1108)."""
+        admin = cards_env["admin"]
+        await create_card(
+            db,
+            card_type="Application",
+            name="Customer Relationship Suite",
+            alias="CRM-v2",
+            user_id=admin.id,
+        )
+        await create_card(db, card_type="Application", name="Unrelated", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=CRM-v2",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert [item["name"] for item in data["items"]] == ["Customer Relationship Suite"]
+        assert data["items"][0]["alias"] == "CRM-v2"
+
+    async def test_search_ranks_an_exact_alias_above_a_name_substring(self, client, db, cards_env):
+        """Relevance takes the better of name and alias, so the alias can win."""
+        admin = cards_env["admin"]
+        await create_card(
+            db, card_type="Application", name="Legacy Workday Bridge", user_id=admin.id
+        )
+        await create_card(
+            db,
+            card_type="Application",
+            name="Human Capital Suite",
+            alias="Workday",
+            user_id=admin.id,
+        )
+
+        response = await client.get(
+            "/api/v1/cards?search=Workday",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Human Capital Suite", "Legacy Workday Bridge"]
+
+    async def test_a_card_without_an_alias_ranks_as_before(self, client, db, cards_env):
+        """`least()` over a NULL alias must not disturb the name tiers (#918)."""
+        admin = cards_env["admin"]
+        for name in ("Network Monitor", "Cloud Work Hub", "Workday Adaptive", "Workday"):
+            await create_card(db, card_type="Application", name=name, user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=work",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Workday", "Workday Adaptive", "Cloud Work Hub", "Network Monitor"]
+
+    async def test_explicit_sort_still_overrides_alias_relevance(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card(db, card_type="Application", name="Alpha", alias="Zeta", user_id=admin.id)
+        await create_card(db, card_type="Application", name="Zeta Bridge", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=zeta&sort_by=name&sort_dir=desc",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Zeta Bridge", "Alpha"]
 
     async def test_pagination_has_a_stable_tiebreaker(self, client, db, cards_env):
         """Same-named cards must not duplicate or vanish across pages."""

@@ -13,6 +13,7 @@ from app.api.v1 import (
     bpm_workflow,
     calculations,
     capability_catalogue,
+    card_logos,
     cards,
     comments,
     diagram_groups,
@@ -124,6 +125,7 @@ api_router.include_router(risks.cards_risks_router)
 api_router.include_router(risk_mitigation_tasks.risks_router)
 api_router.include_router(risk_mitigation_tasks.tasks_router)
 api_router.include_router(file_attachments.router)
+api_router.include_router(card_logos.router)
 api_router.include_router(resources.router)
 api_router.include_router(favorites.router)
 api_router.include_router(capability_catalogue.router)

@@ -11,7 +11,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.permissions import ALL_CARD_PERMISSION_KEYS, CARD_PERMISSIONS
+from app.core.permissions import (
+    ALL_CARD_PERMISSION_KEYS,
+    CARD_PERMISSIONS,
+    strip_legacy_card_permissions,
+)
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -19,6 +23,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
 
@@ -65,6 +70,10 @@ class StakeholderRoleCreate(BaseModel):
     @field_validator("permissions")
     @classmethod
     def validate_permissions(cls, v: dict[str, bool]) -> dict[str, bool]:
+        # Stale keys migration 024 left behind are dropped rather than rejected,
+        # so a client echoing a legacy map back (the admin UI round-trips what it
+        # was served) can still save. Anything else unknown is still an error.
+        v = strip_legacy_card_permissions(v)
         unknown = set(v.keys()) - ALL_CARD_PERMISSION_KEYS
         if unknown:
             raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
@@ -93,6 +102,9 @@ class StakeholderRoleUpdate(BaseModel):
     @classmethod
     def validate_permissions(cls, v: dict[str, bool] | None) -> dict[str, bool] | None:
         if v is not None:
+            # Dropping the legacy keys here also cleans them out of the stored
+            # row on the next save, so a role repairs itself as it is edited.
+            v = strip_legacy_card_permissions(v)
             unknown = set(v.keys()) - ALL_CARD_PERMISSION_KEYS
             if unknown:
                 raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
@@ -303,11 +315,14 @@ async def list_stakeholder_roles(
 
     # One grouped query for every role rather than a count per row — the panel
     # renders this list on every card-type drawer open.
+    # Counted over the cards the caller may see, so a type hidden from them
+    # does not report how many assignments it carries.
     count_rows = (
         await db.execute(
             select(Stakeholder.role, func.count(Stakeholder.id))
             .join(Card, Stakeholder.card_id == Card.id)
             .where(Card.type == type_key)
+            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
             .group_by(Stakeholder.role)
         )
     ).all()
@@ -336,7 +351,12 @@ async def get_stakeholder_role(
     if not srd:
         raise HTTPException(404, "Stakeholder role not found")
 
-    stakeholder_count = await _stakeholder_count(db, type_key, role_key)
+    read_scope = await CardReadScope.load(db, user)
+    stakeholder_count = (
+        await _stakeholder_count(db, type_key, role_key)
+        if read_scope.type_readable(type_key, mode="module")
+        else 0
+    )
     return _srd_response(srd, stakeholder_count=stakeholder_count)
 
 

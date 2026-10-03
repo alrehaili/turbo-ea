@@ -31,8 +31,9 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -47,7 +48,17 @@ from app.database import async_session, get_db
 from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.models.user import User
 from app.services.extensions import installer as ext_installer
-from app.services.extensions.bundle import BundleError, read_bundle
+from app.services.extensions.bundle import (
+    LOGO_EXTENSIONS,
+    BundleError,
+    extension_logo_path,
+    read_bundle,
+)
+from app.services.extensions.changelog_source import (
+    bundle_changelog_from_zip,
+    notes_between,
+    resolve_extension_notes,
+)
 from app.services.extensions.content_pack import (
     ContentPackError,
     apply_content,
@@ -57,7 +68,9 @@ from app.services.extensions.content_pack import (
 )
 from app.services.extensions.field_contributions import (
     apply_field_contributions,
+    apply_subtype_contributions,
     remove_field_contributions,
+    remove_subtype_contributions,
 )
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.instance_id import get_instance_id, license_binding_problem
@@ -72,7 +85,13 @@ from app.services.extensions.store_catalog import (
     store_client,
     store_update_available,
 )
+from app.services.extensions.update_announce import (
+    NOTIFICATION_TYPE as EXTENSION_UPDATED_TYPE,
+)
+from app.services.extensions.update_announce import build_update_digest
+from app.services.notification_service import deliver_notification_batch
 from app.services.permission_service import PermissionService
+from app.services.release_notes import valid_version
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +125,11 @@ class ExtensionOut(BaseModel):
     enabled: bool
     capabilities: list[str] = []
     last_error: str | None = None
+    # Same-origin URL of the bundle's own logo artwork, when it ships one.
+    # This response, not /extensions/ui-manifest, is the carrier: the
+    # ui-manifest covers only enabled + entitled *UI* plugins, and a content
+    # pack or a lapsed extension still has a logo worth rendering.
+    logo_url: str | None = None
     entitlement: EntitlementOut
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -171,6 +195,10 @@ class ExtensionStatusOut(BaseModel):
 
 def _extension_out(row: Extension) -> ExtensionOut:
     ent = extension_registry.entitlement(row.key)
+    # Re-run the validator rather than trusting the stored manifest: it is one
+    # pure call, and it means a hand-edited row can never widen what the asset
+    # route will serve.
+    logo_rel = extension_logo_path(row.manifest or {})
     return ExtensionOut(
         key=row.key,
         name=row.name,
@@ -179,6 +207,7 @@ def _extension_out(row: Extension) -> ExtensionOut:
         enabled=row.enabled,
         capabilities=list(row.capabilities or []),
         last_error=row.last_error,
+        logo_url=(f"/api/v1/ext-assets/{row.key}/{row.version}/{logo_rel}" if logo_rel else None),
         entitlement=EntitlementOut(
             state=ent.state,
             expires_at=ent.expires_at,
@@ -597,12 +626,23 @@ class StoreItemOut(BaseModel):
     # treatment as payment_link: opened in a new tab, license claimed through
     # the ordinary claim-token flow.
     trial_link: str = ""
+    # Optional SECOND billing plan: the same listing sold on a monthly
+    # interval beside the yearly `payment_link`. Present only when the
+    # catalogue offers both; the Store tab then lets the buyer pick.
+    monthly_payment_link: str = ""
     demo_url: str = ""
     homepage: str = ""
     license: str = ""
     license_url: str = ""
     screenshots: list[str] = []
+    # Same-origin catalogue logo, shown before the extension is installed.
+    logo: str = ""
     tags: list[str] = []
+    # Store section the item is listed under. A slug the catalogue assigns
+    # from a small fixed vocabulary; the vocabulary, its order and the labels
+    # live in the frontend, which files anything it does not recognise under
+    # a trailing "Other" section — so this is shape-checked, never allow-listed.
+    category: str = ""
     version: str = ""
     # True while this instance's entitlement for the item is a trial (active
     # OR already expired) — the UI keeps the Buy button visible so a trialing
@@ -619,6 +659,11 @@ class StoreItemOut(BaseModel):
     update_available: bool = False
     entitlement_state: str = "unlicensed"
     free: bool = False
+    # A service listing: sold and licensed exactly like an extension (its key
+    # rides in the licence as an entitlement, so the entitlement fields above
+    # are meaningful), but there is nothing to download or install — the
+    # catalogue carries no bundle for it, and the Store tab offers Buy only.
+    service: bool = False
 
 
 class StoreCatalogOut(BaseModel):
@@ -639,30 +684,38 @@ class StoreInstallIn(BaseModel):
     key: str
 
 
-def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
-    """Resolve catalogue screenshot paths to absolute, same-origin URLs.
+def _resolve_store_path(
+    base_url: str, raw: object, *, suffixes: frozenset[str] | None = None
+) -> str:
+    """One catalogue image path resolved to an absolute, same-origin URL.
 
-    The catalogue stores same-origin ``/screenshots/<key>/…`` paths. We
-    prefix each with the store base URL so the in-product ``<img src>``
-    resolves against the store origin (a relative path would otherwise
-    resolve against the Turbo EA instance's own origin and 404), and we
-    reject anything that is not a ``/``-rooted relative path — an off-origin
-    absolute URL, or a protocol-relative ``//host`` path — mirroring the
-    same-origin ``bundle_url`` guard so a tampered catalogue can never point
-    the browser at an arbitrary host.
+    The catalogue stores same-origin ``/screenshots/<key>/…`` and
+    ``/logos/<key>.png`` paths. We prefix each with the store base URL so the
+    in-product ``<img src>`` resolves against the store origin (a relative
+    path would otherwise resolve against the Turbo EA instance's own origin
+    and 404), and we reject anything that is not a ``/``-rooted relative path
+    — an off-origin absolute URL, or a protocol-relative ``//host`` path —
+    mirroring the same-origin ``bundle_url`` guard so a tampered catalogue can
+    never point the browser at an arbitrary host. ``suffixes`` narrows it
+    further, so a catalogue cannot aim an ``<img src>`` at ``/anything.html``.
+
+    Returns ``""`` for anything that does not pass.
     """
+    if not isinstance(raw, str):
+        return ""
+    path = raw.strip()
+    if not path.startswith("/") or path.startswith("//"):
+        return ""
+    if suffixes is not None and PurePosixPath(path).suffix.lower() not in suffixes:
+        return ""
+    return base_url.rstrip("/") + path
+
+
+def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
+    """Every catalogue screenshot path, resolved through the same guard."""
     if not isinstance(raw, list):
         return []
-    base = base_url.rstrip("/")
-    out: list[str] = []
-    for entry in raw:
-        if not isinstance(entry, str):
-            continue
-        path = entry.strip()
-        if not path.startswith("/") or path.startswith("//"):
-            continue
-        out.append(base + path)
-    return out
+    return [url for url in (_resolve_store_path(base_url, entry) for entry in raw) if url]
 
 
 # Category tags are external catalogue data: keep only short kebab-case slugs
@@ -682,6 +735,18 @@ def _sanitize_tags(raw: object) -> list[str]:
         if len(out) >= _STORE_TAG_MAX:
             break
     return out
+
+
+def _sanitize_category(raw: object) -> str:
+    """The catalogue's section slug, or ``""`` when it is not a slug.
+
+    Same shape rule as a tag: the value only ever becomes a lookup key for a
+    frontend label, so a slug that the frontend does not know degrades to its
+    "Other" section rather than being rejected here.
+    """
+    if isinstance(raw, str) and _STORE_TAG_RE.match(raw):
+        return raw
+    return ""
 
 
 @router.get("/store/catalog", response_model=StoreCatalogOut)
@@ -735,12 +800,15 @@ async def store_catalog(
                 price=str(item.get("price") or ""),
                 payment_link=str(item.get("payment_link") or ""),
                 trial_link=str(item.get("trial_link") or ""),
+                monthly_payment_link=str(item.get("monthly_payment_link") or ""),
                 demo_url=str(item.get("demo_url") or ""),
                 homepage=str(item.get("homepage") or ""),
                 license=str(item.get("license") or ""),
                 license_url=str(item.get("license_url") or ""),
                 screenshots=_resolve_screenshots(base_url, item.get("screenshots")),
+                logo=_resolve_store_path(base_url, item.get("logo"), suffixes=LOGO_EXTENSIONS),
                 tags=_sanitize_tags(item.get("tags")),
+                category=_sanitize_category(item.get("category")),
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=store_update_available(catalog_version, installed_version),
@@ -750,6 +818,7 @@ async def store_catalog(
                 entitlement_grace_until=entitlement.grace_until,
                 entitlement_auto_renew=entitlement.auto_renew,
                 free=item.get("free") is True,
+                service=item.get("service") is True,
             )
         )
     return StoreCatalogOut(configured=True, reachable=True, store_url=base_url, items=items)
@@ -878,6 +947,44 @@ async def refresh_store_license(
     return StoreRefreshOut(refreshed=refreshed)
 
 
+class ExtensionNotesOut(BaseModel):
+    """Resolved release notes for one extension version."""
+
+    key: str
+    version: str
+    from_version: str | None = None
+    #: Keep-a-Changelog markdown, or "" when neither source had anything.
+    notes: str
+    #: "store" | "bundle" | "none" — which source answered.
+    source: str
+    #: The store listing's own page — the complete customer-facing changelog —
+    #: when the store answered, so the dialog can offer "Full changelog".
+    changelog_url: str | None = None
+
+
+@router.get("/store/changelog/{key}", response_model=ExtensionNotesOut)
+async def store_changelog(
+    key: str,
+    version: str,
+    from_version: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionNotesOut:
+    """What changed between the installed version and the one being offered.
+
+    Read before applying an update, so the administrator decides on what the
+    release actually contains rather than on a version number. Prefers the
+    store's published feed — it covers every listed extension, including those
+    whose bundle predates per-extension changelogs — and falls back to the
+    installed bundle so an air-gapped instance still gets an answer.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    if not valid_version(version) or (from_version and not valid_version(from_version)):
+        raise HTTPException(status_code=422, detail="Malformed version")
+    notes = await resolve_extension_notes(key=key, version=version, from_version=from_version)
+    return ExtensionNotesOut(**notes)
+
+
 @router.post("/store/install", response_model=ExtensionInstallOut, status_code=202)
 async def install_from_store(
     payload: StoreInstallIn,
@@ -904,6 +1011,12 @@ async def install_from_store(
         raise HTTPException(status_code=502, detail=f"Extension store unreachable: {exc}") from exc
 
     item = next((i for i in raw_items if str(i.get("key")) == payload.key), None)
+    if item is not None and item.get("service") is True:
+        # A service listing has nothing to install: the purchase is confirmed
+        # by the licence that reaches the instance, never by a bundle.
+        raise HTTPException(
+            status_code=404, detail="This listing is a service — there is nothing to install"
+        )
     if item is None or not str(item.get("bundle_url") or "").strip():
         raise HTTPException(
             status_code=404, detail="This extension is not available from the store"
@@ -970,8 +1083,10 @@ async def set_extension_enabled(
     # values untouched), re-merge them on enable.
     if payload.enabled:
         await apply_field_contributions(db, key, row.manifest or {})
+        await apply_subtype_contributions(db, key, row.manifest or {})
     else:
         await remove_field_contributions(db, key)
+        await remove_subtype_contributions(db, key)
     await db.commit()
     await db.refresh(row)
     await extension_registry.refresh_from_db(db)
@@ -1020,9 +1135,39 @@ async def extensions_status(
 
 class UiExtensionOut(BaseModel):
     key: str
+    name: str
     version: str
     entry: str
     entitlement_state: str
+
+
+@status_router.get("/{key}/release-notes", response_model=ExtensionNotesOut)
+async def extension_release_notes(
+    key: str,
+    version: str,
+    from_version: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionNotesOut:
+    """What changed in an extension release, for the person who was told about it.
+
+    Authenticated but **not** permission-gated, exactly as ``/settings/whats-new``
+    is: everyone who receives the "extension updated" notification has to be
+    able to read what changed, and a changelog is not privileged information —
+    the same text is on the vendor's public store page.
+
+    Prefers the installed bundle: this describes a release that has *landed on
+    this instance*, so the bytes on disk are the authority, not whatever the
+    catalogue has moved on to since.
+    """
+    del user  # authentication is the gate; a changelog is not privileged
+    if not valid_version(version) or (from_version and not valid_version(from_version)):
+        raise HTTPException(status_code=422, detail="Malformed version")
+    del db  # the resolver opens nothing — bundle on disk, or an outbound fetch
+    notes = await resolve_extension_notes(
+        key=key, version=version, from_version=from_version, prefer_store=False
+    )
+    return ExtensionNotesOut(**notes)
 
 
 @status_router.get("/ui-manifest", response_model=list[UiExtensionOut])
@@ -1048,6 +1193,7 @@ async def ui_manifest(
         out.append(
             UiExtensionOut(
                 key=info.key,
+                name=info.name,
                 version=info.version,
                 entry=f"/api/v1/ext-assets/{info.key}/{info.version}/{rel}",
                 entitlement_state=ent.state,
@@ -1070,6 +1216,13 @@ _ASSET_MEDIA_TYPES = {
     ".json": "application/json",
     ".svg": "image/svg+xml",
     ".woff2": "font/woff2",
+    # Logo artwork. Explicit rather than left to FileResponse's mimetypes
+    # guess, so the served type does not depend on the container's mime
+    # database.
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
 }
 
 
@@ -1088,7 +1241,7 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
 
     from fastapi.responses import FileResponse
 
-    from app.services.extensions.bundle import KEY_PATTERN
+    from app.services.extensions.bundle import KEY_PATTERN, extension_logo_path
     from app.services.extensions.installer import EXTENSIONS_DIR
 
     # The registry lookup already 404s unknown keys, but validate the raw URL
@@ -1098,29 +1251,56 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
     if not KEY_PATTERN.match(key) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", version):
         raise HTTPException(status_code=404, detail="Not found")
     info = extension_registry.get(key)
-    if info is None or not info.enabled or info.status == "removed":
+    if info is None or info.status == "removed":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # The logo is artwork, not code, and the Installed tab renders disabled
+    # rows — so it stays readable while everything else here is gated on
+    # `enabled`. `removed` still 404s either way.
+    declared_logo = extension_logo_path(info.manifest or {})
+    is_logo = declared_logo is not None and asset_path == declared_logo
+    if not is_logo and not info.enabled:
         raise HTTPException(status_code=404, detail="Not found")
 
     # Path-traversal barrier: realpath both the key-derived base and the final
     # target, then require each to sit under its untainted parent (prefix guard
     # terminated by os.sep so a sibling like `<root>-evil` can't slip through).
     # This is the canonical realpath + startswith form for path containment.
+    #
+    # A content-only pack has no `frontend/` directory at all, so the
+    # manifest-declared logo resolves against the extension ROOT instead. That
+    # widens the reachable set by exactly one path per extension, gated by
+    # string EQUALITY against a signature-covered manifest value — never a
+    # prefix match, so `logo.png/../../wheels/x.whl` is not the declared logo,
+    # falls into the frontend branch, and dies on the containment check below.
+    # NOTE the asymmetry with /extensions/ui-manifest, which strips a leading
+    # `frontend/` from its entry: here the *base* moves and the path is used
+    # verbatim. Stripping here would break the equality gate.
     root = os.path.realpath(str(EXTENSIONS_DIR))
-    base = os.path.realpath(os.path.join(root, key, "frontend"))
+    ext_root = os.path.realpath(os.path.join(root, key))
+    base = ext_root if is_logo else os.path.realpath(os.path.join(ext_root, "frontend"))
     target = os.path.realpath(os.path.join(base, asset_path))
     if (
-        not base.startswith(root + os.sep)
+        not ext_root.startswith(root + os.sep)
+        or not base.startswith(root + os.sep)
         or not target.startswith(base + os.sep)
         or not os.path.isfile(target)
     ):
         raise HTTPException(status_code=404, detail="Not found")
 
-    media_type = _ASSET_MEDIA_TYPES.get(os.path.splitext(target)[1].lower())
-    return FileResponse(
-        target,
-        media_type=media_type,
-        headers={"Cache-Control": "public, max-age=31536000, immutable"},
-    )
+    suffix = os.path.splitext(target)[1].lower()
+    media_type = _ASSET_MEDIA_TYPES.get(suffix)
+    headers = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if suffix == ".svg":
+        # An SVG never executes inside an <img>, but navigating straight to
+        # this URL renders it as a document in the app's own origin. Neuter it.
+        headers["Content-Security-Policy"] = (
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+        )
+    return FileResponse(target, media_type=media_type, headers=headers)
 
 
 # ---------------------------------------------------------------------------
@@ -1135,6 +1315,41 @@ async def _load_install(db: AsyncSession, install_id: uuid.UUID) -> ExtensionIns
     if install is None:
         raise HTTPException(status_code=404, detail="Extension upload not found")
     return install
+
+
+async def _installed_version(db: AsyncSession, key: str | None) -> str | None:
+    """The version currently installed under ``key``, or ``None``."""
+    if not key:
+        return None
+    row = (
+        await db.execute(
+            select(Extension).where(Extension.key == key, Extension.status != "removed")
+        )
+    ).scalar_one_or_none()
+    return row.version if row is not None else None
+
+
+def _bundle_changelog_entry(storage: Path, key: str, version: str, installed: str | None) -> dict:
+    """``{version, from_version, notes, source}`` for the bundle being previewed.
+
+    Read from the bundle rather than the store: these bytes are already on
+    disk and already signature-verified, so the preview costs no network call
+    and works air-gapped. The Store tab additionally asks the published feed,
+    which covers bundles packaged before per-extension changelogs existed.
+
+    An update shows the span since the installed version; a first install
+    shows only the version being installed.
+    """
+    notes = notes_between(
+        bundle_changelog_from_zip(storage), version=version, from_version=installed
+    )
+    return {
+        "version": version,
+        "from_version": installed,
+        "notes": notes,
+        "source": "bundle" if notes else "none",
+        "changelog_url": None,
+    }
 
 
 async def _detect_downgrade(db: AsyncSession, key: str | None, version: str | None) -> dict | None:
@@ -1180,6 +1395,14 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
             install.diff = result.as_dict()
         else:
             install.diff = {}
+        installed = await _installed_version(db, bundle.key)
+        # What the administrator is about to accept. Stamped for every bundle,
+        # content pack or not: for a code-only extension the preview is
+        # otherwise empty, so this is the only thing the confirm step can show.
+        install.diff = {
+            **(install.diff or {}),
+            "changelog": _bundle_changelog_entry(storage, bundle.key, bundle.version, installed),
+        }
         downgrade = await _detect_downgrade(db, bundle.key, bundle.version)
         if downgrade is not None:
             install.diff = {**(install.diff or {}), "downgrade": downgrade}
@@ -1195,7 +1418,7 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
         await _mark_failed(db, install_id, str(exc)[:1000])
 
 
-async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> None:
+async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> list[dict] | None:
     """Install a verified bundle: register the extension, then apply its content.
 
     The extension row + files are committed **before** the content pack, so any
@@ -1205,6 +1428,11 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
     if a later step failed. A content failure now leaves the extension installed
     with its partial content governed (visible in the admin UI as failed), which
     the admin can retry (idempotent) or uninstall.
+
+    Returns the "extension updated" digest for the caller to deliver once this
+    session is closed, or ``None``. Delivery is not done here: it ends in
+    notification rows for potentially every active user and must not run with
+    the install transaction open.
     """
     install_id = install.id  # captured before any rollback expires the instance
     try:
@@ -1213,6 +1441,9 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
         storage = Path(install.storage_path)
         # Re-verify from disk — the upload could predate a core upgrade.
         bundle = read_bundle(storage)
+        # Read before install_bundle overwrites the row: this is what separates
+        # an update worth announcing from a first install.
+        previous_version = await _installed_version(db, bundle.key)
 
         # Register the extension (extract files + upsert row) and commit it first
         # so the row exists to govern anything the content pack commits next.
@@ -1230,7 +1461,9 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
                 )
                 await db.commit()
                 await extension_registry.refresh_from_db(db)
-                return
+                # A partial install is not an update anyone should be told
+                # about; the administrator sees it as failed and retries.
+                return None
 
         if extension.enabled:
             # Reinstalling after an uninstall must bring the pack's
@@ -1238,9 +1471,10 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
             await set_content_visibility(
                 db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, False
             )
-            # Merge manifest field contributions into their target card types
-            # (idempotent; updates re-sync the extension-owned sections).
+            # Merge manifest field + subtype contributions into their target
+            # card types (idempotent; updates re-sync the ext-owned entries).
             await apply_field_contributions(db, extension.key, bundle.manifest)
+            await apply_subtype_contributions(db, extension.key, bundle.manifest)
         else:
             # Updating a DISABLED extension: content stays hidden — including
             # card/relation types NEW in this version — and field
@@ -1260,6 +1494,15 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
             install.id,
             extension.status,
         )
+        # Built after the registry refresh so the entitlement check sees the
+        # row this install just wrote.
+        return await build_update_digest(
+            db,
+            key=extension.key,
+            name=str(bundle.manifest.get("name") or extension.key),
+            from_version=previous_version,
+            to_version=extension.version,
+        )
     except (BundleError, ContentPackError) as exc:
         await db.rollback()
         await _mark_failed(db, install_id, str(exc))
@@ -1267,6 +1510,7 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
         logger.exception("extension apply failed")
         await db.rollback()
         await _mark_failed(db, install_id, str(exc)[:1000])
+    return None
 
 
 async def _mark_failed(db: AsyncSession, install_id: uuid.UUID, message: str) -> None:
@@ -1279,7 +1523,12 @@ async def _mark_failed(db: AsyncSession, install_id: uuid.UUID, message: str) ->
         await db.commit()
 
 
-async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
+InstallRunner = Callable[[AsyncSession, ExtensionInstall, User], Awaitable[list[dict] | None]]
+
+
+async def _run_job(
+    install_id_str: str, user_id_str: str, runner: InstallRunner
+) -> list[dict] | None:
     async with async_session() as db:
         install = (
             await db.execute(
@@ -1287,7 +1536,7 @@ async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
             )
         ).scalar_one_or_none()
         if install is None:
-            return
+            return None
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
         ).scalar_one_or_none()
@@ -1295,8 +1544,8 @@ async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
             install.status = "failed"
             install.error_message = "Upload user or bundle file no longer exists"
             await db.commit()
-            return
-        await runner(db, install, user)
+            return None
+        return await runner(db, install, user)
 
 
 async def _verify_and_preview_job(install_id_str: str, user_id_str: str) -> None:
@@ -1304,4 +1553,15 @@ async def _verify_and_preview_job(install_id_str: str, user_id_str: str) -> None
 
 
 async def _apply_job(install_id_str: str, user_id_str: str) -> None:
-    await _run_job(install_id_str, user_id_str, run_apply)
+    digest = await _run_job(install_id_str, user_id_str, run_apply)
+    # Outside the install session on purpose: this fans out to everyone who can
+    # use the extension, and holding the transaction across that is the rule
+    # test_db_session_holding.py exists to enforce.
+    if digest:
+        # The administrator who clicked Update is the actor, so they are not
+        # told about their own action — they are watching the install finish.
+        await deliver_notification_batch(
+            digest,
+            notif_type=EXTENSION_UPDATED_TYPE,
+            actor_id=uuid.UUID(user_id_str),
+        )

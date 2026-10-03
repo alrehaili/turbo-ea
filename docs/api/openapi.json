@@ -1002,6 +1002,31 @@
         "title": "Body_import_new_model_api_v1_reference_models_import_post",
         "type": "object"
       },
+      "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
+        "type": "object"
+      },
       "Body_upload_bundle_api_v1_admin_extensions_install_post": {
         "properties": {
           "file": {
@@ -1014,6 +1039,35 @@
           "file"
         ],
         "title": "Body_upload_bundle_api_v1_admin_extensions_install_post",
+        "type": "object"
+      },
+      "Body_upload_card_logo_api_v1_cards__card_id__logo_post": {
+        "properties": {
+          "file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "icon_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Slug"
+          }
+        },
+        "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
         "type": "object"
       },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
@@ -1390,6 +1444,333 @@
           "enabled"
         ],
         "title": "BpmEnabledPayload",
+        "type": "object"
+      },
+      "BpmPublicFlow": {
+        "description": "The published BPMN flow for one in-scope process.\n\n``bpmn_xml`` is ``None`` and ``steps`` empty when the process has no\npublished version \u2014 including when it has only drafts, only archived or\nwithdrawn revisions, or only a legacy ``process_diagrams`` row. That is not\nan error: the House marks such a process as having no flow, and the drawer\nrenders its empty state.",
+        "properties": {
+          "bpmn_xml": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bpmn Xml"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "svg_thumbnail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Svg Thumbnail"
+          }
+        },
+        "title": "BpmPublicFlow",
+        "type": "object"
+      },
+      "BpmPublicProcess": {
+        "description": "One node of the published Process House.\n\n``parent_id`` shares the id space with ``id`` so the client's ``buildTree``\nstill assembles the hierarchy. A process whose parent is out of the portal's\nscope simply becomes a root \u2014 the same re-rooting the authenticated\nnavigator already does for a filtered tree.",
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Attributes",
+            "type": "object"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "has_flow": {
+            "default": false,
+            "title": "Has Flow",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Lifecycle",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_tokens": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Org Tokens",
+            "type": "array"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "step_count": {
+            "default": 0,
+            "title": "Step Count",
+            "type": "integer"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BpmPublicProcess",
+        "type": "object"
+      },
+      "BpmPublicProcessMap": {
+        "description": "Everything the published Process House needs, in one round-trip.\n\n``row_order`` rides along rather than being a second request. It is served\nby ``GET /settings/bpm-row-order``, which happens to be unauthenticated\ntoday, but a portal must not depend on another route's incidental\npublic-ness \u2014 and one round-trip is the posture the PPM board set.",
+        "properties": {
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicProcess"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "organizations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicRef"
+            },
+            "title": "Organizations",
+            "type": "array"
+          },
+          "row_order": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Row Order",
+            "type": "array"
+          }
+        },
+        "title": "BpmPublicProcessMap",
+        "type": "object"
+      },
+      "BpmPublicRef": {
+        "description": "A named thing referenced by an opaque, per-response token.\n\nUsed for Organizations, which the House's organization filter matches on\nclient-side within a single payload \u2014 so the token only has to be stable\nfor the life of one response, and a real card id would be published for\nnothing.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "name"
+        ],
+        "title": "BpmPublicRef",
+        "type": "object"
+      },
+      "BpmPublicStep": {
+        "description": "One step of a published BPMN flow.\n\n``bpmn_element_id`` is an id local to the BPMN XML, not a card id, and it is\nthe correlation key the viewer needs to place overlays \u2014 it is already\ninside the XML the visitor is holding.\n\nThe five link fields are populated only when the portal enables\n``show_element_links``; they carry **names, never ids**. The viewer's and the\nSteps tab's existing truthiness guards then render the reduced row with no\nextra branching.",
+        "properties": {
+          "application_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Name"
+          },
+          "bpmn_element_id": {
+            "title": "Bpmn Element Id",
+            "type": "string"
+          },
+          "called_process_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Called Process Name"
+          },
+          "data_object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Object Name"
+          },
+          "definition_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition Name"
+          },
+          "documentation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documentation"
+          },
+          "element_type": {
+            "title": "Element Type",
+            "type": "string"
+          },
+          "event_definition_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Definition Type"
+          },
+          "is_automated": {
+            "default": false,
+            "title": "Is Automated",
+            "type": "boolean"
+          },
+          "it_component_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "It Component Name"
+          },
+          "lane_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Name"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "organizations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BpmPublicRef"
+            },
+            "title": "Organizations",
+            "type": "array"
+          },
+          "sequence_order": {
+            "default": 0,
+            "title": "Sequence Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bpmn_element_id",
+          "element_type"
+        ],
+        "title": "BpmPublicStep",
         "type": "object"
       },
       "BpmRowOrderPayload": {
@@ -2022,6 +2403,17 @@
             ],
             "title": "Parent Id"
           },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
           "parent_name": {
             "anyOf": [
               {
@@ -2504,6 +2896,17 @@
             ],
             "title": "Parent Id"
           },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
           "strict_attributes": {
             "default": false,
             "title": "Strict Attributes",
@@ -2630,6 +3033,14 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "withheld_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Withheld Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -2866,6 +3277,17 @@
             ],
             "title": "Parent Id"
           },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
+          },
           "parent_name": {
             "anyOf": [
               {
@@ -3037,6 +3459,18 @@
             ],
             "title": "Lifecycle"
           },
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -3051,6 +3485,17 @@
               }
             ],
             "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
           },
           "reference": {
             "anyOf": [
@@ -3300,6 +3745,17 @@
               }
             ],
             "title": "Parent Id"
+          },
+          "parent_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Label"
           },
           "status": {
             "anyOf": [
@@ -4813,6 +5269,14 @@
             "title": "Count",
             "type": "integer"
           },
+          "direction": {
+            "enum": [
+              "outgoing",
+              "incoming"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
           "relation_type_key": {
             "title": "Relation Type Key",
             "type": "string"
@@ -4820,6 +5284,7 @@
         },
         "required": [
           "relation_type_key",
+          "direction",
           "count"
         ],
         "title": "DescendantRelationSummaryEntry",
@@ -5194,6 +5659,46 @@
         "title": "DocumentCreate",
         "type": "object"
       },
+      "DocumentUpdate": {
+        "description": "Partial update of a document link \u2014 omitted fields stay unchanged.\n\n``url`` may be set to ``null`` (or ``\"\"``) to clear it; ``name`` and\n``type`` cannot be blanked.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "DocumentUpdate",
+        "type": "object"
+      },
       "DuplicateClusterOut": {
         "properties": {
           "analysed_at": {
@@ -5296,6 +5801,17 @@
               }
             ],
             "title": "Application Id"
+          },
+          "business_process_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Process Id"
           },
           "custom_fields": {
             "anyOf": [
@@ -5521,6 +6037,99 @@
           "state"
         ],
         "title": "EntitlementOut",
+        "type": "object"
+      },
+      "EolCardStatus": {
+        "description": "The resolved end-of-life picture for one card.",
+        "properties": {
+          "eol_cycle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Cycle"
+          },
+          "eol_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Date"
+          },
+          "eol_product": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Product"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "source": {
+            "description": "api (endoflife.date link) | manual (lifecycle date)",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "description": "eol | approaching | supported | unknown",
+            "title": "Status",
+            "type": "string"
+          },
+          "support_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Date"
+          }
+        },
+        "required": [
+          "status",
+          "source"
+        ],
+        "title": "EolCardStatus",
+        "type": "object"
+      },
+      "EolCardStatusResponse": {
+        "description": "Card id \u2192 status, for every card of the type that carries EOL data.",
+        "properties": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EolCardStatus"
+            },
+            "title": "Items",
+            "type": "object"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EolCardStatusResponse",
         "type": "object"
       },
       "EolCycle": {
@@ -5957,6 +6566,57 @@
         "title": "ExtensionInstallOut",
         "type": "object"
       },
+      "ExtensionNotesOut": {
+        "description": "Resolved release notes for one extension version.",
+        "properties": {
+          "changelog_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changelog Url"
+          },
+          "from_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "version",
+          "notes",
+          "source"
+        ],
+        "title": "ExtensionNotesOut",
+        "type": "object"
+      },
       "ExtensionNoticesEnabledPayload": {
         "properties": {
           "enabled": {
@@ -6013,6 +6673,17 @@
               }
             ],
             "title": "Last Error"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
           },
           "name": {
             "title": "Name",
@@ -6288,6 +6959,35 @@
           "field_mappings"
         ],
         "title": "FieldMappingUpdate",
+        "type": "object"
+      },
+      "FileAttachmentUpdate": {
+        "description": "Rename or re-categorise a file attachment \u2014 omitted fields stay as is.\n\nThe bytes are untouched (that is what ``PUT \u2026/content`` is for), so a new\n``name`` must keep an extension that maps to the stored format; the route\nchecks that against the row. ``category`` set to ``\"\"`` or ``null`` clears.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "FileAttachmentUpdate",
         "type": "object"
       },
       "FileUploadsEnabledPayload": {
@@ -7113,6 +7813,24 @@
           }
         },
         "title": "McpSettingsPayload",
+        "type": "object"
+      },
+      "MessageFlowUpdate": {
+        "description": "Set (or clear, with ``null``) the Interface card a message flow realises.",
+        "properties": {
+          "interface_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface Id"
+          }
+        },
+        "title": "MessageFlowUpdate",
         "type": "object"
       },
       "MethodologyPayload": {
@@ -8411,6 +9129,23 @@
       },
       "NotificationPreferencesUpdate": {
         "properties": {
+          "channels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channels"
+          },
           "email": {
             "anyOf": [
               {
@@ -9550,6 +10285,34 @@
       },
       "PpmGroupOption": {
         "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "translations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Translations",
+            "type": "object"
+          },
           "type_key": {
             "title": "Type Key",
             "type": "string"
@@ -9564,6 +10327,360 @@
           "type_label"
         ],
         "title": "PpmGroupOption",
+        "type": "object"
+      },
+      "PpmPublicDashboard": {
+        "description": "The three KPI values the board actually renders.\n\nThe internal dashboard also carries ``by_subtype``, ``by_status``,\n``health_cost``, ``health_scope`` and ``total_actual``; none of them is drawn\non the board, so none of them is published.",
+        "properties": {
+          "health_schedule": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Health Schedule",
+            "type": "object"
+          },
+          "total_budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Budget"
+          },
+          "total_initiatives": {
+            "title": "Total Initiatives",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_initiatives"
+        ],
+        "title": "PpmPublicDashboard",
+        "type": "object"
+      },
+      "PpmPublicGroupOption": {
+        "description": "A card type the board can group by.\n\nShips the metamodel entity (``label`` + ``translations``) rather than a\nresolved string: label resolution lives on the client, in the shared\nresolvers, so there is exactly one implementation of it and no second place\nfor the key-as-fallback bug to reappear.",
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "translations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Translations",
+            "type": "object"
+          },
+          "type_key": {
+            "title": "Type Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type_key",
+          "label"
+        ],
+        "title": "PpmPublicGroupOption",
+        "type": "object"
+      },
+      "PpmPublicItem": {
+        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design. Every\nother identifier is withheld: ``group_id`` is an opaque per-response token,\nand the parent, report, reporter and stakeholder ids are not emitted at all.",
+        "properties": {
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Planned"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latest_report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmPublicReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Planned"
+          },
+          "stakeholders": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicPerson"
+            },
+            "title": "Stakeholders",
+            "type": "array"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PpmPublicItem",
+        "type": "object"
+      },
+      "PpmPublicPerson": {
+        "description": "A named person. Carries **no** user id and never an email address.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "role_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Key"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "title": "PpmPublicPerson",
+        "type": "object"
+      },
+      "PpmPublicPortfolio": {
+        "description": "Everything the public board needs, in one round-trip.",
+        "properties": {
+          "dashboard": {
+            "$ref": "#/components/schemas/PpmPublicDashboard"
+          },
+          "group_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group By"
+          },
+          "group_options": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicGroupOption"
+            },
+            "title": "Group Options",
+            "type": "array"
+          },
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmPublicItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dashboard"
+        ],
+        "title": "PpmPublicPortfolio",
+        "type": "object"
+      },
+      "PpmPublicReport": {
+        "description": "The latest status report, as shown in the board's hover overview.\n\n``reporter`` is populated only when the portal enables people, and the three\nnarrative fields only when it enables narrative \u2014 the viewer's existing\ntruthiness guards then render the reduced popover with no extra branching.",
+        "properties": {
+          "accomplishments": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accomplishments"
+          },
+          "cost_health": {
+            "title": "Cost Health",
+            "type": "string"
+          },
+          "next_steps": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Steps"
+          },
+          "report_date": {
+            "format": "date",
+            "title": "Report Date",
+            "type": "string"
+          },
+          "reporter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmPublicPerson"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedule_health": {
+            "title": "Schedule Health",
+            "type": "string"
+          },
+          "scope_health": {
+            "title": "Scope Health",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "report_date",
+          "schedule_health",
+          "cost_health",
+          "scope_health"
+        ],
+        "title": "PpmPublicReport",
         "type": "object"
       },
       "PpmRiskCreate": {
@@ -13625,7 +14742,8 @@
             "enum": [
               "manual",
               "compliance",
-              "resilience"
+              "resilience",
+              "extension"
             ],
             "title": "Source Type",
             "type": "string"
@@ -14976,6 +16094,11 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "supports_export": {
+            "default": false,
+            "title": "Supports Export",
+            "type": "boolean"
           }
         },
         "required": [
@@ -15552,6 +16675,11 @@
       },
       "StoreItemOut": {
         "properties": {
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
           "demo_url": {
             "default": "",
             "title": "Demo Url",
@@ -15642,9 +16770,19 @@
             "title": "License Url",
             "type": "string"
           },
+          "logo": {
+            "default": "",
+            "title": "Logo",
+            "type": "string"
+          },
           "long_description": {
             "default": "",
             "title": "Long Description",
+            "type": "string"
+          },
+          "monthly_payment_link": {
+            "default": "",
+            "title": "Monthly Payment Link",
             "type": "string"
           },
           "name": {
@@ -15668,6 +16806,11 @@
             },
             "title": "Screenshots",
             "type": "array"
+          },
+          "service": {
+            "default": false,
+            "title": "Service",
+            "type": "boolean"
           },
           "tags": {
             "default": [],
@@ -17036,6 +18179,10 @@
             "title": "Key",
             "type": "string"
           },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "version": {
             "title": "Version",
             "type": "string"
@@ -17043,6 +18190,7 @@
         },
         "required": [
           "key",
+          "name",
           "version",
           "entry",
           "entitlement_state"
@@ -17302,6 +18450,17 @@
               }
             ],
             "title": "Role Label"
+          },
+          "type_permissions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "boolean"
+              },
+              "type": "object"
+            },
+            "default": {},
+            "title": "Type Permissions",
+            "type": "object"
           },
           "ui_preferences": {
             "anyOf": [
@@ -17760,6 +18919,17 @@
               }
             ],
             "title": "Tiles"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
           }
         },
         "required": [
@@ -17909,6 +19079,17 @@
               }
             ],
             "title": "Tiles"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
           }
         },
         "title": "WebPortalUpdate",
@@ -20635,6 +21816,74 @@
         ]
       }
     },
+    "/api/v1/admin/extensions/store/changelog/{key}": {
+      "get": {
+        "description": "What changed between the installed version and the one being offered.\n\nRead before applying an update, so the administrator decides on what the\nrelease actually contains rather than on a version number. Prefers the\nstore's published feed \u2014 it covers every listed extension, including those\nwhose bundle predates per-extension changelogs \u2014 and falls back to the\ninstalled bundle so an air-gapped instance still gets an answer.",
+        "operationId": "store_changelog_api_v1_admin_extensions_store_changelog__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Store Changelog",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/admin/extensions/store/claim": {
       "post": {
         "description": "Poll the store for the license of a just-completed purchase.\n\nThe Buy button generated ``token`` client-side and attached it to the\nStripe Payment Link as ``client_reference_id``; the store looks the\ncompleted checkout up by it and returns the issued license, which is\nverified against the trusted vendor keys before being applied \u2014 the\nexact same gate as a manual paste. ``pending`` means the checkout has\nnot completed yet (the frontend keeps polling).",
@@ -22340,6 +23589,28 @@
         ]
       }
     },
+    "/api/v1/auth/proxy/session": {
+      "post": {
+        "description": "Exchange a proxy-asserted identity for a Turbo EA session.\n\nFor instances behind a proxy that has already authenticated the user (Azure\nApp Service EasyAuth, oauth2-proxy, Authelia, Cloudflare Access). No OIDC\nclient and no app registration are needed. See\n``app/services/proxy_auth_service.py`` for the trust model.\n\n**404 when the feature is off**, mirroring the ops API with ``OPS_PUBLIC_KEY``\nunset: an instance that has not opted in should look like one where this\nroute does not exist.\n\nDeliberately an endpoint rather than a branch inside ``get_current_user``.\nThe ``samesite=lax`` cookie is currently the app's CSRF control; making\nauthentication ambient proxy headers would hand that control to the proxy's\nown cookie policy, and oauth2-proxy and Cloudflare Access can both be\nconfigured ``SameSite=None``. Minting a lax cookie at one POST-only route\nkeeps the existing posture, and leaves ``get_optional_user`` alone so\nanonymous portal and embedded-diagram visitors stay anonymous.\n\nDeliberately *not* rate limited: ``get_remote_address`` always resolves to the\nnginx container (uvicorn runs without ``--proxy-headers``), so a limit here\nwould be one shared bucket. It would not slow an attacker, who needs a single\nrequest, and would lock out a whole office once the SPA calls this on load.",
+        "operationId": "proxy_session_api_v1_auth_proxy_session_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Proxy Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "description": "Issue a new short-lived access token. Re-reads role and active status from DB.",
@@ -22815,7 +24086,7 @@
     },
     "/api/v1/bookmarks/{bm_id}/odata": {
       "get": {
-        "description": "OData-style JSON feed for a bookmark's filtered cards.\nRequires authentication. Returns data matching the bookmark's saved filters.",
+        "description": "OData-style JSON feed for a bookmark's filtered cards.\nRequires authentication. Returns data matching the bookmark's saved filters,\nlimited to the cards the *caller* may read \u2014 a shared bookmark never hands\nover a card type the reader is denied.",
         "operationId": "bookmark_odata_feed_api_v1_bookmarks__bm_id__odata_get",
         "parameters": [
           {
@@ -24157,6 +25428,107 @@
         ]
       }
     },
+    "/api/v1/bpm/processes/{process_id}/message-flows": {
+      "get": {
+        "description": "The messages exchanged between the pools of the process's diagram.",
+        "operationId": "list_message_flows_api_v1_bpm_processes__process_id__message_flows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Message Flows",
+        "tags": [
+          "bpm"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/message-flows/{flow_id}": {
+      "patch": {
+        "description": "Link a message flow to the Interface card it realises (``null`` clears).\n\nInformative only \u2014 like a step's Organization links, no card-to-card\nrelation is derived from it.",
+        "operationId": "update_message_flow_api_v1_bpm_processes__process_id__message_flows__flow_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "flow_id",
+            "required": true,
+            "schema": {
+              "title": "Flow Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageFlowUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Message Flow",
+        "tags": [
+          "bpm"
+        ]
+      }
+    },
     "/api/v1/bpm/templates": {
       "get": {
         "operationId": "list_templates_api_v1_bpm_templates_get",
@@ -24795,6 +26167,145 @@
         "summary": "Update Status",
         "tags": [
           "capability-catalogue"
+        ]
+      }
+    },
+    "/api/v1/card-logos/brand-icons": {
+      "get": {
+        "description": "Search the bundled brand-icon pack.\n\nGated on inventory access (``require_inventory_browse``): the payload is\npublic CC0 metadata, so nothing here needs shaping, but this would\notherwise be the only authenticated read in the file with no permission at\nall \u2014 and inventory access is the weakest permission anyone who could act\non the result already holds.",
+        "operationId": "list_brand_icons_api_v1_card_logos_brand_icons_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 64,
+              "title": "Search",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Brand Icons",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
+    "/api/v1/card-logos/brand-icons/resolve": {
+      "get": {
+        "description": "Say which of many icon references the packs actually carry.\n\nExists for the MCP dry run. Previewing a batch of logos has to be able to\ntell the caller that a slug is unknown *before* it commits \u2014 otherwise a\npreview says every row is fine and the commit is where it learns\notherwise, which is precisely when an agent stops rather than going to\nfetch the mark itself. Searching one slug at a time would be one request\nper row, so this answers the whole batch in one.\n\nReturns ``{known: {ref: canonical_ref}, unknown: [ref]}``; the canonical\nform is what a caller should store, since a bare slug resolves to whichever\npack carries it.",
+        "operationId": "resolve_brand_icons_api_v1_card_logos_brand_icons_resolve_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refs",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 8192,
+              "title": "Refs",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Brand Icons",
+        "tags": [
+          "card-logos"
+        ]
+      }
+    },
+    "/api/v1/card-logos/brand-icons/{slug}.png": {
+      "get": {
+        "description": "Public endpoint \u2014 one brand icon's PNG, for the picker to render.\n\nUnauthenticated, on the same reasoning as ``GET /settings/logo`` beside it:\nan ``<img>`` is what loads this, and the bytes are public CC0 artwork that\nships inside the image. Nothing here is instance data \u2014 not a card, not a\nname, not a count \u2014 so there is nothing for a permission to protect.\n\nThe *listing* endpoint above stays gated all the same: enumerating the pack\nis a different act from rendering one icon a caller already knows the name\nof, and least privilege is free there.\n\nTakes no database session on purpose \u2014 the pack is read from disk, so this\nroute never needs a connection out of the pool.",
+        "operationId": "get_brand_icon_api_v1_card_logos_brand_icons__slug__png_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Brand Icon",
+        "tags": [
+          "card-logos"
         ]
       }
     },
@@ -26277,6 +27788,28 @@
             }
           },
           {
+            "description": "Which side of the relation type to roll up \u2014 the card's outgoing or incoming rows. Omit for both, which only differ for a self-referencing type.",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "outgoing",
+                    "incoming"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Which side of the relation type to roll up \u2014 the card's outgoing or incoming rows. Omit for both, which only differ for a self-referencing type.",
+              "title": "Direction"
+            }
+          },
+          {
             "in": "query",
             "name": "page",
             "required": false,
@@ -26553,7 +28086,7 @@
     },
     "/api/v1/cards/{card_id}/hierarchy": {
       "get": {
-        "description": "Return ancestors (root\u2192parent), children, and computed level.",
+        "description": "Return ancestors (root\u2192parent), children, and computed level.\n\nTwo link labels are in play and they are NOT the same field (#1100):\n\n* each ``children`` node carries **its own** ``parent_label`` \u2014 the label on\n  that child's edge to this card;\n* the top-level ``parent_label`` is **this card's** label for its edge to\n  its own parent, i.e. what the Parent chip renders. It is deliberately not\n  hung off the last ancestor node, whose ``parent_label`` would be that\n  ancestor's link to *its* parent one level further up.",
         "operationId": "get_hierarchy_api_v1_cards__card_id__hierarchy_get",
         "parameters": [
           {
@@ -26652,6 +28185,129 @@
         "summary": "Get History",
         "tags": [
           "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/logo": {
+      "delete": {
+        "description": "Remove the card's logo, falling the card back to its type icon.\n\nAllowed even when the type's ``allow_card_logo`` switch is off, so turning\nthe feature off for a type never strands existing images as undeletable.",
+        "operationId": "delete_card_logo_api_v1_cards__card_id__logo_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Card Logo",
+        "tags": [
+          "card-logos"
+        ]
+      },
+      "get": {
+        "description": "Public endpoint \u2014 returns a card's logo image bytes, or 404.\n\nUnauthenticated on purpose. An ``<img>`` tag cannot carry the bearer token\n(it lives in sessionStorage), and published web portals are viewed with no\naccount at all, so a gated route would mean either blob-fetching through\nthe API client on every surface or a second portal-scoped copy of this\nendpoint. What is returned is the artefact and nothing else \u2014 no card name,\ntype, or any other field \u2014 keyed by an unguessable UUID, the same posture\n``GET /diagrams/public/{slug}`` and ``/ext-assets`` take.\n\nA missing card, a card with no logo, and a malformed id all answer 404\nidentically, so this cannot be used to probe which card ids exist. The\nper-type ``allow_card_logo`` switch deliberately does not gate this: it\ngoverns upload and display, and enforcing it here would 404 images that\nare still on screen in a portal the moment an admin flips it off.",
+        "operationId": "get_card_logo_api_v1_cards__card_id__logo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Card Logo",
+        "tags": [
+          "card-logos"
+        ]
+      },
+      "post": {
+        "description": "Upload or replace the card's logo, from a file or a built-in brand icon.\n\nExactly one of ``file`` and ``icon_slug`` is required. The icon path exists\nso an agent can set a product's mark without carrying the image at all \u2014\nsee ``app/services/brand_icons.py``.",
+        "operationId": "upload_card_logo_api_v1_cards__card_id__logo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_card_logo_api_v1_cards__card_id__logo_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Card Logo",
+        "tags": [
+          "card-logos"
         ]
       }
     },
@@ -28210,7 +29866,7 @@
     },
     "/api/v1/diagrams/public/{slug}": {
       "get": {
-        "description": "Return the published picture: a name and sanitised DrawIO XML.\n\nDeliberately narrow. No card ids, no relations, no description, no\nlifecycle \u2014 see ``sanitise_public_xml``. The XML is enough for the DrawIO\nlightbox to render, pan and zoom it, and nothing more.",
+        "description": "Return the published picture: a name, sanitised DrawIO XML and its legend.\n\nDeliberately narrow. No card ids, no relations, no description, no\nlifecycle \u2014 see ``sanitise_public_xml``. The XML is enough for the DrawIO\nlightbox to render, pan and zoom it, and nothing more. ``legend`` is the key\nto the colours the picture already shows (``None`` when coloured by card\ntype): labels, colours and counts only, never a card's identity or value \u2014\nsee ``build_public_legend``.",
         "operationId": "get_public_diagram_api_v1_diagrams_public__slug__get",
         "parameters": [
           {
@@ -28809,6 +30465,55 @@
         "tags": [
           "documents"
         ]
+      },
+      "patch": {
+        "description": "Edit a document link's name, URL or type.\n\nSame authority as deleting it (``documents.manage`` or the card-level\n``card.manage_documents``). Only the fields that actually move are\nwritten and recorded, as ``changes = {field: {\"old\", \"new\"}}`` on a\n``document.updated`` event \u2014 the shape the card's History tab renders.\nA PATCH that changes nothing writes nothing and emits nothing, so a\nre-saved dialog never moves the card's Modified date (#1166).",
+        "operationId": "update_document_api_v1_documents__doc_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "doc_id",
+            "required": true,
+            "schema": {
+              "title": "Doc Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Document",
+        "tags": [
+          "documents"
+        ]
       }
     },
     "/api/v1/ea-requirements": {
@@ -28993,6 +30698,51 @@
         "summary": "Update Requirement",
         "tags": [
           "ea-requirements"
+        ]
+      }
+    },
+    "/api/v1/eol/card-status": {
+      "get": {
+        "description": "Resolve the end-of-life status of every card of a type in one call.\n\nBacks the inventory's End of life column and filter. Cards with neither a\nproduct link nor a manual End of Life date are **absent** from the map\nrather than present with a null status \u2014 the client reads absence as \"not\nrecorded\", and it keeps the payload proportional to what is actually\nlinked rather than to the size of the landscape.",
+        "operationId": "eol_card_status_api_v1_eol_card_status_get",
+        "parameters": [
+          {
+            "description": "Application or ITComponent",
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "description": "Application or ITComponent",
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCardStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Eol Card Status",
+        "tags": [
+          "End of Life"
         ]
       }
     },
@@ -29518,6 +31268,74 @@
         ]
       }
     },
+    "/api/v1/extensions/{key}/release-notes": {
+      "get": {
+        "description": "What changed in an extension release, for the person who was told about it.\n\nAuthenticated but **not** permission-gated, exactly as ``/settings/whats-new``\nis: everyone who receives the \"extension updated\" notification has to be\nable to read what changed, and a changelog is not privileged information \u2014\nthe same text is on the vendor's public store page.\n\nPrefers the installed bundle: this describes a release that has *landed on\nthis instance*, so the bytes on disk are the authority, not whatever the\ncatalogue has moved on to since.",
+        "operationId": "extension_release_notes_api_v1_extensions__key__release_notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extension Release Notes",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/favorites": {
       "get": {
         "description": "List current user's favorite cards.",
@@ -29673,6 +31491,106 @@
           }
         },
         "summary": "Delete File Attachment",
+        "tags": [
+          "file-attachments"
+        ]
+      },
+      "patch": {
+        "description": "Rename a file attachment or change its category.\n\nThe bytes are untouched, so the new name must keep an extension that\nmaps to the stored format (``.jpg`` \u2194 ``.jpeg`` is fine, ``.pdf`` \u2192\n``.docx`` is not \u2014 that is a replace). Only the fields that move are\nwritten and recorded as ``changes`` on a ``file.updated`` event; a\nno-op PATCH writes nothing and emits nothing (#1166). Not gated on the\nuploads toggle: like a delete, it moves no bytes.",
+        "operationId": "update_file_attachment_api_v1_file_attachments__attachment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileAttachmentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update File Attachment",
+        "tags": [
+          "file-attachments"
+        ]
+      }
+    },
+    "/api/v1/file-attachments/{attachment_id}/content": {
+      "put": {
+        "description": "Upload a new version of a file into the same attachment.\n\nThe row keeps its id, so every reference to it survives, but otherwise it\nreads as a fresh upload: name, MIME, size and bytes come from the new\nfile, ``category`` from the form exactly as on an upload (absent means\nnone \u2014 a multipart field cannot say \"clear\" any other way, FastAPI reads\nan empty form value as omitted), and ``created_at`` / ``created_by`` are\nreset to now and the person replacing it. The version it supersedes lives\non only in the card's History, as ``previous`` on the ``file.replaced``\nevent (#1166). Same checks as an upload, and refused for the same reason\nwhile uploads are switched off.",
+        "operationId": "replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace File Attachment",
         "tags": [
           "file-attachments"
         ]
@@ -31810,6 +33728,58 @@
         ]
       }
     },
+    "/api/v1/metamodel/types/{key}/hierarchy-label-usage": {
+      "get": {
+        "description": "Return how many active cards carry a given hierarchy link label (#1100).\n\nIts own endpoint rather than a branch of ``option-usage``: that one\ndispatches on a ``fields_schema`` field type and reads ``attributes``,\nwhereas a link label is the ``cards.parent_label`` column.\n\nDeleting the option does **not** rewrite the stored values \u2014 they keep\nrendering as the unknown-option chip, and the card stays editable because\nthe write validator exempts an unchanged value. This count is what lets the\nadmin dialog say how many cards that will affect before they confirm.",
+        "operationId": "get_hierarchy_label_usage_api_v1_metamodel_types__key__hierarchy_label_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The hierarchy link label key to check",
+            "in": "query",
+            "name": "label_key",
+            "required": true,
+            "schema": {
+              "description": "The hierarchy link label key to check",
+              "title": "Label Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Hierarchy Label Usage",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
     "/api/v1/metamodel/types/{key}/option-usage": {
       "get": {
         "description": "Return how many active cards use a specific option value.",
@@ -31868,6 +33838,47 @@
           }
         },
         "summary": "Get Option Usage",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/permissions": {
+      "get": {
+        "description": "The per-role permission matrix for one card type (admin Permissions tab).\n\nGated on ``admin.metamodel`` because it reveals part of the RBAC matrix.\nIt deliberately exposes only the five type-scoped inventory bits per role \u2014\nnever the full permission set, which stays behind ``admin.roles`` \u2014 so an\nadmin who may edit the metamodel can see what a role inherits without\nbeing handed the whole role configuration.\n\n``inherited`` is what the role grants landscape-wide; ``overrides`` is what\nthis type stores. A cell missing from ``overrides`` inherits. Archived\nroles are omitted, and a stored override naming a role that no longer\nexists is simply not listed (it is inert at check time too).",
+        "operationId": "get_type_permissions_api_v1_metamodel_types__key__permissions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Type Permissions",
         "tags": [
           "metamodel"
         ]
@@ -32411,6 +34422,59 @@
           }
         },
         "summary": "List Migrations",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/export": {
+      "get": {
+        "description": "Download the workspace in ``source_key``'s own export format.\n\nThe reverse of the importer: the inventory, metamodel, tags,\nstakeholders, documents and comments are collected into the same\nsnapshot shape the parsers produce, and the adapter writes its\nplatform's file \u2014 for LeanIX the Full Snapshot xlsx workbook the\nimporter accepts back unchanged. A full-landscape export, so it is\ngated like the workspace bundle export rather than per card type.",
+        "operationId": "export_workspace_api_v1_migration_export_get",
+        "parameters": [
+          {
+            "description": "Registry key of the target platform",
+            "in": "query",
+            "name": "source_key",
+            "required": true,
+            "schema": {
+              "description": "Registry key of the target platform",
+              "title": "Source Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Workspace",
         "tags": [
           "Migration"
         ]
@@ -38697,7 +40761,7 @@
     },
     "/api/v1/reports/bpm/process-map": {
       "get": {
-        "description": "Process landscape map: hierarchy + related apps, data objects, orgs, contexts.",
+        "description": "Process landscape map: hierarchy + related apps, data objects, orgs, contexts.\n\nThe landscape itself is assembled by ``process_map_service`` so this route and\nthe account-less Process Navigator portal are built from one implementation and\ncannot drift. The response shape below stays this route's own \u2014 the service\nreturns the data, the route decides what an authenticated caller sees.",
         "operationId": "process_map_api_v1_reports_bpm_process_map_get",
         "responses": {
           "200": {
@@ -38835,7 +40899,7 @@
     },
     "/api/v1/reports/cost": {
       "get": {
-        "description": "Cost aggregation report.",
+        "description": "Cost aggregation report for the current fiscal year.\n\nOnly cards live in the current fiscal year count, by the same rule as\n``GET /reports/cost-treemap``.",
         "operationId": "cost_report_api_v1_reports_cost_get",
         "parameters": [
           {
@@ -38877,7 +40941,7 @@
     },
     "/api/v1/reports/cost-treemap": {
       "get": {
-        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
+        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
         "operationId": "cost_treemap_api_v1_reports_cost_treemap_get",
         "parameters": [
           {
@@ -39058,7 +41122,7 @@
     },
     "/api/v1/reports/data-quality": {
       "get": {
-        "description": "Data quality & completeness dashboard.",
+        "description": "Data quality & completeness dashboard.\n\nCounts only the cards the reader may see. ``orphaned`` stays the system\ntruth \u2014 \"no relation at all\", counting relations to hidden cards \u2014 so the\ntile keeps agreeing with ``orphaned_condition()`` behind its drill-down.",
         "operationId": "data_quality_api_v1_reports_data_quality_get",
         "responses": {
           "200": {
@@ -39118,7 +41182,7 @@
             }
           },
           {
-            "description": "orphaned | stale",
+            "description": "orphaned | stale | eol_linked | eol_manual | eol_missing. The three `eol_*` scopes are the EOL coverage chart's segments and pair with `type`.",
             "in": "query",
             "name": "scope",
             "required": false,
@@ -39131,7 +41195,7 @@
                   "type": "null"
                 }
               ],
-              "description": "orphaned | stale",
+              "description": "orphaned | stale | eol_linked | eol_manual | eol_missing. The three `eol_*` scopes are the EOL coverage chart's segments and pair with `type`.",
               "title": "Scope"
             }
           },
@@ -39288,7 +41352,7 @@
     },
     "/api/v1/reports/eol": {
       "get": {
-        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date.",
+        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
         "operationId": "eol_report_api_v1_reports_eol_get",
         "responses": {
           "200": {
@@ -44800,6 +46864,46 @@
         ]
       }
     },
+    "/api/v1/settings/extension-store-check": {
+      "post": {
+        "description": "Run the extension-store check immediately and report what it found.\n\nWithout this, verifying the daily check means waiting up to a day and then\ninferring the result from whether a notification turned up \u2014 which cannot\ndistinguish \"nothing was new\" from \"the fetch is failing\".\n\nSame three phases as the daily loop, over this request's session rather\nthan sessions of its own: read the toggle, hand the connection back, fetch\nholding nothing, reopen for the writes. It is spelled out here rather than\ndelegated because a helper must never commit a session it was handed, and\nthe loop's entry point owns sessions this request does not have. Honours\nthe notices toggle, so a switched-off instance makes no outbound request\nhere any more than it does on the timer.",
+        "operationId": "run_extension_store_check_now_api_v1_settings_extension_store_check_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Extension Store Check Now",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/extension-store-status": {
+      "get": {
+        "description": "Cached result of the last extension-store check, for the Store tab.\n\nThe daily check is otherwise completely silent \u2014 a store that refuses the\nrequest records the reason in the settings row and nowhere else, so an\nadministrator who is not being notified has no way to tell \"nothing was\nnew\" from \"the fetch has been failing for a fortnight\". Gated on\n``admin.settings`` like its ``/update-status`` neighbour, and it serves only\nwhat the daily check already stored; it never reaches out to the store.",
+        "operationId": "get_extension_store_status_api_v1_settings_extension_store_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Extension Store Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/favicon": {
       "delete": {
         "description": "Admin endpoint \u2014 reset to the default favicon.",
@@ -49779,6 +51883,7 @@
     },
     "/api/v1/users/me/notification-preferences": {
       "get": {
+        "description": "Stored opt-ins, plus what the dialog needs to render itself.\n\n``types`` is served rather than hardcoded in the frontend because the two\nlists had already drifted: fourteen emitted types appeared in neither, so\nthey could not be configured at all. The dialog renders one row per entry\nhere, so adding a type to ``NOTIFICATION_TYPE_SPECS`` is all it takes.",
         "operationId": "get_notification_preferences_api_v1_users_me_notification_preferences_get",
         "responses": {
           "200": {
@@ -50381,6 +52486,101 @@
         ]
       }
     },
+    "/api/v1/web-portals/public/{slug}/bpm/process-map": {
+      "get": {
+        "description": "The read-only Process House, for a portal published with that view.\n\nShares one builder with the authenticated ``/reports/bpm/process-map`` route\nso the two houses cannot drift, then projects the result onto a separate,\nopt-in public shape (``to_public_process_map``) rather than filtering fields\nout of the internal one \u2014 a subtractive filter would publish whatever field\nsomeone adds to the internal item next.\n\nOn what is *not* published: the internal item carries every linked\nApplication with its full attributes (costs included), every linked\nDataObject, an application count and a cost rollup. None of it is here, and\nthere is no switch to turn it on \u2014 a navigator portal publishes how the\norganisation works, not which systems run it. See ``app/schemas/bpm_public.py``.",
+        "operationId": "get_public_portal_process_map_api_v1_web_portals_public__slug__bpm_process_map_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BpmPublicProcessMap"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Portal Process Map",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
+    "/api/v1/web-portals/public/{slug}/bpm/processes/{process_id}/flow": {
+      "get": {
+        "description": "The published BPMN flow and its steps for one in-scope process.\n\nOne route rather than two because the Steps tab, the flow thumbnail and the\nfullscreen preview are three renderings of the same published artefact; the\nauthenticated navigator fetches it three times over two endpoints today. One\nroute means one scope check and one rate-limit bucket.\n\n**The scope check is the security of this route.** A portal narrowed by\n``filters`` publishes a subset of processes, and process ids are handed out\nfreely by other portals' maps \u2014 so without re-running the portal's own\npredicate against the requested id, a portal scoped to one branch of the\nhouse would serve every other process's BPMN to anyone who asks.\n\nOnly a ``published`` version is ever served. A process with only drafts, only\narchived or withdrawn revisions, or only a legacy ``process_diagrams`` row\nreturns an empty flow \u2014 and its steps stay empty too, because that legacy\nsave path populates ``process_elements`` with no approval involved.",
+        "operationId": "get_public_portal_process_flow_api_v1_web_portals_public__slug__bpm_processes__process_id__flow_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BpmPublicFlow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Portal Process Flow",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
     "/api/v1/web-portals/public/{slug}/cards": {
       "get": {
         "description": "Public endpoint: returns cards for a published portal with optional filtering.",
@@ -50613,6 +52813,67 @@
           }
         },
         "summary": "Get Portal Gate",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
+    "/api/v1/web-portals/public/{slug}/ppm/portfolio": {
+      "get": {
+        "description": "The read-only PPM portfolio board, for a portal published with that view.\n\nShares one builder with the authenticated ``/reports/ppm/*`` routes so the two\nboards cannot drift, then projects the result onto a separate, opt-in public\nshape (``to_public_portfolio``) rather than filtering fields out of the\ninternal one \u2014 a subtractive filter would publish whatever field someone adds\nto ``PpmGanttItem`` next.\n\nOn what may be published: ``show_costs`` governs the capex/opex aggregates and\nthe portfolio budget total, which are sums over ``ppm_cost_lines`` /\n``ppm_budget_lines``. It does **not** reach the Initiative card's own\n``costBudget`` / ``costActual`` attributes \u2014 those are ``type: \"cost\"``\nmetamodel fields, and public portals strip cost-typed fields unconditionally\n(see ``get_public_portal``). This is not an exemption from that invariant; the\nPPM tables simply sit outside it, and the board renders the two card\nattributes nowhere.\n\nA 404 (never a 400) is returned when the portal is not a portfolio portal or\nthe module is off, so a card-portal slug never confirms that this route exists.",
+        "operationId": "get_public_portal_ppm_portfolio_api_v1_web_portals_public__slug__ppm_portfolio_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Card type key to group by",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Card type key to group by",
+              "title": "Group By"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmPublicPortfolio"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Portal Ppm Portfolio",
         "tags": [
           "web-portals"
         ]

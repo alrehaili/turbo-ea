@@ -25,6 +25,7 @@ from app.models.servicenow import (
     SnowStagedRecord,
     SnowSyncRun,
 )
+from app.services.card_lifecycle import archive_cards_in_place
 from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
@@ -330,6 +331,45 @@ def _get_nested(source: dict, path: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _diff_to_changes(
+    diff: dict,
+    before_attrs: dict,
+    before_lifecycle: dict,
+    card: Card,
+) -> dict:
+    """Reshape a staged ServiceNow diff into the History tab's change format.
+
+    The tab's `parseChanges` expects `{field: {"old", "new"}}`, with `attributes`
+    and `lifecycle` carried as whole-blob old/new pairs it re-diffs per key. The
+    sync used to send a bare list of field-path names, which rendered as nothing
+    at all even once the event was persisted (#995).
+    """
+    changes: dict = {}
+    for field_path, change in (diff or {}).items():
+        if field_path.startswith(("attributes.", "lifecycle.")):
+            continue
+        changes[field_path] = {"old": change.get("old"), "new": change.get("new")}
+    if any(k.startswith("attributes.") for k in (diff or {})):
+        changes["attributes"] = {"old": before_attrs, "new": dict(card.attributes or {})}
+    if any(k.startswith("lifecycle.") for k in (diff or {})):
+        changes["lifecycle"] = {"old": before_lifecycle, "new": dict(card.lifecycle or {})}
+    return changes
+
+
+def _bump(run: SnowSyncRun, key: str, by: int = 1) -> None:
+    """Count on the run's ``stats`` by *reassigning* the dict.
+
+    ``stats`` is a plain JSONB column: an in-place increment of one key is
+    invisible to SQLAlchemy's change tracking once the row has been
+    flushed — and every query the sync makes autoflushes — so the counts
+    a run reported in memory never reached the table. The Sync runs page
+    then showed ``fetched`` alone for a pull and zeros for a push.
+    """
+    stats = dict(run.stats or {})
+    stats[key] = stats.get(key, 0) + by
+    run.stats = stats
+
+
 class SyncEngine:
     """Orchestrates pull/push sync between ServiceNow and Turbo EA."""
 
@@ -424,7 +464,7 @@ class SyncEngine:
                     )
                 except Exception as exc:
                     logger.error("Error processing SNOW record %s: %s", sys_id, exc)
-                    run.stats["errors"] = run.stats.get("errors", 0) + 1  # type: ignore[union-attr]
+                    _bump(run, "errors")
 
             # Handle deletions (conservative/strict mode)
             if mapping.sync_mode in ("conservative", "strict"):
@@ -511,9 +551,9 @@ class SyncEngine:
                 status="applied",
             )
             if action == "create":
-                await self._apply_create(fake_staged, mapping, field_mappings)
+                await self._apply_create(fake_staged, mapping, field_mappings, run.created_by)
             elif action == "update":
-                await self._apply_update(fake_staged, field_mappings)
+                await self._apply_update(fake_staged, field_mappings, run.created_by)
         elif not skip_staging:
             staged = SnowStagedRecord(
                 sync_run_id=run.id,
@@ -529,9 +569,9 @@ class SyncEngine:
 
         # Update stats
         if action != "skip":
-            run.stats[action + "d"] = run.stats.get(action + "d", 0) + 1  # type: ignore[union-attr]
+            _bump(run, action + "d")
         else:
-            run.stats["skipped"] = run.stats.get("skipped", 0) + 1  # type: ignore[union-attr]
+            _bump(run, "skipped")
 
     async def _fuzzy_match_card(
         self,
@@ -658,7 +698,7 @@ class SyncEngine:
                 status="pending",
             )
             self.db.add(staged)
-            run.stats["deleted"] = run.stats.get("deleted", 0) + 1  # type: ignore[union-attr]
+            _bump(run, "deleted")
 
     async def _apply_staged(self, run: SnowSyncRun) -> dict[str, int]:
         """Apply all pending staged records for a sync run."""
@@ -689,13 +729,13 @@ class SyncEngine:
         for staged in staged_records:
             try:
                 if staged.action == "create":
-                    await self._apply_create(staged, mapping, field_mappings)
+                    await self._apply_create(staged, mapping, field_mappings, run.created_by)
                     applied["created"] += 1
                 elif staged.action == "update":
-                    await self._apply_update(staged, field_mappings)
+                    await self._apply_update(staged, field_mappings, run.created_by)
                     applied["updated"] += 1
                 elif staged.action == "delete":
-                    await self._apply_delete(staged, mapping)
+                    await self._apply_delete(staged, mapping, run.created_by)
                     applied["deleted"] += 1
                 staged.status = "applied"
             except Exception as exc:
@@ -711,6 +751,7 @@ class SyncEngine:
         staged: SnowStagedRecord,
         mapping: SnowMapping,
         field_mappings: list[SnowFieldMapping],
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         """Create a new card from a staged record."""
         transformed = FieldTransformer.apply_mappings(
@@ -744,16 +785,22 @@ class SyncEngine:
         )
         self.db.add(id_entry)
 
+        # `db=` is what persists the Event row — without it the publish is
+        # SSE-only and the sync never reaches the card's History tab, while the
+        # write it just made moves Last-changed (#995).
         await event_bus.publish(
             event_type="card.created",
             data={"name": card.name, "type": card.type, "source": "servicenow_sync"},
+            db=self.db,
             card_id=card.id,
+            user_id=actor_id,
         )
 
     async def _apply_update(
         self,
         staged: SnowStagedRecord,
         field_mappings: list[SnowFieldMapping],
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         """Update an existing card from a staged record."""
         if not staged.card_id:
@@ -765,6 +812,8 @@ class SyncEngine:
             return
 
         diff = staged.diff or {}
+        before_attrs = dict(card.attributes or {})
+        before_lifecycle = dict(card.lifecycle or {})
         for field_path, change in diff.items():
             new_val = change.get("new")
             if field_path == "name" and new_val:
@@ -801,15 +850,18 @@ class SyncEngine:
                 "name": card.name,
                 "type": card.type,
                 "source": "servicenow_sync",
-                "changes": list(diff.keys()),
+                "changes": _diff_to_changes(diff, before_attrs, before_lifecycle, card),
             },
+            db=self.db,
             card_id=card.id,
+            user_id=actor_id,
         )
 
     async def _apply_delete(
         self,
         staged: SnowStagedRecord,
         mapping: SnowMapping,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         """Archive a card (soft-delete) based on a staged deletion."""
         if not staged.card_id:
@@ -820,7 +872,13 @@ class SyncEngine:
         if not card or card.status == "ARCHIVED":
             return
 
-        card.status = "ARCHIVED"
+        # Archive through the shared helper rather than flipping `status` by
+        # hand: the purge loop selects on `archived_at IS NOT NULL`
+        # (`app/main.py`), so a card archived without that stamp is invisible to
+        # retention and is kept forever. `archive_cards_in_place` sets status,
+        # `archived_at` and `updated_by` the same way every other archive path
+        # does.
+        archive_cards_in_place([card], actor_id)
 
         # Remove from identity map
         await self.db.execute(
@@ -833,7 +891,9 @@ class SyncEngine:
         await event_bus.publish(
             event_type="card.archived",
             data={"name": card.name, "type": card.type, "source": "servicenow_sync"},
+            db=self.db,
             card_id=card.id,
+            user_id=actor_id,
         )
 
     async def push_sync(
@@ -883,7 +943,7 @@ class SyncEngine:
             id_map_by_card = {e.card_id: e for e in id_map_result.scalars().all()}
 
             for card in cards:
-                run.stats["processed"] = run.stats.get("processed", 0) + 1  # type: ignore[union-attr]
+                _bump(run, "processed")
                 try:
                     # Build card data dict for transformation
                     card_data = {
@@ -903,7 +963,7 @@ class SyncEngine:
                             mapping.snow_table, id_entry.snow_sys_id, snow_data
                         )
                         id_entry.last_synced_at = datetime.now(timezone.utc)
-                        run.stats["updated"] = run.stats.get("updated", 0) + 1  # type: ignore[union-attr]
+                        _bump(run, "updated")
                     else:
                         # Create new SNOW record
                         result = await self.client.create_record(mapping.snow_table, snow_data)
@@ -919,11 +979,11 @@ class SyncEngine:
                                 last_synced_at=datetime.now(timezone.utc),
                             )
                             self.db.add(new_entry)
-                        run.stats["created"] = run.stats.get("created", 0) + 1  # type: ignore[union-attr]
+                        _bump(run, "created")
 
                 except Exception as exc:
                     logger.error("Push failed for card %s: %s", card.id, exc)
-                    run.stats["errors"] = run.stats.get("errors", 0) + 1  # type: ignore[union-attr]
+                    _bump(run, "errors")
 
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)

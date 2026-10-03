@@ -56,6 +56,9 @@ Klicken Sie auf das **Bearbeitungssymbol** in einer beliebigen Benutzerzeile, um
 - **Passwort** (nur für lokale Benutzer): Ein neues Passwort setzen. Leer lassen, um das aktuelle Passwort beizubehalten
 - **Rolle**: Die anwendungsweite Rolle des Benutzers ändern
 
+!!! note "Sie können sich nicht selbst herabstufen oder deaktivieren"
+    In Ihrer eigenen Zeile sind das Auswahlfeld **Rolle** und die Schaltfläche **Deaktivieren** deaktiviert, und auch die API verweigert beide Änderungen. Wer die eigene Rolle ablegt, verliert mit demselben Klick die Administrationsbereiche, und nur eine andere Administratorin oder ein anderer Administrator kann sie zurückgeben. Für einen Rollenwechsel bitten Sie daher eine zweite Person mit Administratorrechten darum. Kann sich niemand mehr als Administrator anmelden, folgen Sie [Administratorzugang wiederherstellen](operations.md#recovering-administrator-access).
+
 #### Ein bestehendes lokales Konto mit SSO verknüpfen
 
 Wenn ein Benutzer bereits ein lokales Konto hat und Ihre Organisation SSO aktiviert, sieht der Benutzer die Fehlermeldung «Ein lokales Konto mit dieser E-Mail existiert bereits», wenn er versucht, sich per SSO anzumelden. Um dies zu beheben:
@@ -74,7 +77,7 @@ Verwenden Sie die Zeilen-Kontrollkästchen in der Benutzertabelle, um mehrere Be
 - **Aktivieren** / **Deaktivieren** — `is_active` für die Auswahl umschalten
 - **Löschen** — ausgewählte Benutzer endgültig entfernen (nur deaktivierte Benutzer werden gelöscht; aktive Benutzer in der Auswahl werden mit einer Erklärung übersprungen)
 
-Die «Letzter Administrator»-Sicherung gilt: Massen-Rollenänderungen, die keinen aktiven Administrator übrig lassen würden, werden abgelehnt. Das Gleiche gilt für das Deaktivieren oder Löschen des letzten Administrators.
+Die «Letzter Administrator»-Sicherung gilt: Massen-Rollenänderungen, die keinen aktiven Administrator übrig lassen würden, werden abgelehnt. Das Gleiche gilt für das Deaktivieren oder Löschen des letzten Administrators. Ihr eigenes Konto wird aus demselben Grund bei Massen-Rollenänderungen und Massen-Deaktivierungen übersprungen.
 
 #### Benutzer aus einer Tabelle importieren
 
@@ -118,6 +121,10 @@ Der **Rollen**-Tab ermöglicht die Verwaltung anwendungsweiter Rollen. Jede Roll
 | **Betrachter** | Schreibgeschützter Zugriff über alle Bereiche |
 
 Benutzerdefinierte Rollen können mit granularer Berechtigungssteuerung über Inventar, Beziehungen, Stakeholder, Kommentare, Dokumente, Diagramme, BPM, Berichte und mehr erstellt werden.
+
+Berechtigungen gelten für die Adressleiste ebenso wie für das Menü. Eine Seite, die eine Rolle nicht öffnen darf, zeigt den Hinweis **Zugriff verweigert** mit einem Link zurück zum Dashboard — unabhängig davon, ob sie über die Navigation, ein Lesezeichen oder einen geteilten Link aufgerufen wird. Einen Menüeintrag auszublenden und die Seite zu sperren ist damit immer dieselbe Entscheidung.
+
+Die Berechtigungen einer Rolle gelten standardmäßig für jeden Kartentyp. Ein Administrator kann dies pro Kartentyp einschränken — **Anzeigen**, **Erstellen**, **Bearbeiten**, **Archivieren** und **Löschen** jeweils erlauben oder verweigern — auf der Registerkarte **Berechtigungen** des Kartentyps im [Metamodell](metamodel.md#permissions). So können Sie jedem das Erstellen von Anwendungen erlauben und Organisationen und Initiativen einem zentralen Team vorbehalten. Das Verweigern von **Anzeigen** geht weiter: Karten dieses Typs verschwinden für die Rolle überall, mit Ausnahme der Karten, bei denen ihre Benutzer eine Stakeholder-Rolle innehaben (siehe [Einen Kartentyp vor einer Rolle ausblenden](metamodel.md#hiding-a-card-type-from-a-role)).
 
 #### Einen Benutzer deaktivieren
 
