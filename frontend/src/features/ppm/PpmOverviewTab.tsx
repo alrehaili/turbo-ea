@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link as RouterLink } from "react-router";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
@@ -15,13 +16,16 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { KPI_VALUE_SX } from "./ppmStyles";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
 
-const RAG_COLORS: Record<string, string> = {
-  onTrack: "#2e7d32",
-  atRisk: "#ed6c02",
-  offTrack: "#d32f2f",
+const HEALTH_DOT_COLORS: Record<string, string> = {
+  onTrack: RAG_COLORS.green,
+  atRisk: RAG_COLORS.amber,
+  offTrack: RAG_COLORS.red,
 };
 
 /** A relation with just the ends we need to spot KPI links. */
@@ -110,7 +114,7 @@ function HealthDot({ value, label }: { value: string; label: string }) {
           height: 16,
           flexShrink: 0,
           borderRadius: "50%",
-          bgcolor: RAG_COLORS[value] || "#bdbdbd",
+          bgcolor: HEALTH_DOT_COLORS[value] || STATUS_COLORS.neutral,
         }}
       />
       <Typography variant="body2">{label}</Typography>
@@ -187,18 +191,20 @@ export default function PpmOverviewTab({
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
   const subtypeLabel = useCardSubtypeLabel();
+  const { formatDate } = useDateFormat();
   const attrs = card.attributes || {};
   const budgetBarColor = theme.palette.primary.main;
   const overBudgetColor = theme.palette.error.dark;
 
-  // Fetch initiative completion
-  const [completionPct, setCompletionPct] = useState<number | null>(null);
-  useEffect(() => {
-    api
-      .get<{ completion: number }>(`/ppm/initiatives/${card.id}/completion`)
-      .then((r) => setCompletionPct(r.completion))
-      .catch(() => {});
-  }, [card.id]);
+  // Initiative completion. Ordered per initiative, and never the previous
+  // initiative's figure while the next one loads.
+  const { data: completion, error: completionError } = useApiQuery<{
+    completion: number;
+    wbs_count: number;
+  }>(`/ppm/initiatives/${card.id}/completion`, { keepPreviousData: false });
+  const completionPct = completion?.completion;
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: completionPct is read off completion, so the two are undefined together
+  const completionLoading = completion === undefined || completionPct === undefined;
 
   // Linked KPIs (WP4.2): initiatives that "improve" KPI cards surface them
   // here with live progress, and deep-link to the KPI Scorecard.
@@ -318,7 +324,17 @@ export default function PpmOverviewTab({
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
           {t("completion")}
         </Typography>
-        {completionPct !== null ? (
+        {completionError ? (
+          <Alert severity="error">
+            {completionError.message || t("common:errors.generic")}
+          </Alert>
+        ) : completionLoading ? (
+          <LinearProgress />
+        ) : completion.wbs_count === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("noWbsItems")}
+          </Typography>
+        ) : (
           <Box display="flex" alignItems="center" gap={2}>
             <Box
               sx={{
@@ -368,10 +384,6 @@ export default function PpmOverviewTab({
               </Typography>
             </Box>
           </Box>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {t("noWbsItems")}
-          </Typography>
         )}
       </Paper>
 
@@ -413,7 +425,7 @@ export default function PpmOverviewTab({
                           size="small"
                           label={k.onTrack ? t("onTrack", "On track") : t("offTrack", "Off track")}
                           sx={{
-                            bgcolor: k.onTrack ? RAG_COLORS.onTrack : RAG_COLORS.offTrack,
+                            bgcolor: k.onTrack ? HEALTH_DOT_COLORS.onTrack : HEALTH_DOT_COLORS.offTrack,
                             color: "#fff",
                             height: 20,
                           }}
@@ -527,7 +539,7 @@ export default function PpmOverviewTab({
               {t("startDate")}
             </Typography>
             <Typography variant="body2">
-              {(attrs.startDate as string) || "\u2014"}
+              {attrs.startDate ? formatDate(attrs.startDate as string) : "\u2014"}
             </Typography>
           </Box>
           <Box>
@@ -535,7 +547,7 @@ export default function PpmOverviewTab({
               {t("endDate")}
             </Typography>
             <Typography variant="body2">
-              {(attrs.endDate as string) || "\u2014"}
+              {attrs.endDate ? formatDate(attrs.endDate as string) : "\u2014"}
             </Typography>
           </Box>
           {card.subtype && (
@@ -568,7 +580,7 @@ export default function PpmOverviewTab({
       {card.description && (
         <Paper sx={{ p: 2.5, gridColumn: { md: "1 / -1" } }}>
           <Typography variant="subtitle1" fontWeight={600} mb={1}>
-            {t("common:description", "Description")}
+            {t("common:labels.description")}
           </Typography>
           <Typography
             variant="body2"

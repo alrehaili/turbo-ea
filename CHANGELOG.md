@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.30.0] - 2026-10-09
+
+### Added
+- Merged upstream Turbo EA **v2.157.0 → v2.158.1** into the fork.
+- **Card alias on diagrams** — "Show on card" can show each card's alias on DrawIO card shapes and Layered Dependency View nodes.
+
+### Fixed
+- Upstream's mutation-testing sweep: card detail, reports, PPM, GRC, EA Delivery, Todos, TurboLens, admin pages and portals now show load/save errors instead of empty states or endless spinners, and guard against double submits and stale out-of-order responses.
+- Saved Matrix, Lifecycle, Cost and Capability Map reports reopen with their filters; a cost stored as text no longer breaks the cost reports.
+- Descriptions typed when creating a card on a diagram are kept on sync.
+- Portals send visitors only the data the portal shows.
+
+### Security
+- A very long number-like value in a cost or number field can no longer stall the server.
+
 ## [2.29.0] - 2026-10-03
 
 ### Added

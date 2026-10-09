@@ -26,7 +26,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import AdmSoAWSection from "@/features/adm/AdmSoAWSection";
 import RichTextEditor from "./RichTextEditor";
@@ -44,6 +44,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
+import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
@@ -283,11 +284,15 @@ export default function SoAWEditor() {
 
   // ── save ───────────────────────────────────────────────────────────────
 
+  // One save at a time: a second click before the first answered would
+  // create the document twice.
+  const save = useSubmitOnce();
   const handleSave = async () => {
     if (!name.trim()) {
       setError(t("editor.documentNameRequired"));
       return;
     }
+    await save.run(async () => {
     setSaving(true);
     setError("");
     try {
@@ -328,6 +333,7 @@ export default function SoAWEditor() {
     } finally {
       setSaving(false);
     }
+    });
   };
 
   // ── signing helpers ────────────────────────────────────────────────────
@@ -1166,7 +1172,10 @@ export default function SoAWEditor() {
                   border: "1px solid",
                   borderColor: sig.status === "signed" ? "success.light" : "divider",
                   borderRadius: 1,
-                  bgcolor: sig.status === "signed" ? "success.50" : "action.hover",
+                  bgcolor:
+                    sig.status === "signed"
+                      ? alpha(theme.palette.success.main, 0.08)
+                      : "action.hover",
                 }}
               >
                 {sig.status === "signed" ? (
