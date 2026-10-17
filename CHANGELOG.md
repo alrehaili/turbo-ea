@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.31.0] - 2026-10-17
+
+### Added
+- Merged upstream Turbo EA **v2.158.1 → v2.165.0** into the fork.
+- **Security & admin audit log** (from upstream) — sign-ins, failed attempts, lockouts, administrative actions and data exports are recorded and browsable under Admin → Settings → Audit log (migration 154).
+- Upstream report and survey improvements: colour and filter reports by yes/no and multi-select fields, a Yes / No pill for boolean fields, lifecycle and stakeholder fields in surveys, and hierarchy children grouped by subtype.
+
+### Fixed
+- Upstream fixes: diagrams and other card references relink on workspace import, catalogue name collisions, extension jobs that never fired, and hardened sign-in and public-access paths.
+
 ## [2.30.0] - 2026-10-09
 
 ### Added

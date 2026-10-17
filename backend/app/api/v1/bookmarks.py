@@ -25,10 +25,14 @@ VALID_VISIBILITY = {"private", "public", "shared"}
 
 
 async def _load_bookmark(db: AsyncSession, bookmark_id: uuid.UUID) -> Bookmark | None:
+    # ``populate_existing``: the share rows are written through the junction
+    # table, so a bookmark already in the session would otherwise keep the
+    # share list it was loaded with and the response would repeat it.
     result = await db.execute(
         select(Bookmark)
         .options(selectinload(Bookmark.shared_with_users))
         .where(Bookmark.id == bookmark_id)
+        .execution_options(populate_existing=True)
     )
     bm = result.scalar_one_or_none()
     if bm:
@@ -382,6 +386,9 @@ async def bookmark_odata_feed(
     Requires authentication. Returns data matching the bookmark's saved filters,
     limited to the cards the *caller* may read — a shared bookmark never hands
     over a card type the reader is denied."""
+    # Deliberately not recorded in the audit log (unlike the CSV/JSON/workspace
+    # exports): Excel and Power BI poll this feed on a schedule, so a row per
+    # refresh would bury every deliberate export under connector noise.
     read_scope = await require_inventory_browse(db, user)
 
     bid = uuid.UUID(bm_id)

@@ -145,7 +145,24 @@ RELATION_COLUMNS = (
 )
 RELATION_JSON = frozenset({"attributes"})
 
-CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name")
+# ``card_id`` is the card's id on the source (see the sheet columns below).
+CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name", "card_id")
+
+# What the three sheets actually carry: the value columns above plus the row's
+# own id on the exporting instance. Cards, relations and tags land under new
+# primary keys on the target, so the id is never written to a row — it is how
+# the importer translates the ids other rows hold *inside* a blob (a diagram's
+# cardId, a draft flow's links, a report's scope; #1246). Relations also carry
+# their two cards' ids so an end resolves even where no reference can reach it
+# (an archived card is invisible to the reference resolver).
+CARD_SHEET_COLUMNS = (*CARD_COLUMNS, schema.SOURCE_ID_COLUMN)
+RELATION_SHEET_COLUMNS = (
+    *RELATION_COLUMNS,
+    schema.SOURCE_ID_COLUMN,
+    "source_card_id",
+    "target_card_id",
+)
+TAG_SHEET_COLUMNS = (*TAG_COLUMNS, schema.SOURCE_ID_COLUMN)
 
 _MIME_EXT = {
     "image/png": "png",
@@ -163,27 +180,20 @@ def _mime_ext(mime: str | None) -> str:
     return _MIME_EXT.get((mime or "").lower(), "bin")
 
 
-def _card_ref(card: Card, by_id: dict[Any, Card]) -> str:
-    """Full ``parent_path / name`` ref for a card (root→name, escaped)."""
-    segments: list[str] = []
-    seen: set[Any] = set()
-    current = by_id.get(card.parent_id) if card.parent_id else None
-    while current is not None and current.id not in seen and len(segments) < schema.MAX_PATH_DEPTH:
-        seen.add(current.id)
-        segments.insert(0, current.name)
-        current = by_id.get(current.parent_id) if current.parent_id else None
-    return schema.build_ref_string(segments, card.name)
+def _card_record(card: Card, by_id: dict[Any, Card]) -> dict[str, Any]:
+    """One ``Cards`` row: every ``CARD_COLUMNS`` column read off the card.
 
-
-def _parent_path_cell(card: Card, by_id: dict[Any, Card]) -> str:
-    segments: list[str] = []
-    seen: set[Any] = set()
-    current = by_id.get(card.parent_id) if card.parent_id else None
-    while current is not None and current.id not in seen and len(segments) < schema.MAX_PATH_DEPTH:
-        seen.add(current.id)
-        segments.insert(0, current.name)
-        current = by_id.get(current.parent_id) if current.parent_id else None
-    return schema.encode_path(segments)
+    Deriving the row from the constant is what makes adding a column to it
+    enough to transfer it (``reference`` was listed, read by the applier and
+    never written until 2.158.8). ``parent_path`` is the one derived column.
+    """
+    record = {col: getattr(card, col) for col in CARD_COLUMNS if col != "parent_path"}
+    record["parent_path"] = schema.encode_path(schema.ancestor_names(card, by_id))
+    record["lifecycle"] = card.lifecycle or {}
+    record["attributes"] = card.attributes or {}
+    record["architecture_state"] = card.architecture_state or "current"
+    record[schema.SOURCE_ID_COLUMN] = str(card.id)
+    return record
 
 
 async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> bytes:
@@ -238,7 +248,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     tags = (await db.execute(select(Tag))).scalars().all()
     _emit(
         schema.SHEET_TAGS,
-        TAG_COLUMNS,
+        TAG_SHEET_COLUMNS,
         frozenset(),
         [
             {
@@ -249,6 +259,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "description": t.description,
                 "color": t.color,
                 "sort_order": t.sort_order,
+                schema.SOURCE_ID_COLUMN: str(t.id),
             }
             for t in tags
         ],
@@ -298,28 +309,8 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         card_query = card_query.where(Card.status != "ARCHIVED")
     cards = (await db.execute(card_query)).scalars().all()
     by_id = {c.id: c for c in cards}
-    card_records = [
-        {
-            "type": c.type,
-            "name": c.name,
-            "parent_path": _parent_path_cell(c, by_id),
-            "parent_label": c.parent_label,
-            "subtype": c.subtype,
-            "description": c.description,
-            "external_id": c.external_id,
-            "alias": c.alias,
-            "approval_status": c.approval_status,
-            "status": c.status,
-            "source_system": c.source_system,
-            "confidence": c.confidence,
-            "architecture_state": c.architecture_state or "current",
-            "change_type": c.change_type,
-            "lifecycle": c.lifecycle or {},
-            "attributes": c.attributes or {},
-        }
-        for c in cards
-    ]
-    _emit(schema.SHEET_CARDS, CARD_COLUMNS, CARD_JSON, card_records)
+    card_records = [_card_record(c, by_id) for c in cards]
+    _emit(schema.SHEET_CARDS, CARD_SHEET_COLUMNS, CARD_JSON, card_records)
 
     # --- Card tags ------------------------------------------------------
     tag_by_id = {t.id: t for t in tags}
@@ -334,9 +325,10 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         card_tag_records.append(
             {
                 "card_type": card.type,
-                "card_ref": _card_ref(card, by_id),
+                "card_ref": entities.build_card_ref(card, by_id),
                 "group_name": group.name if group else "",
                 "tag_name": tag.name,
+                "card_id": str(card.id),
             }
         )
     _emit(schema.SHEET_CARD_TAGS, CARD_TAG_COLUMNS, frozenset(), card_tag_records)
@@ -353,14 +345,17 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
             {
                 "type": rel.type,
                 "source_type": src.type,
-                "source_ref": _card_ref(src, by_id),
+                "source_ref": entities.build_card_ref(src, by_id),
                 "target_type": tgt.type,
-                "target_ref": _card_ref(tgt, by_id),
+                "target_ref": entities.build_card_ref(tgt, by_id),
                 "description": rel.description,
                 "attributes": rel.attributes or {},
+                schema.SOURCE_ID_COLUMN: str(rel.id),
+                "source_card_id": str(src.id),
+                "target_card_id": str(tgt.id),
             }
         )
-    _emit(schema.SHEET_RELATIONS, RELATION_COLUMNS, RELATION_JSON, relation_records)
+    _emit(schema.SHEET_RELATIONS, RELATION_SHEET_COLUMNS, RELATION_JSON, relation_records)
 
     # --- Generic entity sections (module + card-context tables) ---------
     full_card_map = {c.id: c for c in (await db.execute(select(Card))).scalars().all()}
@@ -382,11 +377,16 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
             {
                 "diagram_id": str(row.diagram_id),
                 "card_type": card.type,
-                "card_ref": _card_ref(card, full_card_map),
+                "card_ref": entities.build_card_ref(card, full_card_map),
+                "card_id": str(card.id),
             }
         )
     bundle_io.write_sheet(
-        wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows, assets
+        wb,
+        SHEET_DIAGRAM_CARDS,
+        ["diagram_id", "card_type", "card_ref", "card_id"],
+        dc_rows,
+        assets,
     )
     section_counts[SHEET_DIAGRAM_CARDS] = len(dc_rows)
 

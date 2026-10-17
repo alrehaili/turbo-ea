@@ -4,6 +4,7 @@ from app.models.approval_step import ApprovalStep
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.audit_log import AuditLogEntry
 from app.models.authoritative_source import AuthoritativeSource
 from app.models.base import Base
 from app.models.bookmark import Bookmark
@@ -226,4 +227,5 @@ __all__ = [
     "ViewpointDefinition",
     "ResourceType",
     "OpsRequestNonce",
+    "AuditLogEntry",
 ]

@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as filterSelect from "@/components/FilterSelect";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import * as relationSort from "@/lib/relationSort";
 import {
   appColorBucket,
+  attributeLabel,
   buildColorLegend,
   buildColorSegments,
   DEFAULT_APP_COLOR,
@@ -26,7 +29,7 @@ import {
 } from "./portfolioHelpers";
 import type { AppData, FieldDef, FilterState, RelSubtype, RelTypeDef } from "./portfolioHelpers";
 
-const LABELS = { notSet: "Not set", multiple: "Multiple" };
+const LABELS = { notSet: "Not set", multiple: "Multiple", yes: "Yes", no: "No" };
 
 /* ----- fixtures ----- */
 
@@ -97,6 +100,11 @@ function baseFilters(over: Partial<FilterState> = {}): FilterState {
   };
 }
 
+/* ----- fixtures resolved per test ----- */
+// The describes below resolve their Color By in `beforeEach`, never at the top
+// of the describe: code that runs while vitest collects a file runs with no
+// mutant active, so a mutant only it reaches can never be killed.
+
 /* ----- extractRelSubtypes ----- */
 
 describe("extractRelSubtypes", () => {
@@ -119,7 +127,10 @@ describe("extractRelSubtypes", () => {
 /* ----- resolveColorBy + appColorBucket ----- */
 
 describe("resolveColorBy / appColorBucket (relation subtype)", () => {
-  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  });
 
   it("resolves a rel: key to the matching subtype", () => {
     expect(res).toEqual({ kind: "rel", sub: usageSub });
@@ -153,7 +164,10 @@ describe("resolveColorBy / appColorBucket (relation subtype)", () => {
 });
 
 describe("appColorBucket per group-member (memberId)", () => {
-  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  });
 
   // An app owned by Org A but used by Org B: under each group it should show
   // the value of that specific relation — never the aggregate "Multiple".
@@ -192,7 +206,10 @@ describe("appColorBucket per group-member (memberId)", () => {
 });
 
 describe("appColorBucket (own field + none)", () => {
-  const res = resolveColorBy("usageType", [usageTypeField], []);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy("usageType", [usageTypeField], []);
+  });
 
   it("colors by an own single_select field value", () => {
     const a = { ...app("a"), attributes: { usageType: "user" } };
@@ -209,7 +226,10 @@ describe("appColorBucket (own field + none)", () => {
 /* ----- segments + legend ----- */
 
 describe("buildColorSegments / buildColorLegend (relation subtype)", () => {
-  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  let res: ReturnType<typeof resolveColorBy>;
+  beforeEach(() => {
+    res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+  });
   const apps = [
     app("a", [orgRel("owner")]),
     app("b", [orgRel("user")]),
@@ -403,15 +423,26 @@ describe("relation facets on a self-referencing type", () => {
 /* ----- exact answers: every branch states its full result ----- */
 
 describe("pickSelectFields / extractRelSubtypes / parseDate", () => {
-  it("keeps only single_select fields, in schema order, across sections", () => {
-    const tier: FieldDef = { key: "tier", label: "Tier", type: "single_select", options: [] };
-    const risk: FieldDef = { key: "risk", label: "Risk", type: "single_select", options: [] };
+  it("keeps every facet field (selects with options, booleans), in schema order", () => {
+    const opts = [{ key: "a", label: "A" }];
+    const tier: FieldDef = { key: "tier", label: "Tier", type: "single_select", options: opts };
+    const risk: FieldDef = { key: "risk", label: "Risk", type: "single_select", options: opts };
+    const cloud: FieldDef = { key: "cloud", label: "Cloud", type: "boolean" };
+    const regions: FieldDef = { key: "r", label: "R", type: "multiple_select", options: opts };
     const schema = [
-      { section: "A", fields: [{ key: "n", label: "N", type: "number" }, tier] },
+      { section: "A", fields: [{ key: "n", label: "N", type: "number" }, tier, cloud] },
       { section: "B", fields: [] },
-      { section: "C", fields: [risk, { key: "t", label: "T", type: "multiple_select" }] },
+      {
+        section: "C",
+        fields: [
+          risk,
+          { key: "t", label: "T", type: "multiple_select" },
+          { key: "e", label: "E", type: "single_select", options: [] },
+          regions,
+        ],
+      },
     ];
-    expect(pickSelectFields(schema)).toEqual([tier, risk]);
+    expect(pickSelectFields(schema)).toEqual([tier, cloud, risk, regions]);
     expect(pickSelectFields([])).toEqual([]);
   });
 
@@ -472,10 +503,11 @@ describe("resolveColorBy / appColorBucket exact buckets", () => {
       label: "Gold",
       isUnset: false,
     });
-    // An option without a colour, and a value no option knows.
+    // An option without a colour takes its palette colour (index 1); a value
+    // no option knows stays grey under its raw key.
     expect(appColorBucket(withTier("bare"), fieldRes, LABELS)).toEqual({
       key: "bare",
-      color: UNSET_COLOR,
+      color: "#7b1fa2",
       label: "Bare",
       isUnset: false,
     });
@@ -553,7 +585,7 @@ describe("buildColorSegments / buildColorLegend exact output", () => {
     expect(buildColorSegments(apps, { kind: "none" }, LABELS)).toEqual([]);
   });
 
-  it("lists coloured options, and Multiple only when a card needs it", () => {
+  it("lists every option coloured, and Multiple only when a card needs it", () => {
     const field: FieldDef = {
       key: "tier",
       label: "Tier",
@@ -566,6 +598,7 @@ describe("buildColorSegments / buildColorLegend exact output", () => {
     expect(buildColorLegend({ kind: "none" }, LABELS, [])).toBeNull();
     expect(buildColorLegend({ kind: "field", field }, LABELS, [])).toEqual([
       { label: "Gold", color: "#ffd700" },
+      { label: "Bare", color: "#7b1fa2" },
     ]);
     expect(
       buildColorLegend({ kind: "field", field: { ...field, options: undefined } }, LABELS, []),
@@ -725,5 +758,206 @@ describe("filters that must look at the right relation and date", () => {
     const blank = app("a", [{ ...orgRel(undefined), attributes: { usageType: "" } }]);
     const empty = baseFilters({ relSubtypeFilters: { [usageSub.composite]: [EMPTY_FILTER_KEY] } });
     expect(matchesStaticFilters(blank, empty)).toBe(true);
+  });
+});
+
+describe("details the mutation run found unpinned", () => {
+  it("offers only a relation type's single_select attributes", () => {
+    const note: FieldDef = { key: "note", label: "Note", type: "text" };
+    const mixed: RelTypeDef = { ...orgUsesApp, attributes_schema: [note, usageTypeField] };
+    expect(extractRelSubtypes([mixed], "Application")).toEqual([
+      { relType: mixed, field: usageTypeField },
+    ]);
+  });
+
+  it("segments nothing for no apps", () => {
+    const res = resolveColorBy("usageType", [usageTypeField], []);
+    expect(buildColorSegments([], res, LABELS)).toEqual([]);
+  });
+
+  // A stored value or id spelled like the "(empty)" sentinel is data, not an
+  // empty slot: selecting "(empty)" alone must not match it.
+  const SENTINEL = EMPTY_FILTER_KEY;
+
+  it("an attribute equal to the sentinel matches only a real selection of it", () => {
+    const a: AppData = { ...app("a"), attributes: { tier: SENTINEL } };
+    const onlyEmpty = baseFilters({ attributeFilters: { tier: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(a, onlyEmpty)).toBe(false);
+  });
+
+  it("a related id equal to the sentinel is not the empty selection", () => {
+    const a = app("a", [{ ...orgRel("owner"), related_id: SENTINEL }]);
+    const onlyEmpty = baseFilters({ relationFilters: { Organization: [EMPTY_FILTER_KEY] } });
+    expect(matchesStaticFilters(a, onlyEmpty)).toBe(false);
+  });
+
+  it("a subtype value equal to the sentinel is not the empty selection", () => {
+    const a = app("a", [orgRel(SENTINEL, "orgA")]);
+    const onlyEmpty = { [usageSub.composite]: [EMPTY_FILTER_KEY] };
+    expect(matchesStaticFilters(a, baseFilters({ relSubtypeFilters: onlyEmpty }))).toBe(false);
+    expect(relationMemberMatchesSubtypeFilters(a, "orgA", onlyEmpty, [usageSub])).toBe(false);
+  });
+});
+
+describe("relSubtypeComposite", () => {
+  it("joins the relation type and the field with ::, the key saved reports store", () => {
+    expect(relSubtypeComposite("relOrgToApp", "usageType")).toBe("relOrgToApp::usageType");
+  });
+});
+
+describe("exported constants", () => {
+  // Read from a fresh load of the module: a constant is built while the file
+  // loads, which for the copy imported above happened outside any test. Its
+  // dependencies are handed in already loaded, so only this module re-runs.
+  it("keep the Color By prefix saved reports store, and three distinct colours", async () => {
+    vi.resetModules();
+    vi.doMock("@/components/FilterSelect", () => filterSelect);
+    vi.doMock("@/lib/relationSort", () => relationSort);
+    try {
+      const fresh = await import("./portfolioHelpers");
+      expect(fresh.REL_SUBTYPE_PREFIX).toBe("rel:");
+      const colours = [fresh.UNSET_COLOR, fresh.DEFAULT_APP_COLOR, fresh.MULTIPLE_COLOR];
+      for (const c of colours) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(new Set(colours).size).toBe(3);
+    } finally {
+      vi.doUnmock("@/components/FilterSelect");
+      vi.doUnmock("@/lib/relationSort");
+      vi.resetModules();
+    }
+  });
+});
+
+/* ----- boolean and multi-select own fields (#1256) ----- */
+
+describe("boolean and multi-select own fields", () => {
+  const cloud: FieldDef = {
+    key: "isCloud",
+    label: "Cloud",
+    type: "boolean",
+    options: [
+      { key: "true", label: "Yes", color: "#4caf50" },
+      { key: "false", label: "No", color: "#2196f3" },
+    ],
+  };
+  const regions: FieldDef = {
+    key: "regions",
+    label: "Regions",
+    type: "multiple_select",
+    options: [
+      { key: "eu", label: "EU", color: "#123456" },
+      { key: "us", label: "US" },
+    ],
+  };
+  const withAttrs = (id: string, attributes: Record<string, unknown>): AppData => ({
+    ...app(id),
+    attributes,
+  });
+
+  it("buckets true, false and a missing boolean apart", () => {
+    const res = { kind: "field" as const, field: cloud };
+    expect(appColorBucket(withAttrs("a", { isCloud: true }), res, LABELS)).toEqual({
+      key: "true",
+      color: "#4caf50",
+      label: "Yes",
+      isUnset: false,
+    });
+    expect(appColorBucket(withAttrs("b", { isCloud: false }), res, LABELS)).toEqual({
+      key: "false",
+      color: "#2196f3",
+      label: "No",
+      isUnset: false,
+    });
+    expect(appColorBucket(withAttrs("c", {}), res, LABELS)).toEqual({
+      key: "__unset__",
+      color: UNSET_COLOR,
+      label: "Not set",
+      isUnset: true,
+    });
+  });
+
+  it("buckets a multi-select card with two values as Multiple", () => {
+    const res = { kind: "field" as const, field: regions };
+    expect(appColorBucket(withAttrs("a", { regions: ["eu", "us"] }), res, LABELS)).toEqual({
+      key: "__multiple__",
+      color: MULTIPLE_COLOR,
+      label: "Multiple",
+      isUnset: false,
+    });
+    expect(appColorBucket(withAttrs("b", { regions: ["us"] }), res, LABELS)).toEqual({
+      key: "us",
+      color: "#7b1fa2",
+      label: "US",
+      isUnset: false,
+    });
+  });
+
+  it("adds Multiple to a multi-select legend only when a card carries several values", () => {
+    const res = { kind: "field" as const, field: regions };
+    const one = [withAttrs("a", { regions: ["eu"] })];
+    const two = [...one, withAttrs("b", { regions: ["eu", "us"] })];
+    expect(buildColorLegend(res, LABELS, one)).toEqual([
+      { label: "EU", color: "#123456" },
+      { label: "US", color: "#7b1fa2" },
+    ]);
+    expect(buildColorLegend(res, LABELS, two)).toEqual([
+      { label: "EU", color: "#123456" },
+      { label: "US", color: "#7b1fa2" },
+      { label: "Multiple", color: MULTIPLE_COLOR },
+    ]);
+    expect(buildColorLegend({ kind: "field", field: cloud }, LABELS, two)).toEqual([
+      { label: "Yes", color: "#4caf50" },
+      { label: "No", color: "#2196f3" },
+    ]);
+    // A stray list on a single_select colours as Multiple too, so it is keyed.
+    const single: FieldDef = { ...regions, type: "single_select" };
+    expect(buildColorLegend({ kind: "field", field: single }, LABELS, two)).toHaveLength(3);
+    expect(buildColorLegend({ kind: "field", field: single }, LABELS, one)).toHaveLength(2);
+    expect(
+      buildColorLegend({ kind: "field", field: { ...regions, options: [] } }, LABELS, two),
+    ).toBeNull();
+  });
+
+  it("filters a boolean through the facet rule when its field is known", () => {
+    const yes = withAttrs("y", { isCloud: true });
+    const no = withAttrs("n", { isCloud: false });
+    const none = withAttrs("x", {});
+    const f = (vals: string[]) =>
+      baseFilters({ attributeFilters: { isCloud: vals }, facetFields: [cloud] });
+    expect(matchesStaticFilters(yes, f(["true"]))).toBe(true);
+    expect(matchesStaticFilters(no, f(["true"]))).toBe(false);
+    expect(matchesStaticFilters(no, f(["false"]))).toBe(true);
+    expect(matchesStaticFilters(none, f(["true"]))).toBe(false);
+    expect(matchesStaticFilters(none, f([EMPTY_FILTER_KEY]))).toBe(true);
+    expect(matchesStaticFilters(no, f([EMPTY_FILTER_KEY]))).toBe(false);
+    // Without the field list the plain comparison stays: a boolean never
+    // equals the string "true".
+    expect(
+      matchesStaticFilters(yes, baseFilters({ attributeFilters: { isCloud: ["true"] } })),
+    ).toBe(false);
+  });
+
+  it("filters a multi-select by any one of its values", () => {
+    const both = withAttrs("b", { regions: ["eu", "us"] });
+    const f = (vals: string[]) =>
+      baseFilters({ attributeFilters: { regions: vals }, facetFields: [regions, cloud] });
+    expect(matchesStaticFilters(both, f(["us"]))).toBe(true);
+    expect(matchesStaticFilters(both, f(["apac"]))).toBe(false);
+    expect(matchesStaticFilters(both, f([]))).toBe(true);
+  });
+
+  it("labels an attribute the way the table renders it", () => {
+    const fields = [cloud, regions];
+    expect(attributeLabel(withAttrs("a", { isCloud: true }), "isCloud", fields, LABELS)).toBe("Yes");
+    expect(attributeLabel(withAttrs("a", { isCloud: false }), "isCloud", fields, LABELS)).toBe("No");
+    expect(attributeLabel(withAttrs("a", {}), "isCloud", fields, LABELS)).toBe("");
+    expect(
+      attributeLabel(withAttrs("a", { regions: ["eu", "us"] }), "regions", fields, LABELS),
+    ).toBe("Multiple");
+    // A key no facet field names reads its raw value(s).
+    expect(attributeLabel(withAttrs("a", { other: ["x", "y"] }), "other", fields, LABELS)).toBe(
+      "x, y",
+    );
+    expect(attributeLabel(withAttrs("a", { other: true }), "other", fields, LABELS)).toBe("true");
+    expect(attributeLabel({ ...app("a"), attributes: undefined }, "other", fields, LABELS)).toBe("");
   });
 });

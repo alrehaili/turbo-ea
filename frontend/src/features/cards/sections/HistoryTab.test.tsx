@@ -24,6 +24,9 @@ vi.mock("@/hooks/useDateFormat", () => ({
 }));
 
 import { api } from "@/api/client";
+import { AuthProvider } from "@/hooks/AuthContext";
+import i18n from "@/i18n";
+import type { User } from "@/types";
 import HistoryTab from "./HistoryTab";
 
 const CARD_ID = "card-123";
@@ -184,5 +187,200 @@ describe("HistoryTab — file attachment replace and edit (#1166)", () => {
     expect(await screen.findByText("File updated")).toBeInTheDocument();
     expect(screen.getByText("Category")).toBeInTheDocument();
     expect(screen.getByText("security")).toBeInTheDocument();
+  });
+});
+
+describe("HistoryTab — event detail lines", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function event(id: string, event_type: string, data: Record<string, unknown>) {
+    return {
+      id,
+      event_type,
+      created_at: "2026-10-10T09:00:00Z",
+      user_id: "u1",
+      user_display_name: "Ann",
+      data,
+    };
+  }
+
+  it("links a relation's peer card and shows the verb", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "relation.created", {
+        directional_label: "is supported by",
+        direction: "outgoing",
+        peer_id: "peer-9",
+        peer_name: "Oracle DB",
+        peer_type: "Application",
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByText("is supported by")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Oracle DB" })).toHaveAttribute(
+      "href",
+      "/cards/peer-9",
+    );
+  });
+
+  it("links a risk by its reference and shows its level", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e2", "risk.added", {
+        reference: "R-000042",
+        title: "Single point of failure",
+        level: "High",
+        link: "/grc/risks/r42",
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByRole("link", { name: "R-000042" })).toHaveAttribute(
+      "href",
+      "/grc/risks/r42",
+    );
+    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByText("Single point of failure")).toBeInTheDocument();
+  });
+
+  it("links an added document in a new tab", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e3", "document.added", { name: "Runbook", url: "https://example.invalid/rb" }),
+    ]);
+    renderTab();
+    const link = await screen.findByRole("link", { name: "Runbook" });
+    expect(link).toHaveAttribute("href", "https://example.invalid/rb");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("shows a withdrawn flow's revision and its reason in full", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e4", "process_flow.withdrawn", { revision: 4, reason: "Wrong lane owner" }),
+    ]);
+    renderTab();
+    expect(await screen.findByText(/Wrong lane owner/)).toBeInTheDocument();
+    expect(screen.getByText("Revision 4")).toBeInTheDocument();
+  });
+
+  it("shows an event type this build does not know by its raw name", async () => {
+    vi.mocked(api.get).mockResolvedValue([event("e5", "card.teleported", { summary: "Moved" })]);
+    renderTab();
+    expect(await screen.findByText("card.teleported")).toBeInTheDocument();
+    expect(screen.getByText("Moved")).toBeInTheDocument();
+  });
+
+  it("shows one row per changed attribute, dropping the unchanged ones", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e6", "card.updated", {
+        changes: {
+          attributes: {
+            old: { cost: 10, keep: "same" },
+            new: { cost: 20, keep: "same" },
+          },
+        },
+      }),
+    ]);
+    renderTab();
+    expect(await screen.findByText("cost")).toBeInTheDocument();
+    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(screen.queryByText("keep")).not.toBeInTheDocument();
+  });
+
+  it("says so when the card has no history", async () => {
+    vi.mocked(api.get).mockResolvedValue([]);
+    renderTab();
+    expect(await screen.findByText(/no history/i)).toBeInTheDocument();
+  });
+});
+
+describe("HistoryTab — survey provenance (#1257)", () => {
+  const ct = (key: string, opts?: Record<string, unknown>) =>
+    String(i18n.t(`cards:${key}`, { ...(opts ?? {}), interpolation: { escapeValue: false } } as never));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const applied = {
+    id: "evt-s",
+    event_type: "card.updated",
+    created_at: "2026-10-15T10:00:00Z",
+    user_id: "u-admin",
+    user_display_name: "Admin",
+    data: {
+      changes: { lifecycle: { old: {}, new: { endOfLife: "2030-12-31" } } },
+      source: "survey_response",
+      survey_id: "s-1",
+      survey_name: "Q3 review",
+      respondent_name: "Ada",
+    },
+  };
+
+  function renderAs(permissions: Record<string, boolean>) {
+    const user = { id: "u", permissions } as unknown as User;
+    return render(
+      <AuthProvider user={user} refreshUser={async () => {}}>
+        <MemoryRouter>
+          <HistoryTab fsId={CARD_ID} cardType="Application" />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+  }
+
+  it("links the survey for someone who may open its results", async () => {
+    vi.mocked(api.get).mockResolvedValue([applied]);
+    renderAs({ "surveys.manage": true });
+
+    const chip = await screen.findByRole("link", { name: ct("history.surveyRespondent", { name: "Ada" }) });
+    expect(chip).toHaveTextContent(ct("history.viaSurvey", { name: "Q3 review" }));
+    expect(chip).toHaveAttribute("href", "/admin/surveys/s-1/results");
+    // The actor is still the admin who applied it.
+    expect(screen.getByText(ct("history.by", { user: "Admin" }))).toBeInTheDocument();
+  });
+
+  it("names the survey without a link for everyone else", async () => {
+    vi.mocked(api.get).mockResolvedValue([applied]);
+    renderAs({});
+
+    expect(
+      await screen.findByText(ct("history.viaSurvey", { name: "Q3 review" })),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Ada/ })).not.toBeInTheDocument();
+  });
+
+  it("says a survey made a pre-2.163.0 change even without its name", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...applied, data: { ...applied.data, survey_name: undefined, respondent_name: undefined } },
+    ]);
+    renderTab();
+
+    expect(await screen.findByText(ct("history.viaSurveyUnnamed"))).toBeInTheDocument();
+  });
+
+  it("labels a send and names its survey", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      {
+        id: "evt-sent",
+        event_type: "survey.sent",
+        created_at: "2026-10-15T09:00:00Z",
+        user_id: "u-admin",
+        user_display_name: "Admin",
+        data: { survey_id: "s-1", name: "Q3 review", survey_name: "Q3 review" },
+      },
+    ]);
+    renderTab();
+
+    expect(await screen.findByText(ct("history.events.surveySent"))).toBeInTheDocument();
+    expect(screen.getByText("Q3 review")).toBeInTheDocument();
+    expect(screen.queryByText(ct("history.viaSurvey", { name: "Q3 review" }))).not.toBeInTheDocument();
+  });
+
+  it("shows no survey chip on an ordinary edit", async () => {
+    vi.mocked(api.get).mockResolvedValue([{ ...applied, data: { changes: applied.data.changes } }]);
+    renderTab();
+
+    expect(await screen.findByText(ct("history.by", { user: "Admin" }))).toBeInTheDocument();
+    expect(screen.queryByText(ct("history.viaSurveyUnnamed"))).not.toBeInTheDocument();
+    expect(screen.queryByText(/Q3 review/)).not.toBeInTheDocument();
   });
 });

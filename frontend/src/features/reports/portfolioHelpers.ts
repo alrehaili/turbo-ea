@@ -7,6 +7,15 @@
 /* ------------------------------------------------------------------ */
 
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import {
+  MULTIPLE_COLOR,
+  MULTIPLE_KEY,
+  facetBucket,
+  facetLegend,
+  isFacetField,
+  matchesFacet,
+  rawValues,
+} from "@/lib/fieldFacets";
 import { parseSideKey } from "@/lib/relationSort";
 
 /* ------------------------------------------------------------------ */
@@ -120,6 +129,11 @@ export interface FilterState {
   /** Keyed by RelSubtype.composite. */
   relSubtypeFilters: Record<string, string[]>;
   relSubtypes: RelSubtype[];
+  /** The card's own facet fields (`pickSelectFields`). An `attributeFilters`
+   *  key naming one is matched through the shared facet rule — so a boolean
+   *  reads `"true"` / `"false"` and a multi-select matches any one value.
+   *  Absent, or a key it does not name, keeps the plain scalar comparison. */
+  facetFields?: FieldDef[];
   /** Flat list of selected tag ids (bucketed by group at filter time) */
   tagFilterIds: string[];
   tagGroups: TagGroupDef[];
@@ -134,24 +148,24 @@ export interface FilterState {
 export const UNSET_COLOR = "#9e9e9e";
 export const DEFAULT_APP_COLOR = "#0f7eb5";
 /** Neutral colour for a card whose matching relations carry differing
- * subtype values (the "Multiple" bucket). */
-export const MULTIPLE_COLOR = "#607d8b";
+ * subtype values (the "Multiple" bucket). Owned by the shared facet helper. */
+export { MULTIPLE_COLOR };
 
 /** Color By option-key prefix that marks a relation-subtype selection,
  * distinguishing it from a card's own field key. */
 export const REL_SUBTYPE_PREFIX = "rel:";
 
-export const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
-
 /* ------------------------------------------------------------------ */
 /*  Schema helpers                                                    */
 /* ------------------------------------------------------------------ */
 
+/** The card's own fields that can colour and filter the report: selects with
+ *  options and booleans (see `isFacetField`). */
 export function pickSelectFields(schema: SectionDef[]): FieldDef[] {
   const out: FieldDef[] = [];
   for (const s of schema)
     for (const f of s.fields)
-      if (f.type === "single_select") out.push(f);
+      if (isFacetField(f)) out.push(f);
   return out;
 }
 
@@ -170,6 +184,7 @@ export function extractRelSubtypes(
   const out: { relType: RelTypeDef; field: FieldDef }[] = [];
   for (const rt of relationTypes) {
     if (rt.source_type_key !== cardType && rt.target_type_key !== cardType) continue;
+    // Stryker disable next-line ArrayDeclaration: a string entry has no type and is skipped like none
     for (const f of rt.attributes_schema ?? []) {
       if (f.type === "single_select") out.push({ relType: rt, field: f });
     }
@@ -182,16 +197,13 @@ export function extractRelSubtypes(
 /* ------------------------------------------------------------------ */
 
 export function parseDate(s: string | undefined): number | null {
-  if (!s) return null;
-  const d = new Date(s);
+  // An absent or empty value is an invalid date like any other unparsable one.
+  const d = new Date(s ?? "");
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
 /** A bare lifecycle map (`plan`/`phaseIn`/`active`/`phaseOut`/`endOfLife` → ISO date). */
 export type Lifecycle = Record<string, string> | undefined;
-
-/** The phases that say a card is MEANT to go live but has not done so yet. */
-const PLANNED_PHASES = ["plan", "phaseIn"];
 
 /**
  * Whether the card is in the landscape at `dateMs` — i.e. its go-live date has
@@ -214,7 +226,8 @@ const PLANNED_PHASES = ["plan", "phaseIn"];
 export function hasStartedByDate(lifecycle: Lifecycle, dateMs: number): boolean {
   const active = parseDate(lifecycle?.active);
   if (active != null) return active <= dateMs;
-  return !PLANNED_PHASES.some((p) => parseDate(lifecycle?.[p]) != null);
+  // The phases that say a card is MEANT to go live but has not done so yet.
+  return !["plan", "phaseIn"].some((p) => parseDate(lifecycle?.[p]) != null);
 }
 
 /** Whether the card has reached end of life by `dateMs` (inclusive). */
@@ -244,6 +257,9 @@ export type ColorResolution =
 export interface ColorLabels {
   notSet: string;
   multiple: string;
+  /** A boolean field's two values. */
+  yes: string;
+  no: string;
 }
 
 export interface ColorBucket {
@@ -261,7 +277,6 @@ export function resolveColorBy(
   selectFields: FieldDef[],
   relSubtypes: RelSubtype[],
 ): ColorResolution {
-  if (!colorBy) return { kind: "none" };
   if (colorBy.startsWith(REL_SUBTYPE_PREFIX)) {
     const composite = colorBy.slice(REL_SUBTYPE_PREFIX.length);
     const sub = relSubtypes.find((s) => s.composite === composite);
@@ -301,10 +316,13 @@ export function appColorBucket(
     return { key: "__none__", color: DEFAULT_APP_COLOR, label: "", isUnset: false };
   }
   if (res.kind === "field") {
-    const val = (app.attributes || {})[res.field.key] as string | undefined;
-    if (!val) return { key: "__unset__", color: UNSET_COLOR, label: labels.notSet, isUnset: true };
-    const opt = res.field.options?.find((o) => o.key === val);
-    return { key: val, color: opt?.color || UNSET_COLOR, label: opt?.label || val, isUnset: false };
+    const b = facetBucket(res.field, (app.attributes || {})[res.field.key], labels);
+    return {
+      key: b.key,
+      color: b.color ?? UNSET_COLOR,
+      label: b.label,
+      isUnset: b.kind === "unset",
+    };
   }
   const values = relSubtypeValues(app, res.sub, memberId);
   if (values.length === 0) {
@@ -347,14 +365,32 @@ export function buildColorSegments(
   labels: ColorLabels,
   memberId?: string,
 ): { color: string; label: string; n: number }[] {
-  if (res.kind === "none" || apps.length === 0) return [];
+  if (res.kind === "none") return [];
   const counts = new Map<string, { color: string; label: string; n: number }>();
   for (const app of apps) {
     const b = appColorBucket(app, res, labels, memberId);
     if (!counts.has(b.key)) counts.set(b.key, { color: b.color, label: b.label, n: 0 });
     counts.get(b.key)!.n += 1;
   }
-  return Array.from(counts.values()).filter((s) => s.n > 0);
+  return Array.from(counts.values());
+}
+
+/** The label a card's own attribute renders as in the report table: the
+ * option label for a facet field (Yes / No for a boolean), the raw value(s)
+ * for any other key, and `""` when the card has no value. Sorting compares
+ * these, so the order matches what the reader sees — and a boolean value is
+ * never handed to `localeCompare`. */
+export function attributeLabel(
+  app: AppData,
+  key: string,
+  fields: FieldDef[],
+  labels: ColorLabels,
+): string {
+  const raw = (app.attributes || {})[key];
+  const field = fields.find((f) => f.key === key);
+  if (!field) return rawValues(raw).join(", ");
+  const b = facetBucket(field, raw, labels);
+  return b.kind === "unset" ? "" : b.label;
 }
 
 /** Build the colour legend swatches. For a relation subtype, append a
@@ -367,10 +403,11 @@ export function buildColorLegend(
 ): { label: string; color: string }[] | null {
   if (res.kind === "none") return null;
   if (res.kind === "field") {
-    if (!res.field.options) return null;
-    return res.field.options
-      .filter((o) => o.color)
-      .map((o) => ({ label: o.label, color: o.color! }));
+    const field = res.field;
+    if (!isFacetField(field)) return null;
+    // Keyed only when a card on the report carries several values.
+    const anyMultiple = apps.some((a) => appColorBucket(a, res, labels).key === MULTIPLE_KEY);
+    return facetLegend(field, labels, anyMultiple).map(({ label, color }) => ({ label, color }));
   }
   const out = res.sub.options
     .filter((o) => o.color)
@@ -408,7 +445,7 @@ export function relationMemberMatchesSubtypeFilters(
     const ok = rels.some((r) => {
       const v = (r.attributes || {})[sub.fieldKey];
       const empty = v === undefined || v === null || v === "";
-      return (wantEmpty && empty) || (typeof v === "string" && realVals.includes(v));
+      return (wantEmpty && empty) || realVals.includes(v as string);
     });
     if (!ok) return false;
   }
@@ -433,12 +470,17 @@ export function matchesStaticFilters(
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(filters.attributeFilters)) {
     if (vals.length === 0) continue;
+    const facet = filters.facetFields?.find((f) => f.key === key);
+    if (facet) {
+      if (matchesFacet(facet, attrs[key], vals, EMPTY_FILTER_KEY)) continue;
+      return false;
+    }
     const v = attrs[key] as string | undefined;
     const isEmpty = v === undefined || v === null || v === "";
     const wantEmpty = vals.includes(EMPTY_FILTER_KEY);
     const realVals = vals.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && isEmpty) continue;
-    if (realVals.length > 0 && realVals.includes(v as string)) continue;
+    if (realVals.includes(v as string)) continue;
     return false;
   }
   // Relation filters. A key is a CARD type ("related to an Organization at
@@ -454,7 +496,7 @@ export function matchesStaticFilters(
     const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRels.length === 0) continue;
-    if (realIds.length > 0 && appRels.some((r) => realIds.includes(r.related_id))) continue;
+    if (appRels.some((r) => realIds.includes(r.related_id))) continue;
     return false;
   }
   // Relation-subtype filters — a card matches if it has at least one relation
@@ -473,27 +515,23 @@ export function matchesStaticFilters(
         const v = (r.attributes || {})[sub.fieldKey];
         return v === undefined || v === null || v === "";
       });
-    const matchesReal =
-      realVals.length > 0 &&
-      rels.some((r) => {
-        const v = (r.attributes || {})[sub.fieldKey];
-        return typeof v === "string" && realVals.includes(v);
-      });
+    const matchesReal = rels.some((r) =>
+      realVals.includes((r.attributes || {})[sub.fieldKey] as string),
+    );
     if (matchesEmpty || matchesReal) continue;
     return false;
   }
   // Tag filters (OR within a group, AND across groups) — bucket the flat
-  // selection by tag_group_id before matching.
-  if (filters.tagFilterIds.length > 0) {
-    const appTagIds = new Set(app.tag_ids || []);
-    const selectedSet = new Set(filters.tagFilterIds);
-    for (const group of filters.tagGroups) {
-      const pickedInGroup = group.tags
-        .filter((tag) => selectedSet.has(tag.id))
-        .map((tag) => tag.id);
-      if (pickedInGroup.length === 0) continue;
-      if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
-    }
+  // selection by tag_group_id before matching. With nothing selected no group
+  // has a pick, so every group is skipped.
+  const appTagIds = new Set(app.tag_ids);
+  const selectedSet = new Set(filters.tagFilterIds);
+  for (const group of filters.tagGroups) {
+    const pickedInGroup = group.tags
+      .filter((tag) => selectedSet.has(tag.id))
+      .map((tag) => tag.id);
+    if (pickedInGroup.length === 0) continue;
+    if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
   }
   if (
     filters.search &&

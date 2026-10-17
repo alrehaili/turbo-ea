@@ -118,8 +118,12 @@ archive/
 # TurboLens fork (built from GitHub URL in docker-compose)
 /turbolens/
 
-#Local Claude
-.claude/
+#Local Claude — everything stays local except the Trail-code wiring: the shared
+# settings.json (hooks -> .trail/hook.cjs), the web-session installer and the skill
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
 
 # Test results
 backend/full_suite_result.txt

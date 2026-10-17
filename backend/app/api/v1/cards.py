@@ -74,6 +74,8 @@ from app.schemas.card import (
     TagRef,
 )
 from app.services import (
+    audit_labels,
+    audit_log,
     card_approval,
     card_lifecycle,
     card_reference,
@@ -106,6 +108,7 @@ from app.services.card_write_service import (
     _max_descendant_depth,  # noqa: F401
     _recalc_changed_descendants,
     _sync_hierarchy_levels,
+    _validate_boolean_attributes,
     _validate_cost_attributes,
     _validate_hierarchy_label,
     _validate_percentage_attributes,
@@ -887,7 +890,7 @@ async def bulk_create_cards(
     # sharing a prefix stay contiguous, each seeded once via a global scan.
     # Rolled-back rows leave gaps, which is acceptable by design.
     _ref_types: dict[str, CardType | None] = {}
-    _ref_next: dict[str, int] = {}
+    allocator = card_reference.ReferenceAllocator()
 
     # Fields schemas for every type in the batch, fetched once. The select-option
     # check below runs per row, so it must not repeat a query per row the way
@@ -907,18 +910,7 @@ async def bulk_create_cards(
             _ref_types[row.type] = (
                 await db.execute(select(CardType).where(CardType.key == row.type))
             ).scalar_one_or_none()
-        ct = _ref_types[row.type]
-        if ct is None or card_reference.get_mode(ct) != "auto":
-            return
-        cfg = ct.reference_config or {}
-        prefix = str(cfg.get("prefix", "") or "")
-        start = int(cfg.get("start", card_reference.DEFAULT_START))
-        padding = int(cfg.get("padding", card_reference.DEFAULT_PADDING))
-        if prefix not in _ref_next:
-            _ref_next[prefix] = await card_reference.scan_highest_for_prefix(db, prefix, start)
-        n = _ref_next[prefix] + 1
-        _ref_next[prefix] = n
-        card.reference = card_reference.format_reference(prefix, padding, n)
+        await allocator.assign(db, card, _ref_types[row.type])
 
     for row_idx in order:
         r = rows_by_index[row_idx]
@@ -931,6 +923,7 @@ async def bulk_create_cards(
         try:
             await _validate_url_attributes(db, r.type, r.attributes or {})
             await _validate_percentage_attributes(db, r.type, r.attributes or {})
+            await _validate_boolean_attributes(db, r.type, r.attributes or {})
             await _validate_cost_attributes(db, r.type, r.attributes or {})
             _check_select_options(r.type, schemas_by_type.get(r.type), r.attributes or {}, {})
 
@@ -1226,6 +1219,7 @@ async def get_hierarchy(
                     "id": str(parent.id),
                     "name": parent.name,
                     "type": parent.type,
+                    "subtype": parent.subtype,
                     "parent_label": parent.parent_label,
                 }
             )
@@ -1244,6 +1238,7 @@ async def get_hierarchy(
             "id": str(c.id),
             "name": c.name,
             "type": c.type,
+            "subtype": c.subtype,
             "parent_label": c.parent_label,
         }
         for c in children_result.scalars().all()
@@ -1700,6 +1695,7 @@ async def bulk_update(
             seen_types.add(card.type)
             await _validate_url_attributes(db, card.type, updates["attributes"])
             await _validate_percentage_attributes(db, card.type, updates["attributes"])
+            await _validate_boolean_attributes(db, card.type, updates["attributes"])
             await _validate_cost_attributes(db, card.type, updates["attributes"])
             if strict_attrs:
                 await _validate_strict_attributes(db, card.type, updates["attributes"])
@@ -3609,6 +3605,42 @@ async def my_permissions(
     return await PermissionService.get_effective_card_permissions(db, user, uuid.UUID(card_id))
 
 
+# A type key the caller sent that matches no card type is recorded as itself,
+# and the ``type`` / ``types`` query string is the caller's to make as long as
+# it likes, so such a key is clipped before it reaches ``details`` (unbounded
+# JSONB).
+_EXPORT_TYPE_DETAIL_WIDTH = 255
+
+
+async def _audit_cards_export(
+    db: AsyncSession, user: User, fmt: str, type_keys: list[str], rows: int
+) -> None:
+    """Record an ``access.export.cards`` row for a bulk card export.
+
+    Called once the rows are collected and before the response is built, so the
+    record names what actually left the instance; the caller commits it.
+    ``type_keys`` are the card types the export was filtered to (empty for all
+    of them), recorded by label in ``context.card_type``; the target names the
+    card type only when the export covered exactly one.
+    """
+    labels = await audit_labels.card_type_labels(db, type_keys)
+    type_labels = [labels.get(k) or k[:_EXPORT_TYPE_DETAIL_WIDTH] for k in type_keys]
+    target = None
+    if len(type_keys) == 1:
+        target = ("card_type", type_keys[0], type_labels[0])
+    context: dict = {"format": fmt, "rows": rows}
+    if type_labels:
+        context["card_type"] = type_labels
+    await audit_log.record(
+        db,
+        action="access.export.cards",
+        category="access",
+        actor=user,
+        target=target,
+        context=context,
+    )
+
+
 @router.get("/export/json")
 async def export_json(
     db: AsyncSession = Depends(get_db),
@@ -3731,6 +3763,8 @@ async def export_json(
             }
         )
 
+    await _audit_cards_export(db, user, "json", type_list, len(items))
+    await db.commit()
     return items
 
 
@@ -3797,6 +3831,8 @@ async def export_csv(
                 _stakeholders_cell(card),
             ]
         )
+    await _audit_cards_export(db, user, "csv", [type] if type else [], len(sheets))
+    await db.commit()
     output.seek(0)
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     base = f"cards_{type}" if type else "cards"

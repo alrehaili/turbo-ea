@@ -79,6 +79,7 @@ def _archive_purge_cutoff(retention_days, now):
 _OLLAMA_PULL_TIMEOUT = 600  # 10 minutes max for model pull
 _KPI_SNAPSHOT_HOUR_UTC = 2  # Capture daily snapshot at 02:00 UTC
 _TASK_PROMOTION_HOUR_UTC = 3  # Promote scheduled task occurrences at 03:00 UTC
+_AUDIT_PURGE_HOUR_UTC = 4  # Purge security audit log rows past retention at 04:00 UTC
 
 
 async def _purge_mutation_batches_once(db, *, now=None) -> int:
@@ -129,6 +130,72 @@ async def _purge_mutation_batches_loop() -> None:
             raise
         except Exception:
             logger.exception("Error in mutation-batch purge loop")
+
+
+async def _purge_audit_log_once(db, *, now=None) -> int:
+    """Delete the security & admin audit log rows past the retention window.
+
+    The window is read from the singleton ``app_settings`` row
+    (``general_settings.auditLogRetentionDays``, default 365); ``0`` keeps
+    every row and returns ``0`` without touching the table. Returns the number
+    of rows deleted and commits only when there were any. ``now`` defaults to
+    the current time (a test pins it).
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import delete, select
+
+    from app.models.app_settings import AppSettings
+    from app.models.audit_log import AuditLogEntry
+    from app.services import audit_log
+
+    settings_row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    general = (settings_row.general_settings if settings_row else None) or {}
+    retention_days = audit_log.retention_days(general)
+    cutoff = audit_log.retention_cutoff(retention_days, now or datetime.now(timezone.utc))
+    if cutoff is None:
+        return 0
+    result = await db.execute(delete(AuditLogEntry).where(AuditLogEntry.created_at <= cutoff))
+    deleted = result.rowcount or 0
+    if deleted:
+        await db.commit()
+        logger.info(
+            "Auto-purged %d audit log row(s) older than %s (%d-day retention).",
+            deleted,
+            cutoff.isoformat(),
+            retention_days,
+        )
+    return deleted
+
+
+async def _purge_audit_log_loop() -> None:
+    """Daily loop (04:00 UTC) that deletes security & admin audit log rows past
+    the admin-configured retention window. The window is re-read on every run,
+    so a changed setting takes effect without a restart; ``0`` keeps rows
+    forever. Deleting is idempotent, so a restart that doubles a run is safe."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.database import async_session
+
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            next_run = now.replace(hour=_AUDIT_PURGE_HOUR_UTC, minute=0, second=0, microsecond=0)
+            if next_run <= now:
+                next_run += timedelta(days=1)
+            await asyncio.sleep((next_run - now).total_seconds())
+
+            async with async_session() as db:
+                await _purge_audit_log_once(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in audit log purge loop")
+            # Same back-off as the other daily loops — no tight retry spiral
+            # while the database is unavailable.
+            await asyncio.sleep(3600)
 
 
 async def _ops_access_maintenance_once(db, *, now=None) -> tuple[int, int]:
@@ -616,6 +683,16 @@ async def _auto_configure_ai() -> None:
         logger.info("[ai] Auto-configured AI: provider=%s  model=%s", provider_url, model)
 
 
+def _ollama_has_model(available: list[str], model: str) -> bool:
+    """Whether Ollama's ``/api/tags`` list holds exactly ``model``.
+
+    Ollama lists every model with its tag, and a name given without one
+    means ``:latest``. Another size of the same family (``gemma3:27b`` for
+    ``gemma3:4b``) is a different model and does not count.
+    """
+    return (model if ":" in model else f"{model}:latest") in available
+
+
 async def _ensure_ollama_model() -> None:
     """Background task: pull the configured model if Ollama doesn't have it yet.
 
@@ -656,8 +733,7 @@ async def _ensure_ollama_model() -> None:
             resp = await client.get(tags_url)
             resp.raise_for_status()
             available = [m.get("name", "") for m in resp.json().get("models", [])]
-            # Check both exact match and name without tag (e.g. "gemma3:4b" or "gemma3")
-            if any(model in m or m.startswith(model.split(":")[0]) for m in available):
+            if _ollama_has_model(available, model):
                 logger.info("[ai] Model '%s' already available in Ollama", model)
                 return
     except httpx.HTTPError as exc:
@@ -1195,6 +1271,10 @@ async def lifespan(app: FastAPI):
     # have their batch_id NULLed (FK is ON DELETE SET NULL).
     batch_purge_task = asyncio.create_task(_purge_mutation_batches_loop())
 
+    # Daily security & admin audit log retention purge (04:00 UTC; the window
+    # is ``general_settings.auditLogRetentionDays``, default 365, 0 = forever).
+    audit_purge_task = asyncio.create_task(_purge_audit_log_loop())
+
     # Capture an initial KPI baseline (no-op if table already has rows) and
     # start the daily snapshot loop that powers dashboard trend indicators.
     await _ensure_initial_kpi_snapshot()
@@ -1245,6 +1325,11 @@ async def lifespan(app: FastAPI):
     batch_purge_task.cancel()
     try:
         await batch_purge_task
+    except asyncio.CancelledError:
+        pass
+    audit_purge_task.cancel()
+    try:
+        await audit_purge_task
     except asyncio.CancelledError:
         pass
     kpi_task.cancel()
@@ -1328,6 +1413,9 @@ app.add_middleware(
 # payload. Unknown / absent header => no tag (keeps existing UI events clean).
 import uuid as _uuid_for_batch  # noqa: E402
 
+from app.core.request_context import client_ip as _client_ip  # noqa: E402
+from app.core.request_context import request_client as _request_client  # noqa: E402
+from app.core.request_context import user_agent as _user_agent  # noqa: E402
 from app.core.security import decode_access_token as _decode_token_for_impersonation  # noqa: E402
 from app.services.event_bus import (  # noqa: E402
     request_batch_id as _request_batch_id,
@@ -1400,6 +1488,11 @@ async def capture_request_origin(request, call_next):
                 impersonation_pair = (str(sub), str(impersonated_role))
     impersonation_token = _request_impersonation.set(impersonation_pair)
 
+    # Client address + user agent for the security audit log
+    # (``services/audit_log.record``). ``X-Real-IP`` is honoured only when
+    # ``TRUST_PROXY_HEADERS`` is on — see ``core/request_context.py``.
+    client_token = _request_client.set((_client_ip(request), _user_agent(request)))
+
     try:
         return await call_next(request)
     finally:
@@ -1407,6 +1500,7 @@ async def capture_request_origin(request, call_next):
         _request_batch_id.reset(batch_token)
         _request_endpoint.reset(endpoint_token)
         _request_impersonation.reset(impersonation_token)
+        _request_client.reset(client_token)
 
 
 app.middleware("http")(capture_request_origin)

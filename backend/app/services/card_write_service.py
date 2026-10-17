@@ -37,9 +37,10 @@ import math
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
@@ -95,12 +96,8 @@ async def _get_ppm_exclusions(db: AsyncSession, card: Card) -> set[str]:
     """Return field keys that PPM manages for this card (skip in calculations)."""
     if card.type != "Initiative":
         return set()
-    has_budget = await db.scalar(
-        select(func.count(PpmBudgetLine.id)).where(PpmBudgetLine.initiative_id == card.id)
-    )
-    has_costs = await db.scalar(
-        select(func.count(PpmCostLine.id)).where(PpmCostLine.initiative_id == card.id)
-    )
+    has_budget = await db.scalar(select(exists().where(PpmBudgetLine.initiative_id == card.id)))
+    has_costs = await db.scalar(select(exists().where(PpmCostLine.initiative_id == card.id)))
     excluded: set[str] = set()
     if has_budget:
         excluded.add("costBudget")
@@ -195,6 +192,48 @@ async def _validate_percentage_attributes(
             raise HTTPException(422, f"Field '{key}' must be a number between 0 and 100")
 
 
+async def _validate_boolean_attributes(
+    db: AsyncSession,
+    card_type: str,
+    attributes: dict,
+    previous: dict | None = None,
+) -> None:
+    """Validate that any attribute whose field type is 'boolean' is true, false or unset.
+
+    A boolean is three-valued — ``True``, ``False`` or not set (``None``, or
+    ``""`` from a cleared form) — and every reader (card detail, the inventory
+    filter, the reports, data quality) reads it that way (#1266). Anything
+    else, such as the string ``"yes"``, used to be stored as given and then
+    read as unset everywhere. ``1`` / ``0`` are refused too: they are not
+    booleans in JSON.
+
+    ``previous`` is the card's stored attributes on an update. A value equal
+    to the stored one is left alone, so a card that already carries a legacy
+    string (an import before this check, which the readers still tolerate)
+    stays editable: the editor sends the whole attributes object back, and
+    refusing an untouched value would block every unrelated edit.
+    """
+    if not attributes:
+        return
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
+    schema = result.scalar_one_or_none()
+    if not schema:
+        return
+    boolean_keys: set[str] = set()
+    for section in schema:
+        for field in section.get("fields", []):
+            if field.get("type") == "boolean":
+                boolean_keys.add(field["key"])
+    stored = previous or {}
+    for key in boolean_keys:
+        val = attributes.get(key)
+        if val is None or val == "" or isinstance(val, bool):
+            continue
+        if key in stored and stored[key] == val:
+            continue
+        raise HTTPException(422, f"Field '{key}' must be true or false")
+
+
 async def _validate_cost_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
     """Validate that a ``cost`` or ``number`` attribute holds a number, coercing numeric text.
 
@@ -248,7 +287,8 @@ def _check_required_not_cleared(
     Deliberately only guards *clearing*: creation and imports may land cards with
     required fields still empty (the card just scores 0 data quality until they
     are filled), and a card that is already incomplete stays editable. Boolean
-    fields are exempt (a switch always has a value) and so are readonly fields —
+    fields are exempt (Not set is one of a boolean's three states, #1266) and so
+    are readonly fields —
     the calculation engine may legitimately pop a calculated key when its
     formula yields None.
     """
@@ -436,10 +476,11 @@ async def _validate_hierarchy_label(
 ) -> None:
     """Fetch the type's vocabulary and run the hierarchy-label check against it."""
     if not new_label or new_label == old_label:
-        return
+        return  # clearing or keeping the label passes, and needs no query
     result = await db.execute(select(CardType.hierarchy_labels).where(CardType.key == card_type))
     vocabulary = result.scalar_one_or_none()
-    _check_hierarchy_label(card_type, vocabulary, new_label, old_label, has_parent)
+    # The label changed (an unchanged one returned above), so no old label excuses it.
+    _check_hierarchy_label(card_type, vocabulary, new_label, None, has_parent)
 
 
 async def _validate_strict_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
@@ -495,11 +536,7 @@ async def _max_descendant_depth(db: AsyncSession, card_id: uuid.UUID) -> int:
     child_ids = [row[0] for row in children_result.all()]
     if not child_ids:
         return 0
-    max_depth = 0
-    for cid in child_ids:
-        d = await _max_descendant_depth(db, cid)
-        max_depth = max(max_depth, d + 1)
-    return max_depth
+    return 1 + max([await _max_descendant_depth(db, cid) for cid in child_ids])
 
 
 async def _walk_ancestor_chain(
@@ -518,7 +555,6 @@ async def _walk_ancestor_chain(
     root_is_macro = False
     current_id = start_id
     seen: set[uuid.UUID] = set(exclude)
-    last_attrs: dict | None = None
     while current_id and current_id not in seen:
         seen.add(current_id)
         depth += 1
@@ -528,12 +564,9 @@ async def _walk_ancestor_chain(
             break
         parent_id, attrs = row[0], row[1]
         if parent_id is None:
-            last_attrs = attrs
+            level = (attrs or {}).get("capabilityLevel")
+            root_is_macro = level == MACRO_CAPABILITY_LEVEL_KEY
         current_id = parent_id
-    if last_attrs is not None and (last_attrs or {}).get("capabilityLevel") == (
-        MACRO_CAPABILITY_LEVEL_KEY
-    ):
-        root_is_macro = True
     return depth, root_is_macro
 
 
@@ -653,24 +686,17 @@ async def _sync_hierarchy_node(
     depth, root_is_macro = await _walk_ancestor_chain(db, card.parent_id, exclude={card.id})
     attrs = dict(card.attributes or {})
     before = dict(attrs)
-    dirty = False
 
     if hier:
-        raw_level = depth + 1  # NOT macro-aware, NOT capped
-        if attrs.get(HIERARCHY_LEVEL_KEY) != raw_level:
-            attrs[HIERARCHY_LEVEL_KEY] = raw_level
-            dirty = True
+        attrs[HIERARCHY_LEVEL_KEY] = depth + 1  # NOT macro-aware, NOT capped
 
     if is_bizcap:
         # Macros are pinned — keep "Macro", never recompute their capabilityLevel.
         if attrs.get("capabilityLevel") != MACRO_CAPABILITY_LEVEL_KEY:
             logical_depth = max(depth - 1, 0) if root_is_macro else depth
-            level_key = f"L{min(logical_depth + 1, 5)}"
-            if attrs.get("capabilityLevel") != level_key:
-                attrs["capabilityLevel"] = level_key
-                dirty = True
+            attrs["capabilityLevel"] = f"L{min(logical_depth + 1, 5)}"
 
-    if dirty:
+    if attrs != before:
         card.attributes = attrs
         changed.append(card)
         if previous is not None:
@@ -761,11 +787,18 @@ async def create_card(
     successor_id: uuid.UUID | None = None,
     strict_attributes: bool = False,
     dry_run: bool = False,
+    reference_allocator: card_reference.ReferenceAllocator | None = None,
 ) -> Card:
     """Create one card with full validation and side effects; returns the
-    flushed (uncommitted) row. Caller owns permission checks + the commit."""
+    flushed (uncommitted) row. Caller owns permission checks + the commit.
+
+    ``reference_allocator`` lets a batch (the reference-catalogue imports)
+    number its cards with one global scan per prefix instead of one per
+    card; without it the reference is allocated exactly as before.
+    """
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
+    await _validate_boolean_attributes(db, type_key, attributes or {})
     await _validate_cost_attributes(db, type_key, attributes or {})
     await _validate_select_attributes(db, type_key, attributes or {}, {})
     await _validate_hierarchy_label(
@@ -799,7 +832,10 @@ async def create_card(
     card_type_row = (
         await db.execute(select(CardType).where(CardType.key == type_key))
     ).scalar_one_or_none()
-    await _assign_reference_on_create(db, card, card_type_row)
+    if reference_allocator is not None:
+        await reference_allocator.assign(db, card, card_type_row)
+    else:
+        await _assign_reference_on_create(db, card, card_type_row)
 
     # Guard: hierarchy depth limit for BusinessCapability
     if card.parent_id:
@@ -837,12 +873,27 @@ async def update_card(
     *,
     strict_attributes: bool = False,
     dry_run: bool = False,
+    event_extra: dict | None = None,
+    deferred_notifications: list[dict] | None = None,
 ) -> bool:
     """Apply an update payload to ``card`` with full validation and side
     effects. Returns True when anything actually changed. ``updates`` is the
     caller's field→value dict (``parent_id`` as str or None); the per-user
     cost-redaction merge — permission shaping, not write semantics — must
-    already have been applied by route callers.
+    already have been applied by route callers. ``event_extra`` is merged into
+    the ``card.updated`` payload — the survey apply path stamps the survey the
+    change came from; ``id`` and ``changes`` always win over it.
+
+    ``deferred_notifications`` changes where the subscriber nudges go. By
+    default they are created inline on ``db`` — one SMTP round-trip per emailed
+    stakeholder, on the caller's open transaction — which is right for one
+    edit on a request path. A caller writing many cards in one request (the
+    survey apply) passes a list instead: every recipient is appended to it as
+    ``{"notif_type", "user_id", "title", "message", "link", "card_id", "data"}``
+    and nothing is created here, so the caller can hand each type's rows to
+    ``notification_service.deliver_notification_batch`` once the transaction
+    has committed. The ``card_updated`` rows and the approval-broken rows both
+    land in the same list, told apart by ``notif_type``.
     """
     # The human-readable reference is write-once & immutable — never editable via
     # update (defensive: CardUpdate no longer carries it, but drop any stray).
@@ -853,6 +904,9 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
         await _validate_percentage_attributes(db, card.type, updates["attributes"])
+        await _validate_boolean_attributes(
+            db, card.type, updates["attributes"], previous=card.attributes
+        )
         await _validate_cost_attributes(db, card.type, updates["attributes"])
         if strict_attributes:
             await _validate_strict_attributes(db, card.type, updates["attributes"])
@@ -1006,7 +1060,10 @@ async def update_card(
     if not dry_run:
         await event_bus.publish(
             "card.updated",
-            _stamp_ext(actor, {"id": str(card.id), "changes": serialised_changes}),
+            _stamp_ext(
+                actor,
+                {**(event_extra or {}), "id": str(card.id), "changes": serialised_changes},
+            ),
             db=db,
             card_id=card.id,
             user_id=actor.user_id,
@@ -1037,25 +1094,59 @@ async def update_card(
 
         # Notify subscribers about the update
         changed_fields = ", ".join(changes.keys())
-        await notification_service.create_notifications_for_subscribers(
-            db,
-            card_id=card.id,
-            actor_id=actor.user_id,
-            notif_type="card_updated",
-            title=f"{card.name} Updated",
-            message=f'{actor.display_name} updated "{card.name}" ({changed_fields})',
-            link=f"/cards/{card.id}",
-            data={"changes": list(changes.keys())},
-        )
+        updated_notice: dict[str, Any] = {
+            "notif_type": "card_updated",
+            "title": f"{card.name} Updated",
+            "message": f'{actor.display_name} updated "{card.name}" ({changed_fields})',
+            "link": f"/cards/{card.id}",
+            "data": {"changes": list(changes.keys())},
+        }
+        if deferred_notifications is None:
+            await notification_service.create_notifications_for_subscribers(
+                db,
+                card_id=card.id,
+                actor_id=actor.user_id,
+                notif_type="card_updated",
+                title=updated_notice["title"],
+                message=updated_notice["message"],
+                link=updated_notice["link"],
+                data=updated_notice["data"],
+            )
+        else:
+            for user_id in await _subscriber_ids(db, card.id, exclude=actor.user_id):
+                deferred_notifications.append(
+                    {**updated_notice, "user_id": user_id, "card_id": card.id}
+                )
         # …and separately that it now needs re-review. Two entries for one edit
         # is deliberate: "what changed" and "your approval is void" are
         # different facts, and the preferences dialog switches them apart.
         if approval_broke:
-            await card_approval.notify_approval_broken(
-                db, card=card, actor_id=actor.user_id, actor_display_name=actor.display_name
-            )
+            if deferred_notifications is None:
+                await card_approval.notify_approval_broken(
+                    db, card=card, actor_id=actor.user_id, actor_display_name=actor.display_name
+                )
+            else:
+                recipients = await card_approval.build_approval_broken_recipients(
+                    db, cards=[card], actor_id=actor.user_id, actor_display_name=actor.display_name
+                )
+                deferred_notifications.extend(
+                    {"notif_type": card_approval.NOTIF_TYPE, **r} for r in recipients
+                )
 
     return True
+
+
+async def _subscriber_ids(
+    db: AsyncSession, card_id: uuid.UUID, *, exclude: uuid.UUID | None
+) -> list[uuid.UUID]:
+    """The distinct people holding any stakeholder role on the card, minus the
+    actor — one nudge per person, however many roles they hold."""
+    from app.models.stakeholder import Stakeholder
+
+    rows = await db.execute(
+        select(Stakeholder.user_id).where(Stakeholder.card_id == card_id).distinct()
+    )
+    return [uid for uid in rows.scalars().all() if uid != exclude]
 
 
 async def resolve_archive_delete_set(
@@ -1103,15 +1194,8 @@ async def resolve_archive_delete_set(
     descendant_set = set(descendants)
     kept_related = [rid for rid in requested_related if rid not in descendant_set]
 
-    full_set: list[uuid.UUID] = []
-    seen_full: set[uuid.UUID] = set()
-    for cid in [*descendants, *kept_related]:
-        if cid in seen_full:
-            continue
-        seen_full.add(cid)
-        full_set.append(cid)
-
-    return descendants, kept_related, full_set
+    # Both lists are duplicate-free and disjoint, so together they are the set.
+    return descendants, kept_related, [*descendants, *kept_related]
 
 
 async def archive_card_set(
@@ -1159,7 +1243,7 @@ async def archive_card_set(
     to_flip_ids = [primary.id, *full_affected]
     flip_res = await db.execute(
         select(Card)
-        .where(Card.id.in_(to_flip_ids), Card.status == "ACTIVE")
+        .where(Card.id.in_(to_flip_ids))  # archive_cards_in_place skips the archived
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -1316,6 +1400,63 @@ async def _emit_relation_events(
     )
 
 
+async def find_relation(
+    db: AsyncSession, type_key: str, source_id: uuid.UUID, target_id: uuid.UUID
+) -> Relation | None:
+    """The ``(type, source, target)`` row every relation write is idempotent on.
+
+    The ends must already be in the relation type's direction.
+    """
+    return (
+        await db.execute(
+            select(Relation).where(
+                Relation.type == type_key,
+                Relation.source_id == source_id,
+                Relation.target_id == target_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def add_relation(
+    db: AsyncSession,
+    *,
+    type_key: str,
+    source_id: uuid.UUID,
+    target_id: uuid.UUID,
+    attributes: dict | None,
+    description: str | None,
+) -> Relation:
+    """Stage a new relation row in the session (not flushed)."""
+    rel = Relation(
+        type=type_key,
+        source_id=source_id,
+        target_id=target_id,
+        attributes=attributes or {},
+        description=description,
+    )
+    db.add(rel)
+    return rel
+
+
+def merge_relation_fields(
+    rel: Relation, *, attributes: dict | None, description: str | None
+) -> list[str]:
+    """Overwrite what the caller supplied on an existing relation.
+
+    ``None`` leaves a field alone; ``attributes`` replaces the whole dict.
+    Returns the fields whose value changed, in a fixed order.
+    """
+    changed: list[str] = []
+    if attributes is not None and attributes != (rel.attributes or {}):
+        rel.attributes = attributes
+        changed.append("attributes")
+    if description is not None and description != rel.description:
+        rel.description = description
+        changed.append("description")
+    return changed
+
+
 async def upsert_relation(
     db: AsyncSession,
     actor: WriteActor,
@@ -1337,33 +1478,21 @@ async def upsert_relation(
     (``relation_orientation``), so a request sent the other way round merges
     into the existing row instead of forking a backwards one (#1140)."""
     source_id, target_id = await orient_endpoints(db, type_key, source_id, target_id)
-    existing = await db.execute(
-        select(Relation).where(
-            Relation.type == type_key,
-            Relation.source_id == source_id,
-            Relation.target_id == target_id,
-        )
-    )
-    rel = existing.scalar_one_or_none()
+    rel = await find_relation(db, type_key, source_id, target_id)
     reused = rel is not None
     changed: list[str] = []
 
     if rel is None:
-        rel = Relation(
-            type=type_key,
+        rel = add_relation(
+            db,
+            type_key=type_key,
             source_id=source_id,
             target_id=target_id,
-            attributes=attributes or {},
+            attributes=attributes,
             description=description,
         )
-        db.add(rel)
     else:
-        if attributes is not None and attributes != (rel.attributes or {}):
-            rel.attributes = attributes
-            changed.append("attributes")
-        if description is not None and description != rel.description:
-            rel.description = description
-            changed.append("description")
+        changed = merge_relation_fields(rel, attributes=attributes, description=description)
     await db.flush()
 
     # Run calculated fields for both source and target cards, then rescore.
