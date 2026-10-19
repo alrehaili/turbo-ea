@@ -28,7 +28,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        // The control panel (tools/control-panel) points this at the backend
+        // port it runs; everyone else gets the usual :8000.
+        target: process.env.TURBO_EA_API_TARGET || "http://localhost:8000",
         changeOrigin: true,
       },
     },

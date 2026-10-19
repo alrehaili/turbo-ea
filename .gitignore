@@ -151,3 +151,7 @@ deploy/terraform/**/*.tfvars
 frontend/playwright-report/
 frontend/test-results/
 frontend/e2e/.auth/
+
+# Local control panel (tools/control-panel): compiled classes, lock, preferences
+tools/control-panel/.runtime/
+tools/control-panel/settings.local.properties
