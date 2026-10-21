@@ -1,0 +1,25 @@
+# Functional inventory
+
+Availability below means code capability, not customer-data readiness.
+
+| Area | Availability | Implemented source and reusable API | Relationships / limitations |
+|---|---|---|---|
+| Business capabilities | Existing | `Card(type=BusinessCapability)`, hierarchy and `attributes.capabilityLevel`, strategic importance/maturity defaults in `seed.py`; `/cards`, `/reports/capability-heatmap` | Relation `relProcessToBC`, initiative/capability and app/capability links exist in seed defaults. Completeness and semantic consistency are workspace-dependent. |
+| Business services | Partial | Service-oriented reporting exists (`/reports/service-catalogue`, `/reports/service-traceability`) and metamodel is configurable | No separate built-in `BusinessService` seed key was verified in this review. Confirm actual configured card types before defining service KPIs. |
+| Processes / automation | Existing | `BusinessProcess` cards with `maturity`, `automationLevel`, `riskLevel`; BPM diagrams/elements/versions and `process_assessments`; `/reports/bpm/dashboard` | Dashboard classifies stored automation level and diagram coverage; it does not establish process execution, straight-through-processing, or realised benefit. |
+| Applications / portfolio | Existing | `Application` cards, lifecycle, successor and architecture-state fields; `/reports/portfolio`, `/reports/app-portfolio`, rationalization APIs | Application/process/capability/initiative relations exist. Rationalization savings are planned estimates, not verified savings. |
+| Technology/infrastructure | Existing | `ITComponent` and seeded technology categories; technology-landscape, lifecycle, EOL, standards and resilience reports | Coverage depends on inventory and relationships; no evidence of operational telemetry ingestion in reviewed files. |
+| EA principles/policies/standards | Existing | `ea_principles`, standards/tech standards, compliance scan and exception APIs | `EAPrinciple` retains principle content, source IDs and domain. Evidence of project-level compliance needs relationships/ARB or configured practices. |
+| EA assessment/governance review | Existing / partial | `arb_reviews`, multi-step `approval_steps`, ADM workspaces/gates, maturity assessments, NORA deliverables | ARB records decision status and timestamp; no explicit review-request timestamp, SLA target, corrective-action entity or implementation verification was found. |
+| Architecture decisions/exceptions | Existing / partial | `architecture_decisions`, ADR card links, standards exceptions, ARB decisions | ADR statuses/signatures are present; decision implementation status/benefit tracking is not modelled as a first-class universal measure. |
+| Initiatives/investments | Existing | `Initiative` card supports status, business value, effort, dates, budget/actual; PPM has report, cost/budget, task/WBS/dependency/risk tables | `PpmCostLine` captures planned/actual spend and `PpmBudgetLine` fiscal-year amounts. Investment approval, funding source and benefit case are not verified as standard fields. |
+| Financial cost | Existing | Cost fields, `/reports/cost`, `/reports/cost-treemap`; PPM costs/budgets | Cost visibility is protected. Currency, accounting reconciliation, attribution and cost-baseline governance are not evidenced by the reviewed model. |
+| Savings / benefits / ROI | Partial | `RationalizationAssessment.target_savings`, `AssessmentDecision.annual_cost/planned_savings`; PPM expenditure | These are named planned/target savings. No verified-realisation, finance approval, cash-flow, benefit owner, baseline or benefit ledger was found. |
+| KPI targets/history | Partial | `KpiSnapshot` daily snapshots and KPI scorecard route/page; NORA/PPM/maturity temporal data | Snapshot table only persists four repository metrics. No general KPI-definition/target/actual/time-series model was verified. |
+| Strategic alignment | Existing / partial | Objective, Pillar and Initiative seeded types; initiative-to-objective/capability/application relations; `/reports/strategy-cascade`, `/strategy-map` | Relationship coverage and target measures must be governed; alignment quality cannot be inferred just from links. |
+| Risks and escalation | Existing / partial | risk register, card links, residual risk, owner, target date, mitigation tasks/occurrences; `/risks/metrics` | Risk escalation policy, board decision log and executive threshold configuration were not verified. |
+
+## Data quality constraints common to every measure
+
+Card attributes are configurable JSONB and built-in defaults can be customized. Any dashboard implementation therefore must resolve field keys/schema at runtime and declare each KPI’s eligibility rules/versioned metric definition. `Card.data_quality` measures modeled-field completeness, not truth, finance approval, relationship completeness, or KPI evidence quality (`backend/app/services/data_quality.py`). Archived status, read scope, costs redaction, lifecycle and architecture-state filters also require an explicit KPI policy.
+

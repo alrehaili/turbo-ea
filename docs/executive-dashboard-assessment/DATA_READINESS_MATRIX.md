@@ -1,0 +1,20 @@
+# Data readiness matrix
+
+| Data need | Availability | Primary source | Relevant API / relationship | Data-quality limitation | Required enhancement |
+|---|---|---|---|---|---|
+| Capability landscape | Existing | `cards` type `BusinessCapability` | `/cards`, `/reports/capability-heatmap`; hierarchy and process/app/initiative relations | Taxonomy coverage, level assignment and relation completeness unverified | Stewardship, completeness threshold and approved baseline |
+| Digital services | Partial | Configured card types; service reports | `/reports/service-catalogue`, `/reports/service-traceability` | Built-in service entity not verified | Standardize service type, owner, channel, digital status and relation rules |
+| Process digitalization | Partial | `BusinessProcess.attributes` | `/reports/bpm/dashboard`; process-to-app/capability relations | `automationLevel` is categorical; no defined “digitalized” field was verified | Agree digitalization taxonomy and denominator/exclusions |
+| Process automation | Existing | `BusinessProcess.attributes.automationLevel`; `process_assessments.automation` | `/reports/bpm/dashboard`, `/bpm/processes/{id}/diagram` | Self-assessed/categorical data; no runtime automation evidence | Evidence source and periodic attestation, plus target level |
+| Application portfolio | Existing | `cards` type `Application` | `/reports/portfolio`, `/reports/app-portfolio`, `/rationalization/*` | Inventory, lifecycle and successor data may be incomplete | Portfolio owner/steward, application baseline and rationalization rules |
+| Technology debt/EOL | Partial | lifecycle, EOL links, IT components, standards | `/reports/eol`, `/reports/technology-landscape`, `/tech-standards/*` | Debt scoring/baseline not found as a uniform measure | Debt register, scoring, remediation initiative and baseline date |
+| Governance decisions | Existing | `arb_reviews`, ADR, approval steps, ADM | `/arb`, `/adr`, `/adm/*`, `/cards/{id}/approval-steps` | Missing universal decision-to-implementation/benefit link | Decision action, owner, due date, closure and outcome model |
+| Standards compliance/exceptions | Partial | tech standards, exceptions, principles, compliance | `/tech-standards/compliance-scan`, `/tech-standards/exceptions`, GRC | Scan scope and exception age/expiry policy must be verified | Compliance evidence, exception expiry, remediation linkage |
+| Initiatives and status | Existing | `Initiative` cards, `ppm_status_reports`, PPM tasks/WBS | `/reports/ppm/dashboard`, `/ppm/initiatives/{id}/reports` | Status reports are manual; reporting cadence/quality unknown | Mandatory reporting cadence, RAG definitions, portfolio hierarchy |
+| Financial spend/budget | Existing | PPM cost and budget lines; Initiative attributes | `/ppm/initiatives/{id}/costs`, `/reports/ppm/dashboard`, `/reports/cost` | No verified finance-system reconciliation in code reviewed | Finance source integration, currency/fiscal policy, approval/reconciliation flag |
+| Planned savings | Partial | assessment decisions | `/rationalization/assessments` | Explicitly planned estimate; attribution/realisation absent | Benefit case and confidence/baseline fields |
+| Verified savings / ROI | Missing | None found | None | No financial validation, cash timing, EA attribution or programme cost ledger | Finance-verified benefit ledger and approved formulae |
+| Strategic alignment | Existing / partial | Objective/Pillar/Initiative and relations | `/reports/strategy-cascade`, `/reports/strategy-map` | Link presence is not measure achievement | Objective targets/KPIs, contribution weighting, actuals |
+| Risk/escalation | Existing / partial | `risks`, card join, mitigation tasks | `/risks`, `/risks/metrics` | Executive escalation/sponsor/decision trail not verified | Escalation threshold, committee routing, action/deadline closure |
+| Historical executive KPIs | Missing / partial | `kpi_snapshots` | Dashboard trend helper | Four repository metrics only | Versioned KPI fact table, targets, periods, calculation provenance |
+
