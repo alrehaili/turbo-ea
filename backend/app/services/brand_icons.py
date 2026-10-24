@@ -172,7 +172,14 @@ def _read_icon_bytes(slug: str, pack: str | None = None) -> bytes | None:
     offset = entry.get("offset")
     if not length or offset is None:
         return None
-    data = os.pread(fd, length, offset)
+    if hasattr(os, "pread"):
+        data = os.pread(fd, length, offset)
+    else:
+        # Windows has no os.pread; seek+read must stay atomic across threads
+        # since the fd is shared, so hold the lock around the pair.
+        with _fd_lock:
+            os.lseek(fd, offset, os.SEEK_SET)
+            data = os.read(fd, length)
     # A short read means the index and the pack disagree — a half-written
     # generator run. Report it as unknown rather than serving a truncated PNG.
     return data if len(data) == length else None
