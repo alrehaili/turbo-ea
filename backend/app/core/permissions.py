@@ -79,6 +79,7 @@ APP_PERMISSIONS: dict[str, dict] = {
         "label": "Reports",
         "permissions": {
             "reports.ea_dashboard": "View EA dashboard and reports",
+            "reports.executive_dashboard": "View the executive dashboard (aggregates only)",
             "reports.bpm_dashboard": "View BPM dashboard and reports",
             "reports.ppm_dashboard": "View PPM dashboard and reports",
             "reports.portfolio": "View the portfolio reports",

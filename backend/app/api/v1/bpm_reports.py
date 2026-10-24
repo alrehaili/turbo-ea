@@ -12,10 +12,10 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.process_element import ProcessElement, ProcessElementOrganization
-from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.user import User
 from app.services import process_map_service
+from app.services.bpm_dashboard_service import build_bpm_dashboard
 from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 
@@ -30,72 +30,7 @@ async def bpm_dashboard(
     """BPM KPIs: counts, maturity distribution, automation levels, risk."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
-    # All active BusinessProcess cards the reader may see
-    result = await db.execute(
-        select(Card).where(
-            Card.type == "BusinessProcess",
-            Card.status == "ACTIVE",
-            *readable,
-        )
-    )
-    processes = result.scalars().all()
-    total = len(processes)
-
-    by_process_type: dict[str, int] = {}
-    by_maturity: dict[str, int] = {}
-    by_automation: dict[str, int] = {}
-    by_risk: dict[str, int] = {}
-    top_risk: list[dict] = []
-
-    for p in processes:
-        attrs = p.attributes or {}
-        pt = attrs.get("processType", "unknown")
-        by_process_type[pt] = by_process_type.get(pt, 0) + 1
-        mat = attrs.get("maturity", "unknown")
-        by_maturity[mat] = by_maturity.get(mat, 0) + 1
-        auto = attrs.get("automationLevel", "unknown")
-        by_automation[auto] = by_automation.get(auto, 0) + 1
-        risk = attrs.get("riskLevel", "unknown")
-        by_risk[risk] = by_risk.get(risk, 0) + 1
-        if risk in ("high", "critical"):
-            top_risk.append(
-                {
-                    "id": str(p.id),
-                    "name": p.name,
-                    "risk": risk,
-                    "maturity": mat,
-                }
-            )
-
-    def _risk_order(x: dict) -> int:
-        order = {"critical": 0, "high": 1}
-        return order.get(x["risk"], 99)
-
-    top_risk.sort(key=_risk_order)
-
-    # Diagram coverage (count processes with a published flow version)
-    diag_result = await db.execute(
-        select(ProcessFlowVersion.process_id)
-        .where(ProcessFlowVersion.status == "published")
-        .distinct()
-    )
-    # Coverage of the processes counted above, not of every process there is.
-    process_ids = {p.id for p in processes}
-    processes_with_diagrams = sum(1 for (pid,) in diag_result.all() if pid in process_ids)
-
-    return {
-        "total_processes": total,
-        "by_process_type": by_process_type,
-        "by_maturity": by_maturity,
-        "by_automation": by_automation,
-        "by_risk": by_risk,
-        "top_risk_processes": top_risk[:10],
-        "diagram_coverage": {
-            "with_diagram": processes_with_diagrams,
-            "total": total,
-            "percentage": round(processes_with_diagrams / total * 100, 1) if total else 0,
-        },
-    }
+    return await build_bpm_dashboard(db, readable)
 
 
 @router.get("/capability-process-matrix")

@@ -13,13 +13,16 @@ import { hasPermission } from "@/components/RequirePermission";
 import { api } from "@/api/client";
 import type { DashboardTabKey } from "@/types";
 import AdminTab from "./admin/AdminTab";
+import ExecutiveTab from "./executive/ExecutiveTab";
 import OverviewTab from "./OverviewTab";
 import WorkspaceTab from "./workspace/WorkspaceTab";
 
 const ADMIN_TAB_PERMISSION = "admin.users";
 
 function isValidTab(value: string | null): value is DashboardTabKey {
-  return value === "overview" || value === "workspace" || value === "admin";
+  return (
+    value === "overview" || value === "executive" || value === "workspace" || value === "admin"
+  );
 }
 
 interface PinTabLabelProps {
@@ -75,13 +78,15 @@ export default function Dashboard() {
   // usable for them: drop the tab and open on My Workspace, which is per-user
   // and needs no permission.
   const canSeeOverview = hasPermission(user?.permissions, "reports.ea_dashboard");
+  const canSeeExecutive = hasPermission(user?.permissions, "reports.executive_dashboard");
   const validTabs = useMemo<DashboardTabKey[]>(
     () => [
       ...(canSeeOverview ? (["overview"] as const) : []),
+      ...(canSeeExecutive ? (["executive"] as const) : []),
       "workspace" as const,
       ...(isAdmin ? (["admin"] as const) : []),
     ],
-    [canSeeOverview, isAdmin],
+    [canSeeOverview, canSeeExecutive, isAdmin],
   );
   const fallbackTab: DashboardTabKey = validTabs[0];
 
@@ -173,6 +178,7 @@ export default function Dashboard() {
       </Tabs>
 
       {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "executive" && <ExecutiveTab />}
       {activeTab === "workspace" && <WorkspaceTab />}
       {activeTab === "admin" && isAdmin && <AdminTab />}
     </Box>

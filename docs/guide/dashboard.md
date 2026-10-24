@@ -43,6 +43,19 @@ In the bottom section of the Dashboard you will find:
 - **Data quality**: Overall percentage of information completeness across all cards
 - **Recent activity**: A feed of the latest changes — who edited what and when
 
+## Executive tab
+
+The **Executive** tab is a one-page summary of the landscape for senior leadership. It is shown to roles that hold the **`reports.executive_dashboard`** permission — administrators have it automatically; grant it to any other role under **Admin → Users & Roles**. The tab shows aggregates only (counts and distributions), never individual card names or risks, and every figure counts only the cards you are allowed to see.
+
+- **Headline figures**: active cards, average data quality, share of approved cards, initiatives off track, open critical and high risks, and the share of business processes with a published process flow.
+- **Portfolio health**: the largest card types and the lifecycle mix.
+- **Delivery**: schedule, cost and scope health of initiatives from their latest status reports, plus total budget against actual spend. Shown only when the PPM module is enabled.
+- **Processes**: automation level and maturity of business processes, labelled exactly as in the metamodel. Shown only when the BPM module is enabled.
+- **Risk exposure**: open risks by level. Shown only when the GRC module is enabled.
+- **Application rationalization**: TIME decisions from active and completed assessments, and the total of **planned savings**. Planned savings are always marked **Estimated, not realised**: they are estimates recorded on the decisions, not verified savings.
+
+Budget, actual and planned-savings figures additionally require the **`costs.view`** permission; without it they show a lock instead of a number. A section whose module is switched off says so instead of showing zeros. Each section has an **Open** button that leads to the full page, if your role can open it.
+
 ## Workspace tab
 
 The **Workspace** tab pulls together everything assigned to you: favorites, todos, pending surveys, recent activity on your cards, and the **Cards I Have a Role In** section.

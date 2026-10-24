@@ -23,6 +23,7 @@ from app.api.v1 import (
     ea_requirements,
     eol,
     events,
+    executive_dashboard,
     extensions,
     favorites,
     file_attachments,
@@ -87,6 +88,7 @@ api_router.include_router(tags.router)
 api_router.include_router(documents.router)
 api_router.include_router(bookmarks.router)
 api_router.include_router(saved_reports.router)
+api_router.include_router(executive_dashboard.router)
 api_router.include_router(reports.router)
 api_router.include_router(roadmaps.router)
 api_router.include_router(diagrams.router)

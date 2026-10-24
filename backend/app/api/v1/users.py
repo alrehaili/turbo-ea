@@ -68,7 +68,7 @@ class NotificationPreferencesUpdate(BaseModel):
 
 
 class UiPreferencesUpdate(BaseModel):
-    dashboard_default_tab: Literal["overview", "workspace", "admin"] | None = None
+    dashboard_default_tab: Literal["overview", "executive", "workspace", "admin"] | None = None
     # Enabled Draw.io "More Shapes" libraries the user chose to remember, in the
     # order Draw.io reports them (e.g. ["general", "uml", "archimate3"]). Restored
     # as the embedded editor's `libs` URL param so the selection survives sessions.

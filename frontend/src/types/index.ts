@@ -1,4 +1,61 @@
-export type DashboardTabKey = "overview" | "workspace" | "admin";
+export type DashboardTabKey = "overview" | "executive" | "workspace" | "admin";
+
+/** Section status on `GET /reports/executive`: never render a zero for "unknown". */
+export type ExecutiveSectionStatus = "ok" | "disabled" | "restricted";
+
+export interface ExecutiveMoney {
+  status: ExecutiveSectionStatus;
+  total_budget?: number;
+  total_actual?: number;
+}
+
+export interface ExecutiveDashboardData {
+  generated_at: string;
+  can_view_costs: boolean;
+  portfolio: {
+    status: ExecutiveSectionStatus;
+    total_cards: number;
+    avg_data_quality: number;
+    approved_pct: number;
+    by_type: Record<string, number>;
+    approval: Record<string, number>;
+    lifecycle: Record<string, number>;
+  };
+  delivery: {
+    status: ExecutiveSectionStatus;
+    total_initiatives?: number;
+    off_track?: number;
+    health_schedule?: Record<string, number>;
+    health_cost?: Record<string, number>;
+    health_scope?: Record<string, number>;
+    budget?: ExecutiveMoney;
+  };
+  processes: {
+    status: ExecutiveSectionStatus;
+    total_processes?: number;
+    by_automation?: Record<string, number>;
+    by_maturity?: Record<string, number>;
+    diagram_coverage?: { with_diagram: number; total: number; percentage: number };
+  };
+  risks: {
+    status: ExecutiveSectionStatus;
+    open?: number;
+    critical_high_open?: number;
+    open_by_level?: Record<string, number>;
+    overdue?: number;
+  };
+  rationalization: {
+    status: ExecutiveSectionStatus;
+    decisions: number;
+    by_decision: Record<string, number>;
+    planned_savings: {
+      status: ExecutiveSectionStatus;
+      provenance: "estimated";
+      total?: number;
+      decisions_with_savings?: number;
+    };
+  };
+}
 
 export interface UiPreferences {
   dashboard_default_tab?: DashboardTabKey;

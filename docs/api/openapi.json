@@ -18426,6 +18426,7 @@
               {
                 "enum": [
                   "overview",
+                  "executive",
                   "workspace",
                   "admin"
                 ],
@@ -41995,6 +41996,25 @@
           }
         },
         "summary": "Eol Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/executive": {
+      "get": {
+        "operationId": "executive_dashboard_api_v1_reports_executive_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Executive Dashboard",
         "tags": [
           "reports"
         ]

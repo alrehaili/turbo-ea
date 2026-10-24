@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.32.0] - 2026-10-22
+
+### Added
+- **Executive dashboard** — a new Executive tab on the Dashboard with headline figures, portfolio health, delivery (initiative health, budget vs actual), process automation and maturity, open risks, and application-rationalization decisions with planned savings clearly marked as estimates. Shown to roles holding the new `reports.executive_dashboard` permission; aggregates only, and cost figures still require `costs.view`.
+
+### Fixed
+- The backend no longer fails to start on Windows when seeding demo card logos.
+
 ## [2.31.0] - 2026-10-17
 
 ### Added
