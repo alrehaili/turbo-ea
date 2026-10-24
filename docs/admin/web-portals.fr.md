@@ -54,6 +54,8 @@ Le tableau s'ouvre également sur un regroupement et un sous-type de votre choix
 | **S'ouvre groupé par** | Organisation | Le regroupement affiché en premier |
 | **S'ouvre sur le sous-type** | Tous | Le sous-type sélectionné en premier |
 
+**S'ouvre groupé par** accepte aussi un sous-type d'initiative : le tableau s'ouvre alors avec un groupe par initiative de ce sous-type (voir [Gestion de portefeuille de projets](../guide/ppm.md)). Un sous-type que le propre filtre de sous-type du portail exclut n'est pas proposé : le portail ne publierait aucune de ces initiatives, et chaque ligne se retrouverait sous « Non groupé ».
+
 Ce ne sont que des points de départ : un visiteur peut changer l'un ou l'autre, et
 rien n'est mémorisé — rouvrir le portail revient à votre configuration. À ne pas
 confondre avec le **filtre par sous-types** ci-dessus, qui décide quelles
@@ -148,6 +150,26 @@ Le **mode SSO** réutilise l'authentification unique déjà configurée sous **A
 | **Type de fiche** | Quel type de fiche afficher |
 | **Sous-types** | Optionnellement restreindre à des sous-types spécifiques |
 | **Afficher le logo** | Si le logo de la plateforme doit être affiché sur le portail |
+
+### Filtres des fiches
+
+Sur un portail **Liste de fiches**, la section **Filtres des fiches** restreint le portail aux fiches correspondantes. C'est le même jeu de filtres que celui du [rapport de portefeuille d'applications](../guide/reports.md) :
+
+![Filtres des fiches dans la boîte de dialogue du portail](../assets/img/fr/102_admin_portail_web_filtres_fiches.png)
+
+| Ligne | N'affiche que les fiches… |
+|-------|---------------------------|
+| **Lié par** | liées à l'une des fiches choisies — un contrôle par type de fiche lié, plus un par relation lorsque plusieurs relations mènent au même type. **Inclure les sous-fiches** compte aussi une fiche liée à un élément situé sous une sélection |
+| **Étiquettes** | portant une étiquette choisie : n'importe quelle étiquette d'un même groupe, et une de chaque groupe dans lequel vous choisissez |
+| **Champs** | ayant un sous-type choisi, ou une valeur choisie dans l'un des champs de sélection ou oui/non de la fiche |
+| **Sous-types de relation** | ayant une relation dont l'attribut (par exemple *Type d'usage*) porte une valeur choisie |
+
+Chaque contrôle propose aussi **(vide)**, pour les fiches sans valeur, sans relation ou sans sous-type. Les visiteurs ne voient jamais que les fiches correspondantes : les filtres qu'ils choisissent sur le portail restreignent davantage la liste, sans jamais l'élargir, et les réglages de filtre eux-mêmes ne sont jamais envoyés au navigateur du visiteur.
+
+!!! note
+    Un portail créé avant la version 2.178.0 conserve ses filtres de sous-types et d'étiquettes tels quels jusqu'à son prochain enregistrement. Ensuite, des étiquettes choisies dans deux groupes différents doivent toutes deux figurer sur une fiche, comme dans le rapport de portefeuille.
+
+Les portails de portefeuille PPM et de navigateur de processus conservent leurs propres sélecteurs **Sous-types** et **Étiquettes**.
 
 ## Configuration de la visibilité
 

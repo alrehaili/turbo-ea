@@ -55,6 +55,8 @@ El tablero también se abre con una agrupación y un subtipo que usted elige:
 | **Se abre agrupado por** | Organización | Qué agrupación muestra el tablero primero |
 | **Se abre mostrando el subtipo** | Todos | Qué subtipo se selecciona primero |
 
+**Se abre agrupado por** también admite un subtipo de iniciativa, con lo que el tablero se abre con un grupo por cada iniciativa de ese subtipo (consulte [Gestión de cartera de proyectos](../guide/ppm.md)). No se ofrece un subtipo que el propio filtro de subtipos del portal excluye: el portal no publicaría ninguna de esas iniciativas y todas las filas acabarían en «Sin grupo».
+
 Ambos son solo un punto de partida: el visitante puede cambiar cualquiera de los
 dos y nada se recuerda, así que volver a abrir el portal regresa a lo que usted
 configuró. Es distinto del **filtro por subtipos** de más arriba, que decide qué
@@ -147,6 +149,26 @@ El **modo SSO** reutiliza el inicio de sesión único ya configurado en **Admin 
 | **Tipo de Ficha** | Qué tipo de ficha mostrar |
 | **Subtipos** | Opcionalmente, restringir a subtipos específicos |
 | **Mostrar Logotipo** | Si se muestra el logotipo de la plataforma en el portal |
+
+### Filtros de tarjetas
+
+En un portal de tipo **Lista de tarjetas**, la sección **Filtros de tarjetas** limita el portal a las tarjetas que coinciden. Es el mismo conjunto de filtros que el del [informe de portafolio de aplicaciones](../guide/reports.md):
+
+![Filtros de tarjetas en el diálogo del portal](../assets/img/es/102_admin_portal_web_filtros_tarjetas.png)
+
+| Fila | Muestra solo las tarjetas… |
+|------|----------------------------|
+| **Relacionado por** | relacionadas con alguna de las tarjetas elegidas: un control por tipo de tarjeta relacionado, más uno por relación cuando varias relaciones llegan al mismo tipo. **Incluir subtarjetas** cuenta también una tarjeta relacionada con cualquier elemento por debajo de una selección |
+| **Etiquetas** | que llevan una etiqueta elegida: cualquier etiqueta dentro de un grupo, y una de cada grupo del que elija |
+| **Campos** | con un subtipo elegido, o un valor elegido en uno de los campos de selección o sí/no de la tarjeta |
+| **Subtipos de relación** | con una relación cuyo atributo (por ejemplo *Tipo de uso*) tiene un valor elegido |
+
+Cada control ofrece además **(vacío)**, para las tarjetas sin valor, sin relación o sin subtipo. Los visitantes solo ven las tarjetas que coinciden: los filtros que eligen en el portal reducen aún más la lista, nunca la amplían, y la propia configuración de los filtros nunca se envía al navegador del visitante.
+
+!!! note
+    Un portal creado antes de la versión 2.178.0 conserva sus filtros de subtipos y etiquetas tal como estaban hasta que lo vuelva a guardar. A partir de entonces, las etiquetas elegidas de dos grupos distintos deben estar ambas en una tarjeta, como en el informe de portafolio.
+
+Los portales de portafolio PPM y de navegador de procesos conservan sus propios selectores de **Subtipos** y **Etiquetas**.
 
 ## Configuración de Visibilidad
 

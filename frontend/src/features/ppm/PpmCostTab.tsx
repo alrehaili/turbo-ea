@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { Fragment, useState, useMemo, lazy, Suspense } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -10,9 +10,9 @@ import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
+import TableFooter from "@mui/material/TableFooter";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -36,7 +36,25 @@ import { KPI_VALUE_SX } from "./ppmStyles";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { PpmCostLine, PpmBudgetLine } from "@/types";
+import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
+import { fiscalYearLabel } from "@/lib/fiscalYear";
+import { bucketFor, currentFiscalYear, fiscalYearFor } from "./costChartData";
+import {
+  defaultExpandedKey,
+  grandTotals,
+  groupBudgetLines,
+  groupCostLines,
+  type GroupKey,
+} from "./costTableGroups";
+import DerivedValue from "./DerivedValue";
+import { compactAmount } from "./ppmPortfolioFormat";
+import {
+  derivedYearGroups,
+  financialTotals,
+  type DerivedSide,
+  type DerivedYearRow,
+} from "./derivedFinancials";
+import type { PpmCostLine, PpmBudgetLine, PpmRollupOut } from "@/types";
 
 // Lazy: PpmProjectDetail imports every tab eagerly, so a static import would
 // pull Recharts into the PPM route chunk even for visitors who never open
@@ -47,10 +65,63 @@ const PpmCostCharts = lazy(() => import("./PpmCostCharts"));
 const NO_BUDGET_LINES: PpmBudgetLine[] = [];
 // Stryker disable next-line ObjectLiteral: spacing is presentation
 const LOADING_CELL_SX = { py: 2 } as const;
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const EMPTY_CELL_SX = { py: 2 } as const;
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const LINE_COUNT_SX = { ml: 0.5 } as const;
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const DESCRIPTION_CELL_SX = { maxWidth: 240 } as const;
+// Stryker disable next-line ObjectLiteral: typography is presentation
+const NUM_SX = { fontVariantNumeric: "tabular-nums" } as const;
+// Stryker disable next-line ObjectLiteral: typography is presentation
+const SUBTOTAL_SX = { fontVariantNumeric: "tabular-nums", fontWeight: 700 } as const;
+// Stryker disable next-line ObjectLiteral: colour is presentation
+const YEAR_ROW_SX = { bgcolor: "action.hover" } as const;
+// Stryker disable next-line ObjectLiteral: colour is presentation
+const FOOTER_ROW_SX = { bgcolor: "action.selected" } as const;
+// Stryker disable next-line ObjectLiteral: typography is presentation
+const FOOTER_CELL_SX = {
+  fontVariantNumeric: "tabular-nums",
+  fontWeight: 700,
+  color: "text.primary",
+  fontSize: "0.875rem",
+} as const;
+/** A figure summed from the initiatives beneath reads italic. */
+const DERIVED_NUM_SX = { ...NUM_SX, fontStyle: "italic" } as const;
+const DERIVED_FOOTER_CELL_SX = { ...FOOTER_CELL_SX, fontStyle: "italic" } as const;
+/** The caption heading a derived table: what it is and where it comes from. */
+// Stryker disable next-line ObjectLiteral: layout of the glyph beside the caption is presentation
+const DERIVED_CAPTION_SX = { display: "flex", alignItems: "center", gap: 0.5 } as const;
+
+/**
+ * Which year groups a table shows open. `null` until the user first toggles
+ * one: until then the open group follows the data (`defaultExpandedKey`), so a
+ * table whose lines arrive late still opens on the right year, and a reload
+ * after a save never undoes what the user chose. `open` adds a group without
+ * closing any, so a line just saved into a collapsed year is not hidden.
+ */
+function useExpandedGroups(defaultKey: GroupKey | null) {
+  // A `null` default sits in the set harmlessly: no group has a null key.
+  const [chosen, setChosen] = useState<Set<GroupKey | null> | null>(null);
+  const expanded = chosen ?? new Set<GroupKey | null>([defaultKey]);
+  const toggle = (key: GroupKey) => {
+    const next = new Set(expanded);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setChosen(next);
+  };
+  const open = (key: GroupKey) => {
+    // Functional: a save resolves after its own render, so read the latest set.
+    setChosen((prev) => new Set([...(prev ?? expanded), key]));
+  };
+  return { expanded, toggle, open };
+}
 
 interface Props {
   initiativeId: string;
   costLines: PpmCostLine[];
+  /** The initiatives beneath this one (`null` while unknown or unreadable). */
+  rollup: PpmRollupOut | null;
   onRefresh: () => void;
   /** False without `costs.view` or a stakeholder role on the initiative. */
   canViewCosts?: boolean;
@@ -59,13 +130,15 @@ interface Props {
 export default function PpmCostTab({
   initiativeId,
   costLines,
+  rollup,
   onRefresh,
   canViewCosts = true,
 }: Props) {
   const { t } = useTranslation("ppm");
   const fullScreen = useFullScreenDialog();
-  const { fmt } = useCurrency();
+  const { fmt, currency } = useCurrency();
   const { formatDate } = useDateFormat();
+  const { month: fyStart } = useFiscalYearStart();
 
   const errorText = (err: unknown) =>
     err instanceof Error ? err.message : t("common:errors.generic");
@@ -83,16 +156,20 @@ export default function PpmCostTab({
   const budgetLines = loadedBudgetLines ?? NO_BUDGET_LINES;
   // Until the budget lines have arrived, a budget figure is unknown — never $0.
   const budgetKnown = loadedBudgetLines !== undefined;
-  // Amounts the caller may not see arrive as null: every figure then reads
-  // "Restricted" — never a sum that treats them as zero — and the editing
+  // [FORK] Amounts the caller may not see arrive as null: every figure then
+  // reads "Restricted" (never a sum that treats them as zero) and the editing
   // controls are hidden, since the API refuses money writes without access.
   const costsRestricted =
     !canViewCosts ||
     budgetLines.some((b) => b.amount === null) ||
-    costLines.some((c) => c.actual === null || c.planned === null);
-  const budgetFigure = (n: number) =>
-    costsRestricted ? <RestrictedAmount /> : budgetKnown ? fmt.format(n) : "\u2014";
-  const actualFigure = (n: number) => (costsRestricted ? <RestrictedAmount /> : fmt.format(n));
+    costLines.some((c) => c.actual === null || c.planned === null) ||
+    rollup?.costs_restricted === true;
+  const money = (n: number) => (costsRestricted ? <RestrictedAmount /> : fmt.format(n));
+  // Summary-bar figures read in k / M so the derived glyph beside them cannot wrap them.
+  const kpiAmount = (n: number) =>
+    costsRestricted ? <RestrictedAmount /> : compactAmount(n, currency, fmt.format);
+  const budgetFigure = (n: number) => (budgetKnown ? money(n) : "\u2014");
+  const budgetKpi = (n: number) => (budgetKnown ? kpiAmount(n) : "\u2014");
   // A failed delete, shown above the table it failed in.
   const [budgetListError, setBudgetListError] = useState<string | null>(null);
   const [costListError, setCostListError] = useState<string | null>(null);
@@ -104,8 +181,9 @@ export default function PpmCostTab({
     item?: PpmBudgetLine;
   }>({ open: false });
   const [budgetForm, setBudgetForm] = useState({
-    fiscal_year: new Date().getFullYear(),
+    fiscal_year: currentFiscalYear(new Date(), fyStart),
     category: "capex" as "capex" | "opex",
+    description: "",
     amount: 0,
   });
 
@@ -125,47 +203,138 @@ export default function PpmCostTab({
   const { busy: saving, run: submit } = useSubmitOnce();
 
   // ── KPIs ──
-  const totalBudget = useMemo(
-    () => budgetLines.reduce((s, bl) => s + (bl.amount ?? 0), 0),
-    [budgetLines],
-  );
-  const totalActual = useMemo(
-    () => costLines.reduce((s, cl) => s + (cl.actual ?? 0), 0),
-    [costLines],
-  );
-  const capexBudget = useMemo(
-    () =>
-      budgetLines.filter((b) => b.category === "capex").reduce((s, b) => s + (b.amount ?? 0), 0),
-    [budgetLines],
-  );
-  const capexActual = useMemo(
-    () =>
-      costLines.filter((c) => c.category === "capex").reduce((s, c) => s + (c.actual ?? 0), 0),
-    [costLines],
-  );
-  const opexBudget = useMemo(
-    () =>
-      budgetLines.filter((b) => b.category === "opex").reduce((s, b) => s + (b.amount ?? 0), 0),
-    [budgetLines],
-  );
-  const opexActual = useMemo(
-    () =>
-      costLines.filter((c) => c.category === "opex").reduce((s, c) => s + (c.actual ?? 0), 0),
-    [costLines],
+  // Each side is this initiative's own lines, or — when it has none of that
+  // kind — the initiatives' beneath it (see derivedFinancials). The budget
+  // side is only ever derived once its own lines are known to be none.
+  const totals = financialTotals(budgetLines, costLines, rollup);
+  const budgetDerived = budgetKnown && totals.budget.derived;
+  const actualDerived = totals.actual.derived;
+  const count = rollup?.descendant_count;
+  const budgetTip = budgetDerived ? t("derivedBudgetTooltip", { count }) : undefined;
+  const actualTip = actualDerived ? t("derivedActualTooltip", { count }) : undefined;
+  const varianceTip = [budgetTip, actualTip].filter(Boolean).join(" \u00b7 ") || undefined;
+  const totalBudget = totals.budget.total;
+  const totalActual = totals.actual.total;
+
+  // ── Table groups ──
+  const currentFy = currentFiscalYear(new Date(), fyStart);
+  const budgetGroups = useMemo(() => groupBudgetLines(budgetLines), [budgetLines]);
+  const costGroups = useMemo(() => groupCostLines(costLines, fyStart), [costLines, fyStart]);
+  const budgetGrand = useMemo(() => grandTotals(budgetGroups), [budgetGroups]);
+  const costGrand = useMemo(() => grandTotals(costGroups), [costGroups]);
+  // A derived table's footer is the derived side's total, in italic.
+  const budgetFooter = budgetDerived ? totals.budget : budgetGrand;
+  const budgetFooterSx = budgetDerived ? DERIVED_FOOTER_CELL_SX : FOOTER_CELL_SX;
+  const costFooter = actualDerived ? totals.actual : costGrand;
+  const costFooterSx = actualDerived ? DERIVED_FOOTER_CELL_SX : FOOTER_CELL_SX;
+  const budgetOpen = useExpandedGroups(defaultExpandedKey(budgetGroups, currentFy));
+  const costOpen = useExpandedGroups(defaultExpandedKey(costGroups, currentFy));
+  const groupLabel = (key: GroupKey) =>
+    key === "undated" ? t("undated") : fiscalYearLabel(key, fyStart, t);
+
+  /**
+   * In place of an empty table's "no lines" row: one read-only row per fiscal
+   * year of the initiatives beneath, under a caption saying so. No toggles,
+   * no edit or delete — adding a line of its own is how the initiative takes
+   * the figure back.
+   */
+  const derivedTableRows = (side: DerivedSide, rows: DerivedYearRow[], labelSpan: number) => (
+    <>
+      <TableRow data-derived={side}>
+        <TableCell colSpan={labelSpan + 4}>
+          <Box sx={DERIVED_CAPTION_SX}>
+            <MaterialSymbol icon="subdirectory_arrow_right" size={18} />
+            <Typography variant="body2" color="text.secondary">
+              {t(side === "budget" ? "derivedBudgetCaption" : "derivedCostCaption", { count })}
+            </Typography>
+          </Box>
+        </TableCell>
+      </TableRow>
+      {rows.map((row) => (
+        <TableRow key={row.key} data-derived-row={side}>
+          <TableCell colSpan={labelSpan}>{groupLabel(row.key)}</TableCell>
+          <TableCell align="right" sx={DERIVED_NUM_SX}>
+            {money(row.capex)}
+          </TableCell>
+          <TableCell align="right" sx={DERIVED_NUM_SX}>
+            {money(row.opex)}
+          </TableCell>
+          <TableCell align="right" sx={DERIVED_NUM_SX}>
+            {money(row.total)}
+          </TableCell>
+          <TableCell />
+        </TableRow>
+      ))}
+    </>
   );
 
+  /**
+   * A line's amount under its category's column; one whose category is
+   * neither shows it under Total, the only figure it counts towards.
+   */
+  const amountCells = (amount: number | null, category: string) => {
+    const bucket = bucketFor(category);
+    const text = amount === null ? <RestrictedAmount /> : money(amount);
+    return (
+      <>
+        <TableCell align="right" sx={NUM_SX}>
+          {bucket === "capex" ? text : ""}
+        </TableCell>
+        <TableCell align="right" sx={NUM_SX}>
+          {bucket === "opex" ? text : ""}
+        </TableCell>
+        <TableCell align="right" sx={NUM_SX}>
+          {bucket === null ? text : ""}
+        </TableCell>
+      </>
+    );
+  };
+
+  /** The first cell of a year's header row: its toggle, name and line count. */
+  const groupTitleCell = (
+    key: GroupKey,
+    count: number,
+    open: boolean,
+    onToggle: () => void,
+    colSpan = 1,
+  ) => {
+    const label = groupLabel(key);
+    return (
+      <TableCell colSpan={colSpan}>
+        <Box display="flex" alignItems="center" gap={0.5}>
+          <IconButton
+            size="small"
+            aria-expanded={open}
+            aria-label={t("toggleYear", { year: label })}
+            onClick={onToggle}
+          >
+            <MaterialSymbol icon={open ? "expand_more" : "chevron_right"} size={18} />
+          </IconButton>
+          <Typography variant="body2" fontWeight={700}>
+            {label}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={LINE_COUNT_SX}>
+            {t("lineCount", { count })}
+          </Typography>
+        </Box>
+      </TableCell>
+    );
+  };
+
   // ── Budget handlers ──
-  const handleBudgetOpen = (item?: PpmBudgetLine) => {
+  const handleBudgetOpen = (item?: PpmBudgetLine, preset?: { fiscalYear?: number }) => {
     if (item) {
       setBudgetForm({
         fiscal_year: item.fiscal_year,
         category: item.category,
+        description: item.description ?? "",
         amount: item.amount ?? 0,
       });
     } else {
       setBudgetForm({
-        fiscal_year: new Date().getFullYear(),
+        fiscal_year: preset?.fiscalYear ?? currentFiscalYear(new Date(), fyStart),
         category: "capex",
+        description: "",
         amount: 0,
       });
     }
@@ -175,11 +344,13 @@ export default function PpmCostTab({
 
   const handleBudgetSave = () =>
     submit(async () => {
+      // The description is optional: an empty box stores NULL, not "".
+      const body = { ...budgetForm, description: budgetForm.description.trim() || null };
       try {
         if (budgetDialog.item) {
-          await api.patch(`/ppm/budgets/${budgetDialog.item.id}`, budgetForm);
+          await api.patch(`/ppm/budgets/${budgetDialog.item.id}`, body);
         } else {
-          await api.post(`/ppm/initiatives/${initiativeId}/budgets`, budgetForm);
+          await api.post(`/ppm/initiatives/${initiativeId}/budgets`, body);
         }
       } catch (err) {
         setBudgetSaveError(errorText(err));
@@ -187,6 +358,7 @@ export default function PpmCostTab({
       }
       // Stryker disable next-line ObjectLiteral: a dialog state without `open` is closed
       setBudgetDialog({ open: false });
+      budgetOpen.open(budgetForm.fiscal_year);
       loadBudgets();
     });
 
@@ -242,6 +414,7 @@ export default function PpmCostTab({
       }
       // Stryker disable next-line ObjectLiteral: a dialog state without `open` is closed
       setCostDialog({ open: false });
+      costOpen.open(fiscalYearFor(payload.date, fyStart) ?? "undated");
       onRefresh();
     });
 
@@ -284,7 +457,7 @@ export default function PpmCostTab({
             {t("totalBudget")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            {budgetFigure(totalBudget)}
+            <DerivedValue tip={budgetTip}>{budgetKpi(totalBudget)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -292,7 +465,7 @@ export default function PpmCostTab({
             {t("totalActual")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            {actualFigure(totalActual)}
+            <DerivedValue tip={actualTip}>{kpiAmount(totalActual)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -311,7 +484,7 @@ export default function PpmCostTab({
             }
             sx={KPI_VALUE_SX}
           >
-            {budgetFigure(totalBudget - totalActual)}
+            <DerivedValue tip={varianceTip}>{budgetKpi(totalBudget - totalActual)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -319,7 +492,9 @@ export default function PpmCostTab({
             {t("capex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {actualFigure(capexActual)} / {budgetFigure(capexBudget)}
+            <DerivedValue tip={actualTip}>{kpiAmount(totals.actual.capex)}</DerivedValue>
+            {" / "}
+            <DerivedValue tip={budgetTip}>{budgetKpi(totals.budget.capex)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -327,7 +502,9 @@ export default function PpmCostTab({
             {t("opex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {actualFigure(opexActual)} / {budgetFigure(opexBudget)}
+            <DerivedValue tip={actualTip}>{kpiAmount(totals.actual.opex)}</DerivedValue>
+            {" / "}
+            <DerivedValue tip={budgetTip}>{budgetKpi(totals.budget.opex)}</DerivedValue>
           </Typography>
         </Box>
       </Paper>
@@ -365,69 +542,95 @@ export default function PpmCostTab({
       )}
 
       <TableContainer
+        data-testid="ppm-budget-table"
         component={Paper}
         variant="outlined"
         sx={{ mb: 3, WebkitOverflowScrolling: "touch" }}
       >
-        <Table size="small" sx={{ minWidth: { xs: 520, md: "auto" } }}>
+        <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
           <TableHead>
             <TableRow>
-              <TableCell>{t("fiscalYear")}</TableCell>
-              <TableCell>{t("category")}</TableCell>
-              <TableCell align="right">{t("amount")}</TableCell>
+              <TableCell>{t("common:labels.description")}</TableCell>
+              <TableCell align="right">{t("capex")}</TableCell>
+              <TableCell align="right">{t("opex")}</TableCell>
+              <TableCell align="right">{t("total")}</TableCell>
               <TableCell width={80} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {budgetLines.map((bl) => (
-              <TableRow key={bl.id} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    FY {bl.fiscal_year}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={bl.category === "capex" ? t("capex") : t("opex")}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  {bl.amount === null ? <RestrictedAmount /> : fmt.format(bl.amount)}
-                </TableCell>
-                <TableCell>
-                  {!costsRestricted && (
-                  <Box display="flex" gap={0.5}>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.edit")}
-                      onClick={() => handleBudgetOpen(bl)}
-                    >
-                      <MaterialSymbol icon="edit" size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.delete")}
-                      onClick={() => handleBudgetDelete(bl.id)}
-                    >
-                      <MaterialSymbol icon="delete" size={16} />
-                    </IconButton>
-                  </Box>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {budgetGroups.map((g) => {
+              const open = budgetOpen.expanded.has(g.key);
+              const year = g.key as number;
+              return (
+                <Fragment key={g.key}>
+                  <TableRow sx={YEAR_ROW_SX}>
+                    {groupTitleCell(g.key, g.lines.length, open, () => budgetOpen.toggle(g.key))}
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {money(g.totals.capex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {money(g.totals.opex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {money(g.totals.total)}
+                    </TableCell>
+                    <TableCell>
+                      {!costsRestricted && (
+                        <IconButton
+                          size="small"
+                          aria-label={t("addLineForYear", { year: groupLabel(g.key) })}
+                          onClick={() => handleBudgetOpen(undefined, { fiscalYear: year })}
+                        >
+                          <MaterialSymbol icon="add" size={16} />
+                        </IconButton>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {open &&
+                    g.lines.map((bl) => (
+                      <TableRow key={bl.id} hover>
+                        <TableCell sx={DESCRIPTION_CELL_SX}>
+                          <Typography variant="body2" noWrap title={bl.description ?? ""}>
+                            <LinkifiedText text={bl.description ?? ""} />
+                          </Typography>
+                        </TableCell>
+                        {amountCells(bl.amount, bl.category)}
+                        <TableCell>
+                          {!costsRestricted && (
+                            <Box display="flex" gap={0.5}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.edit")}
+                              onClick={() => handleBudgetOpen(bl)}
+                            >
+                              <MaterialSymbol icon="edit" size={16} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.delete")}
+                              onClick={() => handleBudgetDelete(bl.id)}
+                            >
+                              <MaterialSymbol icon="delete" size={16} />
+                            </IconButton>
+                            </Box>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </Fragment>
+              );
+            })}
             {!budgetKnown && budgetLoading && (
               <TableRow>
-                <TableCell colSpan={4} sx={LOADING_CELL_SX}>
+                <TableCell colSpan={5} sx={LOADING_CELL_SX}>
                   <LinearProgress />
                 </TableCell>
               </TableRow>
             )}
-            {budgetKnown && budgetLines.length === 0 && (
+            {budgetDerived && derivedTableRows("budget", derivedYearGroups(rollup, "budget"), 1)}
+            {budgetKnown && budgetLines.length === 0 && !budgetDerived && (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("noBudgetLines")}
                   </Typography>
@@ -435,6 +638,23 @@ export default function PpmCostTab({
               </TableRow>
             )}
           </TableBody>
+          {(!budgetKnown || budgetLines.length > 0 || budgetDerived) && (
+            <TableFooter>
+              <TableRow sx={FOOTER_ROW_SX}>
+                <TableCell sx={FOOTER_CELL_SX}>{t("totalAllYears")}</TableCell>
+                <TableCell align="right" sx={budgetFooterSx}>
+                  {budgetFigure(budgetFooter.capex)}
+                </TableCell>
+                <TableCell align="right" sx={budgetFooterSx}>
+                  {budgetFigure(budgetFooter.opex)}
+                </TableCell>
+                <TableCell align="right" sx={budgetFooterSx}>
+                  {budgetFigure(budgetFooter.total)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </TableContainer>
 
@@ -465,6 +685,7 @@ export default function PpmCostTab({
       )}
 
       <TableContainer
+        data-testid="ppm-cost-table"
         component={Paper}
         variant="outlined"
         sx={{ WebkitOverflowScrolling: "touch" }}
@@ -473,58 +694,70 @@ export default function PpmCostTab({
           <TableHead>
             <TableRow>
               <TableCell>{t("common:labels.description")}</TableCell>
-              <TableCell>{t("category")}</TableCell>
               <TableCell>{t("date")}</TableCell>
-              <TableCell align="right">{t("amount")}</TableCell>
+              <TableCell align="right">{t("capex")}</TableCell>
+              <TableCell align="right">{t("opex")}</TableCell>
+              <TableCell align="right">{t("total")}</TableCell>
               <TableCell width={80} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {costLines.map((cl) => (
-              <TableRow key={cl.id} hover>
-                <TableCell sx={{ maxWidth: 240 }}>
-                  <Typography variant="body2" noWrap title={cl.description}>
-                    <LinkifiedText text={cl.description} />
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={cl.category === "capex" ? t("capex") : t("opex")}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>
-                  {cl.date ? formatDate(cl.date) : "\u2014"}
-                </TableCell>
-                <TableCell align="right">
-                  {cl.actual === null ? <RestrictedAmount /> : fmt.format(cl.actual)}
-                </TableCell>
-                <TableCell>
-                  {!costsRestricted && (
-                  <Box display="flex" gap={0.5}>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.edit")}
-                      onClick={() => handleCostOpen(cl)}
-                    >
-                      <MaterialSymbol icon="edit" size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.delete")}
-                      onClick={() => handleCostDelete(cl.id)}
-                    >
-                      <MaterialSymbol icon="delete" size={16} />
-                    </IconButton>
-                  </Box>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {costLines.length === 0 && (
+            {costGroups.map((g) => {
+              const open = costOpen.expanded.has(g.key);
+              return (
+                <Fragment key={g.key}>
+                  <TableRow sx={YEAR_ROW_SX}>
+                    {groupTitleCell(g.key, g.lines.length, open, () => costOpen.toggle(g.key), 2)}
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {money(g.totals.capex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {money(g.totals.opex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {money(g.totals.total)}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                  {open &&
+                    g.lines.map((cl) => (
+                      <TableRow key={cl.id} hover>
+                        <TableCell sx={DESCRIPTION_CELL_SX}>
+                          <Typography variant="body2" noWrap title={cl.description}>
+                            <LinkifiedText text={cl.description} />
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{cl.date ? formatDate(cl.date) : "\u2014"}</TableCell>
+                        {amountCells(cl.actual, cl.category)}
+                        <TableCell>
+                          {!costsRestricted && (
+                            <Box display="flex" gap={0.5}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.edit")}
+                              onClick={() => handleCostOpen(cl)}
+                            >
+                              <MaterialSymbol icon="edit" size={16} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.delete")}
+                              onClick={() => handleCostDelete(cl.id)}
+                            >
+                              <MaterialSymbol icon="delete" size={16} />
+                            </IconButton>
+                            </Box>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </Fragment>
+              );
+            })}
+            {actualDerived && derivedTableRows("cost", derivedYearGroups(rollup, "cost"), 2)}
+            {costLines.length === 0 && !actualDerived && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={6} align="center" sx={EMPTY_CELL_SX}>
                   <Typography variant="body2" color="text.secondary">
                     {t("noCostLines")}
                   </Typography>
@@ -532,6 +765,25 @@ export default function PpmCostTab({
               </TableRow>
             )}
           </TableBody>
+          {(costLines.length > 0 || actualDerived) && (
+            <TableFooter>
+              <TableRow sx={FOOTER_ROW_SX}>
+                <TableCell colSpan={2} sx={FOOTER_CELL_SX}>
+                  {t("totalAllYears")}
+                </TableCell>
+                <TableCell align="right" sx={costFooterSx}>
+                  {money(costFooter.capex)}
+                </TableCell>
+                <TableCell align="right" sx={costFooterSx}>
+                  {money(costFooter.opex)}
+                </TableCell>
+                <TableCell align="right" sx={costFooterSx}>
+                  {money(costFooter.total)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </TableContainer>
 
@@ -540,7 +792,7 @@ export default function PpmCostTab({
         <Dialog
           open
           onClose={() => setBudgetDialog({ open: false })}
-          maxWidth="xs"
+          maxWidth="sm"
           fullWidth
           fullScreen={fullScreen}
         >
@@ -565,6 +817,15 @@ export default function PpmCostTab({
                     fiscal_year: Number(e.target.value),
                   })
                 }
+                size="small"
+              />
+              <TextField
+                label={t("common:labels.description")}
+                value={budgetForm.description}
+                onChange={(e) =>
+                  setBudgetForm({ ...budgetForm, description: e.target.value })
+                }
+                fullWidth
                 size="small"
               />
               <FormControl size="small">

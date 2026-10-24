@@ -279,5 +279,6 @@
   "columns.architectureState": "حالة البنية",
   "columns.changeType": "نوع التغيير",
   "filter.architectureState": "حالة البنية",
-  "filter.changeType": "نوع التغيير"
+  "filter.changeType": "نوع التغيير",
+  "massEdit.rel.attributesHint": "تُطبَّق على كل رابط يُضاف. تحصل البطاقات المرتبطة مسبقًا بهدف مختار على هذه التفاصيل أيضًا؛ وتبقى التفاصيل المتروكة فارغة كما هي."
 }

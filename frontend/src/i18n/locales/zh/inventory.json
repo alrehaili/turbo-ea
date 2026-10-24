@@ -279,5 +279,6 @@
   "filter.architectureState": "架构状态",
   "filter.changeType": "变更类型",
   "massEdit.rel.typeToSearch": "输入以搜索 {{type}}",
-  "filter.segments": "范围"
+  "filter.segments": "范围",
+  "massEdit.rel.attributesHint": "应用于每条新增链接。已链接到所选目标的卡片也会获得这些详细信息；留空的详细信息保持不变。"
 }

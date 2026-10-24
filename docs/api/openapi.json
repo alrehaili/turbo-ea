@@ -3844,6 +3844,104 @@
         "title": "CardRestoreResponse",
         "type": "object"
       },
+      "CardTypeCategoryCreate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "label": {
+            "maxLength": 300,
+            "title": "Label",
+            "type": "string"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "CardTypeCategoryCreate",
+        "type": "object"
+      },
+      "CardTypeCategoryOrder": {
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "CardTypeCategoryOrder",
+        "type": "object"
+      },
+      "CardTypeCategoryUpdate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "title": "CardTypeCategoryUpdate",
+        "type": "object"
+      },
       "CardTypeCount": {
         "properties": {
           "count": {
@@ -9137,6 +9235,18 @@
       "MutationBatchOpen": {
         "description": "Open a batch before a mutating tool wrapper performs writes.",
         "properties": {
+          "confirm_token": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Token"
+          },
           "dry_run": {
             "default": false,
             "title": "Dry Run",
@@ -9924,6 +10034,17 @@
             "title": "Category",
             "type": "string"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
@@ -9957,6 +10078,17 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "fiscal_year": {
             "title": "Fiscal Year",
@@ -10015,6 +10147,17 @@
               }
             ],
             "title": "Category"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "fiscal_year": {
             "anyOf": [
@@ -10388,6 +10531,11 @@
             ],
             "title": "End Date"
           },
+          "group_anchor": {
+            "default": false,
+            "title": "Group Anchor",
+            "type": "boolean"
+          },
           "group_id": {
             "anyOf": [
               {
@@ -10473,6 +10621,16 @@
               }
             ],
             "title": "Parent Id"
+          },
+          "rollup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmRollup"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stakeholders": {
             "default": [],
@@ -10680,7 +10838,7 @@
         "type": "object"
       },
       "PpmPublicItem": {
-        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design. Every\nother identifier is withheld: ``group_id`` is an opaque per-response token,\nand the parent, report, reporter and stakeholder ids are not emitted at all.",
+        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design.\n``parent_id`` is set only when the parent is itself a row of the same\nresponse, so it repeats an ``id`` already published and lets the board nest\nits rows; a parent the portal does not publish reads ``None``. Every other\nidentifier is withheld: ``group_id`` is an opaque per-response token, and the\nreport, reporter and stakeholder ids are not emitted at all. ``group_anchor``\nmarks the row that names its group under a subtype grouping.",
         "properties": {
           "capex_actual": {
             "anyOf": [
@@ -10714,6 +10872,11 @@
               }
             ],
             "title": "End Date"
+          },
+          "group_anchor": {
+            "default": false,
+            "title": "Group Anchor",
+            "type": "boolean"
           },
           "group_id": {
             "anyOf": [
@@ -10776,6 +10939,27 @@
               }
             ],
             "title": "Opex Planned"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "rollup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmPublicRollup"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stakeholders": {
             "default": [],
@@ -10951,6 +11135,86 @@
           "scope_health"
         ],
         "title": "PpmPublicReport",
+        "type": "object"
+      },
+      "PpmPublicRollup": {
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nCarries no identifier. The planned and actual pairs are derived on their own\n(see ``PpmRollup``) and both read ``None`` whenever the portal hides costs;\nthe dates and the count are published like the row's own dates.",
+        "properties": {
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Planned"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Planned"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "descendant_count"
+        ],
+        "title": "PpmPublicRollup",
         "type": "object"
       },
       "PpmRiskCreate": {
@@ -11219,6 +11483,258 @@
           }
         },
         "title": "PpmRiskUpdate",
+        "type": "object"
+      },
+      "PpmRollup": {
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nThe quartet is two pairs, each all set or all ``None`` on its own: the\nplanned pair when the parent has no budget line of its own and some\ninitiative beneath it has, the actual pair when it has no cost line of its\nown and some initiative beneath it has. The dates\nare set only when it has neither a start nor an end date. ``descendant_count``\nis the number of initiatives beneath it on the board\n(``app.services.ppm_rollup``).",
+        "properties": {
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Planned"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Planned"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "descendant_count"
+        ],
+        "title": "PpmRollup",
+        "type": "object"
+      },
+      "PpmRollupOut": {
+        "description": "``GET /ppm/initiatives/{id}/rollup``: the initiatives beneath one initiative.\n\nAlways summed over the descendants alone, never including the initiative's\nown lines or dates \u2014 the Overview and Budget & Costs tabs show it beside\nthose, or in their place on a side the initiative has no lines of its own\nfor. ``has_budget_lines`` / ``has_cost_lines`` describe the initiative\nitself; ``by_year`` is ascending with the undated entry last.",
+        "properties": {
+          "by_year": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmRollupYear"
+            },
+            "title": "By Year",
+            "type": "array"
+          },
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0,
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0,
+            "title": "Capex Planned"
+          },
+          "costs_restricted": {
+            "default": false,
+            "title": "Costs Restricted",
+            "type": "boolean"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "has_budget_lines": {
+            "default": false,
+            "title": "Has Budget Lines",
+            "type": "boolean"
+          },
+          "has_cost_lines": {
+            "default": false,
+            "title": "Has Cost Lines",
+            "type": "boolean"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0,
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0,
+            "title": "Opex Planned"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "total_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0,
+            "title": "Total Actual"
+          },
+          "total_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0,
+            "title": "Total Planned"
+          }
+        },
+        "required": [
+          "descendant_count"
+        ],
+        "title": "PpmRollupOut",
+        "type": "object"
+      },
+      "PpmRollupYear": {
+        "description": "One fiscal year of the initiatives beneath one initiative.\n\n``year`` is ``None`` for cost lines without a date, which belong to no year.\nBudget lines sit on their stored fiscal year, cost lines on the fiscal year\ntheir date falls in (the same rule as ``ppm.byYear``).",
+        "properties": {
+          "capex_actual": {
+            "default": 0,
+            "title": "Capex Actual",
+            "type": "number"
+          },
+          "capex_budget": {
+            "default": 0,
+            "title": "Capex Budget",
+            "type": "number"
+          },
+          "opex_actual": {
+            "default": 0,
+            "title": "Opex Actual",
+            "type": "number"
+          },
+          "opex_budget": {
+            "default": 0,
+            "title": "Opex Budget",
+            "type": "number"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "year"
+        ],
+        "title": "PpmRollupYear",
         "type": "object"
       },
       "PpmStatusReportCreate": {
@@ -33155,6 +33671,189 @@
         ]
       }
     },
+    "/api/v1/metamodel/categories": {
+      "get": {
+        "description": "Every card type category, in layer order. Any signed-in user may read\nit \u2014 every surface that draws layers needs the labels and colours.",
+        "operationId": "list_card_type_categories_api_v1_metamodel_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Card Type Categories",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "post": {
+        "description": "Create a custom category; its key is the label as typed, trimmed.",
+        "operationId": "create_card_type_category_api_v1_metamodel_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTypeCategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Card Type Category",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/categories/order": {
+      "put": {
+        "description": "Rewrite the layer order. ``keys`` must list every category exactly once\n\u2014 the built-in layers included, since a custom one may sit between them.",
+        "operationId": "reorder_card_type_categories_api_v1_metamodel_categories_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTypeCategoryOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reorder Card Type Categories",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/categories/{key}": {
+      "delete": {
+        "description": "Delete a custom category no card type uses. Built-in layers are locked;\na category still in use answers 409 ``types_present`` with the types.",
+        "operationId": "delete_card_type_category_api_v1_metamodel_categories__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Card Type Category",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "patch": {
+        "description": "Edit a custom category's label, colour or translations. The key never\nchanges (it is what card types store); a built-in layer is locked.",
+        "operationId": "update_card_type_category_api_v1_metamodel_categories__key__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTypeCategoryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Card Type Category",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
     "/api/v1/metamodel/compliance-regulations": {
       "get": {
         "description": "List compliance regulations, ordered by sort_order.\n\nAuthenticated read so the TurboLens Security tab can fetch the list\neven for users without admin rights. Write operations remain gated\nbehind ``admin.metamodel``.",
@@ -34199,6 +34898,18 @@
               "title": "Key",
               "type": "string"
             }
+          },
+          {
+            "description": "Also delete every card of a custom type (with its relations). Without it, a custom type that still has cards is refused with 409.",
+            "in": "query",
+            "name": "delete_cards",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also delete every card of a custom type (with its relations). Without it, a custom type that still has cards is refused with 409.",
+              "title": "Delete Cards",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -34310,6 +35021,47 @@
           }
         },
         "summary": "Update Type",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/delete-impact": {
+      "get": {
+        "description": "What ``DELETE /types/{key}`` would remove: the confirmation dialog's numbers.\n\nCounts only \u2014 a card type's dependants are landscape-wide admin data, and the\ncaller holds ``admin.metamodel``, so no read scope applies.",
+        "operationId": "get_type_delete_impact_api_v1_metamodel_types__key__delete_impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Type Delete Impact",
         "tags": [
           "metamodel"
         ]
@@ -36110,7 +36862,7 @@
         ]
       },
       "post": {
-        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token`` the commit call must echo back.",
+        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token``. A real batch above the threshold must present that\ntoken, or the open is refused before any write happens.",
         "operationId": "open_batch_api_v1_mutation_batches_post",
         "parameters": [
           {
@@ -38156,6 +38908,49 @@
           }
         },
         "summary": "Create Risk",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
+    "/api/v1/ppm/initiatives/{initiative_id}/rollup": {
+      "get": {
+        "description": "Count, cost sums and date span of the initiatives beneath this one.\n\nRead live and never stored: a stored roll-up would go stale on a child's\nedit, a re-parent, an archive or a restore. Only initiatives the caller may\nsee count.",
+        "operationId": "initiative_rollup_api_v1_ppm_initiatives__initiative_id__rollup_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmRollupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Initiative Rollup",
         "tags": [
           "ppm"
         ]
@@ -42584,7 +43379,7 @@
         "operationId": "ppm_gantt_api_v1_reports_ppm_gantt_get",
         "parameters": [
           {
-            "description": "Card type key to group by",
+            "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
             "in": "query",
             "name": "group_by",
             "required": false,
@@ -42597,7 +43392,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Card type key to group by",
+              "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
               "title": "Group By"
             }
           },
@@ -42744,7 +43539,7 @@
     },
     "/api/v1/reports/roadmap": {
       "get": {
-        "description": "Roadmap: lifecycle timeline data.",
+        "description": "Roadmap: lifecycle timeline data.\n\nWith ``type`` naming a visible card type the cards also carry their\nrelations and tags, with the relation types, related-card options and tag\ngroups the Lifecycle report's filter section reads (the same payload as\n``/reports/app-portfolio``). Without it \u2014 *All types* \u2014 or for a type that\nis unknown or hidden, the rows are the plain timeline rows.\n\nDeliberately behind this report's own gate rather than ``reports.portfolio``:\nthe extra payload is metamodel and tag-group configuration, and every card\nin it \u2014 the rows, their related cards, the ancestor closure \u2014 stays inside\nthe reader's ``CardReadScope``, so a reports-only role sees nothing here it\ncould not see on the report itself.",
         "operationId": "roadmap_api_v1_reports_roadmap_get",
         "parameters": [
           {
@@ -53285,6 +54080,47 @@
         ]
       }
     },
+    "/api/v1/web-portals/filter-options": {
+      "get": {
+        "description": "What the portal dialog's card filters offer for one card type.\n\nThe same relation types, related cards, fields and tag groups the\nportfolio reports filter on (``build_portfolio_payload``), without the\ncards themselves, and gated on the portal permission rather than the\nreport one: configuring a portal must not depend on reading reports. The\nrelated cards stay inside the admin's own read scope.",
+        "operationId": "get_portal_filter_options_api_v1_web_portals_filter_options_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Portal Filter Options",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
     "/api/v1/web-portals/public/{slug}": {
       "get": {
         "operationId": "get_public_portal_api_v1_web_portals_public__slug__get",
@@ -53672,7 +54508,7 @@
             }
           },
           {
-            "description": "Card type key to group by",
+            "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
             "in": "query",
             "name": "group_by",
             "required": false,
@@ -53685,7 +54521,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Card type key to group by",
+              "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
               "title": "Group By"
             }
           }

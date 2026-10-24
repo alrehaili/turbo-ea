@@ -54,6 +54,8 @@ Tavlen åbner desuden med en gruppering og en undertype, du vælger:
 | **Åbner grupperet efter** | Organisation | Hvilken gruppering tavlen viser først |
 | **Åbner med undertype** | Alle | Hvilken undertype der er valgt først |
 
+**Åbner grupperet efter** accepterer også en undertype af Initiativ, så tavlen åbner med én gruppe pr. initiativ af den undertype (se [Projektporteføljestyring](../guide/ppm.md)). En undertype, som portalens eget undertypefilter udelukker, tilbydes ikke: Portalen ville ikke udgive nogen af disse initiativer, så alle rækker ville havne under »Ugrupperet«.
+
 Begge er kun et udgangspunkt — en besøgende kan ændre begge dele, og intet huskes,
 så gensyn med portalen vender tilbage til det, du har konfigureret her. Det er ikke
 det samme som **undertypefilteret** ovenfor, der afgør, hvilke initiativer der
@@ -143,6 +145,26 @@ Hver portal har en **adgangstilstand**, der styrer, hvem der kan åbne den:
 | **Korttype** | Hvilken korttype der skal vises |
 | **Undertyper** | Begræns eventuelt til specifikke undertyper |
 | **Vis logo** | Hvorvidt platformlogoet skal vises på portalen |
+
+### Kortfiltre
+
+På en portal af typen **Kortliste** begrænser sektionen **Kortfiltre** portalen til de kort, der matcher. Det er det samme filtersæt som i [applikationsporteføljerapporten](../guide/reports.md):
+
+![Kortfiltre i portaldialogen](../assets/img/da/102_admin_web_portal_card_filters.png)
+
+| Række | Viser kun kort, … |
+|-------|--------------------|
+| **Relateret via** | der er relateret til et af de valgte kort — ét felt pr. relateret korttype, plus ét pr. relation, når flere relationer når samme type. **Medtag underkort** tæller også et kort, der er relateret til noget under et valg |
+| **Tags** | der har et valgt tag: et vilkårligt tag inden for én gruppe og ét fra hver gruppe, du vælger fra |
+| **Felter** | med en valgt undertype eller en valgt værdi i et af kortets valg- eller ja/nej-felter |
+| **Relationsundertyper** | med en relation, hvis attribut (for eksempel *Anvendelsestype*) har en valgt værdi |
+
+Hvert felt tilbyder også **(tom)** for kort uden værdi, uden relation eller uden undertype. Besøgende ser kun de kort, der matcher: De filtre, de vælger på portalen, indsnævrer listen yderligere, aldrig bredere, og selve filterindstillingerne sendes aldrig til den besøgendes browser.
+
+!!! note
+    En portal, der er oprettet før version 2.178.0, beholder sine undertype- og tagfiltre, præcis som de var, indtil du gemmer den næste gang. Derefter skal tags valgt fra to forskellige taggrupper begge være på et kort, som i porteføljerapporten.
+
+PPM-porteføljeportaler og procesnavigatorportaler beholder deres egne vælgere for **Undertyper** og **Tags**.
 
 ## Konfiguration af synlighed
 

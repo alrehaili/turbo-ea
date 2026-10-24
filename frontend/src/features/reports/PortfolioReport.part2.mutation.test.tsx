@@ -665,6 +665,26 @@ describe("filter sections", () => {
     expect(within(toolbar()).queryByText("Less")).not.toBeInTheDocument();
   });
 
+  it("folds the relation facets again when the card type changes", async () => {
+    const BP = { ...PAYLOAD, groupable_types: { ...PAYLOAD.groupable_types, BusinessProcess: BP_MEMBERS } };
+    mockApi.on("get", "/reports/app-portfolio?type=Application", BP);
+    mockApi.on("get", "/reports/app-portfolio?type=Provider", {
+      ...BP,
+      items: [app("acme", "Acme Corp")],
+    });
+    await renderLoaded("Standalone Tool", { showTypeSelector: true });
+    fireEvent.click(within(toolbar()).getByText("1 more"));
+    expect(await within(toolbar()).findByText("Less")).toBeInTheDocument();
+
+    fireEvent.mouseDown(within(toolbar()).getByRole("combobox", { name: /card type/i }));
+    // The option's name carries its icon glyph ("storefrontProvider").
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: /Provider$/ }));
+    await within(document.body).findByText("Acme Corp", {}, { timeout: 5000 });
+    // Three facets again, folded: the fold is per type, not carried over.
+    expect(within(toolbar()).getByText("1 more")).toBeInTheDocument();
+    expect(within(toolbar()).queryByText("Less")).not.toBeInTheDocument();
+  });
+
   it("drops the Less chip when a reloaded type has only two facets", async () => {
     mockApi.on("get", "/reports/app-portfolio?type=Application", {
       ...PAYLOAD,
@@ -724,7 +744,10 @@ describe("filter sections", () => {
     expect(facet("Bare Field")).not.toBeInTheDocument();
   });
 
-  it("has no Fields section when no field has options", async () => {
+  it("has no Fields section when no field has options and the type has no subtypes", async () => {
+    // A subtype filter (#1294) also lives in the Fields row; take it away so
+    // this test still pins the option-less-field rule on its own.
+    withMetamodel([{ ...APPLICATION_TYPE, subtypes: [] }, ORG_TYPE, PROVIDER_TYPE, BP_TYPE]);
     mockApi.on("get", "/reports/app-portfolio*", {
       ...PAYLOAD,
       fields_schema: [
@@ -740,6 +763,7 @@ describe("filter sections", () => {
     await renderLoaded("Standalone Tool");
     expect(within(toolbar()).queryByText("Fields")).not.toBeInTheDocument();
     expect(facet("Bare Field")).not.toBeInTheDocument();
+    expect(facet("Subtype")).not.toBeInTheDocument();
   });
 });
 

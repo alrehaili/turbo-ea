@@ -66,7 +66,13 @@ async def ppm_dashboard(
 async def ppm_gantt(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    group_by: str | None = Query(None, description="Card type key to group by"),
+    group_by: str | None = Query(
+        None,
+        description=(
+            "Card type key to group by, or subtype:<key> to group every initiative "
+            "under the top-most initiative of that Initiative subtype above it"
+        ),
+    ),
     architecture_state: str | None = Query(
         None, description="Filter by architecture_state (e.g., 'transition')"
     ),

@@ -126,6 +126,8 @@ report.
 | `ppm.byYear` | The same nine measures per fiscal year, as a list of `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | The fiscal year today falls in |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Cost lines with no date, which count towards the totals but belong to no year |
+| `ppm.unscheduledCapexActual` | The CapEx actuals of those undated cost lines |
+| `ppm.unscheduledOpexActual` | The OpEx actuals of those undated cost lines |
 | `ppm.completion` | Overall completion in % — the mean of the top-level work packages, exactly the number the initiative's Overview tab shows |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Number of work packages and of milestones |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Task counts, in total and by status |
@@ -186,6 +188,27 @@ attributes. To put the same number on the card and in a [web portal](web-portals
 From then on marking a task done, editing a work package's completion, or deleting one moves
 the bar wherever the card is shown.
 
+#### Rolling PPM figures up the Initiative hierarchy { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+The PPM portfolio board shows a parent without budget or cost lines of its own the total of the
+initiatives beneath it, but that figure lives on the board only. To show on a program — in the
+Inventory, reports and portals — the budget of everything beneath it, use one calculation that
+reads its children's result:
+
+1. In **Admin → Metamodel**, add a field of type **Cost** to the Initiative type — say
+   `rolledUpBudget`, labelled *Rolled-up budget*.
+2. In **Admin → Calculations**, add a calculation on Initiative with the formula
+   `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, target that field, and activate it.
+3. Run it once from the list to fill in the initiatives that already exist.
+
+The same formula serves every level: a project adds its own budget to nothing, a program adds
+its own to its projects' totals, and so on upwards. Because each level reads what its children
+hold, the order matters, and Turbo EA takes care of it: a manual run processes the hierarchy
+deepest first, and a change to a budget line, cost line, work package, task, risk or status
+report re-runs the initiative's ancestors, nearest parent first. Swap `ppm.totalBudget` for
+`ppm.totalActual`, `ppm.capexBudget` or any other `ppm` measure to roll up another figure — one
+field per figure.
+
 ### Built-in Functions
 
 | Function | Description | Example |
@@ -243,25 +266,21 @@ COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
 SUM(PLUCK(children, "attributes.costTotalAnnual"))
 ```
 
-**TIME Model placement (Tolerate / Invest / Migrate / Eliminate)**, the same example you'll see in the **Formula Reference** panel inside **Admin → Metamodel → Calculations** when creating a new calculation. Target type = `Application`, target field = `timeModel`. Assumes you have added two `single_select` fields named `businessFit` and `technicalFit` with options `excellent`, `adequate`, `insufficient`, `unreasonable`:
+**TIME Model placement (Tolerate / Invest / Migrate / Eliminate)**, the same example you'll see in the **Formula Reference** panel inside **Admin → Metamodel → Calculations** when creating a new calculation. Target type = `Application`, target field = `timeModel`. It reads the built-in **Functional Suitability** and **Technical Suitability** fields, so it works on a stock install without adding any field:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
+# Target: Application → TIME Model. Uses the built-in fields
+# functionalSuitability and technicalSuitability.
 #
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
+# Each rating maps to a 1-4 score (4 = best); threshold 2.5:
+#   Invest    = high functional + high technical
+#   Migrate   = high functional + low technical
+#   Tolerate  = low functional  + high technical
+#   Eliminate = low functional  + low technical
 #
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
 As the example shows, a formula can span several lines. A line of the form `name = expression`
@@ -334,6 +353,11 @@ Calculations for a card are re-evaluated when:
 
 * a PPM budget line, cost line, work package, task, risk or status report on the card
   changes, for an Initiative.
+* the change above happens on an Initiative lower in the hierarchy: every Initiative above
+  it is re-run as well, nearest parent first, so a [roll-up](#rolling-ppm-figures-up-the-initiative-hierarchy) follows the change.
+
+A manual run evaluates the cards of a hierarchical type deepest first, children before
+their parent, so a formula that reads its children's calculated values settles in one run.
 
 They are **not** re-evaluated when a different card that this formula reads from is edited.
 If you change a cost on an IT Component, an application that aggregates it will not move

@@ -118,6 +118,8 @@ A raiz `ppm` expõe às fórmulas os dados do módulo PPM: as linhas de orçamen
 | `ppm.byYear` | As mesmas nove medidas por exercício fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | O exercício fiscal em que a data de hoje cai |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Linhas de custo sem data: contam nos totais, mas não pertencem a nenhum exercício |
+| `ppm.unscheduledCapexActual` | O realizado CapEx dessas linhas de custo sem data |
+| `ppm.unscheduledOpexActual` | O realizado OpEx dessas linhas de custo sem data |
 | `ppm.completion` | Conclusão geral em % — a média dos pacotes de trabalho de nível superior, exatamente o número que a aba Visão Geral da iniciativa mostra |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Número de pacotes de trabalho e de marcos |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Contagem de tarefas, no total e por status |
@@ -159,6 +161,16 @@ O progresso de uma iniciativa vive na sua aba Visão Geral; cards e portais publ
 3. Nas propriedades do portal, marque o campo para a lista de cards e para a visualização de detalhe.
 
 A partir daí, marcar uma tarefa como concluída, editar a conclusão de um pacote de trabalho ou excluir um deles move a barra onde quer que o card seja exibido.
+
+#### Consolidar valores de PPM ao longo da hierarquia de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+O portfólio de PPM mostra em uma iniciativa pai sem linhas de orçamento ou de custo próprias o total das iniciativas abaixo dela, mas esse valor existe apenas no quadro. Para mostrar em um programa — no inventário, nos relatórios e nos portais — o orçamento de tudo o que está abaixo dele, use um único cálculo que leia o resultado das filhas:
+
+1. Em **Admin → Metamodelo**, adicione um campo do tipo **Custo** ao tipo Iniciativa — por exemplo `rolledUpBudget`, com o rótulo *Orçamento consolidado*.
+2. Em **Admin → Cálculos**, adicione um cálculo em Iniciativa com a fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, aponte para esse campo e ative-o.
+3. Execute-o uma vez a partir da lista para preencher as iniciativas que já existem.
+
+A mesma fórmula serve para todos os níveis: um projeto soma o próprio orçamento a nada, um programa soma o dele aos totais dos seus projetos, e assim por diante para cima. Como cada nível lê o que as filhas contêm, a ordem importa, e o Turbo EA cuida disso: uma execução manual processa a hierarquia a partir do nível mais profundo, e uma alteração em uma linha de orçamento, uma linha de custo, um pacote de trabalho, uma tarefa, um risco ou um relatório de status executa novamente os ancestrais da iniciativa, começando pelo pai direto. Troque `ppm.totalBudget` por `ppm.totalActual`, `ppm.capexBudget` ou qualquer outra medida `ppm` para consolidar outro valor — um campo por valor.
 
 ### Funções Incorporadas
 
@@ -217,25 +229,21 @@ COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
 SUM(PLUCK(children, "attributes.costTotalAnnual"))
 ```
 
-**Posicionamento TIME Model (Tolerar / Investir / Migrar / Eliminar)**, o mesmo exemplo que você verá no painel **Formula Reference** dentro de **Admin → Metamodelo → Cálculos** ao criar um novo cálculo. Tipo alvo = `Application`, campo alvo = `timeModel`. Assume que você adicionou dois campos `single_select` chamados `businessFit` e `technicalFit` com as opções `excellent`, `adequate`, `insufficient`, `unreasonable`:
+**Posicionamento TIME Model (Tolerar / Investir / Migrar / Eliminar)**, o mesmo exemplo que você verá no painel **Referência de fórmulas** dentro de **Admin → Metamodelo → Cálculos** ao criar um novo cálculo. Tipo alvo = `Application`, campo alvo = `timeModel`. Ele lê os campos integrados **Adequação funcional** e **Adequação técnica**, então funciona numa instalação padrão sem adicionar nenhum campo:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
+# Target: Application → TIME Model. Uses the built-in fields
+# functionalSuitability and technicalSuitability.
 #
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
+# Each rating maps to a 1-4 score (4 = best); threshold 2.5:
+#   Invest    = high functional + high technical
+#   Migrate   = high functional + low technical
+#   Tolerate  = low functional  + high technical
+#   Eliminate = low functional  + low technical
 #
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
 Como o exemplo mostra, uma fórmula pode ocupar várias linhas. Uma linha no formato
@@ -297,6 +305,13 @@ Os cálculos de um card são reavaliados quando:
   alvo e salva os resultados;
 * uma linha de orçamento, uma linha de custo, um pacote de trabalho, uma tarefa, um risco ou um
   relatório de status do PPM no card muda, para uma Iniciativa.
+* a alteração acima acontece em uma Iniciativa mais abaixo na hierarquia: todas as
+  Iniciativas acima dela também são recalculadas, começando pelo pai direto, de modo que uma
+  [consolidação](#rolling-ppm-figures-up-the-initiative-hierarchy) acompanha a alteração.
+
+Uma execução manual avalia os cards de um tipo hierárquico a partir do nível mais profundo, as
+filhas antes do pai, de modo que uma fórmula que lê os valores calculados das filhas chega ao
+resultado em uma única execução.
 
 Eles **não** são reavaliados quando outro card do qual a fórmula lê é editado. Se você mudar
 um custo em um componente de TI, a aplicação que o agrega não vai se mover até que essa

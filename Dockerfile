@@ -121,12 +121,19 @@ FROM alpine/git:v2.54.0 AS drawio
 RUN git clone --depth 1 --branch v31.5.3 https://github.com/jgraph/drawio.git /drawio
 
 
-FROM nginx:1.30.5-alpine AS frontend
+FROM nginx:1.30.6-alpine AS frontend
 
 ARG APP_UID
 ARG APP_GID
 
-RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
+# The official image ships nginx's optional dynamic modules and curl. Nothing
+# here loads a module (no load_module) and nothing in the container calls curl
+# (the ECS health checks use busybox wget). Their dependency tree (libgd, tiff,
+# libx11, fontconfig/libexpat, libxml2/libxslt, geoip) is what produced the
+# libtiff, libexpat and libX11 image findings, so it goes before the upgrade.
+RUN apk del --no-cache nginx-module-image-filter nginx-module-xslt nginx-module-geoip \
+        nginx-module-njs nginx-module-acme curl && \
+    apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
 COPY --from=frontend-build /app/dist /usr/share/nginx/html
@@ -163,12 +170,19 @@ EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
 
 
-FROM nginx:1.30.5-alpine AS nginx
+FROM nginx:1.30.6-alpine AS nginx
 
 ARG APP_UID
 ARG APP_GID
 
-RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
+# The official image ships nginx's optional dynamic modules and curl. Nothing
+# here loads a module (no load_module) and nothing in the container calls curl
+# (the ECS health checks use busybox wget). Their dependency tree (libgd, tiff,
+# libx11, fontconfig/libexpat, libxml2/libxslt, geoip) is what produced the
+# libtiff, libexpat and libX11 image findings, so it goes before the upgrade.
+RUN apk del --no-cache nginx-module-image-filter nginx-module-xslt nginx-module-geoip \
+        nginx-module-njs nginx-module-acme curl && \
+    apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
 COPY nginx/default.conf /etc/nginx/turboea-templates/default.conf.template
@@ -510,6 +524,16 @@ ${nginx_real_ip_lines}
         proxy_set_header Host \$host;
     }
 
+    # OIDC-style discovery, the fallback some clients (Copilot Studio among
+    # them) probe after the RFC 8414 path: /.well-known/openid-configuration/mcp
+    # otherwise reached the SPA catch-all and answered index.html with a 200.
+    location ^~ /.well-known/openid-configuration {
+        set \$mcp_upstream ${mcp_upstream};
+        rewrite ^ /.well-known/openid-configuration break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
     # Clean MCP endpoint URL. The MCP server serves its Streamable-HTTP endpoint
     # at internal /mcp; without this exact-match block a bare external /mcp would
     # miss 'location /mcp/' and hit the SPA catch-all, so clients had to use the
@@ -745,6 +769,16 @@ ${nginx_real_ip_lines}
     location ^~ /.well-known/oauth-protected-resource {
         set \$mcp_upstream ${mcp_upstream};
         rewrite ^ /.well-known/oauth-protected-resource break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    # OIDC-style discovery, the fallback some clients (Copilot Studio among
+    # them) probe after the RFC 8414 path: /.well-known/openid-configuration/mcp
+    # otherwise reached the SPA catch-all and answered index.html with a 200.
+    location ^~ /.well-known/openid-configuration {
+        set \$mcp_upstream ${mcp_upstream};
+        rewrite ^ /.well-known/openid-configuration break;
         proxy_pass \$mcp_upstream;
         proxy_set_header Host \$host;
     }

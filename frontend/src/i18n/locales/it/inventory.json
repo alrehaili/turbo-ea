@@ -279,5 +279,6 @@
   "filter.architectureState": "Stato dell'architettura",
   "filter.changeType": "Tipo di modifica",
   "massEdit.rel.typeToSearch": "Digita per cercare {{type}}",
-  "filter.segments": "Ambiti"
+  "filter.segments": "Ambiti",
+  "massEdit.rel.attributesHint": "Applicati a ogni collegamento aggiunto. Anche le schede già collegate a una destinazione scelta ricevono questi dettagli; i dettagli lasciati vuoti restano invariati."
 }

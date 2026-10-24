@@ -114,6 +114,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.byYear` | المقاييس التسعة نفسها لكل سنة مالية، كقائمة `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | السنة المالية التي يقع فيها تاريخ اليوم |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | سطور تكلفة بلا تاريخ: تُحتسب في الإجماليات لكنها لا تنتمي لأي سنة |
+| `ppm.unscheduledCapexActual` | الفعلي من النفقات الرأسمالية لسطور التكلفة هذه التي بلا تاريخ |
+| `ppm.unscheduledOpexActual` | الفعلي من النفقات التشغيلية لسطور التكلفة هذه التي بلا تاريخ |
 | `ppm.completion` | نسبة الإنجاز الإجمالية بالمئة — متوسط حزم العمل في المستوى الأعلى، وهو الرقم نفسه الذي تعرضه علامة تبويب النظرة العامة للمبادرة |
 | `ppm.wbsCount`, `ppm.milestoneCount` | عدد حزم العمل وعدد المعالم الرئيسية |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | أعداد المهام، إجمالًا وحسب الحالة |
@@ -155,6 +157,16 @@ IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 3. في خصائص البوابة، علِّم على الحقل لقائمة البطاقات ولعرض التفاصيل.
 
 منذ ذلك الحين، يؤدي تعليم مهمة كمنجَزة، أو تعديل نسبة إنجاز حزمة عمل، أو حذف إحداها إلى تحريك الشريط أينما عُرضت البطاقة.
+
+#### تجميع أرقام PPM عبر التسلسل الهرمي للمبادرات { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+تعرض محفظة PPM على المبادرة الأصل التي ليست لها أسطر ميزانية أو تكلفة خاصة بها مجموعَ المبادرات التابعة لها، لكن هذا الرقم لا يوجد إلا على اللوحة. لعرض ميزانية كل ما يقع تحت برنامج على البرنامج نفسه — في المخزون والتقارير والبوابات — استخدم حسابًا واحدًا يقرأ نتيجة مبادراته الفرعية:
+
+1. في **Admin → Metamodel**، أضِف حقلًا من النوع **تكلفة** إلى النوع Initiative — وليكن `rolledUpBudget` بالتسمية *الميزانية المجمّعة*.
+2. في **Admin → Calculations**، أضِف حسابًا على Initiative بالصيغة `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`، واجعل ذلك الحقل هدفه، ثم فعِّله.
+3. شغِّله مرة واحدة من القائمة لتعبئة المبادرات الموجودة بالفعل.
+
+تصلح الصيغة نفسها لكل مستوى: يضيف المشروع ميزانيته الخاصة إلى لا شيء، ويضيف البرنامج ميزانيته إلى إجماليات مشاريعه، وهكذا صعودًا. ولأن كل مستوى يقرأ ما تحمله مبادراته الفرعية، فإن الترتيب مهم، ويتولى Turbo EA ذلك: يعالج التشغيل اليدوي التسلسل الهرمي بدءًا من أعمق مستوى، ويؤدي أي تغيير في سطر ميزانية أو سطر تكلفة أو حزمة عمل أو مهمة أو خطر أو تقرير حالة إلى إعادة تشغيل حسابات أسلاف المبادرة بدءًا من الأصل المباشر. استبدل `ppm.totalBudget` بـ `ppm.totalActual` أو `ppm.capexBudget` أو أي مقياس `ppm` آخر لتجميع رقم آخر — حقل واحد لكل رقم.
 
 ### الدوال المدمجة
 
@@ -213,25 +225,21 @@ COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
 SUM(PLUCK(children, "attributes.costTotalAnnual"))
 ```
 
-**التموضع وفق نموذج TIME (Tolerate / Invest / Migrate / Eliminate)**، وهو المثال نفسه الذي ستراه في لوحة **Formula Reference** داخل **Admin → Metamodel → Calculations** عند إنشاء حساب جديد. النوع المستهدف = `Application`، الحقل المستهدف = `timeModel`. يفترض أنك أضفت حقلَي `single_select` باسمَي `businessFit` و`technicalFit` بالخيارات `excellent` و`adequate` و`insufficient` و`unreasonable`:
+**التموضع وفق نموذج TIME (Tolerate / Invest / Migrate / Eliminate)**، وهو المثال نفسه الذي ستراه في لوحة **مرجع الصيغة** داخل **الإدارة ← النموذج التعريفي ← الحسابات** عند إنشاء حساب جديد. النوع المستهدف = `Application`، الحقل المستهدف = `timeModel`. يقرأ الحقلين المدمجين **الملاءمة الوظيفية** و**الملاءمة التقنية**، لذا يعمل على تثبيت افتراضي دون إضافة أي حقل:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
+# Target: Application → TIME Model. Uses the built-in fields
+# functionalSuitability and technicalSuitability.
 #
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
+# Each rating maps to a 1-4 score (4 = best); threshold 2.5:
+#   Invest    = high functional + high technical
+#   Migrate   = high functional + low technical
+#   Tolerate  = low functional  + high technical
+#   Eliminate = low functional  + low technical
 #
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
 وكما يبيّن المثال، يمكن أن تمتد الصيغة على عدة أسطر. والسطر بصيغة `اسم = تعبير` يخزّن قيمة
@@ -284,6 +292,11 @@ IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskS
 * تُشغِّل الحساب يدويًا من القائمة، فيُقيَّم لكل بطاقة من النوع المستهدف وتُحفظ النتائج.
 
 * يتغير سطر ميزانية أو سطر تكلفة أو حزمة عمل أو مهمة أو خطر أو تقرير حالة في PPM على البطاقة، بالنسبة إلى Initiative.
+* يقع التغيير المذكور أعلاه على مبادرة في موضع أدنى من التسلسل الهرمي: يُعاد حساب كل مبادرة
+  فوقها أيضًا بدءًا من الأصل المباشر، فيتبع [التجميع](#rolling-ppm-figures-up-the-initiative-hierarchy) التغيير.
+
+يقيّم التشغيل اليدوي بطاقات النوع الهرمي بدءًا من أعمق مستوى، المبادرات الفرعية قبل أصلها،
+فتصل الصيغة التي تقرأ القيم المحسوبة لعناصرها الفرعية إلى نتيجتها في تشغيل واحد.
 
 ولا **يُعاد** تقييمها عند تعديل بطاقة أخرى تقرأ منها الصيغة. فإذا غيّرت تكلفة على مكوّن تقني،
 فلن يتغيّر التطبيق الذي يجمعها إلا بعد حفظ ذلك التطبيق، أو تغيّر إحدى علاقاته، أو تشغيلك

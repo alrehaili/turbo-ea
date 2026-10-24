@@ -117,6 +117,8 @@ Roden `ppm` gør PPM-modulets data tilgængelige for formler: budget- og omkostn
 | `ppm.byYear` | De samme ni mål pr. regnskabsår, som en liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Det regnskabsår, dagens dato falder i |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Omkostningslinjer uden dato: tæller med i totalerne, men hører til intet år |
+| `ppm.unscheduledCapexActual` | Det realiserede CapEx for disse omkostningslinjer uden dato |
+| `ppm.unscheduledOpexActual` | Det realiserede OpEx for disse omkostningslinjer uden dato |
 | `ppm.completion` | Samlet fuldførelse i % — gennemsnittet af arbejdspakkerne på øverste niveau, præcis det tal, initiativets Overview-fane viser |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Antal arbejdspakker og antal milepæle |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Antal opgaver, i alt og pr. status |
@@ -158,6 +160,16 @@ Et initiativs fremdrift bor på dets Overview-fane; kort og udgivne portaler vis
 3. Markér feltet i portalens egenskaber for både kortlisten og detaljevisningen.
 
 Fra da af flytter bjælken sig, overalt hvor kortet vises, når en opgave markeres som udført, en arbejdspakkes fuldførelse redigeres, eller en af dem slettes.
+
+#### Summér PPM-tal op gennem initiativhierarkiet { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+PPM-porteføljen viser et overordnet initiativ uden egne budget- eller omkostningslinjer summen af initiativerne under det, men det tal findes kun på tavlen. For at vise budgettet for alt under et program på selve programmet — i inventaret, rapporter og portaler — bruger du én beregning, der læser resultatet fra de underordnede:
+
+1. Tilføj under **Admin → Metamodel** et felt af typen **Omkostning** til Initiative-typen — fx `rolledUpBudget` med etiketten *Summeret budget*.
+2. Tilføj under **Admin → Beregninger** en beregning på Initiative med formlen `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, vælg feltet som mål, og aktivér den.
+3. Kør den én gang fra listen for at udfylde de initiativer, der allerede findes.
+
+Den samme formel gælder for alle niveauer: et projekt lægger sit eget budget til ingenting, et program lægger sit til sine projekters totaler, og så videre opad. Fordi hvert niveau læser det, de underordnede indeholder, har rækkefølgen betydning, og det sørger Turbo EA for: en manuel kørsel behandler hierarkiet fra det dybeste niveau, og en ændring af en budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport kører initiativets forfædre igen, startende med det nærmeste overordnede. Udskift `ppm.totalBudget` med `ppm.totalActual`, `ppm.capexBudget` eller en anden `ppm`-måling for at summere et andet tal — ét felt pr. tal.
 
 ### Indbyggede funktioner
 
@@ -217,25 +229,21 @@ COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
 SUM(PLUCK(children, "attributes.costTotalAnnual"))
 ```
 
-**TIME Model-placering (Tolerate / Invest / Migrate / Eliminate)**, det samme eksempel, som du vil se i panelet **Formula Reference** inde i **Admin → Metamodel → Beregninger**, når du opretter en ny beregning. Måltype = `Application`, målfelt = `timeModel`. Antager, at du har tilføjet to `single_select`-felter med navn `businessFit` og `technicalFit` med indstillinger `excellent`, `adequate`, `insufficient`, `unreasonable`:
+**TIME Model-placering (Tolerate / Invest / Migrate / Eliminate)**, det samme eksempel, som du vil se i panelet **Formelreference** inde i **Admin → Metamodel → Beregninger**, når du opretter en ny beregning. Måltype = `Application`, målfelt = `timeModel`. Den læser de indbyggede felter **Funktionel egnethed** og **Teknisk egnethed**, så den virker på en standardinstallation uden at tilføje noget felt:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
+# Target: Application → TIME Model. Uses the built-in fields
+# functionalSuitability and technicalSuitability.
 #
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
+# Each rating maps to a 1-4 score (4 = best); threshold 2.5:
+#   Invest    = high functional + high technical
+#   Migrate   = high functional + low technical
+#   Tolerate  = low functional  + high technical
+#   Eliminate = low functional  + low technical
 #
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
 Som eksemplet viser, kan en formel strække sig over flere linjer. En linje på formen
@@ -295,6 +303,13 @@ Et korts beregninger evalueres igen, når:
 
 * en PPM-budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport på
   kortet ændres, for et Initiative.
+* ændringen ovenfor sker på et Initiative længere nede i hierarkiet: hvert Initiative over
+  det genberegnes også, startende med det nærmeste overordnede, så en [summering](#rolling-ppm-figures-up-the-initiative-hierarchy)
+  følger ændringen.
+
+En manuel kørsel evaluerer kortene af en hierarkisk type fra det dybeste niveau, de
+underordnede før deres overordnede, så en formel, der læser de underordnedes beregnede værdier,
+når sit resultat i én kørsel.
 
 De evalueres **ikke** igen, når et andet kort, som formlen læser fra, redigeres. Ændrer du en
 omkostning på en IT-komponent, flytter en applikation, der aggregerer den, sig ikke, før den

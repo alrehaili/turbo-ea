@@ -279,5 +279,6 @@
   "filter.architectureState": "État de l’architecture",
   "filter.changeType": "Type de modification",
   "massEdit.rel.typeToSearch": "Saisissez pour rechercher {{type}}",
-  "filter.segments": "Portées"
+  "filter.segments": "Portées",
+  "massEdit.rel.attributesHint": "Appliqués à chaque lien ajouté. Les fiches déjà liées à une cible choisie reçoivent aussi ces détails ; les détails laissés vides restent inchangés."
 }

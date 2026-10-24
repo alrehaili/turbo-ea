@@ -35,6 +35,7 @@ import type { FieldDef, ReferenceModelItem, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
 import { bandColor } from "@/lib/dataQualityBands";
 import { booleanOption, facetOptions } from "@/lib/fieldFacets";
+import { orderByOptions } from "@/lib/optionOrder";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -165,11 +166,16 @@ export function FieldHelp({ text }: { text: string }) {
           alignItems: "center",
           gap: 0.25,
           color: "primary.main",
-          "&:hover": { textDecoration: "underline" },
         }}
       >
         <MaterialSymbol icon="help" size={14} />
-        <Typography variant="caption" component="span">
+        {/* The hover underline belongs to the caption alone: set on the button
+            it ran under the question mark and the chevron too. */}
+        <Typography
+          variant="caption"
+          component="span"
+          sx={{ "button:hover > &": { textDecoration: "underline" } }}
+        >
           {t("cards:utils.fieldHelp")}
         </Typography>
         <MaterialSymbol icon={open ? "expand_less" : "expand_more"} size={14} />
@@ -447,7 +453,9 @@ export function FieldValue({
 
   if (field.type === "multiple_select" && field.options) {
     const w = chipWidthForField(field.options);
-    const arr = Array.isArray(value) ? value : [value];
+    // Chips follow the field's option order, not the order they were ticked
+    // in, so reordering options in the metamodel shows on every card (#1292).
+    const arr = orderByOptions(Array.isArray(value) ? value : [value], field.options);
     return (
       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
         {arr.map((v, i) => {
@@ -719,7 +727,7 @@ export function FieldEditor({
               }
               return (
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {arr.map((key) => {
+                  {orderByOptions(arr, field.options).map((key) => {
                     const opt = field.options?.find((o) => o.key === key);
                     return (
                       <Chip

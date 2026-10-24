@@ -119,6 +119,8 @@ La raíz `ppm` expone a las fórmulas los datos del módulo PPM: las líneas de 
 | `ppm.byYear` | Las mismas nueve medidas por ejercicio fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | El ejercicio fiscal en el que cae la fecha de hoy |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Líneas de costo sin fecha: cuentan en los totales, pero no pertenecen a ningún ejercicio |
+| `ppm.unscheduledCapexActual` | El gasto real CapEx de esas líneas de costo sin fecha |
+| `ppm.unscheduledOpexActual` | El gasto real OpEx de esas líneas de costo sin fecha |
 | `ppm.completion` | Avance global en % — la media de los paquetes de trabajo de nivel superior, exactamente el número que muestra la pestaña de visión general de la iniciativa |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Número de paquetes de trabajo y de hitos |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Recuento de tareas, en total y por estado |
@@ -160,6 +162,16 @@ El avance de una iniciativa vive en su pestaña de visión general; las fichas y
 3. En las propiedades del portal, marque el campo para la lista de fichas y la vista de detalle.
 
 A partir de entonces, marcar una tarea como hecha, editar el porcentaje de finalización de un paquete de trabajo o eliminar uno mueve la barra dondequiera que se muestre la ficha.
+
+#### Acumular cifras de PPM a lo largo de la jerarquía de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+La cartera de PPM muestra en un padre sin líneas de presupuesto ni de coste propias el total de las iniciativas que tiene por debajo, pero esa cifra solo existe en el tablero. Para mostrar en un programa —en el inventario, los informes y los portales— el presupuesto de todo lo que tiene debajo, use un único cálculo que lea el resultado de sus hijas:
+
+1. En **Admin → Metamodelo**, añada un campo de tipo **Costo** al tipo Iniciativa —por ejemplo `rolledUpBudget`, con la etiqueta *Presupuesto acumulado*—.
+2. En **Admin → Cálculos**, añada un cálculo sobre Iniciativa con la fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, apunte a ese campo y actívelo.
+3. Ejecútelo una vez desde la lista para rellenar las iniciativas que ya existen.
+
+La misma fórmula sirve para todos los niveles: un proyecto suma su propio presupuesto a nada, un programa suma el suyo a los totales de sus proyectos, y así sucesivamente hacia arriba. Como cada nivel lee lo que contienen sus hijas, el orden importa, y Turbo EA se encarga de ello: una ejecución manual procesa la jerarquía empezando por el nivel más profundo, y un cambio en una línea de presupuesto, una línea de costo, un paquete de trabajo, una tarea, un riesgo o un informe de estado vuelve a ejecutar los ancestros de la iniciativa, empezando por el padre directo. Sustituya `ppm.totalBudget` por `ppm.totalActual`, `ppm.capexBudget` o cualquier otra medida `ppm` para acumular otra cifra: un campo por cifra.
 
 ### Funciones Incorporadas
 
@@ -219,25 +231,21 @@ COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
 SUM(PLUCK(children, "attributes.costTotalAnnual"))
 ```
 
-**Ubicación en el Modelo TIME (Tolerate / Invest / Migrate / Eliminate)**, el mismo ejemplo que verá en el panel **Formula Reference** dentro de **Admin → Metamodelo → Cálculos** al crear un nuevo cálculo. Tipo objetivo = `Application`, campo objetivo = `timeModel`. Asume que ha agregado dos campos `single_select` denominados `businessFit` y `technicalFit` con las opciones `excellent`, `adequate`, `insufficient`, `unreasonable`:
+**Ubicación en el Modelo TIME (Tolerate / Invest / Migrate / Eliminate)**, el mismo ejemplo que verá en el panel **Referencia de fórmulas** dentro de **Admin → Metamodelo → Cálculos** al crear un nuevo cálculo. Tipo objetivo = `Application`, campo objetivo = `timeModel`. Lee los campos integrados **Idoneidad funcional** e **Idoneidad técnica**, por lo que funciona en una instalación estándar sin agregar ningún campo:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
+# Target: Application → TIME Model. Uses the built-in fields
+# functionalSuitability and technicalSuitability.
 #
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
+# Each rating maps to a 1-4 score (4 = best); threshold 2.5:
+#   Invest    = high functional + high technical
+#   Migrate   = high functional + low technical
+#   Tolerate  = low functional  + high technical
+#   Eliminate = low functional  + low technical
 #
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
 Como muestra el ejemplo, una fórmula puede ocupar varias líneas. Una línea con la forma
@@ -298,6 +306,13 @@ Los cálculos de una ficha se reevalúan cuando:
   del tipo objetivo y guarda los resultados;
 * cambia una línea de presupuesto, una línea de costo, un paquete de trabajo, una tarea, un
   riesgo o un informe de estado de PPM en la ficha, para una Iniciativa.
+* el cambio anterior se produce en una Iniciativa situada más abajo en la jerarquía: todas
+  las Iniciativas por encima de ella se recalculan también, empezando por el padre directo, de
+  modo que una [acumulación](#rolling-ppm-figures-up-the-initiative-hierarchy) sigue al cambio.
+
+Una ejecución manual evalúa las fichas de un tipo jerárquico empezando por el nivel más
+profundo, las hijas antes que su padre, de modo que una fórmula que lee los valores calculados
+de sus hijas queda resuelta en una sola ejecución.
 
 **No** se reevalúan cuando se edita otra ficha de la que la fórmula lee datos. Si cambia un
 costo en un componente de TI, la aplicación que lo agrega no se moverá hasta que esa

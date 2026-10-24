@@ -12,6 +12,7 @@ from app.models.calculation import Calculation
 from app.models.card import Card
 from app.models.card_logo import CardLogo
 from app.models.card_type import CardType
+from app.models.card_type_category import CardTypeCategory
 from app.models.catalogue_cache import CatalogueCache
 from app.models.comment import Comment
 from app.models.compliance_regulation import ComplianceRegulation
@@ -226,6 +227,7 @@ __all__ = [
     "UserFavorite",
     "ViewpointDefinition",
     "ResourceType",
+    "CardTypeCategory",
     "OpsRequestNonce",
     "AuditLogEntry",
 ]

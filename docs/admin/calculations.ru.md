@@ -114,6 +114,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.byYear` | Те же девять показателей по финансовым годам, в виде списка `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Финансовый год, в который попадает сегодняшняя дата |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Строки затрат без даты: учитываются в итогах, но не относятся ни к одному году |
+| `ppm.unscheduledCapexActual` | Фактические затраты CapEx по этим строкам затрат без даты |
+| `ppm.unscheduledOpexActual` | Фактические затраты OpEx по этим строкам затрат без даты |
 | `ppm.completion` | Общий процент завершения — среднее по рабочим пакетам верхнего уровня, ровно то число, которое показывает вкладка «Обзор» инициативы |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Число рабочих пакетов и число вех |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Число задач: всего и по статусам |
@@ -155,6 +157,16 @@ IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 3. В свойствах портала отметьте это поле для списка карточек и для детального представления.
 
 С этого момента отметка задачи как выполненной, изменение процента завершения рабочего пакета или его удаление сдвигают полосу везде, где показывается карточка.
+
+#### Суммирование показателей PPM по иерархии инициатив { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+Портфель PPM показывает на родительской инициативе без собственных строк бюджета и затрат сумму нижестоящих инициатив, но эта сумма существует только на доске. Чтобы показать на программе — в инвентаре, отчётах и порталах — бюджет всего, что находится под ней, используйте одно вычисление, которое читает результат дочерних инициатив:
+
+1. В **Админ → Метамодель** добавьте к типу Initiative поле типа **Стоимость** — скажем, `rolledUpBudget` с меткой *Суммарный бюджет*.
+2. В **Админ → Вычисления** добавьте вычисление для Initiative с формулой `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, укажите это поле в качестве целевого и активируйте его.
+3. Запустите его один раз из списка, чтобы заполнить уже существующие инициативы.
+
+Одна и та же формула работает на каждом уровне: проект прибавляет свой бюджет к нулю, программа прибавляет свой к итогам своих проектов, и так далее вверх. Поскольку каждый уровень читает то, что хранят его дочерние инициативы, порядок важен, и Turbo EA его соблюдает: ручной запуск обрабатывает иерархию начиная с самого глубокого уровня, а изменение строки бюджета, строки затрат, рабочего пакета, задачи, риска или отчёта о статусе заново запускает вычисления предков инициативы, начиная с непосредственного родителя. Замените `ppm.totalBudget` на `ppm.totalActual`, `ppm.capexBudget` или любую другую меру `ppm`, чтобы суммировать другой показатель, — по одному полю на показатель.
 
 ### Встроенные функции
 
@@ -213,25 +225,21 @@ COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
 SUM(PLUCK(children, "attributes.costTotalAnnual"))
 ```
 
-**Размещение в TIME Model (Tolerate / Invest / Migrate / Eliminate)**, тот же пример, который Вы увидите в панели **Formula Reference** внутри **Админ → Метамодель → Вычисления** при создании нового вычисления. Target type = `Application`, target field = `timeModel`. Предполагается, что Вы добавили два поля `single_select` с именами `businessFit` и `technicalFit` с опциями `excellent`, `adequate`, `insufficient`, `unreasonable`:
+**Размещение в TIME Model (Tolerate / Invest / Migrate / Eliminate)**, тот же пример, который Вы увидите в панели **Справочник формул** внутри **Админ → Метамодель → Вычисления** при создании нового вычисления. Целевой тип карточки = `Application`, целевое поле = `timeModel`. Формула читает встроенные поля **Функциональная пригодность** и **Техническая пригодность**, поэтому работает на стандартной установке без добавления каких-либо полей:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
+# Target: Application → TIME Model. Uses the built-in fields
+# functionalSuitability and technicalSuitability.
 #
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
+# Each rating maps to a 1-4 score (4 = best); threshold 2.5:
+#   Invest    = high functional + high technical
+#   Migrate   = high functional + low technical
+#   Tolerate  = low functional  + high technical
+#   Eliminate = low functional  + low technical
 #
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
 Как видно из примера, формула может занимать несколько строк. Строка вида
@@ -293,6 +301,13 @@ IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskS
 
 * для Initiative: на карточке изменяется строка бюджета PPM, строка затрат, рабочий пакет,
   задача, риск или отчёт о статусе.
+* описанное выше изменение происходит в инициативе ниже по иерархии: каждая инициатива над
+  ней тоже пересчитывается, начиная с непосредственного родителя, поэтому
+  [суммирование](#rolling-ppm-figures-up-the-initiative-hierarchy) следует за изменением.
+
+Ручной запуск вычисляет карточки иерархического типа начиная с самого глубокого уровня —
+дочерние раньше родительской, — поэтому формула, читающая вычисленные значения дочерних
+карточек, приходит к итоговому результату за один запуск.
 
 Они **не** пересчитываются при редактировании другой карточки, из которой формула читает
 данные. Если Вы измените стоимость на ИТ-компоненте, приложение, которое её агрегирует, не

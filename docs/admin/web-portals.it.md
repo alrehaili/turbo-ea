@@ -55,6 +55,8 @@ La bacheca si apre inoltre con un raggruppamento e un sottotipo a vostra scelta:
 | **Si apre raggruppato per** | Organizzazione | Quale raggruppamento mostra per primo |
 | **Si apre mostrando il sottotipo** | Tutti | Quale sottotipo è selezionato per primo |
 
+**Si apre raggruppato per** accetta anche un sottotipo di iniziativa: la bacheca si apre allora con un gruppo per ogni iniziativa di quel sottotipo (vedere [Gestione del portafoglio progetti](../guide/ppm.md)). Un sottotipo escluso dal filtro per sottotipo del portale stesso non viene proposto: il portale non pubblicherebbe nessuna di quelle iniziative e ogni riga finirebbe in «Non raggruppato».
+
 Sono solo un punto di partenza: il visitatore può cambiare entrambi i controlli e
 nulla viene memorizzato, quindi riaprendo il portale si torna a quanto configurato
 qui. È cosa diversa dal **filtro per sottotipi** sopra, che decide quali iniziative
@@ -146,6 +148,26 @@ La **modalità SSO** riutilizza il Single Sign-On già configurato in **Admin > 
 | **Tipo di card** | Quale tipo di card visualizzare |
 | **Sottotipi** | Opzionalmente limitate a sottotipi specifici |
 | **Mostra logo** | Se visualizzare il logo della piattaforma sul portale |
+
+### Filtri delle schede
+
+In un portale di tipo **Elenco di schede**, la sezione **Filtri delle schede** limita il portale alle schede corrispondenti. È lo stesso insieme di filtri del [report del portafoglio applicativo](../guide/reports.md):
+
+![Filtri delle schede nella finestra del portale](../assets/img/it/102_admin_portale_web_filtri_schede.png)
+
+| Riga | Mostra solo le schede… |
+|------|------------------------|
+| **Correlato per** | collegate a una delle schede scelte: un controllo per ogni tipo di scheda collegato, più uno per relazione quando più relazioni raggiungono lo stesso tipo. **Includi sotto-schede** conta anche una scheda collegata a qualcosa sotto una selezione |
+| **Tag** | che hanno un tag scelto: un tag qualsiasi all'interno di un gruppo, e uno di ogni gruppo da cui scegliete |
+| **Campi** | con un sottotipo scelto, o un valore scelto in uno dei campi di selezione o sì/no della scheda |
+| **Sottotipi di relazione** | con una relazione il cui attributo (per esempio *Tipo di utilizzo*) ha un valore scelto |
+
+Ogni controllo offre anche **(vuoto)**, per le schede senza valore, senza relazione o senza sottotipo. I visitatori vedono soltanto le schede corrispondenti: i filtri che scelgono nel portale restringono ulteriormente l'elenco, senza mai allargarlo, e le impostazioni dei filtri non vengono mai inviate al browser del visitatore.
+
+!!! note
+    Un portale creato prima della versione 2.178.0 mantiene i suoi filtri per sottotipi e tag così come sono fino al successivo salvataggio. Da quel momento, i tag scelti da due gruppi di tag diversi devono essere presenti entrambi su una scheda, come nel report del portafoglio.
+
+I portali del portafoglio PPM e del navigatore dei processi mantengono i propri selettori **Sottotipi** e **Tag**.
 
 ## Configurazione della visibilità
 

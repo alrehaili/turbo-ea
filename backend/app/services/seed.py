@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1294,6 +1295,126 @@ PROCESS_FREQUENCY_OPTIONS = [
         },
     },
 ]
+
+
+# ── Card type categories (the EA layers) ─────────────────────────────
+#
+# The built-in architecture layers, seeded insert-only into
+# ``card_type_categories`` on every boot (``seed_default_categories``). Each is
+# keyed by its historical name — the exact string the built-in types below carry
+# in ``category`` — so introducing the registry changed no card-type row. Built-in
+# rows are locked (label, colour, translations, delete); admins add their own
+# layers beside them. Colours match ``LAYER_COLORS`` in ``frontend/src/theme/tokens.ts``.
+
+CARD_TYPE_CATEGORIES: list[dict[str, Any]] = [
+    # [FORK] the NORA 2.0 six-layer model replaces upstream's four TOGAF layers;
+    # colours mirror LAYER_COLORS in frontend/src/theme/tokens.ts.
+    {
+        "key": "Business",
+        "label": "Business",
+        "color": "#2889ff",
+        "sort_order": 0,
+        "translations": {
+            "de": "Geschäft",
+            "fr": "Métier",
+            "es": "Negocio",
+            "it": "Business",
+            "pt": "Negócio",
+            "zh": "业务",
+            "ru": "Бизнес",
+            "da": "Forretning",
+            "ar": "الأعمال",
+        },
+    },
+    {
+        "key": "Beneficiary Experience",
+        "label": "Beneficiary Experience",
+        "color": "#00a3a3",
+        "sort_order": 1,
+        "translations": {
+            "de": "Nutzererlebnis",
+            "fr": "Expérience des bénéficiaires",
+            "es": "Experiencia del beneficiario",
+            "it": "Esperienza del beneficiario",
+            "pt": "Experiência do beneficiário",
+            "zh": "受益人体验",
+            "ru": "Опыт получателей услуг",
+            "da": "Modtageroplevelse",
+            "ar": "تجربة المستفيد",
+        },
+    },
+    {
+        "key": "Application",
+        "label": "Application",
+        "color": "#0f7eb5",
+        "sort_order": 2,
+        "translations": {
+            "de": "Anwendung",
+            "fr": "Application",
+            "es": "Aplicación",
+            "it": "Applicazioni",
+            "pt": "Aplicação",
+            "zh": "应用",
+            "ru": "Приложения",
+            "da": "Applikation",
+            "ar": "التطبيقات",
+        },
+    },
+    {
+        "key": "Data",
+        "label": "Data",
+        "color": "#774fcc",
+        "sort_order": 3,
+        "translations": {
+            "de": "Daten",
+            "fr": "Données",
+            "es": "Datos",
+            "it": "Dati",
+            "pt": "Dados",
+            "zh": "数据",
+            "ru": "Данные",
+            "da": "Data",
+            "ar": "البيانات",
+        },
+    },
+    {
+        "key": "Technology",
+        "label": "Technology",
+        "color": "#d29270",
+        "sort_order": 4,
+        "translations": {
+            "de": "Technologie",
+            "fr": "Technologie",
+            "es": "Tecnología",
+            "it": "Tecnologia",
+            "pt": "Tecnologia",
+            "zh": "技术",
+            "ru": "Технологии",
+            "da": "Teknologi",
+            "ar": "التقنية",
+        },
+    },
+    {
+        "key": "Security",
+        "label": "Security",
+        "color": "#c62828",
+        "sort_order": 5,
+        "translations": {
+            "de": "Sicherheit",
+            "fr": "Sécurité",
+            "es": "Seguridad",
+            "it": "Sicurezza",
+            "pt": "Segurança",
+            "zh": "安全",
+            "ru": "Безопасность",
+            "da": "Sikkerhed",
+            "ar": "الأمن",
+        },
+    },
+]
+
+# The keys above — the strings that are never adopted as a custom category.
+DEFAULT_CATEGORY_KEYS = frozenset(c["key"] for c in CARD_TYPE_CATEGORIES)
 
 
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
@@ -10318,5 +10439,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
                 translations=rt["translations"],
             )
         )
+
+    # ── Built-in card type categories (the four EA layers, insert-only) ──
+    from app.services.card_type_categories import seed_default_categories
+
+    await seed_default_categories(db)
 
     await db.commit()

@@ -84,3 +84,22 @@ class TestReadVersion:
         monkeypatch.setattr(config, "__file__", str(package / "config.py"))
         monkeypatch.chdir(tmp_path)
         assert config._read_version() == "0.0.0"
+
+
+class TestParseOrigins:
+    def test_trims_and_drops_empty_entries(self):
+        assert config.parse_origins(" https://a.example , ,https://b.example:8443/ ") == [
+            "https://a.example",
+            "https://b.example:8443",
+        ]
+
+    def test_only_the_trailing_slash_is_removed(self):
+        # An origin can end in any host character; only "/" is stripped.
+        assert config.parse_origins("https://BOX/,https://x.example:8X") == [
+            "https://BOX",
+            "https://x.example:8X",
+        ]
+
+    @pytest.mark.parametrize("raw", ["", " ", ",", " , "])
+    def test_nothing_set_is_no_origin(self, raw):
+        assert config.parse_origins(raw) == []

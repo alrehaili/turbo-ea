@@ -279,5 +279,6 @@
   "filter.architectureState": "Estado de arquitetura",
   "filter.changeType": "Tipo de alteração",
   "massEdit.rel.typeToSearch": "Digite para pesquisar {{type}}",
-  "filter.segments": "Escopos"
+  "filter.segments": "Escopos",
+  "massEdit.rel.attributesHint": "Aplicados a cada vínculo adicionado. Os cartões já vinculados a um destino escolhido também recebem estes detalhes; os detalhes deixados em branco são mantidos."
 }

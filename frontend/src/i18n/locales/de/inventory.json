@@ -279,5 +279,6 @@
   "filter.architectureState": "Architekturzustand",
   "filter.changeType": "Änderungstyp",
   "massEdit.rel.typeToSearch": "Tippen, um {{type}} zu suchen",
-  "filter.segments": "Geltungsbereiche"
+  "filter.segments": "Geltungsbereiche",
+  "massEdit.rel.attributesHint": "Wird auf jede hinzugefügte Verknüpfung angewendet. Karten, die bereits mit einem gewählten Ziel verknüpft sind, erhalten diese Details ebenfalls; leer gelassene Details bleiben unverändert."
 }

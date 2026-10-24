@@ -54,6 +54,8 @@ Das Board öffnet außerdem mit einer Gruppierung und einem Subtyp Ihrer Wahl:
 | **Öffnet gruppiert nach** | Organisation | Welche Gruppierung das Board zuerst zeigt |
 | **Öffnet mit Subtyp** | Alle | Welcher Subtyp zuerst ausgewählt ist |
 
+**Öffnet gruppiert nach** akzeptiert auch einen Untertyp der Initiative; das Board öffnet dann mit einer Gruppe je Initiative dieses Untertyps (siehe [Projektportfoliomanagement](../guide/ppm.md)). Ein Untertyp, den der eigene Untertyp-Filter des Portals ausschließt, wird nicht angeboten: Das Portal würde keine dieser Initiativen veröffentlichen, sodass jede Zeile unter „Nicht gruppiert“ landen würde.
+
 Beides ist nur ein Ausgangspunkt — Besucher können beide Bedienelemente ändern,
 und nichts wird gespeichert; ein erneuter Aufruf kehrt zu Ihrer Konfiguration
 zurück. Das ist etwas anderes als der **Subtyp-Filter** oben, der bestimmt,
@@ -146,6 +148,26 @@ Der **SSO-Modus** nutzt das bereits unter **Admin > Einstellungen > Authentifizi
 | **Kartentyp** | Welcher Kartentyp angezeigt werden soll |
 | **Subtypen** | Optional auf bestimmte Subtypen beschränken |
 | **Logo anzeigen** | Ob das Plattform-Logo im Portal angezeigt werden soll |
+
+### Kartenfilter
+
+Bei einem Portal vom Typ **Kartenliste** schränkt der Abschnitt **Kartenfilter** das Portal auf die passenden Karten ein. Es ist derselbe Filtersatz wie im [Application-Portfolio-Bericht](../guide/reports.md):
+
+![Kartenfilter im Portaldialog](../assets/img/de/102_admin_webportal_kartenfilter.png)
+
+| Zeile | Zeigt nur Karten, … |
+|-------|---------------------|
+| **Verknüpft über** | die mit einer der gewählten Karten verknüpft sind – ein Steuerelement pro verknüpftem Kartentyp, dazu eines pro Beziehung, wenn mehrere Beziehungen denselben Typ erreichen. **Unterkarten einbeziehen** zählt auch Karten, die mit etwas unterhalb einer Auswahl verknüpft sind |
+| **Tags** | die einen gewählten Tag tragen: einen beliebigen Tag innerhalb einer Gruppe und je einen aus jeder Gruppe, aus der Sie wählen |
+| **Felder** | mit einem gewählten Subtyp oder einem gewählten Wert in einem der Auswahl- oder Ja/Nein-Felder der Karte |
+| **Beziehungs-Untertypen** | mit einer Beziehung, deren Attribut (zum Beispiel *Nutzungsart*) einen gewählten Wert hat |
+
+Jedes Steuerelement bietet zusätzlich **(leer)** für Karten ohne Wert, ohne Beziehung oder ohne Subtyp. Besucher sehen ausschließlich die passenden Karten: Die Filter, die sie im Portal wählen, schränken die Liste weiter ein, erweitern sie aber nie, und die Filtereinstellungen selbst werden nie an den Browser des Besuchers gesendet.
+
+!!! note
+    Ein Portal, das vor Version 2.178.0 erstellt wurde, behält seine Subtyp- und Tag-Filter unverändert, bis Sie es das nächste Mal speichern. Danach müssen Tags aus zwei verschiedenen Tag-Gruppen beide an einer Karte vorhanden sein, wie im Portfolio-Bericht.
+
+PPM-Portfolio- und Prozessnavigator-Portale behalten ihre eigenen Auswahlfelder für **Subtypen** und **Tags**.
 
 ## Sichtbarkeit konfigurieren
 

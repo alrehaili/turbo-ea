@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.33.0] - 2026-10-24
+
+### Added
+- Merged upstream Turbo EA **v2.165.0 → v2.178.0** into the fork.
+- Upstream PPM improvements: the portfolio shows the Initiative hierarchy and subtype sub-groups, a parent initiative's costs and dates are derived from the initiatives beneath it, and budget and cost tables are grouped by fiscal year with subtotals; planned budget lines take an optional description (migration 155).
+- Upstream metamodel editor improvements: admins can create card type categories and move any type between them (migration 156), permanently delete a custom card type, rename subtypes, reorder options and author field help text.
+- Upstream report and portal improvements: Flexible Portfolio filters, sorting and sub-card picks on the Lifecycle report, Portfolio-style filters for card-list portals, relation attributes in mass edit, and inventory search kept on Back.
+
+### Fixed
+- Upstream fixes: import references with an unescaped slash, MCP dry runs above 20 rows and Copilot Studio connections across restarts, and OpenAI GPT-6 support.
+
+### Security
+- Upstream dependency patches for nginx, DOMPurify, Vitest, Vite and certifi.
+
 ## [2.32.0] - 2026-10-22
 
 ### Added

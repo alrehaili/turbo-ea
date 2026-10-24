@@ -279,5 +279,6 @@
   "filter.architectureState": "Arkitektur-tilstand",
   "filter.changeType": "Ændring type",
   "massEdit.rel.typeToSearch": "Skriv for at søge {{type}}",
-  "filter.segments": "Omfang"
+  "filter.segments": "Omfang",
+  "massEdit.rel.attributesHint": "Anvendes på hvert link, der tilføjes. Kort, der allerede er linket til et valgt mål, får også disse detaljer; detaljer, der efterlades tomme, bevares."
 }
