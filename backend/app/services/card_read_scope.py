@@ -60,12 +60,25 @@ from sqlalchemy.orm import aliased
 
 from app.core.permissions import VIEW_PERMISSION
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.services.permission_service import PermissionService, effective_role_key
 
 ReadMode = Literal["inventory", "module"]
+
+
+def visible_type_clause(card) -> ColumnElement[bool]:
+    """SQL predicate excluding cards of hidden (soft-deleted) card types.
+
+    Decision D-01: dashboard metrics and aggregation results leave out hidden
+    card types as well as unauthorized cards, so every total agrees with the
+    breakdowns and with ``/reports/my-workspace`` / ``/reports/admin-dashboard``,
+    which already applied this rule. ``card`` is ``Card`` or an ``aliased(Card)``.
+    """
+    return card.type.not_in(select(CardType.key).where(CardType.is_hidden.is_(True)))
+
 
 _EMPTY: frozenset = frozenset()
 
@@ -337,12 +350,15 @@ def event_read_filters(read_scope: CardReadScope) -> tuple[ColumnElement[bool], 
 
 
 def _id_keys(data: dict) -> list[str]:
-    """Payload keys that carry card ids: ``*_card_id`` / ``*_card_ids`` and
-    the archive-batch ``affected_*_ids`` lists."""
+    """Payload keys that carry card ids: ``*_card_id`` / ``*_card_ids``, the
+    archive-batch ``affected_*_ids`` lists, and the polymorphic ``ref_id`` of a
+    ``kind: "card"`` reference (an ADM card artefact)."""
     return [
         k
         for k in data
-        if k.endswith(("card_id", "card_ids")) or (k.startswith("affected_") and k.endswith("_ids"))
+        if k.endswith(("card_id", "card_ids"))
+        or (k.startswith("affected_") and k.endswith("_ids"))
+        or (k == "ref_id" and data.get("kind") == "card")
     ]
 
 

@@ -1,9 +1,15 @@
 """Executive dashboard — one aggregate payload for the Dashboard's Executive tab.
 
 Gated on ``reports.executive_dashboard``. The payload is aggregates only (no
-card names, no individual risks), every aggregate counts only the cards the
-caller may read, and money figures additionally require ``costs.view``. The
-shaping rules live in ``app.services.executive_dashboard``.
+card names, no individual risks). It applies the same rules as the modules it
+summarises, before anything is aggregated, and grants nothing those modules
+would not: every count is over the cards the caller may read with hidden card
+types left out (D-01, as ``/reports/dashboard``); delivery money follows the
+PPM portfolio rule and rationalization savings the rationalization totals rule
+— both need ``costs.view`` itself (S-08, S-07). Risks come from the register's
+own scoped loader. No improvement-opportunity figure is shown yet; one added
+later must count through ``services/opportunity_access`` (S-12). The shaping
+rules live in ``app.services.executive_dashboard``.
 """
 
 from __future__ import annotations
@@ -19,11 +25,12 @@ from app.api.v1.risks import load_filtered_risks
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.user import User
 from app.services import executive_dashboard as exe
 from app.services import ppm_portfolio_service as portfolio
 from app.services.bpm_dashboard_service import build_bpm_dashboard
-from app.services.card_read_scope import CardReadScope
+from app.services.card_read_scope import CardReadScope, visible_type_clause
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -36,7 +43,9 @@ async def executive_dashboard(
 ):
     await PermissionService.require_permission(db, user, "reports.executive_dashboard")
     read_scope = await CardReadScope.load(db, user)
-    readable = read_scope.where(Card, mode="module")
+    # Scope and the hidden-type rule go into every card query below, so they
+    # apply before aggregation rather than to the finished figures.
+    readable = (*read_scope.where(Card, mode="module"), visible_type_clause(Card))
     can_view_costs = await PermissionService.has_app_permission(db, user, "costs.view")
 
     settings_row = (
@@ -54,6 +63,12 @@ async def executive_dashboard(
         initiatives = await portfolio.load_initiatives(
             db, portfolio.PortfolioScope(), read_scope=read_scope
         )
+        hidden_types = set(
+            (await db.execute(select(CardType.key).where(CardType.is_hidden.is_(True))))
+            .scalars()
+            .all()
+        )
+        initiatives = [c for c in initiatives if c.type not in hidden_types]
         init_ids = [c.id for c in initiatives]
         ppm = portfolio.build_dashboard(
             initiatives,

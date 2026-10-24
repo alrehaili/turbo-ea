@@ -251,6 +251,7 @@ export default function PpmProjectDetail() {
           latestReport={latestReport}
           costLines={costLines}
           budgetLines={budgetLines}
+          canViewCosts={perms.can_view_costs}
         />
       )}
       {tab === 1 && (
@@ -266,6 +267,7 @@ export default function PpmProjectDetail() {
           initiativeId={id!}
           costLines={costLines}
           onRefresh={loadData}
+          canViewCosts={perms.can_view_costs}
         />
       )}
       {tab === 3 && (

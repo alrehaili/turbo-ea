@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.tech_standard import StandardException, TechStandard
+from app.services.card_read_scope import CardReadScope
 
 VIOLATING_STATUSES = ("sunset", "prohibited")
 REL_APP_TO_ITC = "relAppToITC"
@@ -42,8 +43,13 @@ def _brief(card: Card) -> dict:
     return {"id": str(card.id), "name": card.name, "type": card.type}
 
 
-async def scan_standard_compliance(db: AsyncSession) -> dict:
-    """Return violations of sunset/prohibited standards across the landscape."""
+async def scan_standard_compliance(db: AsyncSession, *, read_scope: CardReadScope) -> dict:
+    """Return violations of sunset/prohibited standards across the landscape.
+
+    Only cards ``read_scope`` admits are reported, and a violation path that
+    runs through a hidden category or component is cut rather than shown with
+    a gap, so the scan never discloses a hidden card or relation.
+    """
     # 1. Sunset / prohibited standards that actually govern a tech category.
     std_res = await db.execute(
         select(TechStandard).where(
@@ -116,11 +122,14 @@ async def scan_standard_compliance(db: AsyncSession) -> dict:
     card_ids = set(itc_to_cats) | set(app_to_itcs) | cat_ids
     cards_res = await db.execute(select(Card).where(Card.id.in_(card_ids), Card.status == "ACTIVE"))
     card_map: dict[uuid.UUID, Card] = {c.id: c for c in cards_res.scalars().all()}
+    hidden = await read_scope.hidden_card_ids(db, card_ids, mode="module")
 
     violations: list[dict] = []
     seen: set[tuple[uuid.UUID, uuid.UUID]] = set()
 
     def add(card_id: uuid.UUID, cat_id: uuid.UUID, via: str, component: Card | None) -> None:
+        if card_id in hidden or cat_id in hidden:
+            return  # hidden from the reader (D-01 / D-30)
         card = card_map.get(card_id)
         cat = card_map.get(cat_id)
         if card is None:
@@ -156,6 +165,8 @@ async def scan_standard_compliance(db: AsyncSession) -> dict:
     # Applications reaching a governed category through an ITComponent.
     for app_id, itcs in app_to_itcs.items():
         for itc_id in itcs:
+            if itc_id in hidden:
+                continue  # the path runs through a hidden component
             for cat_id in itc_to_cats.get(itc_id, ()):
                 add(app_id, cat_id, "application", card_map.get(itc_id))
 

@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.relation import Relation
+from app.services.card_read_scope import CardReadScope
 
 # Built-in relation-type keys that wire the strategy chain together.
 REL_OBJECTIVE_TO_BC = "relObjectiveToBC"  # Objective -> BusinessCapability
@@ -106,9 +107,25 @@ def _lifecycle_status(card: Card) -> str | None:
     return None
 
 
-async def gather_strategy_map(db: AsyncSession) -> dict:
-    """Assemble the objective → capability → initiative → application chains."""
-    cards_res = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+async def gather_strategy_map(
+    db: AsyncSession,
+    *,
+    read_scope: CardReadScope,
+    can_view_costs: bool,
+    cost_card_ids: frozenset[uuid.UUID] = frozenset(),
+) -> dict:
+    """Assemble the objective → capability → initiative → application chains.
+
+    Only cards ``read_scope`` admits appear. Money follows the cost rule used
+    by the card endpoints: an initiative's budget / actual is shown when the
+    caller holds ``costs.view`` (``can_view_costs``) or has cost access to that
+    card (``cost_card_ids``, the stakeholder bypass). The portfolio totals sum
+    many cards, so — like the cost reports — they need ``costs.view`` itself;
+    otherwise they are ``None`` and the summary says ``costs_restricted``.
+    """
+    cards_res = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     card_map: dict[uuid.UUID, Card] = {c.id: c for c in cards_res.scalars().all()}
 
     rels_res = await db.execute(select(Relation))
@@ -170,8 +187,9 @@ async def gather_strategy_map(db: AsyncSession) -> dict:
             cap_ids |= init_bc.get(init_id, set())
             app_ids = sorted(init_app.get(init_id, set()), key=lambda a: card_map[a].name.lower())
             total_apps.update(app_ids)
-            budget = _num_attr(init, "costBudget")
-            actual = _num_attr(init, "costActual")
+            show_costs = can_view_costs or init_id in cost_card_ids
+            budget = _num_attr(init, "costBudget") if show_costs else None
+            actual = _num_attr(init, "costActual") if show_costs else None
             if budget:
                 total_budget += budget
             if actual:
@@ -204,8 +222,9 @@ async def gather_strategy_map(db: AsyncSession) -> dict:
             "objective_count": len(out_objectives),
             "initiative_count": len(total_initiatives),
             "application_count": len(total_apps),
-            "total_budget": total_budget,
-            "total_actual": total_actual,
+            "total_budget": total_budget if can_view_costs else None,
+            "total_actual": total_actual if can_view_costs else None,
+            "costs_restricted": not can_view_costs,
             "health_breakdown": health_breakdown,
         },
     }

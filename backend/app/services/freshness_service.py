@@ -23,6 +23,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 
 # data_quality below this (0-100 scale) counts as an open DQ issue.
 DQ_ISSUE_THRESHOLD = 50.0
@@ -37,7 +38,9 @@ def _is_stale(card: Card, cutoff: datetime) -> bool:
     return confirmed < cutoff
 
 
-async def gather_freshness(db: AsyncSession, *, stale_days: int = 90) -> dict:
+async def gather_freshness(
+    db: AsyncSession, *, stale_days: int = 90, read_scope: CardReadScope
+) -> dict:
     """Compute the repository-freshness rollup + a stale-record worklist."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=stale_days)
@@ -51,7 +54,9 @@ async def gather_freshness(db: AsyncSession, *, stale_days: int = 90) -> dict:
         if is_hidden:
             hidden.add(key)
 
-    cards_res = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    cards_res = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     cards = [c for c in cards_res.scalars().all() if c.type not in hidden]
 
     # Owner display names via the stakeholder table (first stakeholder per card).

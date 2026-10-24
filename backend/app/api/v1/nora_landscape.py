@@ -19,6 +19,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.nora_landscape import NoraPlateau, NoraSegment
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.nora_landscape import plateau_landscape, resolve_segment
 from app.services.permission_service import PermissionService
 
@@ -57,12 +58,16 @@ def _plateau_dict(p: NoraPlateau) -> dict:
     }
 
 
-def _segment_dict(s: NoraSegment) -> dict:
+def _segment_dict(s: NoraSegment, hidden: set[uuid.UUID] | frozenset = frozenset()) -> dict:
+    """A root card hidden from the reader is redacted; the segment, which still
+    scopes the readable cards around it, stays (decision D-30)."""
     return {
         "id": str(s.id),
         "name": s.name,
         "description": s.description,
-        "root_card_id": str(s.root_card_id) if s.root_card_id else None,
+        "root_card_id": (
+            str(s.root_card_id) if s.root_card_id and s.root_card_id not in hidden else None
+        ),
         "include_descendants": s.include_descendants,
         "include_related": s.include_related,
         "related_type_keys": s.related_type_keys or [],
@@ -166,7 +171,14 @@ async def plateau_landscape_view(
         raise HTTPException(404, "Plateau not found")
     if p.target_date is None:
         raise HTTPException(400, "Plateau has no target date to slice by")
-    return {"plateau": _plateau_dict(p), **(await plateau_landscape(db, p.target_date))}
+    return {
+        "plateau": _plateau_dict(p),
+        **(
+            await plateau_landscape(
+                db, p.target_date, read_scope=await CardReadScope.load(db, user)
+            )
+        ),
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -186,7 +198,10 @@ async def list_segments(
         .scalars()
         .all()
     )
-    return [_segment_dict(s) for s in rows]
+    hidden = await (await CardReadScope.load(db, user)).hidden_card_ids(
+        db, {s.root_card_id for s in rows if s.root_card_id}, mode="module"
+    )
+    return [_segment_dict(s, hidden) for s in rows]
 
 
 @segments.post("", status_code=201)
@@ -196,6 +211,8 @@ async def create_segment(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.manage")
+    if body.root_card_id:
+        await require_card_readable(db, user, body.root_card_id, mode="module")
     s = NoraSegment(
         name=body.name,
         description=body.description,
@@ -225,11 +242,19 @@ async def update_segment(
     ).scalar_one_or_none()
     if s is None:
         raise HTTPException(404, "Segment not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    read_scope = await CardReadScope.load(db, user)
+    data = body.model_dump(exclude_unset=True)
+    # A root the caller was shown redacted (null) is kept, not cleared (D-30).
+    if "root_card_id" in data and data["root_card_id"] is None and s.root_card_id:
+        if await read_scope.hidden_card_ids(db, {s.root_card_id}, mode="module"):
+            data.pop("root_card_id")
+    if data.get("root_card_id"):
+        await require_card_readable(db, user, data["root_card_id"], mode="module")
+    for field, value in data.items():
         setattr(s, field, value)
     await db.commit()
     await db.refresh(s)
-    return _segment_dict(s)
+    return _segment_dict(s, await read_scope.hidden_card_ids(db, {s.root_card_id}, mode="module"))
 
 
 @segments.delete("/{segment_id}", status_code=204)
@@ -261,7 +286,12 @@ async def resolve_segment_cards(
     ).scalar_one_or_none()
     if s is None:
         raise HTTPException(404, "Segment not found")
-    return {"segment": _segment_dict(s), **(await resolve_segment(db, s))}
+    read_scope = await CardReadScope.load(db, user)
+    hidden = await read_scope.hidden_card_ids(db, {s.root_card_id}, mode="module")
+    return {
+        "segment": _segment_dict(s, hidden),
+        **(await resolve_segment(db, s, read_scope=read_scope)),
+    }
 
 
 router.include_router(plateaus)

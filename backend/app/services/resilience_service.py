@@ -26,6 +26,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.risk import Risk
+from app.services.card_read_scope import CardReadScope
 from app.services.impact_service import CRITICAL_CRITICALITY
 
 # Card-type keys treated as "suppliers" for supplier-concentration flags.
@@ -42,7 +43,7 @@ def _is_critical(card: Card) -> bool:
     return bool(crit and str(crit).lower() in CRITICAL_CRITICALITY)
 
 
-async def gather_resilience(db: AsyncSession, *, depth: int = 4) -> dict:
+async def gather_resilience(db: AsyncSession, *, depth: int = 4, read_scope: CardReadScope) -> dict:
     """Compute critical-service chains, SPOFs, and RTO/RPO gaps."""
     ct_res = await db.execute(select(CardType.key, CardType.category, CardType.is_hidden))
     layer_by_type: dict[str, str | None] = {}
@@ -52,7 +53,9 @@ async def gather_resilience(db: AsyncSession, *, depth: int = 4) -> dict:
         if is_hidden:
             hidden.add(key)
 
-    cards_res = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    cards_res = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     card_map: dict[uuid.UUID, Card] = {
         c.id: c for c in cards_res.scalars().all() if c.type not in hidden
     }

@@ -10,31 +10,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.kpi_snapshot import KpiSnapshot
+from app.services.card_read_scope import visible_type_clause
 
 
 async def compute_current_kpis(db: AsyncSession) -> dict:
     """Compute the four trend KPI values from the live cards table.
 
     Shared by the dashboard endpoint and the snapshot capture task so the two
-    cannot drift.
+    cannot drift. Hidden card types are left out, matching the dashboard totals
+    the trend is compared against (decision D-01).
     """
-    total_result = await db.execute(select(func.count(Card.id)).where(Card.status == "ACTIVE"))
+    live = (Card.status == "ACTIVE", visible_type_clause(Card))
+    total_result = await db.execute(select(func.count(Card.id)).where(*live))
     total_cards = total_result.scalar() or 0
 
-    avg_result = await db.execute(
-        select(func.avg(Card.data_quality)).where(Card.status == "ACTIVE")
-    )
+    avg_result = await db.execute(select(func.avg(Card.data_quality)).where(*live))
     avg_data_quality = float(avg_result.scalar() or 0)
 
     approved_result = await db.execute(
-        select(func.count(Card.id)).where(
-            Card.status == "ACTIVE", Card.approval_status == "APPROVED"
-        )
+        select(func.count(Card.id)).where(*live, Card.approval_status == "APPROVED")
     )
     approved_count = approved_result.scalar() or 0
 
     broken_result = await db.execute(
-        select(func.count(Card.id)).where(Card.status == "ACTIVE", Card.approval_status == "BROKEN")
+        select(func.count(Card.id)).where(*live, Card.approval_status == "BROKEN")
     )
     broken_count = broken_result.scalar() or 0
 

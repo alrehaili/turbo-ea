@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - The backend no longer fails to start on Windows when seeding demo card logos.
+- Scenarios can record relation changes again (they were rejected as too long to save; migration 1162).
+
+### Security
+- Reports, dashboards and governance records (ARB reviews, standard exceptions, rationalization decisions, ADM artefacts, roadmaps, scenarios, NORA segments, reference-model mappings, improvement opportunities, EA requirements) no longer reveal cards of types a role may not view, and hidden card types are left out of dashboard totals.
+- Cost figures on the strategy map, Gantt chart, rationalization, scenarios and PPM (portfolio totals, budget and cost lines) now require the Costs permission or a stakeholder role on the initiative, and show as "Restricted" rather than zero.
+- Merging a scenario no longer changes cards the person merging cannot see or edit; those changes stay pending and the scenario stays open for someone who can.
 
 ## [2.31.0] - 2026-10-17
 

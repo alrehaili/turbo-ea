@@ -412,6 +412,7 @@ async def build_gantt_items(
     role_keys: Sequence[str] | None = None,
     allow_email_fallback: bool = True,
     read_scope: CardReadScope | None = None,
+    cost_card_ids: frozenset[uuid.UUID] | None = None,
 ) -> list[PpmGanttItem]:
     """Build the full (unredacted) board rows. Used directly by the authed route.
 
@@ -468,12 +469,34 @@ async def build_gantt_items(
                 parent_id=str(card.parent_id) if card.parent_id else None,
                 start_date=attrs.get("startDate"),
                 end_date=attrs.get("endDate"),
-                cost_budget=float(attrs.get("costBudget") or 0) or None,
-                cost_actual=float(attrs.get("costActual") or 0) or None,
-                capex_planned=costs.get("capex_planned", 0),
-                capex_actual=costs.get("capex_actual", 0),
-                opex_planned=costs.get("opex_planned", 0),
-                opex_actual=costs.get("opex_actual", 0),
+                # costBudget / costActual are cost-typed card fields: the card
+                # endpoints' rule applies (``cost_card_ids``; None = no redaction).
+                cost_budget=(
+                    float(attrs.get("costBudget") or 0) or None
+                    if cost_card_ids is None or card.id in cost_card_ids
+                    else None
+                ),
+                cost_actual=(
+                    float(attrs.get("costActual") or 0) or None
+                    if cost_card_ids is None or card.id in cost_card_ids
+                    else None
+                ),
+                # PPM line rollups are money too: same rule (S-08).
+                **(
+                    {
+                        "capex_planned": costs.get("capex_planned", 0),
+                        "capex_actual": costs.get("capex_actual", 0),
+                        "opex_planned": costs.get("opex_planned", 0),
+                        "opex_actual": costs.get("opex_actual", 0),
+                    }
+                    if cost_card_ids is None or card.id in cost_card_ids
+                    else {
+                        "capex_planned": None,
+                        "capex_actual": None,
+                        "opex_planned": None,
+                        "opex_actual": None,
+                    }
+                ),
                 group_id=str(group_info[0]) if group_info else None,
                 group_name=group_info[1] if group_info else None,
                 latest_report=report_out,

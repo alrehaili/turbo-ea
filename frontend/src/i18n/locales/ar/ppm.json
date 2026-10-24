@@ -6,6 +6,8 @@
   "title": "إدارة محفظة المشاريع",
   "totalInitiatives": "إجمالي المبادرات",
   "totalBudget": "إجمالي الميزانية",
+  "costsRestricted": "مقيّد",
+  "costsRestrictedHint": "الأرقام المالية غير متاحة لك.",
   "totalActual": "إجمالي الفعلي",
   "budgetBarTotal": "الإجمالي",
   "health_schedule": "الجدول الزمني",

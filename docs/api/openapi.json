@@ -9939,8 +9939,15 @@
       "PpmBudgetLineOut": {
         "properties": {
           "amount": {
-            "title": "Amount",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
           },
           "category": {
             "title": "Category",
@@ -10071,8 +10078,15 @@
       "PpmCostLineOut": {
         "properties": {
           "actual": {
-            "title": "Actual",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
           },
           "category": {
             "title": "Category",
@@ -10108,8 +10122,15 @@
             "type": "string"
           },
           "planned": {
-            "title": "Planned",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned"
           },
           "updated_at": {
             "format": "date-time",
@@ -10311,14 +10332,28 @@
       "PpmGanttItem": {
         "properties": {
           "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": 0,
-            "title": "Capex Actual",
-            "type": "number"
+            "title": "Capex Actual"
           },
           "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": 0,
-            "title": "Capex Planned",
-            "type": "number"
+            "title": "Capex Planned"
           },
           "cost_actual": {
             "anyOf": [
@@ -10405,14 +10440,28 @@
             "type": "string"
           },
           "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": 0,
-            "title": "Opex Actual",
-            "type": "number"
+            "title": "Opex Actual"
           },
           "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": 0,
-            "title": "Opex Planned",
-            "type": "number"
+            "title": "Opex Planned"
           },
           "parent_id": {
             "anyOf": [
@@ -36689,7 +36738,7 @@
     },
     "/api/v1/nora-program/dashboard": {
       "get": {
-        "description": "Executive dashboard aggregation (noraPlan.md WP3.1 \u2014 the committee view).\n\nOne round-trip returning count-level KPIs across the NORA-relevant modules:\napproval coverage, landscape state split, gap buckets (+ untraceable),\ntransition-initiative RAG from the latest PPM status reports, standards\nwaivers, improvement opportunities, and open compliance findings. Counts\nonly \u2014 no card payloads \u2014 so the single ``nora.view`` gate is sufficient.",
+        "description": "Executive dashboard aggregation (noraPlan.md WP3.1 \u2014 the committee view).\n\nOne round-trip returning count-level KPIs across the NORA-relevant modules:\napproval coverage, landscape state split, gap buckets (+ untraceable),\ntransition-initiative RAG from the latest PPM status reports, standards\nwaivers, improvement opportunities, and open compliance findings. Counts\nonly \u2014 no card payloads \u2014 so the single ``nora.view`` gate is sufficient.\n\nEvery count is taken over the cards the caller may read and excludes hidden\ncard types (decision D-01): a count over hidden cards would disclose them.",
         "operationId": "get_dashboard_api_v1_nora_program_dashboard_get",
         "responses": {
           "200": {

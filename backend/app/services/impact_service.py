@@ -32,6 +32,7 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.risk import Risk, RiskCard
+from app.services.card_read_scope import CardReadScope
 
 # Canonical EA-layer ordering used to sort grouped output. Layers not in this
 # list (custom card-type categories) sort last, alphabetically.
@@ -64,16 +65,23 @@ async def gather_impact(
     *,
     depth: int = 2,
     change_type: str = "modify",
+    read_scope: CardReadScope,
 ) -> dict:
     """Compute the blast radius of a change to ``center_id``.
 
     Returns a JSON-serialisable dict (see module docstring for the shape).
-    Raises ``ValueError`` if the center card does not exist or is not active.
+    Raises ``ValueError`` if the center card does not exist, is not active, or
+    is hidden from ``read_scope``. Only cards the reader may see take part in
+    the traversal, so a path through a hidden card is cut rather than revealed.
     """
     # --- Load the center card -------------------------------------------------
     center_res = await db.execute(select(Card).where(Card.id == center_id))
     center = center_res.scalar_one_or_none()
-    if center is None or center.status != "ACTIVE":
+    if (
+        center is None
+        or center.status != "ACTIVE"
+        or not read_scope.readable(center.id, center.type, mode="module")
+    ):
         raise ValueError("center card not found or not active")
 
     # --- Load layer map (card type key -> category/layer) --------------------
@@ -86,7 +94,9 @@ async def gather_impact(
             hidden_types.add(key)
 
     # --- Load active, non-hidden cards into a map ----------------------------
-    cards_res = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    cards_res = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     card_map: dict[uuid.UUID, Card] = {
         c.id: c for c in cards_res.scalars().all() if c.type not in hidden_types
     }

@@ -119,6 +119,17 @@ export function groupTotals(items: PpmPortfolioItem[]): CostTotals | null {
   return capexPlanned || capexActual || opexPlanned || opexActual ? totals : null;
 }
 
+/**
+ * The API withholds all four figures together (`null`) when the caller may
+ * not see this initiative's costs; such a row reads "Restricted", never 0. An
+ * absent figure (`undefined`) is a portal that publishes no costs.
+ */
+export const costsWithheld = (item: PpmPortfolioItem): boolean =>
+  item.capex_planned === null &&
+  item.capex_actual === null &&
+  item.opex_planned === null &&
+  item.opex_actual === null;
+
 /** Whether a mobile card shows its cost row: any of the four figures above zero. */
 export const hasAnyCost = (item: PpmPortfolioItem): boolean =>
   money(item.capex_planned) > 0 ||

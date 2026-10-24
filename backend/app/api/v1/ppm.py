@@ -313,14 +313,31 @@ async def delete_report(
 # ── Cost Lines ─────────────────────────────────────────────────────
 
 
-def _cost_line_out(cl: PpmCostLine) -> PpmCostLineOut:
+async def _require_cost_access(db: AsyncSession, user: User, initiative_id) -> None:
+    """403 unless the caller may see this initiative's money (S-08).
+
+    The card endpoints' rule: ``costs.view``, or a stakeholder role on the
+    initiative. Writing an amount one may not read would be blind, and its
+    response would echo it, so the write paths require the same access.
+    """
+    if not await PermissionService.can_view_costs(db, user, uuid.UUID(str(initiative_id))):
+        raise HTTPException(
+            status_code=403, detail="Viewing costs requires the costs.view permission"
+        )
+
+
+async def _show_costs(db: AsyncSession, user: User, initiative_id) -> bool:
+    return await PermissionService.can_view_costs(db, user, uuid.UUID(str(initiative_id)))
+
+
+def _cost_line_out(cl: PpmCostLine, show_costs: bool = True) -> PpmCostLineOut:
     return PpmCostLineOut(
         id=str(cl.id),
         initiative_id=str(cl.initiative_id),
         description=cl.description,
         category=cl.category,
-        planned=cl.planned,
-        actual=cl.actual,
+        planned=cl.planned if show_costs else None,
+        actual=cl.actual if show_costs else None,
         date=cl.date,
         created_at=cl.created_at,
         updated_at=cl.updated_at,
@@ -340,7 +357,8 @@ async def list_cost_lines(
         .where(PpmCostLine.initiative_id == initiative_id)
         .order_by(PpmCostLine.created_at)
     )
-    return [_cost_line_out(cl) for cl in result.scalars().all()]
+    show = await _show_costs(db, user, initiative_id)
+    return [_cost_line_out(cl, show) for cl in result.scalars().all()]
 
 
 @router.post("/initiatives/{initiative_id}/costs", response_model=PpmCostLineOut)
@@ -352,6 +370,7 @@ async def create_cost_line(
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
     await _get_initiative_or_404(db, initiative_id, user)
+    await _require_cost_access(db, user, initiative_id)
     cl = PpmCostLine(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -381,6 +400,7 @@ async def update_cost_line(
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
     await _ensure_initiative_readable(db, user, cl.initiative_id)
+    await _require_cost_access(db, user, cl.initiative_id)
     initiative_id = str(cl.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(cl, key, val)
@@ -402,6 +422,7 @@ async def delete_cost_line(
     if not cl:
         raise HTTPException(status_code=404, detail="Cost line not found")
     await _ensure_initiative_readable(db, user, cl.initiative_id)
+    await _require_cost_access(db, user, cl.initiative_id)
     initiative_id = str(cl.initiative_id)
     await db.delete(cl)
     await db.commit()
@@ -411,13 +432,13 @@ async def delete_cost_line(
 # ── Budget Lines ──────────────────────────────────────────────────
 
 
-def _budget_line_out(bl: PpmBudgetLine) -> PpmBudgetLineOut:
+def _budget_line_out(bl: PpmBudgetLine, show_costs: bool = True) -> PpmBudgetLineOut:
     return PpmBudgetLineOut(
         id=str(bl.id),
         initiative_id=str(bl.initiative_id),
         fiscal_year=bl.fiscal_year,
         category=bl.category,
-        amount=bl.amount,
+        amount=bl.amount if show_costs else None,
         created_at=bl.created_at,
         updated_at=bl.updated_at,
     )
@@ -439,7 +460,8 @@ async def list_budget_lines(
         .where(PpmBudgetLine.initiative_id == initiative_id)
         .order_by(PpmBudgetLine.fiscal_year, PpmBudgetLine.category)
     )
-    return [_budget_line_out(bl) for bl in result.scalars().all()]
+    show = await _show_costs(db, user, initiative_id)
+    return [_budget_line_out(bl, show) for bl in result.scalars().all()]
 
 
 @router.post(
@@ -454,6 +476,7 @@ async def create_budget_line(
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
     await _get_initiative_or_404(db, initiative_id, user)
+    await _require_cost_access(db, user, initiative_id)
     bl = PpmBudgetLine(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -481,6 +504,7 @@ async def update_budget_line(
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
     await _ensure_initiative_readable(db, user, bl.initiative_id)
+    await _require_cost_access(db, user, bl.initiative_id)
     initiative_id = str(bl.initiative_id)
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(bl, key, val)
@@ -502,6 +526,7 @@ async def delete_budget_line(
     if not bl:
         raise HTTPException(status_code=404, detail="Budget line not found")
     await _ensure_initiative_readable(db, user, bl.initiative_id)
+    await _require_cost_access(db, user, bl.initiative_id)
     initiative_id = str(bl.initiative_id)
     await db.delete(bl)
     await db.commit()

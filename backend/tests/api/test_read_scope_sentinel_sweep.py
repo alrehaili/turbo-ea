@@ -3,7 +3,13 @@
 A card of a type the reader's role may not View is seeded with a unique
 sentinel name and wired into everything that can reference a card — a
 relation, an ADR, a risk, a diagram link, a todo, a favourite, a comment, a
-shared OData bookmark and the event log. Then every GET route under
+shared OData bookmark and the event log — and, for the security remediation
+track (SEC-1, findings S-01..S-22), into every governance record and report
+input: an ARB review, a standard exception, rationalization decisions, an
+improvement opportunity, an EA requirement, an ADM workspace and card
+artefact, a roadmap (its timeline and a milestone), a scenario change, a NORA
+segment, a reference-model mapping, and the impact / strategy-map /
+traceability / freshness reports around it. Then every GET route under
 ``/api/v1`` is called as a role holding every non-admin permission, and the
 sentinel's name and id must appear in no response body.
 
@@ -21,13 +27,22 @@ for the restricted reader.
 from __future__ import annotations
 
 import re
+import uuid
 
 import pytest
 from sqlalchemy import select
 
 from app.core.permissions import ALL_APP_PERMISSION_KEYS
+from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card_type import CardType
+from app.models.reference_model import (
+    ReferenceModel,
+    ReferenceModelItem,
+    ReferenceModelMapping,
+)
 from app.models.turbolens import TurboLensVendorAnalysis
+from app.services.adr_service import next_reference_number
 from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
@@ -44,16 +59,17 @@ HELD = "ZZHELDVISIBLE9876"
 # Path parameters the sweep does not fill, with the reason. Routes carrying
 # one are not called.
 UNMAPPED_PARAMS = {
-    "assessment_id": "TurboLens assessment — none seeded",
     "asset_path": "extension asset bytes",
     "attachment_id": "no attachment seeded (the list route is covered)",
     "batch_id": "mutation ledger is admin audit data",
     "calc_id": "admin",
+    "code": "viewpoint definitions are metamodel configuration",
     "conn_id": "ServiceNow admin",
     "initiative_id": "PPM — no Initiative seeded",
     "install_id": "extension admin",
     "mapping_id": "ServiceNow admin",
     "migration_id": "migration admin",
+    "pack_id": "NEA evidence packs are generated documents — none seeded",
     "portal_id": "portal admin",
     "process_id": "BPM — no process seeded",
     "product": "endoflife.date proxy (network)",
@@ -125,8 +141,15 @@ async def world(db, client):
         assert resp.status_code in (200, 201), (path, resp.status_code, resp.text)
         return resp.json()
 
-    anchor = await post("/api/v1/cards", {"type": "Application", "name": "Anchor App"})
-    sentinel = await post("/api/v1/cards", {"type": "Secret", "name": SENTINEL})
+    anchor = await post(
+        "/api/v1/cards",
+        {"type": "Application", "name": "Anchor App", "lifecycle": {"active": "2024-01-01"}},
+    )
+    # A lifecycle date puts the sentinel on roadmap timelines too.
+    sentinel = await post(
+        "/api/v1/cards",
+        {"type": "Secret", "name": SENTINEL, "lifecycle": {"active": "2024-01-01"}},
+    )
     held = await post("/api/v1/cards", {"type": "Secret", "name": HELD})
     await post(
         "/api/v1/relations",
@@ -140,10 +163,21 @@ async def world(db, client):
         f"/api/v1/cards/{held['id']}/stakeholders",
         {"user_id": str(reader.id), "role": "responsible"},
     )
-    adr = await post(
-        "/api/v1/adr",
-        {"title": "Decision", "linked_card_ids": [anchor["id"], sentinel["id"]]},
+    # `POST /adr` fails on this branch (a pre-existing merge defect: the shared
+    # `adr_service.create_decision` lacks the fork's committee / meeting_date /
+    # stage_no arguments), so the decision is seeded directly — the sweep reads
+    # decisions, it does not test creating them.
+    adr_row = ArchitectureDecision(
+        reference_number=await next_reference_number(db), title="Decision", status="draft"
     )
+    db.add(adr_row)
+    await db.flush()
+    for cid in (anchor["id"], sentinel["id"]):
+        db.add(
+            ArchitectureDecisionCard(architecture_decision_id=adr_row.id, card_id=uuid.UUID(cid))
+        )
+    await db.commit()
+    adr = {"id": str(adr_row.id)}
     risk = await post(
         "/api/v1/risks", {"title": "Risk", "card_ids": [anchor["id"], sentinel["id"]]}
     )
@@ -162,6 +196,75 @@ async def world(db, client):
     # Starred before the deny exists: a favourite outlives a later deny.
     resp = await client.post(f"/api/v1/favorites/{sentinel['id']}", headers=auth_headers(reader))
     assert resp.status_code in (200, 201), resp.text
+
+    # ── Governance records and report inputs (SEC-1) ─────────────────────
+    # Free-text titles never carry the sentinel: free text is out of scope by
+    # design, the references are what must not leak.
+    review = await post("/api/v1/arb", {"title": "Review", "subject_card_id": sentinel["id"]})
+    standard = await post("/api/v1/tech-standards", {"name": "Std"})
+    await post(
+        f"/api/v1/tech-standards/{standard['id']}/exceptions",
+        {"card_id": sentinel["id"], "justification": "waiver"},
+    )
+    await post(
+        f"/api/v1/tech-standards/{standard['id']}/exceptions",
+        {"card_id": anchor["id"], "initiative_id": sentinel["id"], "justification": "waiver"},
+    )
+    assessment = await post(
+        "/api/v1/rationalization/assessments", {"name": "Rationalization", "status": "active"}
+    )
+    for decision in (
+        {"card_id": sentinel["id"], "time_decision": "eliminate"},
+        {"card_id": anchor["id"], "time_decision": "migrate", "successor_id": sentinel["id"]},
+    ):
+        await post(f"/api/v1/rationalization/assessments/{assessment['id']}/decisions", decision)
+    await post(
+        "/api/v1/improvement-opportunities",
+        {
+            "title": "Opportunity",
+            "card_ids": [anchor["id"], sentinel["id"]],
+            "journey_card_id": sentinel["id"],
+        },
+    )
+    await post(
+        "/api/v1/ea-requirements",
+        {"title": "Requirement", "card_ids": [anchor["id"], sentinel["id"]]},
+    )
+    workspace = await post(
+        "/api/v1/adm/workspaces", {"name": "Workspace", "initiative_id": sentinel["id"]}
+    )
+    phase_id = workspace["phases"][0]["id"]
+    await post(
+        f"/api/v1/adm/phases/{phase_id}/artefacts",
+        {"kind": "card", "ref_id": sentinel["id"], "title": "Artefact"},
+    )
+    roadmap = await post(
+        "/api/v1/roadmaps",
+        {"name": "Roadmap", "config": {"type": "Secret", "group_by": "Application"}},
+    )
+    await post(
+        f"/api/v1/roadmaps/{roadmap['id']}/milestones",
+        {"label": "M1", "target_date": "2027-01-01", "initiative_id": sentinel["id"]},
+    )
+    scenario = await post("/api/v1/scenarios", {"name": "Scenario"})
+    await post(
+        f"/api/v1/scenarios/{scenario['id']}/changes",
+        {"op": "retire", "target_card_id": sentinel["id"]},
+    )
+    segment = await post(
+        "/api/v1/nora-segments",
+        {"name": "Segment", "root_card_id": sentinel["id"], "include_related": True},
+    )
+    plateau = await post("/api/v1/nora-plateaus", {"name": "Plateau", "target_date": "2027-01-01"})
+    rm = ReferenceModel(domain="applications", name="ARM", status="published")
+    db.add(rm)
+    await db.flush()
+    rm_item = ReferenceModelItem(model_id=rm.id, code="A1", name="Item")
+    db.add(rm_item)
+    await db.flush()
+    db.add(
+        ReferenceModelMapping(model_id=rm.id, item_id=rm_item.id, card_id=uuid.UUID(sentinel["id"]))
+    )
 
     # A vendor analysis row is written by a background job, never by a route:
     # seed it directly so `/turbolens/vendors` carries the sentinel's name.
@@ -187,6 +290,17 @@ async def world(db, client):
             "bm_id": bookmark["id"],
             "key": "Application",
             "type_key": "Application",
+            "review_id": review["id"],
+            "standard_id": standard["id"],
+            "assessment_id": assessment["id"],
+            "workspace_id": workspace["id"],
+            "phase_id": phase_id,
+            "roadmap_id": roadmap["id"],
+            "scenario_id": scenario["id"],
+            "segment_id": segment["id"],
+            "plateau_id": plateau["id"],
+            "model_id": str(rm.id),
+            "item_id": str(rm_item.id),
         },
         "sentinel_id": sentinel["id"],
         "held_id": held["id"],
@@ -218,10 +332,15 @@ async def _sweep(app, client, db, user, ids) -> tuple[dict[str, str], list[str]]
         url = path
         for n in names:
             url = url.replace("{" + n + "}", str(ids[n]))
+        # Required query parameters come from QUERY_FILL, or from the seeded
+        # ids — so `GET /reports/impact?card_id=` is centred on the anchor card,
+        # whose neighbour is the sentinel.
         query = {
-            p["name"]: QUERY_FILL[p["name"]]
+            p["name"]: QUERY_FILL.get(p["name"], ids.get(p["name"]))
             for p in params
-            if p["in"] == "query" and p.get("required") and p["name"] in QUERY_FILL
+            if p["in"] == "query"
+            and p.get("required")
+            and (p["name"] in QUERY_FILL or p["name"] in ids)
         }
         try:
             resp = await client.get(url, params=query, headers=headers)

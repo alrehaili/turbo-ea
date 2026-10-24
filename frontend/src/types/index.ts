@@ -1889,8 +1889,9 @@ export interface PpmCostLine {
   initiative_id: string;
   description: string;
   category: "capex" | "opex";
-  planned: number;
-  actual: number;
+  /** null when the caller may not see this initiative's costs. */
+  planned: number | null;
+  actual: number | null;
   date: string | null;
   created_at: string;
   updated_at: string;
@@ -1901,7 +1902,8 @@ export interface PpmBudgetLine {
   initiative_id: string;
   fiscal_year: number;
   category: "capex" | "opex";
-  amount: number;
+  /** null when the caller may not see this initiative's costs. */
+  amount: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -1938,10 +1940,11 @@ export interface PpmGanttItem {
   end_date: string | null;
   cost_budget: number | null;
   cost_actual: number | null;
-  capex_planned: number;
-  capex_actual: number;
-  opex_planned: number;
-  opex_actual: number;
+  /** null when the caller may not see this initiative's costs. */
+  capex_planned: number | null;
+  capex_actual: number | null;
+  opex_planned: number | null;
+  opex_actual: number | null;
   group_id: string | null;
   group_name: string | null;
   latest_report: PpmStatusReport | null;
@@ -2077,6 +2080,8 @@ export interface PpmPortfolioItem {
 export interface PpmPortfolioDashboard {
   total_initiatives: number;
   total_budget?: number | null;
+  /** True when the caller lacks `costs.view` (the totals are then null). */
+  costs_restricted?: boolean;
   health_schedule: PpmHealthCounts;
 }
 
@@ -2100,8 +2105,10 @@ export interface PpmDashboardData {
   total_initiatives: number;
   by_subtype: Record<string, number>;
   by_status: Record<string, number>;
-  total_budget: number;
-  total_actual: number;
+  /** null without `costs.view` (see `costs_restricted`). */
+  total_budget: number | null;
+  total_actual: number | null;
+  costs_restricted?: boolean;
   health_schedule: PpmHealthCounts;
   health_cost: PpmHealthCounts;
   health_scope: PpmHealthCounts;

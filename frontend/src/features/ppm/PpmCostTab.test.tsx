@@ -821,3 +821,38 @@ describe("PpmCostTab — accessible names", () => {
     }
   });
 });
+
+describe("costs the caller may not see (S-08)", () => {
+  const RESTRICTED_BUDGETS = BUDGETS.map((b) => ({ ...b, amount: null }));
+  const RESTRICTED_COSTS = COSTS.map((c) => ({ ...c, planned: null, actual: null }));
+
+  it("shows Restricted for every figure, never zero, and no editing controls", async () => {
+    mockApi.on("get", budgetPath, RESTRICTED_BUDGETS);
+    render(
+      <PpmCostTab
+        initiativeId="i1"
+        costLines={RESTRICTED_COSTS}
+        onRefresh={vi.fn()}
+        canViewCosts={false}
+      />,
+    );
+    // Rows still list the non-financial facts (fiscal year, description).
+    expect(await screen.findByText("FY 2025")).toBeInTheDocument();
+    expect(screen.getByText("Servers")).toBeInTheDocument();
+    const restricted = screen.getAllByTestId("restricted-amount");
+    // 3 summary figures + capex/opex pairs + 2 budget rows + 2 cost rows.
+    expect(restricted.length).toBeGreaterThanOrEqual(7);
+    expect(screen.queryByText(/\$0|0\.00/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add budget line/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add cost item/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Edit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cost-charts")).not.toBeInTheDocument();
+  });
+
+  it("treats null amounts as restricted even before the permission is known", async () => {
+    mockApi.on("get", budgetPath, RESTRICTED_BUDGETS);
+    render(<PpmCostTab initiativeId="i1" costLines={RESTRICTED_COSTS} onRefresh={vi.fn()} />);
+    expect(await screen.findByText("FY 2025")).toBeInTheDocument();
+    expect(screen.getAllByTestId("restricted-amount").length).toBeGreaterThan(0);
+  });
+});

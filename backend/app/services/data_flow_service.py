@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
+from app.services.card_read_scope import CardReadScope
 from app.services.type_groups import INFRASTRUCTURE_TYPE_KEYS
 
 DATA_OBJECT_TYPE = "DataObject"
@@ -39,12 +40,14 @@ def _domain(card: Card) -> str | None:
     return str(val) if val else None
 
 
-async def gather_data_flow(db: AsyncSession) -> dict:
+async def gather_data_flow(db: AsyncSession, *, read_scope: CardReadScope) -> dict:
     """For each Data Object, resolve the apps/interfaces/components around it."""
     ct_res = await db.execute(select(CardType.key, CardType.is_hidden))
     hidden = {k for k, h in ct_res.all() if h}
 
-    cards_res = await db.execute(select(Card).where(Card.status == "ACTIVE"))
+    cards_res = await db.execute(
+        select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
+    )
     card_map: dict[uuid.UUID, Card] = {
         c.id: c for c in cards_res.scalars().all() if c.type not in hidden
     }

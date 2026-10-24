@@ -16,6 +16,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.nora_landscape import NoraSegment
 from app.models.relation import Relation
+from app.services.card_read_scope import CardReadScope, visible_type_clause
 
 # Lifecycle phases, newest → oldest (same order as reports._current_lifecycle_phase).
 _PHASES_DESC = ("endOfLife", "phaseOut", "active", "phaseIn", "plan")
@@ -70,13 +71,29 @@ def _brief(card: Card, categories: dict) -> dict:
     }
 
 
-async def get_segment_card_ids(db: AsyncSession, segment: NoraSegment) -> set[uuid.UUID]:
+async def get_segment_card_ids(
+    db: AsyncSession, segment: NoraSegment, *, read_scope: CardReadScope
+) -> set[uuid.UUID]:
     """Resolve a segment to its in-scope card IDs (without the display formatting).
 
     Scope = root + (descendants if enabled) + (related cards if enabled, narrowed
-    to ``related_type_keys`` when set). Returns a set of UUID card IDs for filtering.
+    to ``related_type_keys`` when set), **walked through readable cards only**:
+    a card hidden from the reader neither appears nor bridges to the cards
+    beyond it. Membership is therefore never derived from a hidden card's
+    hierarchy or relations — a segment rooted at a hidden card is empty for
+    that reader, and a readable card reachable only through a hidden child or
+    hidden hierarchy member is left out (otherwise the set itself, and every
+    count built on it, would disclose the hidden card's neighbourhood).
     """
     if segment.root_card_id is None:
+        return set()
+
+    async def readable(ids: set[uuid.UUID]) -> set[uuid.UUID]:
+        if not ids:
+            return set()
+        return await read_scope.readable_card_ids(db, ids, mode="module")
+
+    if not await readable({segment.root_card_id}):
         return set()
 
     # Hierarchy set (root + descendants) is always kept in full; related cards
@@ -89,7 +106,7 @@ async def get_segment_card_ids(db: AsyncSession, segment: NoraSegment) -> set[uu
             rows = await db.execute(
                 select(Card.id).where(Card.parent_id.in_(frontier), Card.status != "ARCHIVED")
             )
-            children = {cid for (cid,) in rows.all()} - hierarchy_ids
+            children = await readable({cid for (cid,) in rows.all()} - hierarchy_ids)
             if not children:
                 break
             hierarchy_ids |= children
@@ -105,7 +122,7 @@ async def get_segment_card_ids(db: AsyncSession, segment: NoraSegment) -> set[uu
         for source_id, target_id in rel_rows.all():
             related_ids.add(source_id)
             related_ids.add(target_id)
-        related_ids -= hierarchy_ids
+        related_ids = await readable(related_ids - hierarchy_ids)
 
     scope_ids = hierarchy_ids | related_ids
 
@@ -127,18 +144,23 @@ async def get_segment_card_ids(db: AsyncSession, segment: NoraSegment) -> set[uu
     return {cid for (cid,) in rows.all()}
 
 
-async def resolve_segment(db: AsyncSession, segment: NoraSegment) -> dict:
+async def resolve_segment(
+    db: AsyncSession, segment: NoraSegment, *, read_scope: CardReadScope
+) -> dict:
     """Resolve a segment to its in-scope cards grouped by EA layer.
 
     Scope = root + (descendants if enabled) + (related cards if enabled, narrowed
-    to ``related_type_keys`` when set). Returns ``{cards, layers, count}``.
+    to ``related_type_keys`` when set). Returns ``{cards, layers, count}``,
+    limited to the cards ``read_scope`` admits.
     """
     categories = await _type_categories(db)
-    scope_ids = await get_segment_card_ids(db, segment)
+    scope_ids = await get_segment_card_ids(db, segment, read_scope=read_scope)
     if not scope_ids:
         return {"cards": [], "layers": [], "count": 0}
 
-    rows = await db.execute(select(Card).where(Card.id.in_(scope_ids)))
+    rows = await db.execute(
+        select(Card).where(Card.id.in_(scope_ids), *read_scope.where(Card, mode="module"))
+    )
     cards = list(rows.scalars().all())
 
     briefs = [_brief(c, categories) for c in cards]
@@ -162,11 +184,16 @@ async def resolve_segment(db: AsyncSession, segment: NoraSegment) -> dict:
     return {"cards": briefs, "layers": layers, "count": len(briefs)}
 
 
-async def plateau_landscape(db: AsyncSession, as_of: date) -> dict:
+async def plateau_landscape(db: AsyncSession, as_of: date, *, read_scope: CardReadScope) -> dict:
     """Classify the non-archived landscape by lifecycle phase + architecture
-    state as of a plateau date."""
+    state as of a plateau date — over the cards ``read_scope`` admits, hidden
+    card types left out (decision D-01)."""
     rows = await db.execute(
-        select(Card.lifecycle, Card.architecture_state).where(Card.status != "ARCHIVED")
+        select(Card.lifecycle, Card.architecture_state).where(
+            Card.status != "ARCHIVED",
+            *read_scope.where(Card, mode="module"),
+            visible_type_clause(Card),
+        )
     )
     phase_counts = {p: 0 for p in _PHASES_ASC}
     phase_counts["unknown"] = 0

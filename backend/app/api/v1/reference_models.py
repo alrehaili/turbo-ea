@@ -34,6 +34,7 @@ from app.models.reference_model import (
     ReferenceModelVersion,
 )
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.reference_models import (
@@ -297,8 +298,12 @@ async def browse_overview(
         model = await resolve_active_model(db, domain)
         if model is not None:
             items = await items_for(db, model.id)
-            card_codes = await scan_domain_card_codes(db, domain)
-            mappings = await explicit_mappings_for_model(db, model.id)
+            card_codes = await scan_domain_card_codes(
+                db, domain, read_scope=await CardReadScope.load(db, user)
+            )
+            mappings = await explicit_mappings_for_model(
+                db, model.id, read_scope=await CardReadScope.load(db, user)
+            )
             cov = compute_model_coverage(items, card_codes, mappings)
             entry["model"] = model_dict(model, item_count=len(items))
             entry.update(
@@ -325,8 +330,12 @@ async def model_summary(
     model = await _get_model(db, model_id)
     card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
     items = await items_for(db, model_id)
-    card_codes = await scan_domain_card_codes(db, model.domain)
-    mappings = await explicit_mappings_for_model(db, model.id)
+    card_codes = await scan_domain_card_codes(
+        db, model.domain, read_scope=await CardReadScope.load(db, user)
+    )
+    mappings = await explicit_mappings_for_model(
+        db, model.id, read_scope=await CardReadScope.load(db, user)
+    )
     cov = compute_model_coverage(items, card_codes, mappings)
     per_item = cov["per_item"]
     out_items = []
@@ -378,7 +387,9 @@ async def item_mapped_cards(
 
     # Explicit mappings to items in scope (keyed by card; prefer the one on the
     # selected item itself over a descendant's for the surfaced metadata).
-    mappings = await explicit_mappings_for_model(db, model.id)
+    mappings = await explicit_mappings_for_model(
+        db, model.id, read_scope=await CardReadScope.load(db, user)
+    )
     explicit_by_card: dict[uuid.UUID, ReferenceModelMapping] = {}
     for m in mappings:
         if m.item_id in scope_ids and m.mapping_status != "rejected":
@@ -387,7 +398,12 @@ async def item_mapped_cards(
                 explicit_by_card[m.card_id] = m
 
     # Code-matched cards of the domain type.
-    rows = await db.execute(select(Card).where(Card.status != "ARCHIVED"))
+    rows = await db.execute(
+        select(Card).where(
+            Card.status != "ARCHIVED",
+            *(await CardReadScope.load(db, user)).where(Card, mode="module"),
+        )
+    )
     all_cards = {c.id: c for c in rows.scalars().all()}
 
     result: list[dict] = []
@@ -455,6 +471,9 @@ async def list_item_mappings(
         .scalars()
         .all()
     )
+    read_scope = await CardReadScope.load(db, user)
+    hidden = await read_scope.hidden_card_ids(db, {m.card_id for m in rows}, mode="module")
+    rows = [m for m in rows if m.card_id not in hidden]  # D-30: omit, never delete
     card_ids = {m.card_id for m in rows}
     cards = {}
     if card_ids:
@@ -476,6 +495,7 @@ async def create_item_mapping(
     """Map an inventory card to a reference-model item."""
     await PermissionService.require_permission(db, user, "reference_models.map")
     item = await _get_item(db, item_id)
+    await require_card_readable(db, user, payload.card_id, mode="module")
     card = (await db.execute(select(Card).where(Card.id == payload.card_id))).scalar_one_or_none()
     if card is None:
         raise HTTPException(404, "Card not found")
@@ -538,6 +558,10 @@ async def update_mapping(
     ).scalar_one_or_none()
     if mapping is None:
         raise HTTPException(404, "Mapping not found")
+    if await (await CardReadScope.load(db, user)).hidden_card_ids(
+        db, {mapping.card_id}, mode="module"
+    ):
+        raise HTTPException(404, "Mapping not found")
     data = payload.model_dump(exclude_unset=True)
     if "mapping_type" in data:
         mapping.mapping_type = data["mapping_type"]
@@ -580,6 +604,10 @@ async def delete_mapping(
         )
     ).scalar_one_or_none()
     if mapping is None:
+        raise HTTPException(404, "Mapping not found")
+    if await (await CardReadScope.load(db, user)).hidden_card_ids(
+        db, {mapping.card_id}, mode="module"
+    ):
         raise HTTPException(404, "Mapping not found")
     card_id = mapping.card_id
     item_id = mapping.item_id
@@ -776,10 +804,18 @@ async def unmapped_inventory(
     card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
     items = await items_for(db, model.id)
     item_codes = {i.code for i in items}
-    mappings = await explicit_mappings_for_model(db, model.id)
+    mappings = await explicit_mappings_for_model(
+        db, model.id, read_scope=await CardReadScope.load(db, user)
+    )
     mapped_card_ids = {m.card_id for m in mappings if m.mapping_status != "rejected"}
 
-    rows = await db.execute(select(Card).where(Card.type == card_type, Card.status != "ARCHIVED"))
+    rows = await db.execute(
+        select(Card).where(
+            Card.type == card_type,
+            Card.status != "ARCHIVED",
+            *(await CardReadScope.load(db, user)).where(Card, mode="module"),
+        )
+    )
     cards = []
     for card in rows.scalars().all():
         if card.id in mapped_card_ids:
@@ -821,8 +857,12 @@ async def coverage_gaps(
     model = await _get_model(db, model_id)
     card_type, code_field = RM_DOMAIN_CARD_TYPES[model.domain]
     items = await items_for(db, model.id)
-    card_codes = await scan_domain_card_codes(db, model.domain)
-    mappings = await explicit_mappings_for_model(db, model.id)
+    card_codes = await scan_domain_card_codes(
+        db, model.domain, read_scope=await CardReadScope.load(db, user)
+    )
+    mappings = await explicit_mappings_for_model(
+        db, model.id, read_scope=await CardReadScope.load(db, user)
+    )
     cov = compute_model_coverage(items, card_codes, mappings)
     per_item = cov["per_item"]  # {item_id: (own_set, total_set)}
     leaves = leaf_item_ids(items)

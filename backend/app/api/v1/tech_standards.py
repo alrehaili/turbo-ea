@@ -27,6 +27,7 @@ from app.models.tech_standard import (
     TechStandard,
 )
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.permission_service import PermissionService
 from app.services.tech_standards_scan import scan_standard_compliance
 
@@ -107,7 +108,10 @@ def _standard_dict(s: TechStandard, cards: dict[uuid.UUID, dict] | None = None) 
         "review_date": s.review_date.isoformat() if s.review_date else None,
         "spec_url": s.spec_url,
         "trm_code": s.trm_code,
-        "tech_category_id": str(s.tech_category_id) if s.tech_category_id else None,
+        # A category the reader may not see is redacted, name and id (D-30).
+        "tech_category_id": (
+            str(s.tech_category_id) if s.tech_category_id in (cards or {}) else None
+        ),
         "tech_category": (cards or {}).get(s.tech_category_id) if s.tech_category_id else None,
     }
 
@@ -130,11 +134,18 @@ def _exception_dict(e: StandardException, cards: dict[uuid.UUID, dict]) -> dict:
     }
 
 
-async def _card_brief_map(db: AsyncSession, ids: set[uuid.UUID]) -> dict[uuid.UUID, dict]:
+async def _card_brief_map(
+    db: AsyncSession, ids: set[uuid.UUID], read_scope: CardReadScope
+) -> dict[uuid.UUID, dict]:
+    """Briefs of the readable cards among ``ids``; a hidden card is simply absent."""
     ids = {i for i in ids if i}
     if not ids:
         return {}
-    res = await db.execute(select(Card.id, Card.name, Card.type).where(Card.id.in_(ids)))
+    res = await db.execute(
+        select(Card.id, Card.name, Card.type).where(
+            Card.id.in_(ids), *read_scope.where(Card, mode="module")
+        )
+    )
     return {row[0]: {"id": str(row[0]), "name": row[1], "type": row[2]} for row in res.all()}
 
 
@@ -146,12 +157,39 @@ async def _get_standard(db: AsyncSession, sid: uuid.UUID) -> TechStandard:
     return s
 
 
-async def _get_exception(db: AsyncSession, eid: uuid.UUID) -> StandardException:
+async def _get_exception(
+    db: AsyncSession, eid: uuid.UUID, read_scope: CardReadScope
+) -> StandardException:
+    """The exception, or 404 — also when it is about a card hidden from the reader.
+
+    An exception exists for exactly one card and its justification names it,
+    so it is omitted rather than redacted (decision D-30). The row is untouched.
+    """
     res = await db.execute(select(StandardException).where(StandardException.id == eid))
     e = res.scalar_one_or_none()
-    if e is None:
+    if e is None or await read_scope.hidden_card_ids(db, {e.card_id}, mode="module"):
         raise HTTPException(status_code=404, detail="Exception not found")
     return e
+
+
+async def _visible_exceptions(
+    db: AsyncSession, exceptions: list[StandardException], read_scope: CardReadScope
+) -> list[StandardException]:
+    """Drop exceptions about hidden cards (D-30)."""
+    hidden = await read_scope.hidden_card_ids(
+        db, {e.card_id for e in exceptions if e.card_id}, mode="module"
+    )
+    return [e for e in exceptions if e.card_id not in hidden]
+
+
+async def _keep_hidden_links(
+    db: AsyncSession, data: dict, current: dict, read_scope: CardReadScope
+) -> None:
+    """An explicit null for a link the reader was shown redacted keeps the link."""
+    for key, value in list(data.items()):
+        if value is None and current.get(key) is not None:
+            if await read_scope.hidden_card_ids(db, {current[key]}, mode="module"):
+                data.pop(key)
 
 
 def _validate(category: str | None, status: str | None, mandate: str | None = None) -> None:
@@ -181,7 +219,9 @@ async def list_standards(
         stmt = stmt.where(TechStandard.status == status)
     res = await db.execute(stmt)
     standards = list(res.scalars().all())
-    cards = await _card_brief_map(db, {s.tech_category_id for s in standards})
+    cards = await _card_brief_map(
+        db, {s.tech_category_id for s in standards}, await CardReadScope.load(db, user)
+    )
     return [_standard_dict(s, cards) for s in standards]
 
 
@@ -193,11 +233,14 @@ async def create_standard(
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
     _validate(body.category, body.status, body.mandate)
+    if body.tech_category_id:
+        await require_card_readable(db, user, body.tech_category_id, mode="module")
     s = TechStandard(**body.model_dump())
     db.add(s)
     await db.commit()
     await db.refresh(s)
-    return _standard_dict(s)
+    cards = await _card_brief_map(db, {s.tech_category_id}, await CardReadScope.load(db, user))
+    return _standard_dict(s, cards)
 
 
 @router.get("/radar")
@@ -210,16 +253,27 @@ async def radar(
     await PermissionService.require_permission(db, user, "tech_standards.view")
     res = await db.execute(select(TechStandard).order_by(TechStandard.name))
     standards = list(res.scalars().all())
-    cat_cards = await _card_brief_map(db, {s.tech_category_id for s in standards})
+    read_scope = await CardReadScope.load(db, user)
+    cat_cards = await _card_brief_map(db, {s.tech_category_id for s in standards}, read_scope)
 
     # Open (approved + non-expired, or requested) exception counts per standard.
+    # Exceptions about hidden cards are not counted (D-30).
     eres = await db.execute(
         select(
-            StandardException.standard_id, StandardException.status, StandardException.expiry_date
+            StandardException.standard_id,
+            StandardException.status,
+            StandardException.expiry_date,
+            StandardException.card_id,
         )
     )
+    exc_rows = eres.all()
+    hidden = await read_scope.hidden_card_ids(
+        db, {cid for *_, cid in exc_rows if cid}, mode="module"
+    )
     open_exc: dict[uuid.UUID, int] = {}
-    for sid, status, expiry in eres.all():
+    for sid, status, expiry, cid in exc_rows:
+        if cid in hidden:
+            continue
         is_open = status == "requested" or (
             status == "approved" and (expiry is None or expiry >= date.today())
         )
@@ -261,7 +315,7 @@ async def compliance_scan(
     non-expired exception.
     """
     await PermissionService.require_permission(db, user, "tech_standards.view")
-    return await scan_standard_compliance(db)
+    return await scan_standard_compliance(db, read_scope=await CardReadScope.load(db, user))
 
 
 @router.get("/exceptions")
@@ -275,9 +329,10 @@ async def list_exceptions(
     if status:
         stmt = stmt.where(StandardException.status == status)
     res = await db.execute(stmt)
-    exceptions = list(res.scalars().all())
+    read_scope = await CardReadScope.load(db, user)
+    exceptions = await _visible_exceptions(db, list(res.scalars().all()), read_scope)
     cards = await _card_brief_map(
-        db, {e.card_id for e in exceptions} | {e.initiative_id for e in exceptions}
+        db, {e.card_id for e in exceptions} | {e.initiative_id for e in exceptions}, read_scope
     )
     return [_exception_dict(e, cards) for e in exceptions]
 
@@ -295,12 +350,14 @@ async def get_standard(
         .where(StandardException.standard_id == standard_id)
         .order_by(StandardException.created_at.desc())
     )
-    exceptions = list(eres.scalars().all())
+    read_scope = await CardReadScope.load(db, user)
+    exceptions = await _visible_exceptions(db, list(eres.scalars().all()), read_scope)
     cards = await _card_brief_map(
         db,
         {e.card_id for e in exceptions}
         | {e.initiative_id for e in exceptions}
         | {s.tech_category_id},
+        read_scope,
     )
     return {
         **_standard_dict(s, cards),
@@ -317,13 +374,17 @@ async def update_standard(
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
     s = await _get_standard(db, standard_id)
+    read_scope = await CardReadScope.load(db, user)
     data = body.model_dump(exclude_unset=True)
     _validate(data.get("category"), data.get("status"), data.get("mandate"))
+    await _keep_hidden_links(db, data, {"tech_category_id": s.tech_category_id}, read_scope)
+    if data.get("tech_category_id"):
+        await require_card_readable(db, user, data["tech_category_id"], mode="module")
     for key, value in data.items():
         setattr(s, key, value)
     await db.commit()
     await db.refresh(s)
-    return _standard_dict(s)
+    return _standard_dict(s, await _card_brief_map(db, {s.tech_category_id}, read_scope))
 
 
 @router.delete("/{standard_id}", status_code=204)
@@ -350,6 +411,9 @@ async def create_exception(
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
     await _get_standard(db, standard_id)
+    for cid in (body.card_id, body.initiative_id):
+        if cid:
+            await require_card_readable(db, user, cid, mode="module")
     exc = StandardException(
         standard_id=standard_id,
         status="requested",
@@ -359,7 +423,9 @@ async def create_exception(
     db.add(exc)
     await db.commit()
     await db.refresh(exc)
-    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id})
+    cards = await _card_brief_map(
+        db, {exc.card_id, exc.initiative_id}, await CardReadScope.load(db, user)
+    )
     return _exception_dict(exc, cards)
 
 
@@ -371,12 +437,20 @@ async def update_exception(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
-    exc = await _get_exception(db, exception_id)
-    for key, value in body.model_dump(exclude_unset=True).items():
+    read_scope = await CardReadScope.load(db, user)
+    exc = await _get_exception(db, exception_id, read_scope)
+    data = body.model_dump(exclude_unset=True)
+    await _keep_hidden_links(
+        db, data, {"initiative_id": exc.initiative_id, "card_id": exc.card_id}, read_scope
+    )
+    for key in ("card_id", "initiative_id"):
+        if data.get(key):
+            await require_card_readable(db, user, data[key], mode="module")
+    for key, value in data.items():
         setattr(exc, key, value)
     await db.commit()
     await db.refresh(exc)
-    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id})
+    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id}, read_scope)
     return _exception_dict(exc, cards)
 
 
@@ -389,14 +463,15 @@ async def decide_exception(
 ):
     """Approve or reject an exception request (separate approver permission)."""
     await PermissionService.require_permission(db, user, "tech_standards.approve_exception")
-    exc = await _get_exception(db, exception_id)
+    read_scope = await CardReadScope.load(db, user)
+    exc = await _get_exception(db, exception_id, read_scope)
     if exc.status not in ("requested", "approved", "rejected"):
         raise HTTPException(status_code=400, detail=f"Cannot decide on status {exc.status}")
     exc.status = "approved" if action == "approve" else "rejected"
     exc.approver_id = user.id
     await db.commit()
     await db.refresh(exc)
-    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id})
+    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id}, read_scope)
     return _exception_dict(exc, cards)
 
 
@@ -407,6 +482,6 @@ async def delete_exception(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
-    exc = await _get_exception(db, exception_id)
+    exc = await _get_exception(db, exception_id, await CardReadScope.load(db, user))
     await db.delete(exc)
     await db.commit()

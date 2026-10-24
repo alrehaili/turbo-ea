@@ -90,8 +90,12 @@ interface DiffData {
 }
 interface MergeResult {
   dry_run: boolean;
+  /** False when some changes stay unapplied for want of authority; the
+   *  scenario then stays open for someone who has it. */
+  complete?: boolean;
   applied: number;
   conflicts: number;
+  forbidden?: number;
   results?: { id: string; op: string; name: string | null; outcome: string }[];
 }
 
@@ -491,7 +495,7 @@ export default function ScenarioPlanning() {
         <Box>
           {mergePreview ? (
             <Alert
-              severity={mergePreview.conflicts > 0 ? "warning" : "info"}
+              severity={mergePreview.conflicts > 0 || mergePreview.complete === false ? "warning" : "info"}
               action={
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <Button color="inherit" size="small" onClick={() => doMerge(false)}>
@@ -510,6 +514,11 @@ export default function ScenarioPlanning() {
                 applied: mergePreview.applied,
                 conflicts: mergePreview.conflicts,
               })}
+              {mergePreview.complete === false && (
+                <Box component="span" sx={{ display: "block", mt: 0.5 }}>
+                  {t("scenarios.mergeIncomplete")}
+                </Box>
+              )}
             </Alert>
           ) : (
             <Button

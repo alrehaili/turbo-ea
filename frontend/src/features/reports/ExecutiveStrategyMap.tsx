@@ -40,8 +40,10 @@ interface StrategyMap {
     objective_count: number;
     initiative_count: number;
     application_count: number;
-    total_budget: number;
-    total_actual: number;
+    /** null without `costs.view` (`costs_restricted`). */
+    total_budget: number | null;
+    total_actual: number | null;
+    costs_restricted?: boolean;
     health_breakdown: Record<Health, number>;
   };
 }
@@ -133,7 +135,13 @@ export default function ExecutiveStrategyMap() {
             />
             <MetricCard
               label={t("strategyMap.totalBudget")}
-              value={fmtShort(data.summary.total_budget)}
+              value={
+                data.summary.total_budget != null ? (
+                  fmtShort(data.summary.total_budget)
+                ) : (
+                  t("ppm:costsRestricted")
+                )
+              }
               icon="savings"
             />
           </Box>

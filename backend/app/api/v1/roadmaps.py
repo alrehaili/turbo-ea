@@ -24,6 +24,7 @@ from app.models.card import Card
 from app.models.relation import Relation
 from app.models.roadmap import Roadmap, RoadmapMilestone
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/roadmaps", tags=["roadmaps"])
@@ -54,18 +55,31 @@ class RoadmapUpdate(BaseModel):
 # ── Serialisers ────────────────────────────────────────────────────────
 
 
-def _serialize_milestone(m: RoadmapMilestone) -> dict:
+def _serialize_milestone(m: RoadmapMilestone, hidden: set[uuid.UUID] | None = None) -> dict:
+    """``hidden``: card ids the reader may not see; such an initiative link is
+    redacted (name and id) while the milestone itself stays (decision D-30)."""
+    initiative_id = m.initiative_id if m.initiative_id not in (hidden or set()) else None
     return {
         "id": str(m.id),
         "roadmap_id": str(m.roadmap_id),
         "label": m.label,
         "target_date": m.target_date.isoformat() if m.target_date else None,
-        "initiative_id": str(m.initiative_id) if m.initiative_id else None,
+        "initiative_id": str(initiative_id) if initiative_id else None,
         "color": m.color,
     }
 
 
-def _serialize_roadmap(r: Roadmap, milestones: list[RoadmapMilestone]) -> dict:
+async def _hidden_initiatives(
+    db: AsyncSession, read_scope: CardReadScope, milestones: list[RoadmapMilestone]
+) -> set[uuid.UUID]:
+    return await read_scope.hidden_card_ids(
+        db, {m.initiative_id for m in milestones if m.initiative_id}, mode="module"
+    )
+
+
+def _serialize_roadmap(
+    r: Roadmap, milestones: list[RoadmapMilestone], hidden: set[uuid.UUID] | None = None
+) -> dict:
     return {
         "id": str(r.id),
         "name": r.name,
@@ -74,7 +88,7 @@ def _serialize_roadmap(r: Roadmap, milestones: list[RoadmapMilestone]) -> dict:
         "owner_id": str(r.owner_id) if r.owner_id else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,
         "updated_at": r.updated_at.isoformat() if r.updated_at else None,
-        "milestones": [_serialize_milestone(m) for m in milestones],
+        "milestones": [_serialize_milestone(m, hidden) for m in milestones],
     }
 
 
@@ -95,23 +109,36 @@ def _has_lifecycle(card: Card) -> bool:
     return any(lc.values())
 
 
-async def _compute_timeline(db: AsyncSession, card_type: str, group_by: str) -> dict:
+async def _compute_timeline(
+    db: AsyncSession, card_type: str, group_by: str, read_scope: CardReadScope
+) -> dict:
     """Group active ``card_type`` cards into swimlanes by a related ``group_by``
     card, returning each card's lifecycle for the timeline bars.
 
     A card is placed under the first lane it relates to (deterministic by lane
-    name); cards with no relation to a lane fall into ``ungrouped``.
+    name); cards with no relation to a lane fall into ``ungrouped``. Bars and
+    lanes are limited to the cards ``read_scope`` admits.
     """
     # 1. Bars: active cards of card_type that carry at least one lifecycle date.
     bars_result = await db.execute(
-        select(Card).where(Card.type == card_type, Card.status == "ACTIVE")
+        select(Card).where(
+            Card.type == card_type,
+            Card.status == "ACTIVE",
+            *read_scope.where(Card, mode="module"),
+        )
     )
     bars = [c for c in bars_result.scalars().all() if _has_lifecycle(c)]
     bar_ids = {str(c.id) for c in bars}
 
     # 2. Lanes: active cards of the grouping type.
     lanes_result = await db.execute(
-        select(Card).where(Card.type == group_by, Card.status == "ACTIVE").order_by(Card.name)
+        select(Card)
+        .where(
+            Card.type == group_by,
+            Card.status == "ACTIVE",
+            *read_scope.where(Card, mode="module"),
+        )
+        .order_by(Card.name)
     )
     lane_cards = list(lanes_result.scalars().all())
     lane_ids = {str(c.id) for c in lane_cards}
@@ -179,7 +206,7 @@ async def roadmap_data(
 ):
     """Compute an unsaved roadmap timeline for the given card type + grouping."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    return await _compute_timeline(db, type, group_by)
+    return await _compute_timeline(db, type, group_by, await CardReadScope.load(db, user))
 
 
 # ── Saved-roadmap CRUD ─────────────────────────────────────────────────
@@ -191,11 +218,14 @@ async def list_roadmaps(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    read_scope = await CardReadScope.load(db, user)
     rows = await db.execute(select(Roadmap).order_by(Roadmap.name))
     roadmaps = list(rows.scalars().all())
     out = []
     for r in roadmaps:
-        out.append(_serialize_roadmap(r, await _milestones_for(db, r.id)))
+        milestones = await _milestones_for(db, r.id)
+        hidden = await _hidden_initiatives(db, read_scope, milestones)
+        out.append(_serialize_roadmap(r, milestones, hidden))
     return out
 
 
@@ -228,7 +258,9 @@ async def get_roadmap(
     r = (await db.execute(select(Roadmap).where(Roadmap.id == roadmap_id))).scalars().first()
     if r is None:
         raise HTTPException(404, "Roadmap not found")
-    return _serialize_roadmap(r, await _milestones_for(db, r.id))
+    milestones = await _milestones_for(db, r.id)
+    hidden = await _hidden_initiatives(db, await CardReadScope.load(db, user), milestones)
+    return _serialize_roadmap(r, milestones, hidden)
 
 
 @router.get("/{roadmap_id}/data")
@@ -243,12 +275,16 @@ async def saved_roadmap_data(
     if r is None:
         raise HTTPException(404, "Roadmap not found")
     cfg = r.config or {}
+    read_scope = await CardReadScope.load(db, user)
     data = await _compute_timeline(
         db,
         cfg.get("type", "Application"),
         cfg.get("group_by", "BusinessCapability"),
+        read_scope,
     )
-    data["milestones"] = [_serialize_milestone(m) for m in await _milestones_for(db, r.id)]
+    milestones = await _milestones_for(db, r.id)
+    hidden = await _hidden_initiatives(db, read_scope, milestones)
+    data["milestones"] = [_serialize_milestone(m, hidden) for m in milestones]
     data["roadmap"] = _serialize_roadmap(r, [])
     return data
 
@@ -328,13 +364,18 @@ async def update_milestone(
     )
     if m is None:
         raise HTTPException(404, "Milestone not found")
+    read_scope = await CardReadScope.load(db, user)
+    hidden = await _hidden_initiatives(db, read_scope, [m])
     m.label = body.label
     m.target_date = body.target_date
-    m.initiative_id = body.initiative_id
+    # The caller was shown a redacted (null) link for a hidden initiative: an
+    # empty value must not unlink what they were never shown (D-30).
+    if not (body.initiative_id is None and m.initiative_id in hidden):
+        m.initiative_id = body.initiative_id
     m.color = body.color
     await db.commit()
     await db.refresh(m)
-    return _serialize_milestone(m)
+    return _serialize_milestone(m, await _hidden_initiatives(db, read_scope, [m]))
 
 
 @router.delete("/milestones/{milestone_id}", status_code=204)

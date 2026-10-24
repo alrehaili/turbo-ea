@@ -25,6 +25,7 @@ from app.models.reference_model import (
     ReferenceModelMapping,
     ReferenceModelVersion,
 )
+from app.services.card_read_scope import CardReadScope
 
 _HEADER_FONT = Font(bold=True)
 
@@ -175,15 +176,20 @@ async def item_counts(db: AsyncSession, model_ids: list[uuid.UUID]) -> dict[uuid
 
 
 async def scan_domain_card_codes(
-    db: AsyncSession, domain: str
+    db: AsyncSession, domain: str, *, read_scope: CardReadScope
 ) -> list[tuple[uuid.UUID, str | None]]:
-    """``(card_id, code_or_None)`` for every non-archived card of the domain type."""
+    """``(card_id, code_or_None)`` for every non-archived card of the domain type
+    that ``read_scope`` admits — coverage counts never include hidden cards."""
     wiring = RM_DOMAIN_CARD_TYPES.get(domain)
     if wiring is None:
         return []
     card_type, code_field = wiring
     rows = await db.execute(
-        select(Card.id, Card.attributes).where(Card.type == card_type, Card.status != "ARCHIVED")
+        select(Card.id, Card.attributes).where(
+            Card.type == card_type,
+            Card.status != "ARCHIVED",
+            *read_scope.where(Card, mode="module"),
+        )
     )
     out: list[tuple[uuid.UUID, str | None]] = []
     for cid, attributes in rows.all():
@@ -194,12 +200,22 @@ async def scan_domain_card_codes(
 
 
 async def explicit_mappings_for_model(
-    db: AsyncSession, model_id: uuid.UUID
+    db: AsyncSession, model_id: uuid.UUID, *, read_scope: CardReadScope
 ) -> list[ReferenceModelMapping]:
+    """The model's mapping rows whose card ``read_scope`` admits.
+
+    A mapping row is about exactly one card, so a row naming a hidden card is
+    omitted (decision D-30); the row itself is untouched.
+    """
     return list(
         (
             await db.execute(
-                select(ReferenceModelMapping).where(ReferenceModelMapping.model_id == model_id)
+                select(ReferenceModelMapping)
+                .join(Card, Card.id == ReferenceModelMapping.card_id)
+                .where(
+                    ReferenceModelMapping.model_id == model_id,
+                    *read_scope.where(Card, mode="module"),
+                )
             )
         )
         .scalars()

@@ -20,6 +20,7 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { KPI_VALUE_SX } from "./ppmStyles";
+import RestrictedAmount from "./RestrictedAmount";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
 
 const HEALTH_DOT_COLORS: Record<string, string> = {
@@ -84,6 +85,8 @@ interface Props {
   latestReport: PpmStatusReport | null;
   costLines: PpmCostLine[];
   budgetLines: PpmBudgetLine[];
+  /** False without `costs.view` or a stakeholder role on the initiative. */
+  canViewCosts?: boolean;
 }
 
 /** Format a number compactly. Pass `scale` to force a shared magnitude so a
@@ -184,6 +187,7 @@ export default function PpmOverviewTab({
   latestReport,
   costLines,
   budgetLines,
+  canViewCosts = true,
 }: Props) {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
@@ -244,23 +248,30 @@ export default function PpmOverviewTab({
     };
   }, [card.id]);
 
+  // Amounts the caller may not see arrive as null: the financials then show
+  // "Restricted", never a sum that treats them as zero.
+  const costsRestricted =
+    !canViewCosts ||
+    budgetLines.some((b) => b.amount === null) ||
+    costLines.some((c) => c.actual === null);
+
   // Budget totals (from budget lines)
-  const totalBudget = budgetLines.reduce((s, bl) => s + bl.amount, 0);
+  const totalBudget = budgetLines.reduce((s, bl) => s + (bl.amount ?? 0), 0);
   const capexBudget = budgetLines
     .filter((b) => b.category === "capex")
-    .reduce((s, b) => s + b.amount, 0);
+    .reduce((s, b) => s + (b.amount ?? 0), 0);
   const opexBudget = budgetLines
     .filter((b) => b.category === "opex")
-    .reduce((s, b) => s + b.amount, 0);
+    .reduce((s, b) => s + (b.amount ?? 0), 0);
 
   // Actual totals (from cost lines)
-  const totalActual = costLines.reduce((s, cl) => s + cl.actual, 0);
+  const totalActual = costLines.reduce((s, cl) => s + (cl.actual ?? 0), 0);
   const capexActual = costLines
     .filter((c) => c.category === "capex")
-    .reduce((s, c) => s + c.actual, 0);
+    .reduce((s, c) => s + (c.actual ?? 0), 0);
   const opexActual = costLines
     .filter((c) => c.category === "opex")
-    .reduce((s, c) => s + c.actual, 0);
+    .reduce((s, c) => s + (c.actual ?? 0), 0);
 
   const variance = totalBudget - totalActual;
 
@@ -477,7 +488,7 @@ export default function PpmOverviewTab({
               {t("totalBudget")}
             </Typography>
             <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-              {fmt.format(totalBudget)}
+              {costsRestricted ? <RestrictedAmount variant="h6" /> : fmt.format(totalBudget)}
             </Typography>
           </Box>
           <Box>
@@ -485,7 +496,7 @@ export default function PpmOverviewTab({
               {t("totalActual")}
             </Typography>
             <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-              {fmt.format(totalActual)}
+              {costsRestricted ? <RestrictedAmount variant="h6" /> : fmt.format(totalActual)}
             </Typography>
           </Box>
           <Box>
@@ -495,13 +506,15 @@ export default function PpmOverviewTab({
             <Typography
               variant="h6"
               fontWeight={600}
-              color={variance < 0 ? "error" : "success.main"}
+              color={costsRestricted ? undefined : variance < 0 ? "error" : "success.main"}
               sx={KPI_VALUE_SX}
             >
-              {fmt.format(variance)}
+              {costsRestricted ? <RestrictedAmount variant="h6" /> : fmt.format(variance)}
             </Typography>
           </Box>
         </Box>
+        {!costsRestricted && (
+        <>
         <BudgetBar
           label={t("budgetBarTotal")}
           budget={totalBudget}
@@ -526,6 +539,8 @@ export default function PpmOverviewTab({
           barColor={budgetBarColor}
           overColor={overBudgetColor}
         />
+        </>
+        )}
       </Paper>
 
       {/* Timeline + Status */}

@@ -46,6 +46,7 @@ import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import RestrictedAmount from "./RestrictedAmount";
 import { toIsoDate } from "@/lib/dates";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -77,6 +78,7 @@ import {
   filterItems,
   filterSearchParams,
   groupItems,
+  costsWithheld,
   groupTotals,
   groupTypeLabel,
   hasAnyCost,
@@ -563,20 +565,28 @@ export default function PpmPortfolioView({
 
         {/* CapEx bar */}
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar
-            actual={money(item.capex_actual)}
-            planned={money(item.capex_planned)}
-            currency={currency}
-          />
+          {costsWithheld(item) ? (
+            <RestrictedAmount variant="caption" />
+          ) : (
+            <CostBar
+              actual={money(item.capex_actual)}
+              planned={money(item.capex_planned)}
+              currency={currency}
+            />
+          )}
         </Box>
 
         {/* OpEx bar */}
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar
-            actual={money(item.opex_actual)}
-            planned={money(item.opex_planned)}
-            currency={currency}
-          />
+          {costsWithheld(item) ? (
+            <RestrictedAmount variant="caption" />
+          ) : (
+            <CostBar
+              actual={money(item.opex_actual)}
+              planned={money(item.opex_planned)}
+              currency={currency}
+            />
+          )}
         </Box>
 
         {/* Last Report date — hoverable + clickable */}
@@ -707,6 +717,11 @@ export default function PpmPortfolioView({
         </Box>
 
         {/* Row 4: Cost bars side by side */}
+        {costsWithheld(item) && (
+          <Box mt={0.75}>
+            <RestrictedAmount variant="caption" />
+          </Box>
+        )}
         {hasAnyCost(item) && (
           <Box display="flex" gap={2} mt={0.75}>
             <Box flex={1}>
@@ -733,8 +748,11 @@ export default function PpmPortfolioView({
 
   /** Group totals row (desktop only) */
   const renderGroupTotals = (members: PpmPortfolioItem[]) => {
+    // A group holding a withheld row has no honest total: summing the rest
+    // would understate it, so the totals row says "Restricted" instead.
+    const restricted = members.some(costsWithheld);
     const totals = groupTotals(members);
-    if (!totals) return null;
+    if (!totals && !restricted) return null;
 
     return (
       <Box
@@ -760,10 +778,18 @@ export default function PpmPortfolioView({
         <Box />
         <Box />
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totals.capexActual} planned={totals.capexPlanned} currency={currency} />
+          {restricted || !totals ? (
+            <RestrictedAmount variant="caption" />
+          ) : (
+            <CostBar actual={totals.capexActual} planned={totals.capexPlanned} currency={currency} />
+          )}
         </Box>
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totals.opexActual} planned={totals.opexPlanned} currency={currency} />
+          {restricted || !totals ? (
+            <RestrictedAmount variant="caption" />
+          ) : (
+            <CostBar actual={totals.opexActual} planned={totals.opexPlanned} currency={currency} />
+          )}
         </Box>
         <Box />
       </Box>
@@ -847,13 +873,17 @@ export default function PpmPortfolioView({
                 {dashboard.total_initiatives}
               </Typography>
             </Box>
-            {dashboard.total_budget != null && (
+            {(dashboard.total_budget != null || dashboard.costs_restricted) && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
                   {t("totalBudget")}
                 </Typography>
                 <Typography variant="h6" fontWeight={700}>
-                  {fmtShort(dashboard.total_budget)}
+                  {dashboard.total_budget != null ? (
+                    fmtShort(dashboard.total_budget)
+                  ) : (
+                    <RestrictedAmount variant="h6" />
+                  )}
                 </Typography>
               </Box>
             )}

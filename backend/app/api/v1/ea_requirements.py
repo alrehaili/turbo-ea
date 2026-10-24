@@ -25,6 +25,7 @@ from app.models.ea_requirement import (
     EaRequirementCard,
 )
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -56,11 +57,20 @@ def _validate(domain=None, status=None):
         raise HTTPException(400, f"Invalid status: {status}")
 
 
-async def _card_briefs(db: AsyncSession, ids: set[uuid.UUID | None]) -> dict[uuid.UUID, dict]:
+async def _card_briefs(
+    db: AsyncSession, ids: set[uuid.UUID | None], read_scope: CardReadScope
+) -> dict[uuid.UUID, dict]:
+    """Briefs of the readable cards among ``ids``. A requirement stays meaningful
+    without a hidden linked card, so that card is redacted (absent here and in
+    ``_req_dict``) rather than the requirement omitted (D-30)."""
     ids = {i for i in ids if i}
     if not ids:
         return {}
-    rows = await db.execute(select(Card.id, Card.name, Card.type).where(Card.id.in_(ids)))
+    rows = await db.execute(
+        select(Card.id, Card.name, Card.type).where(
+            Card.id.in_(ids), *read_scope.where(Card, mode="module")
+        )
+    )
     return {r[0]: {"id": str(r[0]), "name": r[1], "type": r[2]} for r in rows.all()}
 
 
@@ -92,7 +102,7 @@ def _req_dict(
         "approved_by": str(r.approved_by) if r.approved_by else None,
         "approved_by_display_name": names.get(r.approved_by),
         "approved_at": r.approved_at.isoformat() if r.approved_at else None,
-        "initiative_id": str(r.initiative_id) if r.initiative_id else None,
+        "initiative_id": str(r.initiative_id) if r.initiative_id in briefs else None,
         "initiative": briefs.get(r.initiative_id),
         "cards": [briefs[c] for c in card_ids if c in briefs],
         "created_at": r.created_at.isoformat() if r.created_at else None,
@@ -126,6 +136,7 @@ async def list_requirements(
     briefs = await _card_briefs(
         db,
         {r.initiative_id for r in reqs} | {c for ids in links.values() for c in ids},
+        await CardReadScope.load(db, user),
     )
     approver_ids = {r.approved_by for r in reqs}
     approver_ids.discard(None)
@@ -164,7 +175,7 @@ async def create_requirement(
     await db.commit()
     await db.refresh(r)
     links = await _links_for(db, [r.id])
-    briefs = await _card_briefs(db, set(links.get(r.id, [])))
+    briefs = await _card_briefs(db, set(links.get(r.id, [])), await CardReadScope.load(db, user))
     return _req_dict(r, links.get(r.id, []), briefs)
 
 
@@ -177,8 +188,13 @@ async def update_requirement(
 ):
     await PermissionService.require_permission(db, user, "nora.manage")
     r = await _get_requirement(db, requirement_id)
+    read_scope = await CardReadScope.load(db, user)
     data = body.model_dump(exclude_unset=True)
     _validate(domain=data.get("domain"), status=data.get("status"))
+    # A link the caller was shown redacted (null) is kept, not cleared (D-30).
+    if "initiative_id" in data and data["initiative_id"] is None and r.initiative_id:
+        if await read_scope.hidden_card_ids(db, {r.initiative_id}, mode="module"):
+            data.pop("initiative_id")
 
     if data.get("status") == "approved" and r.status != "approved":
         # Approving a requirement is a governance act (same gate as the
@@ -204,6 +220,14 @@ async def update_requirement(
                 select(EaRequirementCard).where(EaRequirementCard.requirement_id == r.id)
             )
         ).scalars()
+        existing = list(existing)
+        # The client only saw the readable links: keep the hidden ones (D-30).
+        card_ids = list(card_ids) + sorted(
+            await read_scope.hidden_card_ids(
+                db, {link.card_id for link in existing}, mode="module"
+            ),
+            key=str,
+        )
         for link in existing:
             await db.delete(link)
         for cid in dict.fromkeys(card_ids):
@@ -218,7 +242,7 @@ async def update_requirement(
     await db.commit()
     await db.refresh(r)
     links = await _links_for(db, [r.id])
-    briefs = await _card_briefs(db, set(links.get(r.id, [])) | {r.initiative_id})
+    briefs = await _card_briefs(db, set(links.get(r.id, [])) | {r.initiative_id}, read_scope)
     return _req_dict(r, links.get(r.id, []), briefs)
 
 

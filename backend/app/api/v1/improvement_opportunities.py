@@ -29,7 +29,12 @@ from app.models.improvement_opportunity import (
     ImprovementOpportunityCard,
 )
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.nora_authoring import suggest_opportunities
+from app.services.opportunity_access import (
+    accessible_opportunities,
+    inaccessible_opportunity_ids,
+)
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/improvement-opportunities", tags=["improvement-opportunities"])
@@ -78,11 +83,20 @@ def _validate(domain=None, source=None, priority=None, status=None, feasibility=
         raise HTTPException(400, f"Invalid feasibility: {feasibility}")
 
 
-async def _card_briefs(db: AsyncSession, ids: set[uuid.UUID]) -> dict[uuid.UUID, dict]:
+async def _card_briefs(
+    db: AsyncSession, ids: set[uuid.UUID], read_scope: CardReadScope
+) -> dict[uuid.UUID, dict]:
+    """Briefs of the readable cards among ``ids``. An opportunity stays meaningful
+    without a hidden linked card, so that card is redacted — absent here, and
+    absent from ``_opp_dict`` — rather than the opportunity omitted (D-30)."""
     ids = {i for i in ids if i}
     if not ids:
         return {}
-    rows = await db.execute(select(Card.id, Card.name, Card.type).where(Card.id.in_(ids)))
+    rows = await db.execute(
+        select(Card.id, Card.name, Card.type).where(
+            Card.id.in_(ids), *read_scope.where(Card, mode="module")
+        )
+    )
     return {r[0]: {"id": str(r[0]), "name": r[1], "type": r[2]} for r in rows.all()}
 
 
@@ -111,10 +125,10 @@ def _opp_dict(o: ImprovementOpportunity, card_ids: list[uuid.UUID], briefs: dict
         "source": o.source,
         "priority": o.priority,
         "status": o.status,
-        "initiative_id": str(o.initiative_id) if o.initiative_id else None,
+        "initiative_id": str(o.initiative_id) if o.initiative_id in briefs else None,
         "initiative": briefs.get(o.initiative_id),
         "cards": [briefs[c] for c in card_ids if c in briefs],
-        "journey_card_id": str(o.journey_card_id) if o.journey_card_id else None,
+        "journey_card_id": str(o.journey_card_id) if o.journey_card_id in briefs else None,
         "journey": briefs.get(o.journey_card_id),
         "journey_phase": o.journey_phase,
         "feasibility": o.feasibility,
@@ -135,13 +149,17 @@ async def list_opportunities(
         stmt = stmt.where(ImprovementOpportunity.status == status)
     if domain:
         stmt = stmt.where(ImprovementOpportunity.domain == domain)
-    opps = list((await db.execute(stmt)).scalars().all())
+    read_scope = await CardReadScope.load(db, user)
+    # An opportunity whose every linked card is hidden is omitted; the others
+    # keep their row with hidden links redacted (S-12, D-30).
+    opps = await accessible_opportunities(db, read_scope, (await db.execute(stmt)).scalars().all())
     links = await _links_for(db, [o.id for o in opps])
     briefs = await _card_briefs(
         db,
         {o.initiative_id for o in opps}
         | {o.journey_card_id for o in opps}
         | {c for ids in links.values() for c in ids},
+        read_scope,
     )
     return [_opp_dict(o, links.get(o.id, []), briefs) for o in opps]
 
@@ -161,13 +179,20 @@ async def realized_value(
     [FORK FEATURE]"""
     await PermissionService.require_permission(db, user, "grc.view")
 
-    rows = (
-        await db.execute(
-            select(ImprovementOpportunity.updated_at).where(
-                ImprovementOpportunity.status == "realized"
+    # Only independently accessible opportunities are counted (S-12): the same
+    # set the opportunity list shows this reader.
+    realized = await accessible_opportunities(
+        db,
+        await CardReadScope.load(db, user),
+        (
+            await db.execute(
+                select(ImprovementOpportunity).where(ImprovementOpportunity.status == "realized")
             )
         )
-    ).all()
+        .scalars()
+        .all(),
+    )
+    rows = [(o.updated_at,) for o in realized]
 
     # Build the last `quarters` (year, quarter) buckets ending this quarter.
     today = date.today()
@@ -235,7 +260,9 @@ async def create_opportunity(
     await db.commit()
     await db.refresh(o)
     links = await _links_for(db, [o.id])
-    briefs = await _card_briefs(db, set(links.get(o.id, [])) | {o.journey_card_id})
+    briefs = await _card_briefs(
+        db, set(links.get(o.id, [])) | {o.journey_card_id}, await CardReadScope.load(db, user)
+    )
     return _opp_dict(o, links.get(o.id, []), briefs)
 
 
@@ -251,6 +278,10 @@ async def ai_suggest_opportunities(
     land as ``proposed`` records for human governance."""
     await PermissionService.require_permission(db, user, "grc.manage")
     await PermissionService.require_permission(db, user, "ai.suggest")
+    # The prompt is built from live landscape signals (every card), the
+    # TurboLens precedent: a reader denied any card type may not run it.
+    if not (await CardReadScope.load(db, user)).is_unrestricted(mode="module"):
+        raise HTTPException(403, "AI suggestions need read access to every card type")
     try:
         suggestions = await suggest_opportunities(db, locale=body.locale, focus=body.focus)
     except ValueError as e:
@@ -273,7 +304,8 @@ async def update_opportunity(
             select(ImprovementOpportunity).where(ImprovementOpportunity.id == opportunity_id)
         )
     ).scalar_one_or_none()
-    if o is None:
+    read_scope = await CardReadScope.load(db, user)
+    if o is None or o.id in await inaccessible_opportunity_ids(db, read_scope, [o]):
         raise HTTPException(404, "Opportunity not found")
     data = body.model_dump(exclude_unset=True)
     _validate(
@@ -282,6 +314,12 @@ async def update_opportunity(
         status=data.get("status"),
         feasibility=data.get("feasibility"),
     )
+    # A link the caller was shown redacted (null) is kept, not cleared (D-30).
+    for key in ("initiative_id", "journey_card_id"):
+        current = getattr(o, key)
+        if key in data and data[key] is None and current is not None:
+            if await read_scope.hidden_card_ids(db, {current}, mode="module"):
+                data.pop(key)
 
     card_ids = data.pop("card_ids", None)
     # Linking an initiative moves a merely-approved opportunity into transition.
@@ -298,6 +336,14 @@ async def update_opportunity(
                 )
             )
         ).scalars()
+        existing = list(existing)
+        # The client only saw the readable links: keep the hidden ones (D-30).
+        card_ids = list(card_ids) + sorted(
+            await read_scope.hidden_card_ids(
+                db, {link.card_id for link in existing}, mode="module"
+            ),
+            key=str,
+        )
         for link in existing:
             await db.delete(link)
         for cid in dict.fromkeys(card_ids):
@@ -306,7 +352,9 @@ async def update_opportunity(
     await db.commit()
     await db.refresh(o)
     links = await _links_for(db, [o.id])
-    briefs = await _card_briefs(db, set(links.get(o.id, [])) | {o.initiative_id, o.journey_card_id})
+    briefs = await _card_briefs(
+        db, set(links.get(o.id, [])) | {o.initiative_id, o.journey_card_id}, read_scope
+    )
     return _opp_dict(o, links.get(o.id, []), briefs)
 
 

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.scenario import (
@@ -32,6 +33,8 @@ from app.models.scenario import (
     ScenarioChange,
 )
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope, require_card_readable
+from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.event_bus import event_bus
 from app.services.impact_service import gather_impact
 from app.services.permission_service import PermissionService
@@ -142,6 +145,93 @@ async def _get_scenario(db: AsyncSession, sid: uuid.UUID) -> Scenario:
     return s
 
 
+def _referenced_card_ids(c: ScenarioChange) -> set[uuid.UUID]:
+    """Every card a change names: its target, or a relation change's two ends."""
+    ids: set[uuid.UUID] = {c.target_card_id} if c.target_card_id else set()
+    payload = c.payload or {}
+    for key in ("source_id", "target_id"):
+        value = payload.get(key)
+        if value:
+            try:
+                ids.add(uuid.UUID(str(value)))
+            except ValueError:
+                continue
+    return ids
+
+
+async def _visible_changes(
+    db: AsyncSession, changes: list[ScenarioChange], read_scope: CardReadScope
+) -> list[ScenarioChange]:
+    """The changes the reader may see.
+
+    A change is about the card(s) it names, and its name, payload and baseline
+    describe them, so a change naming a hidden card is omitted rather than
+    redacted (decision D-30). The rows themselves are untouched.
+    """
+    refs = {c.id: _referenced_card_ids(c) for c in changes}
+    hidden = await read_scope.hidden_card_ids(
+        db, set().union(*refs.values()) if refs else set(), mode="module"
+    )
+    return [c for c in changes if not refs[c.id] & hidden]
+
+
+async def _cost_policy(
+    db: AsyncSession, user: User, changes: list[ScenarioChange]
+) -> tuple[dict[str, frozenset[str]], set[uuid.UUID]] | None:
+    """None when the caller sees every cost; else (cost keys per type, cost-ok ids).
+
+    The rule is the card endpoints' one: ``costs.view``, or a stakeholder role
+    on the card itself.
+    """
+    if await PermissionService.has_app_permission(db, user, "costs.view"):
+        return None
+    type_keys = {c.card_type for c in changes if c.card_type}
+    rows = (
+        await db.execute(
+            select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys))
+        )
+    ).all()
+    keys = {k: cost_field_keys_from_card_schema(schema) for k, schema in rows}
+    target_ids = [c.target_card_id for c in changes if c.target_card_id]
+    allowed = (
+        await PermissionService.card_ids_with_cost_access(db, user, target_ids)
+        if target_ids
+        else set()
+    )
+    return keys, allowed
+
+
+def _strip_costs(attrs, card_type: str | None, card_id: uuid.UUID | None, policy):
+    """``attrs`` without cost-typed keys, unless the policy lets the caller see them."""
+    if policy is None or not isinstance(attrs, dict):
+        return attrs
+    keys, allowed = policy
+    if card_id is not None and card_id in allowed:
+        return attrs
+    cost_keys = keys.get(card_type or "", frozenset())
+    return {k: v for k, v in attrs.items() if k not in cost_keys}
+
+
+def _redacted_change_dict(c: ScenarioChange, policy) -> dict:
+    out = _change_dict(c)
+    if policy is None:
+        return out
+    payload = dict(out["payload"])
+    if "attributes" in payload:
+        payload["attributes"] = _strip_costs(
+            payload["attributes"], c.card_type, c.target_card_id, policy
+        )
+    out["payload"] = payload
+    if isinstance(out["baseline"], dict) and "attributes" in out["baseline"]:
+        out["baseline"] = {
+            **out["baseline"],
+            "attributes": _strip_costs(
+                out["baseline"]["attributes"], c.card_type, c.target_card_id, policy
+            ),
+        }
+    return out
+
+
 async def _changes(db: AsyncSession, sid: uuid.UUID) -> list[ScenarioChange]:
     res = await db.execute(
         select(ScenarioChange)
@@ -163,9 +253,9 @@ async def list_scenarios(
     res = await db.execute(select(Scenario).order_by(Scenario.created_at.desc()))
     scenarios = list(res.scalars().all())
     counts: dict[uuid.UUID, int] = {}
-    cres = await db.execute(select(ScenarioChange.scenario_id))
-    for (sid,) in cres.all():
-        counts[sid] = counts.get(sid, 0) + 1
+    all_changes = list((await db.execute(select(ScenarioChange))).scalars().all())
+    for c in await _visible_changes(db, all_changes, await CardReadScope.load(db, user)):
+        counts[c.scenario_id] = counts.get(c.scenario_id, 0) + 1
     return [{**_scenario_dict(s), "change_count": counts.get(s.id, 0)} for s in scenarios]
 
 
@@ -191,9 +281,13 @@ async def get_scenario(
 ):
     await PermissionService.require_permission(db, user, "scenarios.view")
     s = await _get_scenario(db, scenario_id)
+    changes = await _visible_changes(
+        db, await _changes(db, scenario_id), await CardReadScope.load(db, user)
+    )
+    policy = await _cost_policy(db, user, changes)
     return {
         **_scenario_dict(s),
-        "changes": [_change_dict(c) for c in await _changes(db, scenario_id)],
+        "changes": [_redacted_change_dict(c, policy) for c in changes],
     }
 
 
@@ -254,6 +348,7 @@ async def add_change(
     if body.op in ("modify", "retire"):
         if not body.target_card_id:
             raise HTTPException(status_code=400, detail="target_card_id required")
+        await require_card_readable(db, user, body.target_card_id, mode="module")
         res = await db.execute(select(Card).where(Card.id == body.target_card_id))
         target = res.scalar_one_or_none()
         if target is None:
@@ -282,7 +377,10 @@ async def add_change(
             if rt is None:
                 raise HTTPException(status_code=404, detail="Relation type not found")
             cards = (await db.execute(select(Card).where(Card.id.in_([src, tgt])))).scalars().all()
-            card_by_id = {str(c.id): c for c in cards}
+            read_scope = await CardReadScope.load(db, user)
+            card_by_id = {
+                str(c.id): c for c in cards if read_scope.readable(c.id, c.type, mode="module")
+            }
             if str(src) not in card_by_id or str(tgt) not in card_by_id:
                 raise HTTPException(status_code=404, detail="Source or target card not found")
             name = name or f"{card_by_id[str(src)].name} → {card_by_id[str(tgt)].name}"
@@ -293,7 +391,9 @@ async def add_change(
             rel = (
                 await db.execute(select(Relation).where(Relation.id == rel_id))
             ).scalar_one_or_none()
-            if rel is None:
+            if rel is None or await (await CardReadScope.load(db, user)).hidden_card_ids(
+                db, {rel.source_id, rel.target_id}, mode="module"
+            ):
                 raise HTTPException(status_code=404, detail="Relation not found")
             # Snapshot the relation so the merge can detect if it changed since.
             payload = {
@@ -316,7 +416,7 @@ async def add_change(
     db.add(change)
     await db.commit()
     await db.refresh(change)
-    return _change_dict(change)
+    return _redacted_change_dict(change, await _cost_policy(db, user, [change]))
 
 
 @router.delete("/changes/{change_id}", status_code=204)
@@ -328,7 +428,7 @@ async def delete_change(
     await PermissionService.require_permission(db, user, "scenarios.manage")
     res = await db.execute(select(ScenarioChange).where(ScenarioChange.id == change_id))
     c = res.scalar_one_or_none()
-    if c is None:
+    if c is None or not await _visible_changes(db, [c], await CardReadScope.load(db, user)):
         raise HTTPException(status_code=404, detail="Change not found")
     await db.delete(c)
     await db.commit()
@@ -347,7 +447,9 @@ async def scenario_diff(
     the modified/retired cards (reuses the change-impact engine)."""
     await PermissionService.require_permission(db, user, "scenarios.view")
     await _get_scenario(db, scenario_id)
-    changes = await _changes(db, scenario_id)
+    read_scope = await CardReadScope.load(db, user)
+    changes = await _visible_changes(db, await _changes(db, scenario_id), read_scope)
+    policy = await _cost_policy(db, user, changes)
 
     # Resolve target cards for before-state.
     target_ids = {c.target_card_id for c in changes if c.target_card_id}
@@ -367,21 +469,31 @@ async def scenario_diff(
         drift: list[str] = []
         if c.target_card_id and c.target_card_id in cards:
             tc = cards[c.target_card_id]
-            before = {"name": tc.name, "type": tc.type, "attributes": tc.attributes or {}}
+            before = {
+                "name": tc.name,
+                "type": tc.type,
+                "attributes": _strip_costs(tc.attributes or {}, tc.type, tc.id, policy),
+            }
             if c.op == "modify":
                 drift = _field_drift(c, tc)
                 if drift:
                     drift_total += 1
             if c.op in ("modify", "retire"):
                 try:
-                    imp = await gather_impact(db, c.target_card_id, depth=1, change_type=c.op)
+                    imp = await gather_impact(
+                        db,
+                        c.target_card_id,
+                        depth=1,
+                        change_type=c.op,
+                        read_scope=read_scope,
+                    )
                     impact = imp["summary"]["total_affected"]
                     affected_total += impact
                 except ValueError:
                     impact = None
         rows.append(
             {
-                **_change_dict(c),
+                **_redacted_change_dict(c, policy),
                 "before": before,
                 "missing_target": bool(
                     c.op in ("modify", "retire")
@@ -411,6 +523,51 @@ async def scenario_diff(
 # --------------------------------------------------------------------------- #
 # Merge                                                                       #
 # --------------------------------------------------------------------------- #
+async def _merge_authorization(
+    db: AsyncSession, user: User, c: ScenarioChange, hidden: set[uuid.UUID]
+) -> str:
+    """``"ok"``, ``"withheld"`` or ``"forbidden"`` for one change at merge time.
+
+    A merge writes to the live repository, so each change needs the authority
+    the equivalent direct write would: ``inventory.create`` on the card type,
+    ``inventory.edit`` / ``inventory.archive`` on the target card (or the
+    matching stakeholder grant), ``relations.manage`` for relation changes.
+    A change naming a card hidden from the merger is withheld outright: it is
+    never applied and never reported to them, so a scenario cannot be used to
+    modify — or learn about — a card its merger may not read.
+    """
+    refs = _referenced_card_ids(c)
+    if c.op == "remove_relation":
+        rel_id = (c.payload or {}).get("relation_id")
+        if rel_id:
+            row = (
+                await db.execute(
+                    select(Relation.source_id, Relation.target_id).where(
+                        Relation.id == uuid.UUID(str(rel_id))
+                    )
+                )
+            ).first()
+            if row is not None:
+                refs |= {row[0], row[1]}
+    if refs & hidden:
+        return "withheld"
+    if c.op == "add":
+        allowed = await PermissionService.check_permission(
+            db, user, "inventory.create", card_type_key=c.card_type
+        )
+    elif c.op == "modify":
+        allowed = await PermissionService.check_permission(
+            db, user, "inventory.edit", c.target_card_id, "card.edit"
+        )
+    elif c.op == "retire":
+        allowed = await PermissionService.check_permission(
+            db, user, "inventory.archive", c.target_card_id, "card.archive"
+        )
+    else:  # add_relation / remove_relation, as the relation routes require
+        allowed = await PermissionService.check_permission(db, user, "relations.manage")
+    return "ok" if allowed else "forbidden"
+
+
 @router.post("/{scenario_id}/merge")
 async def merge_scenario(
     scenario_id: uuid.UUID,
@@ -438,14 +595,36 @@ async def merge_scenario(
         raise HTTPException(status_code=400, detail="Scenario already merged")
 
     changes = await _changes(db, scenario_id)
+    read_scope = await CardReadScope.load(db, user)
+    refs_all: set[uuid.UUID] = set()
+    for c in changes:
+        refs_all |= _referenced_card_ids(c)
+    hidden = await read_scope.hidden_card_ids(db, refs_all, mode="module")
     applied = 0
     conflicts = 0
     results: list[dict] = []
     now = datetime.now(timezone.utc)
 
+    # A change left unapplied for want of authority keeps the scenario open, so
+    # someone with that authority can merge the rest later; a re-merge never
+    # re-applies what an earlier partial merge already applied.
+    complete = True
     for c in changes:
+        if c.merge_status == "applied":
+            continue
         outcome = "applied"
-        if c.op == "add":
+        authorization = await _merge_authorization(db, user, c, hidden)
+        if authorization == "withheld":
+            # Not applied, not reported, not counted (D-30): the merger cannot
+            # see the card, so the scenario cannot change it on their behalf.
+            complete = False
+            if not dry_run:
+                c.merge_status = "withheld"
+            continue
+        if authorization == "forbidden":
+            outcome = "forbidden"
+            complete = False
+        elif c.op == "add":
             if not dry_run:
                 card = Card(
                     type=c.card_type,
@@ -532,20 +711,35 @@ async def merge_scenario(
         results.append({"id": str(c.id), "op": c.op, "name": c.name, "outcome": outcome})
 
     if not dry_run:
-        s.status = "merged"
-        s.merged_by = user.id
-        s.merged_at = now
+        if complete:
+            s.status = "merged"
+            s.merged_by = user.id
+            s.merged_at = now
+        # Withheld changes are not in these totals: the event reaches every
+        # reader's recent-activity feed, so a count of them would disclose how
+        # many hidden changes the scenario carried. A partial merge leaves the
+        # scenario open and says so only by its event type.
         await event_bus.publish(
-            "scenario.merged",
-            {"id": str(s.id), "applied": applied, "conflicts": conflicts},
+            "scenario.merged" if complete else "scenario.merge_partial",
+            {
+                "id": str(s.id),
+                "applied": applied,
+                "conflicts": conflicts,
+                "forbidden": sum(1 for r in results if r["outcome"] == "forbidden"),
+            },
             db=db,
             user_id=user.id,
         )
         await db.commit()
 
+    # Totals cover the changes the merger was shown; withheld ones are absent.
+    # ``complete`` is False when something stays unapplied for want of
+    # authority — it says that much, never which change or how many.
     return {
         "dry_run": dry_run,
+        "complete": complete,
         "applied": applied,
         "conflicts": conflicts,
+        "forbidden": sum(1 for r in results if r["outcome"] == "forbidden"),
         "results": results,
     }

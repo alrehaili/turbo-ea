@@ -42,7 +42,9 @@ from app.services.card_logo_service import logo_updated_map
 from app.services.card_read_scope import (
     CardReadScope,
     event_read_filters,
+    require_card_readable,
     scrub_event_payloads,
+    visible_type_clause,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.cost_value import cost_value
@@ -112,7 +114,7 @@ async def _get_segment_scope(
     ).scalar_one_or_none()
     if segment is None:
         raise HTTPException(404, f"Segment not found: {segment_id}")
-    return await get_segment_card_ids(db, segment)
+    return await get_segment_card_ids(db, segment, read_scope=await CardReadScope.load(db, user))
 
 
 def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
@@ -128,9 +130,11 @@ def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
 @router.get("/dashboard")
 async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    # Every aggregate below counts only the cards the caller may read.
+    # Every aggregate below counts only the cards the caller may read, and
+    # leaves out hidden card types (decision D-01) — the same rule as
+    # /reports/my-workspace, /reports/admin-dashboard and the KPI snapshots.
     read_scope = await CardReadScope.load(db, user)
-    readable = read_scope.where(Card, mode="module")
+    readable = (*read_scope.where(Card, mode="module"), visible_type_clause(Card))
     # Count by type
     type_counts = await db.execute(
         select(Card.type, func.count(Card.id))
@@ -2473,7 +2477,13 @@ async def change_impact(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid card_id") from exc
     try:
-        return await gather_impact(db, center_uuid, depth=depth, change_type=change_type)
+        return await gather_impact(
+            db,
+            center_uuid,
+            depth=depth,
+            change_type=change_type,
+            read_scope=await CardReadScope.load(db, user),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -2489,7 +2499,33 @@ async def strategy_map(
     and lifecycle status read opportunistically off each Initiative card.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    return await gather_strategy_map(db)
+    read_scope = await CardReadScope.load(db, user)
+    can_view_costs = await PermissionService.has_app_permission(db, user, "costs.view")
+    cost_card_ids: frozenset[uuid.UUID] = frozenset()
+    if not can_view_costs:
+        # Stakeholder cost bypass, per card (same rule as the card endpoints).
+        initiative_ids = (
+            (
+                await db.execute(
+                    select(Card.id).where(
+                        Card.type == "Initiative",
+                        Card.status == "ACTIVE",
+                        *read_scope.where(Card, mode="module"),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        cost_card_ids = frozenset(
+            await PermissionService.card_ids_with_cost_access(db, user, list(initiative_ids))
+        )
+    return await gather_strategy_map(
+        db,
+        read_scope=read_scope,
+        can_view_costs=can_view_costs,
+        cost_card_ids=cost_card_ids,
+    )
 
 
 @router.get("/freshness")
@@ -2501,7 +2537,9 @@ async def freshness(
     """Repository Freshness View: ownership, last-confirmed, source, confidence,
     and a stale-record worklist."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    return await gather_freshness(db, stale_days=stale_days)
+    return await gather_freshness(
+        db, stale_days=stale_days, read_scope=await CardReadScope.load(db, user)
+    )
 
 
 @router.get("/resilience")
@@ -2513,7 +2551,7 @@ async def resilience(
     """Resilience / Critical Service View: critical-service dependency chains,
     single points of failure / concentration risk, and RTO/RPO coverage gaps."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    return await gather_resilience(db, depth=depth)
+    return await gather_resilience(db, depth=depth, read_scope=await CardReadScope.load(db, user))
 
 
 @router.get("/data-flow")
@@ -2524,7 +2562,7 @@ async def data_flow(
     """Data Domain & Flow Map: data objects with the apps/interfaces/components
     around them, grouped by data domain."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    return await gather_data_flow(db)
+    return await gather_data_flow(db, read_scope=await CardReadScope.load(db, user))
 
 
 @router.get("/integration-status")
@@ -2534,7 +2572,7 @@ async def integration_status(
 ):
     """Integration Hub: per-source last sync, coverage, pending changes, staleness."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    return await gather_integration_status(db)
+    return await gather_integration_status(db, read_scope=await CardReadScope.load(db, user))
 
 
 @router.get("/data-quality")
@@ -3023,11 +3061,13 @@ async def gap_analysis_report(
     target/transition cards no initiative delivers. [FORK FEATURE]
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     # Every card participating in a change: target/transition cards, plus
     # current cards flagged for planned retirement.
     changed_q = select(Card).where(
         Card.status != "ARCHIVED",
+        *readable,
         (Card.architecture_state.in_(("target", "transition")))
         | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
     )
@@ -3038,7 +3078,7 @@ async def gap_analysis_report(
     successor_ids = {c.successor_id for c in changed if c.successor_id}
     successor_map: dict[uuid.UUID, Card] = {}
     if successor_ids:
-        rows = await db.execute(select(Card).where(Card.id.in_(successor_ids)))
+        rows = await db.execute(select(Card).where(Card.id.in_(successor_ids), *readable))
         successor_map = {c.id: c for c in rows.scalars().all()}
 
     # Initiative links: any relation between a changed card and an Initiative.
@@ -3051,7 +3091,10 @@ async def gap_analysis_report(
                 ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
                 & (Card.type == "Initiative"),
             )
-            .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
+            .where(
+                Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids),
+                *readable,
+            )
         )
         for rel, initiative in rel_rows.all():
             changed_id = rel.source_id if rel.target_id == initiative.id else rel.target_id
@@ -3125,6 +3168,9 @@ async def service_traceability_report(
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
     root_id = uuid.UUID(card_id)
+    # 404 for a hidden root as for a missing one: never confirm it exists.
+    await require_card_readable(db, user, root_id, mode="module")
+    read_scope = await CardReadScope.load(db, user)
     root = (await db.execute(select(Card).where(Card.id == root_id))).scalar_one_or_none()
     if root is None:
         raise HTTPException(404, "Card not found")
@@ -3143,7 +3189,7 @@ async def service_traceability_report(
                 )
             )
         ).scalars()
-        next_frontier: set[uuid.UUID] = set()
+        candidates: set[uuid.UUID] = set()
         for rel in rel_rows:
             edges.append(
                 {
@@ -3154,12 +3200,24 @@ async def service_traceability_report(
             )
             for nid in (rel.source_id, rel.target_id):
                 if nid not in seen:
-                    seen[nid] = hop
-                    next_frontier.add(nid)
+                    candidates.add(nid)
+        # Walk only through cards the reader may see: a hidden card neither
+        # appears nor bridges to the cards beyond it.
+        next_frontier = await read_scope.readable_card_ids(db, candidates, mode="module")
+        for nid in next_frontier:
+            seen[nid] = hop
         frontier = next_frontier
 
     cards = (
-        (await db.execute(select(Card).where(Card.id.in_(seen), Card.status != "ARCHIVED")))
+        (
+            await db.execute(
+                select(Card).where(
+                    Card.id.in_(seen),
+                    Card.status != "ARCHIVED",
+                    *read_scope.where(Card, mode="module"),
+                )
+            )
+        )
         .scalars()
         .all()
     )
@@ -3209,6 +3267,7 @@ async def interoperability_report(
     type, GSB routing, classification carried, external party) and the
     applications it connects. [FORK FEATURE]"""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     rows = (
         (
@@ -3216,6 +3275,7 @@ async def interoperability_report(
                 select(Card).where(
                     Card.type.in_(("Interface", "DataExchange")),
                     Card.status != "ARCHIVED",
+                    *readable,
                 )
             )
         )
@@ -3232,7 +3292,7 @@ async def interoperability_report(
                 ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
                 & (Card.type == "Application"),
             )
-            .where(Relation.source_id.in_(ids) | Relation.target_id.in_(ids))
+            .where(Relation.source_id.in_(ids) | Relation.target_id.in_(ids), *readable)
         )
         for rel, app_card in rel_rows.all():
             conn_id = rel.source_id if rel.target_id == app_card.id else rel.target_id
@@ -3289,6 +3349,7 @@ async def data_exchange_map_report(
     and NDMO classification are surfaced so off-GSB sensitive flows stand out.
     [FORK FEATURE]"""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     # All non-archived DataExchange cards.
     exchanges = (
@@ -3297,6 +3358,7 @@ async def data_exchange_map_report(
                 select(Card).where(
                     Card.type == "DataExchange",
                     Card.status != "ARCHIVED",
+                    *readable,
                 )
             )
         )
@@ -3327,7 +3389,11 @@ async def data_exchange_map_report(
             app_source_ids.add(rel.source_id)
 
         app_names = dict(
-            (await db.execute(select(Card.id, Card.name).where(Card.id.in_(app_source_ids)))).all()
+            (
+                await db.execute(
+                    select(Card.id, Card.name).where(Card.id.in_(app_source_ids), *readable)
+                )
+            ).all()
         )
         for exch_id, app_id, direction in pending_apps:
             name = app_names.get(app_id)
@@ -3352,7 +3418,11 @@ async def data_exchange_map_report(
     dataobject_names: dict[uuid.UUID, str] = {}
     if dataobject_ids:
         dataobject_names = dict(
-            (await db.execute(select(Card.id, Card.name).where(Card.id.in_(dataobject_ids)))).all()
+            (
+                await db.execute(
+                    select(Card.id, Card.name).where(Card.id.in_(dataobject_ids), *readable)
+                )
+            ).all()
         )
         store_rels = await db.execute(
             select(Relation).where(
@@ -3366,7 +3436,9 @@ async def data_exchange_map_report(
             pending_storage.append((rel.source_id, rel.target_id))
             itc_ids.add(rel.target_id)
         itc_names = dict(
-            (await db.execute(select(Card.id, Card.name).where(Card.id.in_(itc_ids)))).all()
+            (
+                await db.execute(select(Card.id, Card.name).where(Card.id.in_(itc_ids), *readable))
+            ).all()
         )
         for do_id, itc_id in pending_storage:
             name = itc_names.get(itc_id)
@@ -3386,6 +3458,8 @@ async def data_exchange_map_report(
         )
         objects = []
         for do_id in dataobjects_by_exchange.get(c.id, set()):
+            if do_id not in dataobject_names:
+                continue  # hidden from the reader (or archived): not even its id
             objects.append(
                 {
                     "id": str(do_id),
@@ -3518,7 +3592,9 @@ async def reference_models_report(
         code_values: list[str] = []
         cards_res = await db.execute(
             select(Card.attributes).where(
-                Card.type == entry["card_type"], Card.status != "ARCHIVED"
+                Card.type == entry["card_type"],
+                Card.status != "ARCHIVED",
+                *(await CardReadScope.load(db, user)).where(Card, mode="module"),
             )
         )
         for (attributes,) in cards_res.all():
@@ -3595,7 +3671,9 @@ async def technology_landscape_report(
         (
             await db.execute(
                 select(Card).where(
-                    Card.type.in_(TECH_LANDSCAPE_TYPE_KEYS), Card.status != "ARCHIVED"
+                    Card.type.in_(TECH_LANDSCAPE_TYPE_KEYS),
+                    Card.status != "ARCHIVED",
+                    *(await CardReadScope.load(db, user)).where(Card, mode="module"),
                 )
             )
         )
@@ -3722,19 +3800,32 @@ async def strategy_cascade_report(
 ):
     """Pillars → objectives → programs → initiatives → projects. [FORK FEATURE]"""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
 
     pillar_cards = (
-        (await db.execute(select(Card).where(Card.type == "Pillar", Card.status != "ARCHIVED")))
+        (
+            await db.execute(
+                select(Card).where(Card.type == "Pillar", Card.status != "ARCHIVED", *readable)
+            )
+        )
         .scalars()
         .all()
     )
     objectives = (
-        (await db.execute(select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED")))
+        (
+            await db.execute(
+                select(Card).where(Card.type == "Objective", Card.status != "ARCHIVED", *readable)
+            )
+        )
         .scalars()
         .all()
     )
     initiatives = (
-        (await db.execute(select(Card).where(Card.type == "Initiative", Card.status != "ARCHIVED")))
+        (
+            await db.execute(
+                select(Card).where(Card.type == "Initiative", Card.status != "ARCHIVED", *readable)
+            )
+        )
         .scalars()
         .all()
     )
@@ -3807,6 +3898,7 @@ async def strategy_cascade_report(
                         Card.id.in_(needed_org_ids),
                         Card.type == "Organization",
                         Card.status != "ARCHIVED",
+                        *readable,
                     )
                 )
             ).all()

@@ -43,6 +43,7 @@ from app.models.risk import Risk
 from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.turbolens import TurboLensComplianceFinding
+from app.services.card_read_scope import visible_type_clause
 from app.services.type_groups import INFRASTRUCTURE_TYPE_KEYS
 
 # Suggested-level bands over the 0–100 indicator average.
@@ -108,7 +109,9 @@ def _quality(key: str, avg: float | None, count: int) -> dict | None:
     }
 
 
-_ACTIVE = Card.status != "ARCHIVED"
+# Non-archived cards of visible types: hidden card types stay out of every
+# indicator, like every other dashboard aggregate (decision D-01).
+_ACTIVE = and_(Card.status != "ARCHIVED", visible_type_clause(Card))
 
 
 async def _count(db: AsyncSession, q) -> int:

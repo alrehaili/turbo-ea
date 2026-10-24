@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PpmPortfolioItem, PpmPortfolioReport } from "@/types";
 import {
+  costsWithheld,
   barModel,
   buildPortfolioExport,
   buildPrintParams,
@@ -678,5 +679,23 @@ describe("buildPortfolioExport", () => {
       opexActual: "",
       lastReport: "",
     });
+  });
+});
+
+describe("costsWithheld", () => {
+  it("is true only when the API withheld all four figures", () => {
+    expect(
+      costsWithheld(
+        item({ capex_planned: null, capex_actual: null, opex_planned: null, opex_actual: null }),
+      ),
+    ).toBe(true);
+  });
+
+  it("is false for zeros, a partial null, or a portal that publishes no costs", () => {
+    expect(
+      costsWithheld(item({ capex_planned: 0, capex_actual: 0, opex_planned: 0, opex_actual: 0 })),
+    ).toBe(false);
+    expect(costsWithheld(item({ capex_planned: 0, opex_actual: null }))).toBe(false);
+    expect(costsWithheld(item())).toBe(false);
   });
 });

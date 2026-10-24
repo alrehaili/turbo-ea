@@ -70,7 +70,8 @@ class ScenarioChange(UUIDMixin, TimestampMixin, Base):
         ForeignKey("scenarios.id", ondelete="CASCADE"),
         nullable=False,
     )
-    op: Mapped[str] = mapped_column(String(8), nullable=False)
+    # 32, not 8: the relation ops (``add_relation``, ``remove_relation``) are longer.
+    op: Mapped[str] = mapped_column(String(32), nullable=False)
     # For add: the card type of the proposed card. For modify/retire: mirrors the
     # target card's type (denormalised for display).
     card_type: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -27,6 +27,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import RestrictedAmount from "./RestrictedAmount";
 import { api } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
@@ -51,9 +52,16 @@ interface Props {
   initiativeId: string;
   costLines: PpmCostLine[];
   onRefresh: () => void;
+  /** False without `costs.view` or a stakeholder role on the initiative. */
+  canViewCosts?: boolean;
 }
 
-export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props) {
+export default function PpmCostTab({
+  initiativeId,
+  costLines,
+  onRefresh,
+  canViewCosts = true,
+}: Props) {
   const { t } = useTranslation("ppm");
   const fullScreen = useFullScreenDialog();
   const { fmt } = useCurrency();
@@ -75,7 +83,16 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
   const budgetLines = loadedBudgetLines ?? NO_BUDGET_LINES;
   // Until the budget lines have arrived, a budget figure is unknown — never $0.
   const budgetKnown = loadedBudgetLines !== undefined;
-  const budgetFigure = (n: number) => (budgetKnown ? fmt.format(n) : "\u2014");
+  // Amounts the caller may not see arrive as null: every figure then reads
+  // "Restricted" — never a sum that treats them as zero — and the editing
+  // controls are hidden, since the API refuses money writes without access.
+  const costsRestricted =
+    !canViewCosts ||
+    budgetLines.some((b) => b.amount === null) ||
+    costLines.some((c) => c.actual === null || c.planned === null);
+  const budgetFigure = (n: number) =>
+    costsRestricted ? <RestrictedAmount /> : budgetKnown ? fmt.format(n) : "\u2014";
+  const actualFigure = (n: number) => (costsRestricted ? <RestrictedAmount /> : fmt.format(n));
   // A failed delete, shown above the table it failed in.
   const [budgetListError, setBudgetListError] = useState<string | null>(null);
   const [costListError, setCostListError] = useState<string | null>(null);
@@ -109,27 +126,31 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
 
   // ── KPIs ──
   const totalBudget = useMemo(
-    () => budgetLines.reduce((s, bl) => s + bl.amount, 0),
+    () => budgetLines.reduce((s, bl) => s + (bl.amount ?? 0), 0),
     [budgetLines],
   );
   const totalActual = useMemo(
-    () => costLines.reduce((s, cl) => s + cl.actual, 0),
+    () => costLines.reduce((s, cl) => s + (cl.actual ?? 0), 0),
     [costLines],
   );
   const capexBudget = useMemo(
-    () => budgetLines.filter((b) => b.category === "capex").reduce((s, b) => s + b.amount, 0),
+    () =>
+      budgetLines.filter((b) => b.category === "capex").reduce((s, b) => s + (b.amount ?? 0), 0),
     [budgetLines],
   );
   const capexActual = useMemo(
-    () => costLines.filter((c) => c.category === "capex").reduce((s, c) => s + c.actual, 0),
+    () =>
+      costLines.filter((c) => c.category === "capex").reduce((s, c) => s + (c.actual ?? 0), 0),
     [costLines],
   );
   const opexBudget = useMemo(
-    () => budgetLines.filter((b) => b.category === "opex").reduce((s, b) => s + b.amount, 0),
+    () =>
+      budgetLines.filter((b) => b.category === "opex").reduce((s, b) => s + (b.amount ?? 0), 0),
     [budgetLines],
   );
   const opexActual = useMemo(
-    () => costLines.filter((c) => c.category === "opex").reduce((s, c) => s + c.actual, 0),
+    () =>
+      costLines.filter((c) => c.category === "opex").reduce((s, c) => s + (c.actual ?? 0), 0),
     [costLines],
   );
 
@@ -139,7 +160,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       setBudgetForm({
         fiscal_year: item.fiscal_year,
         category: item.category,
-        amount: item.amount,
+        amount: item.amount ?? 0,
       });
     } else {
       setBudgetForm({
@@ -186,7 +207,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       setCostForm({
         description: item.description,
         category: item.category,
-        actual: item.actual,
+        actual: item.actual ?? 0,
         date: item.date || "",
       });
     } else {
@@ -271,7 +292,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("totalActual")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            {fmt.format(totalActual)}
+            {actualFigure(totalActual)}
           </Typography>
         </Box>
         <Box>
@@ -281,7 +302,13 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <Typography
             variant="h6"
             fontWeight={600}
-            color={!budgetKnown ? undefined : totalActual > totalBudget ? "error" : "success.main"}
+            color={
+              !budgetKnown || costsRestricted
+                ? undefined
+                : totalActual > totalBudget
+                  ? "error"
+                  : "success.main"
+            }
             sx={KPI_VALUE_SX}
           >
             {budgetFigure(totalBudget - totalActual)}
@@ -292,7 +319,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("capex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {fmt.format(capexActual)} / {budgetFigure(capexBudget)}
+            {actualFigure(capexActual)} / {budgetFigure(capexBudget)}
           </Typography>
         </Box>
         <Box>
@@ -300,14 +327,14 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("opex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {fmt.format(opexActual)} / {budgetFigure(opexBudget)}
+            {actualFigure(opexActual)} / {budgetFigure(opexBudget)}
           </Typography>
         </Box>
       </Paper>
 
       {/* Cumulative spend charts. Not before the budget lines are known: a
           chart without them would read as an initiative with no budget. */}
-      {budgetKnown && (
+      {budgetKnown && !costsRestricted && (
         <Suspense fallback={null}>
           <PpmCostCharts costLines={costLines} budgetLines={budgetLines} />
         </Suspense>
@@ -318,14 +345,16 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         <Typography variant="subtitle1" fontWeight={600}>
           {t("plannedBudget")}
         </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => handleBudgetOpen()}
-        >
-          {t("addBudgetLine")}
-        </Button>
+        {!costsRestricted && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => handleBudgetOpen()}
+          >
+            {t("addBudgetLine")}
+          </Button>
+        )}
       </Box>
 
       {budgetListError && (
@@ -364,8 +393,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                     variant="outlined"
                   />
                 </TableCell>
-                <TableCell align="right">{fmt.format(bl.amount)}</TableCell>
+                <TableCell align="right">
+                  {bl.amount === null ? <RestrictedAmount /> : fmt.format(bl.amount)}
+                </TableCell>
                 <TableCell>
+                  {!costsRestricted && (
                   <Box display="flex" gap={0.5}>
                     <IconButton
                       size="small"
@@ -382,6 +414,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                       <MaterialSymbol icon="delete" size={16} />
                     </IconButton>
                   </Box>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -412,14 +445,16 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         <Typography variant="subtitle1" fontWeight={600}>
           {t("costItems")}
         </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => handleCostOpen()}
-        >
-          {t("addCostItem")}
-        </Button>
+        {!costsRestricted && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => handleCostOpen()}
+          >
+            {t("addCostItem")}
+          </Button>
+        )}
       </Box>
 
       {costListError && (
@@ -462,8 +497,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                 <TableCell>
                   {cl.date ? formatDate(cl.date) : "\u2014"}
                 </TableCell>
-                <TableCell align="right">{fmt.format(cl.actual)}</TableCell>
+                <TableCell align="right">
+                  {cl.actual === null ? <RestrictedAmount /> : fmt.format(cl.actual)}
+                </TableCell>
                 <TableCell>
+                  {!costsRestricted && (
                   <Box display="flex" gap={0.5}>
                     <IconButton
                       size="small"
@@ -480,6 +518,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                       <MaterialSymbol icon="delete" size={16} />
                     </IconButton>
                   </Box>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

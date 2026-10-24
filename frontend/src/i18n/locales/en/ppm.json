@@ -6,6 +6,8 @@
   "title": "Project Portfolio Management",
   "totalInitiatives": "Total Initiatives",
   "totalBudget": "Total Budget",
+  "costsRestricted": "Restricted",
+  "costsRestrictedHint": "Cost figures are not available to you.",
   "totalActual": "Total Actual",
   "budgetBarTotal": "Total",
   "health_schedule": "Schedule",

@@ -72,8 +72,9 @@ class PpmCostLineOut(BaseModel):
     initiative_id: str
     description: str
     category: str
-    planned: float
-    actual: float
+    # None when the caller may not see this initiative's costs (S-08).
+    planned: float | None
+    actual: float | None
     date: date_type | None = None
     created_at: datetime
     updated_at: datetime
@@ -99,7 +100,7 @@ class PpmBudgetLineOut(BaseModel):
     initiative_id: str
     fiscal_year: int
     category: str
-    amount: float
+    amount: float | None  # None without cost access to the initiative (S-08)
     created_at: datetime
     updated_at: datetime
 
@@ -299,10 +300,11 @@ class PpmGanttItem(BaseModel):
     end_date: str | None
     cost_budget: float | None
     cost_actual: float | None
-    capex_planned: float = 0
-    capex_actual: float = 0
-    opex_planned: float = 0
-    opex_actual: float = 0
+    # PPM amounts: None when the caller may not see this initiative's costs.
+    capex_planned: float | None = 0
+    capex_actual: float | None = 0
+    opex_planned: float | None = 0
+    opex_actual: float | None = 0
     group_id: str | None = None
     group_name: str | None = None
     latest_report: PpmStatusReportOut | None = None

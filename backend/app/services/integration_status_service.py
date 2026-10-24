@@ -20,16 +20,22 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.card import Card
 from app.models.servicenow import (
     SnowConnection,
     SnowIdentityMap,
     SnowStagedRecord,
     SnowSyncRun,
 )
+from app.services.card_read_scope import CardReadScope
 
 
-async def gather_integration_status(db: AsyncSession) -> dict:
-    """One row per source connection: last sync, coverage, pending changes."""
+async def gather_integration_status(db: AsyncSession, *, read_scope: CardReadScope) -> dict:
+    """One row per source connection: last sync, coverage, pending changes.
+
+    ``mapped_cards`` counts only cards ``read_scope`` admits, so the coverage
+    figure does not disclose how many hidden cards a connection maps.
+    """
     conns = (await db.execute(select(SnowConnection))).scalars().all()
 
     # Last sync run per connection.
@@ -46,9 +52,10 @@ async def gather_integration_status(db: AsyncSession) -> dict:
     coverage: dict[uuid.UUID, int] = {}
     for cid, count in (
         await db.execute(
-            select(SnowIdentityMap.connection_id, func.count()).group_by(
-                SnowIdentityMap.connection_id
-            )
+            select(SnowIdentityMap.connection_id, func.count())
+            .join(Card, Card.id == SnowIdentityMap.card_id)
+            .where(*read_scope.where(Card, mode="module"))
+            .group_by(SnowIdentityMap.connection_id)
         )
     ).all():
         coverage[cid] = count

@@ -26,6 +26,7 @@ from app.models.maturity import (
     MaturityDimensionScore,
 )
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.event_bus import event_bus
 from app.services.maturity import (
     assessment_dict,
@@ -83,6 +84,17 @@ class PromoteOpportunity(BaseModel):
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
+async def _require_whole_landscape(db: AsyncSession, user: User) -> None:
+    """The indicators are landscape-wide counts (the TurboLens precedent).
+
+    They cannot honour a card-type View deny without either leaking the hidden
+    cards in a count or storing scope-dependent evidence on a shared
+    assessment, so a reader denied View on any card type may not compute them.
+    """
+    if not (await CardReadScope.load(db, user)).is_unrestricted(mode="module"):
+        raise HTTPException(403, "The maturity indicators need read access to every card type")
+
+
 async def _get_assessment(db: AsyncSession, aid: uuid.UUID) -> MaturityAssessment:
     row = (
         await db.execute(select(MaturityAssessment).where(MaturityAssessment.id == aid))
@@ -255,8 +267,11 @@ async def create_assessment(
         .all()
     )
     # Pre-fill each score with the repository-derived suggestion + evidence.
-    # Advisory only: `level` stays 0 until the assessor confirms it.
-    indicators = await compute_indicators(db)
+    # Advisory only: `level` stays 0 until the assessor confirms it. The
+    # indicators count the whole landscape, so a reader denied any card type
+    # gets an assessment without the pre-fill rather than a leaked count.
+    whole = (await CardReadScope.load(db, user)).is_unrestricted(mode="module")
+    indicators = await compute_indicators(db) if whole else {}
     for dim in dims:
         auto = indicators.get(dim.key)
         db.add(
@@ -341,6 +356,7 @@ async def get_indicators(
 ):
     """Live repository-derived indicators + suggested level per dimension."""
     await PermissionService.require_permission(db, user, "maturity.view")
+    await _require_whole_landscape(db, user)
     return await compute_indicators(db)
 
 
@@ -355,6 +371,7 @@ async def refresh_suggestions(
     Confirmed levels are untouched — the assessor always decides `level`.
     """
     await PermissionService.require_permission(db, user, "maturity.manage")
+    await _require_whole_landscape(db, user)
     a = await _get_assessment(db, assessment_id)
     if a.status != "draft":
         raise HTTPException(400, "Suggestions can only be refreshed on a draft assessment")

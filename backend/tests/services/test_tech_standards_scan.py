@@ -11,6 +11,7 @@ from datetime import date, timedelta
 import pytest
 
 from app.models.tech_standard import StandardException, TechStandard
+from app.services.card_read_scope import CardReadScope
 from app.services.tech_standards_scan import scan_standard_compliance
 from tests.conftest import create_card, create_relation, create_user
 
@@ -41,7 +42,7 @@ async def landscape(db):
 
 
 async def test_scan_flags_component_and_application(db, landscape):
-    result = await scan_standard_compliance(db)
+    result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
     assert result["summary"]["violations"] == 2  # ITComponent + Application
     assert result["summary"]["prohibited_standards"] == 1
     vias = {v["via"] for v in result["violations"]}
@@ -61,7 +62,7 @@ async def test_approved_exception_waives_the_component(db, landscape):
         )
     )
     await db.flush()
-    result = await scan_standard_compliance(db)
+    result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
     # The ITComponent is waived; the Application is still an active violation.
     assert result["summary"]["violations"] == 1
     assert result["summary"]["waived"] == 1
@@ -79,7 +80,7 @@ async def test_expired_exception_does_not_waive(db, landscape):
         )
     )
     await db.flush()
-    result = await scan_standard_compliance(db)
+    result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
     assert result["summary"]["violations"] == 2
     assert result["summary"]["waived"] == 0
 
@@ -90,6 +91,22 @@ async def test_preferred_standard_is_not_flagged(db):
     itc = await create_card(db, card_type="ITComponent", name="REST GW", user_id=admin.id)
     await create_relation(db, type_key="relITCToTechCat", source_id=itc.id, target_id=cat.id)
     await _standard(db, category_card_id=cat.id, status="preferred", name="REST")
-    result = await scan_standard_compliance(db)
+    result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
     assert result["summary"]["violations"] == 0
     assert result["violations"] == []
+
+
+async def test_scan_skips_paths_through_cards_the_reader_may_not_see(db, landscape):
+    """A reader who may not see IT components gets neither the component row
+    nor the application reached through it — the path itself is hidden."""
+    restricted = CardReadScope(
+        role_key="r",
+        wildcard=False,
+        base_view=True,
+        denied_types=frozenset({"ITComponent"}),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    result = await scan_standard_compliance(db, read_scope=restricted)
+    assert result["summary"]["violations"] == 0
+    assert "OldMQ" not in str(result) and str(landscape["itc"].id) not in str(result)

@@ -42,20 +42,20 @@ Each requirement (`EXECUTIVE_BUSINESS_REQUIREMENTS.md`) is traced to its design,
 | CR-03 | KPI dictionary §2 | FIN-07 | 1 | D-06 (approved) | Builder: out-of-FY lines excluded | K18 |
 | CR-04 | KPI dictionary §2 | FIN-03 | 1 | D-24 (approved), D-31 (open) | Builder: agreeing duplicates counted once; conflicts flagged and excluded from totals | K16 |
 | CR-05 | KPI dictionary §2 | money KPIs | 1 | C-13, D-05 (approved) | API currency field; no cross-currency totals; no stored amount altered; Vitest formatter EN / AR | — |
-| CR-06 | KPI dictionary §2; SECURITY WI-11 | totals | SEC-3 + 1 | D-01 (approved) | API parity across four tabs | K01 / K10, EXISTING_DASHBOARD §6.1 |
+| CR-06 | KPI dictionary §2; SECURITY WI-11 | totals | SEC-3 + 1 | D-01 (approved) | API parity across four tabs. **SEC-3 part implemented:** `/reports/dashboard` and KPI snapshots exclude hidden types (`test_dashboard_counts_exclude_hidden_cards_and_hidden_types`, `test_kpi_snapshot_counts_exclude_hidden_types`). Executive tab parity remains for Phase 1 (WI-14) | K01 / K10, EXISTING_DASHBOARD §6.1 |
 | CR-07 | KPI dictionary §2 | PRT-04, GOV-03 | 1 | — | Vitest: no "approved" tile on executive pages | K12 |
 | CR-08 | KPI dictionary §2 | PRT-01 | 1 | — | i18n key review; Vitest label | K02 / K11 |
 | CR-09 | KPI dictionary §2 | PRT-02, PRT-03 | 1 | — | Vitest labels; separate drill-downs | K07 |
 | CR-10 | KPI dictionary §2 | SVC-05 | 1 | — | No headline uses documentation coverage | K13 |
-| SR-01 | SECURITY §3 WI-1..11, WI-15 | — | SEC | C-05, D-01, D-30 (approved) | Extended sentinel sweep green; guard green | GAP G13; S-18 / S-19 |
-| SR-02 | SECURITY §4 | — | SEC + 2 | D-01 | Totals = Σ visible breakdowns test; drill-down parity | EXISTING_DASHBOARD §6.1 |
-| SR-03 | SECURITY WI-5, WI-6, WI-15 | money | SEC | D-05 | API: no money without `costs.view` (incl. strategy-map) | TECHNICAL_READINESS §4; S-18 |
+| SR-01 | SECURITY §3 WI-1..11, WI-15 | — | SEC | C-05, D-01, D-30 (approved) | Extended sentinel sweep green; guard green. **SEC: implemented 2026-10-24, verified locally, not yet in CI:** sweep and guard pass; the sweep fails on 24 routes at `HEAD` (SECURITY §8.1) | GAP G13; S-18 / S-19 |
+| SR-02 | SECURITY §4 | — | SEC + 2 | D-01 | Totals = Σ visible breakdowns test; drill-down parity. **SEC part:** Σ test on `/reports/dashboard` passes; drill-down parity remains for Phase 2 | EXISTING_DASHBOARD §6.1 |
+| SR-03 | SECURITY WI-5, WI-6, WI-15 | money | SEC | D-05 | API: no money without `costs.view` (incl. strategy-map). **SEC: implemented 2026-10-24, verified locally, not yet in CI:** strategy-map, Gantt, rationalization, scenarios, card exports tested; **S-08 decided and implemented 2026-10-24** (PPM dashboard, cost / budget lines, Gantt rollups; `test_disclosure_phase1_prep.py`, pass) | TECHNICAL_READINESS §4; S-18 |
 | SR-04 | SECURITY §4 | — | 2 | D-20 | API: n < 3 → suppressed | TECHNICAL_READINESS §4 |
 | SR-05 | SECURITY §4; API §7 | — | 6 | — | Export audit entry exists; parity | — |
 | SR-06 | BENEFITS_AND_ROI §7 | — | 4 | D-03, D-29 | API: validate / confirm permission tests | — |
-| SR-07 | SECURITY WI-12, WI-14 | — | 1-6 | — | Restricted-reader matrix per endpoint | — |
-| SR-08 | PHASED_DELIVERY SEC track exit | — | SEC | C-05 | SEC exit checklist | — |
-| SR-09 | SECURITY §6 (R1-R7) | — | SEC-1 | — | Regression suite fails before the fixes and passes after | S-16, S-17, S-18, S-19 |
+| SR-07 | SECURITY WI-12, WI-14 | — | 1-6 | — | Restricted-reader matrix per endpoint. **Phase 1 prerequisite:** the executive endpoint must adopt S-08, D-01 hidden types and `opportunity_access` (SECURITY §9.3 item 5) | — |
+| SR-08 | PHASED_DELIVERY SEC track exit | — | SEC | C-05 | SEC exit checklist. **Pending verification:** targeted tests pass locally; full backend suite not run; CI run, merge and PR security review outstanding (SECURITY §8) | — |
+| SR-09 | SECURITY §6 (R1-R7) | — | SEC-1 | — | Regression suite fails before the fixes and passes after. **SEC: implemented 2026-10-24, verified locally, not yet in CI:** `test_disclosure_regression.py` fails 15 / 16 at `HEAD`, passes 17 / 17 after; R2 / R3 partly covered (SECURITY §8.4) | S-16, S-17, S-18, S-19 |
 | NFR-01 | API §8 | — | 2-6 | — | Benchmark p95 at 50k cards (Phase 6) | TECHNICAL_READINESS §6 |
 | NFR-02 | DATA_MODEL §3.2 | — | 2 | — | Frozen-period test | TECHNICAL_READINESS §3 |
 | NFR-03 | API §7 | — | 2, 4 | — | Event + audit-log tests | TECHNICAL_READINESS §5 |
@@ -63,3 +63,14 @@ Each requirement (`EXECUTIVE_BUSINESS_REQUIREMENTS.md`) is traced to its design,
 | NFR-05 | UI_UX §7 | — | 2-6 | — | Visual review at listed widths | UI_UX_REVIEW §1 |
 | NFR-06 | API §5 | — | 2-5 | C-03 | Code review: no formula engine | TECHNICAL_READINESS §2 |
 | NFR-07 | PHASED_DELIVERY (all) | — | all | C-14 | CI gates | CLAUDE.md |
+
+## Security additions (2026-10-24)
+
+| Req | Design reference | Phase | Decisions | Verification | State |
+|---|---|---|---|---|---|
+| SR-10 PPM money needs `costs.view` | SECURITY §9, §10 | SEC | S-08 (approved 2026-10-24) | 3 API tests pass; UI renders "Restricted" (tsc + ESLint clean; 2 Vitest cases written, blocked by the AG Grid mismatch) | Implemented; frontend runtime and CI pending |
+| SR-11 Opportunities counted only when independently accessible | SECURITY §9 | SEC | S-12 (approved 2026-10-24), D-30 | API test over list, realized value, NORA dashboard, update 404 | Implemented; focused test passes; CI pending |
+| SR-12 Scenario merge never modifies hidden or unauthorized cards | SECURITY §9, §10 | SEC | D-01, D-30 | 4 API tests (hidden withheld, forbidden skipped, partial merge stays open and is completed later, relation change + `relations.manage`) | Implemented; tests pass; migration `1162` not yet run on an upgraded DB |
+| SR-13 Segment membership never derived through hidden cards | SECURITY §9 | SEC | D-01 | 2 API tests (hidden root, hidden intermediate) | Implemented; focused tests pass; CI pending |
+| SR-14 Executive endpoint applies the module rules before aggregation | SECURITY §10 | SEC → Phase 1 | D-01, S-07, S-08, S-12 | API test (scope, hidden types, total = Σ breakdown, money restricted) | Implemented; test passes; CI pending |
+| SR-15 OpenAPI reflects nullable PPM amounts | SECURITY §10 | SEC | — | Regenerated; structural diff reviewed | Done; CI drift check pending |

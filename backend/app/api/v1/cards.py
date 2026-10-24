@@ -455,7 +455,9 @@ async def list_cards(
         ).scalar_one_or_none()
         if segment is None:
             raise HTTPException(404, f"Segment not found: {segment_id}")
-        scope_ids = await get_segment_card_ids(db, segment)
+        scope_ids = await get_segment_card_ids(
+            db, segment, read_scope=await CardReadScope.load(db, user)
+        )
         if scope_ids:
             q = q.where(Card.id.in_(scope_ids))
             count_q = count_q.where(Card.id.in_(scope_ids))

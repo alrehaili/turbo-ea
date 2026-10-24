@@ -31,6 +31,7 @@ from app.models.soaw import SoAW
 from app.models.user import User
 from app.services import adm_service
 from app.services.adm_templates import get_template
+from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -126,7 +127,13 @@ class ReasonRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _phase_dict(p: AdmPhase, artefacts: list[AdmPhaseArtefact]) -> dict:
+def _phase_dict(
+    p: AdmPhase, artefacts: list[AdmPhaseArtefact], hidden: frozenset[uuid.UUID] = frozenset()
+) -> dict:
+    # An artefact of kind ``card`` *is* its card reference, so one pointing at a
+    # card hidden from the reader is omitted (D-30), and the counts below are
+    # taken over what the reader sees. The row itself is untouched.
+    artefacts = [a for a in artefacts if not (a.kind == "card" and a.ref_id in hidden)]
     required_count = sum(1 for a in artefacts if a.is_required)
     linked_count = sum(
         1
@@ -182,12 +189,20 @@ def _artefact_dict(a: AdmPhaseArtefact) -> dict:
     }
 
 
-def _workspace_dict(w: AdmWorkspace, phases: list[AdmPhase] | None = None) -> dict:
+def _workspace_dict(
+    w: AdmWorkspace,
+    phases: list[AdmPhase] | None = None,
+    hidden: frozenset[uuid.UUID] = frozenset(),
+) -> dict:
+    """``hidden``: card ids the reader may not see — a hidden initiative link is
+    redacted while the workspace stays (D-30)."""
     d = {
         "id": str(w.id),
         "name": w.name,
         "soaw_id": str(w.soaw_id) if w.soaw_id else None,
-        "initiative_id": str(w.initiative_id) if w.initiative_id else None,
+        "initiative_id": (
+            str(w.initiative_id) if w.initiative_id and w.initiative_id not in hidden else None
+        ),
         "status": w.status,
         "description": w.description,
         "target_completion": w.target_completion.isoformat() if w.target_completion else None,
@@ -198,7 +213,7 @@ def _workspace_dict(w: AdmWorkspace, phases: list[AdmPhase] | None = None) -> di
     }
     if phases is not None:
         d["phases"] = [
-            _phase_dict(p, [a for a in (p.artefacts or [])])  # type: ignore[attr-defined]
+            _phase_dict(p, [a for a in (p.artefacts or [])], hidden)  # type: ignore[attr-defined]
             for p in phases
         ]
     return d
@@ -225,12 +240,34 @@ async def _get_phase(db: AsyncSession, phase_id: uuid.UUID) -> AdmPhase:
     return p
 
 
-async def _get_artefact(db: AsyncSession, artefact_id: uuid.UUID) -> AdmPhaseArtefact:
+async def _get_artefact(db: AsyncSession, artefact_id: uuid.UUID, user: User) -> AdmPhaseArtefact:
+    """The artefact, or 404 — also when it is a card reference to a hidden card."""
     res = await db.execute(select(AdmPhaseArtefact).where(AdmPhaseArtefact.id == artefact_id))
     a = res.scalar_one_or_none()
-    if a is None:
+    if a is None or a.ref_id in await _hidden_refs(db, user, artefacts=[a]):
         raise HTTPException(status_code=404, detail="Artefact not found")
     return a
+
+
+async def _hidden_refs(
+    db: AsyncSession,
+    user: User,
+    *,
+    workspaces: list[AdmWorkspace] | tuple = (),
+    artefacts: list[AdmPhaseArtefact] | tuple = (),
+) -> frozenset[uuid.UUID]:
+    """Card ids among workspace initiatives and ``card`` artefacts the user may not read."""
+    ids = {w.initiative_id for w in workspaces if w.initiative_id} | {
+        a.ref_id for a in artefacts if a.kind == "card" and a.ref_id
+    }
+    if not ids:
+        return frozenset()
+    read_scope = await CardReadScope.load(db, user)
+    return frozenset(await read_scope.hidden_card_ids(db, ids, mode="module"))
+
+
+def _phase_artefacts(phases: list[AdmPhase]) -> list[AdmPhaseArtefact]:
+    return [a for p in phases for a in (getattr(p, "artefacts", None) or [])]
 
 
 async def _load_phases_with_artefacts(db: AsyncSession, workspace_id: uuid.UUID) -> list[AdmPhase]:
@@ -335,6 +372,7 @@ async def list_workspaces(
     for p in phase_rows:
         by_ws[p.workspace_id].append(p)
 
+    hidden = await _hidden_refs(db, user, workspaces=list(workspaces))
     result = []
     for w in workspaces:
         phases = by_ws.get(w.id, [])
@@ -356,7 +394,7 @@ async def list_workspaces(
         total = sum(1 for p in phases if not p.is_continuous)
         result.append(
             {
-                **_workspace_dict(w),
+                **_workspace_dict(w, hidden=hidden),
                 "phase_count": len(phases),
                 "approved_count": approved,
                 "blocked_count": blocked,
@@ -401,9 +439,11 @@ async def create_workspace(
                 detail="This SoAW already has an ADM workspace",
             )
     if payload.initiative_id:
-        exists = await db.execute(select(Card.id).where(Card.id == payload.initiative_id))
-        if exists.scalar_one_or_none() is None:
-            raise HTTPException(status_code=404, detail="Initiative card not found")
+        # 404 for a hidden card as for a missing one: never confirm it exists.
+        try:
+            await require_card_readable(db, user, payload.initiative_id, mode="module")
+        except HTTPException as exc:
+            raise HTTPException(status_code=404, detail="Initiative card not found") from exc
 
     template = get_template(payload.template)
 
@@ -452,7 +492,8 @@ async def create_workspace(
     await db.commit()
 
     phases = await _load_phases_with_artefacts(db, ws.id)
-    return _workspace_dict(ws, phases)
+    hidden = await _hidden_refs(db, user, workspaces=[ws], artefacts=_phase_artefacts(phases))
+    return _workspace_dict(ws, phases, hidden)
 
 
 @router.get("/workspaces/{workspace_id}")
@@ -464,7 +505,8 @@ async def get_workspace(
     await PermissionService.require_permission(db, user, "adm.view")
     ws = await _get_workspace(db, workspace_id)
     phases = await _load_phases_with_artefacts(db, ws.id)
-    return _workspace_dict(ws, phases)
+    hidden = await _hidden_refs(db, user, workspaces=[ws], artefacts=_phase_artefacts(phases))
+    return _workspace_dict(ws, phases, hidden)
 
 
 @router.patch("/workspaces/{workspace_id}")
@@ -490,7 +532,8 @@ async def update_workspace(
     )
     await db.commit()
     phases = await _load_phases_with_artefacts(db, ws.id)
-    return _workspace_dict(ws, phases)
+    hidden = await _hidden_refs(db, user, workspaces=[ws], artefacts=_phase_artefacts(phases))
+    return _workspace_dict(ws, phases, hidden)
 
 
 @router.delete("/workspaces/{workspace_id}", status_code=204)
@@ -524,7 +567,8 @@ async def workspace_by_soaw(
     if ws is None:
         raise HTTPException(status_code=404, detail="No ADM workspace for this SoAW")
     phases = await _load_phases_with_artefacts(db, ws.id)
-    return _workspace_dict(ws, phases)
+    hidden = await _hidden_refs(db, user, workspaces=[ws], artefacts=_phase_artefacts(phases))
+    return _workspace_dict(ws, phases, hidden)
 
 
 # ---------------------------------------------------------------------------
@@ -551,7 +595,7 @@ async def get_phase(
         .scalars()
         .all()
     )
-    return _phase_dict(p, list(art_rows))
+    return _phase_dict(p, list(art_rows), await _hidden_refs(db, user, artefacts=list(art_rows)))
 
 
 @router.patch("/phases/{phase_id}")
@@ -609,7 +653,7 @@ async def update_phase(
         .scalars()
         .all()
     )
-    return _phase_dict(p, list(art_rows))
+    return _phase_dict(p, list(art_rows), await _hidden_refs(db, user, artefacts=list(art_rows)))
 
 
 @router.post("/phases/{phase_id}/mark-ready")
@@ -664,7 +708,7 @@ async def mark_ready(
         user_id=user.id,
     )
     await db.commit()
-    return _phase_dict(p, list(art_rows))
+    return _phase_dict(p, list(art_rows), await _hidden_refs(db, user, artefacts=list(art_rows)))
 
 
 @router.post("/phases/{phase_id}/approve")
@@ -705,7 +749,7 @@ async def approve_phase(
         .scalars()
         .all()
     )
-    return _phase_dict(p, list(art_rows))
+    return _phase_dict(p, list(art_rows), await _hidden_refs(db, user, artefacts=list(art_rows)))
 
 
 @router.post("/phases/{phase_id}/reopen")
@@ -748,7 +792,7 @@ async def reopen_phase(
         .scalars()
         .all()
     )
-    return _phase_dict(p, list(art_rows))
+    return _phase_dict(p, list(art_rows), await _hidden_refs(db, user, artefacts=list(art_rows)))
 
 
 @router.post("/phases/{phase_id}/skip")
@@ -791,7 +835,7 @@ async def skip_phase(
         .scalars()
         .all()
     )
-    return _phase_dict(p, list(art_rows))
+    return _phase_dict(p, list(art_rows), await _hidden_refs(db, user, artefacts=list(art_rows)))
 
 
 # ---------------------------------------------------------------------------
@@ -809,6 +853,8 @@ async def create_artefact(
     await PermissionService.require_permission(db, user, "adm.manage")
     p = await _get_phase(db, phase_id)
     await _resolve_ref_for_kind(db, payload.kind, payload.ref_id)
+    if payload.kind == "card" and payload.ref_id:
+        await require_card_readable(db, user, payload.ref_id, mode="module")
     art = AdmPhaseArtefact(
         phase_id=p.id,
         kind=payload.kind,
@@ -844,7 +890,7 @@ async def update_artefact(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adm.manage")
-    art = await _get_artefact(db, artefact_id)
+    art = await _get_artefact(db, artefact_id, user)
     for field in ("title", "notes", "sort_order", "is_required"):
         v = getattr(payload, field)
         if v is not None:
@@ -861,7 +907,7 @@ async def waive_artefact(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adm.manage")
-    art = await _get_artefact(db, artefact_id)
+    art = await _get_artefact(db, artefact_id, user)
     if payload.is_waived:
         try:
             reason = adm_service.require_reason(payload.reason, "waive")
@@ -895,7 +941,7 @@ async def delete_artefact(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adm.manage")
-    art = await _get_artefact(db, artefact_id)
+    art = await _get_artefact(db, artefact_id, user)
     phase_id = art.phase_id
     await db.delete(art)
     await event_bus.publish(

@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -25,6 +25,7 @@ from app.models.relation import Relation
 from app.models.tech_standard import StandardException
 from app.models.turbolens import TurboLensComplianceFinding
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope, visible_type_clause
 from app.services.event_bus import event_bus
 from app.services.nora_program import (
     NORA_METHODOLOGY_VERSIONS,
@@ -36,6 +37,7 @@ from app.services.nora_program import (
     is_v2_deliverable_key,
     seed_nora_program,
 )
+from app.services.opportunity_access import accessible_opportunities
 from app.services.permission_service import PermissionService
 
 log = logging.getLogger(__name__)
@@ -193,8 +195,14 @@ async def get_dashboard(
     transition-initiative RAG from the latest PPM status reports, standards
     waivers, improvement opportunities, and open compliance findings. Counts
     only — no card payloads — so the single ``nora.view`` gate is sufficient.
+
+    Every count is taken over the cards the caller may read and excludes hidden
+    card types (decision D-01): a count over hidden cards would disclose them.
     """
     await PermissionService.require_permission(db, user, "nora.view")
+    read_scope = await CardReadScope.load(db, user)
+    visible = (*read_scope.where(Card, mode="module"), visible_type_clause(Card))
+    readable_card_ids = select(Card.id).where(*visible)
 
     async def _safe(name: str, coro):
         """Run a subsection; on failure log + rollback so later queries work."""
@@ -212,7 +220,7 @@ async def get_dashboard(
     async def _approvals():
         rows = await db.execute(
             select(Card.approval_status, func.count())
-            .where(Card.status != "ARCHIVED")
+            .where(Card.status != "ARCHIVED", *visible)
             .group_by(Card.approval_status)
         )
         return {status: count for status, count in rows.all()}
@@ -224,7 +232,7 @@ async def get_dashboard(
     async def _landscape():
         rows = await db.execute(
             select(func.coalesce(Card.architecture_state, "current"), func.count())
-            .where(Card.status != "ARCHIVED")
+            .where(Card.status != "ARCHIVED", *visible)
             .group_by(func.coalesce(Card.architecture_state, "current"))
         )
         return {state: count for state, count in rows.all()}
@@ -237,6 +245,7 @@ async def get_dashboard(
             await db.execute(
                 select(Card.id, Card.architecture_state, Card.change_type, Card.successor_id).where(
                     Card.status != "ARCHIVED",
+                    *visible,
                     (Card.architecture_state.in_(("target", "transition")))
                     | ((Card.architecture_state == "current") & (Card.change_type == "retire")),
                 )
@@ -252,6 +261,7 @@ async def get_dashboard(
                     ((Relation.source_id == Card.id) | (Relation.target_id == Card.id))
                     & (Card.type == "Initiative"),
                 )
+                .where(*visible)
                 .where(Relation.source_id.in_(changed_ids) | Relation.target_id.in_(changed_ids))
             )
             for source_id, target_id in rel_rows.all():
@@ -297,7 +307,14 @@ async def get_dashboard(
             )
             .label("rn"),
         ).subquery()
-        report_rows = (await db.execute(select(latest_report).where(latest_report.c.rn == 1))).all()
+        report_rows = (
+            await db.execute(
+                select(latest_report).where(
+                    latest_report.c.rn == 1,
+                    latest_report.c.initiative_id.in_(readable_card_ids),
+                )
+            )
+        ).all()
         rag_rank = {"onTrack": 0, "atRisk": 1, "offTrack": 2}
         counts = {"onTrack": 0, "atRisk": 0, "offTrack": 0, "noReport": 0}
         reported_ids = set()
@@ -310,7 +327,9 @@ async def get_dashboard(
             counts[worst] = counts.get(worst, 0) + 1
         active_initiatives = (
             await db.execute(
-                select(func.count()).where(Card.type == "Initiative", Card.status != "ARCHIVED")
+                select(func.count()).where(
+                    Card.type == "Initiative", Card.status != "ARCHIVED", *visible
+                )
             )
         ).scalar_one()
         counts["noReport"] = max(0, active_initiatives - len(reported_ids))
@@ -327,7 +346,14 @@ async def get_dashboard(
     async def _waivers():
         today = date.today()
         rows = (
-            await db.execute(select(StandardException.status, StandardException.expiry_date))
+            await db.execute(
+                select(StandardException.status, StandardException.expiry_date).where(
+                    or_(
+                        StandardException.card_id.is_(None),
+                        StandardException.card_id.in_(readable_card_ids),
+                    )
+                )
+            )
         ).all()
         w = {"active": 0, "pending": 0, "expiringSoon": 0, "expired": 0}
         horizon = today + timedelta(days=30)
@@ -352,12 +378,15 @@ async def get_dashboard(
 
     # --- Improvement opportunities by status --------------------------------
     async def _opportunities():
-        rows = await db.execute(
-            select(ImprovementOpportunity.status, func.count()).group_by(
-                ImprovementOpportunity.status
-            )
+        # Independently accessible opportunities only (S-12), the same set the
+        # opportunity list shows this reader.
+        opps = await accessible_opportunities(
+            db, read_scope, (await db.execute(select(ImprovementOpportunity))).scalars().all()
         )
-        return {status: count for status, count in rows.all()}
+        counts: dict[str, int] = {}
+        for o in opps:
+            counts[o.status] = counts.get(o.status, 0) + 1
+        return counts
 
     opportunities = await _safe("opportunities", _opportunities()) or {}
 
@@ -366,6 +395,10 @@ async def get_dashboard(
         rows = await db.execute(
             select(TurboLensComplianceFinding.severity, func.count())
             .where(
+                or_(
+                    TurboLensComplianceFinding.card_id.is_(None),
+                    TurboLensComplianceFinding.card_id.in_(readable_card_ids),
+                ),
                 TurboLensComplianceFinding.auto_resolved.is_(False),
                 TurboLensComplianceFinding.status.in_(
                     ("non_compliant", "partial", "review_needed")
@@ -382,7 +415,9 @@ async def get_dashboard(
         pillar_ids = set(
             (
                 await db.execute(
-                    select(Card.id).where(Card.type == "Pillar", Card.status != "ARCHIVED")
+                    select(Card.id).where(
+                        Card.type == "Pillar", Card.status != "ARCHIVED", *visible
+                    )
                 )
             )
             .scalars()
@@ -391,7 +426,9 @@ async def get_dashboard(
         objective_ids = set(
             (
                 await db.execute(
-                    select(Card.id).where(Card.type == "Objective", Card.status != "ARCHIVED")
+                    select(Card.id).where(
+                        Card.type == "Objective", Card.status != "ARCHIVED", *visible
+                    )
                 )
             )
             .scalars()
