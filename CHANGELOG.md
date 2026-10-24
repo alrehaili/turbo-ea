@@ -5,6 +5,33 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.35.0] - 2026-10-25
+
+### Added
+- **Executive tab: CEO overview.** The Executive tab now opens on an Overview page with six indicators (strategy achievement, EA governance effectiveness, initiative delivery, services and automation, business value, decisions and escalations). Each tile shows its value, target, previous period, reporting period, data freshness, owner, confidence and a link to the records behind it, and says **Not available** with the reason instead of showing a zero when an indicator's source has not been decided yet.
+- **Executive tab: reporting periods.** The overview can be shown for a fiscal year or one of its quarters, measured as of the period's last day; initiative delivery is compared with the previous period from the status reports dated before it.
+- **Executive tab: Decisions page.** Executive-escalated risks (open risks rated critical, or high and past their target date), decision records awaiting signatures, architecture reviews pending and standard exceptions requested, with open, mitigated and escalated risks counted separately. Counts are visible to everyone with the Executive tab; the records themselves need each module's own view permission.
+
+### Changed
+- The previous Executive tab content moved to a **Details** page next to the new Overview and Decisions pages.
+
+## [2.34.0] - 2026-10-24
+
+### Added
+- **Executive tab: reporting period.** Budget and actual are now shown for one fiscal year at a time, chosen with a period selector; years are never added together, and cost lines with no date are counted separately instead of being summed.
+- **Executive tab: reporting coverage.** How many in-flight initiatives have a current status report is shown as its own figure, beside initiative health.
+- **Initiative report staleness setting** (Admin → Settings). Reports older than the number of days set there count as not reported on the Executive tab. There is no default; while it is empty, every report counts.
+
+### Changed
+- **Executive tab: initiative health has four states** — On track, At risk, Off track and Unknown / not reported. An initiative without a status report is never counted as healthy or as at risk, and completed or on-hold initiatives are shown separately. The headline is the share on track among the initiatives that reported.
+- **Executive tab: planned savings are counted once per application.** Assessments that agree count once; applications with conflicting estimates are left out of the total and listed for reconciliation. Planned savings are labelled Forecast, and realised savings are shown separately as not available.
+- Executive tab money is shown in the currency it was recorded in, with the locale's own symbol placement; nothing is converted.
+- Executive tab terminology: **Data completeness** replaces "data quality" (also on the Overview and Admin tabs), the approval share became **Repository review status** (it is not architecture compliance), end-of-life reads **Past planned end-of-life**, and process diagrams are shown as **process documentation coverage** rather than as a headline figure. Repository metrics moved into a collapsed specialist section.
+- Every Executive headline figure now explains itself, says where it comes from (recorded, self-reported, forecast, restricted or not available) and links to the page behind it.
+
+### Security
+- The list of applications with conflicting savings estimates names applications and assessments, so it requires `rationalization.view` in addition to `costs.view`; without it only the number of conflicts is shown.
+
 ## [2.33.0] - 2026-10-24
 
 ### Added

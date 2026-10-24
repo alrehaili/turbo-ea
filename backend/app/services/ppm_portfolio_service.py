@@ -17,6 +17,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date as date_type
 from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import func, or_, select
@@ -151,21 +152,29 @@ async def load_initiatives(
 
 
 async def latest_reports(
-    db: AsyncSession, initiative_ids: Sequence[uuid.UUID]
+    db: AsyncSession,
+    initiative_ids: Sequence[uuid.UUID],
+    *,
+    as_of: date_type | None = None,
 ) -> dict[uuid.UUID, PpmStatusReport]:
     """The most recent status report per initiative.
+
+    ``as_of`` limits it to reports dated on or before that day — the state an
+    initiative was in at the end of an earlier period (the Executive overview's
+    previous-period comparison). ``None`` keeps the original behaviour.
 
     Note: ties on ``report_date`` within one initiative are resolved arbitrarily
     (the last row wins) — pre-existing behaviour, preserved deliberately.
     """
     if not initiative_ids:
         return {}
+    dated = (PpmStatusReport.report_date <= as_of,) if as_of is not None else ()
     sub = (
         select(
             PpmStatusReport.initiative_id,
             func.max(PpmStatusReport.report_date).label("max_date"),
         )
-        .where(PpmStatusReport.initiative_id.in_(initiative_ids))
+        .where(PpmStatusReport.initiative_id.in_(initiative_ids), *dated)
         .group_by(PpmStatusReport.initiative_id)
         .subquery()
     )

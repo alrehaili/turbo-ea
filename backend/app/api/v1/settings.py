@@ -34,6 +34,7 @@ from app.services.email_backends.base import (
     get_backend,
 )
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
+from app.services.executive_dashboard import STALENESS_SETTING, staleness_days
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -168,6 +169,7 @@ _SETTING_FIELDS = {
     "date-format": "date_format",
     "app-title": "app_title",
     "fiscal-year-start": "fiscal_year_start",
+    "initiative-report-staleness": "report_staleness_days",
     "archive-retention-days": "retention_days",
     "audit-log-retention-days": "retention_days",
     "bpm-row-order": "row_order",
@@ -1510,6 +1512,51 @@ async def update_fiscal_year_start(
     await db.commit()
 
     return {"month": body.month}
+
+
+# ---------------------------------------------------------------------------
+# Initiative report staleness (Executive dashboard, decision D-02)
+# ---------------------------------------------------------------------------
+
+
+class InitiativeReportStalenessPayload(BaseModel):
+    # ``None`` clears the threshold: deliberately there is no default, so while
+    # it is unset no status report is ever treated as stale.
+    days: int | None = Field(None, ge=1, le=3650)
+
+
+@router.get("/initiative-report-staleness")
+async def get_initiative_report_staleness(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — days after which an initiative status report is stale."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"days": staleness_days(general)}
+
+
+@router.patch("/initiative-report-staleness")
+async def update_initiative_report_staleness(
+    body: InitiativeReportStalenessPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set or clear (``null``) the staleness threshold."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    old = staleness_days(general)
+    if body.days is None:
+        general.pop(STALENESS_SETTING, None)
+    else:
+        general[STALENESS_SETTING] = body.days
+    row.general_settings = general
+    await _audit_setting(db, user, "initiative-report-staleness", old, body.days)
+    await db.commit()
+    return {"days": body.days}
 
 
 class ArchiveRetentionPayload(BaseModel):

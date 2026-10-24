@@ -29,8 +29,9 @@ FR-01..FR-20, CR-01..CR-10, SR-01..SR-09 and NFR-01..NFR-07 (`EXECUTIVE_BUSINESS
 |---|---|---|
 | Confirmed from the planning briefs | 16 | C-01..C-16 |
 | **Approved 2026-10-22** | 8 | D-01, D-02, D-05, D-06, D-18, D-22, D-24, D-30 |
-| Open | 23 | 22 of D-03..D-29, plus the new **D-31** (financial period of planned savings; needed by CR-04) |
-| Open and blocking | 11 | D-03, D-04, D-07, D-17 (Phase 2) · D-08 (Phase 5) · D-10, D-13 (Phase 3) · D-12, D-14, D-15 (Phase 4) · D-31 (Phase 1, CR-04 only) |
+| **Approved 2026-10-24** | 6 | S-08, S-12 (security); D-03, D-04, D-07, D-17 (Phase 2, with changes) |
+| Open | 19 | 18 of D-08..D-29, plus **D-31** (financial period of planned savings) |
+| Open and blocking | 7 | D-08 (Phase 5) · D-10, D-13 (Phase 3) · D-12, D-14, D-15 (Phase 4) · D-31 (Phase 1, CR-04 only) |
 
 ## 5. Document map
 

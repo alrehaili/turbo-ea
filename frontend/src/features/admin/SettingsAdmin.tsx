@@ -57,6 +57,7 @@ import { useFrameworkProfile, type FrameworkProfile } from "@/hooks/useFramework
 import { invalidateGovernanceMode } from "@/hooks/useGovernanceMode";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
+import InitiativeReportStalenessSetting from "./InitiativeReportStalenessSetting";
 
 const AuthAdmin = lazy(() => import("./AuthAdmin"));
 const EolAdmin = lazy(() => import("./EolAdmin"));
@@ -1400,6 +1401,9 @@ function GeneralTab() {
           })}
         </TextField>
       </Paper>
+
+      {/* Initiative report staleness (Executive dashboard, D-02) */}
+      <InitiativeReportStalenessSetting onSaved={setSnack} onError={setError} />
 
       {/* Enabled Languages */}
       <Paper sx={{ p: 3, mb: 3 }}>

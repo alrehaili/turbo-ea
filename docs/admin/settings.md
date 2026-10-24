@@ -69,6 +69,10 @@ Select the month that begins your organization's fiscal year (January through De
 
 The default is **January** (calendar year = fiscal year).
 
+### Initiative report staleness
+
+On the [Executive tab](../guide/dashboard.md#executive-tab), an initiative whose latest status report is older than this many days counts as **Unknown / not reported** rather than by its last health. Enter a whole number of days (1–3650), or leave the field empty for no threshold. There is **no default**: while the field is empty, every existing report counts however old it is, and the Executive tab says so.
+
 ## Data management
 
 Control how long **archived cards** are retained before they are permanently deleted.

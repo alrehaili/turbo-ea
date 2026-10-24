@@ -57,6 +57,34 @@ def fiscal_year_for(value: date_type | None, start_month: int) -> int | None:
     return _fiscal_year(value.year, value.month, start_month)
 
 
+def fiscal_year_bounds(fy: int, start_month: int) -> tuple[date_type, date_type]:
+    """``[first day, first day of the next year)`` of fiscal year ``fy``.
+
+    The inverse of ``fiscal_year_for``: every date ``d`` in the half-open range
+    has ``fiscal_year_for(d, start_month) == fy``. With a January start it is the
+    calendar year; with an October start FY2026 runs 2025-10-01 .. 2026-10-01.
+    """
+    if start_month <= 1:
+        return date_type(fy, 1, 1), date_type(fy + 1, 1, 1)
+    return date_type(fy - 1, start_month, 1), date_type(fy, start_month, 1)
+
+
+def fiscal_quarter_bounds(fy: int, quarter: int, start_month: int) -> tuple[date_type, date_type]:
+    """``[first day, first day of the next quarter)`` of quarter 1-4 of ``fy``.
+
+    Quarters are three-month blocks counted from the fiscal year's start month.
+    """
+    if not 1 <= quarter <= 4:
+        raise ValueError(f"quarter must be 1-4, got {quarter}")
+    start, _ = fiscal_year_bounds(fy, start_month)
+    first = start.month - 1 + 3 * (quarter - 1)
+    last = first + 3
+    return (
+        date_type(start.year + first // 12, first % 12 + 1, 1),
+        date_type(start.year + last // 12, last % 12 + 1, 1),
+    )
+
+
 def current_fiscal_year(start_month: int) -> int:
     """The fiscal year today (UTC) falls in."""
     today = datetime.now(timezone.utc).date()

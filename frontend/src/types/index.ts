@@ -1,41 +1,75 @@
 export type DashboardTabKey = "overview" | "executive" | "workspace" | "admin";
 
 /** Section status on `GET /reports/executive`: never render a zero for "unknown". */
-export type ExecutiveSectionStatus = "ok" | "disabled" | "restricted";
+export type ExecutiveSectionStatus = "ok" | "disabled" | "restricted" | "not_available";
 
-export interface ExecutiveMoney {
+/** Initiative delivery state (decision D-02). `notReported` = Unknown / not reported. */
+export type ExecutiveDeliveryState = "onTrack" | "atRisk" | "offTrack" | "notReported";
+
+/** Budget execution for one fiscal year. The period is named even when restricted. */
+export interface ExecutiveBudget {
   status: ExecutiveSectionStatus;
-  total_budget?: number;
-  total_actual?: number;
+  fiscal_year: number;
+  fiscal_year_start: number;
+  current_fiscal_year: number;
+  available_years: number[];
+  currency?: string;
+  budget?: number;
+  actual?: number;
+  execution_pct?: number | null;
+  undated_cost_lines?: number;
+}
+
+export interface ExecutiveSavingsConflict {
+  card_id: string;
+  card_name: string;
+  candidates: { assessment_id: string; assessment_name: string; amount: number }[];
 }
 
 export interface ExecutiveDashboardData {
   generated_at: string;
   can_view_costs: boolean;
+  /** The instance currency every amount below is recorded in (never converted). */
+  currency: string;
+  ppm_enabled: boolean;
   portfolio: {
     status: ExecutiveSectionStatus;
     total_cards: number;
-    avg_data_quality: number;
-    approved_pct: number;
+    /** Weighted field completeness (`cards.data_quality`), not correctness. */
+    data_completeness: number;
     by_type: Record<string, number>;
+    /** Repository review status — not architecture compliance. */
     approval: Record<string, number>;
     lifecycle: Record<string, number>;
+    last_updated: string | null;
   };
   delivery: {
     status: ExecutiveSectionStatus;
+    source?: "ppm_reports" | "initiative_status";
+    staleness_days?: number | null;
     total_initiatives?: number;
-    off_track?: number;
-    health_schedule?: Record<string, number>;
-    health_cost?: Record<string, number>;
-    health_scope?: Record<string, number>;
-    budget?: ExecutiveMoney;
+    in_flight?: number;
+    excluded?: Record<string, number>;
+    states?: Record<ExecutiveDeliveryState, number>;
+    on_track_pct?: number | null;
+    coverage?: {
+      status: ExecutiveSectionStatus;
+      reported: number;
+      in_flight: number;
+      percentage: number | null;
+      stale_reports: number;
+      latest_report_date: string | null;
+      oldest_report_date: string | null;
+    };
+    dimensions?: Record<"schedule" | "cost" | "scope", Record<string, number>> | null;
+    budget?: ExecutiveBudget;
   };
   processes: {
     status: ExecutiveSectionStatus;
     total_processes?: number;
     by_automation?: Record<string, number>;
     by_maturity?: Record<string, number>;
-    diagram_coverage?: { with_diagram: number; total: number; percentage: number };
+    documentation_coverage?: { with_diagram: number; total: number; percentage: number };
   };
   risks: {
     status: ExecutiveSectionStatus;
@@ -47,14 +81,108 @@ export interface ExecutiveDashboardData {
   rationalization: {
     status: ExecutiveSectionStatus;
     decisions: number;
+    applications: number;
     by_decision: Record<string, number>;
     planned_savings: {
       status: ExecutiveSectionStatus;
-      provenance: "estimated";
+      provenance: "forecast";
+      currency?: string;
       total?: number;
-      decisions_with_savings?: number;
+      applications_counted?: number;
+      duplicates_merged?: number;
+      conflict_count?: number;
+      /** `restricted` without `rationalization.view`: count only, no names or amounts. */
+      conflict_detail?: "ok" | "restricted";
+      conflicts?: ExecutiveSavingsConflict[] | null;
+      excluded_range?: [number, number] | null;
+      /** The fiscal-period half of the dedupe identity is blocked on D-31. */
+      period?: { status: "blocked"; decision: string };
     };
+    realized_savings: { status: ExecutiveSectionStatus };
   };
+}
+
+/** Executive overview (Phase 2): one reporting period. */
+export interface ExecutivePeriod {
+  key: string;
+  fiscal_year: number;
+  quarter: number | null;
+  start: string;
+  end: string;
+  as_of: string;
+}
+
+export type ExecutiveKpiSlot = "strategy" | "governance" | "delivery" | "services" | "value" | "decisions";
+
+/** The per-KPI contract every executive tile renders (`app.services.executive.kpis.kpi`). */
+export interface ExecutiveKpi {
+  key: string;
+  slot: ExecutiveKpiSlot;
+  calculation_version: string;
+  status: "ok" | "not_available" | "restricted";
+  value: number | null;
+  unit: "percent" | "count" | "money" | null;
+  /** `not_linked` until a KPI card is linked to the computed KPI (D-26); targets are unratified (D-17). */
+  target: { status: "not_linked" | "unratified" | "ratified"; decision?: string; value?: number };
+  owner: { status: "not_linked" | "ok"; decision?: string; name?: string };
+  previous: {
+    status: "ok" | "not_available";
+    value?: number | null;
+    period?: string;
+    reason?: string;
+    decision?: string;
+    coverage_percentage?: number | null;
+  };
+  period: string;
+  as_of: string;
+  freshness: string | null;
+  confidence: "high" | "medium" | "low" | null;
+  provenance: "recorded" | "reported" | "forecast" | null;
+  completeness: { numerator: number; denominator: number; percentage: number | null } | null;
+  reason: { code: string; decisions?: string[]; phase?: number; module?: string } | null;
+  drilldown: { api?: string; path?: string } | null;
+  details: Record<string, unknown>;
+}
+
+export interface ExecutiveDecisionItem {
+  kind: "risk" | "adr" | "arb" | "exception";
+  id: string;
+  reference?: string;
+  title: string;
+  level?: string;
+  status?: string;
+  owner?: string | null;
+  due_date?: string | null;
+  pending_signatures?: number;
+  age_days: number | null;
+  path: string;
+}
+
+export interface ExecutiveDecisionSection {
+  status: "ok" | "restricted" | "disabled";
+  count?: number;
+  items?: ExecutiveDecisionItem[] | null;
+  open?: number;
+  mitigated?: number;
+}
+
+export interface ExecutiveDecisionsData {
+  generated_at: string;
+  risks: ExecutiveDecisionSection;
+  adrs: ExecutiveDecisionSection;
+  arb: ExecutiveDecisionSection;
+  exceptions: ExecutiveDecisionSection;
+}
+
+export interface ExecutiveOverviewData {
+  generated_at: string;
+  period: ExecutivePeriod;
+  previous_period: ExecutivePeriod;
+  available_periods: string[];
+  fiscal_year_start: number;
+  currency: string;
+  kpis: ExecutiveKpi[];
+  decisions_panel: ExecutiveDecisionItem[];
 }
 
 export interface UiPreferences {

@@ -199,14 +199,14 @@ describe("OverviewTab — loading and KPIs", () => {
     renderTab();
     await screen.findByText("Total Cards");
     expect(within(kpiTile("Total Cards")).getByText("22")).toBeInTheDocument();
-    expect(within(kpiTile("Avg Completion")).getByText("63%")).toBeInTheDocument();
+    expect(within(kpiTile("Data completeness")).getByText("63%")).toBeInTheDocument();
     expect(within(kpiTile("Approved")).getByText("10")).toBeInTheDocument();
     expect(within(kpiTile("Broken")).getByText("2")).toBeInTheDocument();
     expect(within(kpiTile("Total Cards")).getByText(/\+5/)).toBeInTheDocument();
     expect(screen.getByText("Trend indicators are based on the last 30 days")).toBeInTheDocument();
     // Every tile carries its own trend.
     expect(within(kpiTile("Total Cards")).getByText("+29.4%")).toBeInTheDocument();
-    expect(within(kpiTile("Avg Completion")).getByText("+2.5%")).toBeInTheDocument();
+    expect(within(kpiTile("Data completeness")).getByText("+2.5%")).toBeInTheDocument();
     expect(within(kpiTile("Approved")).getByText("-9.1%")).toBeInTheDocument();
     expect(within(kpiTile("Approved")).getByText("(-1)")).toBeInTheDocument();
     expect(within(kpiTile("Broken")).getByText("+100.0%")).toBeInTheDocument();

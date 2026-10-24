@@ -45,16 +45,35 @@ In the bottom section of the Dashboard you will find:
 
 ## Executive tab
 
-The **Executive** tab is a one-page summary of the landscape for senior leadership. It is shown to roles that hold the **`reports.executive_dashboard`** permission — administrators have it automatically; grant it to any other role under **Admin → Users & Roles**. The tab shows aggregates only (counts and distributions), never individual card names or risks, and every figure counts only the cards you are allowed to see.
+The **Executive** tab is a one-page summary of delivery, money and risk for senior leadership. It is shown to roles that hold the **`reports.executive_dashboard`** permission — administrators have it automatically; grant it to any other role under **Admin → Users & Roles**. Every figure counts only the cards you are allowed to see, and card types an administrator has hidden are left out of every total.
 
-- **Headline figures**: active cards, average data quality, share of approved cards, initiatives off track, open critical and high risks, and the share of business processes with a published process flow.
-- **Portfolio health**: the largest card types and the lifecycle mix.
-- **Delivery**: schedule, cost and scope health of initiatives from their latest status reports, plus total budget against actual spend. Shown only when the PPM module is enabled.
-- **Processes**: automation level and maturity of business processes, labelled exactly as in the metamodel. Shown only when the BPM module is enabled.
-- **Risk exposure**: open risks by level. Shown only when the GRC module is enabled.
-- **Application rationalization**: TIME decisions from active and completed assessments, and the total of **planned savings**. Planned savings are always marked **Estimated, not realised**: they are estimates recorded on the decisions, not verified savings.
+The tab has three pages: **Overview**, **Decisions** and **Details**.
 
-Budget, actual and planned-savings figures additionally require the **`costs.view`** permission; without it they show a lock instead of a number. A section whose module is switched off says so instead of showing zeros. Each section has an **Open** button that leads to the full page, if your role can open it.
+**Overview** is the CEO view: six indicators — strategy achievement, EA governance effectiveness, initiative delivery, services and automation, business value, and decisions and escalations — each on a tile that shows the value, the target, the previous period, the reporting period, how fresh the data is, the owner, a confidence label and a link to the records behind it. A **Reporting period** selector chooses a fiscal year or one of its quarters; a figure is measured as of the period's last day (or today, for the current period). An indicator whose source or rule has not been decided yet shows **Not available** with the reason, never zero: today that applies to strategy achievement, governance effectiveness, services and automation, and realised business value. Planned savings appear on the business-value tile as a **Forecast** only. Targets and owners read **No linked KPI card** until each indicator is linked to a KPI card, and a target will show as ratified only once its owner has approved it through a suitable approval step. Initiative delivery compares with the previous period using the status reports dated before it; other indicators say *No history yet*. A panel lists the **decisions needing attention** that you can open.
+
+**Decisions** lists what needs executive attention now: **executive-escalated risks** (open risks rated critical, or high and past their target date — a strategic category alone does not escalate a risk), with open and mitigated risks counted separately; architecture decision records awaiting signatures; architecture reviews scheduled or deferred; and standard exceptions requested. Everyone with the Executive tab sees the counts; seeing the records themselves needs that module's own view permission (risks, decision records, architecture reviews, technology standards).
+
+**Details** holds the figures described below.
+
+The header shows when the figures were generated, the date of the latest initiative status report, and a **Reporting period** selector that chooses the fiscal year of the budget figures (the fiscal year follows **Admin → Settings → Fiscal Year Start**).
+
+**Headline figures.** Each tile has an information icon with a plain-language definition, a link to the page behind it, and a label saying where the figure comes from: **Recorded** (counted from records in Turbo EA), **Self-reported** (taken from status reports), **Forecast** (a planned estimate), **Restricted** (you lack the permission) or **Not available** (nothing records it yet). Nothing on the tab is a Finance-verified figure.
+
+- **Initiatives on track**: of the in-flight initiatives that have a current status report, the share whose latest report is on track on schedule, cost and scope (the worst of the three decides).
+- **Reporting coverage**: how many in-flight initiatives have a current status report. It is shown separately so that missing reports are never hidden inside the health figure.
+- **Budget execution**: actual cost recorded in the selected fiscal year divided by the budget planned for that year.
+- **Open critical & high risks**, with the number overdue.
+- **Planned savings**: the forecast from rationalization decisions (see below).
+
+**Delivery.** Every in-flight initiative is **On track**, **At risk**, **Off track** or **Unknown / not reported**. An initiative without a status report is *Unknown / not reported* — never counted as healthy and never as at risk. Completed and on-hold initiatives are not in flight and are listed separately. An administrator can set a **staleness threshold** (**Admin → Settings → Initiative report staleness**); reports older than it then also count as not reported. There is no default: until it is set, every existing report counts and the tab says so. When the PPM module is off, each initiative's own **Status** field is used instead of status reports. Budget and actual are for the selected fiscal year only — years are never added together, and a cost line with no date belongs to no year (the tab says how many there are).
+
+**Planned savings.** Savings planned on rationalization decisions (active and completed assessments) are counted **once per application**: if two assessments give the same estimate, it counts once. If they give different estimates, the application is a **conflict**: it is left out of the total until someone reconciles the estimates, and the tab lists it with every estimate. The list names applications and assessments, so it also requires the **`rationalization.view`** permission; without it you see only how many conflicts there are. Planned savings are always a **Forecast**; **Realised savings** are shown separately as *Not available* until verified benefits are recorded. Planned savings are not yet tied to a fiscal year, because decisions carry no financial period.
+
+**Risk exposure** shows open risks by level, and **Processes** shows automation level and maturity, with process documentation coverage (processes with a published flow) as a separate line — documentation is not automation or maturity.
+
+**Repository metrics (specialist)** is a collapsed section with card counts, **data completeness** (the share of weighted fields filled in, not a measure of correctness), **repository review status** (whether cards were reviewed — not architecture compliance), the largest card types and the lifecycle mix, where the end-of-life slice reads **Past planned end-of-life**.
+
+**Money and permissions.** Budget, actual and planned-savings figures require the **`costs.view`** permission; without it they show **Restricted** instead of a number. Amounts are shown in the currency set under **Admin → Settings → Currency**, which is the currency they were recorded in: nothing is converted, and amounts in different currencies are never added together. A section whose module is switched off says so instead of showing zeros.
 
 ## Workspace tab
 

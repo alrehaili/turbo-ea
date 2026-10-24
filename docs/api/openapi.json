@@ -7607,6 +7607,25 @@
         "title": "ImportRequest",
         "type": "object"
       },
+      "InitiativeReportStalenessPayload": {
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          }
+        },
+        "title": "InitiativeReportStalenessPayload",
+        "type": "object"
+      },
       "InstanceOut": {
         "properties": {
           "instance_id": {
@@ -42847,7 +42866,58 @@
     },
     "/api/v1/reports/executive": {
       "get": {
+        "description": "``fiscal_year`` selects the period of the budget figures (default: the\ncurrent fiscal year, from the ``fiscalYearStart`` setting).",
         "operationId": "executive_dashboard_api_v1_reports_executive_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "fiscal_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2200,
+                  "minimum": 1900,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Fiscal Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Executive Dashboard",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/executive/decisions": {
+      "get": {
+        "description": "Escalated risks and pending governance decisions, current state.",
+        "operationId": "executive_decisions_api_v1_reports_executive_decisions_get",
         "responses": {
           "200": {
             "content": {
@@ -42858,7 +42928,114 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Executive Dashboard",
+        "summary": "Executive Decisions",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/executive/kpi/{key}/drilldown": {
+      "get": {
+        "description": "The records behind a KPI's value, under the same scope and rules.\n\nThe rows come from the module the KPI summarises, so listing them needs\nthat module's view permission as well as the executive one.",
+        "operationId": "executive_kpi_drilldown_api_v1_reports_executive_kpi__key__drilldown_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Executive Kpi Drilldown",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/executive/overview": {
+      "get": {
+        "description": "The six CEO indicators for one reporting period (default: the current\nfiscal quarter), with the previous period where it can be derived.",
+        "operationId": "executive_overview_api_v1_reports_executive_overview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Executive Overview",
         "tags": [
           "reports"
         ]
@@ -48836,6 +49013,64 @@
           }
         },
         "summary": "Update Grc Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/initiative-report-staleness": {
+      "get": {
+        "description": "Admin endpoint \u2014 days after which an initiative status report is stale.",
+        "operationId": "get_initiative_report_staleness_api_v1_settings_initiative_report_staleness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Initiative Report Staleness",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 set or clear (``null``) the staleness threshold.",
+        "operationId": "update_initiative_report_staleness_api_v1_settings_initiative_report_staleness_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiativeReportStalenessPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Initiative Report Staleness",
         "tags": [
           "settings"
         ]
