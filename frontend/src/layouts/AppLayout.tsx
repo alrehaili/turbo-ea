@@ -95,6 +95,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // right-side controls fit; the nav container also scrolls as a safety net.
   const isCompact = useMediaQuery("(max-width:1279px)");
   const isCondensed = useMediaQuery("(max-width:1279px)");
+  // Use the hamburger drawer on any laptop-width screen; only a genuinely wide
+  // monitor (>=1536px) keeps the horizontal nav bar.
+  const isNarrowNav = useMediaQuery("(max-width:1535px)");
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
   const { grcEnabled } = useGrcEnabled();
@@ -813,8 +816,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         elevation={0}
       >
         <Toolbar sx={{ gap: 0.5 }}>
-          {/* Hamburger (mobile) */}
-          {isMobile && (
+          {/* Hamburger (mobile + narrow/tablet) */}
+          {isNarrowNav && (
             <IconButton
               sx={{ color: nav.fg, mr: 0.5 }}
               onClick={() => setDrawerOpen(true)}
@@ -842,10 +845,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             />
           </Box>
 
-          {/* Desktop / tablet nav items — allowed to shrink + scroll so a long
-              nav never pushes the right-side controls (create / notifications /
-              user menu) off-screen. */}
-          {!isMobile && (
+          {/* Desktop-only horizontal nav (>=1280px). Narrower screens use the
+              hamburger drawer instead, so a long nav never has to cram into a
+              hidden-scrollbar strip. */}
+          {!isNarrowNav && (
             <Box
               sx={{
                 display: "flex",
@@ -1325,7 +1328,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       </Menu>
 
       {/* Mobile drawer */}
-      {isMobile && renderDrawer()}
+      {isNarrowNav && renderDrawer()}
 
       {/* Role-impersonation picker (mounted globally so the user-menu
           entry can open it from any route). */}
