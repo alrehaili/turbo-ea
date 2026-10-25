@@ -71,7 +71,7 @@ def upgrade() -> None:
         sa.Column("value", sa.Float(), nullable=True),
         sa.Column("numerator", sa.Float(), nullable=True),
         sa.Column("denominator", sa.Float(), nullable=True),
-        sa.Column("unit", sa.String(32), nullable=True),
+        sa.Column("unit", sa.Text(), nullable=True),
         sa.Column("calculation_version", sa.String(32), nullable=True),
         sa.Column("source", sa.String(32), nullable=False),
         sa.Column("evidence", sa.Text(), nullable=True),
@@ -161,7 +161,7 @@ def upgrade() -> None:
         sa.Column("target_value", sa.Float(), nullable=False),
         sa.Column("target_date", sa.String(10), nullable=True),
         sa.Column("baseline_value", sa.Float(), nullable=True),
-        sa.Column("unit", sa.String(64), nullable=True),
+        sa.Column("unit", sa.Text(), nullable=True),
         sa.Column("direction", sa.String(32), nullable=True),
         sa.Column(
             "ratified_by",

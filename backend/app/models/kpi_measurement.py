@@ -69,7 +69,7 @@ class KpiMeasurement(Base, UUIDMixin, TimestampMixin):
     value: Mapped[float | None] = mapped_column(Float, nullable=True)
     numerator: Mapped[float | None] = mapped_column(Float, nullable=True)
     denominator: Mapped[float | None] = mapped_column(Float, nullable=True)
-    unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    unit: Mapped[str | None] = mapped_column(Text, nullable=True)
     calculation_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     #: ``system`` / ``manual``.
     source: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -146,7 +146,7 @@ class KpiTargetRatification(Base, UUIDMixin, TimestampMixin):
     target_value: Mapped[float] = mapped_column(Float, nullable=False)
     target_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     baseline_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    unit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    unit: Mapped[str | None] = mapped_column(Text, nullable=True)
     direction: Mapped[str | None] = mapped_column(String(32), nullable=True)
     ratified_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

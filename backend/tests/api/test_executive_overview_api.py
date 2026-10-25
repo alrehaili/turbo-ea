@@ -229,3 +229,98 @@ async def test_drilldown_rows_need_the_module_permission(client, env):
         ("On", "onTrack"),
     ]
     assert rows[1]["path"].startswith("/ppm/")
+
+
+# ── /strategy (D-21) ─────────────────────────────────────────────────────
+
+
+async def _strategic_kpis(db, today):
+    """A strategic objective with a measured, a ratified-but-unmeasured and an
+    unratified KPI, plus a non-strategic objective whose KPI must not count."""
+    from app.models.kpi_measurement import KpiMeasurement, KpiTargetRatification
+    from app.services.executive import periods
+    from tests.conftest import create_relation, create_relation_type
+
+    await create_card_type(db, key="Objective", label="Objective")
+    await create_card_type(db, key="KPI", label="KPI")
+    await create_relation_type(
+        db, key="relObjectiveToKPI", source_type_key="Objective", target_type_key="KPI"
+    )
+    target = {
+        "targetValue": 80,
+        "baselineValue": 50,
+        "unit": "%",
+        "direction": "higherIsBetter",
+    }
+    strategic = await create_card(
+        db, card_type="Objective", name="Grow", attributes={"objectiveType": "strategic"}
+    )
+    other = await create_card(
+        db, card_type="Objective", name="Tidy", attributes={"objectiveType": "operational"}
+    )
+    measured = await create_card(
+        db, card_type="KPI", name="Measured", approval_status="APPROVED", attributes=target
+    )
+    unratified = await create_card(
+        db, card_type="KPI", name="Unratified", approval_status="APPROVED", attributes=target
+    )
+    outside = await create_card(
+        db, card_type="KPI", name="Outside", approval_status="APPROVED", attributes=target
+    )
+    for o, k in ((strategic, measured), (strategic, unratified), (other, outside)):
+        await create_relation(db, type_key="relObjectiveToKPI", source_id=o.id, target_id=k.id)
+
+    db.add(
+        KpiTargetRatification(
+            kpi_card_id=measured.id,
+            target_value=80.0,
+            baseline_value=50.0,
+            unit="%",
+            direction="higherIsBetter",
+        )
+    )
+    period = periods.parse(None, 1, today)
+    db.add(
+        KpiMeasurement(
+            kind="period",
+            kpi_card_id=measured.id,
+            period_type="quarter" if period.quarter else "fiscal_year",
+            period_key=period.key,
+            period_start=period.start,
+            period_end=period.end - timedelta(days=1),
+            value=90.0,
+            source="manual",
+            status="verified",
+        )
+    )
+    await db.flush()
+
+
+async def test_strategy_needs_the_executive_permission(client, env):
+    assert (await _get(client, env["plain"], "/strategy")).status_code == 403
+
+
+async def test_strategy_counts_verified_values_against_ratified_targets(client, db, env):
+    await _strategic_kpis(db, env["today"])
+    body = (await _get(client, env["admin"], "/strategy")).json()
+
+    totals = body["totals"]
+    assert totals["strategic_objectives"] == 1
+    assert (totals["linked"], totals["measured"], totals["on_target"]) == (2, 1, 1)
+    states = {k["name"]: k for o in body["objectives"] for k in o["kpis"]}
+    assert set(states) == {"Measured", "Unratified"}
+    assert states["Measured"]["state"] == "on_target"
+    assert states["Measured"]["attainment"] == 100.0
+    assert states["Unratified"]["state"] == "no_ratified_target"
+    assert states["Unratified"]["value"] is None
+
+
+async def test_strategy_leaves_out_a_hidden_kpi_type(client, db, env):
+    await _strategic_kpis(db, env["today"])
+    kpi_type = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one()
+    kpi_type.is_hidden = True
+    await db.flush()
+
+    body = (await _get(client, env["admin"], "/strategy")).json()
+    assert body["totals"]["linked"] == 0
+    assert all(o["kpis"] == [] for o in body["objectives"])

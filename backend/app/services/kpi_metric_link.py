@@ -6,7 +6,9 @@ on the CEO overview. Every path that writes card attributes calls
 :func:`validate_metric_key` — card create and update (REST, extensions, survey
 apply), bulk create (the Excel importer), bulk update, restore and workspace
 import — and a partial unique index (``uq_cards_kpi_metric_key``) backs the
-uniqueness in the database. Three checks:
+uniqueness in the database. The two admin-configured sync paths that write
+attributes directly (ServiceNow pull, platform-migration apply) do not call it;
+there the index alone stops a duplicate. Three checks:
 
 1. **Registered.** The value must name a calculation in
    ``executive.registry.METRICS``.

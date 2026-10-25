@@ -10,7 +10,7 @@
 | **Security Remediation Track (SEC)** | **Pending verification** (implemented incl. §9 preparation and §10 final integration; full backend suite not run; frontend tests blocked; not in CI; uncommitted) | SEC-1, SEC-2 and SEC-3 were implemented on 2026-10-24 under D-01 and D-30. All 26 findings are resolved: S-08 and S-12 were decided on 2026-10-24 and implemented, together with scenario-merge authorization and readable-only segment traversal (`SECURITY_REMEDIATION_PLAN.md` §9; 8 new focused tests pass). Locally, the extended sweep, 17 new disclosure tests, the signature guard and the read-scope guard pass. On unmodified `HEAD` the same sweep fails on 24 routes and 15 of 16 of the new tests fail. The full backend suite was not run (stopped at the owner's request) and the new S-14 test has not run yet; both are deferred to CI. Evidence: `SECURITY_REMEDIATION_PLAN.md` §8. The track is not *Completed* until it is committed, green in CI and merged. |
 | Phase 0: decisions, KPI ratification, data ownership | **In Progress** (planning) | Phase 1 decisions approved 2026-10-22 (D-01, D-02, D-05, D-06, D-22, D-24, D-30) plus D-18. 23 decisions remain open (11 blocking, incl. the new D-31). KPI ratification and data stewardship not started. |
 | Phase 1: prototype baseline and KPI correctness | **Pending verification** (functionally implemented 2026-10-24, review corrections H1 and M1–M3 applied, VERSION 2.34.0; focused tests pass locally; not in CI; uncommitted) | CR-01..CR-10 applied to the Executive tab (see *Phase 1 implementation record* below). Two items stay **open as business decisions, not implementation gaps**: the financial period of planned savings (**D-31**) and **Finance verification of the instance currency** (D-05). Not *Completed* until committed, green in CI (incl. mutation gates) and merged. |
-| Phase 2: CEO overview, KPI history, decision intelligence | **In Progress** (unblocked scope implemented and committed 2026-10-25 as 2.35.0; review corrections H-1–H-4, M-1, M-3, M-5 applied 2026-10-25, uncommitted; focused backend tests pass; frontend tests pass only under a scratch config — see *Phase 2 review corrections*; not in CI) | D-03, D-04, D-07, D-17 approved with changes on 2026-10-24. Built: Executive sub-navigation, CEO overview with the standard KPI tile, period filter, decisions page, drill-downs. **Blocked:** KPI history (D-19), targets and owners on tiles (D-26, then a ratification mechanism per D-17), org filter (D-07: relations and data), TR-01 (D-21), SVC-02 (D-09); slots 2 and 5 wait for Phases 3 and 4. See *Phase 2 implementation record*. |
+| Phase 2: CEO overview, KPI history, decision intelligence | **In Progress** (D-19, D-21, D-26, D-17a implemented on branch `executive-kpi-history`, completed and locally validated 2026-10-25 as 2.36.0, uncommitted; unblocked scope committed 2026-10-25 as 2.35.0; review corrections H-1–H-4, M-1, M-3, M-5 applied 2026-10-25, uncommitted; focused backend tests pass; frontend tests pass only under a scratch config — see *Phase 2 review corrections*; not in CI) | D-03, D-04, D-07, D-17 approved with changes on 2026-10-24. Built: Executive sub-navigation, CEO overview with the standard KPI tile, period filter, decisions page, drill-downs. **Blocked:** KPI history (D-19), targets and owners on tiles (D-26, then a ratification mechanism per D-17), org filter (D-07: relations and data), TR-01 (D-21), SVC-02 (D-09); slots 2 and 5 wait for Phases 3 and 4. See *Phase 2 implementation record*. |
 | Phase 3: EA governance effectiveness | **Not Started** | Blocked by D-10, D-13 |
 | Phase 4: Business impact, benefits realisation, ROI | **Not Started** | Blocked by D-12, D-14, D-15 |
 | Phase 5: Transformation, services, processes, maturity, portfolio | **Not Started** | Blocked by D-08; needs data |
@@ -308,4 +308,37 @@ Approved with changes on 2026-10-25 (`DECISION_LOG.md` §2 and the implementatio
 - KPI card `currentValue` / `lastMeasuredDate` are not synchronised from the history (I-4).
 - Monthly periods are not supported (I-1).
 - An admin must create the "KPI target approver" stakeholder role (with `card.ratify_kpi_target`) or grant `kpis.ratify_targets`; none exists by default.
-- User manual pages for the KPI section and the Strategy page are not written yet.
+- ~~User manual pages for the KPI section and the Strategy page are not written yet.~~ Written 2026-10-25 (see below).
+
+### Completion round (2026-10-25, branch `executive-kpi-history`)
+
+Resumed from `b1689c29` on another machine. The implementation was checked against D-17a, D-19, D-21 and D-26; no business rule was added. Uncommitted, not deployed.
+
+| Gap found | Correction | Where |
+|---|---|---|
+| A KPI card's `unit` is free text, but the measurement column was `String(32)` (and the ratification `String(64)`): a longer unit made recording or ratifying fail with a server error | Both `unit` columns are `Text`; migration `1164` changed before it has run anywhere | `models/kpi_measurement.py`, `alembic/versions/1164_kpi_measurement_history.py` |
+| The KPI section offered **Verify** on the viewer's own measurement, which the server always refuses | The button is hidden for one's own row; `recorded_by` / `verified_by` added to the TypeScript type | `KpiPerformanceSection.tsx`, `types/index.ts` |
+| No API test for `GET /reports/executive/strategy` | Three tests: permission, on-target counting from verified values and ratified targets, hidden KPI type left out | `tests/api/test_executive_overview_api.py` |
+| No Vitest for the KPI section | `KpiPerformanceSection.test.tsx` | — |
+| Two Vitest assertions still expected the pre-D-21 "not yet agreed" strategy wording | Updated to the approved wording | `executiveFormat.test.ts`, `ExecutiveOverview.test.tsx` |
+| `kpi_metric_link` claimed every attribute write path calls it | Docstring names the two that do not (ServiceNow pull, platform-migration apply); the DB index alone guards them | `services/kpi_metric_link.py` |
+| OpenAPI spec not regenerated | Regenerated | `docs/api/openapi.json` |
+| User manual | Strategy page and *KPI cards: performance and target* written; Overview text updated (EN + AR) | `docs/guide/dashboard{,.ar}.md` |
+| Version | 2.36.0 with CHANGELOG entry | `VERSION`, `CHANGELOG.md` |
+
+**Validation (one focused pass)**
+
+| Check | Result |
+|---|---|
+| Migration `1164` | Isolated copy (`CREATE DATABASE … TEMPLATE`) of the local upgraded database at rev `1163`: upgrade, downgrade, upgrade. Both `kpi_snapshots` rows became eight `dashboard.*` daily observations with their dates and capture times, and came back identical on downgrade; all indexes and `uq_cards_kpi_metric_key` created. Copy dropped afterwards; the source database was not touched and stays at `1163`. Not run against production |
+| Backend | `ruff check` / `ruff format` clean. `test_kpi_measurement_service.py`, `test_kpi_measurements_api.py`, `test_kpi_snapshot_service.py`, `test_executive_overview.py` (batch 2), `test_executive_overview_api.py` (incl. the 3 new strategy tests), `test_main_loops.py`, `test_reports.py::TestDashboard`: **all pass**. `test_workspace_io_id_bearing_columns.py` fails only on the 44 pre-existing fork columns (the two new `unit` columns are allowlisted) |
+| Frontend | Vitest `KpiPerformanceSection.test.tsx` + `features/dashboard/executive/`: 37/37 pass under the normal config. ESLint clean on the changed files; `tsc --noEmit` reported nothing |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, browser check, CI |
+
+**Remaining**
+
+- Browser check of the Strategy page and the KPI section (EN/AR, desktop and phone) — **Pending verification**.
+- `mkdocs build --strict`, CI (diff coverage, mutation gates) — **Pending verification**.
+- Pre-existing guard failures (id-bearing allowlist for 44 fork columns, `reports.executive_dashboard` in default role maps, fork migrations without timestamp defaults, the read-scope guard's Windows encoding) are unchanged.
+- No KPI, Pillar or Objective→KPI data exists locally; strategy achievement correctly shows *Not available* until KPI cards are linked, targets ratified and measurements verified. No demo values were created.
+- The other 8 locale manual pages still describe the earlier Executive tab (D-18).

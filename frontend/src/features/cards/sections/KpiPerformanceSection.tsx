@@ -22,6 +22,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { KpiMeasurement, KpiPerformance } from "@/types";
@@ -46,6 +47,8 @@ const STATUS_COLOR: Record<string, "default" | "info" | "success" | "warning"> =
  */
 export default function KpiPerformanceSection({ cardId }: { cardId: string }) {
   const { t } = useTranslation("cards");
+  // The server refuses to let anyone verify a value they recorded (D-19).
+  const me = useOptionalAuthUser();
   const { formatDate, formatDateTime } = useDateFormat();
   const [refetchKey, setRefetchKey] = useState(0);
   const { data, error, loading } = useApiQuery<KpiPerformance>(`/kpis/${cardId}/performance`, {
@@ -208,7 +211,7 @@ export default function KpiPerformanceSection({ cardId }: { cardId: string }) {
                       {m.evidence ? <LinkifiedText text={m.evidence} /> : "—"}
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                      {data.can_verify && m.status === "submitted" && (
+                      {data.can_verify && m.status === "submitted" && m.recorded_by !== me?.id && (
                         <Button size="small" onClick={() => verify(m)} disabled={saving}>
                           {t("kpiPerformance.verify")}
                         </Button>

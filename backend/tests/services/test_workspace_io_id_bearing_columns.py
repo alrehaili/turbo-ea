@@ -77,6 +77,8 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("KpiMeasurements", "evidence"): PROSE,
     ("KpiMeasurements", "correction_reason"): PROSE,
     ("KpiTargetRatifications", "note"): PROSE,
+    ("KpiMeasurements", "unit"): DISPLAY,
+    ("KpiTargetRatifications", "unit"): DISPLAY,
     ("ComplianceFindings", "remediation"): PROSE,
     ("ComplianceFindings", "review_note"): PROSE,
     ("Adrs", "context"): PROSE,

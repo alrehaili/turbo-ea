@@ -270,7 +270,7 @@ describe("ExecutiveOverview — executive wording (M-2)", () => {
     const { container } = renderPage();
     expect(
       within(screen.getByTestId("executive-kpi-strategy")).getByText(
-        "Shown once it is agreed how progress on strategic objectives is measured.",
+        "Shown once strategic KPIs have ratified targets and verified measurements.",
       ),
     ).toBeInTheDocument();
     expect(

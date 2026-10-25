@@ -193,7 +193,10 @@ export interface KpiMeasurement {
   evidence: string | null;
   status: "observed" | "submitted" | "verified" | "superseded";
   frozen: boolean;
+  /** Id of the person who recorded the row; `null` for a system value. */
+  recorded_by: string | null;
   recorded_at: string | null;
+  verified_by: string | null;
   verified_at: string | null;
   supersedes_id: string | null;
   correction_reason: string | null;

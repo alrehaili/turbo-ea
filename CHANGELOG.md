@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.36.0] - 2026-10-25
+
+### Added
+- **KPI measurement history.** KPI cards gain a **Performance and target** section: record a value per fiscal year or quarter with evidence, correct it with a reason (the old value is kept), and have someone else verify it. Verified values of finished periods are frozen and can only be corrected as a new, audited entry. The dashboard's daily trend data moves into the same history unchanged.
+- **KPI target ratification.** An authorized target approver can ratify a KPI's target; any later change to the target, its date, the baseline, the unit or the direction makes it unratified again. New permissions `kpis.measure`, `kpis.verify` and `kpis.ratify_targets` (plus the card permission `card.ratify_kpi_target` for a stakeholder role) — no default role holds them.
+- **Executive tab: Strategy page.** Strategy achievement shows how many strategic KPIs are on their ratified target among those with a verified value this period, with reporting coverage, per-objective and per-pillar breakdowns, and the delivery of supporting initiatives shown separately. Self-reported objective progress is not used.
+- **Executive metric link on KPI cards.** The *Executive Metric* field links a KPI card to an Overview indicator, so the tile shows that card's target, ratification state and owner. One active KPI card per indicator; changing the link needs metamodel administration.
+
+### Changed
+- Executive Overview: initiative delivery for a finished period and the previous-period comparison now come from verified period values in the KPI history, instead of always reading *Historical data unavailable*.
+- Executive Overview: unavailable indicators explain in plain words what is missing, and escalation and decision panels show counts with the reason when you may not open the records.
+
 ## [2.35.0] - 2026-10-25
 
 ### Added

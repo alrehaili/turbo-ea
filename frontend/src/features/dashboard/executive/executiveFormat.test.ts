@@ -56,7 +56,7 @@ describe("unavailableReason", () => {
 
   it("explains a pending decision or later release per indicator, never by ID", () => {
     const strategy = unavailableReason({ slot: "strategy", reason: { code: "decision_pending", decisions: ["D-21"] } }, t);
-    expect(strategy).toBe("Shown once it is agreed how progress on strategic objectives is measured.");
+    expect(strategy).toBe("Shown once strategic KPIs have ratified targets and verified measurements.");
     const value = unavailableReason({ slot: "value", reason: { code: "later_phase", phase: 4 } }, t);
     expect(value).toBe("Shown once realised benefits are confirmed by Finance.");
     expect(`${strategy} ${value}`).not.toMatch(/D-\d|phase/i);

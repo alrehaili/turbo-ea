@@ -5172,6 +5172,38 @@
         "title": "ConnectionUpdate",
         "type": "object"
       },
+      "CorrectionIn": {
+        "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "reason"
+        ],
+        "title": "CorrectionIn",
+        "type": "object"
+      },
       "CurrencyPayload": {
         "properties": {
           "currency": {
@@ -8151,6 +8183,37 @@
           }
         },
         "title": "McpSettingsPayload",
+        "type": "object"
+      },
+      "MeasurementIn": {
+        "properties": {
+          "evidence": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "period_key": {
+            "maxLength": 16,
+            "title": "Period Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "period_key",
+          "value"
+        ],
+        "title": "MeasurementIn",
         "type": "object"
       },
       "MessageFlowUpdate": {
@@ -13282,6 +13345,24 @@
           }
         },
         "title": "PromoteOpportunity",
+        "type": "object"
+      },
+      "RatificationIn": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "RatificationIn",
         "type": "object"
       },
       "ReasonRequest": {
@@ -33120,6 +33201,284 @@
         ]
       }
     },
+    "/api/v1/kpis/measurements/{measurement_id}/corrections": {
+      "post": {
+        "operationId": "correct_measurement_api_v1_kpis_measurements__measurement_id__corrections_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "measurement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Measurement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Correct Measurement",
+        "tags": [
+          "kpis"
+        ]
+      }
+    },
+    "/api/v1/kpis/measurements/{measurement_id}/verify": {
+      "post": {
+        "operationId": "verify_measurement_api_v1_kpis_measurements__measurement_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "measurement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Measurement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Measurement",
+        "tags": [
+          "kpis"
+        ]
+      }
+    },
+    "/api/v1/kpis/metrics/{metric_key}/history": {
+      "get": {
+        "description": "A registered executive metric's period values and recent daily observations.",
+        "operationId": "metric_history_api_v1_kpis_metrics__metric_key__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "metric_key",
+            "required": true,
+            "schema": {
+              "title": "Metric Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Metric History",
+        "tags": [
+          "kpis"
+        ]
+      }
+    },
+    "/api/v1/kpis/{card_id}/measurements": {
+      "post": {
+        "operationId": "record_measurement_api_v1_kpis__card_id__measurements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeasurementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Measurement",
+        "tags": [
+          "kpis"
+        ]
+      }
+    },
+    "/api/v1/kpis/{card_id}/performance": {
+      "get": {
+        "description": "A KPI card's target (with its ratification state) and measurement history.",
+        "operationId": "kpi_performance_api_v1_kpis__card_id__performance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kpi Performance",
+        "tags": [
+          "kpis"
+        ]
+      }
+    },
+    "/api/v1/kpis/{card_id}/target-ratifications": {
+      "post": {
+        "description": "Ratify the KPI's current target as its authorized target approver (D-17a).",
+        "operationId": "ratify_target_api_v1_kpis__card_id__target_ratifications_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatificationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ratify Target",
+        "tags": [
+          "kpis"
+        ]
+      }
+    },
     "/api/v1/maturity/assessments": {
       "get": {
         "operationId": "list_assessments_api_v1_maturity_assessments_get",
@@ -42994,7 +43353,7 @@
     },
     "/api/v1/reports/executive/overview": {
       "get": {
-        "description": "The six CEO indicators for one reporting period (default: the current\nfiscal quarter), with the previous period where it can be derived.",
+        "description": "The six CEO indicators for one reporting period (default: the current\nfiscal quarter). Period figures for a finished period need dated evidence;\ncurrent-state figures are labelled and measured today.",
         "operationId": "executive_overview_api_v1_reports_executive_overview_get",
         "parameters": [
           {
@@ -43036,6 +43395,26 @@
           }
         },
         "summary": "Executive Overview",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/executive/strategy": {
+      "get": {
+        "description": "Strategy achievement for the current period (D-21): strategic KPIs by\nobjective and pillar, each with its evidence state, and execution apart.\n\nLists KPI, objective and pillar names, so beyond the executive permission it\nneeds card read access to them \u2014 every card is the caller's read scope, with\nhidden types left out; a card the caller cannot read is simply absent.",
+        "operationId": "executive_strategy_api_v1_reports_executive_strategy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Executive Strategy",
         "tags": [
           "reports"
         ]
