@@ -124,6 +124,8 @@ archive/
 !.claude/settings.json
 !.claude/hooks/
 !.claude/skills/
+!.claude/rules/
+!.claude/agents/
 
 # Test results
 backend/full_suite_result.txt
