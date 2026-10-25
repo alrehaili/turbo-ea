@@ -1,5 +1,19 @@
 # Progress report
 
+## Phase 3 — EA governance effectiveness: decisions recorded, plan ready (2026-10-25)
+
+**State: planning only. No application code, model, migration, API or frontend file has changed; no test or build was run.** Base: `main` at `1e5968bb` (2.36.1). Documentation changes are uncommitted.
+
+- Approved with changes: D-10, D-13, D-28, D-32, D-33, D-34, D-35, D-36. Deferred: D-11. Implementation details I-7..I-13 recorded for review. All in `DECISION_LOG.md` §3.1.
+- Still open, each blocking one later batch: D-37 (3.6), D-38 (3.3), D-39 and D-40 (3.2, parts), D-41 (3.4), D-42 (3.5).
+- Batch plan with files, tests and acceptance criteria: `PHASED_DELIVERY_PLAN.md`, Phase 3. Traceability: `REQUIREMENTS_TRACEABILITY_MATRIX.md` P3-01..P3-14.
+- **Next: Batch 3.1** (activity, assessment coverage, rule-based standards compliance GOV-03). It needs no open decision and no schema change.
+- The local database was not running during the review, so record volumes (how much history each indicator has) were not counted.
+
+### Continuation prompt (Batch 3.1)
+
+> Continue Phase 3 of the Executive Dashboard on `main` (base `1e5968bb`, v2.36.1). Do not repeat the assessment. Read `docs/executive-dashboard-implementation/DECISION_LOG.md` §3.1 (approved D-10, D-13, D-28, D-32..D-36; D-11 deferred; I-7..I-13) and `PHASED_DELIVERY_PLAN.md` "Batch 3.1", then implement Batch 3.1 exactly as specified: assessed population in `tech_standards_scan.py`, new `services/executive/governance.py`, `GET /reports/executive/governance` and the `GOV-03` drill-down, `GOV-03` in the registry and daily capture, NORA profile v12 option for `KPI.metricKey`, `ExecutiveGovernance.tsx` page with EN/AR strings, user manual and CHANGELOG / VERSION minor bump. Keep Activity, Effectiveness and Impact apart; show Not Available with its reason for every indicator whose batch is not built. Do not start Batches 3.2-3.6 (D-37..D-42 are open). One focused validation pass at the end (the batch's new and directly affected tests only); no full suites, builds, mutation tests or `npm ci`. Do not commit or push without my authorisation. Update `PROGRESS_REPORT.md` and the RTM rows P3-01..P3-03 when done.
+
 ## Current correction pass — 2026-10-25, main based on f00776f7
 
 This section supersedes older branch/working-tree and pending-test statements below;

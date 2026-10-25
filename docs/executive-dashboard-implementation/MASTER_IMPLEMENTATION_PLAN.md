@@ -30,8 +30,9 @@ FR-01..FR-20, CR-01..CR-10, SR-01..SR-09 and NFR-01..NFR-07 (`EXECUTIVE_BUSINESS
 | Confirmed from the planning briefs | 16 | C-01..C-16 |
 | **Approved 2026-10-22** | 8 | D-01, D-02, D-05, D-06, D-18, D-22, D-24, D-30 |
 | **Approved 2026-10-24** | 6 | S-08, S-12 (security); D-03, D-04, D-07, D-17 (Phase 2, with changes) |
-| Open | 19 | 18 of D-08..D-29, plus **D-31** (financial period of planned savings) |
-| Open and blocking | 7 | D-08 (Phase 5) · D-10, D-13 (Phase 3) · D-12, D-14, D-15 (Phase 4) · D-31 (Phase 1, CR-04 only) |
+| Open | — | Every row of `DECISION_LOG.md` §3 not marked approved or deferred, plus D-37..D-42 (§3.1) |
+| **Approved 2026-10-25** | 12 | D-19, D-21, D-26, D-17a (KPI history and linkage); D-10, D-13, D-28, D-32, D-33, D-34, D-35, D-36 (Phase 3, with changes) — D-11 **deferred** |
+| Open and blocking | 11 | D-08 (Phase 5) · D-37..D-42 (Phase 3 batches 3.2-3.6, see `DECISION_LOG.md` §3.1) · D-12, D-14, D-15 (Phase 4) · D-31 (Phase 1, CR-04 only) |
 
 ## 5. Document map
 
@@ -59,7 +60,7 @@ FR-01..FR-20, CR-01..CR-10, SR-01..SR-09 and NFR-01..NFR-07 (`EXECUTIVE_BUSINESS
 | Phase 0 | Remaining decisions, KPI ratification, data ownership and population | S (stakeholder time) | — |
 | Phase 1 | Preserve and baseline the uncommitted work (D-22); KPI corrections CR-01..10 on the prototype | M | D-22 step before prototype edits; D-31 for CR-04 |
 | Phase 2 | Executive navigation, CEO Overview, Decisions page, KPI history and provenance, filters, tile standard | L | Phase 1; SEC items for every reused API; D-03, D-04, D-07, D-17 |
-| Phase 3 | Governance effectiveness, decision actions | M | Phase 2; D-10, D-13 |
+| Phase 3 | Governance effectiveness in six batches: 3.1 activity, coverage, rule-based compliance · 3.2 transition history, exception lifecycle · 3.3 business calendar · 3.4 decision actions, GOV-05 · 3.5 architecture risks · 3.6 review coverage | M | Phase 2; 3.1 unblocked; 3.2 D-39/D-40 · 3.3 D-38 · 3.4 D-41 · 3.5 D-42 · 3.6 D-37 |
 | Phase 4 | Benefits register, Financial & ROI, Business Impact, traceability | L | Phases 2, 3; D-12, D-14, D-15 |
 | Phase 5 | Transformation, Services & Automation, Portfolio Health | M-L | Phase 2 + data; D-08 |
 | Phase 6 | Export, insights, accessibility, bilingual RTL QA, performance | M | Phases 2-5 |
@@ -71,6 +72,7 @@ FR-01..FR-20, CR-01..CR-10, SR-01..SR-09 and NFR-01..NFR-07 (`EXECUTIVE_BUSINESS
 3. **SEC-2** and **SEC-3** in severity order. Each is validated in CI (consolidated suites, diff coverage, mutation gates) **before deployment**.
 4. **Phase 1** in parallel once the baseline commits are authorised: the four logical units (Windows fix · responsive navigation · Executive prototype · documentation), then CR corrections (CR-04 once D-31 is decided).
 5. **Phase 2 onwards** after Phase 1, with the SEC items covering reused APIs merged.
+6. **Phase 3** starts with **Batch 3.1** (no open decision); the later batches follow as D-37..D-42 are decided (`PHASED_DELIVERY_PLAN.md`, Phase 3).
 
 ## 8. Governance of this plan
 

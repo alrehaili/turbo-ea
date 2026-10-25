@@ -100,21 +100,70 @@ Full findings and work items are in `SECURITY_REMEDIATION_PLAN.md`. The decision
 
 ## Phase 3: EA governance effectiveness
 
+Rules: `DECISION_LOG.md` §3.1 (D-10, D-13, D-28, D-32..D-36 approved with changes 2026-10-25; D-11 deferred; details I-7..I-13). Classes are never mixed: **Activity** (governance happened), **Effectiveness** (governance was acted on), **Impact** (contribution to outcomes). Anything without a defensible calculation shows **Not Available** with its reason.
+
 | Item | Content |
 |---|---|
-| Objective and scope | Governance page (GOV-01..09) with Activity / Effectiveness / Impact classes; decision implementation actions |
-| Existing components reused | ARB, ADR, ADM gates, `approval_steps`, tech-standards scan and exceptions, todos, risk mitigation occurrences, events |
-| Backend changes | Governance builders; decision-action endpoints; ADR signed-time exposure; in-scope rule setting |
-| Frontend changes | Governance page; "Actions" panel on ADR editor / preview and ARB detail (reusing the todo UI); traceability view v1 (decision → actions → initiative) |
-| Database changes | `todos.source_kind`, `todos.source_id` (+ index; workspace-transfer id-bearing rewrite) |
-| API changes | `/reports/executive/governance`, `/adr/{id}/actions`, `/arb/{id}/actions` |
-| Security considerations | Governance counts follow subject-card readability; source-permission `restricted` states |
-| Dependencies | Phase 2 (framework); D-10, D-11, D-13, D-28 |
-| Acceptance criteria | `GOVERNANCE_MEASUREMENT_MODEL.md` §6 criteria; GOV-05 end-to-end test |
-| Deliverables | PRs, tests, docs (EA delivery + Dashboard guides EN + AR) |
-| Risks | Teams not recording actions → GOV-05 "no plan"; turnaround skewed by legacy records |
-| Complexity | M |
-| Definition of completion | Merged and documented; PROGRESS = Completed |
+| Objective and scope | An EA Governance page in the Executive Dashboard that shows activity, effectiveness and impact apart; delivered in six batches, each usable on its own |
+| Existing components reused | Executive router `api/v1/executive_overview.py`, `services/executive/*` (periods, kpis tile contract, linkage, registry), `kpi_measurement_service` daily capture and verification (D-19), `metricKey` linkage (D-26), target ratification (D-17a), `tech_standards_scan.py`, ADR / ARB / exception models, Todo, risk register, `CardReadScope`, `visible_type_clause`, `ExecutiveTab` navigation |
+| Security considerations | `reports.executive_dashboard` for aggregates (D-03); record lists need the module permission (`adr.view`, `arb.view`, `tech_standards.view`, `risks.view`); module-mode `CardReadScope` with hidden types excluded before anything is counted (D-01); governance records about hidden cards omitted or redacted as their modules do (D-30); landscape-wide history only for unrestricted readers (I-5) |
+| Definition of completion | Every batch: one focused validation pass (its new and directly affected tests only), docs and translations (EN, AR) updated; PROGRESS = Completed only after the owner's commit authorisation |
+
+### Batch sequence
+
+| Batch | Scope | Blocked by | Depends on |
+|---|---|---|---|
+| **3.1** | Governance page; activity counts; assessment coverage; rule-based standards compliance (GOV-03) with drill-down; GOV-03 registered for daily capture and KPI-card linkage | — (all rules approved) | Phase 2 |
+| 3.2 | Auditable transition history for ADR, ARB, exceptions; exception states withdrawn / remediated with verified evidence; GOV-04 exception resolution; GOV-07 elapsed time | D-39 (processing time only), D-40 (remediated only) | 3.1 |
+| 3.3 | Business calendar (Sun–Thu default, holiday configuration, validity); GOV-07 working-day figures | D-38 | 3.2 |
+| 3.4 | Decision actions on ADR / ARB (Todo source link, owner, due date, evidence); implementation verification; GOV-05 with No Plan; overview tile switches to GOV-05 | D-41 | 3.2 (transition history dates the decisions) |
+| 3.5 | Architecture risks from explicit governance links; verified reduction stays Not Available | D-42 | 3.1 |
+| 3.6 | GOV-01 review coverage and GOV-09 governed vs ungoverned delivery from approved applicability | D-37 | 3.1 |
+
+Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (needs per-card compliance history); business and financial impact (Phase 4).
+
+### Batch 3.1 — Governance page, activity, coverage, rule-based compliance
+
+| Item | Content |
+|---|---|
+| Backend | `services/tech_standards_scan.py`: add the assessed population (I-8) beside the existing violations, same chain, same hidden-path cuts, existing `/tech-standards/compliance-scan` response unchanged. New `services/executive/governance.py`: **activity** for the selected period: ADRs signed (`signed_at` in period), ARB approved / rejected by latest decision date (I-12) with deferred apart, exceptions by current state (requested, approved active, expired, rejected) labelled current-state; withdrawn / remediated shown Not Available until 3.2. **Effectiveness**: GOV-03 compliance (I-9) and assessment coverage (I-10) as two figures, Unavailable per I-11; GOV-04, GOV-05, GOV-07 Not Available with their blocking decision. **Impact**: architecture risks, GOV-09, business value Not Available with reasons. `api/v1/executive_overview.py`: `GET /reports/executive/governance?period=`; drill-down `GET /reports/executive/kpi/GOV-03/drilldown` (needs `tech_standards.view`). `services/executive/registry.py`: `GOV-03` (percent, `GOV-03@1`). `kpi_measurement_service.observe_executive_metrics`: GOV-03 observation (numerator compliant, denominator assessed). `services/nora_profile.py`: profile v12 pass appending the `GOV-03` option to `KPI.metricKey` when missing (additive, admin labels untouched) |
+| Frontend | `features/dashboard/executive/ExecutiveGovernance.tsx` (three labelled sections, tile contract of `ExecutiveKpiTile`, Not Available reasons, drill-down list); `ExecutiveTab.tsx` page `governance`; overview governance tile links to it (I-7); types in `src/types/index.ts`; keys under `dashboard.executive.governancePage.*` in `en/common.json` and `ar/common.json`; `routePermissions` unchanged (same tab) |
+| Database | None. No migration; no workspace-transfer change |
+| Tests | `backend/tests/services/test_executive_governance.py` (activity dating, deferred apart, coverage vs compliance, expired waiver = violation, Unavailable cases); `backend/tests/services/test_tech_standards_scan.py` (population, hidden path cut); `backend/tests/api/test_executive_governance_api.py` (403 without `reports.executive_dashboard`; hidden card absent from every count; drill-down 403 without `tech_standards.view`; invalid period 422); capture test for GOV-03; Vitest `ExecutiveGovernance.test.tsx` (class labels, Not Available, wording never "architecture compliance") |
+| Docs | `docs/guide/dashboard.md` Executive section (EN; AR sibling); CHANGELOG + VERSION minor bump; PROGRESS / RTM rows P3-01, P3-04 |
+| Acceptance | Activity, Effectiveness, Impact rendered as separate labelled sections; compliance and coverage are separate figures; compliance is labelled rule-based technology standards compliance; no figure without a defensible calculation (Not Available + reason); a card the viewer cannot read changes no count; GOV-03 daily observations start with no backfill; a KPI card can carry `metricKey = GOV-03` and the tile shows its ratified target only |
+
+### Batch 3.2 — Transition history, exception lifecycle, GOV-04, GOV-07 elapsed
+
+| Item | Content |
+|---|---|
+| Backend | Transition events on every status change: ARB (`api/v1/arb.py`), exceptions (`api/v1/tech_standards.py`), ADR (verify the existing `adr.py` events cover draft → in_review → signed and revisions). Exception states `withdrawn`, `remediated` (verified evidence, verifier per D-40); expiry never resolves. GOV-04 counts only exceptions whose lifecycle is recorded; GOV-07 elapsed calendar days per instrument; processing time after D-39 |
+| Database | Migration on `tech_standard_exceptions` (decision / withdrawal / remediation timestamps, actors, evidence); `server_default=sa.func.now()` on any timestamp column; **workspace-transfer checklist** (`.claude/rules/workspace-transfer.md`) |
+| Acceptance | No history manufactured for earlier records (shown "lifecycle not recorded"); deferred is never final; an expired waiver with the violation still present counts as unresolved |
+
+### Batch 3.3 — Business calendar
+
+| Item | Content |
+|---|---|
+| Backend / frontend | Calendar configuration (working week, holidays per fiscal year, confirmation) in admin settings; working-day function; GOV-07 working-day variant Not Available while the period is not valid (D-28, D-38) |
+| Acceptance | Sun–Thu default; a period touching an unconfirmed year yields no working-day figure |
+
+### Batch 3.4 — Decision actions and implementation verification
+
+| Item | Content |
+|---|---|
+| Backend | Todo source link (`source_kind`, `source_id`, index), owner and due date required for decision actions, evidence per D-41; `/adr/{id}/actions`, `/arb/{id}/actions`; verification record; GOV-05 implemented / not yet verified / No Plan / overdue against the approved implementation due date |
+| Database | Migration (todo columns; verification table; implementation due date field per D-41); workspace-transfer id-bearing rewrite for the source link |
+| Frontend | Actions panel on ADR preview and ARB detail reusing the todo UI; GOV-05 tile on overview and Governance page |
+| Acceptance | `GOVERNANCE_MEASUREMENT_MODEL.md` §6 GOV-05 end-to-end test (signed → actions → evidence → independent verification → implemented); a self-verification is refused |
+
+### Batch 3.5 — Architecture risks
+
+Explicit risk ↔ governance-record links (D-42); counts of linked open risks by residual level; verified reduction Not Available.
+
+### Batch 3.6 — Review coverage and governed delivery
+
+Applicability per D-37; GOV-01 over initiatives assessed as requiring review; GOV-09 cohorts with sizes, suppressed below 5 per cohort, "contribution, not causation".
 
 ## Phase 4: Business impact, benefits realisation, ROI
 
@@ -127,7 +176,7 @@ Full findings and work items are in `SECURITY_REMEDIATION_PLAN.md`. The decision
 | Database changes | `benefits`, `benefit_cards`, `benefit_evidence`; `improvement_opportunities.realized_at`; `roiScope` tag group (data) |
 | API changes | `/benefits*`, `/reports/executive/{financial,impact}`, `/reports/executive/traceability/...` |
 | Security considerations | `benefits.*` permissions; Finance-only confirm; segregation of duties (D-29); money behind `costs.view`; audit-log kinds added in all locales |
-| Dependencies | Phase 2; Phase 3 for decision actions (implementation evidence); D-12, D-14, D-15, D-16, D-29 |
+| Dependencies | Phase 2; Phase 3 Batch 3.4 for decision actions (implementation evidence); D-12, D-14, D-15, D-16, D-29 |
 | Acceptance criteria | `BENEFITS_AND_ROI_SPECIFICATION.md` §8 criteria; IMP-01 decided-vs-executed correct on fixtures |
 | Deliverables | PRs, tests, user docs (new Benefits guide page EN + AR + nav), glossary terms |
 | Risks | Finance process not ready → register empty; attribution method not approved → ROI stays Not available (by design) |

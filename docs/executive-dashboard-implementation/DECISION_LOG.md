@@ -71,10 +71,10 @@ Narrow points not spelled out in the approvals, decided in their spirit and list
 |---|---|---|---|---|---|
 | D-08 | Service digitalization source; GovService canonical definition (`seed.py:4840` vs `nora_profile.py:4462`) | (a) new `digitalizationLevel` field; (b) derive from `deliveryChannel` | (a) explicit field; canonical = NORA profile definition | Digital Office | Phase 5 **B** |
 | D-09 | Eligible processes for automation KPIs, and the automation threshold | subtype `process` only vs all levels | subtype `process`, active only | Process Excellence | Phase 2 |
-| D-10 | EA review "in scope" rule | budget threshold / subtype / tag | subtype program or project, plus an admin budget threshold | Chief Architect | Phase 3 **B** |
-| D-11 | Early-engagement gate | ADM Architecture Vision approval vs `Initiative.startDate` vs a new investment gate | ADM gate, fallback startDate | EA Governance Office | Phase 3 |
+| D-10 | EA review "in scope" rule | budget threshold / subtype / tag | subtype program or project, plus an admin budget threshold | Chief Architect | **Approved with changes 2026-10-25, see §3.1** |
+| D-11 | Early-engagement gate | ADM Architecture Vision approval vs `Initiative.startDate` vs a new investment gate | ADM gate, fallback startDate | EA Governance Office | **Deferred 2026-10-25, see §3.1** |
 | D-12 | Benefit storage | dedicated tables vs a `Benefit` card type | dedicated tables | Solution architect + CFO | Phase 4 **B** |
-| D-13 | Decision actions | todos + `source_kind` / `source_id` vs a new table | todos extension | Chief Architect | Phase 3 **B** |
+| D-13 | Decision actions | todos + `source_kind` / `source_id` vs a new table | todos extension | Chief Architect | **Approved with changes 2026-10-25, see §3.1** |
 | D-14 | Attribution method (no fixed %) | method enum in `BENEFITS_AND_ROI_SPECIFICATION.md` §5 | Adopt the enum; Finance assesses per benefit with rationale | CFO + Chief Architect | Phase 4 **B** |
 | D-15 | ROI programme-cost scope and window | which initiatives (tag `roiScope`), EA office cost inclusion, FY vs rolling 3-FY | tag-based scope; FY plus optional rolling 3-FY | CFO | Phase 4 **B** |
 | D-16 | Technology debt index components and weights | — | Equal weights v1, reviewed after one quarter | CTO | Phase 4 |
@@ -82,6 +82,59 @@ Narrow points not spelled out in the approvals, decided in their spirit and list
 | D-23 | Summary insights | rule-based vs AI-assisted | rule-based; AI optional in Phase 6 | Product owner | Phase 6 |
 | D-25 | Milestone achievement source | derive from PPM WBS milestones vs add fields to `roadmap_milestones` | derive from WBS; add fields only for roadmap-only milestones | PMO | Phase 5 |
 | D-27 | Arabic numerals | Arabic-Indic (locale default) vs Latin digits | Stakeholder preference | Digital Office | Phase 2 |
-| D-28 | Working-day calendar for turnaround | weekdays Sun-Thu vs Mon-Fri; holidays | Sun-Thu, no holiday table v1 | EA Governance Office | Phase 3 |
+| D-28 | Working-day calendar for turnaround | weekdays Sun-Thu vs Mon-Fri; holidays | Sun-Thu, no holiday table v1 | EA Governance Office | **Approved with changes 2026-10-25, see §3.1** |
 | D-29 | Segregation of duties for benefit confirmation | — | Creator or estimator cannot confirm | CFO | Phase 4 |
 | D-31 | Financial period of rationalization planned savings (needed to apply D-24) — `assessment_decisions` and `rationalization_assessments` carry no period field | (a) FY of assessment completion (completed) or the current FY (active), via `fiscal_year_for`; (b) add an explicit period field to assessments (schema change); (c) treat planned savings as an annualised run-rate per application (period = the FY being reported) | (a) for Phase 1; revisit (b) with the benefits register in Phase 4 | App portfolio owner + CFO | Phase 1 (CR-04) **B** |
+
+### 3.1 Phase 3 — EA governance effectiveness (approved with changes 2026-10-25)
+
+The recommendations proposed earlier the same day were approved **with the owner's changes below**; where the two differ, the approved rule is the record. Nothing is implemented yet.
+
+**Code evidence** (main at `1e5968bb`) the rules rest on:
+
+- ADR (`architecture_decisions`): `draft` → `in_review` → `signed`, `signed_at` stored; linked cards in `architecture_decision_cards`. Nothing records whether a signed decision was implemented.
+- ARB (`arb_reviews`): `scheduled` / `approved` / `rejected` / `deferred`; `decided_at` is set on **any** of the three outcomes (including `deferred`) and overwritten on each change (`api/v1/arb.py:247`). No transition history or event.
+- Exceptions (`tech_standard_exceptions`): `requested` / `approved` / `rejected`; "expired" is derived at read time (`api/v1/tech_standards.py:123`); no decision timestamp, no event, no withdrawn or remediated state, and delete is a hard delete (`api/v1/tech_standards.py:470`, `:477`).
+- Compliance scan (`services/tech_standards_scan.py`): point-in-time list of cards using a `sunset` / `prohibited` standard (via TechCategory) without an approved, unexpired waiver. It returns no assessed-population count, ignores `mandate`, and keeps no history.
+- Todos have no source link (`models/todo.py`); risks have no architecture classification (`schemas/risk.py:30`) and no verified residual.
+
+#### Approved rules
+
+| ID | Approved rule | Consequence for implementation |
+|---|---|---|
+| D-10 | Which projects and initiatives require EA review is decided by **approved EA governance applicability criteria**. No budget threshold. Where applicability has not been established, coverage is **Not Available**; no project is assumed governed or in scope. | GOV-01 and GOV-09 wait for the form of the criteria (**D-37**). Until then both show Not Available. |
+| D-11 | **Deferred.** Early-engagement enforcement moves to a later phase. | GOV-02 is out of Phase 3. |
+| D-13 | Decision actions are linked to their ADR or ARB record. Every action has an **accountable owner, due date, completion status and supporting evidence**. Reuse Todo where appropriate; decision → action traceability is preserved. | Todo gains a source link; owner and due date are required for a decision action; the evidence form is **D-41**. |
+| D-28 | Sunday–Thursday is the default Saudi working week. Official holidays come from an **extensible business-calendar configuration**. No authoritative working-day KPI is produced until the applicable holiday calendar is configured. | Working-day figures show Not Available while the calendar is not valid for the period; calendar ownership and validity are **D-38**. |
+| D-32 | A decision is **implemented only when its required actions and implementation evidence have been independently verified**. No universal waiting period: an **approved implementation due date** is used where one exists. A decision without an implementation plan is classified **No Plan**, never Implemented. | Verification record, verifier authority and the due date's source are **D-41**. |
+| D-33 | **Rule-based technology standards compliance** from existing Applications, IT Components, standards and waivers. **Assessment coverage is reported separately from compliance.** Absence of detected violations is never described as full EA compliance. Visibility restrictions apply; **Unavailable** where the assessment population cannot be established reliably. | Ready for Batch 3.1; no schema change. |
+| D-34 | Exceptions distinguish **approved, rejected, expired, withdrawn and remediated**. A waiver expiring does **not** mean the violation was resolved; resolution requires **verified remediation evidence**. Lifecycle events are recorded **going forward**; no historical decision is manufactured. | Schema change (states, evidence, verifier) and events; who verifies is **D-40**. |
+| D-35 | **Auditable decision-transition history** for ADR, ARB and exceptions. **Elapsed time is distinguished from governance-controlled processing time.** ARB deferral is never a final approval or rejection. Working-day metrics only when the business calendar is valid. | Transition history first; which intervals are outside governance control is **D-39**. |
+| D-36 | Technology or resilience risks are **not** automatically EA governance risks. Only **explicit, evidenced links** or approved classification criteria qualify. **Verified risk reduction stays Not Available** until assessment and verification rules exist. | The link or criteria are **D-42**; until then architecture-risk figures are Not Available. |
+
+#### Implementation details settled within the approved rules
+
+Narrow points decided in the spirit of the approvals, listed for review (same convention as I-1..I-6):
+
+| # | Detail | Resolution |
+|---|---|---|
+| I-7 | Overview governance tile | Stays GOV-05 Not Available until GOV-05 exists; it links to the new Governance page. No other indicator is promoted into that tile. |
+| I-8 | GOV-03 assessed population | ACTIVE Application and IT Component cards readable by the viewer (module-mode `CardReadScope`, hidden types excluded) that reach a TechCategory referenced by **any** tech standard's `tech_category_id` (any radar status), through the scan's existing chain. A path through a card the viewer cannot read is cut, as the scan already does. |
+| I-9 | GOV-03 compliant | An assessed card with no unwaived use of a `sunset` / `prohibited` standard. A waiver counts only while approved and unexpired; an expired waiver is a violation. |
+| I-10 | Assessment coverage | Assessed ÷ all ACTIVE, readable Application and IT Component cards. Shown beside compliance, never multiplied into it. |
+| I-11 | When GOV-03 is Unavailable | No standard references a TechCategory; or the viewer cannot read the TechCategory, Application or IT Component type at all; or the assessed population is zero. |
+| I-12 | ARB activity dating | ARB `decided_at` is overwritten on each change, so period activity counts carry the label "latest decision date"; deferred reviews are counted apart and never as decisions. Exact transition dating starts with Batch 3.2. |
+| I-13 | GOV-03 history | Registered as metric `GOV-03` (percent) and captured daily from the day it ships, landscape-wide, under D-19. Nothing is backfilled; the trend is Not Available until verified period measurements exist. |
+
+#### Decisions still open (each blocks only the batch named)
+
+| ID | Question | Options | Recommendation | Blocks |
+|---|---|---|---|---|
+| D-37 | Form and ownership of the EA governance applicability criteria (D-10) | (a) a per-initiative assessment field `eaReviewApplicability` = required / not required / not assessed, set by holders of a governance permission against documented criteria; (b) criteria rules evaluated automatically from card attributes; (c) a tag group | **(a)**: people apply the approved criteria; "not assessed" is excluded and, if no initiative is assessed, coverage is Not Available | Batch 3.6 (GOV-01, GOV-09) |
+| D-38 | Holiday calendar ownership and validity (D-28) | (a) an admin-maintained list of official holidays per fiscal year, a period valid only when its fiscal years are marked confirmed; (b) an imported calendar file | **(a)**, maintained by the EA Governance Office; a period is valid only when every fiscal year it touches is confirmed | Batch 3.3 working-day figures |
+| D-39 | Which intervals are outside governance control (D-35) | (a) ADR in `draft`, ARB in `deferred`, exception awaiting requester information; (b) only ARB `deferred`; (c) none | **(a)**: processing time = elapsed time minus intervals in those states, both shown | Batch 3.2 processing time (elapsed time is not blocked) |
+| D-40 | Exception remediation verification and withdrawal (D-34) | Verifier: standards owner / holder of `tech_standards.approve_exception` / a new permission; whether hard delete remains | Verifier = holder of `tech_standards.approve_exception` who neither requested the exception nor recorded the remediation; requester or manager may withdraw; hard delete kept for admins only and audited | Batch 3.2 remediated state and GOV-04 |
+| D-41 | Implementation verification (D-32) and action evidence (D-13) | Verifier: new permission `governance.verify_implementation` / ADR signatories / ARB reviewer. Evidence: Todo link + card documents / a new evidence table. Due date: a field set when the ADR is signed or ARB approved / latest action due date | New permission held by no default role; the verifier owns none of the actions and did not author the decision; evidence = at least one link or document per action; due date = explicit field set at signing / approval, else the decision is shown "no due date" and not timed | Batch 3.4 (GOV-05) |
+| D-42 | Explicit link between risks and EA governance (D-36) | (a) a risk ↔ ADR / ARB / exception link table; (b) a governance-classification field on a risk with documented criteria; (c) both | **(a)**: the governance record itself is the evidence; (b) later if needed | Batch 3.5 (architecture risks) |
+
+Not decisions, recorded for clarity: business impact (benefits, financial value) stays **Not Available** until Phase 4 (D-12, D-14, D-29); GOV-09 is shown as "contribution, not causation" with cohort sizes; **repeat violations** need per-card compliance history, which nothing stores, so they are out of Phase 3.

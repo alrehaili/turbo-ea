@@ -131,3 +131,24 @@ Approved by the owner on 2026-10-25 (findings H-1–H-4, M-1, M-3, M-5 of the Ph
 | P2-24 Previous / finished periods from verified history only | D-19 | `test_previous_and_finished_period_come_only_from_verified_history` | Implemented; passed (local, 2026-10-25) |
 | P2-25 Strategy achievement: X of Y + coverage, objective/pillar drill-down, execution apart, no weights, no `Objective.progress` | D-21 | `test_strategy_tile_counts_on_target_among_measured_with_coverage`, `test_strategy_tile_is_never_zero_without_evidence`, `test_kpi_state_follows_the_evidence_order` | Implemented; passed (local, 2026-10-25). API tests added: `test_strategy_needs_the_executive_permission`, `test_strategy_counts_verified_values_against_ratified_targets`, `test_strategy_leaves_out_a_hidden_kpi_type` |
 | P2-26 KPI card performance UI; Strategy page | D-19, D-21 | `tsc` + `eslint` clean; Vitest `KpiPerformanceSection.test.tsx` (no Verify on one's own value), executive Vitest suite | Implemented; Vitest passed locally. Browser check done 2026-10-25 on a disposable database copy (EN/AR, desktop and 390 px): record, ratify, verify by a second user, correct, superseded history, viewer sees no actions; three layout/wording defects fixed (see progress report) |
+
+## Phase 3 — EA governance effectiveness (decisions 2026-10-25, not implemented)
+
+Rules in `DECISION_LOG.md` §3.1; batches in `PHASED_DELIVERY_PLAN.md` Phase 3. State is the planning state on `1e5968bb`; no code exists for any row yet.
+
+| Req | Indicator | Class | Rule | Batch | Blocking decision | Verification (planned) | State |
+|---|---|---|---|---|---|---|---|
+| P3-01 | Governance activity: ADRs signed, ARB decided (latest decision date, deferred apart), exceptions by current state | Activity | D-35, I-12 | 3.1 | — | `test_executive_governance.py` activity cases | Approved, ready |
+| P3-02 | Assessment coverage of technology standards | Effectiveness (context) | D-33, I-10, I-11 | 3.1 | — | coverage vs compliance kept apart; Unavailable cases | Approved, ready |
+| P3-03 | GOV-03 rule-based technology standards compliance + daily history + KPI-card link | Effectiveness | D-33, I-8, I-9, I-13, D-19, D-26 | 3.1 | — | scan population test; hidden-path cut; API 403 / hidden-card / drill-down permission; capture test | Approved, ready |
+| P3-04 | Auditable transition history (ADR, ARB, exceptions) | Enabler | D-35 | 3.2 | — | events per transition; no backfill | Approved, ready after 3.1 |
+| P3-05 | Exception lifecycle: withdrawn, remediated (verified evidence); GOV-04 resolution | Effectiveness | D-34 | 3.2 | D-40 | expiry never resolves; self-verification refused | Approved; remediation blocked |
+| P3-06 | GOV-07 elapsed time / processing time | Effectiveness | D-35 | 3.2 | D-39 (processing only) | deferred never final | Elapsed approved; processing blocked |
+| P3-07 | Business calendar; GOV-07 working days | Effectiveness | D-28 | 3.3 | D-38 | invalid calendar → Not Available | Blocked |
+| P3-08 | Decision actions (owner, due date, status, evidence) | Enabler | D-13 | 3.4 | D-41 (evidence form) | traceability decision → actions | Blocked |
+| P3-09 | GOV-05 decision implementation, No Plan apart | Effectiveness | D-32 | 3.4 | D-41 | `GOVERNANCE_MEASUREMENT_MODEL.md` §6 end-to-end | Blocked |
+| P3-10 | Architecture risks (explicit links); verified reduction Not Available | Impact | D-36 | 3.5 | D-42 | unlinked technology risk not counted | Blocked |
+| P3-11 | GOV-01 review coverage; GOV-09 governed vs ungoverned (contribution) | Activity / Impact | D-10 | 3.6 | D-37 | not assessed → Not Available; cohorts < 5 suppressed | Blocked |
+| P3-12 | GOV-02 early engagement | Effectiveness | D-11 | — | Deferred | — | Deferred |
+| P3-13 | Repeat violations | Effectiveness | — | — | Needs per-card compliance history | — | Out of Phase 3 |
+| P3-14 | Business / financial benefit | Impact | — | Phase 4 | D-12, D-14, D-29 | — | Not Available by design |
