@@ -27,6 +27,52 @@ MODULE_IDS = "ids of module rows, which keep their primary keys on import"
 ENUM = "a fixed status / category value stored as text"
 
 ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
+    # Fork blob audit (2026-10-25): prose stays prose, including evidence URLs.
+    # Structured executable/scoping fields are declared on their sections.
+    ("AdmWorkspaces", "description"): PROSE,
+    ("AdmPhases", "approval_comment"): PROSE,
+    ("AdmPhases", "approval_override_reason"): PROSE,
+    ("AdmPhases", "description"): PROSE,
+    ("AdmPhases", "gate_notes"): PROSE,
+    ("AdmPhases", "notes"): PROSE,
+    ("AdmPhaseArtefacts", "notes"): PROSE,
+    ("AdmPhaseArtefacts", "waived_reason"): PROSE,
+    ("Roadmaps", "description"): PROSE,
+    ("RationalizationAssessments", "description"): PROSE,
+    ("AssessmentDecisions", "notes"): PROSE,
+    ("AssessmentDecisions", "rationale"): PROSE,
+    ("AssessmentDecisions", "risk_note"): PROSE,
+    ("TechStandards", "description"): PROSE,
+    ("TechStandards", "rationale"): PROSE,
+    ("StandardExceptions", "compensating_controls"): PROSE,
+    ("StandardExceptions", "justification"): PROSE,
+    ("EaProgramDeliverables", "description"): PROSE,
+    ("EaProgramDeliverables", "evidence"): "human-entered evidence notes/URLs, not executable refs",
+    ("EaRequirements", "description"): PROSE,
+    ("ImprovementOpportunities", "description"): PROSE,
+    ("SwotEntries", "text"): PROSE,
+    ("MaturityDimensions", "description"): PROSE,
+    ("MaturityAssessments", "notes"): PROSE,
+    (
+        "MaturityDimensionScores",
+        "evidence",
+    ): "human-entered evidence notes/URLs, not executable refs",
+    ("MaturityDimensionScores", "notes"): PROSE,
+    ("NoraPlateaus", "description"): PROSE,
+    ("NoraSegments", "description"): PROSE,
+    ("NoraSegments", "related_type_keys"): KEYS,
+    ("ReferenceModels", "description"): PROSE,
+    ("ReferenceModels", "narrative"): PROSE,
+    ("ReferenceModelItems", "description"): PROSE,
+    ("ReferenceModelMappings", "rationale"): PROSE,
+    ("ReferenceModelVersions", "change_summary"): PROSE,
+    ("ReferenceModelVersions", "snapshot"): (
+        "snapshot_items stores code/parent_code, names, description and sort order; no UUID refs"
+    ),
+    ("ReferenceModelRelationships", "description"): PROSE,
+    ("ArbReviews", "decision_notes"): PROSE,
+    ("ArbReviews", "summary"): PROSE,
+    ("Scenarios", "description"): PROSE,
     ("Documents", "url"): "an external link the user entered",
     ("Comments", "content"): PROSE,
     ("Todos", "description"): PROSE,
@@ -154,6 +200,9 @@ def test_a_rewrite_and_its_columns_come_together():
 def test_the_sections_that_hold_ids_are_the_known_ones():
     declared = {s.sheet: s.id_bearing_columns for s in ENTITY_SECTIONS if s.id_bearing_columns}
     assert declared == {
+        "AdmPhaseArtefacts": ("ref_id", "ref_url"),
+        "Roadmaps": ("config",),
+        "ScenarioChanges": ("baseline", "payload"),
         "Todos": ("link",),
         "Diagrams": ("data",),
         "ProcessDiagrams": ("bpmn_xml",),
@@ -162,7 +211,7 @@ def test_the_sections_that_hold_ids_are_the_known_ones():
         "ComplianceFindings": ("finding_key",),
         "SavedReports": ("config",),
         "Bookmarks": ("filters",),
-        "WebPortals": ("filters",),
+        "WebPortals": ("filters", "tiles"),
         "Surveys": ("target_filters",),
         "SurveyResponses": ("responses",),
     }

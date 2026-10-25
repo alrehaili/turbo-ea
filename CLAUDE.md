@@ -92,6 +92,7 @@ Each of these loads automatically when you touch its files; read it first when y
 - Grids, sidebars, layout patterns and the full design system: `frontend/UI_GUIDELINES.md`.
 
 ### Internationalization (i18n)
+- **Fork override: EN/AR only.** `frontend/src/i18n/index.ts` is the runtime locale registry. `scripts/i18n/check_locales.py` derives its targets from that registry; dormant upstream locale files are preserved but are not translation obligations. Arabic zero/one/two forms may express count grammatically; other placeholders and variable-count forms remain strict. This overrides upstream ten-locale guidance below and in the translator workflow for this fork.
 - **All user-facing strings must use translation keys**, never hardcoded English text. Use `useTranslation()` from `react-i18next` with the appropriate namespace.
 - **14 namespaces**: `common`, `auth`, `nav`, `inventory`, `cards`, `reports`, `admin`, `bpm`, `ppm`, `diagrams`, `delivery`, `grc`, `notifications`, `validation`. Use the namespace that matches the feature area.
 - **10 supported locales**: `en` (English, baseline), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese), `zh` (Chinese Simplified), `ru` (Russian), `da` (Danish), `ar` (Arabic — **right-to-left**; see `RTL_LOCALES` / `isRtlLocale` in `frontend/src/i18n/index.ts`). Components built on third-party widgets that don't inherit the document `dir` (AG Grid, Recharts) must opt into RTL themselves via the `useIsRtl()` hook (`frontend/src/hooks/useIsRtl.ts`).

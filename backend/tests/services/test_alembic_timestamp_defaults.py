@@ -25,6 +25,15 @@ import pytest
 
 _VERSIONS = Path(__file__).resolve().parents[2] / "alembic" / "versions"
 
+# These published migrations are immutable. Migration 1165 repairs the missing
+# defaults on upgrade; its integration test checks actual DDL and data safety.
+_REPAIRED = {
+    "1154_add_viewpoint_definitions_table.py",
+    "1155_add_reference_model_mappings.py",
+    "1157_add_reference_model_versions.py",
+    "1159_add_reference_model_relationships.py",
+}
+
 _COLUMN_START = re.compile(r'sa\.Column\(\s*"(created_at|updated_at)"')
 
 
@@ -79,6 +88,9 @@ class TestEveryMigrationDeclaresTimestampDefaults:
     def test_timestamp_columns_carry_a_server_default(self, path: Path):
         source = path.read_text(encoding="utf-8")
         missing = [name for name, call in _column_calls(source) if "server_default" not in call]
+        if path.name in _REPAIRED:
+            assert missing == ["created_at", "updated_at"]
+            return
         assert not missing, (
             f"{path.name} creates {missing} without server_default. The model reads "
             "these from TimestampMixin's server default and omits them from the "

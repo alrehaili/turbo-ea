@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Find and fill translation gaps against the English source of truth.
 
-English is authored by the implementation session; the nine other locales are
-filled afterwards by the ``/translate`` skill (``.claude/skills/translate``),
-which drives this script. Stdlib only, like ``scripts/check_deploy_versions.py``.
+English is the source; enabled non-English locales come from the frontend's
+SUPPORTED_LOCALES registry (EN/AR in this fork). Dormant upstream locales are
+not required. Stdlib only, like ``scripts/check_deploy_versions.py``.
 
     python scripts/i18n/check_locales.py report [--base origin/main] [--json]
     python scripts/i18n/check_locales.py todo <locale> --out <file.json>
@@ -35,10 +35,17 @@ LOCALES_DIR = REPO / "frontend" / "src" / "i18n" / "locales"
 DOCS_DIR = REPO / "docs"
 PAGES_TS = REPO / "scripts" / "screenshots" / "pages.ts"
 
-TARGET_LOCALES = ("de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar")
+# The fork's runtime registry is authoritative; dormant upstream translations
+# on disk must not turn an EN/AR validation into a nine-language translation job.
+_RUNTIME = (REPO / "frontend/src/i18n/index.ts").read_text(encoding="utf-8")
+_SUPPORTED = re.search(r"SUPPORTED_LOCALES\s*=\s*(\[[^\]]+\])", _RUNTIME)
+if _SUPPORTED is None:
+    raise ValueError("Cannot read the frontend's supported locales")
+SUPPORTED_LOCALES = tuple(json.loads(_SUPPORTED.group(1)))
+TARGET_LOCALES = tuple(loc for loc in SUPPORTED_LOCALES if loc != "en")
 # Locales that carry their own screenshot filenames in pages.ts; da and ar fall
 # back to the entry id on purpose.
-SCREENSHOT_LOCALES = ("en", "de", "fr", "es", "it", "pt", "zh", "ru")
+SCREENSHOT_LOCALES = tuple(loc for loc in SUPPORTED_LOCALES if loc not in {"da", "ar"})
 PLURAL_SUFFIXES = ("zero", "one", "two", "few", "many", "other")
 # Plural categories a locale may carry beyond English's (CLDR).
 EXTRA_PLURALS = {"ru": {"few", "many"}, "ar": {"zero", "two", "few", "many"}}
@@ -84,6 +91,18 @@ def placeholders(value: object) -> set[str]:
     return set(_PLACEHOLDER.findall(value))
 
 
+def placeholders_match(locale: str, key: str, english: object, translated: object) -> bool:
+    """Arabic zero/one/two forms encode the count in their grammar.
+
+    Only omission of ``count`` is allowed for those exact-count forms. Other
+    placeholders, and variable-count few/many/other forms, remain strict.
+    """
+    expected, actual = placeholders(english), placeholders(translated)
+    if locale == "ar" and plural_base(key)[1] in {"zero", "one", "two"}:
+        return expected == actual or (expected - {"count"} == actual)
+    return expected == actual
+
+
 def plural_base(key: str) -> tuple[str, str | None]:
     """Split ``count_other`` into ``("count", "other")``; ``("x", None)`` otherwise."""
     match = _PLURAL.match(key)
@@ -118,7 +137,7 @@ def diff_locale(en: dict, loc: dict, locale: str) -> dict[str, list]:
         other = loc_flat[path]
         if isinstance(other, str) and not other.strip():
             result["empty"].append(path)
-        elif placeholders(value) != placeholders(other):
+        elif not placeholders_match(locale, path[-1], value, other):
             result["placeholder"].append(path)
     for path in loc_flat:
         if path not in en_flat and not is_locale_extra(locale, path, en_flat):
@@ -134,11 +153,11 @@ def fr_carte_violation(value: str) -> bool:
     return bool(_CARTE.search(text))
 
 
-def validate_value(locale: str, en_value: str, value: object) -> str | None:
+def validate_value(locale: str, en_value: str, value: object, key: str = "") -> str | None:
     """Why a translated value must be refused, or None when it may be applied."""
     if not isinstance(value, str) or not value.strip():
         return "empty value"
-    if placeholders(value) != placeholders(en_value):
+    if not placeholders_match(locale, key, en_value, value):
         return (
             f"placeholders {sorted(placeholders(value))} differ from English "
             f"{sorted(placeholders(en_value))}"
@@ -279,7 +298,8 @@ def english_at(base: str, ns: str) -> dict | None:
 
 def doc_pages() -> tuple[list[Path], set[Path]]:
     """English doc pages (no locale suffix) and every file under docs/."""
-    suffixes = tuple(f".{loc}" for loc in TARGET_LOCALES) + (".en",)
+    # Dormant translations are still translated pages, never English sources.
+    suffixes = tuple(f".{p.name}" for p in LOCALES_DIR.iterdir() if p.is_dir())
     all_md = set(DOCS_DIR.rglob("*.md"))
     english = sorted(p for p in all_md if not p.stem.endswith(suffixes))
     return english, all_md
@@ -419,7 +439,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
         except KeyError:
             errors.append(f"{full_key}: no such English key")
             continue
-        problem = validate_value(locale, str(en_flat[path]), value)
+        problem = validate_value(locale, str(en_flat[path]), value, path[-1])
         if problem:
             errors.append(f"{full_key}: {problem}")
             continue

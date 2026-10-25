@@ -29,6 +29,7 @@ const NAMESPACES = [
   "ppm",
   "notifications",
   "validation",
+  "adm",
 ] as const;
 
 // [FORK] EN + AR only — the other upstream locale files stay on disk but are
@@ -41,7 +42,16 @@ const LOCALES = ["en", "ar"] as const;
 
 /** Retrieve the resource bundle for a given locale + namespace from the i18n store. */
 function getResource(locale: string, ns: string): Record<string, string> {
-  return (i18n.store.data[locale]?.[ns] as Record<string, string>) ?? {};
+  return flattenResource((i18n.store.data[locale]?.[ns] as Record<string, unknown>) ?? {});
+}
+
+function flattenResource(resource: Record<string, unknown>, prefix = ""): Record<string, string> {
+  return Object.fromEntries(Object.entries(resource).flatMap(([key, value]) => {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    return typeof value === "string"
+      ? [[fullKey, value]]
+      : Object.entries(flattenResource(value as Record<string, unknown>, fullKey));
+  }));
 }
 
 /** Extract all keys from a flat JSON resource object. */
@@ -168,7 +178,12 @@ describe("Interpolation placeholders are preserved", () => {
           const enPlaceholders = extractPlaceholders(enValue);
           const localePlaceholders = extractPlaceholders(localeValue);
 
-          if (JSON.stringify(enPlaceholders) !== JSON.stringify(localePlaceholders)) {
+          // Arabic exact-count forms express zero/one/two grammatically.
+          // Only count may be omitted; all other interpolation stays strict.
+          const expected = locale === "ar" && /_(zero|one|two)$/.test(key)
+            && !localePlaceholders.includes("count")
+            ? enPlaceholders.filter((name) => name !== "count") : enPlaceholders;
+          if (JSON.stringify(expected) !== JSON.stringify(localePlaceholders)) {
             mismatches.push(
               `  "${key}": en has {{${enPlaceholders.join(", ")}}}, ` +
                 `${locale} has {{${localePlaceholders.join(", ")}}}`,

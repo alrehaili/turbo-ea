@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import html
 import re
+import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -737,6 +738,62 @@ def rewrite_portal_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTall
         if "tag_ids" in out:
             out["tag_ids"] = map_id_list(out["tag_ids"], ctx.ids.tags, tally)
         kwargs["filters"] = _walk_unknown_keys(out, {"tag_ids", "card_filters"}, ctx.ids, tally)
+    if isinstance(kwargs.get("tiles"), list):
+        kwargs["tiles"] = [
+            {
+                **section,
+                "tiles": [
+                    {**tile, "target": _rewrite_local_link(tile.get("target"), ctx.ids, tally)}
+                    if isinstance(tile, dict) and "target" in tile
+                    else tile
+                    for tile in section.get("tiles", [])
+                ],
+            }
+            if isinstance(section, dict) and isinstance(section.get("tiles"), list)
+            else section
+            for section in kwargs["tiles"]
+        ]
+    return tally
+
+
+def rewrite_scenario_change_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    """Keep executable deltas and drift baselines attached to the imported cards.
+
+    Module ids stay unchanged. Known relation endpoints/removal ids are explicit
+    so an unresolved reference is reported rather than silently ignored.
+    """
+    tally = RewriteTally()
+    payload = kwargs.get("payload")
+    if isinstance(payload, dict):
+        out = dict(payload)
+        for key in ("source_id", "target_id", "parent_id"):
+            if key in out:
+                out[key] = map_id(out[key], ctx.ids.cards, tally)
+        if "relation_id" in out:
+            out["relation_id"] = map_id(out["relation_id"], ctx.ids.relations, tally)
+        explicit = {"source_id", "target_id", "parent_id", "relation_id"}
+        kwargs["payload"] = {
+            key: value
+            if key in explicit
+            else replace_mapped_ids(value, (ctx.ids.cards, ctx.ids.tags), tally)
+            for key, value in out.items()
+        }
+    if "baseline" in kwargs:
+        kwargs["baseline"] = replace_mapped_ids(
+            kwargs["baseline"], (ctx.ids.cards, ctx.ids.tags), tally
+        )
+    return tally
+
+
+def rewrite_adm_artefact_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    """Only card-kind soft FKs change; module artefacts preserve their UUIDs."""
+    tally = RewriteTally()
+    if kwargs.get("kind") == "card" and kwargs.get("ref_id") is not None:
+        original = kwargs["ref_id"]
+        mapped = map_id(original, ctx.ids.cards, tally)
+        kwargs["ref_id"] = uuid.UUID(str(mapped)) if isinstance(original, uuid.UUID) else mapped
+    if "ref_url" in kwargs:
+        kwargs["ref_url"] = _rewrite_local_link(kwargs["ref_url"], ctx.ids, tally)
     return tally
 
 
@@ -807,6 +864,13 @@ def rewrite_survey_response_row(kwargs: dict[str, Any], ctx: RemapContext) -> Re
 
 # In-app paths whose segment after the prefix is a card id.
 _CARD_LINK_PREFIXES = ("/cards/", "/ppm/")
+
+
+def _rewrite_local_link(link: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    # Absolute/external links deliberately continue to name their source site.
+    if isinstance(link, str) and link.startswith("/") and not link.startswith("//"):
+        return rewrite_link(link, ids, tally)
+    return link
 
 
 def rewrite_link(link: Any, ids: IdMap, tally: RewriteTally) -> Any:

@@ -38,6 +38,72 @@ def _ctx(**kw) -> rm.RemapContext:
     return rm.RemapContext(ids=kw.pop("ids", _ids()), **kw)
 
 
+def test_scenario_deltas_and_baselines_follow_card_relation_and_tag_ids():
+    kw = {
+        "op": "remove_relation",
+        "payload": {
+            "source_id": OLD_A,
+            "target_id": OLD_B,
+            "relation_id": OLD_REL,
+            "attributes": {"related": [OLD_A], "tag": OLD_TAG},
+            "description": f"Keep prose about {OLD_A}",
+        },
+        "baseline": {"attributes": {"related": OLD_B}, "existed": True},
+    }
+    rm.rewrite_scenario_change_row(kw, _ctx())
+    assert kw["payload"]["source_id"] == NEW_A
+    assert kw["payload"]["target_id"] == NEW_B
+    assert kw["payload"]["relation_id"] == NEW_REL
+    assert kw["payload"]["attributes"] == {"related": [NEW_A], "tag": NEW_TAG}
+    assert kw["payload"]["description"] == f"Keep prose about {OLD_A}"
+    assert kw["baseline"] == {"attributes": {"related": NEW_B}, "existed": True}
+
+
+def test_portal_tiles_rewrite_local_card_links_but_preserve_external_and_module_links():
+    external = f"https://source.example/cards/{OLD_A}"
+    kw = {
+        "tiles": [
+            {
+                "title": "Hub",
+                "tiles": [
+                    {"label": "Card", "target": f"/cards/{OLD_A}"},
+                    {"target": external},
+                    {"target": f"/diagrams/{OLD_C}"},
+                ],
+            }
+        ]
+    }
+    rm.rewrite_portal_row(kw, _ctx())
+    targets = [t["target"] for t in kw["tiles"][0]["tiles"]]
+    assert targets == [f"/cards/{NEW_A}", external, f"/diagrams/{OLD_C}"]
+
+
+def test_adm_card_soft_fk_changes_but_module_soft_fk_does_not():
+    for kind, expected in (("card", NEW_A), ("diagram", OLD_A)):
+        kw = {"kind": kind, "ref_id": uuid.UUID(OLD_A), "ref_url": f"/cards/{OLD_B}"}
+        rm.rewrite_adm_artefact_row(kw, _ctx())
+        assert kw["ref_id"] == uuid.UUID(expected)
+        assert kw["ref_url"] == f"/cards/{NEW_B}"
+
+
+def test_roadmap_config_translates_scopes_without_repainting_type_or_group_keys():
+    kw = {
+        "config": {
+            "type": "Application",
+            "group_by": "BusinessCapability",
+            "scopeIds": [OLD_A],
+            "tagFilterIds": [OLD_TAG],
+        }
+    }
+    rm.rewrite_saved_report_row(kw, _ctx())
+    assert kw["config"] == {
+        "type": "Application",
+        "group_by": "BusinessCapability",
+        "scopeIds": [NEW_A],
+        "tagFilterIds": [NEW_TAG],
+    }
+
+
 # ── canonical_uuid / IdMap ──────────────────────────────────────────────────
 
 

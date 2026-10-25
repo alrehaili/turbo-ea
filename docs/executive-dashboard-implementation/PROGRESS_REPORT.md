@@ -1,5 +1,86 @@
 # Progress report
 
+## Current correction pass — 2026-10-25, main based on f00776f7
+
+This section supersedes older branch/working-tree and pending-test statements below;
+those entries remain historical records. Independent validation of `f00776f7` ran
+1,179 tests: **1,167 passed, 12 failed, 0 skipped**, with no new Executive Dashboard
+behavioral regression. Later historical entries already record successful Phase 2
+validation; early "not run" entries do not mean the tests were never subsequently run.
+
+The user authorized corrections of those failures only, on `main`, without a branch,
+commit, push, full suite, mutation testing, build or dependency reinstall. No new
+Executive Dashboard phase, KPI formula or approved decision changes are included.
+
+### Corrections (2.36.1, uncommitted)
+
+| Root cause | Correction and safety boundary |
+|---|---|
+| Four migrations omitted timestamp defaults | New **1165**, after 1164, installs `now()` only on missing timestamp defaults in `viewpoint_definitions`, `reference_model_mappings`, `reference_model_versions`, `reference_model_relationships`. Published 1154/1155/1157/1159 are unchanged. Existing values, types, nullability and custom defaults are preserved. Downgrade retains the additive repair, as 151 does. The recurrence guard recognizes only these four explicitly repaired historical migrations. |
+| Executive permission absent from complete default-role maps | BPM Admin, Member and Viewer explicitly **deny** `reports.executive_dashboard`; Admin keeps its existing wildcard. No executive access is granted automatically or existing custom role grant revoked. |
+| Missing fork route policies and stale permission expectations | 84 routes receive inventory/report/module policies; reference-model management matches its nav's manage authority. Two public viewpoint catalogue routes are explicitly ungated; their destination pages retain their own gates. Tests read the backend permission registry, including `adm.view`, instead of a hand-kept subset. |
+| Upstream locale guard assumed nine non-English languages | Checker derives targets from the runtime EN/AR registry; dormant translations remain unchanged. Two genuinely missing Arabic governance labels are added. Eight singular differences express count grammatically: only count omission in exact zero/one/two forms is permitted; other placeholders and variable-count forms remain strict. Frontend parity also checks nested labels and ADM. |
+| 44 transfer blobs lacked classification | Five receive reference rewriting; 39 receive individually justified exemptions. The adjacent ADM card-kind soft FK is repaired too. Module UUIDs, prose and external source URLs are preserved. |
+
+### Transfer audit of the 44 fields
+
+| Fields | Treatment |
+|---|---|
+| `ScenarioChanges.payload`, `.baseline` | Remap relation-operation endpoints/removal ids and embedded card/tag references; deltas and drift checks must name the imported landscape. |
+| `Roadmaps.config` | Current UI stores type/group keys; the API accepts a configuration bag, so reuse report remapping defensively for card/tag scopes. |
+| `WebPortals.tiles` | Rewrite local card links in targets; preserve labels, external URLs and module links. |
+| `AdmPhaseArtefacts.ref_url` | Rewrite local card links; preserve external URLs. Also remap the adjacent `ref_id` only for `kind="card"`; module artefacts keep their UUIDs. |
+| 37 prose/evidence fields | Preserve descriptions, notes, rationale, evidence and narratives verbatim. UUID mentions in historical prose are not executable references. Exhaustive exemptions and reasons are in `test_workspace_io_id_bearing_columns.py`. |
+| `NoraSegments.related_type_keys` | Metamodel keys, not instance-local UUIDs. |
+| `ReferenceModelVersions.snapshot` | `snapshot_items()` stores code/parent_code, names, description and sort order; no card/relation/tag references. |
+
+No table/column or on-disk bundle shape is added; workspace format remains **1**.
+New rewriters use existing source-id maps, preview and conservative healing rules.
+Legacy bundles without source-id maps retain existing unresolved-reference behavior.
+
+### Post-correction validation
+
+One post-correction pass completed under the normal configurations, using local
+PostgreSQL `turboea_test` with `TEST_DB_REQUIRED=1`. **All 12 original failing cases
+pass. No tests were retried.**
+
+| Focused check | Passed | Failed | Skipped |
+|---|---:|---:|---:|
+| Backend: original feature/security/compatibility selection plus new migration and transfer regressions | 1,053 | 0 | 0 |
+| Frontend: executive components, KPI section, Dashboard, route policies/guard and EN/AR parity | 221 | 0 | 0 |
+| Total | **1,274** | **0** | **0** |
+
+The migration regression exercises actual corrective PostgreSQL DDL against isolated
+tables, preserves existing rows/custom defaults, repeats the upgrade and verifies inserts
+without explicit timestamps still work after downgrade. It does not substitute
+`create_all` for migration validation. Transfer regressions cover preview/apply count
+agreement, card/relation remapping, stable module ids/prose/external URLs and repeat-import
+idempotency; the existing transfer remap unit/integration selections also pass.
+
+Additional checks: Ruff formatting/lint on changed Python files and ESLint on changed
+TypeScript files pass; `git diff --check` is clean; Alembic has one head, **1165**;
+`check_locales.py report --base f00776f7` exits 0 with **0 fatal UI gaps**. Nonfatal
+documentation/suspect-value observations are not UI failures. No full suites, mutation
+testing, build, `npm ci`, browser run, commit or push was performed. Test-only warnings
+remain (short fixture JWT key; Recharts dimensions in jsdom); they are not failures.
+
+### File inventory
+
+| Area | Changed files |
+|---|---|
+| Additive DB repair | `backend/alembic/versions/1165_fork_timestamp_defaults.py` (new); `backend/tests/services/test_alembic_timestamp_defaults.py`; `backend/tests/services/test_alembic_1165_timestamp_defaults.py` (new) |
+| Least-privilege defaults | `backend/app/core/permissions.py`; `backend/tests/core/test_permissions.py` |
+| Route coverage | `frontend/src/lib/routePermissions.ts`; `frontend/src/lib/routePermissions.test.ts` |
+| EN/AR checks and labels | `scripts/i18n/check_locales.py`; `backend/tests/services/test_check_locales.py`; `frontend/src/i18n/i18n.test.ts`; `frontend/src/i18n/locales/ar/grc.json`; fork override in `CLAUDE.md` |
+| Transfer classification/rewriting | `backend/app/services/workspace_io/remap.py`; `backend/app/services/workspace_io/sections.py`; `backend/tests/services/test_workspace_io_id_bearing_columns.py`; `backend/tests/services/test_workspace_io_remap.py`; `backend/tests/services/test_workspace_io_fork_blob_roundtrip.py` (new) |
+| Release/progress record | `VERSION` (2.36.1); `CHANGELOG.md`; this progress report |
+
+Migration 1165 is provided for deployment, not applied to a development/production
+workspace. Finance currency verification, D-31, disabled fork GitHub Actions and
+phase-wide browser/release validation remain outside this correction pass.
+
+---
+
 **Reporting date:** 2026-10-24 (updated after the SEC-1 to SEC-3 implementation, the Phase 1 security preparation, the final integration, and the Phase 1 KPI-correctness implementation)
 **Rule:** planning documents do not count as implementation. A track or phase becomes *Completed* only when its definition of completion in `PHASED_DELIVERY_PLAN.md` is met (merged, tested, documented). **The Security Remediation Track is implemented and committed but not yet run in CI. Phase 1 (KPI correctness) is functionally implemented, including the review corrections, and uncommitted, with focused local tests only. D-31 and currency verification remain open.**
 

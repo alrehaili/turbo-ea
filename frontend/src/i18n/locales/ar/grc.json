@@ -9,6 +9,8 @@
     "compliance": "الامتثال"
   },
   "governance": {
+    "referenceModels": "النماذج المرجعية",
+    "sources": { "label": "المصادر" },
     "subtabs": {
       "principles": "المبادئ",
       "standards": "المعايير",

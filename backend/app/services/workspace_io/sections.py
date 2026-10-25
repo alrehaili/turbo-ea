@@ -292,10 +292,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # verbatim. ``initiative_id`` points at a card and is remapped via
     # ``card_fk_columns``. Artefact ``ref_id`` is a soft FK dispatched by
     # ``kind`` at the API layer; when the referenced entity is a card the
-    # remap needs to happen too, but for the MVP we accept that a workspace
-    # transfer will leave ``kind='card'`` refs pointing at the old UUIDs.
-    # A follow-up should extend :class:`EntitySection` with a
-    # ``polymorphic_ref`` hook to cover this correctly.
+    # remap dispatches by kind; module references keep their source UUIDs.
     EntitySection(
         "AdmWorkspaces",
         AdmWorkspace,
@@ -311,9 +308,17 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "AdmPhaseArtefacts",
         AdmPhaseArtefact,
         user_fk_columns=("waived_by", "linked_by"),
+        rewrite=remap.rewrite_adm_artefact_row,
+        id_bearing_columns=("ref_id", "ref_url"),
     ),
     # --- Transformation roadmaps (roadmap before its milestones) ---------
-    EntitySection("Roadmaps", Roadmap, user_fk_columns=("owner_id",)),
+    EntitySection(
+        "Roadmaps",
+        Roadmap,
+        user_fk_columns=("owner_id",),
+        rewrite=remap.rewrite_saved_report_row,
+        id_bearing_columns=("config",),
+    ),
     EntitySection("RoadmapMilestones", RoadmapMilestone, card_fk_columns=("initiative_id",)),
     # --- Rationalization (assessment before its decisions) -----------------
     EntitySection(
@@ -433,7 +438,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     ),
     # --- Scenario planning (scenario before its changes) -----------------
     EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),
-    EntitySection("ScenarioChanges", ScenarioChange, card_fk_columns=("target_card_id",)),
+    EntitySection(
+        "ScenarioChanges",
+        ScenarioChange,
+        card_fk_columns=("target_card_id",),
+        rewrite=remap.rewrite_scenario_change_row,
+        id_bearing_columns=("baseline", "payload"),
+    ),
     # --- Saved views + surveys -------------------------------------------
     # Report scopes and filters, survey targets, portal and bookmark tag
     # filters all hold card or tag ids.
@@ -456,7 +467,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         WebPortal,
         user_fk_columns=("created_by",),
         rewrite=remap.rewrite_portal_row,
-        id_bearing_columns=("filters",),
+        id_bearing_columns=("filters", "tiles"),
     ),
     EntitySection(
         "Surveys",

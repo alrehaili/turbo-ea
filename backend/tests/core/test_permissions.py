@@ -148,6 +148,11 @@ class TestPermissionMappings:
 
 
 class TestRolePermissionSets:
+    def test_executive_reporting_is_opt_in_for_non_admin_defaults(self):
+        for permissions in (BPM_ADMIN_PERMISSIONS, MEMBER_PERMISSIONS, VIEWER_PERMISSIONS):
+            assert permissions["reports.executive_dashboard"] is False
+        assert ADMIN_PERMISSIONS["*"] is True
+
     @pytest.mark.parametrize(
         "role_perms,role_name",
         [

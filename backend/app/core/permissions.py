@@ -615,6 +615,8 @@ def validate_type_role_permissions(
 ADMIN_PERMISSIONS: dict[str, bool] = {"*": True}
 
 BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
+    # Executive aggregates require a deliberate grant, even for a module admin.
+    "reports.executive_dashboard": False,
     "inventory.view": True,
     "inventory.create": True,
     "inventory.edit": True,
@@ -722,6 +724,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
 }
 
 MEMBER_PERMISSIONS: dict[str, bool] = {
+    # Inventory membership does not grant executive reporting access.
+    "reports.executive_dashboard": False,
     "inventory.view": True,
     "inventory.create": True,
     "inventory.edit": True,
@@ -827,6 +831,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
 }
 
 VIEWER_PERMISSIONS: dict[str, bool] = {
+    # Read-only inventory access does not grant executive reporting access.
+    "reports.executive_dashboard": False,
     "inventory.view": True,
     "inventory.create": False,
     "inventory.edit": False,

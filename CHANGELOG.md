@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.36.1] - 2026-10-25
+
+### Fixed
+- Restore missing database timestamp defaults on upgraded viewpoint and reference-model tables without changing existing records.
+- Apply explicit permission policies to fork pages while keeping executive reporting opt-in for non-admin roles.
+- Preserve scenario references, roadmap scopes, ADM card artefacts and local portal links when transferring a workspace.
+- Complete two Arabic governance labels and align locale validation with the fork's English/Arabic policy.
+
 ## [2.36.0] - 2026-10-25
 
 ### Added

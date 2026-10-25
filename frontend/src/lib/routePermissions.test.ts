@@ -13,85 +13,18 @@ import {
   permissionForPath,
 } from "./routePermissions";
 
-/**
- * Mirrors the app-level keys in `backend/app/core/permissions.py`. Hand-kept,
- * exactly like the pinned locale list in `i18n.test.ts` — a typo in the table
- * would otherwise be silently fail-closed and lock everyone out of a page.
- */
-const KNOWN_PERMISSIONS = new Set([
-  "admin.events",
-  "admin.export_workspace",
-  "admin.impersonate",
-  "admin.import_workspace",
-  "admin.manage_extensions",
-  "admin.mcp",
-  "admin.metamodel",
-  "admin.migrate",
-  "admin.roles",
-  "admin.settings",
-  "admin.todos",
-  "admin.users",
-  "adr.delete",
-  "adr.manage",
-  "adr.sign",
-  "adr.view",
-  "ai.suggest",
-  "bpm.approve_flows",
-  "bpm.assessments",
-  "bpm.edit",
-  "bpm.manage_drafts",
-  "bpm.view",
-  "bpm.withdraw_flows",
-  "bookmarks.manage",
-  "comments.create",
-  "comments.manage",
-  "compliance.manage",
-  "compliance.view",
-  "costs.view",
-  "diagrams.manage",
-  "diagrams.publish",
-  "diagrams.view",
-  "documents.manage",
-  "documents.view",
-  "eol.manage",
-  "eol.view",
-  "grc.manage",
-  "grc.view",
-  "inventory.approval_status",
-  "inventory.archive",
-  "inventory.bulk_edit",
-  "inventory.create",
-  "inventory.delete",
-  "inventory.edit",
-  "inventory.export",
-  "inventory.quality_seal",
-  "inventory.view",
-  "notifications.manage",
-  "ppm.manage",
-  "ppm.view",
-  "relations.manage",
-  "reports.bpm_dashboard",
-  "reports.ea_dashboard",
-  "reports.portfolio",
-  "reports.ppm_dashboard",
-  "risks.manage",
-  "risks.view",
-  "saved_reports.create",
-  "servicenow.manage",
-  "servicenow.view",
-  "soaw.manage",
-  "soaw.sign",
-  "soaw.view",
-  "stakeholders.manage",
-  "surveys.manage",
-  "surveys.respond",
-  "tags.manage",
-  "turbolens.manage",
-  "turbolens.view",
-  "users.view",
-  "web_portals.manage",
-  "web_portals.view",
-]);
+// Read the canonical backend registry rather than a hand-kept subset that
+// silently goes stale when fork modules add permissions (e.g. adm.view).
+const permissionSource = fs.readFileSync(
+  path.resolve(__dirname, "../../../backend/app/core/permissions.py"), "utf-8",
+);
+const appRegistry = permissionSource.slice(
+  permissionSource.indexOf("APP_PERMISSIONS:"),
+  permissionSource.indexOf("ALL_APP_PERMISSION_KEYS:"),
+);
+const KNOWN_PERMISSIONS = new Set(
+  [...appRegistry.matchAll(/"([a-z_]+\.[a-z_]+)"\s*:/g)].map((m) => m[1]),
+);
 
 describe("permissionForPath", () => {
   it("is undefined for a path the table does not gate", () => {
@@ -145,6 +78,28 @@ describe("canAccessPath", () => {
 });
 
 describe("parity", () => {
+  it("keeps fork workspace and report reads fail-closed", () => {
+    const policies = [
+      ["/ea-delivery/adm", "adm.view"],
+      ["/reference-models/manage", "reference_models.manage"],
+      ["/reference-models/business", "reference_models.view"],
+      ["/nora-program", "nora.view"],
+      ["/maturity", "maturity.view"],
+      ["/scenarios", "scenarios.view"],
+      ["/reports/process-map", "reports.bpm_dashboard"],
+      ["/reports/exceptions-waivers", "tech_standards.view"],
+      ["/reports/strategy-map", "reports.ea_dashboard"],
+      ["/layers/business", "inventory.view"],
+      ["/layers/security", "risks.view"],
+    ];
+    for (const [route, permission] of policies) {
+      expect(permissionForPath(route)).toBe(permission);
+      expect(canAccessPath({}, route)).toBe(false);
+      expect(canAccessPath({ [permission]: true }, route)).toBe(true);
+    }
+  });
+
+
   /**
    * Every route declared in the authenticated table has to be either gated or
    * explicitly listed as ungated. A new route added without a decision fails

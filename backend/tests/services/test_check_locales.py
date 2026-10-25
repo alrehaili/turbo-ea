@@ -187,3 +187,20 @@ def test_repository_locales_have_no_fatal_gaps():
         for locale in cl.TARGET_LOCALES:
             result = cl.diff_locale(en, cl.load(locale, ns), locale)
             assert not result["missing"], (locale, ns, result["missing"][:5])
+            assert not result["placeholder"], (locale, ns, result["placeholder"][:5])
+            assert not result["empty"], (locale, ns, result["empty"][:5])
+
+
+def test_fork_checks_only_runtime_locales():
+    assert cl.SUPPORTED_LOCALES == ("en", "ar")
+    assert cl.TARGET_LOCALES == ("ar",)
+    assert cl.SCREENSHOT_LOCALES == ("en",)
+
+
+def test_arabic_exact_count_forms_keep_other_placeholders_strict():
+    for suffix in ("zero", "one", "two"):
+        assert cl.placeholders_match("ar", f"items_{suffix}", "{{count}} {{name}}", "{{name}}")
+        assert not cl.placeholders_match("ar", f"items_{suffix}", "{{count}} {{name}}", "one")
+    for suffix in ("few", "many", "other"):
+        assert not cl.placeholders_match("ar", f"items_{suffix}", "{{count}} items", "items")
+    assert not cl.placeholders_match("de", "items_one", "{{count}} item", "one item")
