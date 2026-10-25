@@ -6,9 +6,10 @@ on the CEO overview. Every path that writes card attributes calls
 :func:`validate_metric_key` — card create and update (REST, extensions, survey
 apply), bulk create (the Excel importer), bulk update, restore and workspace
 import — and a partial unique index (``uq_cards_kpi_metric_key``) backs the
-uniqueness in the database. The two admin-configured sync paths that write
-attributes directly (ServiceNow pull, platform-migration apply) do not call it;
-there the index alone stops a duplicate. Three checks:
+uniqueness in the database. Paths that bring data *in* from elsewhere
+(workspace import, ServiceNow pull, platform-migration apply) call
+:func:`guard_inbound` instead, which applies the same rule without refusing the
+record. Three checks:
 
 1. **Registered.** The value must name a calculation in
    ``executive.registry.METRICS``.
@@ -119,3 +120,45 @@ async def restore_conflict(db: AsyncSession, card: Card) -> str | None:
     if key is None:
         return None
     return key if await holder_of(db, key, exclude=card.id) is not None else None
+
+
+async def guard_inbound(
+    db: AsyncSession,
+    *,
+    card_type: str,
+    new_attributes: dict | None,
+    old_attributes: dict | None = None,
+    card_id: uuid.UUID | None = None,
+    user: User | None = None,
+    status: str | None = "ACTIVE",
+) -> str | None:
+    """The same rule for data synchronised in (import, ServiceNow, migration).
+
+    A refused ``metricKey`` change does not refuse the record: the link alone
+    goes back to what the card had (or is dropped on a new card), and the
+    reason is returned for the caller to report. That keeps one bad value from
+    failing a whole run — the paths that call this write many cards in one
+    transaction, where a unique-index violation would abort every row. A card
+    that is not ACTIVE is linked to nothing live and is left as it is; restoring
+    it is checked separately. ``user`` is the person who started the run, whose
+    authority is checked as on any other path; ``None`` for a system run.
+    """
+    if card_type != KPI_CARD_TYPE or new_attributes is None or (status or "ACTIVE") != "ACTIVE":
+        return None
+    try:
+        await validate_metric_key(
+            db,
+            card_type=card_type,
+            new_attributes=new_attributes,
+            old_attributes=old_attributes,
+            card_id=card_id,
+            user=user,
+        )
+    except HTTPException as exc:
+        old = metric_key_of(old_attributes)
+        if old is None:
+            new_attributes.pop(FIELD, None)
+        else:
+            new_attributes[FIELD] = old
+        return f"metric link not applied: {exc.detail}"
+    return None

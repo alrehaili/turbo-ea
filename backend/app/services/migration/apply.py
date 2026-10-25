@@ -56,7 +56,7 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.services import card_type_categories
+from app.services import card_type_categories, kpi_metric_link
 from app.services.event_bus import event_bus
 from app.services.relation_orientation import orient_endpoints
 
@@ -255,6 +255,36 @@ async def _apply_card_pass(
     return counts
 
 
+async def _guard_metric_link(
+    db: AsyncSession,
+    staged: StagedRecord,
+    card_type: str,
+    attributes: dict,
+    before: dict | None,
+    card_id,
+    user: User,
+    status: str | None,
+) -> None:
+    """The KPI ``metricKey`` rule (D-26) on a migrated card.
+
+    A refused link is reverted on its own and noted on the staged row; the card
+    itself still lands. Checked before the write, so the unique index can never
+    abort the pass's transaction.
+    """
+    note = await kpi_metric_link.guard_inbound(
+        db,
+        card_type=card_type,
+        new_attributes=attributes,
+        old_attributes=before,
+        card_id=card_id,
+        user=user,
+        status=status,
+    )
+    if note:
+        logger.warning("migration apply: card %s: %s", staged.source_id, note)
+        staged.error_message = note[:1000]
+
+
 async def _apply_single_card(
     db: AsyncSession,
     staged: StagedRecord,
@@ -288,6 +318,11 @@ async def _apply_single_card(
     parent_id = await _resolve_parent_card_id(db, staged)
 
     if staged.action == "create":
+        attributes = dict(payload.get("attributes") or {})
+        await _guard_metric_link(
+            db, staged, payload["type"], attributes, None, None, user, payload.get("status")
+        )
+        payload = {**payload, "attributes": attributes}
         card = Card(
             type=payload["type"],
             subtype=payload.get("subtype"),
@@ -356,6 +391,9 @@ async def _apply_single_card(
         if payload.get("lifecycle"):
             card.lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
         merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
+        await _guard_metric_link(
+            db, staged, card.type, merged_attrs, before["attributes"], card.id, user, card.status
+        )
         card.attributes = merged_attrs
         if payload.get("external_id"):
             card.external_id = payload["external_id"]

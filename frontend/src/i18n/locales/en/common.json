@@ -174,7 +174,7 @@
   "dashboard.executive.ceo.previousNotAvailable": "Not available for {{period}}",
   "dashboard.executive.ceo.target": "Target",
   "dashboard.executive.ceo.targetState.not_linked": "No approved target yet",
-  "dashboard.executive.ceo.targetState.unratified": "Not ratified by the owner",
+  "dashboard.executive.ceo.targetState.unratified": "Not ratified",
   "dashboard.executive.ceo.targetState.ratified": "Ratified",
   "dashboard.executive.ceo.previousLabel": "Previous",
   "dashboard.executive.ceo.periodLabel": "Period",

@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - Executive Overview: initiative delivery for a finished period and the previous-period comparison now come from verified period values in the KPI history, instead of always reading *Historical data unavailable*.
 - Executive Overview: unavailable indicators explain in plain words what is missing, and escalation and decision panels show counts with the reason when you may not open the records.
+- ServiceNow sync and platform migration apply the KPI executive-metric rules: an unknown, already-used or unauthorised link is left out of that record (and reported on it) instead of failing the whole run.
+- Executive tab: an unratified target reads **Not ratified** (ratification is by the authorized target approver, not the owner); KPI targets without a date no longer show "by —"; the Strategy and KPI tables stay readable on phones.
 
 ## [2.35.0] - 2026-10-25
 

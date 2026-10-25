@@ -232,3 +232,12 @@ async def test_bulk_update_cannot_put_one_key_on_two_cards(client, db, env):
         headers=auth_headers(env["admin"]),
     )
     assert r.status_code == 409
+
+
+async def test_a_hidden_kpi_type_is_not_served(client, db, env):
+    """I-5: a KPI's history follows the card read, hidden card types excluded."""
+    kpi_type = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one()
+    kpi_type.is_hidden = True
+    await db.flush()
+    r = await client.get(f"{BASE}/{env['kpi'].id}/performance", headers=auth_headers(env["admin"]))
+    assert r.status_code == 404

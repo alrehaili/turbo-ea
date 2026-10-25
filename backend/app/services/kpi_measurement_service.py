@@ -53,7 +53,7 @@ from app.models.risk import Risk
 from app.models.user import User
 from app.services import executive_dashboard as exe
 from app.services import ppm_portfolio_service as portfolio
-from app.services.card_read_scope import CardReadScope
+from app.services.card_read_scope import CardReadScope, visible_type_clause
 from app.services.event_bus import event_bus
 from app.services.executive import decisions as dec
 from app.services.executive import periods
@@ -108,7 +108,10 @@ def _as_text(value: Any) -> str | None:
 
 
 async def require_kpi_card(db: AsyncSession, card_id: uuid.UUID) -> Card:
-    card = await db.get(Card, card_id)
+    """The KPI card, else 404 — also when the KPI type is hidden (I-5)."""
+    card = (
+        await db.execute(select(Card).where(Card.id == card_id, visible_type_clause(Card)))
+    ).scalar_one_or_none()
     if card is None or card.type != KPI_CARD_TYPE:
         raise HTTPException(404, "KPI card not found")
     return card

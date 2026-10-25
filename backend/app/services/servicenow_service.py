@@ -25,6 +25,8 @@ from app.models.servicenow import (
     SnowStagedRecord,
     SnowSyncRun,
 )
+from app.models.user import User
+from app.services import kpi_metric_link
 from app.services.card_lifecycle import archive_cards_in_place
 from app.services.event_bus import event_bus
 
@@ -744,6 +746,34 @@ class SyncEngine:
 
         return applied
 
+    async def _guard_metric_link(
+        self,
+        staged: SnowStagedRecord,
+        card_type: str,
+        attributes: dict,
+        before: dict | None,
+        card_id: uuid.UUID | None,
+        actor_id: uuid.UUID | None,
+    ) -> None:
+        """The KPI ``metricKey`` rule (D-26) on a synced card.
+
+        A refused link is reverted on its own and noted on the staged record;
+        the rest of the record still applies. Checked before the write, so the
+        unique index can never abort the run's transaction.
+        """
+        user = await self.db.get(User, actor_id) if actor_id is not None else None
+        note = await kpi_metric_link.guard_inbound(
+            self.db,
+            card_type=card_type,
+            new_attributes=attributes,
+            old_attributes=before,
+            card_id=card_id,
+            user=user,
+        )
+        if note:
+            logger.warning("ServiceNow staged record %s: %s", staged.id, note)
+            staged.error_message = note
+
     async def _apply_create(
         self,
         staged: SnowStagedRecord,
@@ -756,13 +786,18 @@ class SyncEngine:
             staged.snow_data or {}, field_mappings, "snow_to_turbo"
         )
 
+        attributes = transformed.get("attributes", {})
+        await self._guard_metric_link(
+            staged, mapping.card_type_key, attributes, None, None, actor_id
+        )
+
         card = Card(
             type=mapping.card_type_key,
             subtype=transformed.get("subtype"),
             name=transformed.get("name", f"SNOW-{staged.snow_sys_id[:8]}"),
             description=transformed.get("description"),
             lifecycle=transformed.get("lifecycle", {}),
-            attributes=transformed.get("attributes", {}),
+            attributes=attributes,
             status="ACTIVE",
             approval_status="DRAFT",
         )
@@ -812,6 +847,7 @@ class SyncEngine:
         diff = staged.diff or {}
         before_attrs = dict(card.attributes or {})
         before_lifecycle = dict(card.lifecycle or {})
+        new_attrs = dict(before_attrs)
         for field_path, change in diff.items():
             new_val = change.get("new")
             if field_path == "name" and new_val:
@@ -827,9 +863,16 @@ class SyncEngine:
                 card.lifecycle = lifecycle
             elif field_path.startswith("attributes."):
                 attr_key = field_path.split(".", 1)[1]
-                attrs = dict(card.attributes or {})
-                attrs[attr_key] = new_val
-                card.attributes = attrs
+                new_attrs[attr_key] = new_val
+
+        if new_attrs != before_attrs:
+            # Checked before the card is touched: the guard queries, and an
+            # autoflush of an unchecked metricKey would hit the unique index.
+            if card.status == "ACTIVE":
+                await self._guard_metric_link(
+                    staged, card.type, new_attrs, before_attrs, card.id, actor_id
+                )
+            card.attributes = new_attrs
 
         # Update identity map timestamp
         id_result = await self.db.execute(

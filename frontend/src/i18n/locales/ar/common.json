@@ -174,7 +174,7 @@
   "dashboard.executive.ceo.previousNotAvailable": "غير متاح لـ {{period}}",
   "dashboard.executive.ceo.target": "المستهدف",
   "dashboard.executive.ceo.targetState.not_linked": "لا يوجد مستهدف معتمد بعد",
-  "dashboard.executive.ceo.targetState.unratified": "لم يعتمده المالك",
+  "dashboard.executive.ceo.targetState.unratified": "غير معتمد",
   "dashboard.executive.ceo.targetState.ratified": "معتمد",
   "dashboard.executive.ceo.previousLabel": "السابق",
   "dashboard.executive.ceo.periodLabel": "الفترة",

@@ -220,7 +220,7 @@ export default function ExecutiveStrategy() {
                     <TableBody>
                       {o.kpis.map((k) => (
                         <TableRow key={k.id}>
-                          <TableCell sx={{ overflowWrap: "anywhere" }}>
+                          <TableCell sx={{ minWidth: 160, overflowWrap: "break-word" }}>
                             <CardLink path={k.path} name={k.name} />
                             {k.owners.length > 0 && (
                               <Typography variant="caption" color="text.secondary" component="div">

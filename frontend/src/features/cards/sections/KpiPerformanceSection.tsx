@@ -125,10 +125,10 @@ export default function KpiPerformanceSection({ cardId }: { cardId: string }) {
           <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0 }}>
             {target.value === null
               ? t("kpiPerformance.noTarget")
-              : t("kpiPerformance.targetLine", {
+              : t(target.date ? "kpiPerformance.targetLine" : "kpiPerformance.targetLineNoDate", {
                   value: target.value,
                   unit: target.unit ?? "",
-                  date: target.date ? formatDate(target.date) : "—",
+                  date: target.date ? formatDate(target.date) : "",
                   baseline: target.baseline ?? "—",
                 })}
           </Typography>
@@ -185,11 +185,13 @@ export default function KpiPerformanceSection({ cardId }: { cardId: string }) {
               <TableBody>
                 {periodRows.map((m) => (
                   <TableRow key={m.id} sx={{ opacity: m.status === "superseded" ? 0.6 : 1 }}>
-                    <TableCell>{m.period_key}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      <bdi>{m.period_key}</bdi>
+                    </TableCell>
                     <TableCell align="right">
                       <bdi>{m.value ?? "—"}</bdi>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ minWidth: 160 }}>
                       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                         <Chip
                           size="small"
@@ -278,10 +280,10 @@ export default function KpiPerformanceSection({ cardId }: { cardId: string }) {
           {dialog?.kind === "ratify" && (
             <>
               <Typography variant="body2">
-                {t("kpiPerformance.ratifyConfirm", {
+                {t(target.date ? "kpiPerformance.ratifyConfirm" : "kpiPerformance.ratifyConfirmNoDate", {
                   value: target.value,
                   unit: target.unit ?? "",
-                  date: target.date ? formatDate(target.date) : "—",
+                  date: target.date ? formatDate(target.date) : "",
                 })}
               </Typography>
               <TextField
