@@ -364,6 +364,7 @@ async def _kpi_snapshot_loop() -> None:
     from datetime import datetime, timedelta, timezone
 
     from app.database import async_session
+    from app.services.kpi_measurement_service import capture_executive_observations
     from app.services.kpi_snapshot_service import capture_snapshot
 
     while True:
@@ -385,6 +386,13 @@ async def _kpi_snapshot_loop() -> None:
                     snap.approved_count,
                     snap.broken_count,
                 )
+            # The executive indicators' daily observations, and the period
+            # values of periods that have just closed (D-19). Its own session:
+            # a failure here must not lose the dashboard series above.
+            async with async_session() as db:
+                captured = await capture_executive_observations(db)
+                await db.commit()
+                logger.info("Captured executive KPI observations: %s", captured)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -619,16 +627,12 @@ async def _ensure_initial_kpi_snapshot() -> None:
     Without this, fresh installs would have to wait until the first 02:00 UTC
     tick to record any baseline.
     """
-    from sqlalchemy import select as _sel
-
     from app.database import async_session
-    from app.models.kpi_snapshot import KpiSnapshot
-    from app.services.kpi_snapshot_service import capture_snapshot
+    from app.services.kpi_snapshot_service import capture_snapshot, has_any_snapshot
 
     try:
         async with async_session() as db:
-            existing = await db.execute(_sel(KpiSnapshot.id).limit(1))
-            if existing.scalar_one_or_none() is not None:
+            if await has_any_snapshot(db):
                 return
             await capture_snapshot(db)
             await db.commit()

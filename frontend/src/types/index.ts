@@ -110,6 +110,8 @@ export interface ExecutivePeriod {
   start: string;
   end: string;
   as_of: string;
+  /** The period has not ended. Only a current period can use undated data. */
+  is_current: boolean;
 }
 
 export type ExecutiveKpiSlot = "strategy" | "governance" | "delivery" | "services" | "value" | "decisions";
@@ -119,12 +121,27 @@ export interface ExecutiveKpi {
   key: string;
   slot: ExecutiveKpiSlot;
   calculation_version: string;
+  /** `current_state` figures describe today whatever period is selected. */
+  temporal: "period" | "current_state";
   status: "ok" | "not_available" | "restricted";
   value: number | null;
-  unit: "percent" | "count" | "money" | null;
-  /** `not_linked` until a KPI card is linked to the computed KPI (D-26); targets are unratified (D-17). */
-  target: { status: "not_linked" | "unratified" | "ratified"; decision?: string; value?: number };
-  owner: { status: "not_linked" | "ok"; decision?: string; name?: string };
+  /** `count_of`: "X of Y" — TR-01's on-target count among measured KPIs. */
+  unit: "percent" | "count" | "money" | "count_of" | null;
+  /**
+   * `not_linked` until a KPI card carries this indicator's `metricKey` (D-26);
+   * then the card's target with its ratification state (D-17a). `achieved` is
+   * judged only for a ratified target with a known direction.
+   */
+  target: Partial<KpiTargetState> & {
+    status: "not_linked" | "none" | "unratified" | "ratified";
+    decision?: string;
+    card_id?: string;
+    achieved?: boolean | null;
+    attainment?: number | null;
+  };
+  owner: { status: "not_linked" | "ok" | "unassigned"; decision?: string; name?: string };
+  /** The linked KPI card, when the viewer may read it. */
+  kpi_card?: { id: string; name: string };
   previous: {
     status: "ok" | "not_available";
     value?: number | null;
@@ -133,7 +150,8 @@ export interface ExecutiveKpi {
     decision?: string;
     coverage_percentage?: number | null;
   };
-  period: string;
+  /** The period key; `null` on a current-state tile. */
+  period: string | null;
   as_of: string;
   freshness: string | null;
   confidence: "high" | "medium" | "low" | null;
@@ -142,6 +160,104 @@ export interface ExecutiveKpi {
   reason: { code: string; decisions?: string[]; phase?: number; module?: string } | null;
   drilldown: { api?: string; path?: string } | null;
   details: Record<string, unknown>;
+}
+
+/** A KPI card's target and its ratification state (D-17a). */
+export interface KpiTargetState {
+  status: "none" | "unratified" | "ratified";
+  value: number | null;
+  date: string | null;
+  baseline: number | null;
+  unit: string | null;
+  direction: string | null;
+  /** True when a ratification exists but the target has changed since. */
+  invalidated: boolean;
+  ratified_at?: string | null;
+  ratified_by?: string | null;
+}
+
+/** One row of the KPI measurement history (D-19). */
+export interface KpiMeasurement {
+  id: string;
+  kind: "daily" | "period";
+  metric_key: string | null;
+  kpi_card_id: string | null;
+  period_type: string;
+  period_key: string;
+  period_start: string;
+  period_end: string;
+  observed_on: string | null;
+  value: number | null;
+  unit: string | null;
+  source: string;
+  evidence: string | null;
+  status: "observed" | "submitted" | "verified" | "superseded";
+  frozen: boolean;
+  recorded_at: string | null;
+  verified_at: string | null;
+  supersedes_id: string | null;
+  correction_reason: string | null;
+}
+
+export interface KpiPerformance {
+  card_id: string;
+  metric_key: string | null;
+  target: KpiTargetState;
+  measurements: KpiMeasurement[];
+  can_measure: boolean;
+  can_verify: boolean;
+  can_ratify: boolean;
+}
+
+export type StrategyKpiState =
+  | "definition_not_approved"
+  | "no_ratified_target"
+  | "no_direction"
+  | "not_measured"
+  | "on_target"
+  | "off_target";
+
+export interface StrategyRollup {
+  linked: number;
+  measured: number;
+  on_target: number;
+}
+
+/** `/reports/executive/strategy` (D-21). */
+export interface ExecutiveStrategyData {
+  generated_at: string;
+  period: ExecutivePeriod;
+  totals: StrategyRollup & {
+    assessable: number;
+    strategic_objectives: number;
+    by_state: Record<StrategyKpiState, number>;
+  };
+  objectives: (StrategyRollup & {
+    id: string;
+    name: string;
+    path: string;
+    kpis: {
+      id: string;
+      name: string;
+      state: StrategyKpiState;
+      value: number | null;
+      unit: string | null;
+      target: KpiTargetState;
+      attainment: number | null;
+      measurement_status: string | null;
+      owners: string[];
+      path: string;
+    }[];
+  })[];
+  pillars: (StrategyRollup & { id: string; name: string; path: string; objectives: string[] })[];
+  unlinked_objectives: number;
+  execution: {
+    initiatives: number;
+    on_track_pct: number | null;
+    states: Record<string, number>;
+    coverage: { reported: number; in_flight: number; percentage: number | null };
+    source: string;
+  };
 }
 
 export interface ExecutiveDecisionItem {
@@ -160,6 +276,8 @@ export interface ExecutiveDecisionItem {
 
 export interface ExecutiveDecisionSection {
   status: "ok" | "restricted" | "disabled";
+  /** Executive escalation (an approved rule) or routine operational governance. */
+  group: "executive_escalation" | "operational_pipeline";
   count?: number;
   items?: ExecutiveDecisionItem[] | null;
   open?: number;
@@ -182,7 +300,13 @@ export interface ExecutiveOverviewData {
   fiscal_year_start: number;
   currency: string;
   kpis: ExecutiveKpi[];
-  decisions_panel: ExecutiveDecisionItem[];
+  /** Executive escalations only; `restricted` keeps the count without the records. */
+  escalations_panel: {
+    status: "ok" | "restricted" | "disabled";
+    count: number;
+    items: ExecutiveDecisionItem[];
+    more: number;
+  };
 }
 
 export interface UiPreferences {

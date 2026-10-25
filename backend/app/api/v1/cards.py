@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.card import Card
+from app.models.card import KPI_CARD_TYPE, Card
 from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.nora_landscape import NoraSegment
@@ -80,6 +80,7 @@ from app.services import (
     card_lifecycle,
     card_reference,
     card_write_service,
+    kpi_metric_link,
     notification_service,
 )
 from app.services.calculation_engine import run_calculations_for_card
@@ -925,6 +926,9 @@ async def bulk_create_cards(
         try:
             await _validate_url_attributes(db, r.type, r.attributes or {})
             await _validate_percentage_attributes(db, r.type, r.attributes or {})
+            await kpi_metric_link.validate_metric_key(
+                db, card_type=r.type, new_attributes=r.attributes, user=user
+            )
             await _validate_boolean_attributes(db, r.type, r.attributes or {})
             await _validate_cost_attributes(db, r.type, r.attributes or {})
             _check_select_options(r.type, schemas_by_type.get(r.type), r.attributes or {}, {})
@@ -1703,6 +1707,22 @@ async def bulk_update(
             await _validate_cost_attributes(db, card.type, updates["attributes"])
             if strict_attrs:
                 await _validate_strict_attributes(db, card.type, updates["attributes"])
+    if "attributes" in updates:
+        # The attributes replace each card's own wholesale, so the metric link
+        # (D-26) is judged per KPI card against what that card carries now.
+        kpi_sheets = [c for c in sheets if c.type == KPI_CARD_TYPE]
+        payload = updates["attributes"] if updates["attributes"] is not None else {}
+        if kpi_metric_link.metric_key_of(payload) and len(kpi_sheets) > 1:
+            raise HTTPException(409, "A metric key can link only one active KPI card")
+        for card in kpi_sheets:
+            await kpi_metric_link.validate_metric_key(
+                db,
+                card_type=card.type,
+                new_attributes=payload,
+                old_attributes=card.attributes,
+                card_id=card.id,
+                user=user,
+            )
     # Preserve cost-typed keys for any card the user may not see costs on —
     # PATCH does a full replace on `attributes`, so we merge the existing
     # cost values back into the incoming payload. Without this, a bulk edit
@@ -2320,6 +2340,25 @@ async def bulk_delete_cards(
     )
 
 
+async def _refuse_metric_link_collisions(db: AsyncSession, cards: list[Card]) -> None:
+    """Restoring a KPI card must not give two active cards one metric key (D-26).
+
+    Checked before anything is flipped, so a refused restore changes nothing.
+    """
+    seen: set[str] = set()
+    for c in cards:
+        key = kpi_metric_link.metric_key_of(c.attributes) if c.type == KPI_CARD_TYPE else None
+        if key is None:
+            continue
+        if key in seen or await kpi_metric_link.restore_conflict(db, c):
+            raise HTTPException(
+                409,
+                f"Another active KPI card is already linked to '{key}'; "
+                "change one of the metric links first",
+            )
+        seen.add(key)
+
+
 @router.post("/bulk-restore", response_model=CardBulkRestoreResponse)
 async def bulk_restore_cards(
     body: CardBulkRestoreRequest,
@@ -2379,6 +2418,7 @@ async def bulk_restore_cards(
         card_perm="card.archive",
     )
 
+    await _refuse_metric_link_collisions(db, to_restore)
     restored_card_ids: list[str] = []
     for card in to_restore:
         card.status = "ACTIVE"
@@ -2791,6 +2831,19 @@ async def restore_card(
         app_perm="inventory.archive",
         card_perm="card.archive",
     )
+
+    passengers_archived = (
+        (
+            await db.execute(
+                select(Card).where(Card.id.in_(passenger_ids), Card.status == "ARCHIVED")
+            )
+        )
+        .scalars()
+        .all()
+        if passenger_ids
+        else []
+    )
+    await _refuse_metric_link_collisions(db, [card, *passengers_archived])
 
     # Flip primary.
     card.status = "ACTIVE"

@@ -28,6 +28,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,7 +51,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.standard import Standard, StandardPrinciple
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.services import card_reference, card_type_categories
+from app.services import card_reference, card_type_categories, kpi_metric_link
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.relation_orientation import oriented
@@ -1042,6 +1043,28 @@ async def _finalize_cards(db) -> None:
         await db.flush()
 
 
+async def _guard_metric_link(
+    db: AsyncSession, type_key: str, data: dict, sr: SectionResult, name: str
+) -> None:
+    """Apply the KPI ``metricKey`` rule (D-26) to an imported card.
+
+    A bundle is a faithful copy, so an unknown key, or one an ACTIVE card on
+    this instance already holds, does not refuse the card: the link alone is
+    dropped and reported, and the card lands without it. An archived card is
+    not linked to anything live and keeps its value as it was.
+    """
+    attrs = data.get("attributes")
+    if not isinstance(attrs, dict) or (data.get("status") or "ACTIVE") != "ACTIVE":
+        return
+    try:
+        await kpi_metric_link.validate_metric_key(
+            db, card_type=type_key, new_attributes=attrs, check_authority=False
+        )
+    except HTTPException as exc:
+        attrs.pop(kpi_metric_link.FIELD, None)
+        sr.errors.append(f"card {name!r}: metric link dropped ({exc.detail})")
+
+
 def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
     ids = id_map if id_map is not None else rm.IdMap()
 
@@ -1144,6 +1167,7 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
             row_sp = await db.begin_nested()
             try:
                 await _validate_url_attributes(db, type_key, data.get("attributes") or {})
+                await _guard_metric_link(db, type_key, data, sr, name)
                 # Carry the human-readable reference verbatim so IDs stay stable
                 # across a move/restore. On a unique-index collision, regenerate
                 # from the type config (auto/custom) else drop it, keeping the card

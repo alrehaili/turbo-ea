@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router";
 import Accordion from "@mui/material/Accordion";
@@ -46,6 +46,7 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
+import { fiscalYearOfPeriod, useExecutivePeriod } from "./useExecutivePeriod";
 import { makeRtlAxisTick, mirrorChartMargin, rtlTooltipStyle } from "@/lib/rechartsRtl";
 import { canAccessPath } from "@/lib/routePermissions";
 import { RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
@@ -451,7 +452,11 @@ export default function ExecutiveDetailsPage() {
   const chart = useChartTheme();
   const isRtl = useIsRtl();
   const { t, i18n } = useTranslation(["common", "grc", "reports"]);
-  const [fiscalYear, setFiscalYear] = useState<number | null>(null);
+  // Details reports money per fiscal year: it follows the fiscal year of the
+  // period chosen on any Executive page, and choosing a year here sets it.
+  const { period, setPeriod } = useExecutivePeriod();
+  const fiscalYear = fiscalYearOfPeriod(period);
+  const setFiscalYear = (fy: number) => setPeriod(`FY${fy}`);
   const path = fiscalYear ? `/reports/executive?fiscal_year=${fiscalYear}` : "/reports/executive";
   const { data, error, loading } = useApiQuery<ExecutiveDashboardData>(path);
   const { types } = useMetamodel();
@@ -492,6 +497,19 @@ export default function ExecutiveDetailsPage() {
 
   if (error) return <Alert severity="error">{error.message || t("errors.generic")}</Alert>;
   if (!data) return loading ? <LinearProgress /> : null;
+  // The kept payload belongs to the previous request: show none of it until
+  // the requested year's figures have arrived.
+  const shownFy = data.delivery.budget?.fiscal_year;
+  if (loading || (fiscalYear !== null && shownFy !== undefined && shownFy !== fiscalYear)) {
+    return (
+      <Box role="status" aria-live="polite" data-testid="period-loading" sx={{ py: 4 }}>
+        <LinearProgress sx={{ mb: 1 }} />
+        <Typography variant="body2" color="text.secondary">
+          {t("dashboard.executive.ceo.loadingFigures")}
+        </Typography>
+      </Box>
+    );
+  }
 
   const { portfolio, delivery, processes, risks, rationalization } = data;
   const noData = t("dashboard.executive.noData");

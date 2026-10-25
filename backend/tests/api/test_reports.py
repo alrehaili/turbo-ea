@@ -207,7 +207,7 @@ class TestDashboard:
         """A 30-day-old snapshot drives a real delta_pct in the response."""
         from datetime import datetime, timedelta, timezone
 
-        from app.models.kpi_snapshot import KpiSnapshot
+        from app.services.kpi_snapshot_service import store_daily
 
         admin = reports_env["admin"]
         # Two ACTIVE cards now: total_cards = 2, avg_data_quality = 60.
@@ -227,14 +227,15 @@ class TestDashboard:
             data_quality=40.0,
         )
         baseline_date = datetime.now(timezone.utc).date() - timedelta(days=30)
-        db.add(
-            KpiSnapshot(
-                snapshot_date=baseline_date,
-                total_cards=1,
-                avg_data_quality=50.0,
-                approved_count=0,
-                broken_count=0,
-            )
+        await store_daily(
+            db,
+            baseline_date,
+            {
+                "total_cards": 1,
+                "avg_data_quality": 50.0,
+                "approved_count": 0,
+                "broken_count": 0,
+            },
         )
         await db.commit()
 
@@ -260,7 +261,7 @@ class TestDashboard:
         """When previous == 0 and current > 0 we return delta_pct=None to avoid div-by-zero."""
         from datetime import datetime, timedelta, timezone
 
-        from app.models.kpi_snapshot import KpiSnapshot
+        from app.services.kpi_snapshot_service import store_daily
 
         admin = reports_env["admin"]
         await create_card(
@@ -271,14 +272,15 @@ class TestDashboard:
             approval_status="APPROVED",
         )
         baseline_date = datetime.now(timezone.utc).date() - timedelta(days=30)
-        db.add(
-            KpiSnapshot(
-                snapshot_date=baseline_date,
-                total_cards=0,
-                avg_data_quality=0.0,
-                approved_count=0,
-                broken_count=0,
-            )
+        await store_daily(
+            db,
+            baseline_date,
+            {
+                "total_cards": 0,
+                "avg_data_quality": 0.0,
+                "approved_count": 0,
+                "broken_count": 0,
+            },
         )
         await db.commit()
 

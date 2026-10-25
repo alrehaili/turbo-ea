@@ -29,6 +29,7 @@ from app.api.v1 import (
     favorites,
     file_attachments,
     improvement_opportunities,
+    kpi_measurements,
     maturity,
     metamodel,
     migration,
@@ -91,6 +92,7 @@ api_router.include_router(bookmarks.router)
 api_router.include_router(saved_reports.router)
 api_router.include_router(executive_dashboard.router)
 api_router.include_router(executive_overview.router)
+api_router.include_router(kpi_measurements.router)
 api_router.include_router(reports.router)
 api_router.include_router(roadmaps.router)
 api_router.include_router(diagrams.router)

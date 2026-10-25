@@ -6,8 +6,11 @@
   by the register's own rule (target date passed, not ``mitigated``). Category
   ``strategic`` is deliberately **not** an escalation signal, and there is no
   manual escalation yet.
-* **Pending governance records**: ADRs ``in_review`` (awaiting signatures), ARB
-  reviews ``scheduled`` / ``deferred``, standard exceptions ``requested``.
+* **Operational governance pipeline**: ADRs ``in_review`` (awaiting signatures),
+  ARB reviews ``scheduled`` / ``deferred``, standard exceptions ``requested``.
+  These are routine governance activity, not executive escalations: no approved
+  rule escalates any of them, so they never enter the CEO attention panel and
+  are grouped apart (``group``) wherever they are listed.
 
 Counts are aggregates over records the caller's scope admits; listing a record
 needs that module's own view permission (D-03: the executive permission grants
@@ -34,6 +37,10 @@ from app.models.user import User
 from app.services.card_read_scope import CardReadScope
 
 CLOSED_RISK_STATUSES = frozenset({"closed", "accepted"})
+#: Records meeting an approved executive-escalation rule (D-04: risks only).
+EXECUTIVE_ESCALATION = "executive_escalation"
+#: Routine governance activity: shown, counted, never escalated.
+OPERATIONAL_PIPELINE = "operational_pipeline"
 PENDING_ARB_STATUSES = ("scheduled", "deferred")
 
 
@@ -203,11 +210,16 @@ def exception_items(
 
 
 def section(
-    count: int, items: list[dict[str, Any]], *, can_list: bool, enabled: bool = True
+    count: int,
+    items: list[dict[str, Any]],
+    *,
+    can_list: bool,
+    group: str,
+    enabled: bool = True,
 ) -> dict[str, Any]:
     """A count always (scoped), the records only with the module's permission."""
     if not enabled:
-        return {"status": "disabled"}
+        return {"status": "disabled", "group": group}
     if not can_list:
-        return {"status": "restricted", "count": count, "items": None}
-    return {"status": "ok", "count": count, "items": items}
+        return {"status": "restricted", "group": group, "count": count, "items": None}
+    return {"status": "ok", "group": group, "count": count, "items": items}

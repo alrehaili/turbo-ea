@@ -35,6 +35,7 @@ from app.models.improvement_opportunity import (
     ImprovementOpportunity,
     ImprovementOpportunityCard,
 )
+from app.models.kpi_measurement import KpiMeasurement, KpiTargetRatification
 from app.models.maturity import (
     MaturityAssessment,
     MaturityDimension,
@@ -472,5 +473,23 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         # A relation answer is a list of {id, name} card refs.
         rewrite=remap.rewrite_survey_response_row,
         id_bearing_columns=("responses",),
+    ),
+    # KPI measurement history (D-19). A KPI card's measurements travel with the
+    # card; the landscape-wide system series (dashboard trend, executive
+    # metrics) describe the source instance's landscape and stay behind, as
+    # `kpi_snapshots` always did. Superseded rows come before their corrections.
+    EntitySection(
+        "KpiMeasurements",
+        KpiMeasurement,
+        card_fk_columns=("kpi_card_id",),
+        user_fk_columns=("recorded_by", "verified_by"),
+        self_parent_column="supersedes_id",
+        export_where=KpiMeasurement.kpi_card_id.is_not(None),
+    ),
+    EntitySection(
+        "KpiTargetRatifications",
+        KpiTargetRatification,
+        card_fk_columns=("kpi_card_id",),
+        user_fk_columns=("ratified_by",),
     ),
 )

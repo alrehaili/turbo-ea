@@ -91,12 +91,47 @@ async def test_overview_has_six_tiles_and_never_fabricates(client, env):
     assert body["period"]["key"] in body["available_periods"]
 
 
-async def test_previous_period_comes_from_dated_reports(client, db, env):
-    # The only report is today's, so the previous quarter had nobody reporting.
+async def test_previous_period_is_never_recounted_over_todays_initiatives(client, db, env):
+    # A report dated inside the previous quarter exists, but who was in flight
+    # then is not on record: no comparison is fabricated from today's cards.
     body = (await _get(client, env["admin"], "/overview")).json()
     delivery = next(t for t in body["kpis"] if t["slot"] == "delivery")
-    assert delivery["previous"]["status"] == "not_available"
-    assert delivery["previous"]["period"] == body["previous_period"]["key"]
+    assert delivery["previous"] == {
+        "status": "not_available",
+        "reason": "historical_unavailable",
+        "period": body["previous_period"]["key"],
+    }
+
+
+async def _finished_period(client, admin) -> str:
+    keys = (await _get(client, admin, "/overview")).json()["available_periods"]
+    return next(k for k in keys if "-Q" in k and k != keys[1])
+
+
+async def test_finished_period_shows_historical_unavailable_and_current_state_apart(client, env):
+    past = await _finished_period(client, env["admin"])
+    body = (await _get(client, env["admin"], f"/overview?period={past}")).json()
+    assert body["period"]["is_current"] is False
+    tiles = {t["slot"]: t for t in body["kpis"]}
+    assert tiles["delivery"]["status"] == "not_available"
+    assert tiles["delivery"]["reason"] == {"code": "historical_unavailable"}
+    assert tiles["delivery"]["value"] is None and tiles["delivery"]["completeness"] is None
+    # Escalations are today's register, labelled so — never a result for the past period.
+    assert tiles["decisions"]["temporal"] == "current_state"
+    assert tiles["decisions"]["period"] is None
+    assert tiles["decisions"]["as_of"] == env["today"].isoformat()
+    assert tiles["value"]["details"]["forecast"]["temporal"] == "current_state"
+
+    current = (await _get(client, env["admin"], "/overview")).json()
+    assert current["period"]["is_current"] is True
+    assert next(t for t in current["kpis"] if t["slot"] == "delivery")["status"] == "ok"
+
+
+async def test_finished_period_drilldown_lists_no_rows(client, env):
+    past = await _finished_period(client, env["admin"])
+    body = (await _get(client, env["admin"], f"/kpi/TR-03/drilldown?period={past}")).json()
+    assert body["status"] == "not_available" and body["rows"] == []
+    assert body["reason"] == {"code": "historical_unavailable"}
 
 
 async def test_period_is_validated(client, env):
@@ -142,6 +177,7 @@ async def test_decisions_counts_for_everyone_records_only_with_module_permission
     limited = (await _get(client, env["exec"], "/decisions")).json()
     assert limited["risks"] == {
         "status": "restricted",
+        "group": "executive_escalation",
         "count": 2,
         "items": None,
         "open": 3,
@@ -150,10 +186,35 @@ async def test_decisions_counts_for_everyone_records_only_with_module_permission
     assert limited["arb"]["status"] == "restricted" and limited["arb"]["count"] == 1
     assert "Data centre outage" not in str(limited) and "Review CRM" not in str(limited)
 
+    # A restricted reader is told how many, not shown an empty "nothing to do".
     overview = (await _get(client, env["exec"], "/overview")).json()
-    assert overview["decisions_panel"] == []
+    assert overview["escalations_panel"] == {
+        "status": "restricted",
+        "count": 2,
+        "items": [],
+        "more": 0,
+    }
     escalation = next(t for t in overview["kpis"] if t["slot"] == "decisions")
     assert escalation["value"] == 2 and escalation["details"]["open_risks"] == 3
+    assert escalation["details"]["operational_pipeline"]["arb"] == 1
+
+
+async def test_attention_panel_holds_escalations_only(client, db, env):
+    app = await create_card(db, card_type="Application", name="CRM")
+    await create_risk(
+        db, title="Data centre outage", initial_probability="very_high", initial_impact="high"
+    )
+    db.add(ArbReview(title="Review CRM", subject_card_id=app.id, status="scheduled"))
+    await db.flush()
+
+    full = (await _get(client, env["admin"], "/decisions")).json()
+    assert full["risks"]["group"] == "executive_escalation"
+    assert {full[k]["group"] for k in ("adrs", "arb", "exceptions")} == {"operational_pipeline"}
+
+    panel = (await _get(client, env["admin"], "/overview")).json()["escalations_panel"]
+    assert panel["status"] == "ok" and panel["count"] == 1
+    assert [i["kind"] for i in panel["items"]] == ["risk"]
+    assert "Review CRM" not in str(panel)
 
 
 async def test_drilldown_rows_need_the_module_permission(client, env):

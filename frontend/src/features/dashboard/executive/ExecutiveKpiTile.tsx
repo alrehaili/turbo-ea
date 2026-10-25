@@ -14,6 +14,8 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { canAccessPath } from "@/lib/routePermissions";
 import { STATUS_COLORS } from "@/theme/tokens";
 import type { ExecutiveKpi } from "@/types";
+import { unavailableReason } from "./executiveFormat";
+import { useExecutivePeriod } from "./useExecutivePeriod";
 
 const CONFIDENCE_COLOR = { high: "success", medium: "info", low: "warning" } as const;
 
@@ -31,6 +33,7 @@ export default function ExecutiveKpiTile({
   value,
   previousValue,
   periodText,
+  formatPeriod = (key) => key,
   children,
 }: {
   kpi: ExecutiveKpi;
@@ -42,30 +45,59 @@ export default function ExecutiveKpiTile({
   /** The formatted previous-period value, when there is one. */
   previousValue?: string | null;
   periodText: string;
+  /** How a period key reads on screen ("Q3 · FY 2026", not "FY2026-Q3"). */
+  formatPeriod?: (key: string) => string;
   /** Supporting figures under the value (states, coverage, forecast …). */
   children?: ReactNode;
 }) {
   const { t } = useTranslation("common");
   const { user } = useAuthContext();
   const { formatDate } = useDateFormat();
+  const { period } = useExecutivePeriod();
   const available = kpi.status === "ok";
-  const drillPath = kpi.drilldown?.path;
-  const showDrill = drillPath && canAccessPath(user?.permissions, drillPath.split("?")[0]);
+  const currentState = kpi.temporal === "current_state";
+  const historical = kpi.reason?.code === "historical_unavailable";
+  const rawDrill = kpi.drilldown?.path;
+  const showDrill = rawDrill && canAccessPath(user?.permissions, rawDrill.split("?")[0]);
+  // A link to another Executive page carries the selected period with it.
+  const drillPath =
+    rawDrill && period && rawDrill.startsWith("/?tab=executive")
+      ? `${rawDrill}&period=${encodeURIComponent(period)}`
+      : rawDrill;
 
-  const reason = kpi.reason
-    ? t(`dashboard.executive.reason.${kpi.reason.code}`, {
-        decisions: (kpi.reason.decisions ?? []).join(", "),
-        phase: kpi.reason.phase,
-        defaultValue: kpi.reason.code,
-      })
-    : null;
+  const reason = historical
+    ? t("dashboard.executive.ceo.historicalUnavailableHint")
+    : kpi.reason
+      ? unavailableReason(kpi, t)
+      : null;
+
+  // The linked KPI card's target (D-26) and its ratification state (D-17a).
+  const target = kpi.target;
+  const targetValue =
+    target.value !== undefined && target.value !== null
+      ? t("dashboard.executive.ceo.targetValue", { value: target.value, unit: target.unit ?? "" }).trim()
+      : null;
+  const targetText =
+    targetValue && (target.status === "ratified" || target.status === "unratified")
+      ? `${targetValue} · ${t(`dashboard.executive.ceo.targetState.${target.status}`)}${
+          target.invalidated ? ` · ${t("dashboard.executive.ceo.targetChanged")}` : ""
+        }`
+      : t(`dashboard.executive.ceo.targetState.${target.status}`);
+  const showCard = kpi.kpi_card && canAccessPath(user?.permissions, `/cards/${kpi.kpi_card.id}`);
 
   const previousText =
     kpi.previous.status === "ok" && previousValue
-      ? t("dashboard.executive.ceo.previous", { value: previousValue, period: kpi.previous.period })
+      ? t("dashboard.executive.ceo.previous", {
+          value: previousValue,
+          period: kpi.previous.period ? formatPeriod(kpi.previous.period) : "",
+        })
       : kpi.previous.reason === "no_history"
         ? t("dashboard.executive.ceo.noHistory")
-        : t("dashboard.executive.ceo.previousNotAvailable", { period: kpi.previous.period ?? "" });
+        : kpi.previous.reason === "historical_unavailable"
+          ? t("dashboard.executive.ceo.historicalUnavailable")
+          : t("dashboard.executive.ceo.previousNotAvailable", {
+              period: kpi.previous.period ? formatPeriod(kpi.previous.period) : "",
+            });
 
   return (
     <Card
@@ -93,7 +125,7 @@ export default function ExecutiveKpiTile({
         ) : (
           <Box>
             <Typography variant="h6" component="div" color="text.secondary" fontWeight={700}>
-              {t("dashboard.executive.ceo.notAvailable")}
+              {historical ? t("dashboard.executive.ceo.historicalUnavailable") : t("dashboard.executive.ceo.notAvailable")}
             </Typography>
             {reason && (
               <Typography variant="caption" color="text.secondary" component="div">
@@ -107,9 +139,14 @@ export default function ExecutiveKpiTile({
 
         <Box component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 1, rowGap: 0.25 }}>
           {[
-            [t("dashboard.executive.ceo.target"), t(`dashboard.executive.ceo.targetState.${kpi.target.status}`)],
+            [t("dashboard.executive.ceo.target"), targetText],
             [t("dashboard.executive.ceo.previousLabel"), previousText],
-            [t("dashboard.executive.ceo.periodLabel"), periodText],
+            [
+              t("dashboard.executive.ceo.periodLabel"),
+              currentState
+                ? t("dashboard.executive.ceo.currentStatePeriod", { date: formatDate(kpi.as_of) })
+                : periodText,
+            ],
             [
               t("dashboard.executive.ceo.freshness"),
               kpi.freshness ? t("dashboard.executive.ceo.dataFrom", { date: formatDate(kpi.freshness) }) : t("dashboard.executive.ceo.asOf", { date: formatDate(kpi.as_of) }),
@@ -128,6 +165,28 @@ export default function ExecutiveKpiTile({
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: "auto", flexWrap: "wrap" }}>
+          {currentState && (
+            <Tooltip title={t("dashboard.executive.ceo.currentStateHint")}>
+              <Chip
+                size="small"
+                color="info"
+                variant="outlined"
+                icon={<MaterialSymbol icon="schedule" size={14} />}
+                label={t("dashboard.executive.ceo.currentState")}
+                sx={{ height: 20, fontSize: 11 }}
+                data-testid="current-state-chip"
+              />
+            </Tooltip>
+          )}
+          {kpi.target.achieved !== undefined && kpi.target.achieved !== null && (
+            <Chip
+              size="small"
+              color={kpi.target.achieved ? "success" : "warning"}
+              label={t(kpi.target.achieved ? "dashboard.executive.ceo.onTarget" : "dashboard.executive.ceo.belowTarget")}
+              sx={{ height: 20, fontSize: 11 }}
+              data-testid="target-achieved"
+            />
+          )}
           {kpi.confidence && (
             <Tooltip title={t("dashboard.executive.ceo.confidenceHint")}>
               <Chip
@@ -148,7 +207,12 @@ export default function ExecutiveKpiTile({
             />
           )}
           <Box sx={{ flex: 1 }} />
-          {showDrill && (
+          {showCard && kpi.kpi_card && (
+            <Link component={RouterLink} to={`/cards/${kpi.kpi_card.id}`} variant="caption" underline="hover">
+              {t("dashboard.executive.ceo.kpiCard")}
+            </Link>
+          )}
+          {showDrill && drillPath && (
             <Link component={RouterLink} to={drillPath} variant="caption" underline="hover">
               {t("dashboard.executive.ceo.viewRecords")}
             </Link>

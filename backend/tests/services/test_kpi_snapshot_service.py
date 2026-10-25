@@ -6,14 +6,30 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
-from app.models.kpi_snapshot import KpiSnapshot
+from app.models.kpi_measurement import KIND_DAILY, KpiMeasurement
 from app.services.kpi_snapshot_service import (
+    DailySnapshot,
     capture_snapshot,
     compute_current_kpis,
     compute_trend_block,
     get_comparison_snapshot,
+    store_daily,
 )
 from tests.conftest import create_card, create_card_type
+
+
+async def _seed(db, snapshot_date, **values):
+    """One day of the dashboard series, stored as the capture stores it."""
+    await store_daily(db, snapshot_date, values)
+
+
+async def _days(db) -> int:
+    rows = await db.execute(
+        select(KpiMeasurement.period_start)
+        .where(KpiMeasurement.kind == KIND_DAILY, KpiMeasurement.metric_key.like("dashboard.%"))
+        .distinct()
+    )
+    return len(rows.all())
 
 
 async def test_compute_current_kpis(db):
@@ -48,8 +64,7 @@ async def test_capture_snapshot_creates_row(db):
     assert snap.total_cards == 1
     assert snap.avg_data_quality == 70.0
 
-    rows = (await db.execute(select(KpiSnapshot))).scalars().all()
-    assert len(rows) == 1
+    assert await _days(db) == 1
 
 
 async def test_capture_snapshot_idempotent(db):
@@ -62,32 +77,29 @@ async def test_capture_snapshot_idempotent(db):
     await create_card(db, card_type="Application", name="Y", data_quality=30.0)
     second = await capture_snapshot(db)
 
-    rows = (await db.execute(select(KpiSnapshot))).scalars().all()
-    assert len(rows) == 1
-    assert second.id == first.id
+    assert await _days(db) == 1
+    assert second.snapshot_date == first.snapshot_date
     assert second.total_cards == 2
     assert second.avg_data_quality == 50.0
 
 
 async def test_get_comparison_snapshot_picks_closest(db):
     today = datetime.now(timezone.utc).date()
-    db.add(
-        KpiSnapshot(
-            snapshot_date=today - timedelta(days=29),
-            total_cards=10,
-            avg_data_quality=50.0,
-            approved_count=2,
-            broken_count=1,
-        )
+    await _seed(
+        db,
+        today - timedelta(days=29),
+        total_cards=10,
+        avg_data_quality=50.0,
+        approved_count=2,
+        broken_count=1,
     )
-    db.add(
-        KpiSnapshot(
-            snapshot_date=today - timedelta(days=33),
-            total_cards=8,
-            avg_data_quality=45.0,
-            approved_count=1,
-            broken_count=0,
-        )
+    await _seed(
+        db,
+        today - timedelta(days=33),
+        total_cards=8,
+        avg_data_quality=45.0,
+        approved_count=1,
+        broken_count=0,
     )
     await db.commit()
 
@@ -106,14 +118,13 @@ async def test_get_comparison_snapshot_returns_none_when_empty(db):
 async def test_get_comparison_snapshot_includes_today(db):
     """Today's startup baseline is a valid comparison (min_days=0)."""
     today = datetime.now(timezone.utc).date()
-    db.add(
-        KpiSnapshot(
-            snapshot_date=today,
-            total_cards=10,
-            avg_data_quality=50.0,
-            approved_count=2,
-            broken_count=1,
-        )
+    await _seed(
+        db,
+        today,
+        total_cards=10,
+        avg_data_quality=50.0,
+        approved_count=2,
+        broken_count=1,
     )
     await db.commit()
 
@@ -125,14 +136,13 @@ async def test_get_comparison_snapshot_includes_today(db):
 async def test_get_comparison_snapshot_falls_back_to_oldest_available(db):
     """On a fresh install with only recent snapshots, return the oldest one."""
     today = datetime.now(timezone.utc).date()
-    db.add(
-        KpiSnapshot(
-            snapshot_date=today - timedelta(days=3),
-            total_cards=10,
-            avg_data_quality=50.0,
-            approved_count=2,
-            broken_count=1,
-        )
+    await _seed(
+        db,
+        today - timedelta(days=3),
+        total_cards=10,
+        avg_data_quality=50.0,
+        approved_count=2,
+        broken_count=1,
     )
     await db.commit()
 
@@ -166,7 +176,7 @@ def test_compute_trend_block_handles_zero_previous():
         "approved_count": 2,
         "broken_count": 1,
     }
-    snapshot = KpiSnapshot(
+    snapshot = DailySnapshot(
         snapshot_date=datetime.now(timezone.utc).date() - timedelta(days=30),
         total_cards=0,
         avg_data_quality=0.0,
@@ -191,7 +201,7 @@ def test_compute_trend_block_calculates_signed_delta():
         "approved_count": 3,
         "broken_count": 1,
     }
-    snapshot = KpiSnapshot(
+    snapshot = DailySnapshot(
         snapshot_date=datetime.now(timezone.utc).date() - timedelta(days=30),
         total_cards=10,
         avg_data_quality=60.0,
@@ -218,7 +228,7 @@ def test_compute_trend_block_uses_actual_snapshot_age():
         "approved_count": 3,
         "broken_count": 1,
     }
-    snapshot = KpiSnapshot(
+    snapshot = DailySnapshot(
         snapshot_date=datetime.now(timezone.utc).date() - timedelta(days=5),
         total_cards=8,
         avg_data_quality=65.0,

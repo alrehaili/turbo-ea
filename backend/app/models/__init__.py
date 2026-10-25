@@ -34,7 +34,7 @@ from app.models.improvement_opportunity import (
     ImprovementOpportunity,
     ImprovementOpportunityCard,
 )
-from app.models.kpi_snapshot import KpiSnapshot
+from app.models.kpi_measurement import KpiMeasurement, KpiTargetRatification
 from app.models.maturity import (
     MaturityAssessment,
     MaturityDimension,
@@ -179,7 +179,8 @@ __all__ = [
     "SoAW",
     "SwotEntry",
     "CatalogueCache",
-    "KpiSnapshot",
+    "KpiMeasurement",
+    "KpiTargetRatification",
     "IdentityMap",
     "Migration",
     "StagedRecord",

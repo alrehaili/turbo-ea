@@ -250,6 +250,22 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
         },
     },
+    "kpis": {
+        "label": "KPI Measurement",
+        "permissions": {
+            "kpis.measure": (
+                "Record KPI measurements and corrections for the KPI cards you can see"
+            ),
+            "kpis.verify": (
+                "Verify KPI measurements recorded by someone else (never your own); a "
+                "verified measurement of a closed period is frozen"
+            ),
+            "kpis.ratify_targets": (
+                "Ratify KPI targets as the authorized target approver, on every KPI "
+                "card you can see"
+            ),
+        },
+    },
     "maturity": {
         "label": "EA Maturity",
         "permissions": {
@@ -414,6 +430,7 @@ CARD_PERMISSIONS: dict[str, str] = {
     "card.bpm_withdraw": "Withdraw (unpublish) a published BPMN flow version",
     "card.manage_adr_links": "Link or unlink architecture decisions on this card",
     "card.manage_diagram_links": "Link or unlink diagrams on this card",
+    "card.ratify_kpi_target": "Ratify this KPI's target as its authorized target approver",
 }
 
 ALL_CARD_PERMISSION_KEYS: set[str] = set(CARD_PERMISSIONS.keys())
@@ -476,6 +493,7 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "bpm.withdraw_flows": "card.bpm_withdraw",
     "adr.manage": "card.manage_adr_links",
     "diagrams.manage": "card.manage_diagram_links",
+    "kpis.ratify_targets": "card.ratify_kpi_target",
 }
 
 # Reverse: card-level → app-level (for check_permission convenience)
@@ -676,6 +694,9 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "nora.view": True,
     "nora.manage": False,
+    "kpis.measure": False,
+    "kpis.verify": False,
+    "kpis.ratify_targets": False,
     "maturity.view": True,
     "maturity.manage": False,
     "reference_models.view": True,
@@ -778,6 +799,9 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "nora.view": True,
     "nora.manage": False,
+    "kpis.measure": False,
+    "kpis.verify": False,
+    "kpis.ratify_targets": False,
     "maturity.view": True,
     "maturity.manage": False,
     "reference_models.view": True,
@@ -880,6 +904,9 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "nora.view": True,
     "nora.manage": False,
+    "kpis.measure": False,
+    "kpis.verify": False,
+    "kpis.ratify_targets": False,
     "maturity.view": True,
     "maturity.manage": False,
     "reference_models.view": True,
@@ -925,6 +952,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
+    "card.ratify_kpi_target": False,
 }
 
 OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -944,6 +972,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_withdraw": False,
     "card.manage_adr_links": False,
     "card.manage_diagram_links": False,
+    "card.ratify_kpi_target": False,
 }
 
 PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -965,6 +994,7 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
+    "card.ratify_kpi_target": False,
 }
 
 TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -984,6 +1014,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
+    "card.ratify_kpi_target": False,
 }
 
 BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -1003,6 +1034,7 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
+    "card.ratify_kpi_target": False,
 }
 
 IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -1022,6 +1054,7 @@ IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
+    "card.ratify_kpi_target": False,
 }
 
 # Map stakeholder role key → default permissions

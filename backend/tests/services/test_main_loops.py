@@ -17,9 +17,9 @@ from sqlalchemy import select
 from app import main
 from app.models.app_settings import AppSettings
 from app.models.audit_log import AuditLogEntry
-from app.models.kpi_snapshot import KpiSnapshot
 from app.models.mutation_batch import MutationBatch
 from app.models.ops_nonce import OpsRequestNonce
+from app.services.kpi_snapshot_service import get_comparison_snapshot
 from tests.conftest import create_role, create_user
 from tests.seams import one_shot_asyncio
 
@@ -144,11 +144,14 @@ class TestOpsAccessMaintenanceOnce:
 
 class TestEnsureInitialKpiSnapshot:
     async def test_captures_once_then_leaves_the_table_alone(self, db, patched_async_session):
+        from app.models.kpi_measurement import KpiMeasurement
+
         await main._ensure_initial_kpi_snapshot()
-        (first,) = (await db.execute(select(KpiSnapshot))).scalars().all()
-        assert first.total_cards == 0
+        first = await get_comparison_snapshot(db, days_ago=0)
+        assert first is not None and first.total_cards == 0
+        before = len((await db.execute(select(KpiMeasurement.id))).all())
         await main._ensure_initial_kpi_snapshot()
-        assert len((await db.execute(select(KpiSnapshot))).scalars().all()) == 1
+        assert len((await db.execute(select(KpiMeasurement.id))).all()) == before == 4
 
     async def test_a_failure_is_logged_not_raised(
         self, db, patched_async_session, monkeypatch, caplog

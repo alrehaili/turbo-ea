@@ -91,7 +91,7 @@ function payload(overrides: Partial<ExecutiveDashboardData> = {}): ExecutiveDash
   };
 }
 
-function renderTab() {
+function renderTab(url = "/?tab=executive&page=details") {
   const user: User = {
     id: "u1",
     email: "u@test",
@@ -101,7 +101,7 @@ function renderTab() {
     permissions: { "ppm.view": true, "grc.view": true },
   };
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <AuthProvider user={user} refreshUser={vi.fn()}>
         <ExecutiveDetailsPage />
       </AuthProvider>
@@ -131,6 +131,16 @@ describe("ExecutiveDetailsPage", () => {
     await userEvent.click(screen.getByLabelText("Reporting period"));
     await userEvent.click(await screen.findByRole("option", { name: /FY 2025/ }));
     expect(useApiQuery).toHaveBeenLastCalledWith("/reports/executive?fiscal_year=2025");
+    // The kept FY 2026 payload is not shown as FY 2025 while the request runs.
+    expect(screen.getByTestId("period-loading")).toBeInTheDocument();
+    expect(screen.queryByText("Legacy CRM")).not.toBeInTheDocument();
+  });
+
+  it("follows the fiscal year of the period chosen on another Executive page", () => {
+    useApiQuery.mockReturnValue({ data: payload(), error: null, loading: false });
+    renderTab("/?tab=executive&page=details&period=FY2026-Q3");
+    expect(useApiQuery).toHaveBeenLastCalledWith("/reports/executive?fiscal_year=2026");
+    expect(screen.queryByTestId("period-loading")).not.toBeInTheDocument();
   });
 
   it("lists conflicting savings estimates and keeps realised savings unavailable", () => {

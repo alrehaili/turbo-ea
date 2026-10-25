@@ -120,23 +120,39 @@ def test_open_mitigated_and_escalated_are_counted_separately():
 
 
 def test_decision_section_lists_records_only_with_permission():
-    assert dec.section(3, [{"id": "x"}], can_list=True) == {
+    group = dec.OPERATIONAL_PIPELINE
+    assert dec.section(3, [{"id": "x"}], can_list=True, group=group) == {
         "status": "ok",
+        "group": group,
         "count": 3,
         "items": [{"id": "x"}],
     }
-    assert dec.section(3, [{"id": "x"}], can_list=False) == {
+    assert dec.section(3, [{"id": "x"}], can_list=False, group=group) == {
         "status": "restricted",
+        "group": group,
         "count": 3,
         "items": None,
     }
-    assert dec.section(0, [], can_list=True, enabled=False) == {"status": "disabled"}
+    assert dec.section(0, [], can_list=True, group=group, enabled=False) == {
+        "status": "disabled",
+        "group": group,
+    }
+
+
+def test_current_and_finished_periods():
+    assert periods.parse(None, 1, TODAY).is_current is True
+    assert periods.parse("FY2026", 1, TODAY).is_current is True  # the year is still running
+    assert periods.parse("FY2026-Q3", 1, TODAY).is_current is False
+    assert periods.parse("FY2026-Q3", 1, TODAY).to_dict()["is_current"] is False
+    # A period whose last day is today has not ended yet.
+    assert periods.parse("FY2026-Q3", 1, date(2026, 9, 30)).is_current is True
 
 
 # ── KPI contract ─────────────────────────────────────────────────────────
 
-PERIOD = periods.parse("FY2026-Q3", 1, TODAY)
+PERIOD = periods.parse("FY2026-Q4", 1, TODAY)  # the current quarter
 PRIOR = periods.previous(PERIOD, 1, TODAY)
+FINISHED = periods.parse("FY2026-Q2", 1, TODAY)
 
 
 def _delivery(on_track, reported, in_flight, latest="2026-09-01"):
@@ -152,16 +168,17 @@ def _delivery(on_track, reported, in_flight, latest="2026-09-01"):
             "percentage": round(reported / in_flight * 100, 1) if in_flight else None,
             "stale_reports": 0,
             "latest_report_date": latest if reported else None,
+            "oldest_report_date": latest if reported else None,
         },
     }
 
 
 def test_every_tile_shows_target_and_owner_as_not_linked():
     tiles = [
-        kpis.strategy_execution(PERIOD),
+        kpis.strategy_execution(PERIOD, None),
         kpis.governance_effectiveness(PERIOD),
         kpis.services_and_automation(PERIOD),
-        kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), None, PRIOR),
+        kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), PRIOR),
     ]
     for tile in tiles:
         assert tile["target"] == {"status": "not_linked", "decision": "D-26"}
@@ -170,7 +187,6 @@ def test_every_tile_shows_target_and_owner_as_not_linked():
 
 def test_blocked_kpis_are_not_available_with_reason_never_zero():
     for tile, decision in (
-        (kpis.strategy_execution(PERIOD), "D-21"),
         (kpis.governance_effectiveness(PERIOD), "D-13"),
         (kpis.services_and_automation(PERIOD), "D-08"),
     ):
@@ -179,29 +195,48 @@ def test_blocked_kpis_are_not_available_with_reason_never_zero():
         assert decision in tile["reason"]["decisions"]
 
 
-def test_delivery_tile_value_previous_and_confidence():
-    tile = kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), _delivery(1, 2, 5), PRIOR)
+def test_delivery_tile_value_and_confidence_for_the_current_period():
+    tile = kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), PRIOR)
     assert tile["status"] == "ok" and tile["value"] == 75.0
-    assert tile["previous"] == {
-        "status": "ok",
-        "value": 50.0,
-        "period": "FY2026-Q2",
-        "coverage_percentage": 40.0,
-    }
+    assert tile["temporal"] == "period" and tile["period"] == "FY2026-Q4"
     assert tile["completeness"]["percentage"] == 80.0
     assert tile["confidence"] == "medium"  # self-reported, 80% coverage
     assert tile["freshness"] == "2026-09-01"
-    assert tile["as_of"] == "2026-09-30"
+    assert tile["as_of"] == "2026-10-24"
+    assert tile["details"]["oldest_report_date"] == "2026-09-01"
+    assert tile["drilldown"] == {"api": "TR-03", "path": "/ppm"}
+
+
+def test_previous_delivery_is_never_recounted_over_todays_population():
+    # The previous period has ended and its in-flight population is not on record.
+    tile = kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), PRIOR)
+    assert tile["previous"] == {
+        "status": "not_available",
+        "reason": "historical_unavailable",
+        "period": "FY2026-Q3",
+    }
+
+
+def test_finished_period_delivery_is_historical_unavailable_not_a_value():
+    tile = kpis.initiative_delivery(FINISHED, None, periods.previous(FINISHED, 1, TODAY))
+    assert tile["status"] == "not_available" and tile["value"] is None
+    assert tile["reason"] == {"code": "historical_unavailable"}
+    assert tile["previous"]["reason"] == "historical_unavailable"
+    assert tile["completeness"] is None and tile["drilldown"] is None
+
+
+def test_delivery_from_card_status_offers_no_ppm_link():
+    current = _delivery(3, 4, 5) | {"source": "initiative_status"}
+    assert kpis.initiative_delivery(PERIOD, current, PRIOR)["drilldown"] is None
 
 
 def test_delivery_with_low_coverage_is_low_confidence():
-    tile = kpis.initiative_delivery(PERIOD, _delivery(1, 1, 5), None, PRIOR)
+    tile = kpis.initiative_delivery(PERIOD, _delivery(1, 1, 5), PRIOR)
     assert tile["confidence"] == "low"
-    assert tile["previous"]["status"] == "not_available"  # no history (D-19)
 
 
 def test_delivery_with_nobody_reporting_is_not_reported_not_zero():
-    tile = kpis.initiative_delivery(PERIOD, _delivery(0, 0, 5), None, PRIOR)
+    tile = kpis.initiative_delivery(PERIOD, _delivery(0, 0, 5), PRIOR)
     assert tile["status"] == "not_available"
     assert tile["reason"]["code"] == "not_reported"
     assert tile["value"] is None
@@ -211,15 +246,119 @@ def test_business_value_never_uses_the_forecast_as_value():
     forecast = {"status": "ok", "total": 1000.0, "provenance": "forecast"}
     tile = kpis.business_value(PERIOD, forecast)
     assert tile["status"] == "not_available" and tile["value"] is None
-    assert tile["details"]["forecast"] is forecast
+    # Undated estimates (D-31): a current-state forecast, never a period result.
+    assert tile["details"]["forecast"] == {**forecast, "temporal": "current_state"}
 
 
 def test_decisions_tile_counts_escalated_and_shows_open_and_mitigated_apart():
     picture = dec.RiskPicture(open=7, mitigated=2, escalated=[object(), object()])
-    tile = kpis.decisions_and_escalations(PERIOD, picture, {"adrs": 1, "arb": 0, "exceptions": 0})
+    pipeline = {"adrs": 1, "arb": 0, "exceptions": 0}
+    tile = kpis.decisions_and_escalations(PERIOD, picture, pipeline, TODAY)
     assert tile["value"] == 2
     assert tile["details"]["open_risks"] == 7 and tile["details"]["mitigated_risks"] == 2
+    assert tile["details"]["operational_pipeline"] == pipeline
     assert tile["confidence"] == "high"
-    disabled = kpis.decisions_and_escalations(PERIOD, None, {"adrs": 1, "arb": 0, "exceptions": 0})
+    disabled = kpis.decisions_and_escalations(PERIOD, None, pipeline, TODAY)
     assert disabled["status"] == "not_available"
-    assert disabled["details"]["pending"]["adrs"] == 1
+    assert disabled["details"]["operational_pipeline"]["adrs"] == 1
+
+
+def test_decisions_tile_is_current_state_whatever_period_is_selected():
+    picture = dec.RiskPicture(open=1, mitigated=0, escalated=[object()])
+    for selected in (PERIOD, FINISHED):
+        for risks in (picture, None):
+            tile = kpis.decisions_and_escalations(selected, risks, {}, TODAY)
+            assert tile["temporal"] == "current_state"
+            assert tile["period"] is None
+            assert tile["as_of"] == TODAY.isoformat()
+
+
+# ── Strategy achievement (TR-01, D-21) and the on-target rule ─────────────
+
+from app.services.executive import linkage, strategy  # noqa: E402
+
+RATIFIED = {"status": "ratified", "value": 80.0, "baseline": 40.0, "direction": "higherIsBetter"}
+
+
+def _totals(linked, measured, on_target):
+    return {
+        "totals": {"linked": linked, "measured": measured, "on_target": on_target},
+        "execution": {},
+    }
+
+
+def test_strategy_tile_counts_on_target_among_measured_with_coverage():
+    tile = kpis.strategy_execution(PERIOD, _totals(linked=5, measured=4, on_target=3))
+    assert tile["status"] == "ok" and tile["value"] == 3 and tile["unit"] == "count_of"
+    assert tile["completeness"] == {"numerator": 4, "denominator": 5, "percentage": 80.0}
+    assert tile["drilldown"]["path"] == kpis.STRATEGY_PAGE
+
+
+def test_strategy_tile_is_never_zero_without_evidence():
+    none_linked = kpis.strategy_execution(PERIOD, _totals(0, 0, 0))
+    assert none_linked["status"] == "not_available" and none_linked["value"] is None
+    assert none_linked["reason"] == {"code": "no_strategic_kpis"}
+    unmeasured = kpis.strategy_execution(PERIOD, _totals(3, 0, 0))
+    assert unmeasured["reason"] == {"code": "no_verified_measurements"}
+    assert unmeasured["completeness"]["percentage"] == 0.0
+    past = kpis.strategy_execution(FINISHED, None)
+    assert past["reason"] == {"code": "historical_unavailable"}
+
+
+def test_assess_needs_a_ratified_target_and_a_direction():
+    assert linkage.assess(85, RATIFIED) == {"achieved": True, "attainment": 100.0}
+    assert linkage.assess(60, RATIFIED) == {"achieved": False, "attainment": 50.0}
+    assert linkage.assess(30, RATIFIED)["attainment"] == 0.0
+    lower = {**RATIFIED, "direction": "lowerIsBetter", "value": 10.0, "baseline": 30.0}
+    assert linkage.assess(9, lower) == {"achieved": True, "attainment": 100.0}
+    for target in ({**RATIFIED, "status": "unratified"}, {**RATIFIED, "direction": None}):
+        assert linkage.assess(85, target) == {"achieved": None, "attainment": None}
+    assert linkage.assess(None, RATIFIED)["achieved"] is None
+
+
+def test_kpi_state_follows_the_evidence_order():
+    approved = SimpleNamespace(approval_status="APPROVED")
+    draft = SimpleNamespace(approval_status="DRAFT")
+    assert strategy.kpi_state(draft, RATIFIED, 90)[0] == strategy.NOT_APPROVED
+    assert (
+        strategy.kpi_state(approved, {**RATIFIED, "status": "unratified"}, 90)[0]
+        == strategy.NO_TARGET
+    )
+    assert (
+        strategy.kpi_state(approved, {**RATIFIED, "direction": "x"}, 90)[0] == strategy.NO_DIRECTION
+    )
+    assert strategy.kpi_state(approved, RATIFIED, None)[0] == strategy.NOT_MEASURED
+    assert strategy.kpi_state(approved, RATIFIED, 90)[0] == strategy.ON_TARGET
+    assert strategy.kpi_state(approved, RATIFIED, 50)[0] == strategy.OFF_TARGET
+
+
+def test_linked_tile_shows_target_owner_and_judges_only_when_ratified():
+    tile = kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), PRIOR)  # 75 %
+    link = {"card_id": "k1", "name": "Delivery KPI", "target": RATIFIED, "owners": ["Sara"]}
+    out = linkage.apply_link(dict(tile), link)
+    assert out["target"]["status"] == "ratified" and out["target"]["achieved"] is False
+    assert out["owner"] == {"status": "ok", "name": "Sara"}
+    unratified = linkage.apply_link(
+        dict(tile), {**link, "target": {**RATIFIED, "status": "unratified"}, "owners": []}
+    )
+    assert unratified["target"]["achieved"] is None
+    assert unratified["owner"] == {"status": "unassigned"}
+    assert linkage.apply_link(dict(tile), None)["target"]["status"] == "not_linked"
+
+
+def test_previous_and_finished_period_come_only_from_verified_history():
+    verified = SimpleNamespace(
+        value=70.0,
+        status="verified",
+        observed_on=date(2026, 6, 30),
+        verified_at=None,
+        calculation_version="TR-03@3",
+    )
+    assert kpis.previous_from_history(PRIOR, verified)["value"] == 70.0
+    assert kpis.previous_from_history(PRIOR, None)["reason"] == "historical_unavailable"
+    past = kpis.recorded_delivery(FINISHED, verified, kpis.historical_previous(PRIOR))
+    assert past["status"] == "ok" and past["value"] == 70.0 and past["freshness"] == "2026-06-30"
+    submitted = SimpleNamespace(**{**verified.__dict__, "status": "submitted"})
+    waiting = kpis.recorded_delivery(FINISHED, submitted, kpis.historical_previous(PRIOR))
+    assert waiting["status"] == "not_available"
+    assert waiting["reason"] == {"code": "awaiting_verification"}

@@ -48,7 +48,14 @@ from app.models.card_type import CardType
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.services import card_approval, card_lifecycle, card_reference, notification_service
+from app.models.user import User
+from app.services import (
+    card_approval,
+    card_lifecycle,
+    card_reference,
+    kpi_metric_link,
+    notification_service,
+)
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_value import is_numeric_text
@@ -190,6 +197,27 @@ async def _validate_percentage_attributes(
             continue
         if isinstance(val, bool) or not isinstance(val, (int, float)) or not 0 <= val <= 100:
             raise HTTPException(422, f"Field '{key}' must be a number between 0 and 100")
+
+
+async def _check_metric_link(
+    db: AsyncSession,
+    actor: WriteActor,
+    card_type: str,
+    new_attributes: dict | None,
+    old_attributes: dict | None,
+    card_id: uuid.UUID | None,
+) -> None:
+    """The KPI ``metricKey`` rule (D-26) for this actor — see ``kpi_metric_link``."""
+    user = await db.get(User, actor.user_id) if actor.user_id is not None else None
+    await kpi_metric_link.validate_metric_key(
+        db,
+        card_type=card_type,
+        new_attributes=new_attributes,
+        old_attributes=old_attributes,
+        card_id=card_id,
+        user=user,
+        ext_key=actor.ext_key,
+    )
 
 
 async def _validate_boolean_attributes(
@@ -798,6 +826,7 @@ async def create_card(
     """
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
+    await _check_metric_link(db, actor, type_key, attributes, None, None)
     await _validate_boolean_attributes(db, type_key, attributes or {})
     await _validate_cost_attributes(db, type_key, attributes or {})
     await _validate_select_attributes(db, type_key, attributes or {}, {})
@@ -904,6 +933,9 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
         await _validate_percentage_attributes(db, card.type, updates["attributes"])
+        await _check_metric_link(
+            db, actor, card.type, updates["attributes"], card.attributes, card.id
+        )
         await _validate_boolean_attributes(
             db, card.type, updates["attributes"], previous=card.attributes
         )

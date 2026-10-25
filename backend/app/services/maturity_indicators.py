@@ -31,7 +31,7 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.ea_principle import EAPrinciple
-from app.models.kpi_snapshot import KpiSnapshot
+from app.models.kpi_measurement import KIND_DAILY, KpiMeasurement
 from app.models.maturity import MATURITY_MAX_LEVEL
 from app.models.nea_evidence import NeaEvidencePack
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
@@ -362,8 +362,12 @@ async def compute_indicators(db: AsyncSession) -> dict[str, dict]:
     )
     kpi_days = await _count(
         db,
-        select(func.count(func.distinct(func.date(KpiSnapshot.created_at)))).where(
-            KpiSnapshot.created_at >= datetime.now(timezone.utc) - timedelta(days=_KPI_WINDOW_DAYS)
+        # Days with a captured dashboard trend (D-19: daily observations).
+        select(func.count(func.distinct(KpiMeasurement.period_start))).where(
+            KpiMeasurement.kind == KIND_DAILY,
+            KpiMeasurement.metric_key.like("dashboard.%"),
+            KpiMeasurement.recorded_at
+            >= datetime.now(timezone.utc) - timedelta(days=_KPI_WINDOW_DAYS),
         ),
     )
     emit(

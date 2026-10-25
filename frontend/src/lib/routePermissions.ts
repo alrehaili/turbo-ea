@@ -77,6 +77,11 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: "/ppm/:id", permission: "ppm.view" },
   { path: "/grc", permission: "grc.view" },
   { path: "/grc/risks/:id", permission: "risks.view" },
+  // Executive drill-down targets: the page's own API answers 403 without these,
+  // so a link to it must not be offered (or followed by URL) without them.
+  { path: "/rationalization", permission: "rationalization.view" },
+  { path: "/arb", permission: "arb.view" },
+  { path: "/tech-standards", permission: "tech_standards.view" },
   { path: "/turbolens", permission: "turbolens.view" },
   { path: "/turbolens/assessments/:id", permission: "turbolens.view" },
 

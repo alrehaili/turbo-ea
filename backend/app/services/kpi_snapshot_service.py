@@ -1,16 +1,87 @@
-"""Capture and read daily KPI snapshots used to render dashboard trends."""
+"""Capture and read the daily dashboard series used to render dashboard trends.
+
+The four series (total cards, average data quality, approved, broken) live in
+the one KPI measurement history (``kpi_measurements``, decision D-19) as
+``daily`` observations keyed ``dashboard.<series>``; migration 1164 moved the
+``kpi_snapshots`` rows there unchanged. :class:`DailySnapshot` is the
+one-day view the dashboard trend has always read.
+"""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
-from app.models.kpi_snapshot import KpiSnapshot
+from app.models.kpi_measurement import KIND_DAILY, STATUS_OBSERVED, KpiMeasurement
 from app.services.card_read_scope import visible_type_clause
+
+SERIES = ("total_cards", "avg_data_quality", "approved_count", "broken_count")
+PREFIX = "dashboard."
+VERSION = "dashboard@1"
+INT_SERIES = frozenset({"total_cards", "approved_count", "broken_count"})
+
+
+@dataclass(frozen=True)
+class DailySnapshot:
+    """One day of the four dashboard series."""
+
+    snapshot_date: date
+    total_cards: int = 0
+    avg_data_quality: float = 0.0
+    approved_count: int = 0
+    broken_count: int = 0
+
+
+async def store_daily(db: AsyncSession, snapshot_date: date, values: dict) -> None:
+    """Upsert one day of the dashboard series (idempotent on the day)."""
+    day = snapshot_date.isoformat()
+    for series in SERIES:
+        if series not in values:
+            continue
+        stmt = (
+            pg_insert(KpiMeasurement)
+            .values(
+                kind=KIND_DAILY,
+                metric_key=PREFIX + series,
+                period_type="day",
+                period_key=day,
+                period_start=snapshot_date,
+                period_end=snapshot_date,
+                value=float(values[series]),
+                calculation_version=VERSION,
+                source="system",
+                status=STATUS_OBSERVED,
+            )
+            .on_conflict_do_update(
+                index_elements=["metric_key", "period_key"],
+                index_where=text("kind = 'daily'"),
+                set_={"value": float(values[series]), "recorded_at": func.now()},
+            )
+        )
+        await db.execute(stmt)
+    await db.flush()
+
+
+async def _day(db: AsyncSession, snapshot_date: date) -> DailySnapshot | None:
+    rows = await db.execute(
+        select(KpiMeasurement.metric_key, KpiMeasurement.value).where(
+            KpiMeasurement.kind == KIND_DAILY,
+            KpiMeasurement.metric_key.in_([PREFIX + s for s in SERIES]),
+            KpiMeasurement.period_start == snapshot_date,
+        )
+    )
+    found = {key[len(PREFIX) :]: value for key, value in rows.all()}
+    if not found:
+        return None
+    return DailySnapshot(
+        snapshot_date=snapshot_date,
+        **{s: (int(v) if s in INT_SERIES else float(v)) for s, v in found.items() if v is not None},
+    )
 
 
 async def compute_current_kpis(db: AsyncSession) -> dict:
@@ -45,43 +116,27 @@ async def compute_current_kpis(db: AsyncSession) -> dict:
     }
 
 
-async def capture_snapshot(db: AsyncSession, snapshot_date: date | None = None) -> KpiSnapshot:
-    """Capture today's KPI values into kpi_snapshots (idempotent UPSERT).
+async def capture_snapshot(db: AsyncSession, snapshot_date: date | None = None) -> DailySnapshot:
+    """Capture today's dashboard series as daily observations (idempotent).
 
-    If a snapshot for the given date already exists, it is updated in place so
-    re-running the daily task is safe. The caller owns the transaction — this
-    function flushes but does not commit, which keeps the nested-savepoint
-    rollback pattern in tests behaving correctly.
+    Re-running on the same day updates that day's observations in place. The
+    caller owns the transaction — this flushes but does not commit, which keeps
+    the nested-savepoint rollback pattern in tests behaving correctly.
     """
     target_date = snapshot_date or datetime.now(timezone.utc).date()
     kpis = await compute_current_kpis(db)
+    await store_daily(db, target_date, kpis)
+    return DailySnapshot(snapshot_date=target_date, **kpis)
 
-    stmt = (
-        pg_insert(KpiSnapshot)
-        .values(snapshot_date=target_date, **kpis)
-        .on_conflict_do_update(
-            index_elements=["snapshot_date"],
-            set_={
-                "total_cards": kpis["total_cards"],
-                "avg_data_quality": kpis["avg_data_quality"],
-                "approved_count": kpis["approved_count"],
-                "broken_count": kpis["broken_count"],
-            },
-        )
-    )
-    await db.execute(stmt)
-    await db.flush()
 
-    # populate_existing forces re-hydration from the DB: the Core-level UPSERT
-    # above is invisible to the ORM's identity map, so a plain SELECT would
-    # return the previous (stale) row if one was already loaded in the same
-    # session.
-    result = await db.execute(
-        select(KpiSnapshot)
-        .where(KpiSnapshot.snapshot_date == target_date)
-        .execution_options(populate_existing=True)
+async def has_any_snapshot(db: AsyncSession) -> bool:
+    """Whether any day of the dashboard series has been captured yet."""
+    found = await db.execute(
+        select(KpiMeasurement.id)
+        .where(KpiMeasurement.kind == KIND_DAILY, KpiMeasurement.metric_key.like(PREFIX + "%"))
+        .limit(1)
     )
-    return result.scalar_one()
+    return found.scalar_one_or_none() is not None
 
 
 async def get_comparison_snapshot(
@@ -90,13 +145,13 @@ async def get_comparison_snapshot(
     days_ago: int = 30,
     min_days: int = 0,
     max_days: int = 365,
-) -> KpiSnapshot | None:
-    """Return the snapshot closest to (today - days_ago) within [min_days, max_days].
+) -> DailySnapshot | None:
+    """Return the day closest to (today - days_ago) within [min_days, max_days].
 
     ``min_days=0`` means today's startup baseline is a valid comparison point
     on day one (delta measures "change since startup"); after the daily 02:00
-    UTC loop starts rolling, prior days' snapshots are preferred. Falls back
-    to whatever snapshot is closest to the target when no exact match exists.
+    UTC loop starts rolling, prior days are preferred. Falls back to whatever
+    day is closest to the target when no exact match exists.
     """
     today = datetime.now(timezone.utc).date()
     earliest = today - timedelta(days=max_days)
@@ -104,20 +159,25 @@ async def get_comparison_snapshot(
     target = today - timedelta(days=days_ago)
 
     result = await db.execute(
-        select(KpiSnapshot)
-        .where(KpiSnapshot.snapshot_date >= earliest)
-        .where(KpiSnapshot.snapshot_date <= latest)
+        select(KpiMeasurement.period_start)
+        .where(
+            KpiMeasurement.kind == KIND_DAILY,
+            KpiMeasurement.metric_key.like(PREFIX + "%"),
+            KpiMeasurement.period_start >= earliest,
+            KpiMeasurement.period_start <= latest,
+        )
+        .distinct()
     )
-    rows = result.scalars().all()
-    if not rows:
+    days = [d for (d,) in result.all()]
+    if not days:
         return None
-    return min(rows, key=lambda r: abs((r.snapshot_date - target).days))
+    return await _day(db, min(days, key=lambda d: abs((d - target).days)))
 
 
 def compute_trend_block(
     *,
     current: dict,
-    previous: KpiSnapshot | None,
+    previous: DailySnapshot | None,
     preferred_days: int = 30,
 ) -> dict:
     """Build the ``trends`` block returned by /reports/dashboard.

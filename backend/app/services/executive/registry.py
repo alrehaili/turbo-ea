@@ -1,0 +1,32 @@
+"""Registered executive calculations a KPI card may be linked to (D-26).
+
+A KPI card's ``metricKey`` must name one of these: it is how a computed
+indicator finds the card that carries its definition, target, owner and
+baseline. Only calculations that produce a value are listed — an indicator
+that is still "not available" has nothing to link a target to. Each entry is
+also a series in the measurement history (``kpi_measurements.metric_key``),
+captured daily and closed into period values (D-19).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class RegisteredMetric:
+    key: str
+    unit: str  # "percent" / "count"
+    version: str
+
+
+METRICS: dict[str, RegisteredMetric] = {
+    # Share of in-flight initiatives on track, among those that reported.
+    "TR-03": RegisteredMetric("TR-03", "percent", "TR-03@3"),
+    # Open risks meeting the D-04 executive-escalation rule.
+    "DEC-01": RegisteredMetric("DEC-01", "count", "DEC-01@2"),
+}
+
+
+def is_registered(key: str) -> bool:
+    return key in METRICS

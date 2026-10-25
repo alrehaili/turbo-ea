@@ -10,7 +10,7 @@
 | **Security Remediation Track (SEC)** | **Pending verification** (implemented incl. §9 preparation and §10 final integration; full backend suite not run; frontend tests blocked; not in CI; uncommitted) | SEC-1, SEC-2 and SEC-3 were implemented on 2026-10-24 under D-01 and D-30. All 26 findings are resolved: S-08 and S-12 were decided on 2026-10-24 and implemented, together with scenario-merge authorization and readable-only segment traversal (`SECURITY_REMEDIATION_PLAN.md` §9; 8 new focused tests pass). Locally, the extended sweep, 17 new disclosure tests, the signature guard and the read-scope guard pass. On unmodified `HEAD` the same sweep fails on 24 routes and 15 of 16 of the new tests fail. The full backend suite was not run (stopped at the owner's request) and the new S-14 test has not run yet; both are deferred to CI. Evidence: `SECURITY_REMEDIATION_PLAN.md` §8. The track is not *Completed* until it is committed, green in CI and merged. |
 | Phase 0: decisions, KPI ratification, data ownership | **In Progress** (planning) | Phase 1 decisions approved 2026-10-22 (D-01, D-02, D-05, D-06, D-22, D-24, D-30) plus D-18. 23 decisions remain open (11 blocking, incl. the new D-31). KPI ratification and data stewardship not started. |
 | Phase 1: prototype baseline and KPI correctness | **Pending verification** (functionally implemented 2026-10-24, review corrections H1 and M1–M3 applied, VERSION 2.34.0; focused tests pass locally; not in CI; uncommitted) | CR-01..CR-10 applied to the Executive tab (see *Phase 1 implementation record* below). Two items stay **open as business decisions, not implementation gaps**: the financial period of planned savings (**D-31**) and **Finance verification of the instance currency** (D-05). Not *Completed* until committed, green in CI (incl. mutation gates) and merged. |
-| Phase 2: CEO overview, KPI history, decision intelligence | **In Progress** (unblocked scope implemented 2026-10-25; **no tests run**; not in CI; uncommitted) | D-03, D-04, D-07, D-17 approved with changes on 2026-10-24. Built: Executive sub-navigation, CEO overview with the standard KPI tile, period filter, decisions page, drill-downs. **Blocked:** KPI history (D-19), targets and owners on tiles (D-26, then a ratification mechanism per D-17), org filter (D-07: relations and data), TR-01 (D-21), SVC-02 (D-09); slots 2 and 5 wait for Phases 3 and 4. See *Phase 2 implementation record*. |
+| Phase 2: CEO overview, KPI history, decision intelligence | **In Progress** (unblocked scope implemented and committed 2026-10-25 as 2.35.0; review corrections H-1–H-4, M-1, M-3, M-5 applied 2026-10-25, uncommitted; focused backend tests pass; frontend tests pass only under a scratch config — see *Phase 2 review corrections*; not in CI) | D-03, D-04, D-07, D-17 approved with changes on 2026-10-24. Built: Executive sub-navigation, CEO overview with the standard KPI tile, period filter, decisions page, drill-downs. **Blocked:** KPI history (D-19), targets and owners on tiles (D-26, then a ratification mechanism per D-17), org filter (D-07: relations and data), TR-01 (D-21), SVC-02 (D-09); slots 2 and 5 wait for Phases 3 and 4. See *Phase 2 implementation record*. |
 | Phase 3: EA governance effectiveness | **Not Started** | Blocked by D-10, D-13 |
 | Phase 4: Business impact, benefits realisation, ROI | **Not Started** | Blocked by D-12, D-14, D-15 |
 | Phase 5: Transformation, services, processes, maturity, portfolio | **Not Started** | Blocked by D-08; needs data |
@@ -175,10 +175,10 @@ Implemented in the working tree on `main` (uncommitted, not deployed), on top of
 |---|---|---|
 | Strategy achievement | TR-01 | Not available — D-21 open (and no objective records progress) |
 | EA governance effectiveness | GOV-05 / GOV-01 | Not available — Phase 3 (D-10, D-13) |
-| Initiative delivery | TR-03 + coverage | Available, with previous period derived from dated reports |
+| Initiative delivery | TR-03 + coverage | Available for the current period, coverage shown beside it. A finished period and the previous-period comparison read *Historical data unavailable* (review correction H-1) |
 | Services and automation | SVC-01 / SVC-02 | Not available — D-08, D-09 |
 | Business value | FIN-01 | Not available — Phase 4; planned-savings forecast shown as a labelled detail only (D-31 open, currency unverified) |
-| Decisions and escalations | DEC-01 + DEC-02 | Available (current state; no previous value until D-19) |
+| Decisions and escalations | DEC-01 + DEC-02 | Available as a labelled **current-state** figure whatever period is selected; the operational pipeline is counted beside it, not as escalations (H-2, H-3); no previous value until D-19 |
 
 No target, baseline, benefit or maturity score is fabricated, and nothing is calculated from forecast savings.
 
@@ -206,3 +206,106 @@ No target, baseline, benefit or maturity score is fabricated, and nothing is cal
 - TR-01 — D-21; SVC-02 — D-09.
 - Summary sentence band and pillar strip (UI spec §4.1) — need TR-01 and pillar progress (D-21).
 - Still open from Phase 1: D-31 and currency verification (D-05).
+
+### Phase 2 review corrections (2026-10-25)
+
+A focused review of the Overview and Decisions pages (browser, EN/AR, desktop and 390 px; API as admin and as a role holding only `reports.executive_dashboard`) found four High and seven Medium issues. The owner approved fixing **H-1 to H-4, M-1, M-3 and M-5**; the rest stay open (below). Applied in the working tree, **uncommitted**, no version bump.
+
+| Finding | Correction | Where |
+|---|---|---|
+| **H-1** Past periods counted today's initiatives (population from current status; previous-period comparison likewise) | A period is *current* when it has not ended (`Period.is_current`). The in-flight population comes from each card's present status, which keeps no history, so TR-03 is computed **only for the current period**. A finished period, and every previous-period comparison, returns `historical_unavailable` — no value, no coverage, no drill-down rows. No lifecycle date or history event is used to rebuild membership: that would be a new rule (open, below). | `periods.py`, `kpis.initiative_delivery` (`TR-03@3`), `executive_overview.py` (`_current_delivery`, TR-03 drill-down) |
+| **H-2** Current-state figures carried the selected period's label | Every tile carries `temporal`: `period` or `current_state`. DEC-01 is `current_state` with `period: null` and `as_of` today; the planned-savings forecast is tagged `current_state` (still not tied to a fiscal year, D-31 unchanged). The tile shows a **Current state** chip and "Current state · as of …" in the Period row; a finished period shows a notice above the tiles. | `kpis.py` (`DEC-01@2`, `FIN-01@1`), `ExecutiveKpiTile.tsx`, `ExecutiveOverview.tsx` |
+| **H-3** Routine governance mixed with escalations | Each decisions section carries `group`: `executive_escalation` (risks, D-04) or `operational_pipeline` (ADRs awaiting signature, ARB scheduled / deferred, exceptions requested). The overview panel is now **Executive escalations** and lists escalated risks only (`escalations_panel`, replaces `decisions_panel`). The Decisions page renders the two groups separately. No new escalation rule. | `decisions.py`, `executive_overview.py` (`_panel`), `ExecutiveDecisions.tsx` |
+| **H-4** Arabic counts fell back to English; mixed-direction text reordered | All six Arabic plural forms (zero, one, two, few, many, other) for every counted `dashboard.executive.*` string (25 keys, Phase 1 included); `_other` now holds the 100+ form. Record titles render with `dir="auto"`, meta fragments as `<bdi>` isolates, and in an RTL locale the currency part of compact money is a left-to-right isolate ("$US" no longer). EN/AR policy (D-18) unchanged. | `ar/common.json`, `en/common.json`, `ExecutiveOverview.tsx`, `executiveFormat.ts` |
+| **M-1** "Nothing you can open needs attention" while escalations existed | The panel carries `status` and the full `count`; a restricted reader sees "N escalated risks" and why the records are withheld. "No risk meets the criteria" appears only when the count is zero. A restricted Decisions section with a zero count says "Nothing pending". | `executive_overview.py`, `ExecutiveOverview.tsx`, `ExecutiveDecisions.tsx` |
+| **M-3** Headline health dominated low coverage | Coverage is a bold line under the value ("Reporting coverage 35.3%: 6 of 17 …"). A warning states the actual shortfall ("11 of 17 in-flight initiatives have no current status report; the on-track share covers only the 6 that reported") and, when no staleness threshold is configured, that any report counts as current, with the oldest counted report date. No fixed percentage threshold was introduced. | `ExecutiveOverview.tsx`, `kpis.py` (`oldest_report_date`) |
+| **M-5** "View records" linked to pages the caller cannot open, or to a disabled module | `/rationalization`, `/arb`, `/tech-standards` added to `ROUTE_PERMISSIONS` (`rationalization.view`, `arb.view`, `tech_standards.view`), so links and typed URLs are gated like the backend. TR-03 offers no `/ppm` link when its source is the card status (PPM off) or the period has ended. Backend checks unchanged. | `routePermissions.ts`, `kpis.py` |
+
+**Validation (one focused pass, 2026-10-25):**
+
+| Check | Result |
+|---|---|
+| `ruff check` / `ruff format` on changed backend files and tests | Clean |
+| `pytest tests/services/test_executive_overview.py tests/api/test_executive_overview_api.py tests/services/test_executive_dashboard_kpis.py tests/api/test_executive_dashboard_phase1.py` (local PostgreSQL) | **66 passed**, 0 failed, 0 skipped |
+| `tsc -p tsconfig.json --noEmit` | 2 errors, both in untouched files (`lib/agGridSetup.ts`, `reports/MatrixReport.tsx`) from the AG Grid mismatch below; no error in any changed file |
+| Vitest, normal config | **Cannot start locally**: every suite fails in `src/test/setup.ts` → `lib/agGridSetup.ts` because `node_modules` holds AG Grid **32.3.9** while `package-lock.json` pins **35.3.1** (stale install after the upstream merge; reproduced on the untouched `searchRank.test.ts`). Needs `npm ci`, which was out of scope. |
+| Vitest, scratch config (outside the repo) stubbing only `@/lib/agGridSetup` | 7 files, 180 tests: **177 passed**. The 6 executive and i18n files pass, including the new `ExecutiveOverview.test.tsx`, `ExecutiveDecisions.test.tsx`, `executivePlurals.test.ts` and the RTL currency case. `routePermissions.test.ts` has **3 pre-existing parity failures** unrelated to this change (85 fork routes absent from `ROUTE_PERMISSIONS`, and `/ea-delivery/adm` naming an unknown `adm.view`); the three routes added here are no longer among the unreviewed ones. |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, a browser re-check of the corrected pages |
+
+**Still open after the corrections:**
+
+- M-6 (drill-down endpoints not used by the UI) and the Low findings L-1 to L-7. (M-2, M-4 and M-7 were done in the follow-up below.)
+- Historical delivery membership: rebuilding which initiatives were in flight in a past period (from lifecycle dates or card-history events) is a **new business rule** and needs a decision; until then past periods show *Historical data unavailable*. KPI history storage (D-19) remains the general route to frozen period values.
+- Local frontend environment: reinstall dependencies (`npm ci`) so Vitest runs under the normal config; then re-run the executive tests and the `routePermissions` parity test, and decide how to treat its 85 pre-existing unreviewed fork routes.
+- No version bump or CHANGELOG entry was made for these corrections.
+
+### Phase 2 UI corrections M-2, M-4, M-7 (2026-10-25)
+
+Approved by the owner after the review corrections; frontend and user manual only — no API, business rule, permission or database change. Uncommitted, no version bump.
+
+| Finding | Correction | Where |
+|---|---|---|
+| **M-2** Decision IDs ("Waiting for decision D-21"), phase numbers ("phase 3") and raw period keys ("FY2026-Q3") shown to executives | An unavailable tile now says what has to be agreed or confirmed, per indicator (e.g. strategy: "Shown once it is agreed how progress on strategic objectives is measured"; business value: "Shown once realised benefits are confirmed by Finance"). The payload keeps the decision IDs for the project records; the screen no longer cites them. Target and owner read "No approved target yet" / "Not assigned yet"; the footnote, the governance hint and the savings-period note were reworded the same way. Previous-period text uses the formatted period name. No `dashboard.executive.*` string in EN or AR now mentions a decision ID, a phase or "KPI card". | `executiveFormat.unavailableReason`, `ExecutiveKpiTile.tsx`, `en`/`ar` `common.json` |
+| **M-4** No loading state on period change; period lost on reload and between pages | The period lives in the URL (`?tab=executive&page=…&period=FY2026-Q3`, `useExecutivePeriod`); a malformed value is ignored. Switching pages keeps it (`ExecutiveTab` already copies the query string; the Overview's link to Decisions and the Decisions tile's drill link carry it). Details follows the fiscal year of the chosen period and choosing a year there sets `period=FY<year>`. While a new period loads, both pages show a progress bar and **none** of the previous period's figures (the kept payload is used only for the selector's options). A period the Overview cannot show (e.g. a future budget year chosen on Details) gives a message and a **Show the current period** button instead of an error. Decisions remain current state, as before. | `useExecutivePeriod.ts`, `ExecutiveOverview.tsx`, `ExecutiveDetailsPage.tsx`, `ExecutiveKpiTile.tsx` |
+| **M-7** Record titles truncated (losing the reference; cut at the wrong end in RTL); escalations a long scroll away on a phone | Titles wrap (`overflow-wrap: anywhere`, `dir="auto"`, start-aligned) instead of `noWrap`. Below the `lg` breakpoint the **Executive escalations** panel is placed first, above the six tiles (CSS `order`, which also holds in RTL), and no longer stretches to the tile column's height. | `ExecutiveOverview.tsx` |
+
+**Validation (lightweight, 2026-10-25):**
+
+| Check | Result |
+|---|---|
+| `tsc -p tsconfig.json --noEmit` | 2 errors, both pre-existing in untouched files (`lib/agGridSetup.ts`, `reports/MatrixReport.tsx`, AG Grid 32.3.9 installed vs 35.3.1 locked); none in changed files |
+| `eslint src/features/dashboard/executive src/lib/routePermissions.ts` | Clean |
+| Vitest, scratch config (outside the repo, stubs only `@/lib/agGridSetup`): the 6 executive files + `i18n.test.ts` | **6 files, 178 tests passed** — new cases for M-2 (plain-language reasons, no IDs or raw keys), M-4 (URL period requested, no stale figures while loading, selection written to the URL, way back from an unavailable period, period carried to Decisions, Details follows the period's fiscal year) and M-7 (titles wrap, `dir="auto"`) |
+| **Normal frontend validation** | **Pending** — not possible until dependencies are reinstalled (`npm ci`, deferred by the owner) |
+| Not run | Backend tests (no backend change in this round), full suites, mutation testing, builds, `mkdocs build --strict`, browser check at 390 px in AR |
+
+**Remaining after this round:** M-6, L-1 to L-7, the historical-membership decision, `npm ci` and the normal-config frontend run, a browser check of the corrected pages (EN/AR, desktop and phone), and a version bump with CHANGELOG entry when these corrections are committed.
+
+### KPI history, strategy achievement and KPI linkage (D-19, D-21, D-26, D-17a — 2026-10-25)
+
+Approved with changes on 2026-10-25 (`DECISION_LOG.md` §2 and the implementation details I-1 to I-6 in §2.1). Implemented in the working tree, **uncommitted, not deployed, no version bump**. No demo measurements, targets or history were created.
+
+**Batch 1 — data model, rules and API**
+
+| Item | Where |
+|---|---|
+| One history `kpi_measurements` (daily observations + period measurements, append-only corrections, frozen verified closed periods) and `kpi_target_ratifications`; migration `1164` copies every `kpi_snapshots` row into four daily series and drops the old table (downgrade rebuilds it) | `models/kpi_measurement.py`, `alembic/versions/1164_kpi_measurement_history.py` |
+| Dashboard trend and maturity indicator read the history; the daily loop also records the executive metrics and closes ended periods (last observation inside the period, `submitted`) | `services/kpi_snapshot_service.py`, `main.py`, `services/maturity_indicators.py` |
+| Rules: record / correct (reason required) / verify (never one's own) / ratify; target unratified again when target, date, baseline, unit or direction change | `services/kpi_measurement_service.py` |
+| Permissions `kpis.measure`, `kpis.verify`, `kpis.ratify_targets` (+ card permission `card.ratify_kpi_target` for an admin-defined approver stakeholder role); no default role or built-in stakeholder role holds them | `core/permissions.py` |
+| `/kpis/{card}/performance`, `/kpis/{card}/measurements`, `/kpis/measurements/{id}/corrections`, `/kpis/measurements/{id}/verify`, `/kpis/{card}/target-ratifications`, `/kpis/metrics/{key}/history` | `api/v1/kpi_measurements.py` |
+| `metricKey`: registry (`TR-03`, `DEC-01`), one validator on create, update, bulk create, bulk update, restore and workspace import; `admin.metamodel` to change; extensions refused; DB partial unique index | `services/kpi_metric_link.py`, `services/executive/registry.py`, `card_write_service.py`, `api/v1/cards.py`, `workspace_io/applier.py`, `models/card.py`, `nora_profile.py` (v11) |
+| Workspace transfer: KPI-card measurements and ratifications travel; landscape-wide system series stay per instance | `workspace_io/sections.py` |
+
+**Batch 2 — executive integration and UI**
+
+| Item | Where |
+|---|---|
+| Tiles linked to their KPI card: target, ratification state, owner (`responsible` stakeholders), on/off target only for a ratified target with a direction; an unreadable card is "not linked" | `services/executive/linkage.py`, `executive_overview.py` |
+| Previous period and finished periods of TR-03 from **verified** period measurements only (unrestricted readers); a submitted value says "awaiting verification" | `services/executive/kpis.py` |
+| TR-01 strategy achievement: "X of Y measured on target" + coverage (measured of linked); objective and pillar rollups; per-KPI state and attainment; execution (supporting initiatives' delivery) apart; current period only; `Objective.progress` unused | `services/executive/strategy.py`, `GET /reports/executive/strategy` |
+| Executive **Strategy** page; strategy tile; tile target/owner/KPI-card link | `ExecutiveStrategy.tsx`, `ExecutiveTab.tsx`, `ExecutiveOverview.tsx`, `ExecutiveKpiTile.tsx` |
+| KPI card detail: **Performance and target** section (record, correct, verify, ratify, history) | `features/cards/sections/KpiPerformanceSection.tsx`, `CardDetailContent.tsx` |
+| EN/AR strings (Arabic plural forms included) | `common.json`, `cards.json` |
+
+**Validation**
+
+| Check | Result |
+|---|---|
+| `ruff check` / `ruff format`; `import app.main` | Clean |
+| One focused backend pass (batch 1, before the owner stopped further test runs): `test_kpi_measurement_service.py`, `test_kpi_measurements_api.py`, `test_kpi_snapshot_service.py`, `test_main_loops.py`, `test_reports.py::TestDashboard`, executive overview service + API, disclosure regression, permissions, read-scope guard, id-bearing guard, timestamp-default guard, NORA profile | **All new and updated tests passed.** Failures were pre-existing only: `reports.executive_dashboard` absent from three default role maps; 44 fork columns not in the id-bearing allowlist; four fork migrations (1154, 1155, 1157, 1159) without timestamp server defaults; the read-scope guard cannot read files on Windows (`charmap`); plus the NORA version assertion, since updated to 11 and not re-run |
+| Batch 2 | **Pending verification — not run (owner's instruction).** New unit tests written in `test_executive_overview.py` (strategy tile, on-target rule, KPI states, linked tile, history-based previous and finished periods) |
+| `tsc --noEmit` | Only the 2 pre-existing AG Grid errors; none in changed files |
+| `eslint` on the executive pages and the KPI section | Clean |
+| Frontend tests, normal config | Pending `npm ci` (unchanged) |
+| Not run | Migration up/down on a real database, `docs/api/openapi.json` regeneration (routes added — CI drift check will flag it), browser check, full suites, mutation testing |
+
+**Remaining limitations**
+
+- No KPI, Pillar or Objective→KPI data exists on this instance: strategy achievement shows *Not available* until KPI cards are linked, targets ratified and measurements verified.
+- Strategy achievement is current-period only: the strategic links keep no history (same rule as H-1).
+- Executive metric history starts accumulating from deployment; nothing is backfilled. Period values for system metrics need a person with `kpis.verify` to verify them before they show as history.
+- KPI card `currentValue` / `lastMeasuredDate` are not synchronised from the history (I-4).
+- Monthly periods are not supported (I-1).
+- An admin must create the "KPI target approver" stakeholder role (with `card.ratify_kpi_target`) or grant `kpis.ratify_targets`; none exists by default.
+- User manual pages for the KPI section and the Strategy page are not written yet.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -85,3 +85,22 @@ class Card(Base, UUIDMixin, TimestampMixin):
     )
     tags = relationship("Tag", secondary="card_tags", lazy="noload")
     stakeholders = relationship("Stakeholder", back_populates="card", lazy="noload")
+
+
+#: The card type whose ``metricKey`` links a KPI card to a registered executive
+#: calculation (decision D-26). Card-type keys are immutable, so this is stable.
+KPI_CARD_TYPE = "KPI"
+
+# One ACTIVE KPI card per metric key (D-26), enforced in the database as well as
+# by the write-path validator (``kpi_metric_link``). Partial, so archived cards,
+# other types and KPI cards without a key are unconstrained — an admin who
+# removes the field from the metamodel leaves an index that matches nothing.
+Index(
+    "uq_cards_kpi_metric_key",
+    Card.attributes["metricKey"].astext,
+    unique=True,
+    postgresql_where=text(
+        "type = 'KPI' AND status = 'ACTIVE' AND (attributes ->> 'metricKey') IS NOT NULL "
+        "AND (attributes ->> 'metricKey') <> ''"
+    ),
+)

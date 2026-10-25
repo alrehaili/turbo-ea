@@ -75,7 +75,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
 # national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
 # `srmCode` on SecurityControl) so all six domains have a landing field.
-NORA_PROFILE_VERSION = 10
+NORA_PROFILE_VERSION = 11  # v11: KPI metricKey (D-26)
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -3375,6 +3375,61 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
                 "Datakilde",
                 "مصدر البيانات",
             ),
+        },
+        # D-26: links this KPI card to a registered executive calculation, so
+        # the CEO overview shows its target, baseline and owner beside the
+        # computed value. Options mirror ``executive.registry.METRICS``; the
+        # write-path validator (``kpi_metric_link``) refuses anything else, a
+        # second ACTIVE card with the same key, and a change by anyone without
+        # metamodel administration.
+        {
+            "key": "metricKey",
+            "label": "Executive Metric",
+            "type": "single_select",
+            "weight": 0,
+            "translations": _tr(
+                "Führungskennzahl",
+                "Indicateur de direction",
+                "Indicador ejecutivo",
+                "Indicatore direzionale",
+                "Indicador executivo",
+                "高管指标",
+                "Показатель руководства",
+                "Ledelsesindikator",
+                "المؤشر التنفيذي",
+            ),
+            "options": [
+                {
+                    "key": "TR-03",
+                    "label": "Initiative delivery on track (TR-03)",
+                    "translations": _tr(
+                        "Initiativen im Plan (TR-03)",
+                        "Initiatives dans les temps (TR-03)",
+                        "Iniciativas en curso según lo previsto (TR-03)",
+                        "Iniziative in linea (TR-03)",
+                        "Iniciativas no prazo (TR-03)",
+                        "按计划推进的举措 (TR-03)",
+                        "Инициативы по плану (TR-03)",
+                        "Initiativer på sporet (TR-03)",
+                        "المبادرات على المسار (TR-03)",
+                    ),
+                },
+                {
+                    "key": "DEC-01",
+                    "label": "Executive escalations (DEC-01)",
+                    "translations": _tr(
+                        "Eskalationen an die Leitung (DEC-01)",
+                        "Escalades à la direction (DEC-01)",
+                        "Escalamientos a la dirección (DEC-01)",
+                        "Escalation alla direzione (DEC-01)",
+                        "Escalonamentos à direção (DEC-01)",
+                        "上报高管的事项 (DEC-01)",
+                        "Эскалации руководству (DEC-01)",
+                        "Eskaleringer til ledelsen (DEC-01)",
+                        "التصعيدات للإدارة العليا (DEC-01)",
+                    ),
+                },
+            ],
         },
         {
             "key": "lastMeasuredDate",

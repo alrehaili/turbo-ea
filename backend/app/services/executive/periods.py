@@ -5,6 +5,11 @@ A period key is ``FY2027`` or ``FY2027-Q2``; fiscal years follow the workspace's
 (``app.services.fiscal_year``). A figure is measured *as of* the period's last
 day, or today when the period has not ended yet, so the current period never
 claims data from the future.
+
+A period is *current* when it has not ended (``as_of`` is today). Only a
+current period can be measured from data that carries no history — a card's
+present status, today's risk register. A finished period is measured only from
+dated records, and a figure with no dated evidence is unavailable for it.
 """
 
 from __future__ import annotations
@@ -27,6 +32,8 @@ class Period:
     start: date
     end: date  # exclusive
     as_of: date
+    #: The period has not ended: today falls inside it.
+    is_current: bool
 
     @property
     def key(self) -> str:
@@ -40,6 +47,7 @@ class Period:
             "start": self.start.isoformat(),
             "end": (self.end - timedelta(days=1)).isoformat(),
             "as_of": self.as_of.isoformat(),
+            "is_current": self.is_current,
         }
 
 
@@ -48,7 +56,8 @@ def build(fy: int, quarter: int | None, start_month: int, today: date) -> Period
         start, end = fiscal_year_bounds(fy, start_month)
     else:
         start, end = fiscal_quarter_bounds(fy, quarter, start_month)
-    return Period(fy, quarter, start, end, min(end - timedelta(days=1), today))
+    last_day = end - timedelta(days=1)
+    return Period(fy, quarter, start, end, min(last_day, today), last_day >= today)
 
 
 def current_quarter(today: date, start_month: int) -> tuple[int, int]:

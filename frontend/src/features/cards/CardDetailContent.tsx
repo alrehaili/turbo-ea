@@ -30,6 +30,7 @@ import {
   RelationsSection,
   LayeredDependencySection,
   PortfolioDecisionsSection,
+  KpiPerformanceSection,
   CommentsTab,
   TodosTab,
   StakeholdersTab,
@@ -585,6 +586,12 @@ export default function CardDetailContent({
           <ErrorBoundary label="Portfolio Decisions" inline>
             <PortfolioDecisionsSection cardId={card.id} />
           </ErrorBoundary>
+          {/* KPI cards: target ratification and measurement history (D-19, D-17a). */}
+          {card.type === "KPI" && (
+            <ErrorBoundary label="KPI Performance" inline>
+              <KpiPerformanceSection cardId={card.id} />
+            </ErrorBoundary>
+          )}
           {showLdvSection && (
             <ErrorBoundary label="Dependencies" inline>
               <LayeredDependencySection cardId={card.id} />
