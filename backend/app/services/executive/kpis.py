@@ -356,7 +356,7 @@ def decisions_and_escalations(
     risks beside it, and the operational governance pipeline (ADRs awaiting
     signature, pending reviews, requested exceptions) kept apart as routine
     activity, not escalations. Always the current state, measured today."""
-    common = {"temporal": CURRENT_STATE, "as_of": today}
+    common: dict[str, Any] = {"temporal": CURRENT_STATE, "as_of": today}
     if risks is None:
         return _not_available(
             "DEC-01", "decisions", "DEC-01@2", period, {"code": "module_disabled", "module": "grc"}

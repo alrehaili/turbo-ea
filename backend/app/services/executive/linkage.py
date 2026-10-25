@@ -86,7 +86,8 @@ async def linked_cards(db: AsyncSession, read_scope: CardReadScope) -> dict[str,
             *read_scope.where(Card, mode="module"),
         )
     )
-    cards = {(c.attributes or {}).get(FIELD): c for c in rows.scalars().all()}
+    # The query keeps only registered keys, so each key is a non-empty string.
+    cards = {str((c.attributes or {}).get(FIELD)): c for c in rows.scalars().all()}
     owners = await owner_names(db, [c.id for c in cards.values()])
     out: dict[str, dict[str, Any]] = {}
     for key, card in cards.items():

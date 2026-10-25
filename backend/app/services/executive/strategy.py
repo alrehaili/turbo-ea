@@ -156,13 +156,13 @@ async def strategy_achievement(
             objectives_by_pillar[p].append(o)
 
     objective_rows = []
-    for o in sorted(objectives, key=lambda c: c.name.lower()):
-        ids = kpis_by_objective.get(o.id, [])
+    for obj in sorted(objectives, key=lambda c: c.name.lower()):
+        ids = kpis_by_objective.get(obj.id, [])
         objective_rows.append(
             {
-                "id": str(o.id),
-                "name": o.name,
-                "path": f"/cards/{o.id}",
+                "id": str(obj.id),
+                "name": obj.name,
+                "path": f"/cards/{obj.id}",
                 **_rollup(ids, states),
                 "kpis": [kpi_rows[k] for k in ids],
             }
@@ -180,7 +180,7 @@ async def strategy_achievement(
             }
         )
 
-    totals = _rollup(list(kpis), states)
+    totals: dict[str, Any] = dict(_rollup(list(kpis), states))
     totals["assessable"] = sum(
         1 for s in states.values() if s in (NOT_MEASURED, ON_TARGET, OFF_TARGET)
     )

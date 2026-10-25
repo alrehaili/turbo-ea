@@ -2079,3 +2079,60 @@ async def seed_default_categories_for_test(db):
 
     await seed_default_categories(db)
     await db.flush()
+
+
+async def test_import_applies_the_metric_key_rule_without_touching_existing_kpis(db):
+    """D-26 on workspace import: an imported KPI card whose ``metricKey`` is not
+    a registered indicator, or is already held by an ACTIVE KPI card here,
+    lands without the link (reported, never failing the import); a free,
+    registered key is kept; an archived card keeps its value; and the KPI card
+    already holding the key on this instance is left exactly as it was."""
+    user = await create_user(db, email="importer@test.com", role="admin")
+    await create_card_type(db, key="KPI", label="KPI")
+    holder = await create_card(
+        db, card_type="KPI", name="Holder", attributes={"metricKey": "TR-03", "unit": "%"}
+    )
+
+    def kpi(name: str, attributes: dict, status: str = "ACTIVE") -> dict:
+        return {c: None for c in exp.CARD_COLUMNS} | {
+            "type": "KPI",
+            "name": name,
+            "parent_path": "",
+            "approval_status": "DRAFT",
+            "status": status,
+            "lifecycle": {},
+            "attributes": attributes,
+        }
+
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARDS: (
+                exp.CARD_COLUMNS,
+                exp.CARD_JSON,
+                [
+                    kpi("Taken", {"metricKey": "TR-03", "unit": "count"}),
+                    kpi("Unknown", {"metricKey": "NOT-A-METRIC", "unit": "days"}),
+                    kpi("Free", {"metricKey": "DEC-01"}),
+                    kpi("Old", {"metricKey": "TR-03"}, status="ARCHIVED"),
+                ],
+            ),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    by_name = {
+        c.name: c
+        for c in (await db.execute(select(Card).where(Card.type == "KPI"))).scalars().all()
+    }
+    assert by_name["Holder"].id == holder.id
+    assert by_name["Holder"].attributes == {"metricKey": "TR-03", "unit": "%"}
+    assert by_name["Taken"].attributes == {"unit": "count"}
+    assert by_name["Unknown"].attributes == {"unit": "days"}
+    assert by_name["Free"].attributes == {"metricKey": "DEC-01"}
+    assert by_name["Old"].status == "ARCHIVED"
+    assert by_name["Old"].attributes == {"metricKey": "TR-03"}
+
+    errors = [e for s in result.sections for e in s.errors]
+    assert sum("metric link dropped" in e for e in errors) == 2, errors

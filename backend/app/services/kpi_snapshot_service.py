@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -78,10 +79,10 @@ async def _day(db: AsyncSession, snapshot_date: date) -> DailySnapshot | None:
     found = {key[len(PREFIX) :]: value for key, value in rows.all()}
     if not found:
         return None
-    return DailySnapshot(
-        snapshot_date=snapshot_date,
-        **{s: (int(v) if s in INT_SERIES else float(v)) for s, v in found.items() if v is not None},
-    )
+    values: dict[str, Any] = {
+        s: (int(v) if s in INT_SERIES else float(v)) for s, v in found.items() if v is not None
+    }
+    return DailySnapshot(snapshot_date=snapshot_date, **values)
 
 
 async def compute_current_kpis(db: AsyncSession) -> dict:

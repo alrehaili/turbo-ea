@@ -390,9 +390,10 @@ async def _apply_single_card(
             card.subtype = payload["subtype"]
         if payload.get("lifecycle"):
             card.lifecycle = {**(card.lifecycle or {}), **payload["lifecycle"]}
-        merged_attrs = {**(card.attributes or {}), **(payload.get("attributes") or {})}
+        prior_attrs = dict(card.attributes or {})
+        merged_attrs = {**prior_attrs, **(payload.get("attributes") or {})}
         await _guard_metric_link(
-            db, staged, card.type, merged_attrs, before["attributes"], card.id, user, card.status
+            db, staged, card.type, merged_attrs, prior_attrs, card.id, user, card.status
         )
         card.attributes = merged_attrs
         if payload.get("external_id"):
