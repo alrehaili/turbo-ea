@@ -1,7 +1,7 @@
 """Unit tests for migration 156 (the card type category registry).
 
 Before 156 ``card_types.category`` was free text. The migration creates the
-registry and adopts every stored category that is not one of the four
+registry and adopts every stored category that is not one of the seeded
 built-in layers (those are seeded on boot) as a custom row, so the type
 editor — which always sends ``category`` back — can still save such a type.
 
@@ -49,7 +49,7 @@ def test_the_defaults_are_left_to_the_seed():
 
 def test_values_are_trimmed_deduplicated_and_numbered_in_sorted_order():
     rows = mig.plan_adopted_rows(
-        ["Zeta", " Zeta ", "Alpha", None, "", "   ", 3, "Application & Data"],
+        ["Zeta", " Zeta ", "Alpha", None, "", "   ", 3, "Application"],
         DEFAULT_CATEGORY_KEYS,
     )
     assert [(r["key"], r["sort_order"]) for r in rows] == [("Alpha", 100), ("Zeta", 101)]
@@ -57,8 +57,8 @@ def test_values_are_trimmed_deduplicated_and_numbered_in_sorted_order():
 
 def test_a_case_variant_of_a_default_is_its_own_row():
     # The stored value must resolve exactly, so it cannot fold into the default.
-    rows = mig.plan_adopted_rows(["application & data"], DEFAULT_CATEGORY_KEYS)
-    assert [r["key"] for r in rows] == ["application & data"]
+    rows = mig.plan_adopted_rows(["application"], DEFAULT_CATEGORY_KEYS)
+    assert [r["key"] for r in rows] == ["application"]
 
 
 def test_an_overlong_value_is_not_adopted():

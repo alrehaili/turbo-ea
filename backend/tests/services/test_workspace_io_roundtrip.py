@@ -1789,17 +1789,24 @@ async def test_card_tags_and_relations_carry_full_card_paths(db):
     assert (rel.source_id, rel.target_id) == (child.id, db_card.id)
 
 
+#: A custom category key that no seeded default uses. The fork seeds its own
+#: layers (``CARD_TYPE_CATEGORIES`` in ``seed.py``) — "Security" among them — so a
+#: test that needs a *custom* row must not borrow a default's key.
+CUSTOM_LAYER = "Integration Layer"
+
+
 async def test_card_type_categories_roundtrip(db):
     """A custom category and a built-in type moved into it survive an export
     → delete → import round trip; a re-import of the same bundle is all-skip."""
     from app.models.card_type_category import CardTypeCategory
     from app.services.card_type_categories import seed_default_categories
+    from app.services.seed import CARD_TYPE_CATEGORIES
 
     user = await create_user(db, email="cat-ws@test.com", role="admin")
     await seed_default_categories(db)
     db.add(
         CardTypeCategory(
-            key="Security",
+            key=CUSTOM_LAYER,
             label="Security Layer",
             color="#123456",
             sort_order=7,
@@ -1807,7 +1814,7 @@ async def test_card_type_categories_roundtrip(db):
             translations={"fr": "Sécurité"},
         )
     )
-    await create_card_type(db, key="Application", built_in=True, category="Security")
+    await create_card_type(db, key="Application", built_in=True, category=CUSTOM_LAYER)
     await db.flush()
 
     raw = await build_bundle(db)
@@ -1820,18 +1827,19 @@ async def test_card_type_categories_roundtrip(db):
     result = await apply_bundle(db, parse_bundle(raw), user)
     assert result.total_failed == 0, result.as_dict()
     rows = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
-    restored = rows["Security"]
+    restored = rows[CUSTOM_LAYER]
     assert (restored.label, restored.color, restored.sort_order) == ("Security Layer", "#123456", 7)
     assert restored.translations == {"fr": "Sécurité"}
     assert restored.built_in is False
     app = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
-    assert app.category == "Security"
+    assert app.category == CUSTOM_LAYER
 
     again = await apply_bundle(db, parse_bundle(raw), user)
     section = next(s for s in again.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
     assert (section.created, section.updated) == (0, 0)
-    assert section.skipped == 5
-    assert section.skip_reasons == {"identical": 5}
+    # Every seeded default plus the custom layer.
+    assert section.skipped == len(CARD_TYPE_CATEGORIES) + 1
+    assert section.skip_reasons == {"identical": len(CARD_TYPE_CATEGORIES) + 1}
 
 
 async def test_card_type_bundle_without_categories_sheet_adopts_the_category(db):
@@ -1876,7 +1884,7 @@ async def test_card_type_bundle_without_categories_sheet_adopts_the_category(db)
 
 
 async def test_a_bundle_cannot_repaint_a_built_in_category(db):
-    """The four default layers' label, colour and translations are locked on
+    """The default layers' label, colour and translations are locked on
     every instance: a bundle carrying a recoloured, renamed default leaves them
     alone (``built_in_locked`` when nothing else moved), but a new place in
     the layer order is applied and counted as an update. A bundle row claiming
@@ -1891,7 +1899,7 @@ async def test_a_bundle_cannot_repaint_a_built_in_category(db):
     rows = [
         # Locked columns only — its sort_order (2) is the target's.
         {
-            "key": "Application & Data",
+            "key": "Application",
             "label": "Apps",
             "color": "#000000",
             "sort_order": 2,
@@ -1900,7 +1908,7 @@ async def test_a_bundle_cannot_repaint_a_built_in_category(db):
         },
         # A locked repaint plus a move: only the move lands.
         {
-            "key": "Technical Architecture",
+            "key": "Technology",
             "label": "Tech",
             "color": "#222222",
             "sort_order": 9,
@@ -1924,16 +1932,16 @@ async def test_a_bundle_cannot_repaint_a_built_in_category(db):
     assert (section.created, section.updated) == (1, 1)
 
     by_key = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
-    app_data = by_key["Application & Data"]
-    assert (app_data.label, app_data.color, app_data.sort_order, app_data.built_in) == (
-        "Application & Data",
+    app_layer = by_key["Application"]
+    assert (app_layer.label, app_layer.color, app_layer.sort_order, app_layer.built_in) == (
+        "Application",
         "#0f7eb5",
         2,
         True,
     )
-    assert app_data.translations["fr"] == "Application et données"
-    tech = by_key["Technical Architecture"]
-    assert (tech.label, tech.sort_order, tech.built_in) == ("Technical Architecture", 9, True)
+    assert app_layer.translations["fr"] == "Application"
+    tech = by_key["Technology"]
+    assert (tech.label, tech.sort_order, tech.built_in) == ("Technology", 9, True)
     assert tech.color != "#222222"
     assert by_key["Smuggled"].built_in is False
     assert by_key["Smuggled"].sort_order == 8
@@ -1945,44 +1953,43 @@ async def test_a_custom_layer_between_two_defaults_survives_import(db):
     ``sort_order`` is transferred even though their other columns are locked."""
     from app.models.card_type_category import CardTypeCategory
     from app.services.card_type_categories import seed_default_categories
+    from app.services.seed import CARD_TYPE_CATEGORIES
 
     user = await create_user(db, email="order-cat@test.com", role="admin")
     await seed_default_categories(db)
     await db.flush()
     by_key = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
+    defaults = [c["key"] for c in sorted(CARD_TYPE_CATEGORIES, key=lambda c: c["sort_order"])]
+    # The custom layer goes third; every default after it moves down one.
+    wanted = defaults[:2] + [CUSTOM_LAYER] + defaults[2:]
     db.add(
         CardTypeCategory(
-            key="Security",
-            label="Security",
+            key=CUSTOM_LAYER,
+            label=CUSTOM_LAYER,
             color="#123456",
             sort_order=2,
             built_in=False,
             translations={},
         )
     )
-    by_key["Application & Data"].sort_order = 3
-    by_key["Technical Architecture"].sort_order = 4
+    for index, key in enumerate(wanted):
+        if key != CUSTOM_LAYER:
+            by_key[key].sort_order = index
     await db.flush()
-    wanted = [
-        "Strategy & Transformation",
-        "Business Architecture",
-        "Security",
-        "Application & Data",
-        "Technical Architecture",
-    ]
 
     raw = await build_bundle(db)
 
     # The target: the custom layer gone, the defaults back in seed order.
     await db.execute(delete(CardTypeCategory).where(CardTypeCategory.built_in.is_(False)))
-    for index, key in enumerate(wanted[:2] + wanted[3:]):
+    for index, key in enumerate(defaults):
         by_key[key].sort_order = index
     await db.flush()
 
     result = await apply_bundle(db, parse_bundle(raw), user)
     assert result.total_failed == 0, result.as_dict()
     section = next(s for s in result.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
-    assert (section.created, section.updated) == (1, 2)
+    # The custom layer is created; each default after it is moved back down.
+    assert (section.created, section.updated) == (1, len(defaults) - 2)
     assert "built_in_locked" not in section.skip_reasons
     ordered = (
         (await db.execute(select(CardTypeCategory.key).order_by(CardTypeCategory.sort_order)))
@@ -1994,7 +2001,7 @@ async def test_a_custom_layer_between_two_defaults_survives_import(db):
     again = await apply_bundle(db, parse_bundle(raw), user)
     section = next(s for s in again.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
     assert (section.created, section.updated) == (0, 0)
-    assert section.skip_reasons == {"identical": 5}
+    assert section.skip_reasons == {"identical": len(defaults) + 1}
 
 
 # ── The category applier, row by row ────────────────────────────────────────
@@ -2050,13 +2057,13 @@ async def test_a_category_row_carrying_only_its_key_takes_the_defaults(db):
     expected_order = await next_sort_order(db)
     assert expected_order > 0
     result = await apply_bundle(
-        db, parse_bundle(_category_bundle(("key",), [{"key": "Security"}])), user
+        db, parse_bundle(_category_bundle(("key",), [{"key": CUSTOM_LAYER}])), user
     )
     assert result.total_failed == 0, result.as_dict()
     assert _category_section(result).created == 1
-    row = (await _categories_by_key(db))["Security"]
+    row = (await _categories_by_key(db))[CUSTOM_LAYER]
     assert (row.label, row.color, row.sort_order, row.built_in, row.translations) == (
-        "Security",
+        CUSTOM_LAYER,
         DEFAULT_COLOR,
         expected_order,
         False,

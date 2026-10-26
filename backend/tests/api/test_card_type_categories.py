@@ -1,7 +1,7 @@
 """Integration tests for the card type category registry (the EA layers).
 
 Covers ``/metamodel/categories`` (list, create, edit, reorder, delete), the
-lock on the four built-in layers, the validation ``POST`` / ``PATCH
+lock on the built-in layers, the validation ``POST`` / ``PATCH
 /metamodel/types`` now applies to ``category``, the bootstrap payload and the
 Security & admin log rows each write records.
 """
@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.core.permissions import VIEWER_PERMISSIONS
 from app.models.audit_log import AuditLogEntry
 from app.models.card_type_category import CardTypeCategory
+from app.services.seed import CARD_TYPE_CATEGORIES
 from tests.conftest import auth_headers, create_card_type, create_role, create_user
 
 BASE = "/api/v1/metamodel/categories"
@@ -47,16 +48,12 @@ class TestList:
         r = await client.get(BASE, headers=auth_headers(env["viewer"]))
         assert r.status_code == 200
         rows = r.json()
-        assert [c["key"] for c in rows] == [
-            "Strategy & Transformation",
-            "Business Architecture",
-            "Application & Data",
-            "Technical Architecture",
-        ]
+        assert [c["key"] for c in rows] == [c["key"] for c in CARD_TYPE_CATEGORIES]
         assert all(c["built_in"] for c in rows)
-        app_data = rows[2]
-        assert app_data["color"] == "#0f7eb5"
-        assert app_data["translations"]["fr"] == "Application et données"
+        app_layer = rows[2]
+        assert app_layer["key"] == "Application"
+        assert app_layer["color"] == "#0f7eb5"
+        assert app_layer["translations"]["fr"] == "Application"
 
     async def test_requires_authentication(self, client, env):
         r = await client.get(BASE)
@@ -66,8 +63,8 @@ class TestList:
         r = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(env["viewer"]))
         assert r.status_code == 200
         keys = [c["key"] for c in r.json()["card_type_categories"]]
-        assert keys[0] == "Strategy & Transformation"
-        assert len(keys) == 4
+        assert keys[0] == "Business"
+        assert len(keys) == len(CARD_TYPE_CATEGORIES)
 
 
 class TestCreate:
@@ -79,7 +76,7 @@ class TestCreate:
         assert body["color"] == "#999999"
         assert body["built_in"] is False
         # Ordered after every existing layer.
-        assert body["sort_order"] == 4
+        assert body["sort_order"] == len(CARD_TYPE_CATEGORIES)
 
         (row,) = await _audit(db, "admin.metamodel.category.created")
         assert (row.target_type, row.target_id, row.target_label) == (
@@ -93,7 +90,7 @@ class TestCreate:
         r = await _create(
             client,
             env["admin"],
-            "Security",
+            "Integration",
             color="#123456",
             translations={"fr": " Sécurité ", "de": "  "},
         )
@@ -103,10 +100,10 @@ class TestCreate:
         assert r.json()["translations"] == {"fr": "Sécurité"}
 
     async def test_duplicate_is_case_insensitive(self, client, env):
-        r = await _create(client, env["admin"], "application & data")
+        r = await _create(client, env["admin"], "application")
         assert r.status_code == 409
         assert r.json()["detail"]["error"] == "category_exists"
-        assert r.json()["detail"]["key"] == "Application & Data"
+        assert r.json()["detail"]["key"] == "Application"
 
     async def test_a_renamed_categorys_label_is_taken(self, client, db, env):
         await _create(client, env["admin"], "Foo")
@@ -129,33 +126,33 @@ class TestCreate:
         assert r.json()["detail"]["error"] == "invalid_category"
 
     async def test_bad_colour_is_refused(self, client, env):
-        r = await _create(client, env["admin"], "Security", color="red")
+        r = await _create(client, env["admin"], "Integration", color="red")
         assert r.status_code == 400
 
     async def test_non_admin_is_forbidden(self, client, env):
-        r = await _create(client, env["viewer"], "Security")
+        r = await _create(client, env["viewer"], "Integration")
         assert r.status_code == 403
 
 
 class TestUpdate:
     async def test_custom_category_is_editable_and_audited(self, client, db, env):
-        await _create(client, env["admin"], "Security")
+        await _create(client, env["admin"], "Integration")
         r = await client.patch(
-            f"{BASE}/Security",
-            json={"label": "Security Layer", "color": "#abcdef", "translations": {"de": "Sich"}},
+            f"{BASE}/Integration",
+            json={"label": "Integration Layer", "color": "#abcdef", "translations": {"de": "Sich"}},
             headers=auth_headers(env["admin"]),
         )
         assert r.status_code == 200, r.text
         body = r.json()
         # The key is what card types store, so it never moves.
-        assert body["key"] == "Security"
-        assert body["label"] == "Security Layer"
+        assert body["key"] == "Integration"
+        assert body["label"] == "Integration Layer"
         assert body["color"] == "#abcdef"
 
         (row,) = await _audit(db, "admin.metamodel.category.updated")
-        assert row.target_label == "Security Layer"
+        assert row.target_label == "Integration Layer"
         assert row.details["changes"] == {
-            "label": {"old": "Security", "new": "Security Layer"},
+            "label": {"old": "Integration", "new": "Integration Layer"},
             "color": {"old": "#999999", "new": "#abcdef"},
         }
         assert row.details["items"] == [
@@ -169,16 +166,16 @@ class TestUpdate:
         ]
 
     async def test_a_no_op_records_nothing(self, client, db, env):
-        await _create(client, env["admin"], "Security")
+        await _create(client, env["admin"], "Integration")
         r = await client.patch(
-            f"{BASE}/Security", json={"label": "Security"}, headers=auth_headers(env["admin"])
+            f"{BASE}/Integration", json={"label": "Integration"}, headers=auth_headers(env["admin"])
         )
         assert r.status_code == 200
         assert await _audit(db, "admin.metamodel.category.updated") == []
 
     async def test_built_in_is_locked(self, client, env):
         r = await client.patch(
-            f"{BASE}/Application & Data",
+            f"{BASE}/Application",
             json={"color": "#000000"},
             headers=auth_headers(env["admin"]),
         )
@@ -186,10 +183,10 @@ class TestUpdate:
         assert r.json()["detail"]["error"] == "built_in_locked"
 
     async def test_rename_onto_another_category_conflicts(self, client, env):
-        await _create(client, env["admin"], "Security")
+        await _create(client, env["admin"], "Integration")
         r = await client.patch(
-            f"{BASE}/Security",
-            json={"label": "TECHNICAL architecture"},
+            f"{BASE}/Integration",
+            json={"label": "TECHNOLOGY"},
             headers=auth_headers(env["admin"]),
         )
         assert r.status_code == 409
@@ -226,27 +223,29 @@ class TestUpdate:
 
     async def test_non_admin_is_forbidden(self, client, env):
         r = await client.patch(
-            f"{BASE}/Business Architecture", json={}, headers=auth_headers(env["viewer"])
+            f"{BASE}/Beneficiary Experience", json={}, headers=auth_headers(env["viewer"])
         )
         assert r.status_code == 403
 
 
 class TestReorder:
     async def test_permutation_rewrites_every_sort_order(self, client, db, env):
-        await _create(client, env["admin"], "Security")
+        await _create(client, env["admin"], "Integration")
         order = [
-            "Strategy & Transformation",
+            "Business",
+            "Integration",
+            "Beneficiary Experience",
+            "Application",
+            "Data",
+            "Technology",
             "Security",
-            "Business Architecture",
-            "Application & Data",
-            "Technical Architecture",
         ]
         r = await client.put(
             f"{BASE}/order", json={"keys": order}, headers=auth_headers(env["admin"])
         )
         assert r.status_code == 200, r.text
         assert [c["key"] for c in r.json()] == order
-        assert [c["sort_order"] for c in r.json()] == [0, 1, 2, 3, 4]
+        assert [c["sort_order"] for c in r.json()] == list(range(len(order)))
 
         (row,) = await _audit(db, "admin.metamodel.category.reordered")
         assert row.details == {"context": {"order": order}}
@@ -263,17 +262,17 @@ class TestReorder:
     @pytest.mark.parametrize(
         "keys",
         [
-            ["Strategy & Transformation", "Business Architecture", "Application & Data"],
+            ["Business", "Beneficiary Experience", "Application"],
             [
-                "Strategy & Transformation",
-                "Business Architecture",
-                "Application & Data",
-                "Application & Data",
+                "Business",
+                "Beneficiary Experience",
+                "Application",
+                "Application",
             ],
             [
-                "Strategy & Transformation",
-                "Business Architecture",
-                "Application & Data",
+                "Business",
+                "Beneficiary Experience",
+                "Application",
                 "Unknown",
             ],
         ],
@@ -294,15 +293,17 @@ class TestReorder:
 
 class TestDelete:
     async def test_built_in_cannot_be_deleted(self, client, env):
-        r = await client.delete(f"{BASE}/Business Architecture", headers=auth_headers(env["admin"]))
+        r = await client.delete(
+            f"{BASE}/Beneficiary Experience", headers=auth_headers(env["admin"])
+        )
         assert r.status_code == 400
         assert r.json()["detail"]["error"] == "built_in_locked"
 
     async def test_in_use_answers_409_with_the_types(self, client, db, env):
-        await _create(client, env["admin"], "Security")
-        await create_card_type(db, key="Zeta", label="Zeta Type", category="Security")
-        await create_card_type(db, key="Alpha", label="Alpha Type", category=" Security ")
-        r = await client.delete(f"{BASE}/Security", headers=auth_headers(env["admin"]))
+        await _create(client, env["admin"], "Integration")
+        await create_card_type(db, key="Zeta", label="Zeta Type", category="Integration")
+        await create_card_type(db, key="Alpha", label="Alpha Type", category=" Integration ")
+        r = await client.delete(f"{BASE}/Integration", headers=auth_headers(env["admin"]))
         assert r.status_code == 409
         detail = r.json()["detail"]
         assert detail["error"] == "types_present"
@@ -310,37 +311,37 @@ class TestDelete:
         assert detail["types"] == ["Alpha Type", "Zeta Type"]
 
     async def test_unused_custom_category_is_deleted_and_audited(self, client, db, env):
-        await _create(client, env["admin"], "Security")
-        r = await client.delete(f"{BASE}/Security", headers=auth_headers(env["admin"]))
+        await _create(client, env["admin"], "Integration")
+        r = await client.delete(f"{BASE}/Integration", headers=auth_headers(env["admin"]))
         assert r.status_code == 204
         (row,) = await _audit(db, "admin.metamodel.category.deleted")
-        assert row.target_label == "Security"
+        assert row.target_label == "Integration"
         remaining = (await db.execute(select(CardTypeCategory.key))).scalars().all()
-        assert "Security" not in remaining
+        assert "Integration" not in remaining
 
     async def test_unknown_is_404(self, client, env):
         r = await client.delete(f"{BASE}/Nope", headers=auth_headers(env["admin"]))
         assert r.status_code == 404
 
     async def test_non_admin_is_forbidden(self, client, env):
-        r = await client.delete(f"{BASE}/Security", headers=auth_headers(env["viewer"]))
+        r = await client.delete(f"{BASE}/Integration", headers=auth_headers(env["viewer"]))
         assert r.status_code == 403
 
 
 class TestTypeCategoryValidation:
     async def test_a_built_in_type_moves_to_a_custom_category(self, client, db, env):
-        await create_card_type(db, key="Application", built_in=True, category="Application & Data")
-        await _create(client, env["admin"], "Security")
+        await create_card_type(db, key="Application", built_in=True, category="Application")
+        await _create(client, env["admin"], "Integration")
         r = await client.patch(
             "/api/v1/metamodel/types/Application",
-            json={"category": " Security "},
+            json={"category": " Integration "},
             headers=auth_headers(env["admin"]),
         )
         assert r.status_code == 200, r.text
-        assert r.json()["category"] == "Security"
+        assert r.json()["category"] == "Integration"
 
     async def test_an_unknown_category_is_refused(self, client, db, env):
-        await create_card_type(db, key="Application", category="Application & Data")
+        await create_card_type(db, key="Application", category="Application")
         r = await client.patch(
             "/api/v1/metamodel/types/Application",
             json={"category": "Typo Layer"},
@@ -351,7 +352,7 @@ class TestTypeCategoryValidation:
         assert r.json()["detail"]["category"] == "Typo Layer"
 
     async def test_blank_means_uncategorised(self, client, db, env):
-        await create_card_type(db, key="Application", category="Application & Data")
+        await create_card_type(db, key="Application", category="Application")
         r = await client.patch(
             "/api/v1/metamodel/types/Application",
             json={"category": "  "},
@@ -373,11 +374,11 @@ class TestTypeCategoryValidation:
     async def test_create_type_validates_the_category(self, client, env):
         ok = await client.post(
             "/api/v1/metamodel/types",
-            json={"key": "Gadget", "label": "Gadget", "category": "Technical Architecture"},
+            json={"key": "Gadget", "label": "Gadget", "category": "Technology"},
             headers=auth_headers(env["admin"]),
         )
         assert ok.status_code == 201
-        assert ok.json()["category"] == "Technical Architecture"
+        assert ok.json()["category"] == "Technology"
         bad = await client.post(
             "/api/v1/metamodel/types",
             json={"key": "Gizmo", "label": "Gizmo", "category": "Nowhere"},
@@ -418,7 +419,7 @@ class TestTypeCategoryAuditLabels:
         assert r.status_code == 200
 
     async def test_moving_a_type_logs_the_category_labels(self, client, db, env):
-        await create_card_type(db, key="Application", category="Application & Data")
+        await create_card_type(db, key="Application", category="Application")
         await self._renamed_foo(client, env)
         r = await client.patch(
             "/api/v1/metamodel/types/Application",
@@ -428,7 +429,7 @@ class TestTypeCategoryAuditLabels:
         assert r.status_code == 200, r.text
         assert r.json()["category"] == "Foo"
         (row,) = await _audit(db, "admin.metamodel.type.updated")
-        assert row.details["changes"]["category"] == {"old": "Application & Data", "new": "Bar"}
+        assert row.details["changes"]["category"] == {"old": "Application", "new": "Bar"}
 
     async def test_a_value_without_a_registry_row_is_logged_as_stored(self, client, db, env):
         await create_card_type(db, key="Application", category="Legacy Layer")

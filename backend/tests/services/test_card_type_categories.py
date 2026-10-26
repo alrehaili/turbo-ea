@@ -122,14 +122,17 @@ class TestValidateOrder:
 
 
 class TestSeedConstant:
-    def test_four_defaults_in_layer_order(self):
+    def test_six_defaults_in_layer_order(self):
+        # The fork seeds the NORA layers, not upstream's four.
         assert [c["key"] for c in CARD_TYPE_CATEGORIES] == [
-            "Strategy & Transformation",
-            "Business Architecture",
-            "Application & Data",
-            "Technical Architecture",
+            "Business",
+            "Beneficiary Experience",
+            "Application",
+            "Data",
+            "Technology",
+            "Security",
         ]
-        assert [c["sort_order"] for c in CARD_TYPE_CATEGORIES] == [0, 1, 2, 3]
+        assert [c["sort_order"] for c in CARD_TYPE_CATEGORIES] == [0, 1, 2, 3, 4, 5]
         assert DEFAULT_CATEGORY_KEYS == {c["key"] for c in CARD_TYPE_CATEGORIES}
 
     def test_label_is_the_key(self):
@@ -142,32 +145,33 @@ async def _rows(db) -> dict[str, CardTypeCategory]:
 
 
 class TestSeedDefaults:
-    async def test_inserts_the_four_locked_layers(self, db):
+    async def test_inserts_the_locked_layers(self, db):
         inserted = await ctc.seed_default_categories(db)
         assert inserted == [c["key"] for c in CARD_TYPE_CATEGORIES]
         rows = await _rows(db)
-        app_data = rows["Application & Data"]
-        assert app_data.built_in is True
-        assert app_data.color == "#0f7eb5"
-        assert app_data.sort_order == 2
-        assert app_data.translations["de"] == "Anwendung & Daten"
+        app_layer = rows["Application"]
+        assert app_layer.built_in is True
+        assert app_layer.color == "#0f7eb5"
+        assert app_layer.sort_order == 2
+        assert app_layer.translations["de"] == "Anwendung"
 
     async def test_insert_only(self, db):
         await ctc.seed_default_categories(db)
         rows = await _rows(db)
-        rows["Business Architecture"].sort_order = 9
+        rows["Beneficiary Experience"].sort_order = 9
         await db.flush()
         assert await ctc.seed_default_categories(db) == []
-        assert (await _rows(db))["Business Architecture"].sort_order == 9
+        assert (await _rows(db))["Beneficiary Experience"].sort_order == 9
 
 
 class TestEnsureCategories:
     async def test_adopts_after_everything_with_the_default_colour(self, db):
         await ctc.seed_default_categories(db)
-        created = await ctc.ensure_categories(db, ["Security", "Business Architecture", None])
-        assert created == ["Security"]
-        row = (await _rows(db))["Security"]
-        assert (row.label, row.color, row.built_in) == ("Security", "#999999", False)
+        # "Security" is a seeded default in the fork; adopt a key no default uses.
+        created = await ctc.ensure_categories(db, ["Integration", "Business", None])
+        assert created == ["Integration"]
+        row = (await _rows(db))["Integration"]
+        assert (row.label, row.color, row.built_in) == ("Integration", "#999999", False)
         assert row.sort_order == ctc.ADOPTED_SORT_ORDER_START
         assert row.translations == {}
 
@@ -204,15 +208,15 @@ class TestNextSortOrder:
     async def test_floor(self, db):
         assert await ctc.next_sort_order(db, 100) == 100
         await ctc.seed_default_categories(db)
-        assert await ctc.next_sort_order(db) == 4
-        assert await ctc.next_sort_order(db, 2) == 4
+        assert await ctc.next_sort_order(db) == len(CARD_TYPE_CATEGORIES)
+        assert await ctc.next_sort_order(db, 2) == len(CARD_TYPE_CATEGORIES)
 
 
 class TestSerialize:
     async def test_shape(self, db):
         await ctc.seed_default_categories(db)
-        row = (await _rows(db))["Technical Architecture"]
+        row = (await _rows(db))["Technology"]
         out = ctc.serialize(row)
         assert set(out) == {"id", "key", "label", "color", "sort_order", "built_in", "translations"}
-        assert out["key"] == "Technical Architecture"
+        assert out["key"] == "Technology"
         assert out["built_in"] is True
