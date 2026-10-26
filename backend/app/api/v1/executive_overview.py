@@ -39,6 +39,7 @@ from app.services import kpi_measurement_service as kms
 from app.services import ppm_portfolio_service as portfolio
 from app.services.card_read_scope import CardReadScope, visible_type_clause
 from app.services.executive import decisions as dec
+from app.services.executive import governance as gov
 from app.services.executive import kpis, linkage, periods, strategy
 from app.services.fiscal_year import get_fiscal_year_start
 from app.services.permission_service import PermissionService
@@ -266,6 +267,32 @@ async def executive_strategy(
     return {"generated_at": now.isoformat(), **summary}
 
 
+@router.get("/governance")
+async def executive_governance(
+    period: str | None = Query(None, max_length=12),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """EA governance effectiveness for one period (Batch 3.1, DECISION_LOG §3.1).
+
+    Activity, effectiveness and impact kept apart; every figure without a
+    defensible calculation is Not Available with its reason. Aggregates need the
+    executive permission (D-03); the GOV-03 drill-down list needs
+    ``tech_standards.view`` and is a separate call.
+    """
+    await PermissionService.require_permission(db, user, "reports.executive_dashboard")
+    read_scope = await CardReadScope.load(db, user)
+    start_month = await get_fiscal_year_start(db)
+    now = datetime.now(timezone.utc)
+    try:
+        current = periods.parse(period, start_month, now.date())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    links = await linkage.linked_cards(db, read_scope)
+    summary = await gov.governance_summary(db, read_scope, current, gov03_link=links.get("GOV-03"))
+    return {"generated_at": now.isoformat(), "fiscal_year_start": start_month, **summary}
+
+
 @router.get("/decisions")
 async def executive_decisions(
     db: AsyncSession = Depends(get_db),
@@ -328,6 +355,12 @@ async def executive_kpi_drilldown(
         for row in rows:
             row["path"] = f"/ppm/{row['id']}" if ppm_enabled else f"/cards/{row['id']}"
         return {"key": key, "period": current.to_dict(), "status": "ok", "rows": rows}
+
+    if key == "GOV-03":
+        # The non-compliant assessed cards come from the standards module.
+        await PermissionService.require_permission(db, user, "tech_standards.view")
+        result = await gov.gov03_drilldown(db, read_scope)
+        return {**result, "period": current.to_dict()}
 
     if key == "DEC-01":
         if not bool(general.get("grcEnabled", True)):

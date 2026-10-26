@@ -53,6 +53,8 @@ HISTORICAL_UNAVAILABLE = {"code": "historical_unavailable"}
 
 #: The Executive tab's decisions page, where the escalations are listed.
 DECISIONS_PAGE = "/?tab=executive&page=decisions"
+#: The Executive tab's EA governance page (Batch 3.1).
+GOVERNANCE_PAGE = "/?tab=executive&page=governance"
 
 #: The landing page's six slots, in display order.
 SLOTS = ("strategy", "governance", "delivery", "services", "value", "decisions")
@@ -178,14 +180,18 @@ def strategy_execution(period: Period, summary: dict[str, Any] | None) -> dict[s
 
 def governance_effectiveness(period: Period) -> dict[str, Any]:
     """GOV-05 needs decision actions (D-13); its fallback GOV-01 the in-scope rule
-    (D-10). Both are Phase 3 decisions, so no review count stands in for them."""
-    return _not_available(
+    (D-10). Both are later-batch Phase 3 decisions, so no review count stands in
+    for them (I-7). The tile links to the Governance page, where activity and the
+    rule-based compliance that *are* available in Batch 3.1 are shown."""
+    tile = _not_available(
         "GOV-05",
         "governance",
         "GOV-05@0",
         period,
         {"code": "later_phase", "phase": 3, "decisions": ["D-10", "D-13"]},
     )
+    tile["drilldown"] = {"path": GOVERNANCE_PAGE}
+    return tile
 
 
 # ── Slot 3: initiative delivery (TR-03 with TR-04) ──────────────────────

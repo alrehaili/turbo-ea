@@ -43293,6 +43293,55 @@
         ]
       }
     },
+    "/api/v1/reports/executive/governance": {
+      "get": {
+        "description": "EA governance effectiveness for one period (Batch 3.1, DECISION_LOG \u00a73.1).\n\nActivity, effectiveness and impact kept apart; every figure without a\ndefensible calculation is Not Available with its reason. Aggregates need the\nexecutive permission (D-03); the GOV-03 drill-down list needs\n``tech_standards.view`` and is a separate call.",
+        "operationId": "executive_governance_api_v1_reports_executive_governance_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Executive Governance",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/executive/kpi/{key}/drilldown": {
       "get": {
         "description": "The records behind a KPI's value, under the same scope and rules.\n\nThe rows come from the module the KPI summarises, so listing them needs\nthat module's view permission as well as the executive one.",

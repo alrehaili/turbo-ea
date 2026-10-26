@@ -5,6 +5,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import ExecutiveDecisions from "./ExecutiveDecisions";
 import ExecutiveDetailsPage from "./ExecutiveDetailsPage";
+import ExecutiveGovernance from "./ExecutiveGovernance";
 import ExecutiveOverview from "./ExecutiveOverview";
 import ExecutiveStrategy from "./ExecutiveStrategy";
 
@@ -15,7 +16,7 @@ import ExecutiveStrategy from "./ExecutiveStrategy";
  * as *Details*. Pages of later phases are not listed until they exist. The page
  * lives in the URL (`?tab=executive&page=…`) so a link opens it directly.
  */
-export const EXECUTIVE_PAGES = ["overview", "strategy", "decisions", "details"] as const;
+export const EXECUTIVE_PAGES = ["overview", "strategy", "governance", "decisions", "details"] as const;
 export type ExecutivePage = (typeof EXECUTIVE_PAGES)[number];
 
 export default function ExecutiveTab() {
@@ -54,6 +55,7 @@ export default function ExecutiveTab() {
       </Tabs>
       {page === "overview" && <ExecutiveOverview />}
       {page === "strategy" && <ExecutiveStrategy />}
+      {page === "governance" && <ExecutiveGovernance />}
       {page === "decisions" && <ExecutiveDecisions />}
       {page === "details" && <ExecutiveDetailsPage />}
     </Box>

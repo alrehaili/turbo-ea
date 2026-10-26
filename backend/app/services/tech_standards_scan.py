@@ -26,17 +26,19 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.tech_standard import StandardException, TechStandard
-from app.services.card_read_scope import CardReadScope
+from app.services.card_read_scope import CardReadScope, visible_type_clause
 
 VIOLATING_STATUSES = ("sunset", "prohibited")
 REL_APP_TO_ITC = "relAppToITC"
 REL_ITC_TO_TECHCAT = "relITCToTechCat"
+#: The card types that are assessed against the technology-standards catalogue.
+ASSESSED_TYPES = ("Application", "ITComponent")
 
 
 def _brief(card: Card) -> dict:
@@ -180,5 +182,157 @@ async def scan_standard_compliance(db: AsyncSession, *, read_scope: CardReadScop
             "sunset_standards": empty["summary"]["sunset_standards"],
             "prohibited_standards": empty["summary"]["prohibited_standards"],
         },
+        "violations": violations,
+    }
+
+
+async def assess_standard_compliance(db: AsyncSession, *, read_scope: CardReadScope) -> dict:
+    """Rule-based technology-standards compliance over the assessed population (D-33).
+
+    The *assessed population* (I-8) is every ACTIVE Application / IT Component the
+    viewer can read that reaches a ``TechCategory`` referenced by **any** tech
+    standard (whatever its radar status), through the same chain the violation
+    scan walks and with the same hidden-path cuts. A card is *compliant* (I-9)
+    when it has no un-waived use of a ``sunset`` / ``prohibited`` standard — a
+    waiver counts only while approved and unexpired, so an expired waiver is a
+    violation (D-34). *Assessment coverage* (I-10) is the assessed population over
+    all ACTIVE readable Application / IT Component cards, reported **beside**
+    compliance and never multiplied into it (D-33).
+
+    Returns ``{"status": "unavailable", "reason": {...}}`` (I-11) when no standard
+    governs a category, the viewer cannot read one of the assessed types at all,
+    or the assessed population is empty; otherwise ``status = "ok"`` with the
+    compliant / violating / assessed counts, the coverage denominator, and the
+    non-compliant uses for the drill-down. Nothing here discloses a card the
+    viewer may not read — a hidden card, component or category cuts the path.
+    """
+    # Any-status standards govern the assessed categories; the sunset / prohibited
+    # subset is what a card can violate.
+    std_res = await db.execute(
+        select(TechStandard).where(TechStandard.tech_category_id.is_not(None))
+    )
+    governing = list(std_res.scalars().all())
+    if not governing:
+        return {"status": "unavailable", "reason": {"code": "no_governed_category"}}
+
+    # A type the viewer cannot read at all makes the population unreliable (I-11).
+    if any(
+        not read_scope.type_readable(t, mode="module") for t in (*ASSESSED_TYPES, "TechCategory")
+    ):
+        return {"status": "unavailable", "reason": {"code": "type_hidden"}}
+
+    governed_cats = {s.tech_category_id for s in governing}
+    violating_by_cat: dict[uuid.UUID, list[TechStandard]] = {}
+    for s in governing:
+        if s.status in VIOLATING_STATUSES:
+            violating_by_cat.setdefault(s.tech_category_id, []).append(s)
+
+    # ITComponents linked to a governed category, then Applications using them.
+    itc_rel = await db.execute(
+        select(Relation.source_id, Relation.target_id).where(
+            Relation.type == REL_ITC_TO_TECHCAT,
+            Relation.target_id.in_(governed_cats),
+        )
+    )
+    itc_to_cats: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for itc_id, cat_id in itc_rel.all():
+        itc_to_cats.setdefault(itc_id, set()).add(cat_id)
+
+    app_to_itcs: dict[uuid.UUID, set[uuid.UUID]] = {}
+    if itc_to_cats:
+        app_rel = await db.execute(
+            select(Relation.source_id, Relation.target_id).where(
+                Relation.type == REL_APP_TO_ITC,
+                Relation.target_id.in_(set(itc_to_cats)),
+            )
+        )
+        for app_id, itc_id in app_rel.all():
+            app_to_itcs.setdefault(app_id, set()).add(itc_id)
+
+    # Approved, non-expired waivers keyed (standard_id, card_id) — expired omitted.
+    exc_res = await db.execute(
+        select(
+            StandardException.standard_id, StandardException.card_id, StandardException.expiry_date
+        ).where(StandardException.status == "approved")
+    )
+    today = date.today()
+    waived: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    for sid, cid, expiry in exc_res.all():
+        if cid is not None and (expiry is None or expiry >= today):
+            waived.add((sid, cid))
+
+    card_ids = set(itc_to_cats) | set(app_to_itcs)
+    cards_res = await db.execute(select(Card).where(Card.id.in_(card_ids), Card.status == "ACTIVE"))
+    card_map: dict[uuid.UUID, Card] = {c.id: c for c in cards_res.scalars().all()}
+    hidden = await read_scope.hidden_card_ids(db, card_ids | governed_cats, mode="module")
+
+    assessed: set[uuid.UUID] = set()
+    non_compliant: set[uuid.UUID] = set()
+    violations: list[dict] = []
+    seen: set[tuple[uuid.UUID, uuid.UUID]] = set()
+
+    def consider(card_id: uuid.UUID, cat_id: uuid.UUID, via: str, component: Card | None) -> None:
+        if card_id in hidden or cat_id in hidden:
+            return  # a hidden card or category cuts the path (D-01 / D-30)
+        card = card_map.get(card_id)
+        if card is None or card.type not in ASSESSED_TYPES:
+            return
+        assessed.add(card_id)
+        for std in violating_by_cat.get(cat_id, ()):
+            if (std.id, card_id) in waived:
+                continue
+            non_compliant.add(card_id)
+            key = (std.id, card_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            violations.append(
+                {
+                    "card_id": str(card_id),
+                    "card_name": card.name,
+                    "card_type": card.type,
+                    "standard_name": std.name,
+                    "standard_status": std.status,
+                    "via": via,
+                    "component_name": component.name if component else None,
+                }
+            )
+
+    for itc_id, cats in itc_to_cats.items():
+        for cat_id in cats:
+            consider(itc_id, cat_id, "component", None)
+    for app_id, itcs in app_to_itcs.items():
+        for itc_id in itcs:
+            if itc_id in hidden:
+                continue  # the path runs through a hidden component
+            for cat_id in itc_to_cats.get(itc_id, ()):
+                consider(app_id, cat_id, "application", card_map.get(itc_id))
+
+    if not assessed:
+        return {"status": "unavailable", "reason": {"code": "no_assessed_population"}}
+
+    population = (
+        await db.execute(
+            select(func.count())
+            .select_from(Card)
+            .where(
+                Card.status == "ACTIVE",
+                Card.type.in_(ASSESSED_TYPES),
+                visible_type_clause(Card),
+                *read_scope.where(Card, mode="module"),
+            )
+        )
+    ).scalar_one()
+
+    compliant = len(assessed) - len(non_compliant)
+    violations.sort(key=lambda v: v["card_name"].lower())
+    return {
+        "status": "ok",
+        "assessed": len(assessed),
+        "compliant": compliant,
+        "violating": len(non_compliant),
+        "population": population,
+        "compliance_pct": round(compliant / len(assessed) * 100, 1),
+        "coverage_pct": round(len(assessed) / population * 100, 1) if population else None,
         "violations": violations,
     }

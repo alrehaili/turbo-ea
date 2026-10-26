@@ -470,3 +470,27 @@ Defects found and fixed: (1) **Medium** — at 390 px the KPI name column collap
 | Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, CI |
 
 **Pre-existing, unrelated (not in scope, unchanged):** 44 fork columns missing from the id-bearing allowlist; `reports.executive_dashboard` absent from three default role maps; fork migrations 1154, 1155, 1157, 1159 without timestamp server defaults; the read-scope guard cannot read files on Windows (`charmap`).
+
+
+## Phase 3 — Batch 3.1: Governance page, activity, coverage, GOV-03 (2026-10-26, v2.37.0)
+
+Implemented exactly to `PHASED_DELIVERY_PLAN.md` Batch 3.1 and the §3.1 rules. No new business rule: I-7..I-13 were verified against the approved decisions first and all operationalise them (ARB latest-decision-date dating, deferred apart; expired waiver = violation; coverage reported beside compliance; Not Available with reason for every unbuilt indicator). Uncommitted, not merged, not deployed. Batches 3.2-3.6 not started (D-37..D-42 open).
+
+**Backend.** `tech_standards_scan.assess_standard_compliance` adds the assessed population (I-8), compliant/violating split (I-9) and the coverage denominator (I-10) beside the unchanged violation scan, same chain and same hidden-path cuts; Unavailable per I-11 (`no_governed_category` / `type_hidden` / `no_assessed_population`). New `services/executive/governance.py` builds Activity, Effectiveness and Impact apart. `GET /reports/executive/governance?period=` and the `GOV-03` drill-down (`tech_standards.view`) in `executive_overview.py`. `GOV-03` registered (`GOV-03@1`, percent); daily observation in `observe_executive_metrics` (recorded only when assessable, I-13, no backfill). NORA profile **v12** appends the GOV-03 option to `KPI.metricKey` (seed + idempotent injection pass). The overview governance tile now links to the page (I-7).
+
+**Frontend.** `ExecutiveGovernance.tsx` (three labelled sections; GOV-03 via `ExecutiveKpiTile` showing its ratified target; coverage as a separate figure; drill-down list; Not Available tiles with plain reasons), `governance` page in `ExecutiveTab.tsx`, types in `src/types/index.ts`, EN + AR strings under `dashboard.executive.governancePage.*` (D-18). No DB/migration; no workspace-transfer change.
+
+**Validation (one focused pass).**
+
+| Check | Result |
+|---|---|
+| `ruff format --check`, `ruff check` (app + new tests) | Clean |
+| Backend new/affected tests collect | 36 collected, no import/fixture errors (`test_tech_standards_scan.py` +3, `test_executive_governance.py` 8, `test_executive_governance_api.py` 5, `test_kpi_measurement_service.py` +2) |
+| Backend tests run | **Pending Verification — NOT executed.** No PostgreSQL or Docker on this host, so the 36 backend tests were only collected, never run; they stay Pending Verification until they pass against PostgreSQL (CI: diff coverage + mutation gates). |
+| Frontend `ExecutiveGovernance.test.tsx`, `i18n.test.ts`, `executivePlurals.test.ts` | 160 passed (scratch config stubbing the AG Grid setup import, per the Phase 2 note) |
+| ESLint (touched files) | Clean |
+| `tsc --noEmit` | Clean for the batch's files; two pre-existing unrelated errors remain (`agGridSetup.ts` AG Grid version mismatch; `MatrixReport.tsx`) |
+| OpenAPI | Regenerated (`+49` lines: the new governance path; version-agnostic) |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, CI |
+
+**Docs.** `docs/guide/dashboard.md` + `.ar.md`: Governance page described, five-page list, GOV-03 on the executive-metric list. Other 8 locales fall back to English (D-18). CHANGELOG `[2.37.0]`, VERSION `2.37.0`.

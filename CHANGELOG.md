@@ -5,7 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.36.1] - 2026-10-25
+## [2.37.0] - 2026-10-26
+
+### Added
+- **Executive tab: EA Governance page.** A new Governance page shows governance **activity**, **effectiveness** and **impact** as three separate sections that are never mixed. Activity counts decisions signed, architecture reviews decided (by their latest decision date, with deferred reviews kept apart) and standard exceptions by their current state. Effectiveness carries rule-based technology standards compliance (GOV-03) and assessment coverage as two distinct figures, with the non-compliant records behind the gap available to holders of the standards permission. Indicators that depend on a later update show **Not available** with the reason they need, never a zero.
+- **GOV-03 on the KPI executive-metric list.** A KPI card can be linked to the new *Technology standards compliance (GOV-03)* metric so its tile shows that card's ratified target and owner. GOV-03 is captured daily into the KPI measurement history (landscape-wide, nothing backfilled).
+
+### Changed
+- The Overview governance tile links to the new Governance page.
 
 ### Fixed
 - Restore missing database timestamp defaults on upgraded viewpoint and reference-model tables without changing existing records.

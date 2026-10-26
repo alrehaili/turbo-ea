@@ -19,7 +19,7 @@ from app.models.kpi_measurement import (
 )
 from app.services import kpi_measurement_service as svc
 from app.services import kpi_metric_link as link
-from tests.conftest import create_card, create_card_type, create_role, create_user
+from tests.conftest import create_card, create_card_type, create_relation, create_role, create_user
 
 TODAY = date(2026, 10, 25)
 
@@ -291,3 +291,42 @@ async def test_restoring_a_card_whose_key_is_taken_is_refused(db, env):
         db, card_type="KPI", name="Old", status="ARCHIVED", attributes={"metricKey": "TR-03"}
     )
     assert await link.restore_conflict(db, old) == "TR-03"
+
+
+# ── GOV-03 daily capture (Batch 3.1, I-13) ───────────────────────────────
+
+
+async def _governed_landscape(db):
+    from app.models.tech_standard import TechStandard
+
+    await create_card_type(db, key="TechCategory", label="Tech Category")
+    await create_card_type(db, key="ITComponent", label="IT Component")
+    await create_card_type(db, key="Application", label="Application")
+    cat = await create_card(db, card_type="TechCategory", name="Messaging")
+    itc = await create_card(db, card_type="ITComponent", name="OldMQ")
+    app = await create_card(db, card_type="Application", name="Billing")
+    await create_relation(db, type_key="relITCToTechCat", source_id=itc.id, target_id=cat.id)
+    await create_relation(db, type_key="relAppToITC", source_id=app.id, target_id=itc.id)
+    db.add(
+        TechStandard(
+            name="Legacy SOAP", category="integration", status="prohibited", tech_category_id=cat.id
+        )
+    )
+    await db.flush()
+
+
+async def test_gov03_is_observed_when_the_population_can_be_assessed(db, env):
+    await _governed_landscape(db)
+    observed = await svc.observe_executive_metrics(db, TODAY)
+    assert "GOV-03" in observed
+    gov = observed["GOV-03"]
+    # Two assessed cards, both violating → 0 % compliant.
+    assert gov.value == 0.0
+    assert gov.numerator == 0.0
+    assert gov.denominator == 2.0
+
+
+async def test_gov03_is_not_observed_when_nothing_is_assessable(db, env):
+    # No technology standard governs any category, so there is nothing to record.
+    observed = await svc.observe_executive_metrics(db, TODAY)
+    assert "GOV-03" not in observed

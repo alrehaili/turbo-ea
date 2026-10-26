@@ -312,6 +312,70 @@ export interface ExecutiveOverviewData {
   };
 }
 
+/** A governance indicator with no defensible value yet, and why (C-04). */
+export interface ExecutiveNotAvailable {
+  status: "not_available";
+  reason: { code: string; batch?: string; decisions?: string[]; phase?: number };
+}
+
+/** `/reports/executive/governance` (Batch 3.1, DECISION_LOG §3.1). */
+export interface ExecutiveGovernanceData {
+  generated_at: string;
+  fiscal_year_start: number;
+  period: ExecutivePeriod;
+  activity: {
+    adrs_signed: number;
+    /** `dating = "latest_decision"`: ARB `decided_at` is overwritten (I-12). */
+    arb: { approved: number; rejected: number; deferred: number; dating: string };
+    /** Current-state counts; the lifecycle has no recorded history yet. */
+    exceptions: {
+      requested: number;
+      approved_active: number;
+      expired: number;
+      rejected: number;
+      temporal: string;
+    };
+    exception_lifecycle: ExecutiveNotAvailable;
+  };
+  effectiveness: {
+    /** GOV-03 rule-based technology standards compliance as a KPI tile. */
+    compliance: ExecutiveKpi;
+    coverage:
+      | { status: "ok"; assessed: number; population: number; percentage: number | null }
+      | ExecutiveNotAvailable;
+    exception_resolution: ExecutiveNotAvailable;
+    decision_implementation: ExecutiveNotAvailable;
+    turnaround: ExecutiveNotAvailable;
+  };
+  impact: {
+    architecture_risks: ExecutiveNotAvailable;
+    governed_delivery: ExecutiveNotAvailable;
+    business_value: ExecutiveNotAvailable;
+  };
+}
+
+/** One non-compliant card behind GOV-03 (`/reports/executive/kpi/GOV-03/drilldown`). */
+export interface GovernanceDrilldownRow {
+  card_id: string;
+  card_name: string;
+  card_type: string;
+  standard_name: string;
+  standard_status: string;
+  via: string;
+  component_name: string | null;
+  path: string;
+}
+
+export interface GovernanceDrilldown {
+  key: string;
+  status: "ok" | "not_available";
+  reason?: { code: string };
+  assessed?: number;
+  compliant?: number;
+  rows: GovernanceDrilldownRow[];
+  period?: ExecutivePeriod;
+}
+
 export interface UiPreferences {
   dashboard_default_tab?: DashboardTabKey;
   // Enabled Draw.io "More Shapes" libraries the user chose to remember, in the

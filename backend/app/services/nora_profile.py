@@ -75,7 +75,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
 # national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
 # `srmCode` on SecurityControl) so all six domains have a landing field.
-NORA_PROFILE_VERSION = 11  # v11: KPI metricKey (D-26)
+NORA_PROFILE_VERSION = 12  # v12: GOV-03 option on KPI.metricKey (Batch 3.1)
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -184,6 +184,25 @@ NORA_SECTION_TRANSLATIONS = _tr(
 # deliberately small, generic placeholders that admins (or the future NEA
 # catalogue import) can extend via the metamodel editor.
 # ---------------------------------------------------------------------------
+
+#: The ``KPI.metricKey`` option for GOV-03 (profile v12, Batch 3.1). Appended to
+#: the field below for fresh installs and injected into existing installs by the
+#: v12 pass in ``apply_nora_profile`` when missing (additive, admin labels kept).
+_GOV03_METRIC_OPTION = {
+    "key": "GOV-03",
+    "label": "Technology standards compliance (GOV-03)",
+    "translations": _tr(
+        "Technologiestandard-Konformität (GOV-03)",
+        "Conformité aux standards technologiques (GOV-03)",
+        "Cumplimiento de estándares tecnológicos (GOV-03)",
+        "Conformità agli standard tecnologici (GOV-03)",
+        "Conformidade com padrões tecnológicos (GOV-03)",
+        "技术标准合规性 (GOV-03)",
+        "Соответствие технологическим стандартам (GOV-03)",
+        "Overholdelse af teknologistandarder (GOV-03)",
+        "الامتثال لمعايير التقنية (GOV-03)",
+    ),
+}
 
 NORA_TYPE_FIELDS: dict[str, list[dict]] = {
     "BusinessCapability": [
@@ -3429,6 +3448,7 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
                         "التصعيدات للإدارة العليا (DEC-01)",
                     ),
                 },
+                _GOV03_METRIC_OPTION,
             ],
         },
         {
@@ -8331,6 +8351,27 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         card_type.fields_schema = schema
         summary["types_updated"].append(type_key)
         summary["fields_added"] += len(missing)
+
+    # ── Pass 4h (profile v12): append the GOV-03 option to KPI.metricKey when
+    # missing (Batch 3.1). Additive — an admin's existing options and labels are
+    # untouched; only the GOV-03 option is added, and only when absent.
+    kpi_ct = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one_or_none()
+    if kpi_ct is not None:
+        schema = [dict(section) for section in (kpi_ct.fields_schema or [])]
+        changed = False
+        for section in schema:
+            for field in section.get("fields") or []:
+                if field.get("key") != "metricKey":
+                    continue
+                options = list(field.get("options") or [])
+                if any(o.get("key") == "GOV-03" for o in options):
+                    continue
+                options.append(deepcopy(_GOV03_METRIC_OPTION))
+                field["options"] = options
+                changed = True
+        if changed:
+            kpi_ct.fields_schema = schema
+            summary.setdefault("metric_options_added", []).append("KPI.metricKey.GOV-03")
 
     # ── Pass 4f (profile v4): sectioned field injection — fields that live in
     # their own named section rather than "NORA Alignment" (ITComponent

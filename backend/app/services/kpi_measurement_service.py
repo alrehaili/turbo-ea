@@ -64,6 +64,7 @@ from app.services.fiscal_year import (
     fiscal_year_for,
     get_fiscal_year_start,
 )
+from app.services.tech_standards_scan import assess_standard_compliance
 
 CURRENT_STATUSES = (STATUS_SUBMITTED, STATUS_VERIFIED)
 #: KPI card fields a ratification freezes; any change makes the target unratified.
@@ -436,6 +437,14 @@ async def observe_executive_metrics(db: AsyncSession, today: date) -> dict[str, 
         risks = list((await db.execute(select(Risk))).scalars().all())
         picture = dec.classify_risks(risks, today)
         out["DEC-01"] = Observation(float(len(picture.escalated)), None, float(picture.open))
+    # GOV-03 rule-based compliance, landscape-wide (D-33, I-13). Recorded only
+    # when the assessed population can be established — an unavailable scan has
+    # no defensible value to observe, so nothing is stored for it that day.
+    scan = await assess_standard_compliance(db, read_scope=CardReadScope.everything())
+    if scan["status"] == "ok":
+        out["GOV-03"] = Observation(
+            scan["compliance_pct"], float(scan["compliant"]), float(scan["assessed"])
+        )
     return out
 
 

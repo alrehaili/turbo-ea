@@ -12,7 +12,10 @@ import pytest
 
 from app.models.tech_standard import StandardException, TechStandard
 from app.services.card_read_scope import CardReadScope
-from app.services.tech_standards_scan import scan_standard_compliance
+from app.services.tech_standards_scan import (
+    assess_standard_compliance,
+    scan_standard_compliance,
+)
 from tests.conftest import create_card, create_relation, create_user
 
 
@@ -109,4 +112,48 @@ async def test_scan_skips_paths_through_cards_the_reader_may_not_see(db, landsca
     )
     result = await scan_standard_compliance(db, read_scope=restricted)
     assert result["summary"]["violations"] == 0
+    assert "OldMQ" not in str(result) and str(landscape["itc"].id) not in str(result)
+
+
+# ── Assessment coverage + compliance (I-8..I-11) ──────────────────────────
+
+
+async def test_assessment_population_counts_both_assessed_cards(db, landscape):
+    """The ITComponent on the governed category and the Application reaching it
+    through it are both assessed; both violate the prohibited standard (I-8/I-9)."""
+    result = await assess_standard_compliance(db, read_scope=CardReadScope.everything())
+    assert result["status"] == "ok"
+    assert result["assessed"] == 2  # OldMQ + Billing
+    assert result["violating"] == 2
+    assert result["compliant"] == 0
+    assert result["compliance_pct"] == 0.0
+    # Coverage denominator = all ACTIVE Application + IT Component cards.
+    assert result["population"] == 2
+    assert result["coverage_pct"] == 100.0
+
+
+async def test_assessment_coverage_is_below_full_when_cards_are_unassessed(db, landscape):
+    """A standard reaching only one category leaves other App/ITC cards
+    unassessed, so coverage drops below 100 % while compliance is unaffected."""
+    await create_card(db, card_type="Application", name="Unassessed", user_id=landscape["admin"].id)
+    result = await assess_standard_compliance(db, read_scope=CardReadScope.everything())
+    assert result["assessed"] == 2
+    assert result["population"] == 3
+    assert result["coverage_pct"] == round(2 / 3 * 100, 1)
+
+
+async def test_assessment_skips_paths_through_hidden_components(db, landscape):
+    """A reader who cannot see IT components has that type hidden entirely, so
+    the whole assessment is Unavailable rather than silently partial (I-11)."""
+    restricted = CardReadScope(
+        role_key="r",
+        wildcard=False,
+        base_view=True,
+        denied_types=frozenset({"ITComponent"}),
+        allowed_types=frozenset(),
+        stakeholder_card_ids=frozenset(),
+    )
+    result = await assess_standard_compliance(db, read_scope=restricted)
+    assert result["status"] == "unavailable"
+    assert result["reason"]["code"] == "type_hidden"
     assert "OldMQ" not in str(result) and str(landscape["itc"].id) not in str(result)

@@ -25,6 +25,8 @@ METRICS: dict[str, RegisteredMetric] = {
     "TR-03": RegisteredMetric("TR-03", "percent", "TR-03@3"),
     # Open risks meeting the D-04 executive-escalation rule.
     "DEC-01": RegisteredMetric("DEC-01", "count", "DEC-01@2"),
+    # Rule-based technology-standards compliance: compliant ÷ assessed (D-33).
+    "GOV-03": RegisteredMetric("GOV-03", "percent", "GOV-03@1"),
 }
 
 
