@@ -3,8 +3,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const post = vi.fn();
 const del = vi.fn();
+const get = vi.fn();
 vi.mock("@/api/client", () => ({
-  api: { post: (...a: unknown[]) => post(...a), delete: (...a: unknown[]) => del(...a) },
+  api: {
+    get: (...a: unknown[]) => get(...a),
+    post: (...a: unknown[]) => post(...a),
+    delete: (...a: unknown[]) => del(...a),
+  },
 }));
 
 import ExceptionLifecycleActions, { type LifecycleException } from "./ExceptionLifecycleActions";
@@ -28,6 +33,7 @@ const DELETE = "tech_standards.delete_exception";
 beforeEach(() => {
   post.mockReset().mockResolvedValue({});
   del.mockReset().mockResolvedValue(undefined);
+  get.mockReset().mockResolvedValue([]);
 });
 
 describe("ExceptionLifecycleActions", () => {
@@ -64,16 +70,111 @@ describe("ExceptionLifecycleActions", () => {
     }
   });
 
+  it("cites the card's existing documents and files as remediation evidence", async () => {
+    get.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.endsWith("/documents")
+          ? [{ id: "d1", name: "Cutover report" }]
+          : [{ id: "f1", name: "config-export.json" }],
+      ),
+    );
+    render(
+      <ExceptionLifecycleActions
+        exception={{ id: "e2b", status: "approved", card: { id: "c1" } }}
+        userId={ME}
+        can={(p) => p === MANAGE}
+        onChanged={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Submit remediation" }));
+    fireEvent.click(await screen.findByLabelText(/Cutover report/));
+    expect(get).toHaveBeenCalledWith("/cards/c1/documents", expect.anything());
+    expect(get).toHaveBeenCalledWith("/cards/c1/file-attachments", expect.anything());
+    expect(screen.getByLabelText(/config-export\.json · File/)).not.toBeChecked();
+    fireEvent.change(screen.getByLabelText("Evidence"), { target: { value: "Moved to REST" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit for verification" }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/tech-standards/exceptions/e2b/remediation", {
+        evidence: "Moved to REST",
+        evidence_refs: [{ kind: "document", id: "d1" }],
+      }),
+    );
+  });
+
+  it("says when the card has nothing to cite and loads nothing without a card", async () => {
+    renderActions({ id: "e2c", status: "approved" }, [MANAGE]);
+    fireEvent.click(screen.getByRole("button", { name: "Submit remediation" }));
+    expect(screen.getByText(/has no documents or files yet/)).toBeInTheDocument();
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it("lets an independent approver verify, but not the submitter or the requester", async () => {
     const onChanged = renderActions(
       { id: "e3", status: "remediation_submitted", created_by: "u-req", remediation_submitted_by: "u-sub" },
       [APPROVE],
     );
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    // The dialog explains that the violation itself must be gone (I-32); the
+    // note is optional here, since the server decides whether it is needed.
+    expect(screen.getByText(/not only evidence submitted/)).toBeInTheDocument();
+    const confirm = screen.getAllByRole("button", { name: "Verify" }).at(-1)!;
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(post).toHaveBeenCalledWith("/tech-standards/exceptions/e3/remediation/verify", {
       outcome: "verified",
     });
+  });
+
+  it("sends the verifier's attestation: what was examined, why, and the confirmation", async () => {
+    renderActions(
+      { id: "e3b", status: "remediation_submitted", created_by: "u-req", remediation_submitted_by: "u-sub" },
+      [APPROVE],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    fireEvent.change(screen.getByLabelText("What you examined"), { target: { value: " Config export " } });
+    fireEvent.change(screen.getByLabelText("Why it shows the violation is resolved"), {
+      target: { value: " No MQ endpoint left " },
+    });
+    fireEvent.click(screen.getByLabelText(/I confirm that I examined this evidence myself/));
+    fireEvent.click(screen.getAllByRole("button", { name: "Verify" }).at(-1)!);
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/tech-standards/exceptions/e3b/remediation/verify", {
+        outcome: "verified",
+        attestation: { examined: "Config export", demonstrates: "No MQ endpoint left", confirmed: true },
+      }),
+    );
+  });
+
+  it("shows a refused verification in the dialog", async () => {
+    post.mockRejectedValueOnce(new Error("The standards check still finds this card using the standard"));
+    renderActions(
+      { id: "e3c", status: "remediation_submitted", created_by: "u-req", remediation_submitted_by: "u-sub" },
+      [APPROVE],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Verify" }).at(-1)!);
+    expect(await screen.findByText(/still finds this card/)).toBeInTheDocument();
+  });
+
+  it("lets a manager withdraw an exception awaiting verification or past its expiry", () => {
+    for (const status of ["remediation_submitted", "expired"]) {
+      const { unmount } = render(
+        <ExceptionLifecycleActions
+          exception={{ id: "e12", status, created_by: "u-other" }}
+          userId={ME}
+          can={(p) => p === MANAGE}
+          onChanged={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("button", { name: "Withdraw" })).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("offers no withdrawal once rejected", () => {
+    renderActions({ id: "e13", status: "rejected", created_by: ME }, [MANAGE]);
+    expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
   });
 
   it("disables verification for the remediation submitter", () => {

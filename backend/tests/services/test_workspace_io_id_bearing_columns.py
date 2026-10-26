@@ -48,6 +48,10 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("StandardExceptions", "justification"): PROSE,
     ("StandardExceptions", "remediation_evidence"): PROSE,
     ("StandardExceptions", "withdrawal_reason"): PROSE,
+    # Document / file-attachment ids (+ a name snapshot): module rows keep their PKs.
+    ("StandardExceptions", "remediation_evidence_refs"): MODULE_IDS,
+    # Verifier's prose + the confirmed evidence refs (document / file ids, kept on import).
+    ("StandardExceptions", "remediation_attestation"): MODULE_IDS,
     ("GovernanceTransitions", "reason"): PROSE,
     ("EaProgramDeliverables", "description"): PROSE,
     ("EaProgramDeliverables", "evidence"): "human-entered evidence notes/URLs, not executable refs",

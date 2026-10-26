@@ -107,6 +107,12 @@ interface ExceptionRow {
   remediation_submitted_by?: string | null;
   remediation_evidence?: string | null;
   withdrawal_reason?: string | null;
+  /** Card documents / files cited as remediation evidence (I-32). */
+  remediation_evidence_refs?: { kind: "document" | "attachment"; id: string; name: string }[];
+  /** True when evidence or reasons exist but this reader may not see them (I-33). */
+  lifecycle_text_withheld?: boolean;
+  /** How a verified remediation was confirmed: rule_check or attested (I-32). */
+  remediation_verification_basis?: "rule_check" | "attested" | null;
   /** Still relying on its waiver past the expiry date (D-40: not resolved). */
   past_expiry?: boolean;
 }

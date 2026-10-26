@@ -8,7 +8,7 @@ endpoints always did, with the history row sharing the stamp's instant.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -25,8 +25,13 @@ class _Session:
     def __init__(self):
         self.added: list = []
 
+        self.executed: list = []
+
     def add(self, obj):
         self.added.append(obj)
+
+    async def execute(self, statement):
+        self.executed.append(statement)
 
     async def commit(self):  # pragma: no cover - would fail the test if reached
         raise AssertionError("a helper must not commit the caller's session")
@@ -253,11 +258,221 @@ def test_submission_only_from_an_approved_exception(status):
 def test_independent_verification_makes_it_remediated():
     db = _Session()
     exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
-    row = gt.verify_remediation(db, exc, "verified", None, VERIFIER)
+    row = gt.verify_remediation(db, exc, "verified", None, VERIFIER, usage_persists=False)
     assert exc.status == "remediated"
     assert exc.remediation_verified_by == VERIFIER
     assert exc.remediation_verified_at == row.occurred_at
+    assert exc.remediation_verification_basis == "rule_check"
     assert (row.from_status, row.to_status) == ("remediation_submitted", "remediated")
+
+
+def test_verification_is_refused_while_the_violation_persists():
+    """I-32: evidence submitted is not the violation resolved."""
+    exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
+    db = _Session()
+    with pytest.raises(gt.LifecycleError) as err:
+        gt.verify_remediation(db, exc, "verified", "Looks done", VERIFIER, usage_persists=True)
+    assert (err.value.status, err.value.code) == (409, "violation_persists")
+    assert exc.status == "remediation_submitted"
+    assert exc.remediation_verified_by is None and exc.remediation_verification_basis is None
+    assert db.added == []
+
+
+FILE_REF = {"kind": "attachment", "id": "f", "fingerprint_of": "content", "sha256": "a"}
+LINK_REF = {"kind": "document", "id": "d", "fingerprint_of": "link", "sha256": "b"}
+ATTEST = {"examined": "config export", "demonstrates": "no MQ endpoint left", "confirmed": True}
+
+
+def _verify_unassessable(exc, evidence, attestation=ATTEST, db=None):
+    return gt.verify_remediation(
+        db or _Session(),
+        exc,
+        "verified",
+        None,
+        VERIFIER,
+        usage_persists=None,
+        evidence=evidence,
+        attestation=attestation,
+    )
+
+
+@pytest.mark.parametrize(
+    ("evidence", "status", "code"),
+    [
+        (None, 422, "verifiable_evidence_required"),
+        (gt.EvidenceCheck(), 422, "verifiable_evidence_required"),
+        (gt.EvidenceCheck(intact=[FILE_REF], changed=[LINK_REF]), 409, "evidence_changed"),
+        (gt.EvidenceCheck(intact=[FILE_REF], missing=[LINK_REF]), 409, "evidence_changed"),
+        (gt.EvidenceCheck(intact=[LINK_REF]), 422, "evidence_integrity_unavailable"),
+    ],
+)
+def test_unassessable_verification_needs_intact_fingerprinted_evidence(evidence, status, code):
+    """I-36: evidence must be cited, unchanged since submission, and include a
+    file whose content is fingerprinted; a note or a document's existence alone
+    is not enough."""
+    exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
+    with pytest.raises(gt.LifecycleError) as err:
+        _verify_unassessable(exc, evidence)
+    assert (err.value.status, err.value.code) == (status, code)
+    assert exc.status == "remediation_submitted" and exc.remediation_attestation is None
+
+
+@pytest.mark.parametrize(
+    "attestation",
+    [
+        None,
+        {**ATTEST, "confirmed": False},
+        {**ATTEST, "examined": "  "},
+        {**ATTEST, "demonstrates": ""},
+    ],
+)
+def test_unassessable_verification_needs_an_explicit_attestation(attestation):
+    exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
+    with pytest.raises(gt.LifecycleError) as err:
+        _verify_unassessable(exc, gt.EvidenceCheck(intact=[FILE_REF]), attestation)
+    assert (err.value.status, err.value.code) == (422, "attestation_required")
+    assert exc.status == "remediation_submitted"
+
+
+def test_an_attested_verification_keeps_who_when_what_and_the_evidence():
+    exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
+    row = _verify_unassessable(exc, gt.EvidenceCheck(intact=[FILE_REF, LINK_REF]))
+    assert exc.status == "remediated"
+    assert exc.remediation_verification_basis == "attested"
+    att = exc.remediation_attestation
+    assert (att["examined"], att["demonstrates"], att["confirmed"]) == (
+        "config export",
+        "no MQ endpoint left",
+        True,
+    )
+    assert exc.remediation_verified_by == VERIFIER
+    assert exc.remediation_verified_at == row.occurred_at
+    assert "verified_by" not in att  # identity lives in the remapped column
+    assert att["evidence"] == [FILE_REF, LINK_REF]
+
+
+def test_evidence_check_counts_only_unchanged_files_as_content_verified():
+    check = gt.EvidenceCheck(intact=[FILE_REF, LINK_REF], changed=[FILE_REF])
+    assert (check.cited, check.content_verified) == (3, 1)
+
+
+def test_a_file_is_fingerprinted_by_content_and_a_document_by_its_link():
+    import hashlib
+    from types import SimpleNamespace
+
+    f = gt._fingerprint("attachment", SimpleNamespace(data=b"abc", size=3))
+    assert f == {
+        "fingerprint_of": "content",
+        "sha256": hashlib.sha256(b"abc").hexdigest(),
+        "size": 3,
+    }
+    d = gt._fingerprint("document", SimpleNamespace(url="https://x/y"))
+    assert d == {"fingerprint_of": "link", "sha256": hashlib.sha256(b"https://x/y").hexdigest()}
+
+
+def test_an_assessable_pair_needs_no_evidence_reference():
+    exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
+    gt.verify_remediation(_Session(), exc, "verified", None, VERIFIER, usage_persists=False)
+    assert exc.remediation_verification_basis == "rule_check"
+    assert exc.remediation_attestation is None
+
+
+# --------------------------------------------------------------------------- #
+# I-35: expiry changes on a standing approval                                  #
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("status", ["approved", "remediation_submitted"])
+def test_changing_an_approved_expiry_is_a_recorded_event(status):
+    exc = _exc(status, expiry_date=date(2026, 12, 31))
+    db = _Session()
+    row = gt.change_expiry(db, exc, date(2027, 6, 30), " Vendor delay ", ACTOR)
+    assert exc.expiry_date == date(2027, 6, 30)
+    assert db.added == [row]
+    assert (row.event_kind, row.from_status, row.to_status) == ("expiry_changed", status, status)
+    assert (row.previous_expiry_date, row.approved_expiry_date) == (
+        date(2026, 12, 31),
+        date(2027, 6, 30),
+    )
+    assert (row.actor_id, row.reason) == (ACTOR, "Vendor delay")
+    assert row.occurred_at is not None
+
+
+def test_an_approved_expiry_change_needs_a_reason_and_changes_nothing_without_one():
+    exc = _exc("approved", expiry_date=date(2026, 12, 31))
+    db = _Session()
+    with pytest.raises(gt.LifecycleError) as err:
+        gt.change_expiry(db, exc, date(2027, 6, 30), "  ", ACTOR)
+    assert (err.value.status, err.value.code) == (422, "expiry_reason_required")
+    assert exc.expiry_date == date(2026, 12, 31) and db.added == []
+
+
+def test_removing_an_approved_expiry_is_recorded_too():
+    exc = _exc("approved", expiry_date=date(2026, 12, 31))
+    row = gt.change_expiry(_Session(), exc, None, "Made permanent", ACTOR)
+    assert (row.previous_expiry_date, row.approved_expiry_date) == (date(2026, 12, 31), None)
+
+
+@pytest.mark.parametrize("status", ["requested", "rejected", "remediated", "withdrawn"])
+def test_an_expiry_outside_a_standing_approval_is_set_without_an_event(status):
+    exc = _exc(status, expiry_date=date(2026, 12, 31))
+    db = _Session()
+    assert gt.change_expiry(db, exc, date(2027, 1, 31), None, ACTOR) is None
+    assert exc.expiry_date == date(2027, 1, 31) and db.added == []
+
+
+def test_the_same_expiry_again_is_no_event():
+    exc = _exc("approved", expiry_date=date(2026, 12, 31))
+    db = _Session()
+    assert gt.change_expiry(db, exc, date(2026, 12, 31), None, ACTOR) is None
+    assert db.added == []
+
+
+# --------------------------------------------------------------------------- #
+# I-37: ADR / ARB delay-reason visibility                                      #
+# --------------------------------------------------------------------------- #
+def test_adr_delay_reasons_are_for_managers_the_creator_and_signatories():
+    signer = uuid.uuid4()
+    adr = ArchitectureDecision(
+        id=uuid.uuid4(),
+        reference_number="ADR-9",
+        created_by=REQUESTER,
+        signatories=[{"user_id": str(signer), "status": "pending"}],
+    )
+    assert gt.may_read_delay_reason_adr(adr, REQUESTER, manager=False)
+    assert gt.may_read_delay_reason_adr(adr, signer, manager=False)
+    assert gt.may_read_delay_reason_adr(adr, VERIFIER, manager=True)
+    assert not gt.may_read_delay_reason_adr(adr, VERIFIER, manager=False)
+    adr.created_by, adr.signatories = None, None
+    assert not gt.may_read_delay_reason_adr(adr, REQUESTER, manager=False)
+
+
+def test_arb_delay_reasons_are_for_managers_the_creator_and_the_reviewer():
+    review = ArbReview(id=uuid.uuid4(), title="R", created_by=REQUESTER, reviewer_id=SUBMITTER)
+    assert gt.may_read_delay_reason_arb(review, REQUESTER, manager=False)
+    assert gt.may_read_delay_reason_arb(review, SUBMITTER, manager=False)
+    assert gt.may_read_delay_reason_arb(review, VERIFIER, manager=True)
+    assert not gt.may_read_delay_reason_arb(review, VERIFIER, manager=False)
+    review.created_by = review.reviewer_id = None
+    assert not gt.may_read_delay_reason_arb(review, VERIFIER, manager=False)
+
+
+def test_submission_keeps_the_checked_evidence_references():
+    exc = _exc()
+    refs = [{"kind": "document", "id": str(uuid.uuid4()), "name": "Cutover report"}]
+    gt.submit_remediation(_Session(), exc, "Moved", SUBMITTER, evidence_refs=refs)
+    assert exc.remediation_evidence_refs == refs
+    exc2 = _exc()
+    gt.submit_remediation(_Session(), exc2, "Moved", SUBMITTER)
+    assert exc2.remediation_evidence_refs is None
+
+
+def test_returning_ignores_the_usage_check():
+    exc = _exc("remediation_submitted", remediation_submitted_by=SUBMITTER)
+    row = gt.verify_remediation(
+        _Session(), exc, "returned", "Still calls SOAP", VERIFIER, usage_persists=True
+    )
+    assert exc.status == "approved"
+    assert exc.remediation_verification_basis is None
+    assert row.to_status == "approved"
 
 
 @pytest.mark.parametrize("who", [REQUESTER, SUBMITTER])
@@ -290,7 +505,7 @@ def test_verification_only_from_a_submission_and_with_a_known_outcome():
     assert err.value.code == "invalid_outcome"
 
 
-@pytest.mark.parametrize("status", ["requested", "approved"])
+@pytest.mark.parametrize("status", ["requested", "approved", "remediation_submitted"])
 def test_withdrawal_needs_a_reason_and_records_who(status):
     exc = _exc(status)
     with pytest.raises(gt.LifecycleError) as err:
@@ -302,10 +517,20 @@ def test_withdrawal_needs_a_reason_and_records_who(status):
     assert (exc.withdrawn_by, exc.withdrawal_reason) == (REQUESTER, "Project cancelled")
     assert exc.withdrawn_at == row.occurred_at
     assert (row.from_status, row.to_status) == (status, "withdrawn")
+    # An administrative close, never a verification (I-30).
+    assert exc.remediation_verified_by is None and exc.remediation_verified_at is None
+    assert exc.remediation_verification_basis is None
 
 
-@pytest.mark.parametrize("status", ["rejected", "remediation_submitted", "remediated", "withdrawn"])
-def test_withdrawal_only_from_pending_or_approved(status):
+def test_an_approval_past_its_expiry_can_still_be_withdrawn():
+    exc = _exc("approved", expiry_date=date(2020, 1, 31))
+    row = gt.withdraw_exception(_Session(), exc, "Replaced by EX-9", REQUESTER)
+    assert (row.from_status, row.to_status) == ("approved", "withdrawn")
+    assert exc.expiry_date == date(2020, 1, 31)
+
+
+@pytest.mark.parametrize("status", ["rejected", "remediated", "withdrawn"])
+def test_withdrawal_is_refused_once_terminal(status):
     with pytest.raises(gt.LifecycleError) as err:
         gt.withdraw_exception(_Session(), _exc(status), "r", REQUESTER)
     assert err.value.code == "invalid_state"
@@ -321,14 +546,54 @@ def test_may_withdraw_is_the_requester_or_a_manager():
     assert not gt.may_withdraw(orphan, VERIFIER, is_manager=False)
 
 
-def test_deletion_needs_a_reason_and_leaves_a_last_row():
+def test_deletion_appends_a_last_row_and_rewrites_nothing():
+    """I-33 (approved with changes): history is immutable; the reason goes to
+    the audit record, not onto a row no read scope can protect."""
     with pytest.raises(gt.LifecycleError) as err:
         gt.record_deletion(_Session(), _exc(), None, VERIFIER)
     assert err.value.code == "reason_required"
     db = _Session()
-    row = gt.record_deletion(db, _exc("rejected"), " Duplicate of EX-4 ", VERIFIER)
-    assert (row.from_status, row.to_status, row.reason) == (
-        "rejected",
-        "deleted",
-        "Duplicate of EX-4",
+    row, reason = gt.record_deletion(db, _exc("rejected"), " Duplicate of EX-4 ", VERIFIER)
+    assert reason == "Duplicate of EX-4"
+    assert (row.from_status, row.to_status, row.reason) == ("rejected", "deleted", None)
+    assert db.added == [row]
+    assert db.executed == []  # no earlier row is touched
+
+
+@pytest.mark.parametrize(
+    ("actor", "privileged", "allowed"),
+    [(REQUESTER, False, True), (VERIFIER, False, False), (VERIFIER, True, True)],
+)
+def test_lifecycle_text_is_for_the_requester_and_the_people_who_act(actor, privileged, allowed):
+    assert gt.may_read_lifecycle_text(_exc(), actor, privileged=privileged) is allowed
+    orphan = _exc()
+    orphan.created_by = None
+    assert gt.may_read_lifecycle_text(orphan, VERIFIER, privileged=False) is False
+
+
+def test_an_approval_records_the_expiry_it_approved():
+    """I-31: GOV-04 measures against the original approved expiry."""
+    exc = _exc("requested", expiry_date=date(2026, 12, 31))
+    row = gt.decide_exception(_Session(), exc, "approve", ACTOR)
+    assert row.approved_expiry_date == date(2026, 12, 31)
+    exc2 = _exc("rejected", expiry_date=date(2027, 3, 31))
+    assert gt.decide_exception(_Session(), exc2, "approve", ACTOR).approved_expiry_date == date(
+        2027, 3, 31
     )
+
+
+def test_a_rejection_records_no_approved_expiry():
+    exc = _exc("approved", expiry_date=date(2026, 12, 31))
+    row = gt.decide_exception(_Session(), exc, "reject", ACTOR)
+    assert row.approved_expiry_date is None
+
+
+def test_a_returned_remediation_is_not_a_new_approval():
+    exc = _exc(
+        "remediation_submitted",
+        expiry_date=date(2026, 12, 31),
+        remediation_submitted_by=SUBMITTER,
+    )
+    row = gt.verify_remediation(_Session(), exc, "returned", "Incomplete", VERIFIER)
+    assert row.approved_expiry_date is None
+    assert exc.expiry_date == date(2026, 12, 31)  # never extended (I-29)

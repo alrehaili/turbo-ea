@@ -94,6 +94,27 @@ class TestCreateADR:
         assert data["context"] == "We need to migrate"
         assert data["decision"] == "Use AWS"
 
+    async def test_create_keeps_the_committee_register_fields(self, client, db, adr_env):
+        """Regression: the route passed the fork's committee fields to a
+        ``create_decision`` that did not accept them, so every create 500'd."""
+        resp = await _create_adr(
+            client,
+            adr_env["admin"],
+            title="Committee ADR",
+            committee="EA Board",
+            meeting_date="2026-10-20",
+            stage_no=3,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["committee"] == "EA Board"
+        assert data["meeting_date"] == "2026-10-20"
+        assert data["stage_no"] == 3
+        fetched = await client.get(
+            f"/api/v1/adr/{data['id']}", headers=auth_headers(adr_env["admin"])
+        )
+        assert fetched.json()["committee"] == "EA Board"
+
     async def test_member_can_create(self, client, db, adr_env):
         """Member has adr.manage permission and can create ADRs."""
         member = adr_env["member"]

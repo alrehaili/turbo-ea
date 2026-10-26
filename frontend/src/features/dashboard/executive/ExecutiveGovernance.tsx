@@ -341,6 +341,9 @@ function ResolutionCard({ resolution }: { resolution: GovernanceResolution }) {
         <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
           {t(k("basis"), { count: resolution.eligible })}
         </Typography>
+        <Typography variant="caption" fontWeight={700} component="div">
+          {t(k("exceptionsHeading"))}
+        </Typography>
         {OUTCOMES.map((o) => (
           <Typography variant="body2" key={o} data-testid={`gov04-${o}`}>
             {t(k(`outcome.${o}`), { count: resolution.outcomes[o] })}
@@ -354,6 +357,21 @@ function ResolutionCard({ resolution }: { resolution: GovernanceResolution }) {
         <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
           {t(k("rejectedRequests"), { count: resolution.rejected_requests })}
         </Typography>
+        {resolution.approval_cycles && resolution.approval_cycles.eligible > 0 && (
+          <Box data-testid="gov04-cycles" sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
+            <Typography variant="caption" fontWeight={700} component="div">
+              {t(k("cyclesHeading"), { count: resolution.approval_cycles.eligible })}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
+              {t(k("cyclesHint"))}
+            </Typography>
+            {OUTCOMES.filter((o) => resolution.approval_cycles!.outcomes[o] > 0).map((o) => (
+              <Typography variant="body2" key={o} data-testid={`gov04-cycle-${o}`}>
+                {t(k(`outcome.${o}`), { count: resolution.approval_cycles!.outcomes[o] })}
+              </Typography>
+            ))}
+          </Box>
+        )}
       </CardContent>
     </Card>
   );

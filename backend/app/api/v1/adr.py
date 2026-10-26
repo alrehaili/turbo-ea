@@ -940,10 +940,22 @@ async def adr_transitions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The decision's recorded status history (D-35); empty before Batch 3.2."""
+    """The decision's recorded status history (D-35); empty before Batch 3.2.
+
+    Free-text delay reasons go to ``adr.manage`` holders, the creator and the
+    signatories only; other readers get the attribution, the times and
+    ``reason_withheld`` (I-37)."""
     await PermissionService.require_permission(db, user, "adr.view")
     adr = await _get_adr(db, adr_id)
-    history = await governance_transitions.transition_history(db, INSTRUMENT_ADR, adr.id)
+    manager = await PermissionService.check_permission(db, user, "adr.manage")
+    history = await governance_transitions.transition_history(
+        db,
+        INSTRUMENT_ADR,
+        adr.id,
+        withhold_reason=not governance_transitions.may_read_delay_reason_adr(
+            adr, user.id, manager=manager
+        ),
+    )
     return governance_transitions.history_payload(history)
 
 

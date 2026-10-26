@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.38.1] - 2026-10-26
+
+### Changed
+- Changing the expiry date of an approved standard exception now needs a reason and is recorded in its history with the previous and new date.
+
+### Fixed
+- Creating an architecture decision record failed with a server error; new records now save, including their committee, meeting date and stage.
+- Verifying a standard exception's remediation now requires the violation itself to be gone: it is refused while the standards check still finds the card using the standard, and where the check cannot assess the card the submission must cite evidence from the card including at least one file, the cited evidence must be unchanged since submission, and the verifier must attest what was examined and why it shows the violation is resolved. Submitting evidence alone never resolves an exception.
+- Exception resolution (GOV-04) is measured against the expiry date in force for the approval that fell due in the period — each approval of an exception keeps its own, and recorded extensions apply from when they were made — and a past period is judged only by what had happened by its end, so later events no longer change it. Each exception is counted once, with approval cycles reported separately.
+- A standard exception can be withdrawn at any point before it is rejected, remediated or withdrawn, including after its expiry date and while its remediation awaits verification.
+
+### Security
+- Delay reasons on decision records and architecture reviews are visible only to their managers, creator and signatories or reviewer; other viewers see the delay's attribution and timing.
+- A standard exception's remediation evidence, notes and withdrawal reason are shown only to the requester and to people who manage or approve exceptions; other viewers see its status history without them. Permanent deletion never rewrites that history, and its reason is kept in the security log only.
+
 ## [2.38.0] - 2026-10-26
 
 ### Added

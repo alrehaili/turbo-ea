@@ -253,7 +253,7 @@ def _arb(db, title, *, created, status="scheduled", decided_at=None):
     return r
 
 
-def _move(db, instrument, record_id, frm, to, at):
+def _move(db, instrument, record_id, frm, to, at, approved_expiry=None):
     db.add(
         GovernanceTransition(
             instrument=instrument,
@@ -261,6 +261,7 @@ def _move(db, instrument, record_id, frm, to, at):
             from_status=frm,
             to_status=to,
             occurred_at=at,
+            approved_expiry_date=approved_expiry,
         )
     )
 
@@ -383,7 +384,15 @@ async def test_expiry_is_never_a_decision_or_a_resolution(db, landscape):
     )
     db.add(expired)
     await db.flush()
-    _move(db, "exception", expired.id, "requested", "approved", now - timedelta(days=3))
+    _move(
+        db,
+        "exception",
+        expired.id,
+        "requested",
+        "approved",
+        now - timedelta(days=3),
+        expired.expiry_date,
+    )
     await db.flush()
     summary = await gov.governance_summary(
         db, CardReadScope.everything(), _fy_period(), gov03_link=None
@@ -525,31 +534,71 @@ def test_processing_figure_counts_untimed_records_by_cause():
 # --------------------------------------------------------------------------- #
 # GOV-04 exception resolution (D-40)                                           #
 # --------------------------------------------------------------------------- #
-def _exc_ns(status, expiry):
-    from types import SimpleNamespace
-
-    return SimpleNamespace(status=status, expiry_date=expiry)
-
-
-def test_only_verification_on_or_before_expiry_counts_as_on_time():
+def test_only_verification_on_or_before_the_original_expiry_counts_as_on_time():
     expiry = _t().date()
-    on_time = [_row("remediation_submitted", "remediated", 0)]
-    late = [_row("remediation_submitted", "remediated", 48)]
-    assert gov.classify_resolution(_exc_ns("remediated", expiry), on_time) == "remediated_on_time"
-    assert gov.classify_resolution(_exc_ns("remediated", expiry), late) == "remediated_late"
+    on_time = [
+        _row("approved", "remediation_submitted", -5),
+        _row("remediation_submitted", "remediated", 0),
+    ]
+    late = [
+        _row("approved", "remediation_submitted", -5),
+        _row("remediation_submitted", "remediated", 48),
+    ]
+    assert gov.classify_resolution(on_time, expiry) == "remediated_on_time"
+    assert gov.classify_resolution(late, expiry) == "remediated_late"
 
 
 def test_administrative_and_unresolved_outcomes_stay_apart():
     expiry = _t().date()
-    assert gov.classify_resolution(_exc_ns("withdrawn", expiry), []) == "withdrawn"
-    assert gov.classify_resolution(_exc_ns("rejected", expiry), []) == "rejected"
-    assert (
-        gov.classify_resolution(_exc_ns("remediation_submitted", expiry), [])
-        == "awaiting_verification"
+    approved = _row("requested", "approved", -100)
+    assert gov.classify_resolution([approved, _row("approved", "withdrawn", 1)], expiry) == (
+        "withdrawn"
     )
-    assert gov.classify_resolution(_exc_ns("approved", expiry), []) == "expired_unresolved"
-    # "remediated" with no recorded verification is never trusted.
-    assert gov.classify_resolution(_exc_ns("remediated", expiry), []) == "not_recorded"
+    assert gov.classify_resolution([approved, _row("approved", "rejected", 1)], expiry) == (
+        "rejected"
+    )
+    submitted = _row("approved", "remediation_submitted", 1)
+    assert gov.classify_resolution([approved, submitted], expiry) == "awaiting_verification"
+    assert gov.classify_resolution([approved], expiry) == "expired_unresolved"
+    assert gov.classify_resolution([], expiry) == "not_recorded"
+
+
+def test_a_withdrawal_after_submission_is_never_remediation():
+    expiry = _t().date()
+    chain = [
+        _row("requested", "approved", -100),
+        _row("approved", "remediation_submitted", -10),
+        _row("remediation_submitted", "withdrawn", -1),
+    ]
+    assert gov.classify_resolution(chain, expiry) == "withdrawn"
+
+
+def test_each_approval_decision_opens_a_cycle_a_returned_remediation_does_not():
+    created = _row(None, "requested", -1)
+    first = _row("requested", "approved", 0)
+    submitted = _row("approved", "remediation_submitted", 5)
+    returned = _row("remediation_submitted", "approved", 6)
+    rejected = _row("approved", "rejected", 7)
+    second = _row("rejected", "approved", 8)
+    chain = [created, first, submitted, returned, rejected, second]
+    assert gov.approval_cycles(chain) == [
+        (first, [first, submitted, returned, rejected]),
+        (second, [second]),
+    ]
+    assert gov.approval_cycles([created]) == []
+
+
+def _exc_move(e, frm, to, at, approved_expiry=None):
+    """One exception transition; an approval carries its approved expiry (I-31)."""
+    is_approval = to == "approved" and frm in ("requested", "rejected")
+    return GovernanceTransition(
+        instrument="exception",
+        record_id=e.id,
+        from_status=frm,
+        to_status=to,
+        occurred_at=at,
+        approved_expiry_date=approved_expiry if is_approval else None,
+    )
 
 
 async def _gov04(db, scope=None):
@@ -606,15 +655,7 @@ async def test_gov04_counts_verified_remediation_only(db, landscape):
     await db.flush()
     for e, moves in rows:
         for frm, to, days_ago in moves:
-            db.add(
-                GovernanceTransition(
-                    instrument="exception",
-                    record_id=e.id,
-                    from_status=frm,
-                    to_status=to,
-                    occurred_at=now - timedelta(days=days_ago),
-                )
-            )
+            db.add(_exc_move(e, frm, to, now - timedelta(days=days_ago), expiry))
     await db.flush()
     res = await _gov04(db)
     assert res["eligible"] == 5
@@ -654,19 +695,338 @@ async def test_gov04_ignores_exceptions_not_yet_due_or_outside_the_period(db, la
                 occurred_at=now - timedelta(days=3),
             )
         )
-        db.add(
-            GovernanceTransition(
-                instrument="exception",
-                record_id=e.id,
-                from_status="requested",
-                to_status="approved",
-                occurred_at=now - timedelta(days=2),
-            )
-        )
+        db.add(_exc_move(e, "requested", "approved", now - timedelta(days=2), e.expiry_date))
     await db.flush()
     res = await _gov04(db)
     assert res["status"] == "not_available"
     assert res["eligible"] == 0
+
+
+async def _approved_exception(db, landscape, *, expiry, approved_expiry, approved_at):
+    e = StandardException(
+        standard_id=landscape["std"].id,
+        card_id=landscape["app"].id,
+        status="approved",
+        expiry_date=expiry,
+    )
+    db.add(e)
+    await db.flush()
+    db.add(_exc_move(e, None, "requested", approved_at - timedelta(days=1)))
+    db.add(_exc_move(e, "requested", "approved", approved_at, approved_expiry))
+    await db.flush()
+    return e
+
+
+async def test_gov04_uses_the_original_approved_expiry_not_a_later_edit(db, landscape):
+    """I-31: an expiry pushed out after approval does not take the exception out
+    of the period it was due in, and one pulled in does not bring it in."""
+    now = datetime.now(timezone.utc)
+    today = date.today()
+    await _approved_exception(
+        db,
+        landscape,
+        expiry=today + timedelta(days=300),  # edited after the approval
+        approved_expiry=today - timedelta(days=2),
+        approved_at=now - timedelta(days=9),
+    )
+    await _approved_exception(
+        db,
+        landscape,
+        expiry=today - timedelta(days=2),  # edited after the approval
+        approved_expiry=today + timedelta(days=300),
+        approved_at=now - timedelta(days=9),
+    )
+    res = await _gov04(db)
+    assert res["eligible"] == 1
+    assert res["outcomes"]["expired_unresolved"] == 1
+    assert res["not_recorded"] == 0
+
+
+async def _two_cycle_exception(db, landscape):
+    """Approved last year (expiry mid-last-year), rejected before that expiry,
+    then approved again with an expiry a few days ago this year."""
+    today = date.today()
+    first_expiry = date(today.year - 1, 6, 30)
+    second_expiry = today - timedelta(days=2)
+    e = await _approved_exception(
+        db,
+        landscape,
+        expiry=second_expiry,
+        approved_expiry=first_expiry,
+        approved_at=datetime(today.year - 1, 2, 1, tzinfo=timezone.utc),
+    )
+    db.add(
+        _exc_move(e, "approved", "rejected", datetime(today.year - 1, 4, 1, tzinfo=timezone.utc))
+    )
+    db.add(
+        _exc_move(
+            e,
+            "rejected",
+            "approved",
+            datetime(today.year - 1, 9, 1, tzinfo=timezone.utc),
+            second_expiry,
+        )
+    )
+    await db.flush()
+    return e
+
+
+async def test_gov04_each_period_uses_its_own_approval_cycle(db, landscape):
+    """I-31 (approved with changes): each approval cycle keeps the expiry it
+    granted; a period uses the cycle that fell due in it, with that cycle's
+    outcome — never the first approval or the current expiry for every period."""
+    today = date.today()
+    await _two_cycle_exception(db, landscape)
+    last_fy = periods.parse(f"FY{today.year - 1}", START_MONTH, today)
+    past = await gov.exception_resolution(db, CardReadScope.everything(), last_fy)
+    assert past["eligible"] == 1
+    assert past["outcomes"]["rejected"] == 1  # the first cycle ended in rejection
+    current = await _gov04(db)
+    assert current["eligible"] == 1
+    assert current["outcomes"]["expired_unresolved"] == 1  # the second cycle
+    assert current["outcomes"]["rejected"] == 0
+
+
+def _expiry_event(e, at, previous, new, status="approved"):
+    return GovernanceTransition(
+        instrument="exception",
+        record_id=e.id,
+        from_status=status,
+        to_status=status,
+        occurred_at=at,
+        event_kind="expiry_changed",
+        previous_expiry_date=previous,
+        approved_expiry_date=new,
+        reason="Vendor delay",
+    )
+
+
+def test_the_expiry_in_force_is_the_approval_s_until_a_recorded_change():
+    from types import SimpleNamespace
+
+    approval = SimpleNamespace(approved_expiry_date=date(2026, 3, 31), event_kind=None)
+    change = SimpleNamespace(approved_expiry_date=date(2026, 6, 30), event_kind="expiry_changed")
+    other = SimpleNamespace(approved_expiry_date=None, event_kind=None)
+    assert gov.effective_expiry([approval]) == date(2026, 3, 31)
+    assert gov.effective_expiry([approval, other, change]) == date(2026, 6, 30)
+    legacy = SimpleNamespace(approved_expiry_date=None, event_kind=None)
+    assert gov.effective_expiry([legacy]) is gov.UNKNOWN
+    assert gov.effective_expiry([legacy, change]) == date(2026, 6, 30)
+
+
+async def test_gov04_two_approvals_due_in_one_period_count_one_exception_two_cycles(db, landscape):
+    """Decision A: the denominator is unique exceptions; every due approval
+    cycle, the earlier rejected one included, is reported apart in cycles and
+    never added to the exception distribution."""
+    now = datetime.now(timezone.utc)
+    today = date.today()
+    e = await _approved_exception(
+        db,
+        landscape,
+        expiry=today - timedelta(days=2),
+        approved_expiry=today - timedelta(days=3),
+        approved_at=now - timedelta(days=12),
+    )
+    db.add(_exc_move(e, "approved", "rejected", now - timedelta(days=10)))
+    db.add(_exc_move(e, "rejected", "approved", now - timedelta(days=8), today - timedelta(days=2)))
+    await db.flush()
+    res = await _gov04(db)
+    assert res["unit_of_count"] == "exceptions"
+    assert res["eligible"] == 1
+    assert sum(res["outcomes"].values()) == res["eligible"]
+    assert res["outcomes"]["expired_unresolved"] == 1  # the applicable (latest) cycle
+    assert res["outcomes"]["rejected"] == 0
+    cycles = res["approval_cycles"]
+    assert cycles["unit_of_count"] == "approval_cycles"
+    assert cycles["eligible"] == 2
+    assert cycles["outcomes"]["rejected"] == 1
+    assert cycles["outcomes"]["expired_unresolved"] == 1
+
+
+async def test_gov04_uses_the_expiry_in_force_for_the_cycle_and_period(db, landscape):
+    """Decision B: an extension recorded inside the period moves the deadline
+    for it; one recorded after the period's end does not rewrite that period."""
+    today = date.today()
+    last_fy = periods.parse(f"FY{today.year - 1}", START_MONTH, today)
+    first = date(today.year - 1, 3, 31)
+    e = await _approved_exception(
+        db,
+        landscape,
+        expiry=today - timedelta(days=2),
+        approved_expiry=first,
+        approved_at=datetime(today.year - 1, 1, 10, tzinfo=timezone.utc),
+    )
+    # Extended in March of last year to June, then after last year's end to now-2.
+    db.add(
+        _expiry_event(
+            e,
+            datetime(today.year - 1, 3, 20, tzinfo=timezone.utc),
+            first,
+            date(today.year - 1, 6, 30),
+        )
+    )
+    db.add(
+        _expiry_event(
+            e,
+            datetime(today.year, 1, 2, tzinfo=timezone.utc),
+            date(today.year - 1, 6, 30),
+            today - timedelta(days=2),
+        )
+    )
+    await db.flush()
+    past = await gov.exception_resolution(db, CardReadScope.everything(), last_fy)
+    # Due in June last year (the expiry in force then), not in March, not now.
+    assert past["eligible"] == 1
+    assert past["outcomes"]["expired_unresolved"] == 1
+    q1 = await gov.exception_resolution(
+        db, CardReadScope.everything(), periods.parse(f"FY{today.year - 1}-Q1", START_MONTH, today)
+    )
+    assert q1["eligible"] == 0  # the March expiry was extended before it passed
+    current = await _gov04(db)
+    assert current["eligible"] == 1
+
+
+async def test_an_expiry_change_is_never_a_decision_for_gov07(db, landscape):
+    """An expiry-change event keeps the status; GOV-07 never times it as a
+    decision (it filters status changes only)."""
+    now = datetime.now(timezone.utc)
+    e = StandardException(
+        standard_id=landscape["std"].id,
+        card_id=landscape["app"].id,
+        status="approved",
+        expiry_date=date.today(),
+        created_at=now - timedelta(days=5),
+    )
+    db.add(e)
+    await db.flush()
+    db.add(_expiry_event(e, now - timedelta(days=1), None, date.today()))
+    await db.flush()
+    t = await _turnaround(db)
+    assert t["instruments"]["exception"]["decisions"] == 0
+
+
+async def test_gov04_a_cycle_without_its_expiry_is_never_given_another(db, landscape):
+    """A cycle recorded before its approved expiry was kept is not measured
+    against the current expiry or another cycle's expiry."""
+    today = date.today()
+    e = await _approved_exception(
+        db,
+        landscape,
+        expiry=today - timedelta(days=2),
+        approved_expiry=None,
+        approved_at=datetime.now(timezone.utc) - timedelta(days=40),
+    )
+    db.add(_exc_move(e, "approved", "rejected", datetime.now(timezone.utc) - timedelta(days=30)))
+    db.add(
+        _exc_move(
+            e,
+            "rejected",
+            "approved",
+            datetime.now(timezone.utc) - timedelta(days=20),
+            today + timedelta(days=200),
+        )
+    )
+    await db.flush()
+    res = await _gov04(db)
+    assert res["eligible"] == 0
+    assert res["not_recorded"] == 1
+
+
+async def test_gov04_an_approval_without_its_approved_expiry_is_not_recorded(db, landscape):
+    now = datetime.now(timezone.utc)
+    expiry = date.today() - timedelta(days=2)
+    await _approved_exception(
+        db, landscape, expiry=expiry, approved_expiry=None, approved_at=now - timedelta(days=9)
+    )
+    res = await _gov04(db)
+    assert res["eligible"] == 0
+    assert res["not_recorded"] == 1
+    assert res["status"] == "not_available"
+
+
+async def test_gov04_a_completed_period_is_not_rewritten_by_later_events(db, landscape):
+    """I-31: last year's figure is judged from last year's boundaries and the
+    history recorded up to its end — a verification this year does not turn an
+    exception that was unresolved at the period's end into a remediation."""
+    today = date.today()
+    last_fy = periods.parse(f"FY{today.year - 1}", START_MONTH, today)
+    assert not last_fy.is_current
+    expiry = date(today.year - 1, 6, 30)
+    approved_at = datetime(today.year - 1, 3, 1, tzinfo=timezone.utc)
+    e = await _approved_exception(
+        db, landscape, expiry=expiry, approved_expiry=expiry, approved_at=approved_at
+    )
+    e.status = "remediated"
+    db.add(
+        _exc_move(
+            e,
+            "approved",
+            "remediation_submitted",
+            datetime(today.year - 1, 12, 30, tzinfo=timezone.utc),
+        )
+    )
+    db.add(
+        _exc_move(
+            e,
+            "remediation_submitted",
+            "remediated",
+            datetime(today.year, 1, 1, 9, tzinfo=timezone.utc),
+        )
+    )
+    await db.flush()
+    res = await gov.exception_resolution(db, CardReadScope.everything(), last_fy)
+    assert res["eligible"] == 1
+    assert res["outcomes"]["awaiting_verification"] == 1
+    assert res["outcomes"]["remediated_late"] == 0
+    assert res["value"] == 0.0
+
+
+async def test_gov04_an_expiry_on_the_last_day_of_a_completed_period_is_due(db, landscape):
+    today = date.today()
+    last_fy = periods.parse(f"FY{today.year - 1}", START_MONTH, today)
+    expiry = last_fy.end - timedelta(days=1)
+    await _approved_exception(
+        db,
+        landscape,
+        expiry=expiry,
+        approved_expiry=expiry,
+        approved_at=datetime(today.year - 1, 2, 1, tzinfo=timezone.utc),
+    )
+    res = await gov.exception_resolution(db, CardReadScope.everything(), last_fy)
+    assert res["eligible"] == 1
+    assert res["outcomes"]["expired_unresolved"] == 1
+
+
+async def test_gov07_elapsed_stays_available_when_a_delay_is_unattributed(db):
+    """D-39 / I-22: an unattributed deferral makes processing time Not Available
+    for that review and never gives it a value — elapsed is still reported."""
+    now = datetime.now(timezone.utc)
+    r = ArbReview(title="Untimed", status="approved", created_at=now - timedelta(days=4))
+    db.add(r)
+    await db.flush()
+    for frm, to, days_ago in (
+        (None, "scheduled", 4),
+        ("scheduled", "deferred", 3),  # nobody said who the wait was due to
+        ("deferred", "scheduled", 1),
+        ("scheduled", "approved", 0),
+    ):
+        db.add(
+            GovernanceTransition(
+                instrument="arb",
+                record_id=r.id,
+                from_status=frm,
+                to_status=to,
+                occurred_at=now - timedelta(days=days_ago),
+            )
+        )
+    await db.flush()
+    t = await _turnaround(db)
+    assert t["instruments"]["arb"]["status"] == "ok"
+    assert t["instruments"]["arb"]["median_days"] == 4.0
+    proc = t["processing_time"]["instruments"]["arb"]
+    assert proc["status"] == "not_available"
+    assert proc["not_computable"] == {"delay_unattributed": 1}
+    assert "median_days" not in proc
 
 
 async def test_activity_keeps_every_lifecycle_state_apart(db, landscape):

@@ -152,8 +152,11 @@ async def test_drilldown_needs_tech_standards_view(client, env):
     assert allowed.status_code == 200
     body = allowed.json()
     assert body["key"] == "GOV-03"
-    # The non-compliant cards behind the gap are listed.
-    assert any(r["card_name"] == "Billing" for r in body["rows"])
+    # The non-compliant cards behind the gap are listed; Billing holds an
+    # approved, unexpired waiver, so it is not one of them (I-29).
+    names = {r["card_name"] for r in body["rows"]}
+    assert "OldMQ" in names
+    assert "Billing" not in names
 
 
 async def test_invalid_period_is_422(client, env):
@@ -167,4 +170,10 @@ async def test_gov07_elapsed_ignores_a_hidden_cards_exception(client, env):
     e = exe["effectiveness"]["turnaround"]["instruments"]["exception"]
     assert a["decisions"] == 2
     assert e["decisions"] == 1
-    assert exe["effectiveness"]["turnaround"]["processing_time"]["status"] == "not_available"
+    # Processing time is reported beside elapsed, per instrument, over the same
+    # readable decisions — the hidden card's exception is in neither (D-39).
+    for body, decided in ((admin, 2), (exe, 1)):
+        proc = body["effectiveness"]["turnaround"]["processing_time"]
+        assert proc["measure"] == "governance_controlled"
+        fig = proc["instruments"]["exception"]
+        assert fig["decisions"] + sum(fig["not_computable"].values()) == decided

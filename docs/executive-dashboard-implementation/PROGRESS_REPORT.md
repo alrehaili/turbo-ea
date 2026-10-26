@@ -608,3 +608,135 @@ D-39 and D-40 were approved with changes on 2026-10-26 and are recorded in `DECI
   - refusing to delete a standard with decided exceptions (I-28).
 - No evidence format beyond text was introduced (no document attachment). If the owner wants documents as remediation evidence, that is a follow-up.
 - Duplicate and revise create an ADR draft with no attribution, so such revisions stay untimed for processing time unless a later move records one.
+
+## Phase 3 — Batch 3.2 refinement: the owner's six clarifications (2026-10-26, v2.38.1)
+
+The completed Batch 3.2 was reviewed against the owner's six clarifications of 2026-10-26 and corrected where it fell short. D-39 and D-40 are unchanged; the details are recorded as I-29..I-34 in `DECISION_LOG.md`. Migration `1167` is untouched; one additive migration, `1168`, carries the two new columns. Uncommitted, not merged, not deployed.
+
+| # | Clarification | Finding | Correction |
+|---|---|---|---|
+| 1 | Waiver stays applicable during remediation; expiry never extended | Already held (`WAIVER_ACTIVE_STATUSES`; no lifecycle step writes `expiry_date`) | None; confirmed by test (I-29) |
+| 2 | Withdrawal after expiry, until terminal; never verified remediation | After expiry already allowed; `remediation_submitted` could not be withdrawn | `WITHDRAW_FROM` adds `remediation_submitted`; register UI offers it (I-30) |
+| 3 | GOV-04 against the period and the original approved expiry | Outcome read from the **current** state, so later events rewrote completed periods; the deadline was the **current**, editable `expiry_date` | Approval transition stores `approved_expiry_date`; GOV-04 uses the first recorded approval, its approved expiry and the history up to the period's end; today is used only while the period runs (I-31) |
+| 4 | Verification needs the violation resolved | Any independent verifier could verify on evidence text alone | `standard_usage_persists` (scan chain): 409 `violation_persists` while the usage remains; `attested` with a mandatory note where the pair cannot be assessed; basis stored (I-32) |
+| 5 | Elapsed independent of processing time | Already held | None; DB-backed test added (I-34) |
+| 6 | Hard deletion: admin-only, reason, audit; retained rows reveal nothing | Retained rows kept evidence / reasons, and the `deleted` row held the deletion reason | Deletion clears `reason` on the record's transitions; the `deleted` row has none; reason in the audit record only (I-33) |
+
+**Code.** `services/governance_transitions.py` (withdraw states, approved expiry on approval, verification check, async `record_deletion` with redaction); `services/tech_standards_scan.py` (`standard_usage_persists`); `api/v1/tech_standards.py` (verify runs the check; delete uses the cleaned reason; `remediation_verification_basis` in responses); `services/executive/governance.py` (`original_approval`, period-bounded `classify_resolution`, `exception_resolution`); models + migration `1168`; `ExceptionLifecycleActions.tsx` (Verify opens a dialog with an optional note; withdraw from awaiting verification); EN/AR strings (4 keys).
+
+**Workspace transfer.** Both new columns are plain scalars on covered sections (`GovernanceTransitions`, `StandardExceptions`) and transfer with no change; no id-bearing column added.
+
+**Docs.** `docs/guide/dashboard.md` + `.ar.md`; CHANGELOG `[2.38.1]`; VERSION `2.38.1`; OpenAPI regenerated (route descriptions only); DECISION_LOG I-29..I-34; RTM P3-04..P3-06.
+
+**Validation (one focused pass).** PostgreSQL turned out to be reachable on this host, so the database-backed tests of the changed areas were executed rather than left Pending Verification.
+
+| Check | Result |
+|---|---|
+| `ruff check`, `ruff format --check` (backend) | Clean |
+| Alembic heads | Single head `1168` |
+| Backend: `test_governance_transitions.py`, `test_executive_governance.py`, `test_tech_standards_scan.py`, `test_executive_governance_api.py`, `test_governance_transitions_api.py`, `test_tech_standards.py`, `test_workspace_io_roundtrip.py`, id-bearing and timestamp-default guards | **392 passed, 9 failed** — all 9 pre-existing and reproduced on the committed HEAD: 5 ADR cases (`POST /adr` passes `committee` / `meeting_date` / `stage_no` that `adr_service.create_decision` does not accept, since the v2.29.0 upstream merge) and 4 card-type-category round-trip cases |
+| Two stale Batch 3.1/3.2 assertions fixed | GOV-03 drill-down (Billing now holds an active waiver, so it is correctly not a violation); processing time is a per-instrument figure, not one Not Available block |
+| Frontend Vitest: `ExceptionLifecycleActions`, `exceptionStatusReports`, `ExecutiveGovernance` | **30 passed** |
+| `tsc --noEmit`, ESLint (touched files) | No errors |
+| `check_locales.py report` | 0 fatal gaps |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, `npm ci`, CI |
+
+**Rules added for approval** (each reported in its I-row): withdrawal from `remediation_submitted` (I-30); "original approved expiry" = the first recorded approval after a rejection and re-approval, and approvals recorded under 2.38.0 counted as *lifecycle not recorded* (I-31); the `attested` verification path for pairs the scan cannot assess, and the check being on usage rather than the standard's later radar status (I-32); clearing earlier rows' free text on hard deletion (I-33).
+
+**Remaining blocking issues.**
+- ~~`POST /adr` fails with a `TypeError` for every request~~ — **fixed the same day**: `adr_service.create_decision` now takes `committee`, `meeting_date` and `stage_no` (pre-existing since the v2.29.0 merge, outside Batch 3.2). Regression tests in `test_adr.py` / `test_adr_service.py` fail before the fix; the ADR suites and the 5 ADR transition-history cases now pass (170 tests).
+- Structured references to existing card documents or attachments as remediation evidence are not built (I-32); evidence text can cite them as links.
+
+## Phase 3 — Batch 3.2: owner rulings on I-30..I-33 (2026-10-26, v2.38.1)
+
+The owner ruled on the four rules the refinement added: **I-30 approved**; **I-31, I-32 and I-33 approved with changes**. The implementation was reviewed against the rulings and corrected only where needed. The ADR `POST /adr` fix is accepted as implemented and unchanged. Migrations `1166`..`1168` are unchanged; one additive migration, `1169`, adds the evidence references. Uncommitted, not merged, not deployed. Batch 3.3 not started.
+
+| Rule | Ruling | Finding | Correction |
+|---|---|---|---|
+| I-30 Withdrawal during verification | Approved; mandatory reason and audit record | Already held: reason required (422), and each withdrawal writes an append-only transition row with actor, time and reason | None |
+| I-31 Approval cycles | Approved with changes: each distinct cycle keeps its approved expiry; GOV-04 uses the applicable cycle and its period | Each approval already stored its expiry, but GOV-04 always used the **first** approval | `approval_cycles` splits the history at each approval decision; GOV-04 uses the latest cycle due in the period, that cycle's transitions and its own approved expiry; a cycle without a recorded expiry is never given one |
+| I-32 Verification evidence | Approved with changes: a note alone is insufficient where the scan cannot assess | A note was enough for `attested` | The submission cites the card's existing documents / file attachments (`remediation_evidence_refs`, migration `1169`); an unassessable verification needs at least one still on the card **and** the note (422 `verifiable_evidence_required`); references to another card are refused; register dialog lists the card's documents and files to cite |
+| I-33 Immutable, confidential history | Approved with changes: never rewrite or erase history; restrict sensitive text in ordinary responses; document retention | Hard deletion cleared earlier rows' reasons | Redaction removed: deletion only appends; free-text reasons in the exception history, and evidence / withdrawal text in exception lists, only for the requester and holders of `manage` / `approve_exception` (`reason_withheld`, `lifecycle_text_withheld`); retention documented in I-33 |
+
+**Code.** `services/executive/governance.py` (`approval_cycles`, applicable cycle); `services/governance_transitions.py` (`resolve_evidence_refs`, `live_evidence_refs`, evidence requirement in `verify_remediation`, `record_deletion` append-only, `may_read_lifecycle_text`, `transition_history(withhold_reason=)`); `api/v1/tech_standards.py` (evidence refs on submission, live evidence count on verification, text gating on lists and history); model + migration `1169`; `ExceptionLifecycleActions.tsx` (cite card documents / files); EN/AR strings (5 new keys, verify hint updated).
+
+**Workspace transfer.** `remediation_evidence_refs` holds document / file-attachment ids, which an import preserves (module rows keep their primary keys), so it is allowlisted as `MODULE_IDS` in the id-bearing guard; no remap needed.
+
+**Validation (one focused pass).**
+
+| Check | Result |
+|---|---|
+| `ruff check`, `ruff format --check` (backend) | Clean |
+| Alembic heads | Single head `1169` |
+| Backend against PostgreSQL: `test_governance_transitions.py`, `test_executive_governance.py`, `test_tech_standards_scan.py`, `test_governance_transitions_api.py`, `test_executive_governance_api.py`, `test_tech_standards.py`, `test_adr.py`, `test_adr_service.py`, id-bearing and timestamp-default guards | **434 passed, 0 failed** |
+| Frontend Vitest: `ExceptionLifecycleActions`, `exceptionStatusReports`, `ExecutiveGovernance` | **32 passed** |
+| `tsc --noEmit`, ESLint (touched files) | No errors |
+| `check_locales.py report`; OpenAPI | 0 fatal gaps; regenerated |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, `npm ci`, the workspace round-trip suite (4 pre-existing category failures, unrelated) |
+
+**Interpretations to confirm** (within the rulings, no new business rule beyond them):
+- The applicable cycle for a period is the **latest** cycle whose approved expiry fell due in it; an exception counts once per period (I-31).
+- An exception with no card cannot cite card evidence, so an unassessable remediation of it cannot be verified (I-32).
+- The confidentiality rule covers the exception's free text (evidence, evidence references, return notes, withdrawal reasons); ADR and ARB delay reasons in their history endpoints are unchanged (I-33).
+- The withdrawal's audit record is its transition row; withdrawal does not write to the admin security log, which records administrative actions such as the hard delete (I-30).
+
+**Remaining issues.**
+- 4 workspace-transfer round-trip tests for card-type categories fail on the committed HEAD too; unrelated to Batch 3.2.
+- No new blocking issue in the changed functionality.
+
+## Phase 3 — Batch 3.2: decisions A–D (2026-10-26, v2.38.1)
+
+The owner approved decisions A–D from the focused review with clarifications; they are recorded as I-35..I-37 in `DECISION_LOG.md`. The completed ADR creation fix and the earlier Batch 3.2 changes are preserved; migrations `1166`..`1169` are unchanged and one additive migration, `1170`, was needed. Uncommitted, not merged, not deployed. Batch 3.3 not started.
+
+| Decision | Built |
+|---|---|
+| **A** GOV-04 approval cycles | Primary figure and distribution stay **unique exceptions** (`unit_of_count: "exceptions"`, outcomes sum to `eligible`); a separate `approval_cycles` breakdown classifies every due cycle, earlier rejected ones included, in cycles; the Governance page labels both and says cycle counts are never added to exception counts. |
+| **B** Expiry changes | `change_expiry`: on an approved / awaiting-verification exception a changed expiry needs a reason and appends an `expiry_changed` event (previous expiry, new expiry, actor, time, reason; status unchanged). GOV-04 uses each cycle's expiry **in force by the period's end** (`effective_expiry`). Expiry events are excluded from GOV-07 decisions. |
+| **C** Evidence integrity | Cited files fingerprinted by content (SHA-256 + size), documents by their link; re-checked at verification (409 `evidence_changed`); at least one unchanged file required where the scan cannot assess (422 `evidence_integrity_unavailable`); explicit verifier attestation — examined / demonstrates / confirmed (422 `attestation_required`) — kept with the confirmed fingerprints in `remediation_attestation`. No file is copied; older evidence is not refused. The verify dialog collects the attestation. |
+| **D** Delay-reason confidentiality | ADR history: reason text for `adr.manage`, creator, signatories; ARB history: for `arb.manage`, creator, assigned reviewer; others get attribution, times and `reason_withheld`. |
+
+**Migration `1170`.** Adds `governance_transitions.event_kind` (checked: NULL or `expiry_changed`) and `previous_expiry_date`, and `tech_standard_exceptions.remediation_attestation` (JSONB). All nullable, no server defaults, nothing backfilled. Downgrade refuses while expiry-change events exist. Existing rows stay status transitions (`event_kind` NULL).
+
+**Workspace transfer.** The new scalar columns transfer with no change. `remediation_attestation` holds prose and document / file ids (module PKs preserved on import) and is allowlisted as `MODULE_IDS`; it deliberately stores no user id (the verifier is the remapped `remediation_verified_by` column).
+
+**Docs.** `docs/guide/dashboard.md` + `.ar.md`; CHANGELOG `[2.38.1]`; OpenAPI regenerated; DECISION_LOG I-35..I-37; RTM P3-04..P3-06.
+
+**Validation (one focused pass).**
+
+| Check | Result |
+|---|---|
+| `ruff check`, `ruff format --check` (backend) | Clean |
+| Alembic heads | Single head `1170` |
+| Backend against PostgreSQL: `test_governance_transitions.py`, `test_executive_governance.py`, `test_tech_standards_scan.py`, `test_governance_transitions_api.py`, `test_executive_governance_api.py`, `test_tech_standards.py`, `test_adr.py`, `test_arb.py`, `test_adr_service.py`, id-bearing and timestamp-default guards | **468 passed, 0 failed** |
+| Frontend Vitest: `ExceptionLifecycleActions`, `exceptionStatusReports`, `ExecutiveGovernance` | **33 passed** |
+| `tsc --noEmit`, ESLint (touched files) | No errors |
+| `check_locales.py report`; OpenAPI | 0 fatal gaps; regenerated |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, `npm ci`, the workspace round-trip suite |
+
+**Limitations reported (not blockers).**
+- A document is a link: its target cannot be fingerprinted, so links alone can never establish integrity for an unassessable remediation (at least one file is required).
+- No screen edits an exception's expiry; the change is API-only, as before, and now needs a reason when the exception is approved.
+- The ARB "assigned reviewer" is `reviewer_id`, which is stamped when the review is decided or deferred; there is no separate pre-assignment field.
+
+**Remaining blockers.** None in the changed functionality. The 4 card-type-category workspace round-trip failures remain pre-existing and unrelated.
+
+## Phase 3 — Batch 3.2 closed (2026-10-26, v2.38.1)
+
+Batch 3.2 is closed at v2.38.1 and committed to `main`. Scope is frozen: nothing below is in progress.
+
+**Completed**
+- Governance transition history for ADR, ARB and exceptions (migrations `1166`..`1170`), append-only, with delay attribution (D-39) and expiry-change events (I-35).
+- GOV-07 elapsed time and governance-controlled processing time per instrument (I-17, I-18, I-20..I-22, I-34).
+- GOV-04 exception resolution over unique exceptions, with the period cut, each cycle's expiry in force and a separate approval-cycle breakdown (I-26, I-31, I-35).
+- Exception lifecycle: remediation submission, independent verification (scan check, or fingerprinted file evidence plus verifier attestation where the scan cannot assess), return, withdrawal from any non-terminal state, audited admin-only hard delete (I-23..I-33, I-36).
+- Confidentiality: exception lifecycle text and ADR / ARB delay reasons restricted to the people who act on the record (I-33, I-37).
+- `POST /adr` creation fix (committee / meeting date / stage fields), with regression tests.
+- Final focused validation: 468 backend tests (PostgreSQL) and 33 frontend tests passed; lint, types and locale parity clean.
+
+**Explicitly deferred (not part of Batch 3.2)**
+- Integrity of linked documents' targets (only files can be fingerprinted; links alone cannot back an unassessable verification).
+- A screen to edit an exception's expiry date (API only), and screens to record or view ADR / ARB delay attribution and history (API only).
+- A separate ARB reviewer-assignment field (the "assigned reviewer" is the recorded decider).
+- Delay attribution on ADR duplicate / revise (such revisions stay untimed for processing time).
+- Working-day figures (D-38, Batch 3.3) and the other open decisions D-37, D-41, D-42 (Batches 3.4–3.6).
+- Not run before commit: full suites, mutation testing, builds, `mkdocs build --strict`, the workspace round-trip suite (its 4 card-type-category failures are pre-existing and unrelated). There is no CI on this fork.

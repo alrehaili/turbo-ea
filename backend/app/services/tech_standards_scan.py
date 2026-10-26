@@ -336,3 +336,43 @@ async def assess_standard_compliance(db: AsyncSession, *, read_scope: CardReadSc
         "coverage_pct": round(len(assessed) / population * 100, 1) if population else None,
         "violations": violations,
     }
+
+
+async def standard_usage_persists(
+    db: AsyncSession, standard_id: uuid.UUID, card_id: uuid.UUID | None
+) -> bool | None:
+    """Whether one card still uses one standard, by the scan's chain (I-32).
+
+    The check remediation verification relies on: ``True`` while the card still
+    reaches the standard's ``TechCategory`` (an IT Component directly, an
+    Application through an IT Component); ``False`` once it no longer does, or
+    the card is no longer ACTIVE (the scan no longer counts it); ``None`` when
+    the scan cannot assess the pair — no card, a standard governing no
+    category, or a card type the catalogue does not assess.
+
+    Unscoped on purpose: it is an integrity check on a record the caller has
+    already been allowed to read, and its answer is a single boolean that names
+    no component, category or path.
+    """
+    if card_id is None:
+        return None
+    standard = await db.get(TechStandard, standard_id)
+    if standard is None or standard.tech_category_id is None:
+        return None
+    card = await db.get(Card, card_id)
+    if card is None or card.type not in ASSESSED_TYPES:
+        return None
+    if card.status != "ACTIVE":
+        return False
+    on_category = select(Relation.source_id).where(
+        Relation.type == REL_ITC_TO_TECHCAT, Relation.target_id == standard.tech_category_id
+    )
+    if card.type == "ITComponent":
+        query = on_category.where(Relation.source_id == card.id)
+    else:
+        query = select(Relation.id).where(
+            Relation.type == REL_APP_TO_ITC,
+            Relation.source_id == card.id,
+            Relation.target_id.in_(on_category),
+        )
+    return (await db.scalar(query.limit(1))) is not None

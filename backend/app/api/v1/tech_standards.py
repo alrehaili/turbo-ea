@@ -32,7 +32,7 @@ from app.models.user import User
 from app.services import audit_log, governance_transitions
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.permission_service import PermissionService
-from app.services.tech_standards_scan import scan_standard_compliance
+from app.services.tech_standards_scan import scan_standard_compliance, standard_usage_persists
 
 router = APIRouter(prefix="/tech-standards", tags=["tech-standards"])
 
@@ -84,13 +84,29 @@ class ExceptionCreate(BaseModel):
     expiry_date: date | None = None
 
 
+class EvidenceRef(BaseModel):
+    kind: str = Field(pattern="^(document|attachment)$")
+    id: uuid.UUID
+
+
 class RemediationSubmit(BaseModel):
     evidence: str = Field(min_length=1, max_length=10000)
+    # Documents / file attachments of the exception's card (I-32).
+    evidence_refs: list[EvidenceRef] = Field(default_factory=list, max_length=20)
+
+
+class VerifierAttestation(BaseModel):
+    """What the independent verifier examined and why it shows remediation (I-36)."""
+
+    examined: str = Field(default="", max_length=5000)
+    demonstrates: str = Field(default="", max_length=5000)
+    confirmed: bool = False
 
 
 class RemediationVerify(BaseModel):
     outcome: str = Field(pattern="^(verified|returned)$")
     note: str | None = Field(default=None, max_length=5000)
+    attestation: VerifierAttestation | None = None
 
 
 class ExceptionWithdraw(BaseModel):
@@ -103,6 +119,8 @@ class ExceptionUpdate(BaseModel):
     justification: str | None = None
     compensating_controls: str | None = None
     expiry_date: date | None = None
+    # Required when an approved exception's expiry changes (I-35).
+    expiry_reason: str | None = Field(default=None, max_length=2000)
 
 
 # --------------------------------------------------------------------------- #
@@ -132,7 +150,9 @@ def _standard_dict(s: TechStandard, cards: dict[uuid.UUID, dict] | None = None) 
     }
 
 
-def _exception_dict(e: StandardException, cards: dict[uuid.UUID, dict]) -> dict:
+def _exception_dict(
+    e: StandardException, cards: dict[uuid.UUID, dict], *, show_text: bool = True
+) -> dict:
     def brief(cid: uuid.UUID | None) -> dict | None:
         return cards.get(cid) if cid else None
 
@@ -157,7 +177,11 @@ def _exception_dict(e: StandardException, cards: dict[uuid.UUID, dict]) -> dict:
         "past_expiry": past_expiry,
         "created_by": str(e.created_by) if e.created_by else None,
         # Remediation and withdrawal (D-40); null on records that never had them.
-        "remediation_evidence": e.remediation_evidence,
+        # The lifecycle free text is confidential to the people who act on the
+        # exception (I-33); others see that it exists, not what it says.
+        "remediation_evidence": e.remediation_evidence if show_text else None,
+        # Card documents / files cited as evidence, with their names at submission.
+        "remediation_evidence_refs": (e.remediation_evidence_refs or []) if show_text else [],
         "remediation_submitted_by": (
             str(e.remediation_submitted_by) if e.remediation_submitted_by else None
         ),
@@ -167,8 +191,29 @@ def _exception_dict(e: StandardException, cards: dict[uuid.UUID, dict]) -> dict:
         ),
         "remediation_verified_at": _iso(e.remediation_verified_at),
         "withdrawn_at": _iso(e.withdrawn_at),
-        "withdrawal_reason": e.withdrawal_reason,
+        "withdrawal_reason": e.withdrawal_reason if show_text else None,
+        "lifecycle_text_withheld": not show_text
+        and bool(
+            e.remediation_evidence
+            or e.withdrawal_reason
+            or e.remediation_evidence_refs
+            or e.remediation_attestation
+        ),
+        # How a verified remediation was confirmed: rule_check / attested (I-32).
+        "remediation_verification_basis": e.remediation_verification_basis,
+        # The verifier's attestation where the scan could not assess (I-36).
+        "remediation_attestation": e.remediation_attestation if show_text else None,
     }
+
+
+async def _text_reader(db: AsyncSession, user: User):
+    """Whether ``user`` may read an exception's lifecycle free text (I-33)."""
+    privileged = await PermissionService.check_permission(
+        db, user, "tech_standards.manage"
+    ) or await PermissionService.check_permission(db, user, "tech_standards.approve_exception")
+    return lambda e: governance_transitions.may_read_lifecycle_text(
+        e, user.id, privileged=privileged
+    )
 
 
 def _iso(moment) -> str | None:
@@ -379,7 +424,8 @@ async def list_exceptions(
     cards = await _card_brief_map(
         db, {e.card_id for e in exceptions} | {e.initiative_id for e in exceptions}, read_scope
     )
-    return [_exception_dict(e, cards) for e in exceptions]
+    readable = await _text_reader(db, user)
+    return [_exception_dict(e, cards, show_text=readable(e)) for e in exceptions]
 
 
 @router.get("/{standard_id}")
@@ -404,9 +450,10 @@ async def get_standard(
         | {s.tech_category_id},
         read_scope,
     )
+    readable = await _text_reader(db, user)
     return {
         **_standard_dict(s, cards),
-        "exceptions": [_exception_dict(e, cards) for e in exceptions],
+        "exceptions": [_exception_dict(e, cards, show_text=readable(e)) for e in exceptions],
     }
 
 
@@ -510,6 +557,15 @@ async def update_exception(
     for key in ("card_id", "initiative_id"):
         if data.get(key):
             await require_card_readable(db, user, data[key], mode="module")
+    expiry_reason = data.pop("expiry_reason", None)
+    if "expiry_date" in data:
+        # An approved expiry is changed only as a recorded lifecycle event (I-35).
+        try:
+            governance_transitions.change_expiry(
+                db, exc, data.pop("expiry_date"), expiry_reason, user.id
+            )
+        except governance_transitions.LifecycleError as err:
+            raise _lifecycle_http(err) from err
     for key, value in data.items():
         setattr(exc, key, value)
     await db.commit()
@@ -544,10 +600,19 @@ async def exception_transitions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The exception's recorded status history (D-34); empty before Batch 3.2."""
+    """The exception's recorded status history (D-34); empty before Batch 3.2.
+
+    Every status move, time and actor is listed; the free-text reasons
+    (evidence, return notes, withdrawal reasons) only to the requester and to
+    holders of ``tech_standards.manage`` / ``approve_exception`` (I-33)."""
     await PermissionService.require_permission(db, user, "tech_standards.view")
     exc = await _get_exception(db, exception_id, await CardReadScope.load(db, user))
-    history = await governance_transitions.transition_history(db, INSTRUMENT_EXCEPTION, exc.id)
+    history = await governance_transitions.transition_history(
+        db,
+        INSTRUMENT_EXCEPTION,
+        exc.id,
+        withhold_reason=not (await _text_reader(db, user))(exc),
+    )
     return governance_transitions.history_payload(history)
 
 
@@ -563,7 +628,12 @@ async def submit_remediation(
     read_scope = await CardReadScope.load(db, user)
     exc = await _get_exception(db, exception_id, read_scope)
     try:
-        governance_transitions.submit_remediation(db, exc, body.evidence, user.id)
+        refs = await governance_transitions.resolve_evidence_refs(
+            db, exc, [r.model_dump(mode="json") for r in body.evidence_refs]
+        )
+        governance_transitions.submit_remediation(
+            db, exc, body.evidence, user.id, evidence_refs=refs
+        )
     except governance_transitions.LifecycleError as err:
         raise _lifecycle_http(err) from err
     await db.commit()
@@ -579,12 +649,33 @@ async def verify_remediation(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Independently verify submitted remediation, or return it (D-40)."""
+    """Independently verify submitted remediation, or return it (D-40).
+
+    ``verified`` also needs the standards check to show the card no longer
+    uses the standard, or — where the pair cannot be checked — cited card
+    evidence unchanged since submission, at least one file among it, and the
+    verifier's explicit attestation (I-32, I-36)."""
     await PermissionService.require_permission(db, user, "tech_standards.approve_exception")
     read_scope = await CardReadScope.load(db, user)
     exc = await _get_exception(db, exception_id, read_scope)
+    verifying = body.outcome == "verified"
+    usage = await standard_usage_persists(db, exc.standard_id, exc.card_id) if verifying else None
+    evidence = (
+        await governance_transitions.check_evidence(db, exc)
+        if verifying and usage is None
+        else None
+    )
     try:
-        governance_transitions.verify_remediation(db, exc, body.outcome, body.note, user.id)
+        governance_transitions.verify_remediation(
+            db,
+            exc,
+            body.outcome,
+            body.note,
+            user.id,
+            usage_persists=usage,
+            evidence=evidence,
+            attestation=body.attestation.model_dump() if body.attestation else None,
+        )
     except governance_transitions.LifecycleError as err:
         raise _lifecycle_http(err) from err
     await db.commit()
@@ -600,9 +691,10 @@ async def withdraw_exception(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Withdraw a pending or approved exception with a reason (D-40).
+    """Withdraw a non-terminal exception with a reason (D-40, I-30).
 
-    The original requester or a holder of ``tech_standards.manage``."""
+    Pending, approved (past its expiry too) or awaiting verification. The
+    original requester or a holder of ``tech_standards.manage``."""
     await PermissionService.require_permission(db, user, "tech_standards.view")
     read_scope = await CardReadScope.load(db, user)
     exc = await _get_exception(db, exception_id, read_scope)
@@ -633,12 +725,13 @@ async def delete_exception(
 
     An administrative correction: it needs ``tech_standards.delete_exception``
     (no default role holds it) and a reason, writes an admin audit record, and
-    leaves a final ``deleted`` row in the exception's history. Routine closing
-    is a withdrawal, not a delete."""
+    appends a final ``deleted`` row to the exception's history; earlier rows
+    are kept unchanged and the reason lives in the audit record (I-33).
+    Routine closing is a withdrawal, not a delete."""
     await PermissionService.require_permission(db, user, "tech_standards.delete_exception")
     exc = await _get_exception(db, exception_id, await CardReadScope.load(db, user))
     try:
-        governance_transitions.record_deletion(db, exc, reason, user.id)
+        _, reason = governance_transitions.record_deletion(db, exc, reason, user.id)
     except governance_transitions.LifecycleError as err:
         raise _lifecycle_http(err) from err
     standard = await db.get(TechStandard, exc.standard_id)
@@ -655,7 +748,7 @@ async def delete_exception(
             "standard": standard.name if standard else None,
             "card": card_name,
             "status": exc.status,
-            "deletion_reason": reason.strip() if reason else None,
+            "deletion_reason": reason,
         },
     )
     await db.delete(exc)

@@ -303,6 +303,49 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     );
     expect(card).toHaveTextContent("Approved before the history was kept: 3");
     expect(card).toHaveTextContent("Requests rejected in this period: 4");
+    expect(card).toHaveTextContent("Exceptions (each counted once)");
+    expect(within(card).queryByTestId("gov04-cycles")).toBeNull();
+  });
+
+  it("shows approval-cycle counts apart from the exception counts", () => {
+    const withCycles: ExecutiveGovernanceData = {
+      ...data,
+      effectiveness: {
+        ...data.effectiveness,
+        exception_resolution: {
+          ...data.effectiveness.exception_resolution,
+          approval_cycles: {
+            unit_of_count: "approval_cycles",
+            eligible: 10,
+            outcomes: {
+              remediated_on_time: 2,
+              remediated_late: 1,
+              withdrawn: 2,
+              rejected: 2,
+              awaiting_verification: 1,
+              expired_unresolved: 2,
+            },
+          },
+        },
+      },
+    };
+    useApiQuery.mockImplementation((path: string | null) =>
+      path && path.includes("/reports/executive/governance")
+        ? { data: withCycles, error: null, loading: false }
+        : { data: null, error: null, loading: false },
+    );
+    renderPage();
+    const card = screen.getByTestId("gov04-resolution");
+    // The exception distribution is unchanged: rejected stays 0 there.
+    expect(within(card).getByTestId("gov04-rejected")).toHaveTextContent(
+      "Rejected after approval (not a remediation): 0",
+    );
+    const cycles = within(card).getByTestId("gov04-cycles");
+    expect(cycles).toHaveTextContent("Approval cycles due in this period: 10");
+    expect(cycles).toHaveTextContent(/never added to them/);
+    expect(within(cycles).getByTestId("gov04-cycle-rejected")).toHaveTextContent(
+      "Rejected after approval (not a remediation): 2",
+    );
   });
 
   it("shows GOV-04 as Not available, never zero, when nothing fell due", () => {

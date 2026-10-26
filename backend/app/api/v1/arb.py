@@ -240,10 +240,22 @@ async def review_transitions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The review's recorded status history (D-35); empty before Batch 3.2."""
+    """The review's recorded status history (D-35); empty before Batch 3.2.
+
+    Free-text delay reasons go to ``arb.manage`` holders, the creator and the
+    assigned reviewer only; other readers get the attribution, the times and
+    ``reason_withheld`` (I-37)."""
     await PermissionService.require_permission(db, user, "arb.view")
     r = await _get_review(db, review_id, await CardReadScope.load(db, user))
-    history = await governance_transitions.transition_history(db, INSTRUMENT_ARB, r.id)
+    manager = await PermissionService.check_permission(db, user, "arb.manage")
+    history = await governance_transitions.transition_history(
+        db,
+        INSTRUMENT_ARB,
+        r.id,
+        withhold_reason=not governance_transitions.may_read_delay_reason_arb(
+            r, user.id, manager=manager
+        ),
+    )
     return governance_transitions.history_payload(history)
 
 

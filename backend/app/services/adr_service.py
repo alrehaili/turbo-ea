@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from datetime import date
 from typing import Any
 
 from fastapi import HTTPException
@@ -75,6 +76,9 @@ async def create_decision(
     decision: str | None = None,
     consequences: str | None = None,
     alternatives_considered: str | None = None,
+    committee: str | None = None,
+    meeting_date: date | None = None,
+    stage_no: int | None = None,
     related_decisions: list[Any] | None = None,
     attributes: dict[str, Any] | None = None,
     linked_card_ids: Sequence[uuid.UUID] = (),
@@ -96,6 +100,10 @@ async def create_decision(
         decision=decision,
         consequences=consequences,
         alternatives_considered=alternatives_considered,
+        # NORA committee decision register ([FORK] WP3.4).
+        committee=committee,
+        meeting_date=meeting_date,
+        stage_no=stage_no,
         related_decisions=list(related_decisions or []),
         attributes=dict(attributes or {}),
         created_by=created_by,

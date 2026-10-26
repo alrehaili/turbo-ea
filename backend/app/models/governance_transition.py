@@ -16,9 +16,9 @@ history auditable after a hard delete. ``from_status`` is NULL on creation.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +31,9 @@ INSTRUMENTS = (INSTRUMENT_ADR, INSTRUMENT_ARB, INSTRUMENT_EXCEPTION)
 
 #: Who a waiting interval is attributable to (D-39). Only ``requester`` and
 #: ``external`` intervals, with a reason, leave governance-controlled time.
+#: A lifecycle event that is not a status change (I-35).
+EVENT_EXPIRY_CHANGED = "expiry_changed"
+
 ATTRIBUTION_GOVERNANCE = "governance"
 ATTRIBUTION_REQUESTER = "requester"
 ATTRIBUTION_EXTERNAL = "external"
@@ -56,6 +59,16 @@ class GovernanceTransition(UUIDMixin, TimestampMixin, Base):
     # For a move into a waiting state (ADR draft, ARB deferred): who the wait is
     # attributable to (D-39). NULL means nobody said, never "governance".
     delay_attribution: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # On an exception's move into ``approved`` from a request or a rejection:
+    # the expiry date as approved. GOV-04 measures against it, never against a
+    # later edit (migration 1168, I-31). On an ``expiry_changed`` event: the
+    # new expiry (I-35). NULL on every other row.
+    approved_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # NULL for a status transition; ``expiry_changed`` for an authorized change
+    # of an approved exception's expiry, which keeps the status (migration
+    # 1170, I-35) and records the expiry it replaced.
+    event_kind: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    previous_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -66,6 +79,10 @@ class GovernanceTransition(UUIDMixin, TimestampMixin, Base):
             "delay_attribution IS NULL OR delay_attribution IN "
             "('governance', 'requester', 'external')",
             name="ck_governance_transitions_delay_attribution",
+        ),
+        CheckConstraint(
+            "event_kind IS NULL OR event_kind IN ('expiry_changed')",
+            name="ck_governance_transitions_event_kind",
         ),
         Index("ix_governance_transitions_record", "instrument", "record_id"),
         Index("ix_governance_transitions_occurred_at", "occurred_at"),

@@ -9,13 +9,17 @@ hidden card is 404; a record decided before the history existed reads
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 import pytest
 from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS
 from app.models.arb_review import ArbReview
+from app.models.architecture_decision import ArchitectureDecision
 from app.models.card_type import CardType
+from app.models.document import Document
+from app.models.file_attachment import FileAttachment
 from app.models.governance_transition import GovernanceTransition
 from app.models.tech_standard import StandardException, TechStandard
 from app.services.permission_service import PermissionService
@@ -23,6 +27,7 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_relation,
     create_role,
     create_user,
 )
@@ -272,20 +277,62 @@ async def _approved(client, env):
     return exc["id"]
 
 
+async def _document(db, card_id, name="Cutover report"):
+    doc = Document(card_id=card_id, name=name, url="https://evidence.example/cutover")
+    db.add(doc)
+    await db.flush()
+    return doc
+
+
+async def _file(db, card_id, name="config-export.json", data=b'{"mq": false}'):
+    f = FileAttachment(
+        card_id=card_id, name=name, mime_type="application/json", size=len(data), data=data
+    )
+    db.add(f)
+    await db.flush()
+    return f
+
+
+ATTEST = {
+    "examined": "The production config export attached to the card",
+    "demonstrates": "It lists no MQ endpoint, so nothing uses the standard",
+    "confirmed": True,
+}
+
+
 async def test_remediation_needs_an_independent_verifier(client, db, lifecycle):
     eid = await _approved(client, lifecycle)
     base = f"{API}/tech-standards/exceptions/{eid}"
     member = auth_headers(lifecycle["member"])
+    doc = await _document(db, lifecycle["app"].id)
+    f = await _file(db, lifecycle["app"].id)
     resp = await client.post(
-        f"{base}/remediation", json={"evidence": "Moved to REST"}, headers=member
+        f"{base}/remediation",
+        json={
+            "evidence": "Moved to REST",
+            "evidence_refs": [
+                {"kind": "document", "id": str(doc.id)},
+                {"kind": "attachment", "id": str(f.id)},
+            ],
+        },
+        headers=member,
     )
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "remediation_submitted"
     assert body["remediation_evidence"] == "Moved to REST"
+    refs = body["remediation_evidence_refs"]
+    assert [(r["kind"], r["id"], r["name"], r["fingerprint_of"]) for r in refs] == [
+        ("document", str(doc.id), "Cutover report", "link"),
+        ("attachment", str(f.id), "config-export.json", "content"),
+    ]
+    assert refs[1]["size"] == f.size and len(refs[1]["sha256"]) == 64
     assert body["remediation_submitted_by"] == str(lifecycle["member"].id)
 
-    verify = {"outcome": "verified"}
+    # The standard governs no category, so the scan cannot check the pair: the
+    # cited evidence is unchanged, includes a file, and the verifier attests
+    # (I-32, I-36).
+    verify = {"outcome": "verified", "attestation": ATTEST}
     # The submitter and the requester may not verify their own case.
     for who in ("member", "admin"):
         resp = await client.post(
@@ -299,10 +346,206 @@ async def test_remediation_needs_an_independent_verifier(client, db, lifecycle):
     assert resp.status_code == 200
     assert resp.json()["status"] == "remediated"
     assert resp.json()["remediation_verified_by"] == str(lifecycle["member2"].id)
+    assert resp.json()["remediation_verification_basis"] == "attested"
+    att = resp.json()["remediation_attestation"]
+    assert att["examined"] == ATTEST["examined"] and att["confirmed"] is True
+    assert [r["id"] for r in att["evidence"]] == [str(doc.id), str(f.id)]
     assert (await _rows(db, "exception", eid))[-2:] == [
         ("approved", "remediation_submitted"),
         ("remediation_submitted", "remediated"),
     ]
+
+
+async def _submitted(client, lifecycle, refs):
+    eid = await _approved(client, lifecycle)
+    base = f"{API}/tech-standards/exceptions/{eid}"
+    resp = await client.post(
+        f"{base}/remediation",
+        json={"evidence": "e", "evidence_refs": refs},
+        headers=auth_headers(lifecycle["member"]),
+    )
+    assert resp.status_code == 200
+    return eid, base
+
+
+async def test_an_unassessable_verification_needs_intact_file_evidence(client, db, lifecycle):
+    """I-32 / I-36: the existence of a document is not proof. Without cited
+    evidence, with only a link, or with a file changed since submission, the
+    verification is refused, whatever the verifier writes."""
+    verifier = auth_headers(lifecycle["member2"])
+    verify = {"outcome": "verified", "attestation": ATTEST}
+
+    eid, base = await _submitted(client, lifecycle, [])
+    resp = await client.post(f"{base}/remediation/verify", json=verify, headers=verifier)
+    assert resp.json()["detail"]["code"] == "verifiable_evidence_required"
+
+    doc = await _document(db, lifecycle["app"].id)
+    eid, base = await _submitted(client, lifecycle, [{"kind": "document", "id": str(doc.id)}])
+    resp = await client.post(f"{base}/remediation/verify", json=verify, headers=verifier)
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "evidence_integrity_unavailable"
+
+    f = await _file(db, lifecycle["app"].id)
+    eid, base = await _submitted(client, lifecycle, [{"kind": "attachment", "id": str(f.id)}])
+    f.data = b'{"mq": true}'  # replaced after submission, same size
+    await db.flush()
+    resp = await client.post(f"{base}/remediation/verify", json=verify, headers=verifier)
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["code"] == "evidence_changed"
+    assert (await _rows(db, "exception", eid))[-1] == ("approved", "remediation_submitted")
+
+
+async def test_an_unassessable_verification_needs_the_verifier_s_attestation(client, db, lifecycle):
+    f = await _file(db, lifecycle["app"].id)
+    eid, base = await _submitted(client, lifecycle, [{"kind": "attachment", "id": str(f.id)}])
+    verifier = auth_headers(lifecycle["member2"])
+    for body in (
+        {"outcome": "verified"},
+        {"outcome": "verified", "note": "Looks fine"},
+        {"outcome": "verified", "attestation": {**ATTEST, "confirmed": False}},
+    ):
+        resp = await client.post(f"{base}/remediation/verify", json=body, headers=verifier)
+        assert resp.status_code == 422
+        assert resp.json()["detail"]["code"] == "attestation_required"
+    # Older evidence is never refused for predating the approval.
+    resp = await client.post(
+        f"{base}/remediation/verify",
+        json={"outcome": "verified", "attestation": ATTEST},
+        headers=verifier,
+    )
+    assert resp.status_code == 200
+
+
+async def test_changing_an_approved_expiry_is_recorded_with_a_reason(client, db, lifecycle):
+    """Decision B / I-35: the previous and new expiry, actor, time and reason."""
+    eid = await _approved(client, lifecycle)
+    path = f"{API}/tech-standards/exceptions/{eid}"
+    admin = auth_headers(lifecycle["admin"])
+    resp = await client.patch(path, json={"expiry_date": "2027-06-30"}, headers=admin)
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "expiry_reason_required"
+    resp = await client.patch(
+        path, json={"expiry_date": "2027-06-30", "expiry_reason": "Vendor delay"}, headers=admin
+    )
+    assert resp.status_code == 200
+    assert resp.json()["expiry_date"] == "2027-06-30"
+    resp = await client.patch(
+        path, json={"expiry_date": "2027-09-30", "expiry_reason": "Second slip"}, headers=admin
+    )
+    history = (await client.get(f"{path}/transitions", headers=admin)).json()["transitions"]
+    events = [t for t in history if t["event_kind"] == "expiry_changed"]
+    assert [(t["previous_expiry_date"], t["expiry_date"], t["reason"]) for t in events] == [
+        (None, "2027-06-30", "Vendor delay"),
+        ("2027-06-30", "2027-09-30", "Second slip"),
+    ]
+    assert all(t["actor"]["id"] == str(lifecycle["admin"].id) for t in events)
+    assert all(t["from_status"] == t["to_status"] == "approved" for t in events)
+    # A plain field edit records nothing.
+    before = len(await _rows(db, "exception", eid))
+    await client.patch(path, json={"justification": "x"}, headers=admin)
+    assert len(await _rows(db, "exception", eid)) == before
+
+
+async def test_evidence_must_be_on_the_exceptions_own_card(client, db, lifecycle):
+    eid = await _approved(client, lifecycle)
+    elsewhere = await _document(db, lifecycle["secret"].id)
+    member = auth_headers(lifecycle["member"])
+    for ref in (
+        {"kind": "document", "id": str(elsewhere.id)},
+        {"kind": "attachment", "id": str(elsewhere.id)},
+        {"kind": "document", "id": str(uuid.uuid4())},
+    ):
+        resp = await client.post(
+            f"{API}/tech-standards/exceptions/{eid}/remediation",
+            json={"evidence": "e", "evidence_refs": [ref]},
+            headers=member,
+        )
+        assert resp.status_code == 422
+        assert resp.json()["detail"]["code"] == "invalid_evidence_ref"
+    resp = await client.post(
+        f"{API}/tech-standards/exceptions/{eid}/remediation",
+        json={"evidence": "e", "evidence_refs": [{"kind": "ticket", "id": str(uuid.uuid4())}]},
+        headers=member,
+    )
+    assert resp.status_code == 422  # unknown kind refused by the schema
+    assert (await _rows(db, "exception", eid))[-1] == ("requested", "approved")
+
+
+async def _governed_exception(db, lifecycle):
+    """An approved exception for an app that uses a prohibited standard's category
+    through an IT Component; returns its id and the app-to-component relation."""
+    await create_card_type(db, key="ITComponent", label="IT Component")
+    await create_card_type(db, key="TechCategory", label="Tech Category")
+    admin = lifecycle["admin"]
+    cat = await create_card(db, card_type="TechCategory", name="Messaging", user_id=admin.id)
+    itc = await create_card(db, card_type="ITComponent", name="OldMQ", user_id=admin.id)
+    await create_relation(db, type_key="relITCToTechCat", source_id=itc.id, target_id=cat.id)
+    uses = await create_relation(
+        db, type_key="relAppToITC", source_id=lifecycle["app"].id, target_id=itc.id
+    )
+    std = TechStandard(name="Legacy MQ", status="prohibited", tech_category_id=cat.id)
+    db.add(std)
+    await db.flush()
+    exc = StandardException(
+        standard_id=std.id, card_id=lifecycle["app"].id, status="approved", created_by=admin.id
+    )
+    db.add(exc)
+    await db.flush()
+    return str(exc.id), uses
+
+
+async def test_verification_needs_the_violation_to_be_gone(client, db, lifecycle):
+    """I-32: submitted evidence is not remediation; the standards check must agree."""
+    eid, uses = await _governed_exception(db, lifecycle)
+    base = f"{API}/tech-standards/exceptions/{eid}"
+    await client.post(
+        f"{base}/remediation",
+        json={"evidence": "Moved to Kafka"},
+        headers=auth_headers(lifecycle["member"]),
+    )
+    verifier = auth_headers(lifecycle["member2"])
+    verify = {"outcome": "verified", "note": "Looks done"}
+    resp = await client.post(f"{base}/remediation/verify", json=verify, headers=verifier)
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["code"] == "violation_persists"
+    assert (await _rows(db, "exception", eid)) == [("approved", "remediation_submitted")]
+
+    await db.delete(uses)
+    await db.flush()
+    resp = await client.post(
+        f"{base}/remediation/verify", json={"outcome": "verified"}, headers=verifier
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "remediated"
+    assert resp.json()["remediation_verification_basis"] == "rule_check"
+
+
+async def test_an_approval_records_its_expiry_on_the_transition(client, db, lifecycle):
+    h = auth_headers(lifecycle["admin"])
+    sid = (
+        await client.post(
+            f"{API}/tech-standards", json={"name": "Old", "status": "sunset"}, headers=h
+        )
+    ).json()["id"]
+    eid = (
+        await client.post(
+            f"{API}/tech-standards/{sid}/exceptions",
+            json={"card_id": str(lifecycle["app"].id), "expiry_date": "2026-12-31"},
+            headers=h,
+        )
+    ).json()["id"]
+    await client.post(f"{API}/tech-standards/exceptions/{eid}/decision?action=approve", headers=h)
+    # A later edit of the expiry does not touch the recorded approval (I-31).
+    await client.patch(
+        f"{API}/tech-standards/exceptions/{eid}", json={"expiry_date": "2027-06-30"}, headers=h
+    )
+    res = await db.execute(
+        select(GovernanceTransition.approved_expiry_date).where(
+            GovernanceTransition.record_id == uuid.UUID(eid),
+            GovernanceTransition.to_status == "approved",
+        )
+    )
+    assert [d.isoformat() for (d,) in res.all()] == ["2026-12-31"]
 
 
 async def test_returned_remediation_goes_back_to_approved_with_a_note(client, db, lifecycle):
@@ -397,6 +640,45 @@ async def test_a_manager_may_withdraw_an_approved_exception(client, lifecycle):
     assert resp.status_code == 200
 
 
+async def test_an_expired_or_awaiting_verification_exception_can_be_withdrawn(
+    client, db, lifecycle
+):
+    """I-30: withdrawal is open until a terminal state, past expiry too, and is
+    never a verification."""
+    std = TechStandard(name="Old FTP", status="prohibited")
+    db.add(std)
+    await db.flush()
+    expired = StandardException(
+        standard_id=std.id,
+        card_id=lifecycle["app"].id,
+        status="approved",
+        expiry_date=date(2020, 1, 31),
+        created_by=lifecycle["requester"].id,
+    )
+    pending = StandardException(
+        standard_id=std.id,
+        card_id=lifecycle["app"].id,
+        status="remediation_submitted",
+        created_by=lifecycle["requester"].id,
+        remediation_evidence="e",
+        remediation_submitted_by=lifecycle["member"].id,
+    )
+    db.add_all([expired, pending])
+    await db.flush()
+    for exc in (expired, pending):
+        resp = await client.post(
+            f"{API}/tech-standards/exceptions/{exc.id}/withdraw",
+            json={"reason": "No longer needed"},
+            headers=auth_headers(lifecycle["requester"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "withdrawn"
+        assert body["remediation_verified_by"] is None
+        assert body["remediation_verification_basis"] is None
+        assert body["expiry_date"] in (None, "2020-01-31")
+
+
 async def _audit(db):
     from app.models.audit_log import AuditLogEntry
 
@@ -429,6 +711,68 @@ async def test_hard_delete_is_an_audited_admin_correction(client, db, lifecycle)
     assert (await _rows(db, "exception", eid))[-1] == ("approved", "deleted")
 
 
+async def test_deleting_an_exception_rewrites_no_history(client, db, lifecycle):
+    """I-33 (approved with changes): the history is immutable — earlier rows
+    keep what they recorded, a final row is appended, and the deletion reason
+    is held in the audit record only."""
+    eid = await _approved(client, lifecycle)
+    path = f"{API}/tech-standards/exceptions/{eid}"
+    await client.post(
+        f"{path}/remediation",
+        json={"evidence": "Restricted detail about Billing"},
+        headers=auth_headers(lifecycle["member"]),
+    )
+    resp = await client.delete(
+        f"{path}?reason=Wrong%20card%20Billing", headers=auth_headers(lifecycle["admin"])
+    )
+    assert resp.status_code == 204
+    rows = await _rows_full(db, "exception", eid)
+    assert [(t.to_status, t.reason) for t in rows][-2:] == [
+        ("remediation_submitted", "Restricted detail about Billing"),
+        ("deleted", None),
+    ]
+    assert (await _audit(db))[0].details["context"]["deletion_reason"] == "Wrong card Billing"
+
+
+async def test_ordinary_readers_see_the_moves_but_not_the_lifecycle_text(client, db, lifecycle):
+    """I-33: the requester and the people who act on exceptions read the
+    evidence and reasons; a viewer sees that they exist, not what they say."""
+    std = TechStandard(name="Old FTP", status="prohibited")
+    db.add(std)
+    await db.flush()
+    exc = StandardException(
+        standard_id=std.id,
+        card_id=lifecycle["app"].id,
+        status="requested",
+        created_by=lifecycle["requester"].id,
+    )
+    db.add(exc)
+    await db.flush()
+    resp = await client.post(
+        f"{API}/tech-standards/exceptions/{exc.id}/withdraw",
+        json={"reason": "Confidential vendor dispute"},
+        headers=auth_headers(lifecycle["requester"]),
+    )
+    assert resp.status_code == 200
+    history = f"{API}/tech-standards/exceptions/{exc.id}/transitions"
+
+    viewer = await client.get(history, headers=auth_headers(lifecycle["stranger"]))
+    assert viewer.status_code == 200
+    (row,) = viewer.json()["transitions"]
+    assert (row["to_status"], row["reason"], row["reason_withheld"]) == ("withdrawn", None, True)
+    assert "Confidential vendor dispute" not in viewer.text
+    listed = await client.get(
+        f"{API}/tech-standards/exceptions", headers=auth_headers(lifecycle["stranger"])
+    )
+    mine = next(e for e in listed.json() if e["id"] == str(exc.id))
+    assert mine["withdrawal_reason"] is None and mine["lifecycle_text_withheld"] is True
+
+    for who in ("requester", "member"):
+        resp = await client.get(history, headers=auth_headers(lifecycle[who]))
+        (row,) = resp.json()["transitions"]
+        assert (row["reason"], row["reason_withheld"]) == ("Confidential vendor dispute", False)
+
+
 async def test_a_standard_with_decided_exceptions_cannot_be_deleted(client, lifecycle):
     eid = await _approved(client, lifecycle)
     admin = auth_headers(lifecycle["admin"])
@@ -437,6 +781,82 @@ async def test_a_standard_with_decided_exceptions_cannot_be_deleted(client, life
     resp = await client.delete(f"{API}/tech-standards/{sid}", headers=admin)
     assert resp.status_code == 409
     assert resp.json()["detail"]["code"] == "exceptions_have_lifecycle"
+
+
+async def test_arb_delay_reason_text_is_for_managers_creator_and_reviewer(client, db, env):
+    """Decision D / I-37: other arb.view readers see the attribution, the time
+    and that a reason exists, never the text."""
+    await create_role(
+        db,
+        key="arbview",
+        label="ARB viewer",
+        permissions={"arb.view": True, "inventory.view": True},
+        is_system=False,
+    )
+    viewer = await create_user(db, email="arbviewer@test.com", role="arbview")
+    r = ArbReview(title="R", status="deferred", subject_card_id=env["app"].id)
+    db.add(r)
+    await db.flush()
+    db.add(
+        GovernanceTransition(
+            instrument="arb",
+            record_id=r.id,
+            from_status="scheduled",
+            to_status="deferred",
+            delay_attribution="external",
+            reason="Vendor contract renegotiation",
+        )
+    )
+    await db.flush()
+    path = f"{API}/arb/{r.id}/transitions"
+    resp = await client.get(path, headers=auth_headers(viewer))
+    assert resp.status_code == 200
+    (row,) = resp.json()["transitions"]
+    assert (row["delay_attribution"], row["reason"], row["reason_withheld"]) == (
+        "external",
+        None,
+        True,
+    )
+    assert row["occurred_at"] is not None
+    assert "renegotiation" not in resp.text
+    (row,) = (await client.get(path, headers=auth_headers(env["member"]))).json()["transitions"]
+    assert row["reason"] == "Vendor contract renegotiation"  # arb.manage
+    r.reviewer_id = viewer.id
+    await db.flush()
+    (row,) = (await client.get(path, headers=auth_headers(viewer))).json()["transitions"]
+    assert row["reason"] == "Vendor contract renegotiation"  # the assigned reviewer
+
+
+async def test_adr_delay_reason_text_is_for_managers_creator_and_signatories(client, db, env):
+    await create_role(
+        db, key="adrview", label="ADR viewer", permissions={"adr.view": True}, is_system=False
+    )
+    viewer = await create_user(db, email="adrviewer@test.com", role="adrview")
+    adr = ArchitectureDecision(reference_number="ADR-77", title="Delayed", status="draft")
+    db.add(adr)
+    await db.flush()
+    db.add(
+        GovernanceTransition(
+            instrument="adr",
+            record_id=adr.id,
+            from_status=None,
+            to_status="draft",
+            delay_attribution="requester",
+            reason="Budget hold on the programme",
+        )
+    )
+    await db.flush()
+    path = f"{API}/adr/{adr.id}/transitions"
+    (row,) = (await client.get(path, headers=auth_headers(viewer))).json()["transitions"]
+    assert (row["delay_attribution"], row["reason"], row["reason_withheld"]) == (
+        "requester",
+        None,
+        True,
+    )
+    adr.signatories = [{"user_id": str(viewer.id), "status": "pending"}]
+    await db.flush()
+    (row,) = (await client.get(path, headers=auth_headers(viewer))).json()["transitions"]
+    assert row["reason"] == "Budget hold on the programme"
 
 
 # --------------------------------------------------------------------------- #

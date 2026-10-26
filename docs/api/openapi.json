@@ -6753,6 +6753,26 @@
         "title": "EvidenceItem",
         "type": "object"
       },
+      "EvidenceRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^(document|attachment)$",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "EvidenceRef",
+        "type": "object"
+      },
       "ExceptionCreate": {
         "properties": {
           "card_id": {
@@ -6853,6 +6873,18 @@
               }
             ],
             "title": "Expiry Date"
+          },
+          "expiry_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiry Reason"
           },
           "initiative_id": {
             "anyOf": [
@@ -14076,6 +14108,14 @@
             "minLength": 1,
             "title": "Evidence",
             "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "maxItems": 20,
+            "title": "Evidence Refs",
+            "type": "array"
           }
         },
         "required": [
@@ -14086,6 +14126,16 @@
       },
       "RemediationVerify": {
         "properties": {
+          "attestation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifierAttestation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "note": {
             "anyOf": [
               {
@@ -19852,6 +19902,30 @@
         "title": "VendorHierarchyOut",
         "type": "object"
       },
+      "VerifierAttestation": {
+        "description": "What the independent verifier examined and why it shows remediation (I-36).",
+        "properties": {
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "demonstrates": {
+            "default": "",
+            "maxLength": 5000,
+            "title": "Demonstrates",
+            "type": "string"
+          },
+          "examined": {
+            "default": "",
+            "maxLength": 5000,
+            "title": "Examined",
+            "type": "string"
+          }
+        },
+        "title": "VerifierAttestation",
+        "type": "object"
+      },
       "WebPortalCreate": {
         "properties": {
           "access_mode": {
@@ -24587,7 +24661,7 @@
     },
     "/api/v1/adr/{adr_id}/transitions": {
       "get": {
-        "description": "The decision's recorded status history (D-35); empty before Batch 3.2.",
+        "description": "The decision's recorded status history (D-35); empty before Batch 3.2.\n\nFree-text delay reasons go to ``adr.manage`` holders, the creator and the\nsignatories only; other readers get the attribution, the times and\n``reason_withheld`` (I-37).",
         "operationId": "adr_transitions_api_v1_adr__adr_id__transitions_get",
         "parameters": [
           {
@@ -24941,7 +25015,7 @@
     },
     "/api/v1/arb/{review_id}/transitions": {
       "get": {
-        "description": "The review's recorded status history (D-35); empty before Batch 3.2.",
+        "description": "The review's recorded status history (D-35); empty before Batch 3.2.\n\nFree-text delay reasons go to ``arb.manage`` holders, the creator and the\nassigned reviewer only; other readers get the attribution, the times and\n``reason_withheld`` (I-37).",
         "operationId": "review_transitions_api_v1_arb__review_id__transitions_get",
         "parameters": [
           {
@@ -52541,7 +52615,7 @@
     },
     "/api/v1/tech-standards/exceptions/{exception_id}": {
       "delete": {
-        "description": "Permanently delete an exception recorded in error (D-40, I-27).\n\nAn administrative correction: it needs ``tech_standards.delete_exception``\n(no default role holds it) and a reason, writes an admin audit record, and\nleaves a final ``deleted`` row in the exception's history. Routine closing\nis a withdrawal, not a delete.",
+        "description": "Permanently delete an exception recorded in error (D-40, I-27).\n\nAn administrative correction: it needs ``tech_standards.delete_exception``\n(no default role holds it) and a reason, writes an admin audit record, and\nappends a final ``deleted`` row to the exception's history; earlier rows\nare kept unchanged and the reason lives in the audit record (I-33).\nRoutine closing is a withdrawal, not a delete.",
         "operationId": "delete_exception_api_v1_tech_standards_exceptions__exception_id__delete",
         "parameters": [
           {
@@ -52748,7 +52822,7 @@
     },
     "/api/v1/tech-standards/exceptions/{exception_id}/remediation/verify": {
       "post": {
-        "description": "Independently verify submitted remediation, or return it (D-40).",
+        "description": "Independently verify submitted remediation, or return it (D-40).\n\n``verified`` also needs the standards check to show the card no longer\nuses the standard, or \u2014 where the pair cannot be checked \u2014 cited card\nevidence unchanged since submission, at least one file among it, and the\nverifier's explicit attestation (I-32, I-36).",
         "operationId": "verify_remediation_api_v1_tech_standards_exceptions__exception_id__remediation_verify_post",
         "parameters": [
           {
@@ -52800,7 +52874,7 @@
     },
     "/api/v1/tech-standards/exceptions/{exception_id}/transitions": {
       "get": {
-        "description": "The exception's recorded status history (D-34); empty before Batch 3.2.",
+        "description": "The exception's recorded status history (D-34); empty before Batch 3.2.\n\nEvery status move, time and actor is listed; the free-text reasons\n(evidence, return notes, withdrawal reasons) only to the requester and to\nholders of ``tech_standards.manage`` / ``approve_exception`` (I-33).",
         "operationId": "exception_transitions_api_v1_tech_standards_exceptions__exception_id__transitions_get",
         "parameters": [
           {
@@ -52842,7 +52916,7 @@
     },
     "/api/v1/tech-standards/exceptions/{exception_id}/withdraw": {
       "post": {
-        "description": "Withdraw a pending or approved exception with a reason (D-40).\n\nThe original requester or a holder of ``tech_standards.manage``.",
+        "description": "Withdraw a non-terminal exception with a reason (D-40, I-30).\n\nPending, approved (past its expiry too) or awaiting verification. The\noriginal requester or a holder of ``tech_standards.manage``.",
         "operationId": "withdraw_exception_api_v1_tech_standards_exceptions__exception_id__withdraw_post",
         "parameters": [
           {

@@ -20,8 +20,8 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -46,6 +46,10 @@ EXCEPTION_STATUSES = (
 #: submitted remediation is not yet verified, so it leaves the waiver as it was
 #: (I-23); ``remediated`` and ``withdrawn`` no longer waive anything.
 WAIVER_ACTIVE_STATUSES = ("approved", "remediation_submitted")
+#: How a verified remediation was confirmed (migration 1168, I-32): the
+#: standards scan no longer finds the usage, or — where the scan cannot assess
+#: the pair — the verifier recorded what was checked.
+VERIFICATION_BASES = ("rule_check", "attested")
 
 
 class TechStandard(UUIDMixin, TimestampMixin, Base):
@@ -144,8 +148,23 @@ class StandardException(UUIDMixin, TimestampMixin, Base):
     )
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     withdrawal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # ``rule_check`` / ``attested`` on a verified remediation (migration 1168).
+    remediation_verification_basis: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Verifiable evidence chosen at submission (migration 1169, I-32): documents
+    # and file attachments of the exception's card, as
+    # ``[{"kind": "document" | "attachment", "id", "name"}]``. NULL before then.
+    remediation_evidence_refs: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # The independent verifier's attestation where the scan cannot assess
+    # (migration 1170, I-36): what was examined, why it demonstrates
+    # remediation, and the evidence fingerprints confirmed at verification.
+    remediation_attestation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
+        CheckConstraint(
+            "remediation_verification_basis IS NULL "
+            "OR remediation_verification_basis IN ('rule_check', 'attested')",
+            name="ck_tech_standard_exceptions_verification_basis",
+        ),
         Index("ix_tech_standard_exceptions_standard_id", "standard_id"),
         Index("ix_tech_standard_exceptions_card_id", "card_id"),
         Index("ix_tech_standard_exceptions_status", "status"),

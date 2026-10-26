@@ -430,11 +430,19 @@ export interface GovernanceResolution {
   value?: number;
   unit?: "percent";
   reason?: Record<string, unknown>;
+  /** The primary figure and `outcomes` count exceptions, each once (I-31). */
+  unit_of_count?: "exceptions";
   eligible: number;
   outcomes: GovernanceResolutionOutcomes;
   not_recorded: number;
   rejected_requests: number;
   basis: string;
+  /** Every approval cycle due in the period, counted in cycles; never added to `outcomes`. */
+  approval_cycles?: {
+    unit_of_count: "approval_cycles";
+    eligible: number;
+    outcomes: GovernanceResolutionOutcomes;
+  };
 }
 
 /** One non-compliant card behind GOV-03 (`/reports/executive/kpi/GOV-03/drilldown`). */

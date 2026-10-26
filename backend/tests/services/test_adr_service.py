@@ -91,6 +91,20 @@ class TestCreateDecision:
         assert adr.attributes == {"ext.sample-planner.scenario": "s1"}
         assert adr.related_decisions == [{"type": "assessment", "id": "x"}]
 
+    async def test_carries_the_committee_register_fields(self, db):
+        from datetime import date
+
+        adr = await adr_service.create_decision(
+            db, title="Board", committee="EA Board", meeting_date=date(2026, 10, 20), stage_no=3
+        )
+        assert (adr.committee, adr.meeting_date, adr.stage_no) == (
+            "EA Board",
+            date(2026, 10, 20),
+            3,
+        )
+        bare = await adr_service.create_decision(db, title="No board")
+        assert (bare.committee, bare.meeting_date, bare.stage_no) == (None, None, None)
+
 
 class TestResolveCardIds:
     async def test_malformed_is_400_and_missing_is_404(self, db, cards):

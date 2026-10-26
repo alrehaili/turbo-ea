@@ -15,6 +15,7 @@ from app.services.card_read_scope import CardReadScope
 from app.services.tech_standards_scan import (
     assess_standard_compliance,
     scan_standard_compliance,
+    standard_usage_persists,
 )
 from tests.conftest import create_card, create_relation, create_user
 
@@ -192,3 +193,42 @@ async def test_awaiting_verification_past_expiry_does_not_waive(db, landscape):
     await db.flush()
     result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
     assert result["summary"]["waived"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Remediation verification check (I-32)                                       #
+# --------------------------------------------------------------------------- #
+async def test_usage_persists_while_the_chain_reaches_the_category(db, landscape):
+    std = landscape["std"]
+    assert await standard_usage_persists(db, std.id, landscape["app"].id) is True
+    assert await standard_usage_persists(db, std.id, landscape["itc"].id) is True
+
+
+async def test_usage_is_gone_once_the_link_is_removed_or_the_card_retired(db, landscape):
+    from sqlalchemy import delete
+
+    from app.models.relation import Relation
+
+    std = landscape["std"]
+    await db.execute(
+        delete(Relation).where(
+            Relation.type == "relAppToITC", Relation.source_id == landscape["app"].id
+        )
+    )
+    await db.flush()
+    assert await standard_usage_persists(db, std.id, landscape["app"].id) is False
+    landscape["itc"].status = "ARCHIVED"
+    await db.flush()
+    assert await standard_usage_persists(db, std.id, landscape["itc"].id) is False
+
+
+async def test_usage_cannot_be_assessed_without_a_card_a_category_or_an_assessed_type(
+    db, landscape
+):
+    std = landscape["std"]
+    assert await standard_usage_persists(db, std.id, None) is None
+    assert await standard_usage_persists(db, std.id, landscape["cat"].id) is None
+    unmapped = TechStandard(name="Unmapped", status="prohibited")
+    db.add(unmapped)
+    await db.flush()
+    assert await standard_usage_persists(db, unmapped.id, landscape["app"].id) is None

@@ -41,6 +41,7 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.governance_transition import (
     ATTRIBUTION_EXTERNAL,
     ATTRIBUTION_REQUESTER,
+    EVENT_EXPIRY_CHANGED,
     INSTRUMENT_ADR,
     INSTRUMENT_ARB,
     INSTRUMENT_EXCEPTION,
@@ -241,6 +242,8 @@ async def _first_decisions(
         .where(
             GovernanceTransition.instrument == instrument,
             GovernanceTransition.to_status.in_(outcomes),
+            # An expiry change keeps the status; it is never a decision (I-35).
+            GovernanceTransition.event_kind.is_(None),
         )
         .order_by(GovernanceTransition.occurred_at)
     )
@@ -504,26 +507,70 @@ def processing_figure(results: list[tuple[float | None, str | None]]) -> dict[st
     }
 
 
-def classify_resolution(exc: Any, chain: list[Any]) -> str:
-    """One eligible exception's GOV-04 outcome (D-40, I-26).
+def _is_approval(t: Any) -> bool:
+    """A move into ``approved`` from a request or a rejection. A returned
+    remediation (``remediation_submitted -> approved``) is not an approval."""
+    return t.to_status == "approved" and t.from_status in ("requested", "rejected")
 
-    ``remediated_on_time`` only when the verification is recorded on or before
-    the expiry date; a later verification is ``remediated_late``. Rejection and
-    withdrawal are administrative outcomes, never remediation. Awaiting
-    verification and plain expiry are unresolved."""
+
+def approval_cycles(chain: list[Any]) -> list[tuple[Any, list[Any]]]:
+    """Each recorded approval cycle of a chain, oldest first (I-31).
+
+    A cycle opens with an approval decision — which carries the expiry that
+    approval granted — and holds every transition up to, not including, the
+    next approval decision. Returns ``(approval, transitions)`` pairs."""
+    starts = [i for i, t in enumerate(chain) if _is_approval(t)]
+    ends = starts[1:] + [len(chain)]
+    return [(chain[i], chain[i:j]) for i, j in zip(starts, ends)]
+
+
+#: An approval cycle whose expiry is not on record (approved before it was kept).
+UNKNOWN = object()
+
+
+def effective_expiry(cycle: list[Any]) -> Any:
+    """The expiry in force at the end of a (period-cut) cycle (I-31, I-35).
+
+    The approval's own expiry, replaced by each recorded ``expiry_changed``
+    event in the cycle, in order. ``UNKNOWN`` when the approval carries no
+    expiry and no later change set one; a ``None`` expiry means "no expiry"."""
+    expiry = cycle[0].approved_expiry_date if cycle[0].approved_expiry_date else UNKNOWN
+    for t in cycle[1:]:
+        if getattr(t, "event_kind", None) == EVENT_EXPIRY_CHANGED:
+            expiry = t.approved_expiry_date
+    return expiry
+
+
+def classify_resolution(chain: list[Any], approved_expiry: date) -> str:
+    """One eligible approval cycle's GOV-04 outcome (D-40, I-26, I-31).
+
+    ``chain`` is the cycle's transitions (see :func:`approval_cycles`) **up to
+    the end of the reporting period**, so a completed period's figure never
+    changes with what happened after it. ``remediated_on_time`` only when the
+    verification is recorded on or before the expiry that cycle's approval
+    granted; a later one is ``remediated_late``.
+    Otherwise the state the chain reached decides: rejection and withdrawal
+    are administrative outcomes, never remediation; awaiting verification
+    (``unverified``) and plain expiry are unresolved."""
     verified = next((t for t in chain if t.to_status == "remediated"), None)
-    if exc.status == "remediated" and verified is not None:
-        on_time = verified.occurred_at.date() <= exc.expiry_date
+    if verified is not None:
+        on_time = verified.occurred_at.date() <= approved_expiry
         return "remediated_on_time" if on_time else "remediated_late"
-    if exc.status == "withdrawn":
+    state = chain[-1].to_status if chain else None
+    if state == "withdrawn":
         return "withdrawn"
-    if exc.status == "rejected":
+    if state == "rejected":
         return "rejected"
-    if exc.status == "remediation_submitted":
+    if state == "remediation_submitted":
         return "awaiting_verification"
-    if exc.status == "approved":
+    if state == "approved":
         return "expired_unresolved"
     return "not_recorded"
+
+
+def _until_period_end(chain: list[Any], period: Period) -> list[Any]:
+    """The transitions recorded before the period's (exclusive) end."""
+    return [t for t in chain if t.occurred_at.date() < period.end]
 
 
 async def exception_resolution(
@@ -531,16 +578,30 @@ async def exception_resolution(
 ) -> dict[str, Any]:
     """GOV-04: share of due exceptions resolved by **verified** remediation (D-40).
 
-    Eligible population (I-26): exceptions whose approval is recorded in the
-    transition history, whose expiry date falls in the period and has passed,
-    about a card the viewer may read. Numerator: remediation verified on or
-    before the expiry date. Everything else is reported in its own bucket and
-    never in the numerator: remediated late, withdrawn, rejected after
-    approval, awaiting verification, expired unresolved. Due exceptions whose
-    approval predates the history are "lifecycle not recorded"; nothing is
-    inferred for them. Requests rejected in the period are counted apart.
+    Eligible population (I-26, I-31): exceptions about a card the viewer may
+    read with an **approval cycle** recorded before the period's end whose
+    expiry in force by then — the approval's own, or the latest recorded
+    ``expiry_changed`` event in that cycle (I-35) — falls in the period and has
+    passed. Each exception counts once, through its latest such cycle — the
+    applicable one — and that cycle's transitions up to the period's end decide
+    the outcome. Every due cycle, earlier ones included, is also classified in
+    a separate ``approval_cycles`` breakdown counted in cycles, never added to
+    the exception counts. "Has passed" uses today's date only while
+    the period is still running; a completed period is judged from its own
+    boundaries and history, so later events never rewrite it. Numerator:
+    remediation verified on or before the cycle's approved expiry. Everything
+    else is reported in its own bucket and never in the numerator: remediated
+    late, withdrawn, rejected after approval, awaiting verification, expired
+    unresolved. Due exceptions whose approval predates the history, or whose
+    cycle was approved before its expiry was kept, are "lifecycle not
+    recorded"; no expiry is reconstructed for them. Requests rejected in the
+    period are counted apart.
     """
-    today = date.today()
+    cutoff = date.today() if period.is_current else period.end
+
+    def due(expiry: date | None) -> bool:
+        return expiry is not None and period.start <= expiry < period.end and expiry < cutoff
+
     exceptions = list((await db.execute(select(StandardException))).scalars().all())
     hidden = await read_scope.hidden_card_ids(
         db, {e.card_id for e in exceptions if e.card_id}, mode="module"
@@ -556,35 +617,42 @@ async def exception_resolution(
         "awaiting_verification": 0,
         "expired_unresolved": 0,
     }
+    cycle_buckets = dict.fromkeys(buckets, 0)
     not_recorded = 0
     rejected_requests = 0
     for e in exceptions:
-        chain = chains.get(e.id, [])
+        full = chains.get(e.id, [])
         rejected_requests += sum(
             1
-            for t in chain
+            for t in full
             if t.from_status == "requested"
             and t.to_status == "rejected"
             and _in_period(t.occurred_at, period)
         )
-        due = (
-            e.expiry_date is not None
-            and period.start <= e.expiry_date < period.end
-            and e.expiry_date < today
-        )
-        if not due or e.status == "requested":
-            continue
-        approved = any(
-            t.to_status == "approved" and t.from_status in ("requested", "rejected") for t in chain
-        )
-        if not approved:
-            recorded = bool(chain) and chain[0].from_status is None
+        cycles = approval_cycles(_until_period_end(full, period))
+        if not cycles:
+            recorded = bool(full) and full[0].from_status is None
             # A recorded lifecycle with no approval was never a waiver; an
             # approval-type state with no recorded approval predates the history.
-            if not recorded and e.status in RESOLUTION_STATES:
+            if not recorded and e.status in RESOLUTION_STATES and due(e.expiry_date):
                 not_recorded += 1
             continue
-        outcome = classify_resolution(e, chain)
+        # Each cycle against the expiry in force for it by the period's end. A
+        # cycle whose expiry is not on record is never given one — not the
+        # current date, nor another cycle's.
+        expiries = [(effective_expiry(c), c) for _, c in cycles]
+        due_cycles = [(x, c) for x, c in expiries if x is not UNKNOWN and due(x)]
+        for x, c in due_cycles:
+            outcome = classify_resolution(c, x)
+            if outcome != "not_recorded":
+                cycle_buckets[outcome] += 1
+        if not due_cycles:
+            if any(x is UNKNOWN for x, _ in expiries) and due(e.expiry_date):
+                not_recorded += 1
+            continue
+        # The exception counts once, through its applicable (latest due) cycle.
+        expiry, cycle = due_cycles[-1]
+        outcome = classify_resolution(cycle, expiry)
         if outcome == "not_recorded":
             not_recorded += 1
         else:
@@ -592,11 +660,21 @@ async def exception_resolution(
 
     eligible = sum(buckets.values())
     common = {
+        # The primary figure and its distribution count EXCEPTIONS (each once).
+        "unit_of_count": "exceptions",
         "eligible": eligible,
         "outcomes": buckets,
         "not_recorded": not_recorded,
         "rejected_requests": rejected_requests,
         "basis": "verified_by_expiry",
+        # Every approval cycle that fell due, earlier rejected ones included,
+        # counted in APPROVAL CYCLES and kept apart: its total may exceed the
+        # exception count and is never added to it (I-31).
+        "approval_cycles": {
+            "unit_of_count": "approval_cycles",
+            "eligible": sum(cycle_buckets.values()),
+            "outcomes": cycle_buckets,
+        },
     }
     if eligible == 0:
         return {"status": "not_available", "reason": {"code": "no_eligible_exceptions"}, **common}
