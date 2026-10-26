@@ -10,7 +10,6 @@ subject card: change-impact summary, linked risks, ADRs, and standard exceptions
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -23,9 +22,11 @@ from app.models.arb_review import ARB_STATUSES, ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
+from app.models.governance_transition import INSTRUMENT_ARB
 from app.models.risk import Risk, RiskCard
 from app.models.tech_standard import StandardException, TechStandard
 from app.models.user import User
+from app.services import governance_transitions
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.impact_service import gather_impact
 from app.services.permission_service import PermissionService
@@ -45,6 +46,9 @@ class ReviewUpdate(BaseModel):
     summary: str | None = None
     status: str | None = None
     decision_notes: str | None = None
+    # D-39: only with ``status = deferred`` — who the deferral is due to, and why.
+    delay_attribution: str | None = Field(default=None, pattern="^(governance|requester|external)$")
+    delay_reason: str | None = Field(default=None, max_length=2000)
 
 
 def _review_dict(r: ArbReview, subject: dict | None = None) -> dict:
@@ -129,6 +133,8 @@ async def create_review(
         created_by=user.id,
     )
     db.add(r)
+    await db.flush()
+    governance_transitions.record_transition(db, INSTRUMENT_ARB, r.id, None, r.status, user.id)
     await db.commit()
     await db.refresh(r)
     return _review_dict(r, await _card_brief(db, r.subject_card_id))
@@ -228,6 +234,19 @@ async def get_review(
     return out
 
 
+@router.get("/{review_id}/transitions")
+async def review_transitions(
+    review_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The review's recorded status history (D-35); empty before Batch 3.2."""
+    await PermissionService.require_permission(db, user, "arb.view")
+    r = await _get_review(db, review_id, await CardReadScope.load(db, user))
+    history = await governance_transitions.transition_history(db, INSTRUMENT_ARB, r.id)
+    return governance_transitions.history_payload(history)
+
+
 @router.patch("/{review_id}")
 async def update_review(
     review_id: uuid.UUID,
@@ -238,15 +257,33 @@ async def update_review(
     await PermissionService.require_permission(db, user, "arb.manage")
     r = await _get_review(db, review_id, await CardReadScope.load(db, user))
     data = body.model_dump(exclude_unset=True)
+    delay_attribution = data.pop("delay_attribution", None)
+    delay_reason = data.pop("delay_reason", None)
+    if (delay_attribution or delay_reason) and data.get("status") != "deferred":
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "delay_only_on_deferral", "message": "Only a deferral has a delay"},
+        )
+    try:
+        delay_attribution, delay_reason = governance_transitions.validate_delay(
+            delay_attribution, delay_reason
+        )
+    except governance_transitions.LifecycleError as err:
+        raise HTTPException(err.status, {"code": err.code, "message": str(err)}) from err
     if data.get("subject_card_id"):
         await require_card_readable(db, user, data["subject_card_id"], mode="module")
     if "status" in data:
         if data["status"] not in ARB_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {data['status']}")
-        # Stamp reviewer + timestamp when a decision is recorded.
-        if data["status"] in ("approved", "rejected", "deferred"):
-            r.reviewer_id = user.id
-            r.decided_at = datetime.now(timezone.utc)
+        # Stamps reviewer + timestamp on a decision and records the transition.
+        governance_transitions.set_arb_status(
+            db,
+            r,
+            data.pop("status"),
+            user.id,
+            reason=delay_reason,
+            delay_attribution=delay_attribution,
+        )
     for key, value in data.items():
         setattr(r, key, value)
     await db.commit()

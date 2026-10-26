@@ -1028,6 +1028,85 @@ async def test_process_flow_withdrawal_roundtrips(db):
     assert v.approved_by == user.id
 
 
+async def test_governance_transitions_and_exception_decision_roundtrip(db):
+    """A transition row and an exception's ``decided_at`` survive a transfer.
+
+    ``actor_id`` is a user FK and travels by email; ``record_id`` names a
+    module row whose PK an import preserves, so it needs no remap (D-35).
+    """
+    from datetime import datetime, timezone
+
+    from app.models.arb_review import ArbReview
+    from app.models.governance_transition import GovernanceTransition
+    from app.models.tech_standard import StandardException, TechStandard
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "GovernanceTransitions")
+    assert section.user_fk_columns == ("actor_id",)
+
+    user = await create_user(db, email="arb@test.com", role="admin")
+    review = ArbReview(title="Payments platform", status="approved")
+    standard = TechStandard(name="Legacy SOAP", status="sunset")
+    db.add_all([review, standard])
+    await db.flush()
+    decided = datetime(2026, 10, 20, 9, 30, tzinfo=timezone.utc)
+    exc = StandardException(
+        standard_id=standard.id,
+        status="remediated",
+        decided_at=decided,
+        remediation_evidence="Moved to REST",
+        remediation_submitted_by=user.id,
+        remediation_submitted_at=decided,
+        remediation_verified_by=user.id,
+        remediation_verified_at=decided,
+    )
+    db.add(exc)
+    db.add(
+        GovernanceTransition(
+            instrument="arb",
+            record_id=review.id,
+            from_status="scheduled",
+            to_status="deferred",
+            actor_id=user.id,
+            occurred_at=decided,
+            reason="Vendor quote pending",
+            delay_attribution="external",
+        )
+    )
+    await db.flush()
+    review_id, exc_id = review.id, exc.id
+
+    raw = await build_bundle(db)
+    await db.execute(delete(GovernanceTransition))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(GovernanceTransition))).scalars().all()
+    assert len(restored) == 1
+    t = restored[0]
+    assert (t.instrument, t.record_id, t.from_status, t.to_status) == (
+        "arb",
+        review_id,
+        "scheduled",
+        "deferred",
+    )
+    assert (t.reason, t.delay_attribution) == ("Vendor quote pending", "external")
+    assert t.actor_id == user.id
+    assert t.occurred_at == decided
+    kept = (
+        await db.execute(select(StandardException).where(StandardException.id == exc_id))
+    ).scalar_one()
+    assert kept.decided_at == decided
+    # Remediation actors are user FKs: they travel by email (D-40).
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "StandardExceptions")
+    assert {"remediation_submitted_by", "remediation_verified_by", "withdrawn_by"} <= set(
+        section.user_fk_columns
+    )
+    assert (kept.remediation_evidence, kept.remediation_verified_by) == ("Moved to REST", user.id)
+
+
 async def test_bookmark_shares_roundtrip(db):
     """A saved view shared with another user keeps its share (and can_edit
     flag) across export → delete → re-import; re-apply skips."""

@@ -3009,5 +3009,9 @@
   "metamodel.typeDrawer.optionalRelations": "العلاقات غير المطلوبة لهذا النوع الفرعي",
   "metamodel.typeDrawer.optionalRelationsHelp": "حدّد علاقة مطلوبة لجعلها اختيارية لبطاقات هذا النوع الفرعي: لن تمنع الاعتماد بعد ذلك ولن تخفض جودة البيانات.",
   "metamodel.typeDrawer.noMandatoryRelations": "لا يحتوي نوع البطاقة هذا على علاقات مطلوبة.",
-  "securityLog.fields.optional_relations": "علاقات غير مطلوبة"
+  "securityLog.fields.optional_relations": "علاقات غير مطلوبة",
+  "securityLog.actionLabels.admin_tech_standard_exception_deleted": "حذف نهائي لاستثناء من معيار",
+  "securityLog.fields.standard": "المعيار",
+  "securityLog.fields.card": "البطاقة",
+  "securityLog.fields.deletion_reason": "سبب الحذف"
 }

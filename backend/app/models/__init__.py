@@ -30,6 +30,7 @@ from app.models.extension import (
     ExtensionSchemaVersion,
 )
 from app.models.file_attachment import FileAttachment
+from app.models.governance_transition import GovernanceTransition
 from app.models.improvement_opportunity import (
     ImprovementOpportunity,
     ImprovementOpportunityCard,
@@ -163,6 +164,7 @@ __all__ = [
     "SavedReport",
     "Todo",
     "Event",
+    "GovernanceTransition",
     "Extension",
     "ExtensionInstall",
     "ExtensionLicense",

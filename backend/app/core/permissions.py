@@ -99,6 +99,9 @@ APP_PERMISSIONS: dict[str, dict] = {
             "tech_standards.view": "View the technology standards catalogue and exceptions",
             "tech_standards.manage": "Create and manage technology standards and exceptions",
             "tech_standards.approve_exception": "Approve or reject standard exception requests",
+            "tech_standards.delete_exception": (
+                "Permanently delete a standard exception recorded in error (audited)"
+            ),
         },
     },
     "arb": {
@@ -657,6 +660,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "tech_standards.view": True,
     "tech_standards.manage": True,
     "tech_standards.approve_exception": True,
+    "tech_standards.delete_exception": False,
     "arb.view": True,
     "arb.manage": True,
     "scenarios.view": True,
@@ -764,6 +768,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "tech_standards.view": True,
     "tech_standards.manage": True,
     "tech_standards.approve_exception": True,
+    "tech_standards.delete_exception": False,
     "arb.view": True,
     "arb.manage": True,
     "scenarios.view": True,
@@ -871,6 +876,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "tech_standards.view": True,
     "tech_standards.manage": False,
     "tech_standards.approve_exception": False,
+    "tech_standards.delete_exception": False,
     "arb.view": True,
     "arb.manage": False,
     "scenarios.view": True,

@@ -17,6 +17,11 @@ class ADRCreate(BaseModel):
     meeting_date: date | None = None
     stage_no: int | None = Field(default=None, ge=0, le=10)
     linked_card_ids: list[str] | None = None
+    # D-39: who the wait that starts here is due to, and why. Optional; a
+    # requester / external attribution needs a reason (validated in the
+    # transition service).
+    delay_attribution: str | None = Field(default=None, pattern="^(governance|requester|external)$")
+    delay_reason: str | None = Field(default=None, max_length=2000)
 
     # Unknown keys must fail loudly: silently-ignored extras caused the
     # ADR body/link loss in #800.
@@ -59,6 +64,23 @@ class ADRSignRequest(BaseModel):
 
 class ADRRejectRequest(BaseModel):
     comment: str
+    # D-39: who the wait that starts here is due to, and why. Optional; a
+    # requester / external attribution needs a reason (validated in the
+    # transition service).
+    delay_attribution: str | None = Field(default=None, pattern="^(governance|requester|external)$")
+    delay_reason: str | None = Field(default=None, max_length=2000)
+
+
+class ADRDelayNote(BaseModel):
+    """Optional body of a recall: who the return to draft is due to (D-39)."""
+
+    # D-39: who the wait that starts here is due to, and why. Optional; a
+    # requester / external attribution needs a reason (validated in the
+    # transition service).
+    delay_attribution: str | None = Field(default=None, pattern="^(governance|requester|external)$")
+    delay_reason: str | None = Field(default=None, max_length=2000)
+
+    model_config = {"extra": "forbid"}
 
 
 class ADRCardLink(BaseModel):

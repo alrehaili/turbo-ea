@@ -57,7 +57,7 @@ export default function ExceptionWaiverMatrix() {
           // expiry within 90 days or a mandatory standard is medium; else low.
           const riskFor = (exc: any): Exception["risk"] => {
             const mandatory = standardMandate.get(exc.standard_id) === "mandatory";
-            if (exc.status === "expired") return "high";
+            if (exc.status === "expired" || exc.past_expiry) return "high";
             if (exc.expiry_date) {
               const days = (new Date(exc.expiry_date).getTime() - Date.now()) / 86400000;
               if (days <= 30) return "high";
@@ -66,10 +66,19 @@ export default function ExceptionWaiverMatrix() {
             return mandatory ? "medium" : "low";
           };
 
+          // A submitted remediation keeps its approved waiver until verified;
+          // remediated and withdrawn exceptions are closed and no longer waive.
           const statusFor = (s: string): Exception["approvalStatus"] =>
-            s === "approved" ? "approved" : s === "rejected" ? "denied" : "pending";
+            s === "approved" || s === "remediation_submitted"
+              ? "approved"
+              : s === "rejected"
+                ? "denied"
+                : "pending";
 
-          const rows: Exception[] = registerRows.map((exc) => ({
+          const open = registerRows.filter(
+            (exc) => exc.status !== "remediated" && exc.status !== "withdrawn",
+          );
+          const rows: Exception[] = open.map((exc) => ({
             id: exc.id,
             item: exc.card?.name || exc.initiative?.name || "—",
             type: "Exception",

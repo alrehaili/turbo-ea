@@ -494,3 +494,117 @@ Implemented exactly to `PHASED_DELIVERY_PLAN.md` Batch 3.1 and the §3.1 rules. 
 | Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, CI |
 
 **Docs.** `docs/guide/dashboard.md` + `.ar.md`: Governance page described, five-page list, GOV-03 on the executive-metric list. Other 8 locales fall back to English (D-18). CHANGELOG `[2.37.0]`, VERSION `2.37.0`.
+
+
+## Phase 3 — Batch 3.2 (unblocked part): transition history, GOV-07 elapsed (2026-10-26, v2.38.0)
+
+Implemented on `main` (uncommitted, not merged, not deployed) to `PHASED_DELIVERY_PLAN.md` Batch 3.2, limited to what D-39 and D-40 do not block. Details settled within D-34 / D-35 are recorded as I-14..I-19 in `DECISION_LOG.md` for review; no new business rule. Batches 3.3-3.6 not started.
+
+**Pre-check.** The 36 Batch 3.1 backend tests were **not** run: there is still no PostgreSQL or Docker on this host. They remain **Pending Verification**, and so do this batch's database tests.
+
+**Backend.**
+- New append-only table `governance_transitions` (model `models/governance_transition.py`, migration `1166`, server defaults on `occurred_at` / `created_at` / `updated_at`); created empty, nothing backfilled (I-14).
+- `tech_standard_exceptions.decided_at`, nullable with no server default so earlier decisions stay undated (I-16).
+- One writer, `services/governance_transitions.py`, called in the same transaction as each status change:
+  - ADR: create (shared `adr_service.create_decision`), duplicate, revise, request signatures, sign (final signature, sharing the `signed_at` instant), recall, reject, PATCH status.
+  - ARB: create and PATCH status. The `decided_at` / reviewer stamp rule is unchanged.
+  - Exceptions: request and approve / reject.
+  - A same-status save records nothing (I-15).
+- Read endpoints, each gated by the instrument's own view permission and read scope (a hidden subject card is 404):
+  - `GET /arb/{id}/transitions` (`arb.view`)
+  - `GET /adr/{id}/transitions` (`adr.view`)
+  - `GET /tech-standards/exceptions/{id}/transitions` (`tech_standards.view`)
+  - The actor is returned as `{id, display_name}` only. The response says `recorded: false` when there is no history.
+- Exception responses carry `decided_at`.
+- `services/executive/governance.py`: GOV-07 **elapsed** calendar days per instrument (median and slowest, never pooled), with untimed decisions counted as *lifecycle not recorded* (I-17, I-18).
+  - Processing time is Not Available (D-39) and working days are Not Available (D-38).
+  - GOV-04 and the withdrawn / remediated lifecycle are Not Available, naming D-40.
+- Workspace transfer: section `GovernanceTransitions` (actor remapped by email); `decided_at` travels by introspection. No `FORMAT_VERSION` change.
+- No permission was added or changed.
+
+**Frontend.** The Governance page gains a *Governance turnaround (elapsed)* card with one figure per instrument, the basis of each, the not-recorded count, and the two Not Available notes. The old blanket turnaround tile is removed. Types are in `src/types/index.ts`, and EN + AR strings are under `dashboard.executive.governancePage.turnaround.*` (D-18); the unused `reason.turnaround` key was removed. The exception-resolution reason and the current-state hint now name the pending lifecycle rules.
+
+**Docs.** `docs/guide/dashboard.md` + `.ar.md` (turnaround, history from 2.38.0, Not Available cases); CHANGELOG `[2.38.0]`; VERSION `2.38.0`; OpenAPI regenerated (+125 lines: three history paths, `decided_at`); RTM P3-04..P3-06; DECISION_LOG I-14..I-19; PHASED_DELIVERY_PLAN Batch 3.2 status.
+
+**Validation (one focused pass).**
+
+| Check | Result |
+|---|---|
+| `ruff check`, `ruff format` (app + touched tests) | Clean |
+| `python -c "import app.main"`; Alembic heads | Imports clean; single head `1166` |
+| Backend run (no DB): `test_governance_transitions.py`, `test_executive_governance.py`, `test_alembic_timestamp_defaults.py`, `test_workspace_io_id_bearing_columns.py`, `test_adr_service.py`, `test_extension_adr_bridge.py` | **228 passed**, 43 skipped (database-backed) |
+| Backend collected, **Pending Verification — not executed** (need PostgreSQL) | `test_governance_transitions_api.py` (11), the 7 new DB cases in `test_executive_governance.py`, `test_gov07_elapsed_ignores_a_hidden_cards_exception`, the workspace round-trip case, plus the 36 Batch 3.1 tests |
+| Static guards `test_card_read_scope_guard.py`, `test_audit_log_guard.py` (`PYTHONUTF8=1`) | Read-scope guard passes. 3 audit-log guard failures, **identical on the unchanged tree** (fork routes in `settings.py`, `metamodel.py`, `migration.py`, `nea_evidence.py`, `reference_models.py` — none touched here); pre-existing, out of scope |
+| Frontend `ExecutiveGovernance.test.tsx`, `executivePlurals.test.ts`, `i18n.test.ts` | **162 passed** (temporary config stubbing the AG Grid setup import, as before) |
+| ESLint (touched files) | Clean |
+| `tsc --noEmit` | No new errors; the two pre-existing ones remain (`agGridSetup.ts`, `MatrixReport.tsx`) |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, `npm ci`, CI |
+
+**Open for approval (resolved later the same day).** D-39 and D-40 were approved with changes; see the next section.
+
+
+## Phase 3 — Batch 3.2 completed after D-39 / D-40 (2026-10-26, v2.38.0)
+
+D-39 and D-40 were approved with changes on 2026-10-26 and are recorded in `DECISION_LOG.md` §3.1 with the owner's wording, followed by I-20..I-28. The rest of Batch 3.2 is built on the same transition infrastructure; the elapsed-time figures, permissions and dashboard behaviour delivered earlier the same day are unchanged. Uncommitted, not merged, not deployed. Batch 3.3 and later not started.
+
+**D-39 — governance-controlled processing time.**
+- Migration `1167` adds `reason` and `delay_attribution` (`governance` / `requester` / `external`, checked) to `governance_transitions`. Existing rows stay NULL.
+- The attribution is recorded on the move **into** a waiting state, by the person making it:
+  - ARB `PATCH` to `deferred` (refused on any other status with 422 `delay_only_on_deferral`);
+  - ADR create, recall and reject (each enters `draft`).
+- `requester` and `external` need a reason (422 `delay_reason_required`). Nothing is defaulted.
+- `processing_days` subtracts only requester / external intervals that carry a reason. The window runs from the creation transition to the first decision.
+- A record is never timed when its history starts after creation, its chain is broken, or a draft / deferral interval has no attribution. Such records are counted by cause beside the figure.
+- Exceptions have no waiting state (no `info_requested` was added), so a fully recorded exception's processing time equals its elapsed time.
+
+**D-40 — exception remediation and withdrawal.**
+- **States:** `remediation_submitted` (evidence required, `tech_standards.manage`) → `remediated` only through `POST …/remediation/verify` by a `tech_standards.approve_exception` holder who is neither the requester nor the submitter (403 `self_verification`). A verifier can instead return it to `approved` with a note.
+- **Withdrawal:** `withdrawn` from requested or approved, with a reason, by the requester or a `tech_standards.manage` holder.
+- **Expiry and waivers:** expiry stays derived and never resolves anything. A submitted, unverified remediation keeps its waiver until expiry; this rule is applied in the compliance scan, the radar counts, the NORA programme waiver counts, the NEA evidence pack and both report pages.
+- **Columns (migration `1167`):** `status` widened to 32 characters, plus the remediation evidence, submitter / verifier and their times, and the withdrawal actor, time and reason. All nullable with no defaults, so no remediation or withdrawal is invented for the past.
+- **Hard delete:** needs the new permission `tech_standards.delete_exception` (no default role; admins through the wildcard) and a `reason`. It writes an admin audit record (`admin.tech_standard_exception.deleted`) and a final `deleted` history row. `tech_standards.manage` no longer deletes exceptions.
+- **Standard delete:** a standard whose exceptions left `requested` cannot be deleted (409 `exceptions_have_lifecycle`).
+- **GOV-04:**
+  - Eligible population: approvals recorded in the history whose expiry falls in the period and has passed, about readable cards.
+  - Value: verified on or before expiry ÷ eligible.
+  - Reported apart, never in the numerator: remediated late, awaiting verification, expired unresolved, withdrawn, rejected after approval.
+  - Approvals that predate the history are counted as "not recorded"; requests rejected in the period are counted separately.
+
+**API.** `POST /tech-standards/exceptions/{id}/remediation`, `…/remediation/verify` and `…/withdraw`; `DELETE …/exceptions/{id}?reason=`. Exception responses add the lifecycle fields and `past_expiry`. The history endpoints return `reason` and `delay_attribution`. OpenAPI was regenerated (+476 lines in total for Batch 3.2).
+
+**Frontend.**
+- New `ExceptionLifecycleActions` on the Technology Standards exception register: approve / reject, submit remediation, verify or return (disabled for the requester and the submitter), withdraw, and a permanent delete that needs a reason. The new states have their own chips.
+- The Governance page:
+  - Activity shows every exception state apart.
+  - A GOV-04 card with all outcome buckets.
+  - Governance-controlled time beside each elapsed figure, with untimed causes.
+- `ExceptionWaiverMatrix` and `StandardsComplianceMatrix` treat remediated / withdrawn as closed, and a submitted remediation as still waived until expiry.
+- EN + AR strings (`common`, `reports`, and `admin` for the audit label and context fields).
+
+**Workspace transfer.** The three new user FKs on `StandardExceptions` are remapped by email. `remediation_evidence`, `withdrawal_reason` and `GovernanceTransitions.reason` are allowlisted as prose in the id-bearing guard. The round-trip test covers the new columns.
+
+**Docs.** `docs/guide/dashboard.md` + `.ar.md` (GOV-04, governance-controlled time, exception lifecycle, delay attribution, deletion); CHANGELOG `[2.38.0]` extended (VERSION unchanged, same unreleased batch); DECISION_LOG D-39 / D-40 and I-20..I-28; RTM P3-04..P3-06; PHASED_DELIVERY_PLAN status.
+
+**Validation (one focused pass).**
+
+| Check | Result |
+|---|---|
+| `ruff check`, `ruff format` | Clean |
+| App import; Alembic heads | Clean; single head `1167` |
+| Backend run without DB (transition/lifecycle unit tests, governance pure tests, scan, timestamp-default guard, id-bearing guard, permission registry, ADR service, ADR bridge, read-scope guard) | **406 passed**, 60 skipped (database-backed) |
+| Audit-log guard | 3 failures, **the same pre-existing set** (`settings.py`, `metamodel.py`, `migration.py`, `nea_evidence.py`, `reference_models.py`); none from this work |
+| Backend collected, **Pending Verification — not executed** (no PostgreSQL) | `test_governance_transitions_api.py` (21), DB cases in `test_executive_governance.py` / `test_executive_governance_api.py` / `test_tech_standards_scan.py`, the workspace round-trip case, `test_tech_standards.py`, `test_arb.py`, `test_adr.py`, and the 36 Batch 3.1 tests |
+| Frontend Vitest: `features/dashboard/executive/`, `features/tech-standards/`, `exceptionStatusReports.test.tsx`, `i18n.test.ts`, `SecurityLogTypes.test.ts` | **216 passed** (temporary config stubbing the AG Grid setup import) |
+| ESLint (touched files) | No errors (pre-existing warnings in `ExceptionWaiverMatrix.tsx`) |
+| `tsc --noEmit` | No new errors; the two pre-existing ones remain |
+| Not run | Full suites, mutation testing, builds, `mkdocs build --strict`, `npm ci`, CI |
+
+**Remaining unresolved business rules.**
+- D-37 (Batch 3.6), D-38 (Batch 3.3), D-41 (Batch 3.4) and D-42 (Batch 3.5) stay open, as before.
+- I-20..I-28 are implementation details within the approved D-39 / D-40 and are recorded for review, in particular:
+  - the waiver staying active while a remediation awaits verification (I-23);
+  - withdrawal allowed from requested or approved only (I-23);
+  - the GOV-04 "due" test using today for "has passed" (I-26);
+  - refusing to delete a standard with decided exceptions (I-28).
+- No evidence format beyond text was introduced (no document attachment). If the owner wants documents as remediation evidence, that is a follow-up.
+- Duplicate and revise create an ADR draft with no attribution, so such revisions stay untimed for processing time unless a later move records one.

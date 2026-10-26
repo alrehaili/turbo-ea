@@ -327,15 +327,17 @@ export interface ExecutiveGovernanceData {
     adrs_signed: number;
     /** `dating = "latest_decision"`: ARB `decided_at` is overwritten (I-12). */
     arb: { approved: number; rejected: number; deferred: number; dating: string };
-    /** Current-state counts; the lifecycle has no recorded history yet. */
+    /** Current-state counts, every lifecycle state apart (D-40). */
     exceptions: {
       requested: number;
       approved_active: number;
       expired: number;
+      remediation_submitted: number;
+      remediated: number;
       rejected: number;
+      withdrawn: number;
       temporal: string;
     };
-    exception_lifecycle: ExecutiveNotAvailable;
   };
   effectiveness: {
     /** GOV-03 rule-based technology standards compliance as a KPI tile. */
@@ -343,15 +345,96 @@ export interface ExecutiveGovernanceData {
     coverage:
       | { status: "ok"; assessed: number; population: number; percentage: number | null }
       | ExecutiveNotAvailable;
-    exception_resolution: ExecutiveNotAvailable;
+    /** GOV-04: verified remediation by expiry over due exceptions (D-40). */
+    exception_resolution: GovernanceResolution;
     decision_implementation: ExecutiveNotAvailable;
-    turnaround: ExecutiveNotAvailable;
+    /** GOV-07 elapsed calendar days per instrument (Batch 3.2, D-35). */
+    turnaround: GovernanceTurnaround;
   };
   impact: {
     architecture_risks: ExecutiveNotAvailable;
     governed_delivery: ExecutiveNotAvailable;
     business_value: ExecutiveNotAvailable;
   };
+}
+
+/** One instrument's GOV-07 elapsed figure; instruments are never pooled. */
+export type GovernanceElapsed =
+  | {
+      status: "ok";
+      decisions: number;
+      median_days: number;
+      max_days: number;
+      /** Decisions this figure cannot time: their lifecycle was not recorded. */
+      not_recorded: number;
+      basis: string;
+      not_recorded_temporal?: string;
+    }
+  | {
+      status: "not_available";
+      reason: Record<string, unknown>;
+      decisions: 0;
+      not_recorded: number;
+      basis: string;
+      not_recorded_temporal?: string;
+    };
+
+/** Governance-controlled days of one instrument (D-39); untimed records by cause. */
+export type GovernanceProcessing =
+  | {
+      status: "ok";
+      decisions: number;
+      median_days: number;
+      max_days: number;
+      not_computable: Record<string, number>;
+    }
+  | {
+      status: "not_available";
+      reason: Record<string, unknown>;
+      decisions: 0;
+      not_computable: Record<string, number>;
+    };
+
+/** GOV-07 governance turnaround: elapsed and governance-controlled time, apart. */
+export interface GovernanceTurnaround {
+  status: "ok";
+  measure: "elapsed";
+  unit: "calendar_days";
+  instruments: { adr: GovernanceElapsed; arb: GovernanceElapsed; exception: GovernanceElapsed };
+  processing_time: {
+    status: "ok";
+    measure: "governance_controlled";
+    unit: "calendar_days";
+    instruments: {
+      adr: GovernanceProcessing;
+      arb: GovernanceProcessing;
+      exception: GovernanceProcessing;
+    };
+  };
+  working_days: ExecutiveNotAvailable;
+}
+
+/** The GOV-04 outcome buckets; only `remediated_on_time` is the numerator. */
+export interface GovernanceResolutionOutcomes {
+  remediated_on_time: number;
+  remediated_late: number;
+  withdrawn: number;
+  rejected: number;
+  awaiting_verification: number;
+  expired_unresolved: number;
+}
+
+/** GOV-04 exception resolution (D-40, I-26). */
+export interface GovernanceResolution {
+  status: "ok" | "not_available";
+  value?: number;
+  unit?: "percent";
+  reason?: Record<string, unknown>;
+  eligible: number;
+  outcomes: GovernanceResolutionOutcomes;
+  not_recorded: number;
+  rejected_requests: number;
+  basis: string;
 }
 
 /** One non-compliant card behind GOV-03 (`/reports/executive/kpi/GOV-03/drilldown`). */

@@ -135,6 +135,8 @@ Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (need
 
 ### Batch 3.2 — Transition history, exception lifecycle, GOV-04, GOV-07 elapsed
 
+> **Status 2026-10-26 (v2.38.0): implemented.** Transition history, exception `decided_at`, GOV-07 elapsed (I-14..I-19); after D-39 / D-40 were approved the same day: governance-controlled processing time, the remediation / withdrawal lifecycle, audited hard delete and GOV-04 (I-20..I-28). Database tests Pending Verification. Batch 3.3 not started.
+
 | Item | Content |
 |---|---|
 | Backend | Transition events on every status change: ARB (`api/v1/arb.py`), exceptions (`api/v1/tech_standards.py`), ADR (verify the existing `adr.py` events cover draft → in_review → signed and revisions). Exception states `withdrawn`, `remediated` (verified evidence, verifier per D-40); expiry never resolves. GOV-04 counts only exceptions whose lifecycle is recorded; GOV-07 elapsed calendar days per instrument; processing time after D-39 |

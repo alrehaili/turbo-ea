@@ -13,17 +13,19 @@ from app.database import get_db
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
+from app.models.governance_transition import INSTRUMENT_ADR
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.adr import (
     ADRCardLink,
     ADRCreate,
+    ADRDelayNote,
     ADRRejectRequest,
     ADRSignatureRequest,
     ADRSignRequest,
     ADRUpdate,
 )
-from app.services import adr_service, notification_service
+from app.services import adr_service, governance_transitions, notification_service
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -60,6 +62,15 @@ async def _publish_adr_card_event(
         card_id=card_id,
         user_id=actor_id,
     )
+
+
+def _check_delay(attribution: str | None, reason: str | None) -> tuple[str | None, str | None]:
+    """A delay attribution and reason as the transition service accepts them,
+    or 422 with the reason it was refused (D-39)."""
+    try:
+        return governance_transitions.validate_delay(attribution, reason)
+    except governance_transitions.LifecycleError as err:
+        raise HTTPException(err.status, {"code": err.code, "message": str(err)}) from err
 
 
 async def _get_adr(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
@@ -307,6 +318,7 @@ async def create_adr(
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
     card_ids = await adr_service.resolve_card_ids(db, body.linked_card_ids or [])
+    _check_delay(body.delay_attribution, body.delay_reason)
     # The shared writer (also behind the analysis commit flow and the
     # extension decisions bridge) — one reference-number sequence for all.
     adr = await adr_service.create_decision(
@@ -322,6 +334,8 @@ async def create_adr(
         related_decisions=body.related_decisions or [],
         linked_card_ids=card_ids,
         created_by=user.id,
+        delay_attribution=body.delay_attribution,
+        delay_reason=body.delay_reason,
     )
     await db.commit()
     await db.refresh(adr)
@@ -401,7 +415,7 @@ async def update_adr(
                 400,
                 "Use the recall-signatures endpoint to reset to draft",
             )
-        adr.status = body.status
+        governance_transitions.set_adr_status(db, adr, body.status, user.id)
 
     if body.linked_card_ids is not None:
         read_scope = await CardReadScope.load(db, user)
@@ -484,6 +498,8 @@ async def duplicate_adr(
         created_by=user.id,
     )
     db.add(dup)
+    await db.flush()
+    governance_transitions.record_transition(db, INSTRUMENT_ADR, dup.id, None, "draft", user.id)
     await db.commit()
     await db.refresh(dup)
 
@@ -543,7 +559,7 @@ async def request_signatures(
 
     adr.signatories = signatories
     flag_modified(adr, "signatories")
-    adr.status = "in_review"
+    governance_transitions.set_adr_status(db, adr, "in_review", user.id)
 
     for sig in signatories:
         todo = Todo(
@@ -637,8 +653,8 @@ async def sign_adr(
 
     all_signed = all(sig["status"] == "signed" for sig in signatories)
     if all_signed:
-        adr.status = "signed"
         adr.signed_at = datetime.now(timezone.utc)
+        governance_transitions.set_adr_status(db, adr, "signed", user.id, occurred_at=adr.signed_at)
 
         if adr.created_by:
             await notification_service.create_notification(
@@ -691,6 +707,7 @@ async def sign_adr(
 @router.post("/{adr_id}/recall-signatures")
 async def recall_adr_signatures(
     adr_id: str,
+    body: ADRDelayNote | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -732,7 +749,12 @@ async def recall_adr_signatures(
 
     adr.signatories = []
     flag_modified(adr, "signatories")
-    adr.status = "draft"
+    attribution, reason = _check_delay(
+        body.delay_attribution if body else None, body.delay_reason if body else None
+    )
+    governance_transitions.set_adr_status(
+        db, adr, "draft", user.id, reason=reason, delay_attribution=attribution
+    )
 
     await db.commit()
     await db.refresh(adr)
@@ -825,7 +847,10 @@ async def reject_adr(
 
     adr.signatories = []
     flag_modified(adr, "signatories")
-    adr.status = "draft"
+    attribution, reason = _check_delay(body.delay_attribution, body.delay_reason)
+    governance_transitions.set_adr_status(
+        db, adr, "draft", user.id, reason=reason, delay_attribution=attribution
+    )
     adr.revision_number += 1
 
     await db.commit()
@@ -883,6 +908,10 @@ async def revise_adr(
         parent_id=adr.id,
     )
     db.add(new_revision)
+    await db.flush()
+    governance_transitions.record_transition(
+        db, INSTRUMENT_ADR, new_revision.id, None, "draft", user.id
+    )
     await db.commit()
     await db.refresh(new_revision)
 
@@ -903,6 +932,19 @@ async def revise_adr(
     await db.refresh(new_revision)
 
     return await _adr_to_dict(db, new_revision, await CardReadScope.load(db, user))
+
+
+@router.get("/{adr_id}/transitions")
+async def adr_transitions(
+    adr_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The decision's recorded status history (D-35); empty before Batch 3.2."""
+    await PermissionService.require_permission(db, user, "adr.view")
+    adr = await _get_adr(db, adr_id)
+    history = await governance_transitions.transition_history(db, INSTRUMENT_ADR, adr.id)
+    return governance_transitions.history_payload(history)
 
 
 @router.get("/{adr_id}/revisions")

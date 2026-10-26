@@ -73,6 +73,30 @@
             ],
             "title": "Decision"
           },
+          "delay_attribution": {
+            "anyOf": [
+              {
+                "pattern": "^(governance|requester|external)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Attribution"
+          },
+          "delay_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Reason"
+          },
           "linked_card_ids": {
             "anyOf": [
               {
@@ -133,11 +157,67 @@
         "title": "ADRCreate",
         "type": "object"
       },
+      "ADRDelayNote": {
+        "additionalProperties": false,
+        "description": "Optional body of a recall: who the return to draft is due to (D-39).",
+        "properties": {
+          "delay_attribution": {
+            "anyOf": [
+              {
+                "pattern": "^(governance|requester|external)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Attribution"
+          },
+          "delay_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Reason"
+          }
+        },
+        "title": "ADRDelayNote",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
             "title": "Comment",
             "type": "string"
+          },
+          "delay_attribution": {
+            "anyOf": [
+              {
+                "pattern": "^(governance|requester|external)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Attribution"
+          },
+          "delay_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Reason"
           }
         },
         "required": [
@@ -6799,6 +6879,21 @@
           }
         },
         "title": "ExceptionUpdate",
+        "type": "object"
+      },
+      "ExceptionWithdraw": {
+        "properties": {
+          "reason": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ExceptionWithdraw",
         "type": "object"
       },
       "ExtensionInstallOut": {
@@ -13974,6 +14069,47 @@
         "title": "RelationshipCreate",
         "type": "object"
       },
+      "RemediationSubmit": {
+        "properties": {
+          "evidence": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Evidence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence"
+        ],
+        "title": "RemediationSubmit",
+        "type": "object"
+      },
+      "RemediationVerify": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "outcome": {
+            "pattern": "^(verified|returned)$",
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "RemediationVerify",
+        "type": "object"
+      },
       "ReporterOut": {
         "properties": {
           "display_name": {
@@ -14886,6 +15022,30 @@
               }
             ],
             "title": "Decision Notes"
+          },
+          "delay_attribution": {
+            "anyOf": [
+              {
+                "pattern": "^(governance|requester|external)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Attribution"
+          },
+          "delay_reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delay Reason"
           },
           "status": {
             "anyOf": [
@@ -24140,6 +24300,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ADRDelayNote"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -24403,6 +24580,47 @@
           }
         },
         "summary": "Sign Adr",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/transitions": {
+      "get": {
+        "description": "The decision's recorded status history (D-35); empty before Batch 3.2.",
+        "operationId": "adr_transitions_api_v1_adr__adr_id__transitions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adr Transitions",
         "tags": [
           "adr"
         ]
@@ -24716,6 +24934,48 @@
           }
         },
         "summary": "Update Review",
+        "tags": [
+          "arb"
+        ]
+      }
+    },
+    "/api/v1/arb/{review_id}/transitions": {
+      "get": {
+        "description": "The review's recorded status history (D-35); empty before Batch 3.2.",
+        "operationId": "review_transitions_api_v1_arb__review_id__transitions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Transitions",
         "tags": [
           "arb"
         ]
@@ -52281,6 +52541,7 @@
     },
     "/api/v1/tech-standards/exceptions/{exception_id}": {
       "delete": {
+        "description": "Permanently delete an exception recorded in error (D-40, I-27).\n\nAn administrative correction: it needs ``tech_standards.delete_exception``\n(no default role holds it) and a reason, writes an admin audit record, and\nleaves a final ``deleted`` row in the exception's history. Routine closing\nis a withdrawal, not a delete.",
         "operationId": "delete_exception_api_v1_tech_standards_exceptions__exception_id__delete",
         "parameters": [
           {
@@ -52291,6 +52552,23 @@
               "format": "uuid",
               "title": "Exception Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
             }
           }
         ],
@@ -52411,6 +52689,204 @@
           }
         },
         "summary": "Decide Exception",
+        "tags": [
+          "tech-standards"
+        ]
+      }
+    },
+    "/api/v1/tech-standards/exceptions/{exception_id}/remediation": {
+      "post": {
+        "description": "Submit remediation evidence for an approved exception (D-40).",
+        "operationId": "submit_remediation_api_v1_tech_standards_exceptions__exception_id__remediation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exception_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exception Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemediationSubmit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Remediation",
+        "tags": [
+          "tech-standards"
+        ]
+      }
+    },
+    "/api/v1/tech-standards/exceptions/{exception_id}/remediation/verify": {
+      "post": {
+        "description": "Independently verify submitted remediation, or return it (D-40).",
+        "operationId": "verify_remediation_api_v1_tech_standards_exceptions__exception_id__remediation_verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exception_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exception Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemediationVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Remediation",
+        "tags": [
+          "tech-standards"
+        ]
+      }
+    },
+    "/api/v1/tech-standards/exceptions/{exception_id}/transitions": {
+      "get": {
+        "description": "The exception's recorded status history (D-34); empty before Batch 3.2.",
+        "operationId": "exception_transitions_api_v1_tech_standards_exceptions__exception_id__transitions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exception_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exception Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exception Transitions",
+        "tags": [
+          "tech-standards"
+        ]
+      }
+    },
+    "/api/v1/tech-standards/exceptions/{exception_id}/withdraw": {
+      "post": {
+        "description": "Withdraw a pending or approved exception with a reason (D-40).\n\nThe original requester or a holder of ``tech_standards.manage``.",
+        "operationId": "withdraw_exception_api_v1_tech_standards_exceptions__exception_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exception_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exception Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExceptionWithdraw"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Exception",
         "tags": [
           "tech-standards"
         ]

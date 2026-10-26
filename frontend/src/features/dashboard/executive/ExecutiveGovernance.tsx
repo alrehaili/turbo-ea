@@ -20,7 +20,14 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { canAccessPath } from "@/lib/routePermissions";
 import { STATUS_COLORS } from "@/theme/tokens";
-import type { ExecutiveGovernanceData, GovernanceDrilldown } from "@/types";
+import type {
+  ExecutiveGovernanceData,
+  GovernanceDrilldown,
+  GovernanceElapsed,
+  GovernanceProcessing,
+  GovernanceResolution,
+  GovernanceTurnaround,
+} from "@/types";
 import ExecutiveKpiTile from "./ExecutiveKpiTile";
 import { pct, periodLabel } from "./executiveFormat";
 import { useExecutivePeriod } from "./useExecutivePeriod";
@@ -147,8 +154,17 @@ export default function ExecutiveGovernance() {
             <Typography variant="body2" color="warning.main">
               {g("dashboard.executive.governancePage.activity.excExpired", { count: activity.exceptions.expired })}
             </Typography>
+            <Typography variant="body2">
+              {g("dashboard.executive.governancePage.activity.excAwaitingVerification", { count: activity.exceptions.remediation_submitted })}
+            </Typography>
+            <Typography variant="body2" color="success.main">
+              {g("dashboard.executive.governancePage.activity.excRemediated", { count: activity.exceptions.remediated })}
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               {g("dashboard.executive.governancePage.activity.excRejected", { count: activity.exceptions.rejected })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {g("dashboard.executive.governancePage.activity.excWithdrawn", { count: activity.exceptions.withdrawn })}
             </Typography>
             <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
               {g("dashboard.executive.governancePage.activity.excCurrentStateHint")}
@@ -190,15 +206,20 @@ export default function ExecutiveGovernance() {
             )}
           </ExecutiveKpiTile>
         </Grid>
-        {(["exceptionResolution", "decisionImplementation", "turnaround"] as const).map((key) => (
-          <Grid item xs={12} sm={6} md={3} key={key}>
-            <NotAvailableTile
-              label={g(`dashboard.executive.governancePage.indicator.${key}`)}
-              reason={reason(key)}
-            />
-          </Grid>
-        ))}
+        <Grid item xs={12} sm={6} md={3}>
+          <ResolutionCard resolution={effectiveness.exception_resolution} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <NotAvailableTile
+            label={g("dashboard.executive.governancePage.indicator.decisionImplementation")}
+            reason={reason("decisionImplementation")}
+          />
+        </Grid>
       </Grid>
+
+      <Box sx={{ mt: 2 }}>
+        <TurnaroundCard turnaround={effectiveness.turnaround} />
+      </Box>
 
       {/* The records behind the GOV-03 gap, under the standards permission. */}
       {drill && (
@@ -267,6 +288,174 @@ export default function ExecutiveGovernance() {
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
         {g("dashboard.executive.governancePage.footnote")}
       </Typography>
+    </Box>
+  );
+}
+
+const INSTRUMENTS = ["adr", "arb", "exception"] as const;
+
+const OUTCOMES = [
+  "remediated_on_time",
+  "remediated_late",
+  "awaiting_verification",
+  "expired_unresolved",
+  "withdrawn",
+  "rejected",
+] as const;
+
+/**
+ * GOV-04 exception resolution (D-40, I-26): the share of due exceptions whose
+ * remediation was verified on or before expiry. Every other outcome — late
+ * remediation, awaiting verification, expired unresolved, and the
+ * administrative closes (withdrawn, rejected) — is listed apart and never
+ * counted as remediation.
+ */
+function ResolutionCard({ resolution }: { resolution: GovernanceResolution }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.resolution.${key}`;
+  const ok = resolution.status === "ok" && resolution.value != null;
+  return (
+    <Card
+      variant="outlined"
+      data-testid="gov04-resolution"
+      sx={{ height: "100%", borderTop: 3, borderTopColor: ok ? STATUS_COLORS.info : STATUS_COLORS.neutral }}
+    >
+      <CardContent>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
+          {t("dashboard.executive.governancePage.indicator.exceptionResolution")}
+        </Typography>
+        {ok ? (
+          <Typography variant="h5" fontWeight={700}>
+            {pct(resolution.value ?? null)}
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="h6" color="text.secondary" fontWeight={700}>
+              {t("dashboard.executive.ceo.notAvailable")}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" component="div">
+              {t(k("noEligible"))}
+            </Typography>
+          </>
+        )}
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
+          {t(k("basis"), { count: resolution.eligible })}
+        </Typography>
+        {OUTCOMES.map((o) => (
+          <Typography variant="body2" key={o} data-testid={`gov04-${o}`}>
+            {t(k(`outcome.${o}`), { count: resolution.outcomes[o] })}
+          </Typography>
+        ))}
+        {resolution.not_recorded > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            {t(k("notRecorded"), { count: resolution.not_recorded })}
+          </Typography>
+        )}
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+          {t(k("rejectedRequests"), { count: resolution.rejected_requests })}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * GOV-07 elapsed calendar days, one row per instrument and never pooled
+ * (Batch 3.2, D-35), with governance-controlled time beside each (D-39):
+ * only waits explicitly attributed to the requester or an external dependency
+ * are left out, and a record that cannot be timed is counted by cause.
+ * Decisions whose lifecycle was not recorded are never timed from a
+ * reconstructed date. Working days (D-38) stay Not available.
+ */
+function TurnaroundCard({ turnaround }: { turnaround: GovernanceTurnaround }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.turnaround.${key}`;
+  return (
+    <Card variant="outlined" data-testid="gov07-turnaround">
+      <CardContent>
+        <Typography variant="subtitle2" fontWeight={700}>
+          {t(k("title"))}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
+          {t(k("description"))}
+        </Typography>
+        <Grid container spacing={2}>
+          {INSTRUMENTS.map((key) => (
+            <Grid item xs={12} md={4} key={key}>
+              <ElapsedFigure label={t(k(`instrument.${key}`))} figure={turnaround.instruments[key]} />
+              <ProcessingFigure figure={turnaround.processing_time.instruments[key]} instrument={key} />
+            </Grid>
+          ))}
+        </Grid>
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5 }}>
+          {t(k("processingHint"))}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" component="div">
+          {t(k("workingDays"))}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ElapsedFigure({ label, figure }: { label: string; figure: GovernanceElapsed }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.turnaround.${key}`;
+  const notRecordedKey =
+    figure.not_recorded_temporal === "current_state" ? "notRecordedCurrent" : "notRecorded";
+  return (
+    <Box data-testid={`gov07-${figure.basis}`}>
+      <Typography variant="body2" fontWeight={700}>
+        {label}
+      </Typography>
+      {figure.status === "ok" ? (
+        <>
+          <Typography variant="h6" fontWeight={700}>
+            {t(k("median"), { days: figure.median_days })}
+          </Typography>
+          <Typography variant="body2">{t(k("max"), { days: figure.max_days })}</Typography>
+          <Typography variant="body2">{t(k("decisions"), { count: figure.decisions })}</Typography>
+        </>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          {t("dashboard.executive.ceo.notAvailable")} · {t(k("noDecisions"))}
+        </Typography>
+      )}
+      {figure.not_recorded > 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {t(k(notRecordedKey), { count: figure.not_recorded })}
+        </Typography>
+      )}
+      <Typography variant="caption" color="text.secondary" component="div">
+        {t(k(`basis.${figure.basis}`))}
+      </Typography>
+    </Box>
+  );
+}
+
+function ProcessingFigure({ figure, instrument }: { figure: GovernanceProcessing; instrument: string }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.turnaround.processing.${key}`;
+  const causes = Object.entries(figure.not_computable).filter(([, n]) => n > 0);
+  return (
+    <Box data-testid={`gov07-processing-${instrument}`} sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
+      {figure.status === "ok" ? (
+        <>
+          <Typography variant="body2" fontWeight={700}>
+            {t(k("median"), { days: figure.median_days })}
+          </Typography>
+          <Typography variant="body2">{t(k("max"), { days: figure.max_days })}</Typography>
+        </>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          {t(k("notAvailable"))}
+        </Typography>
+      )}
+      {causes.map(([cause, n]) => (
+        <Typography variant="caption" color="text.secondary" component="div" key={cause}>
+          {t(k(`cause.${cause}`), { count: n })}
+        </Typography>
+      ))}
     </Box>
   );
 }

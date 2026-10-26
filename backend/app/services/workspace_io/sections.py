@@ -31,6 +31,7 @@ from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.file_attachment import FileAttachment
+from app.models.governance_transition import GovernanceTransition
 from app.models.improvement_opportunity import (
     ImprovementOpportunity,
     ImprovementOpportunityCard,
@@ -346,7 +347,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "StandardExceptions",
         StandardException,
         card_fk_columns=("card_id", "initiative_id"),
-        user_fk_columns=("approver_id", "created_by"),
+        user_fk_columns=(
+            "approver_id",
+            "created_by",
+            "remediation_submitted_by",
+            "remediation_verified_by",
+            "withdrawn_by",
+        ),
     ),
     # --- NORA EA Program tracker (WP3.1) ----------------------------------
     EntitySection(
@@ -435,6 +442,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         ArbReview,
         card_fk_columns=("subject_card_id",),
         user_fk_columns=("reviewer_id", "created_by"),
+    ),
+    # Status history of ADRs, ARB reviews and exceptions (D-35). After all
+    # three: ``record_id`` names a module row, whose PK an import preserves.
+    EntitySection(
+        "GovernanceTransitions",
+        GovernanceTransition,
+        user_fk_columns=("actor_id",),
     ),
     # --- Scenario planning (scenario before its changes) -----------------
     EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),

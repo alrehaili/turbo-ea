@@ -50,22 +50,98 @@ const data: ExecutiveGovernanceData = {
       requested: 1,
       approved_active: 2,
       expired: 1,
+      remediation_submitted: 3,
+      remediated: 6,
       rejected: 0,
+      withdrawn: 2,
       temporal: "current_state",
     },
-    exception_lifecycle: { status: "not_available", reason: { code: "later_batch", batch: "3.2" } },
   },
   effectiveness: {
     compliance,
     coverage: { status: "ok", assessed: 5, population: 8, percentage: 62.5 },
-    exception_resolution: { status: "not_available", reason: { code: "later_batch", batch: "3.2" } },
+    exception_resolution: {
+      status: "ok",
+      value: 25,
+      unit: "percent",
+      eligible: 8,
+      outcomes: {
+        remediated_on_time: 2,
+        remediated_late: 1,
+        withdrawn: 2,
+        rejected: 0,
+        awaiting_verification: 1,
+        expired_unresolved: 2,
+      },
+      not_recorded: 3,
+      rejected_requests: 4,
+      basis: "verified_by_expiry",
+    },
     decision_implementation: {
       status: "not_available",
       reason: { code: "decision_pending", decisions: ["D-41"], batch: "3.4" },
     },
     turnaround: {
-      status: "not_available",
-      reason: { code: "decision_pending", decisions: ["D-38", "D-39"], batch: "3.2" },
+      status: "ok",
+      measure: "elapsed",
+      unit: "calendar_days",
+      instruments: {
+        adr: {
+          status: "ok",
+          decisions: 3,
+          median_days: 4.5,
+          max_days: 12,
+          not_recorded: 0,
+          basis: "created_to_signed",
+        },
+        arb: {
+          status: "not_available",
+          reason: { code: "no_recorded_decisions" },
+          decisions: 0,
+          not_recorded: 2,
+          basis: "created_to_first_decision",
+        },
+        exception: {
+          status: "ok",
+          decisions: 1,
+          median_days: 2,
+          max_days: 2,
+          not_recorded: 5,
+          basis: "requested_to_first_decision",
+          not_recorded_temporal: "current_state",
+        },
+      },
+      processing_time: {
+        status: "ok",
+        measure: "governance_controlled",
+        unit: "calendar_days",
+        instruments: {
+          adr: {
+            status: "not_available",
+            reason: { code: "processing_not_computable" },
+            decisions: 0,
+            not_computable: { delay_unattributed: 3 },
+          },
+          arb: {
+            status: "ok",
+            decisions: 1,
+            median_days: 1.5,
+            max_days: 1.5,
+            not_computable: { history_not_recorded: 2 },
+          },
+          exception: {
+            status: "ok",
+            decisions: 1,
+            median_days: 2,
+            max_days: 2,
+            not_computable: {},
+          },
+        },
+      },
+      working_days: {
+        status: "not_available",
+        reason: { code: "decision_pending", decisions: ["D-38"], batch: "3.3" },
+      },
     },
   },
   impact: {
@@ -159,7 +235,7 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     expect(screen.getByText("Deferred 4")).toBeInTheDocument();
     expect(screen.getByText("Approved 2")).toBeInTheDocument();
     expect(screen.getByText(/latest decision date/)).toBeInTheDocument();
-    expect(screen.getByText(/not yet recorded/)).toBeInTheDocument();
+    expect(screen.getByText(/Current state, not this period/)).toBeInTheDocument();
   });
 
   it("shows every unbuilt indicator as Not available with a reason, never a zero", () => {
@@ -167,7 +243,105 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     expect(screen.getByText("Decision implementation")).toBeInTheDocument();
     expect(screen.getByText("Business value of governance")).toBeInTheDocument();
     expect(screen.getByText(/Arrives with the benefits register/)).toBeInTheDocument();
-    expect(screen.getAllByText("Not available").length).toBeGreaterThanOrEqual(5);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("shows GOV-07 elapsed days per instrument, never pooled, with untimed decisions counted apart", () => {
+    renderPage();
+    const card = screen.getByTestId("gov07-turnaround");
+    const adr = within(card).getByTestId("gov07-created_to_signed");
+    expect(adr).toHaveTextContent("Architecture decisions");
+    expect(adr).toHaveTextContent("Median: 4.5 calendar days");
+    expect(adr).toHaveTextContent("Slowest: 12 calendar days");
+    expect(adr).toHaveTextContent("Decisions timed: 3");
+    expect(adr).not.toHaveTextContent(/not recorded/i);
+
+    // No recorded ARB decision: Not available, never a zero, and the legacy count shown.
+    const arb = within(card).getByTestId("gov07-created_to_first_decision");
+    expect(arb).toHaveTextContent("Not available");
+    expect(arb).toHaveTextContent("Lifecycle not recorded: 2");
+    expect(arb).toHaveTextContent(/deferral is not a decision/);
+    expect(arb).not.toHaveTextContent("Median");
+
+    // Exceptions decided before the history are a current-state count.
+    const exc = within(card).getByTestId("gov07-requested_to_first_decision");
+    expect(exc).toHaveTextContent("Decided before history was kept (current state): 5");
+  });
+
+  it("states that governance-controlled time and working days are not available", () => {
+    renderPage();
+    const card = screen.getByTestId("gov07-turnaround");
+    expect(card).toHaveTextContent(/This is elapsed time/);
+    expect(card).toHaveTextContent(/Working days: not available/);
+    // The old blanket Not-available tile for turnaround is gone.
+    expect(screen.queryByText(/decision transition history and a confirmed business calendar/)).toBeNull();
+  });
+
+  it("keeps every exception lifecycle state apart in Activity", () => {
+    renderPage();
+    expect(screen.getByText("Awaiting verification 3")).toBeInTheDocument();
+    expect(screen.getByText("Remediated (verified) 6")).toBeInTheDocument();
+    expect(screen.getByText("Withdrawn 2")).toBeInTheDocument();
+  });
+
+  it("shows GOV-04 as verified remediation only, with every other outcome apart", () => {
+    renderPage();
+    const card = screen.getByTestId("gov04-resolution");
+    expect(card).toHaveTextContent("25%");
+    expect(card).toHaveTextContent(/Due exceptions in this period: 8/);
+    expect(within(card).getByTestId("gov04-remediated_on_time")).toHaveTextContent(
+      "Remediated and verified by expiry: 2",
+    );
+    expect(within(card).getByTestId("gov04-withdrawn")).toHaveTextContent(
+      "Withdrawn (not a remediation): 2",
+    );
+    expect(within(card).getByTestId("gov04-rejected")).toHaveTextContent(
+      "Rejected after approval (not a remediation): 0",
+    );
+    expect(within(card).getByTestId("gov04-expired_unresolved")).toHaveTextContent(
+      "Expired, unresolved: 2",
+    );
+    expect(card).toHaveTextContent("Approved before the history was kept: 3");
+    expect(card).toHaveTextContent("Requests rejected in this period: 4");
+  });
+
+  it("shows GOV-04 as Not available, never zero, when nothing fell due", () => {
+    const none: ExecutiveGovernanceData = {
+      ...data,
+      effectiveness: {
+        ...data.effectiveness,
+        exception_resolution: {
+          ...data.effectiveness.exception_resolution,
+          status: "not_available",
+          value: undefined,
+          reason: { code: "no_eligible_exceptions" },
+          eligible: 0,
+        },
+      },
+    };
+    useApiQuery.mockImplementation((path: string | null) =>
+      path && path.includes("/reports/executive/governance")
+        ? { data: none, error: null, loading: false }
+        : { data: null, error: null, loading: false },
+    );
+    renderPage();
+    const card = screen.getByTestId("gov04-resolution");
+    expect(card).toHaveTextContent("Not available");
+    expect(card).not.toHaveTextContent("0%");
+  });
+
+  it("shows governance-controlled time beside elapsed, with untimed records by cause", () => {
+    renderPage();
+    const adr = screen.getByTestId("gov07-processing-adr");
+    expect(adr).toHaveTextContent("Under governance control: not available");
+    expect(adr).toHaveTextContent("No recorded reason for a wait: 3");
+    const arb = screen.getByTestId("gov07-processing-arb");
+    expect(arb).toHaveTextContent("Under governance control: median 1.5 calendar days");
+    expect(arb).toHaveTextContent("History not recorded: 2");
+    expect(screen.getByTestId("gov07-processing-exception")).toHaveTextContent(
+      "Under governance control: median 2 calendar days",
+    );
+    expect(screen.getByTestId("gov07-turnaround")).toHaveTextContent(/with a reason/);
   });
 
   it("lists the non-compliant records behind GOV-03 when the standards permission is held", () => {

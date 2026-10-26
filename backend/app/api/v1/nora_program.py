@@ -22,7 +22,7 @@ from app.models.improvement_opportunity import ImprovementOpportunity
 from app.models.nora_program import DELIVERABLE_STATUSES, NORA_STAGE_NUMBERS, EaProgramDeliverable
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.relation import Relation
-from app.models.tech_standard import StandardException
+from app.models.tech_standard import WAIVER_ACTIVE_STATUSES, StandardException
 from app.models.turbolens import TurboLensComplianceFinding
 from app.models.user import User
 from app.services.card_read_scope import CardReadScope, visible_type_clause
@@ -360,7 +360,8 @@ async def get_dashboard(
         for status, expiry in rows:
             if status == "requested":
                 w["pending"] += 1
-            elif status == "approved":
+            elif status in WAIVER_ACTIVE_STATUSES:
+                # A submitted remediation keeps its waiver until verified (I-23).
                 if expiry and expiry < today:
                     w["expired"] += 1
                 else:

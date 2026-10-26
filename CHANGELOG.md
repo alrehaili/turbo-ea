@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.38.0] - 2026-10-26
+
+### Added
+- **Governance decision history.** Every status change of an architecture decision record, an architecture review and a technology-standard exception is now recorded with who made it and when, and can be read back for each record by anyone allowed to view it. Recording starts with this version; nothing earlier is reconstructed.
+- **Executive Governance page: governance turnaround (GOV-07, elapsed).** Median and slowest calendar days from request to decision, shown separately for decision records, architecture reviews and standard exceptions. A deferral is never treated as a decision, and decisions taken before the history existed are counted as *lifecycle not recorded* instead of being timed. Working-day figures stay *Not available* until the business calendar is configured.
+- Standard exceptions show the date of their latest approval or rejection (blank for decisions taken before this version).
+- **Standard exception lifecycle.** An approved exception can have remediation submitted with evidence; it becomes *remediated* only after verification by someone other than the requester and the submitter, or is returned with a note. The requester or a standards manager can withdraw a requested or approved exception with a reason. An expired waiver is never treated as resolved.
+- **Exception resolution (GOV-04)** on the Governance page: the share of exceptions due in the period whose remediation was verified by expiry, with late remediation, awaiting verification, expired-unresolved, withdrawn and rejected-after-approval outcomes listed separately.
+- **Time under governance control (GOV-07)** beside elapsed time: a deferred review or a decision record back in draft can record whether the wait is due to governance, the requester or an external dependency; only requester or external waits with a reason are left out, and records with an unrecorded wait are shown as untimed.
+- New permission **Permanently delete a standard exception** (no default role holds it).
+
+### Changed
+- Permanently deleting a standard exception now requires the new permission and a reason, is recorded in the security log, and keeps the exception's history; standards managers withdraw exceptions instead.
+- A technology standard whose exceptions have been decided can no longer be deleted.
+- A submitted but unverified remediation keeps its waiver until expiry in compliance results and reports; remediated and withdrawn exceptions no longer waive.
+
 ## [2.37.0] - 2026-10-26
 
 ### Added

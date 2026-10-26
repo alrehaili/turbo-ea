@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.relation import Relation
-from app.models.tech_standard import StandardException, TechStandard
+from app.models.tech_standard import WAIVER_ACTIVE_STATUSES, StandardException, TechStandard
 from app.services.card_read_scope import CardReadScope, visible_type_clause
 
 VIOLATING_STATUSES = ("sunset", "prohibited")
@@ -108,7 +108,7 @@ async def scan_standard_compliance(db: AsyncSession, *, read_scope: CardReadScop
             StandardException.card_id,
             StandardException.id,
             StandardException.expiry_date,
-        ).where(StandardException.status == "approved")
+        ).where(StandardException.status.in_(WAIVER_ACTIVE_STATUSES))
     )
     today = date.today()
     waived: dict[tuple[uuid.UUID, uuid.UUID], dict] = {}
@@ -253,7 +253,7 @@ async def assess_standard_compliance(db: AsyncSession, *, read_scope: CardReadSc
     exc_res = await db.execute(
         select(
             StandardException.standard_id, StandardException.card_id, StandardException.expiry_date
-        ).where(StandardException.status == "approved")
+        ).where(StandardException.status.in_(WAIVER_ACTIVE_STATUSES))
     )
     today = date.today()
     waived: set[tuple[uuid.UUID, uuid.UUID]] = set()

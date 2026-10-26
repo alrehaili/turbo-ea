@@ -54,7 +54,10 @@ export default function StandardsComplianceMatrix() {
           const exceptionsByApp = new Map<string, Set<string>>();
           const standardsWithExceptions = new Set<string>();
           for (const exc of exceptions) {
-            if (exc.status === "rejected" || exc.status === "expired") continue;
+            // Only a live waiver counts: closed (remediated, withdrawn), refused
+            // and expired exceptions no longer cover the app.
+            if (["rejected", "expired", "remediated", "withdrawn"].includes(exc.status)) continue;
+            if (exc.past_expiry) continue;
             const cardId = exc.card?.id;
             if (!cardId) continue;
             standardsWithExceptions.add(exc.standard_id);

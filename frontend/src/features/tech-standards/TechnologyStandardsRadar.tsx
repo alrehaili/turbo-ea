@@ -5,7 +5,6 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Chip from "@mui/material/Chip";
 import Badge from "@mui/material/Badge";
@@ -27,6 +26,9 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAuthContext } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import ExceptionLifecycleActions from "./ExceptionLifecycleActions";
 import TechRadarPolar from "./TechRadarPolar";
 
 const CATEGORIES = ["technology", "cloud", "integration", "data", "security", "other"] as const;
@@ -101,6 +103,12 @@ interface ExceptionRow {
   status: string;
   expiry_date: string | null;
   approver_id: string | null;
+  created_by?: string | null;
+  remediation_submitted_by?: string | null;
+  remediation_evidence?: string | null;
+  withdrawal_reason?: string | null;
+  /** Still relying on its waiver past the expiry date (D-40: not resolved). */
+  past_expiry?: boolean;
 }
 
 interface ScanViolation {
@@ -133,10 +141,15 @@ const EXC_STATUS_COLOR: Record<string, "default" | "info" | "success" | "error" 
   approved: "success",
   rejected: "error",
   expired: "warning",
+  remediation_submitted: "info",
+  remediated: "success",
+  withdrawn: "default",
 };
 
 export default function TechnologyStandardsRadar() {
   const { t } = useTranslation(["reports", "common"]);
+  const { user } = useAuthContext();
+  const { can } = usePermissions(user);
   const [tab, setTab] = useState(0);
   const [radar, setRadar] = useState<RadarData | null>(null);
   const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
@@ -221,17 +234,6 @@ export default function TechnologyStandardsRadar() {
     await api.delete(`/tech-standards/${s.id}`);
     setDialogOpen(false);
     setEditingId(null);
-    await load();
-  };
-
-  const deleteException = async (id: string) => {
-    if (!window.confirm(t("techStandards.confirmDeleteException"))) return;
-    await api.delete(`/tech-standards/exceptions/${id}`);
-    await load();
-  };
-
-  const decide = async (id: string, action: "approve" | "reject") => {
-    await api.post(`/tech-standards/exceptions/${id}/decision?action=${action}`, {});
     await load();
   };
 
@@ -437,25 +439,22 @@ export default function TechnologyStandardsRadar() {
                         label={t(`techStandards.excStatus.${e.status}`, e.status)}
                         color={EXC_STATUS_COLOR[e.status] || "default"}
                       />
+                      {e.status === "remediation_submitted" && e.past_expiry && (
+                        <Chip
+                          size="small"
+                          sx={{ ml: 0.5 }}
+                          color="warning"
+                          label={t("techStandards.excStatus.expired")}
+                        />
+                      )}
                     </TableCell>
                     <TableCell align="right">
-                      <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end", alignItems: "center" }}>
-                        {e.status === "requested" && (
-                          <>
-                            <Button size="small" color="success" onClick={() => decide(e.id, "approve")}>
-                              {t("techStandards.approve")}
-                            </Button>
-                            <Button size="small" color="error" onClick={() => decide(e.id, "reject")}>
-                              {t("techStandards.reject")}
-                            </Button>
-                          </>
-                        )}
-                        <Tooltip title={t("common:actions.delete")}>
-                          <IconButton size="small" color="error" onClick={() => deleteException(e.id)}>
-                            <MaterialSymbol icon="delete" size={18} />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
+                      <ExceptionLifecycleActions
+                        exception={e}
+                        userId={user?.id ?? null}
+                        can={can}
+                        onChanged={load}
+                      />
                     </TableCell>
                   </TableRow>
                 ))

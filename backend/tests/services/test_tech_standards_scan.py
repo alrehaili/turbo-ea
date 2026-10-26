@@ -157,3 +157,38 @@ async def test_assessment_skips_paths_through_hidden_components(db, landscape):
     assert result["status"] == "unavailable"
     assert result["reason"]["code"] == "type_hidden"
     assert "OldMQ" not in str(result) and str(landscape["itc"].id) not in str(result)
+
+
+@pytest.mark.parametrize(
+    ("status", "waived"),
+    [("remediation_submitted", 1), ("remediated", 0), ("withdrawn", 0), ("rejected", 0)],
+)
+async def test_only_a_live_waiver_waives(db, landscape, status, waived):
+    """A submitted, unverified remediation keeps its approved waiver until expiry
+    (I-23); a remediated or withdrawn exception waives nothing any more."""
+    db.add(
+        StandardException(
+            standard_id=landscape["std"].id,
+            card_id=landscape["itc"].id,
+            status=status,
+            expiry_date=date.today() + timedelta(days=30),
+        )
+    )
+    await db.flush()
+    result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
+    assert result["summary"]["waived"] == waived
+    assert result["summary"]["violations"] == 2 - waived
+
+
+async def test_awaiting_verification_past_expiry_does_not_waive(db, landscape):
+    db.add(
+        StandardException(
+            standard_id=landscape["std"].id,
+            card_id=landscape["itc"].id,
+            status="remediation_submitted",
+            expiry_date=date.today() - timedelta(days=1),
+        )
+    )
+    await db.flush()
+    result = await scan_standard_compliance(db, read_scope=CardReadScope.everything())
+    assert result["summary"]["waived"] == 0

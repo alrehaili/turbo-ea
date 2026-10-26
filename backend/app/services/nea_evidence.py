@@ -23,7 +23,7 @@ from app.models.card import Card
 from app.models.event import Event
 from app.models.maturity import MaturityAssessment, MaturityDimensionScore
 from app.models.nora_program import NORA_STAGE_NUMBERS, EaProgramDeliverable
-from app.models.tech_standard import StandardException, TechStandard
+from app.models.tech_standard import WAIVER_ACTIVE_STATUSES, StandardException, TechStandard
 from app.models.user import User
 from app.services.maturity import compute_overall_score
 
@@ -268,7 +268,7 @@ def _sheet_standards(wb: Workbook, data: dict) -> tuple[int, int]:
     open_exc_by_std: dict = {}
     open_total = 0
     for standard_id, status, expiry in exceptions:
-        active = status == "approved" and (expiry is None or expiry >= today)
+        active = status in WAIVER_ACTIVE_STATUSES and (expiry is None or expiry >= today)
         if status == "requested" or active:
             open_exc_by_std[standard_id] = open_exc_by_std.get(standard_id, 0) + 1
             open_total += 1

@@ -9,8 +9,13 @@ Three classes, **never mixed** (GOVERNANCE_MEASUREMENT_MODEL.md §1):
   value claim is attached to any of it.
 * **Effectiveness** — governance was acted on. GOV-03 rule-based technology
   standards compliance (I-9) and assessment coverage (I-10) as **two separate
-  figures**; GOV-04 / GOV-05 / GOV-07 are Not Available with the decision that
-  blocks them (they arrive in later batches).
+  figures**; GOV-07 **elapsed** calendar days per instrument (Batch 3.2, D-35)
+  from the recorded transition history and reliable existing stamps, beside
+  governance-controlled processing time (D-39: only intervals explicitly
+  attributed to the requester or an external dependency are left out; working
+  days wait on the business calendar, D-38, Batch 3.3). GOV-04 exception
+  resolution counts verified remediation only, with rejection, withdrawal and
+  expired-unresolved reported apart (D-40). GOV-05 is Not Available (D-41).
 * **Impact** — governed work performs better. Architecture risks, governed vs
   ungoverned delivery (GOV-09) and business value are Not Available with their
   reason until their batch or Phase 4 lands.
@@ -23,7 +28,9 @@ module-mode ``CardReadScope`` with hidden types excluded (D-01).
 
 from __future__ import annotations
 
-from datetime import date
+import statistics
+import uuid
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -31,6 +38,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.governance_transition import (
+    ATTRIBUTION_EXTERNAL,
+    ATTRIBUTION_REQUESTER,
+    INSTRUMENT_ADR,
+    INSTRUMENT_ARB,
+    INSTRUMENT_EXCEPTION,
+    GovernanceTransition,
+)
 from app.models.tech_standard import StandardException
 from app.services.card_read_scope import CardReadScope
 from app.services.executive import kpis, linkage
@@ -40,6 +55,8 @@ from app.services.tech_standards_scan import assess_standard_compliance
 #: ARB outcomes that count as a decision; deferral is reported apart (I-12).
 ARB_DECISION_STATUSES = ("approved", "rejected")
 ARB_DEFERRED = "deferred"
+#: Exception outcomes that are a decision (expiry is derived, never one — D-34).
+EXCEPTION_DECISION_STATUSES = ("approved", "rejected")
 
 
 def _not_available(reason: dict[str, Any]) -> dict[str, Any]:
@@ -81,8 +98,9 @@ async def _activity(db: AsyncSession, read_scope: CardReadScope, period: Period)
         elif r.status == ARB_DEFERRED:
             arb["deferred"] += 1
 
-    # Exceptions by their current state (I-12): the lifecycle has no recorded
-    # history yet, so this is a present-state snapshot, not a period figure.
+    # Exceptions by their current state (I-12): a present-state snapshot, not a
+    # period figure. Verified remediation, administrative closes (rejected,
+    # withdrawn), expired-unresolved and active approvals stay apart (D-40).
     exc_rows = await db.execute(select(StandardException))
     exceptions = list(exc_rows.scalars().all())
     hidden = await read_scope.hidden_card_ids(
@@ -90,24 +108,28 @@ async def _activity(db: AsyncSession, read_scope: CardReadScope, period: Period)
     )
     exceptions = [e for e in exceptions if e.card_id not in hidden]
     today = date.today()
-    exc_counts = {"requested": 0, "approved_active": 0, "expired": 0, "rejected": 0}
+    exc_counts = {
+        "requested": 0,
+        "approved_active": 0,
+        "expired": 0,
+        "remediation_submitted": 0,
+        "remediated": 0,
+        "rejected": 0,
+        "withdrawn": 0,
+    }
     for e in exceptions:
-        if e.status == "requested":
-            exc_counts["requested"] += 1
-        elif e.status == "rejected":
-            exc_counts["rejected"] += 1
-        elif e.status == "approved":
+        if e.status == "approved":
             if e.expiry_date is not None and e.expiry_date < today:
                 exc_counts["expired"] += 1
             else:
                 exc_counts["approved_active"] += 1
+        elif e.status in exc_counts:
+            exc_counts[e.status] += 1
 
     return {
         "adrs_signed": adrs_signed,
         "arb": {**arb, "dating": "latest_decision"},
         "exceptions": {**exc_counts, "temporal": kpis.CURRENT_STATE},
-        # Withdrawn / remediated states do not exist until Batch 3.2 (D-34).
-        "exception_lifecycle": _not_available({"code": "later_batch", "batch": "3.2"}),
     }
 
 
@@ -170,16 +192,419 @@ async def _effectiveness(
     return {
         "compliance": compliance,
         "coverage": coverage,
-        # GOV-04 needs the exception lifecycle (D-34, Batch 3.2); GOV-05 the
-        # decision actions and verification (D-41, Batch 3.4); GOV-07 the
-        # transition history and business calendar (D-38 / D-39, Batches 3.2-3.3).
-        "exception_resolution": _not_available({"code": "later_batch", "batch": "3.2"}),
+        "exception_resolution": await exception_resolution(db, read_scope, period),
+        # GOV-05 needs the decision actions and their verification (D-41).
         "decision_implementation": _not_available(
             {"code": "decision_pending", "decisions": ["D-41"], "batch": "3.4"}
         ),
-        "turnaround": _not_available(
-            {"code": "decision_pending", "decisions": ["D-38", "D-39"], "batch": "3.2"}
+        "turnaround": await turnaround(db, read_scope, period),
+    }
+
+
+def elapsed_days(start: datetime | None, end: datetime | None) -> float | None:
+    """Calendar days from ``start`` to ``end``; ``None`` when either is missing
+    or the order is impossible (an end before its start is not a duration)."""
+    if start is None or end is None or end < start:
+        return None
+    return (end - start).total_seconds() / 86400
+
+
+def elapsed_figure(samples: list[float], not_recorded: int, basis: str) -> dict[str, Any]:
+    """One instrument's GOV-07 elapsed figure: median and slowest, in days.
+
+    No sample means no figure: Not Available with the count of decisions whose
+    lifecycle was not recorded, never a zero (C-04)."""
+    if not samples:
+        return {
+            "status": "not_available",
+            "reason": {"code": "no_recorded_decisions"},
+            "decisions": 0,
+            "not_recorded": not_recorded,
+            "basis": basis,
+        }
+    return {
+        "status": "ok",
+        "decisions": len(samples),
+        "median_days": round(statistics.median(samples), 1),
+        "max_days": round(max(samples), 1),
+        "not_recorded": not_recorded,
+        "basis": basis,
+    }
+
+
+async def _first_decisions(
+    db: AsyncSession, instrument: str, outcomes: tuple[str, ...]
+) -> dict[uuid.UUID, datetime]:
+    """Each record's first recorded transition into a final outcome."""
+    rows = await db.execute(
+        select(GovernanceTransition.record_id, GovernanceTransition.occurred_at)
+        .where(
+            GovernanceTransition.instrument == instrument,
+            GovernanceTransition.to_status.in_(outcomes),
+        )
+        .order_by(GovernanceTransition.occurred_at)
+    )
+    first: dict[uuid.UUID, datetime] = {}
+    for record_id, occurred_at in rows.all():
+        first.setdefault(record_id, occurred_at)
+    return first
+
+
+def _split(
+    records: list[Any], first: dict[uuid.UUID, datetime], period: Period, legacy_decided
+) -> tuple[list[float], int]:
+    """Samples for records first decided in the period, and the not-recorded count.
+
+    ``legacy_decided(record)`` says whether a record with no recorded decision
+    transition counts as a decision this figure cannot time."""
+    samples: list[float] = []
+    not_recorded = 0
+    for rec in records:
+        decided = first.get(rec.id)
+        if decided is None:
+            if legacy_decided(rec):
+                not_recorded += 1
+            continue
+        if not _in_period(decided, period):
+            continue
+        days = elapsed_days(rec.created_at, decided)
+        if days is None:
+            not_recorded += 1
+        else:
+            samples.append(days)
+    return samples, not_recorded
+
+
+async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period) -> dict[str, Any]:
+    """GOV-07 **elapsed** calendar days, request to decision, per instrument (D-35).
+
+    Only reliable instants are used, and nothing is reconstructed:
+
+    * **ADR**: ``created_at`` to ``signed_at``, decisions signed in the period.
+      Both are stored once and never rewritten (a signed ADR is frozen).
+    * **ARB**: ``created_at`` to the first recorded approve / reject transition
+      in the period. Deferral is never final (D-35). A review decided in the
+      period with no recorded transition is "not recorded": its ``decided_at``
+      is overwritten on each change (I-12).
+    * **Exception**: ``created_at`` (the request) to the first recorded
+      approve / reject transition in the period. Decisions taken before the
+      history existed are "not recorded" (current state; they carry no date).
+
+    Instruments are never pooled. Governance-controlled processing time is
+    computed for the same decisions from their recorded transitions only
+    (:func:`processing_days`); working days wait on the business calendar (D-38).
+    """
+    # ADR: kept whole, no card scope, as on the decisions page (D-30).
+    adr_rows = await db.execute(
+        select(
+            ArchitectureDecision.id, ArchitectureDecision.created_at, ArchitectureDecision.signed_at
+        ).where(
+            ArchitectureDecision.status == "signed",
+            ArchitectureDecision.signed_at.is_not(None),
+        )
+    )
+    adr_samples: list[float] = []
+    adr_unreliable = 0
+    adr_timed: list[uuid.UUID] = []
+    for adr_id, created_at, signed_at in adr_rows.all():
+        if not _in_period(signed_at, period):
+            continue
+        days = elapsed_days(created_at, signed_at)
+        if days is None:
+            adr_unreliable += 1
+        else:
+            adr_samples.append(days)
+            adr_timed.append(adr_id)
+
+    # ARB: a review of a hidden subject card does not exist for the reader.
+    reviews = list((await db.execute(select(ArbReview))).scalars().all())
+    readable = await read_scope.readable_card_ids(
+        db, {r.subject_card_id for r in reviews if r.subject_card_id}, mode="module"
+    )
+    reviews = [r for r in reviews if not r.subject_card_id or r.subject_card_id in readable]
+    arb_first = await _first_decisions(db, INSTRUMENT_ARB, ARB_DECISION_STATUSES)
+    arb_samples, arb_not_recorded = _split(
+        reviews,
+        arb_first,
+        period,
+        lambda r: r.status in ARB_DECISION_STATUSES and _in_period(r.decided_at, period),
+    )
+
+    # Exceptions: an exception about a hidden card is omitted (D-30).
+    exceptions = list((await db.execute(select(StandardException))).scalars().all())
+    hidden = await read_scope.hidden_card_ids(
+        db, {e.card_id for e in exceptions if e.card_id}, mode="module"
+    )
+    exceptions = [e for e in exceptions if e.card_id not in hidden]
+    exc_first = await _first_decisions(db, INSTRUMENT_EXCEPTION, EXCEPTION_DECISION_STATUSES)
+    exc_samples, exc_not_recorded = _split(
+        exceptions,
+        exc_first,
+        period,
+        lambda e: e.status in EXCEPTION_DECISION_STATUSES,
+    )
+
+    def decided_in_period(first: dict[uuid.UUID, datetime], records: list[Any]):
+        return [r.id for r in records if _in_period(first.get(r.id), period)]
+
+    processing = {
+        "adr": processing_figure(
+            _processing_for(
+                await _chains(db, INSTRUMENT_ADR, adr_timed), adr_timed, ("signed",), ADR_WAITING
+            )
         ),
+        "arb": processing_figure(
+            _processing_for(
+                await _chains(db, INSTRUMENT_ARB, decided_in_period(arb_first, reviews)),
+                decided_in_period(arb_first, reviews),
+                ARB_DECISION_STATUSES,
+                ARB_WAITING,
+            )
+        ),
+        "exception": processing_figure(
+            _processing_for(
+                await _chains(db, INSTRUMENT_EXCEPTION, decided_in_period(exc_first, exceptions)),
+                decided_in_period(exc_first, exceptions),
+                EXCEPTION_DECISION_STATUSES,
+                (),
+            )
+        ),
+    }
+
+    return {
+        "status": "ok",
+        "measure": "elapsed",
+        "unit": "calendar_days",
+        "instruments": {
+            "adr": elapsed_figure(adr_samples, adr_unreliable, "created_to_signed"),
+            "arb": elapsed_figure(arb_samples, arb_not_recorded, "created_to_first_decision"),
+            "exception": {
+                **elapsed_figure(exc_samples, exc_not_recorded, "requested_to_first_decision"),
+                # Decisions before the history carry no date: a current-state count.
+                "not_recorded_temporal": kpis.CURRENT_STATE,
+            },
+        },
+        # D-39: governance-controlled time, reported beside elapsed, never instead.
+        "processing_time": {
+            "status": "ok",
+            "measure": "governance_controlled",
+            "unit": "calendar_days",
+            "instruments": processing,
+        },
+        "working_days": _not_available(
+            {"code": "decision_pending", "decisions": ["D-38"], "batch": "3.3"}
+        ),
+    }
+
+
+#: Waiting states whose interval may leave governance-controlled time, when
+#: explicitly attributed to the requester or an external dependency (I-21).
+ADR_WAITING = ("draft",)
+ARB_WAITING = ("deferred",)
+#: States that can only follow an approval. A legacy ``rejected`` row is left
+#: out: with no history it may never have been approved (GOV-04, I-26).
+RESOLUTION_STATES = ("approved", "remediation_submitted", "remediated", "withdrawn")
+#: Attributions that take an interval out of governance-controlled time.
+EXCLUDABLE = (ATTRIBUTION_REQUESTER, ATTRIBUTION_EXTERNAL)
+
+
+async def _chains(
+    db: AsyncSession, instrument: str, record_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[GovernanceTransition]]:
+    """Each record's transitions in order (only records that have any)."""
+    if not record_ids:
+        return {}
+    rows = await db.execute(
+        select(GovernanceTransition)
+        .where(
+            GovernanceTransition.instrument == instrument,
+            GovernanceTransition.record_id.in_(record_ids),
+        )
+        .order_by(GovernanceTransition.occurred_at, GovernanceTransition.created_at)
+    )
+    chains: dict[uuid.UUID, list[GovernanceTransition]] = {}
+    for t in rows.scalars().all():
+        chains.setdefault(t.record_id, []).append(t)
+    return chains
+
+
+def _missing(record_ids: list[uuid.UUID], chains: dict) -> int:
+    return sum(1 for rid in record_ids if rid not in chains)
+
+
+def _processing_for(
+    chains: dict[uuid.UUID, list[GovernanceTransition]],
+    record_ids: list[uuid.UUID],
+    outcomes: tuple[str, ...],
+    waiting: tuple[str, ...],
+) -> list[tuple[float | None, str | None]]:
+    results = [
+        processing_days(chains[rid], outcomes, waiting) for rid in record_ids if rid in chains
+    ]
+    return results + [(None, "history_not_recorded")] * _missing(record_ids, chains)
+
+
+def processing_days(
+    chain: list[Any], outcomes: tuple[str, ...], waiting: tuple[str, ...]
+) -> tuple[float | None, str | None]:
+    """Governance-controlled calendar days of one record, or why there are none.
+
+    ``chain`` is the record's transitions in order. The window runs from the
+    creation transition to the first transition into an ``outcome``. An
+    interval in a ``waiting`` state is left out only when the transition that
+    entered it attributes it to the requester or an external dependency **with
+    a reason**; attributed to governance it stays in; unattributed, the record
+    cannot be timed (D-39, I-21, I-22). Returns ``(days, None)`` or
+    ``(None, cause)`` with cause ``history_not_recorded`` / ``history_broken``
+    / ``delay_unattributed`` / ``no_decision``.
+    """
+    if not chain or chain[0].from_status is not None:
+        return None, "history_not_recorded"
+    for prev, nxt in zip(chain, chain[1:]):
+        if nxt.from_status != prev.to_status or nxt.occurred_at < prev.occurred_at:
+            return None, "history_broken"
+    end = next((i for i, t in enumerate(chain) if t.to_status in outcomes), None)
+    if end is None:
+        return None, "no_decision"
+    excluded = 0.0
+    for entered, left in zip(chain[:end], chain[1 : end + 1]):
+        if entered.to_status not in waiting:
+            continue
+        if entered.delay_attribution is None:
+            return None, "delay_unattributed"
+        if entered.delay_attribution in EXCLUDABLE and (entered.reason or "").strip():
+            excluded += (left.occurred_at - entered.occurred_at).total_seconds()
+    total = (chain[end].occurred_at - chain[0].occurred_at).total_seconds()
+    return (total - excluded) / 86400, None
+
+
+def processing_figure(results: list[tuple[float | None, str | None]]) -> dict[str, Any]:
+    """Median and slowest governance-controlled days, with untimed records by cause.
+
+    Not Available when no record could be timed — never a zero, and never the
+    elapsed figure in its place (D-39)."""
+    samples = [days for days, _ in results if days is not None]
+    causes: dict[str, int] = {}
+    for _, cause in results:
+        if cause is not None:
+            causes[cause] = causes.get(cause, 0) + 1
+    if not samples:
+        return {
+            "status": "not_available",
+            "reason": {"code": "processing_not_computable"},
+            "decisions": 0,
+            "not_computable": causes,
+        }
+    return {
+        "status": "ok",
+        "decisions": len(samples),
+        "median_days": round(statistics.median(samples), 1),
+        "max_days": round(max(samples), 1),
+        "not_computable": causes,
+    }
+
+
+def classify_resolution(exc: Any, chain: list[Any]) -> str:
+    """One eligible exception's GOV-04 outcome (D-40, I-26).
+
+    ``remediated_on_time`` only when the verification is recorded on or before
+    the expiry date; a later verification is ``remediated_late``. Rejection and
+    withdrawal are administrative outcomes, never remediation. Awaiting
+    verification and plain expiry are unresolved."""
+    verified = next((t for t in chain if t.to_status == "remediated"), None)
+    if exc.status == "remediated" and verified is not None:
+        on_time = verified.occurred_at.date() <= exc.expiry_date
+        return "remediated_on_time" if on_time else "remediated_late"
+    if exc.status == "withdrawn":
+        return "withdrawn"
+    if exc.status == "rejected":
+        return "rejected"
+    if exc.status == "remediation_submitted":
+        return "awaiting_verification"
+    if exc.status == "approved":
+        return "expired_unresolved"
+    return "not_recorded"
+
+
+async def exception_resolution(
+    db: AsyncSession, read_scope: CardReadScope, period: Period
+) -> dict[str, Any]:
+    """GOV-04: share of due exceptions resolved by **verified** remediation (D-40).
+
+    Eligible population (I-26): exceptions whose approval is recorded in the
+    transition history, whose expiry date falls in the period and has passed,
+    about a card the viewer may read. Numerator: remediation verified on or
+    before the expiry date. Everything else is reported in its own bucket and
+    never in the numerator: remediated late, withdrawn, rejected after
+    approval, awaiting verification, expired unresolved. Due exceptions whose
+    approval predates the history are "lifecycle not recorded"; nothing is
+    inferred for them. Requests rejected in the period are counted apart.
+    """
+    today = date.today()
+    exceptions = list((await db.execute(select(StandardException))).scalars().all())
+    hidden = await read_scope.hidden_card_ids(
+        db, {e.card_id for e in exceptions if e.card_id}, mode="module"
+    )
+    exceptions = [e for e in exceptions if e.card_id not in hidden]
+    chains = await _chains(db, INSTRUMENT_EXCEPTION, [e.id for e in exceptions])
+
+    buckets = {
+        "remediated_on_time": 0,
+        "remediated_late": 0,
+        "withdrawn": 0,
+        "rejected": 0,
+        "awaiting_verification": 0,
+        "expired_unresolved": 0,
+    }
+    not_recorded = 0
+    rejected_requests = 0
+    for e in exceptions:
+        chain = chains.get(e.id, [])
+        rejected_requests += sum(
+            1
+            for t in chain
+            if t.from_status == "requested"
+            and t.to_status == "rejected"
+            and _in_period(t.occurred_at, period)
+        )
+        due = (
+            e.expiry_date is not None
+            and period.start <= e.expiry_date < period.end
+            and e.expiry_date < today
+        )
+        if not due or e.status == "requested":
+            continue
+        approved = any(
+            t.to_status == "approved" and t.from_status in ("requested", "rejected") for t in chain
+        )
+        if not approved:
+            recorded = bool(chain) and chain[0].from_status is None
+            # A recorded lifecycle with no approval was never a waiver; an
+            # approval-type state with no recorded approval predates the history.
+            if not recorded and e.status in RESOLUTION_STATES:
+                not_recorded += 1
+            continue
+        outcome = classify_resolution(e, chain)
+        if outcome == "not_recorded":
+            not_recorded += 1
+        else:
+            buckets[outcome] += 1
+
+    eligible = sum(buckets.values())
+    common = {
+        "eligible": eligible,
+        "outcomes": buckets,
+        "not_recorded": not_recorded,
+        "rejected_requests": rejected_requests,
+        "basis": "verified_by_expiry",
+    }
+    if eligible == 0:
+        return {"status": "not_available", "reason": {"code": "no_eligible_exceptions"}, **common}
+    return {
+        "status": "ok",
+        "value": round(100 * buckets["remediated_on_time"] / eligible, 1),
+        "unit": "percent",
+        **common,
     }
 
 

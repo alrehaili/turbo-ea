@@ -19,14 +19,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
+from app.models.governance_transition import INSTRUMENT_EXCEPTION
 from app.models.tech_standard import (
     STANDARD_CATEGORIES,
     STANDARD_MANDATES,
     STANDARD_STATUSES,
+    WAIVER_ACTIVE_STATUSES,
     StandardException,
     TechStandard,
 )
 from app.models.user import User
+from app.services import audit_log, governance_transitions
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.permission_service import PermissionService
 from app.services.tech_standards_scan import scan_standard_compliance
@@ -81,6 +84,19 @@ class ExceptionCreate(BaseModel):
     expiry_date: date | None = None
 
 
+class RemediationSubmit(BaseModel):
+    evidence: str = Field(min_length=1, max_length=10000)
+
+
+class RemediationVerify(BaseModel):
+    outcome: str = Field(pattern="^(verified|returned)$")
+    note: str | None = Field(default=None, max_length=5000)
+
+
+class ExceptionWithdraw(BaseModel):
+    reason: str = Field(min_length=1, max_length=5000)
+
+
 class ExceptionUpdate(BaseModel):
     card_id: uuid.UUID | None = None
     initiative_id: uuid.UUID | None = None
@@ -120,7 +136,12 @@ def _exception_dict(e: StandardException, cards: dict[uuid.UUID, dict]) -> dict:
     def brief(cid: uuid.UUID | None) -> dict | None:
         return cards.get(cid) if cid else None
 
-    expired = bool(e.expiry_date and e.expiry_date < date.today() and e.status == "approved")
+    # Past expiry and still relying on the waiver: shown as expired while only
+    # approved; a submitted remediation keeps its own status and says so.
+    past_expiry = bool(
+        e.expiry_date and e.expiry_date < date.today() and e.status in WAIVER_ACTIVE_STATUSES
+    )
+    expired = past_expiry and e.status == "approved"
     return {
         "id": str(e.id),
         "standard_id": str(e.standard_id),
@@ -131,7 +152,31 @@ def _exception_dict(e: StandardException, cards: dict[uuid.UUID, dict]) -> dict:
         "status": "expired" if expired else e.status,
         "expiry_date": e.expiry_date.isoformat() if e.expiry_date else None,
         "approver_id": str(e.approver_id) if e.approver_id else None,
+        # Latest approve / reject; null for decisions taken before it was kept.
+        "decided_at": e.decided_at.isoformat() if e.decided_at else None,
+        "past_expiry": past_expiry,
+        "created_by": str(e.created_by) if e.created_by else None,
+        # Remediation and withdrawal (D-40); null on records that never had them.
+        "remediation_evidence": e.remediation_evidence,
+        "remediation_submitted_by": (
+            str(e.remediation_submitted_by) if e.remediation_submitted_by else None
+        ),
+        "remediation_submitted_at": _iso(e.remediation_submitted_at),
+        "remediation_verified_by": (
+            str(e.remediation_verified_by) if e.remediation_verified_by else None
+        ),
+        "remediation_verified_at": _iso(e.remediation_verified_at),
+        "withdrawn_at": _iso(e.withdrawn_at),
+        "withdrawal_reason": e.withdrawal_reason,
     }
+
+
+def _iso(moment) -> str | None:
+    return moment.isoformat() if moment else None
+
+
+def _lifecycle_http(err: governance_transitions.LifecycleError) -> HTTPException:
+    return HTTPException(status_code=err.status, detail={"code": err.code, "message": str(err)})
 
 
 async def _card_brief_map(
@@ -275,7 +320,7 @@ async def radar(
         if cid in hidden:
             continue
         is_open = status == "requested" or (
-            status == "approved" and (expiry is None or expiry >= date.today())
+            status in WAIVER_ACTIVE_STATUSES and (expiry is None or expiry >= date.today())
         )
         if is_open:
             open_exc[sid] = open_exc.get(sid, 0) + 1
@@ -395,6 +440,21 @@ async def delete_standard(
 ):
     await PermissionService.require_permission(db, user, "tech_standards.manage")
     s = await _get_standard(db, standard_id)
+    # The cascade would hard-delete decided exceptions, which only an audited
+    # administrative correction may do (D-40, I-28).
+    decided = await db.scalar(
+        select(StandardException.id)
+        .where(StandardException.standard_id == s.id, StandardException.status != "requested")
+        .limit(1)
+    )
+    if decided is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "exceptions_have_lifecycle",
+                "message": "This standard has decided exceptions; withdraw or keep them instead",
+            },
+        )
     await db.delete(s)
     await db.commit()
 
@@ -421,6 +481,10 @@ async def create_exception(
         **body.model_dump(),
     )
     db.add(exc)
+    await db.flush()
+    governance_transitions.record_transition(
+        db, INSTRUMENT_EXCEPTION, exc.id, None, exc.status, user.id
+    )
     await db.commit()
     await db.refresh(exc)
     cards = await _card_brief_map(
@@ -467,8 +531,91 @@ async def decide_exception(
     exc = await _get_exception(db, exception_id, read_scope)
     if exc.status not in ("requested", "approved", "rejected"):
         raise HTTPException(status_code=400, detail=f"Cannot decide on status {exc.status}")
-    exc.status = "approved" if action == "approve" else "rejected"
-    exc.approver_id = user.id
+    governance_transitions.decide_exception(db, exc, action, user.id)
+    await db.commit()
+    await db.refresh(exc)
+    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id}, read_scope)
+    return _exception_dict(exc, cards)
+
+
+@router.get("/exceptions/{exception_id}/transitions")
+async def exception_transitions(
+    exception_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The exception's recorded status history (D-34); empty before Batch 3.2."""
+    await PermissionService.require_permission(db, user, "tech_standards.view")
+    exc = await _get_exception(db, exception_id, await CardReadScope.load(db, user))
+    history = await governance_transitions.transition_history(db, INSTRUMENT_EXCEPTION, exc.id)
+    return governance_transitions.history_payload(history)
+
+
+@router.post("/exceptions/{exception_id}/remediation")
+async def submit_remediation(
+    exception_id: uuid.UUID,
+    body: RemediationSubmit,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Submit remediation evidence for an approved exception (D-40)."""
+    await PermissionService.require_permission(db, user, "tech_standards.manage")
+    read_scope = await CardReadScope.load(db, user)
+    exc = await _get_exception(db, exception_id, read_scope)
+    try:
+        governance_transitions.submit_remediation(db, exc, body.evidence, user.id)
+    except governance_transitions.LifecycleError as err:
+        raise _lifecycle_http(err) from err
+    await db.commit()
+    await db.refresh(exc)
+    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id}, read_scope)
+    return _exception_dict(exc, cards)
+
+
+@router.post("/exceptions/{exception_id}/remediation/verify")
+async def verify_remediation(
+    exception_id: uuid.UUID,
+    body: RemediationVerify,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Independently verify submitted remediation, or return it (D-40)."""
+    await PermissionService.require_permission(db, user, "tech_standards.approve_exception")
+    read_scope = await CardReadScope.load(db, user)
+    exc = await _get_exception(db, exception_id, read_scope)
+    try:
+        governance_transitions.verify_remediation(db, exc, body.outcome, body.note, user.id)
+    except governance_transitions.LifecycleError as err:
+        raise _lifecycle_http(err) from err
+    await db.commit()
+    await db.refresh(exc)
+    cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id}, read_scope)
+    return _exception_dict(exc, cards)
+
+
+@router.post("/exceptions/{exception_id}/withdraw")
+async def withdraw_exception(
+    exception_id: uuid.UUID,
+    body: ExceptionWithdraw,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Withdraw a pending or approved exception with a reason (D-40).
+
+    The original requester or a holder of ``tech_standards.manage``."""
+    await PermissionService.require_permission(db, user, "tech_standards.view")
+    read_scope = await CardReadScope.load(db, user)
+    exc = await _get_exception(db, exception_id, read_scope)
+    is_manager = await PermissionService.check_permission(db, user, "tech_standards.manage")
+    if not governance_transitions.may_withdraw(exc, user.id, is_manager=is_manager):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "not_requester", "message": "Only the requester or a manager"},
+        )
+    try:
+        governance_transitions.withdraw_exception(db, exc, body.reason, user.id)
+    except governance_transitions.LifecycleError as err:
+        raise _lifecycle_http(err) from err
     await db.commit()
     await db.refresh(exc)
     cards = await _card_brief_map(db, {exc.card_id, exc.initiative_id}, read_scope)
@@ -478,10 +625,38 @@ async def decide_exception(
 @router.delete("/exceptions/{exception_id}", status_code=204)
 async def delete_exception(
     exception_id: uuid.UUID,
+    reason: str | None = Query(None, max_length=2000),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "tech_standards.manage")
+    """Permanently delete an exception recorded in error (D-40, I-27).
+
+    An administrative correction: it needs ``tech_standards.delete_exception``
+    (no default role holds it) and a reason, writes an admin audit record, and
+    leaves a final ``deleted`` row in the exception's history. Routine closing
+    is a withdrawal, not a delete."""
+    await PermissionService.require_permission(db, user, "tech_standards.delete_exception")
     exc = await _get_exception(db, exception_id, await CardReadScope.load(db, user))
+    try:
+        governance_transitions.record_deletion(db, exc, reason, user.id)
+    except governance_transitions.LifecycleError as err:
+        raise _lifecycle_http(err) from err
+    standard = await db.get(TechStandard, exc.standard_id)
+    card_name = (
+        await db.scalar(select(Card.name).where(Card.id == exc.card_id)) if exc.card_id else None
+    )
+    await audit_log.record(
+        db,
+        action="admin.tech_standard_exception.deleted",
+        category="admin",
+        actor=user,
+        target=("tech_standard_exception", str(exc.id), standard.name if standard else None),
+        context={
+            "standard": standard.name if standard else None,
+            "card": card_name,
+            "status": exc.status,
+            "deletion_reason": reason.strip() if reason else None,
+        },
+    )
     await db.delete(exc)
     await db.commit()

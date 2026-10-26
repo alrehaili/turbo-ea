@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
+from app.models.governance_transition import GovernanceTransition
 from app.models.tech_standard import StandardException, TechStandard
 from app.services.permission_service import PermissionService
 from tests.conftest import (
@@ -90,12 +91,21 @@ async def env(db):
     await db.flush()
 
     hidden = await create_card(db, card_type="Secret", name="Zephyr Programme")
-    db.add_all(
-        [
-            StandardException(standard_id=std.id, card_id=app.id, status="requested"),
-            StandardException(standard_id=std.id, card_id=hidden.id, status="requested"),
-        ]
-    )
+    seen = StandardException(standard_id=std.id, card_id=app.id, status="requested")
+    unseen = StandardException(standard_id=std.id, card_id=hidden.id, status="requested")
+    decided = StandardException(standard_id=std.id, card_id=app.id, status="approved")
+    decided_hidden = StandardException(standard_id=std.id, card_id=hidden.id, status="approved")
+    db.add_all([seen, unseen, decided, decided_hidden])
+    await db.flush()
+    for exc in (decided, decided_hidden):
+        db.add(
+            GovernanceTransition(
+                instrument="exception",
+                record_id=exc.id,
+                from_status="requested",
+                to_status="approved",
+            )
+        )
     await db.flush()
     await _deny_view(db, "Secret", "exec")
     return {
@@ -148,3 +158,13 @@ async def test_drilldown_needs_tech_standards_view(client, env):
 
 async def test_invalid_period_is_422(client, env):
     assert (await _get(client, env["admin"], "/governance?period=BOGUS")).status_code == 422
+
+
+async def test_gov07_elapsed_ignores_a_hidden_cards_exception(client, env):
+    admin = (await _get(client, env["admin"], "/governance")).json()
+    exe = (await _get(client, env["exec"], "/governance")).json()
+    a = admin["effectiveness"]["turnaround"]["instruments"]["exception"]
+    e = exe["effectiveness"]["turnaround"]["instruments"]["exception"]
+    assert a["decisions"] == 2
+    assert e["decisions"] == 1
+    assert exe["effectiveness"]["turnaround"]["processing_time"]["status"] == "not_available"

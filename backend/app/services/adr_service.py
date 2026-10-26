@@ -29,6 +29,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
+from app.models.governance_transition import INSTRUMENT_ADR
+from app.services import governance_transitions
 from app.services.event_bus import event_bus
 
 
@@ -77,6 +79,8 @@ async def create_decision(
     attributes: dict[str, Any] | None = None,
     linked_card_ids: Sequence[uuid.UUID] = (),
     created_by: uuid.UUID | None = None,
+    delay_attribution: str | None = None,
+    delay_reason: str | None = None,
 ) -> ArchitectureDecision:
     """Insert a draft decision and its card links; flush, never commit.
 
@@ -98,6 +102,19 @@ async def create_decision(
     )
     db.add(adr)
     await db.flush()
+    # The initial draft is a waiting interval like any other: excluded from
+    # processing time only if its author says it is theirs, with a reason (D-39).
+    attribution, reason = governance_transitions.validate_delay(delay_attribution, delay_reason)
+    governance_transitions.record_transition(
+        db,
+        INSTRUMENT_ADR,
+        adr.id,
+        None,
+        adr.status or "draft",
+        created_by,
+        reason=reason,
+        delay_attribution=attribution,
+    )
     seen: set[uuid.UUID] = set()
     for cid in linked_card_ids:
         if cid in seen:
