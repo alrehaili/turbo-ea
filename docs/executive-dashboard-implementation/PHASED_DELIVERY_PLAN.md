@@ -145,6 +145,8 @@ Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (need
 
 ### Batch 3.3 — Business calendar
 
+> **Status 2026-10-27 (v2.39.0): implemented, uncommitted.** D-38 approved; business calendar per fiscal year, `admin.business_calendar`, working-day GOV-07 (I-38..I-41). Validation **Pending Verification**. Batch 3.4 not started.
+
 | Item | Content |
 |---|---|
 | Backend / frontend | Calendar configuration (working week, holidays per fiscal year, confirmation) in admin settings; working-day function; GOV-07 working-day variant Not Available while the period is not valid (D-28, D-38) |

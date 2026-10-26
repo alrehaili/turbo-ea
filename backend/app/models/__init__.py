@@ -8,6 +8,7 @@ from app.models.audit_log import AuditLogEntry
 from app.models.authoritative_source import AuthoritativeSource
 from app.models.base import Base
 from app.models.bookmark import Bookmark
+from app.models.business_calendar import BusinessCalendarYear
 from app.models.calculation import Calculation
 from app.models.card import Card
 from app.models.card_logo import CardLogo
@@ -173,6 +174,7 @@ __all__ = [
     "EAPrinciple",
     "AuthoritativeSource",
     "Bookmark",
+    "BusinessCalendarYear",
     "Calculation",
     "Diagram",
     "DiagramFavorite",

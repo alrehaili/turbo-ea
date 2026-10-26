@@ -740,3 +740,24 @@ Batch 3.2 is closed at v2.38.1 and committed to `main`. Scope is frozen: nothing
 - Delay attribution on ADR duplicate / revise (such revisions stay untimed for processing time).
 - Working-day figures (D-38, Batch 3.3) and the other open decisions D-37, D-41, D-42 (Batches 3.4–3.6).
 - Not run before commit: full suites, mutation testing, builds, `mkdocs build --strict`, the workspace round-trip suite (its 4 card-type-category failures are pre-existing and unrelated). There is no CI on this fork.
+
+## Phase 3 — Batch 3.3: business calendar and GOV-07 working days (2026-10-27, v2.39.0)
+
+D-38 was approved on 2026-10-27 (the EA Governance Office owns the calendar; authorized administrators maintain official Saudi holidays by fiscal year; a period is valid only when all its fiscal-year calendars are confirmed; otherwise working-day GOV-07 is Not Available). Recorded in `DECISION_LOG.md` with details I-38..I-41. Implemented on `main`, **uncommitted**, not deployed. Batch 3.4 not started.
+
+**Backend.**
+- `models/business_calendar.py` + migration `1171`: `business_calendar_years` (fiscal year, working week, holidays, confirmation, confirming user / time). Additive; no row created.
+- `services/business_calendar.py`: validation (fiscal year, working week, holidays inside the year), `apply_edit` (a change to a confirmed year withdraws the confirmation), `BusinessCalendar.working_days` (half-open count on each day's own fiscal-year calendar; `None` when any spanned year is unconfirmed), `load_calendar`, `serialize`.
+- `api/v1/business_calendar.py`: `GET /business-calendar`, `PUT /business-calendar/{fy}`, `POST …/{fy}/confirm`, `POST …/{fy}/unconfirm`; new permission `admin.business_calendar` (no default role); admin audit records `admin.business_calendar.created` / `updated` / `confirmed` / `unconfirmed`.
+- `services/executive/governance.py`: `working_days_block` / `working_days_figure` — GOV-07 elapsed working days per instrument over the same decisions; Not Available (`calendar_not_confirmed`, with the years) unless every fiscal year of the period is confirmed; spans into unconfirmed years counted by cause.
+- Workspace transfer: config section `BusinessCalendar` (natural key `fiscal_year`; `confirmed_by` and `confirmed_at` not carried).
+
+**Frontend.** `BusinessCalendarSection.tsx` in Settings → General (shown to `admin.business_calendar` holders): fiscal year, working days, holidays, save, confirm / withdraw. Governance page: working-day figures under each instrument, or the unconfirmed years named. EN/AR strings (admin, common, security-log labels).
+
+**Docs.** `docs/admin/settings.md` + `.ar.md` (business calendar), `docs/guide/dashboard.md` + `.ar.md` (working days), CHANGELOG `[2.39.0]`, VERSION `2.39.0`, DECISION_LOG D-38 + I-38..I-41, PHASED_DELIVERY_PLAN status, RTM P3-07.
+
+**Validation: Pending Verification.** As instructed, no tests, builds, type checks or browser checks were run. Only `ruff check` / `ruff format`, the app import and the Alembic head (`1171`) were checked. Tests written and not executed: `tests/services/test_business_calendar.py`, `tests/api/test_business_calendar_api.py`, the GOV-07 working-day cases in `tests/services/test_executive_governance.py`, `test_business_calendar_roundtrip` in `tests/services/test_workspace_io_roundtrip.py`, `BusinessCalendarSection.test.tsx`, and two cases in `ExecutiveGovernance.test.tsx`. OpenAPI regenerated (`scripts/dump_openapi.py`).
+
+**Rules added for approval.** A change to a confirmed year withdraws its confirmation (I-38); the half-open working-day count and UTC dating (I-39).
+
+**Deferred.** Governance-controlled processing time in working days (stays calendar days, I-41); importing a holiday file (option (b) of D-38, not chosen).

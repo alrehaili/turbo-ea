@@ -373,6 +373,72 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     expect(card).not.toHaveTextContent("0%");
   });
 
+  it("names the unconfirmed fiscal years when working days are not available (D-38)", () => {
+    const unconfirmed: ExecutiveGovernanceData = {
+      ...data,
+      effectiveness: {
+        ...data.effectiveness,
+        turnaround: {
+          ...data.effectiveness.turnaround,
+          working_days: {
+            status: "not_available",
+            reason: { code: "calendar_not_confirmed", fiscal_years: [2026, 2027] },
+          },
+        },
+      },
+    };
+    useApiQuery.mockImplementation((path: string | null) =>
+      path && path.includes("/reports/executive/governance")
+        ? { data: unconfirmed, error: null, loading: false }
+        : { data: null, error: null, loading: false },
+    );
+    renderPage();
+    expect(screen.getByTestId("gov07-working-days-na")).toHaveTextContent(
+      "the business calendar is not confirmed for FY2026, FY2027",
+    );
+    expect(screen.queryByTestId("gov07-working-days-adr")).toBeNull();
+  });
+
+  it("shows working days per instrument once the calendar is confirmed", () => {
+    const confirmed: ExecutiveGovernanceData = {
+      ...data,
+      effectiveness: {
+        ...data.effectiveness,
+        turnaround: {
+          ...data.effectiveness.turnaround,
+          working_days: {
+            status: "ok",
+            measure: "elapsed",
+            unit: "working_days",
+            instruments: {
+              adr: { status: "ok", decisions: 3, median_days: 3, max_days: 8, not_computable: {} },
+              arb: {
+                status: "not_available",
+                reason: { code: "no_recorded_decisions" },
+                decisions: 0,
+                not_computable: { calendar_not_confirmed: 2 },
+              },
+              exception: { status: "ok", decisions: 1, median_days: 1, max_days: 1, not_computable: {} },
+            },
+          },
+        },
+      },
+    };
+    useApiQuery.mockImplementation((path: string | null) =>
+      path && path.includes("/reports/executive/governance")
+        ? { data: confirmed, error: null, loading: false }
+        : { data: null, error: null, loading: false },
+    );
+    renderPage();
+    const adr = screen.getByTestId("gov07-working-days-adr");
+    expect(adr).toHaveTextContent("Working days: median 3");
+    expect(adr).toHaveTextContent("Slowest: 8 working days");
+    const arb = screen.getByTestId("gov07-working-days-arb");
+    expect(arb).toHaveTextContent("Working days: not available");
+    expect(arb).toHaveTextContent("Started in a year without a confirmed calendar: 2");
+    expect(screen.queryByTestId("gov07-working-days-na")).toBeNull();
+  });
+
   it("shows governance-controlled time beside elapsed, with untimed records by cause", () => {
     renderPage();
     const adr = screen.getByTestId("gov07-processing-adr");

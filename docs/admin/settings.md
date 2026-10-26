@@ -69,6 +69,10 @@ Select the month that begins your organization's fiscal year (January through De
 
 The default is **January** (calendar year = fiscal year).
 
+### Business calendar
+
+Shown to holders of the *Maintain the business calendar* permission (administrators). For each fiscal year, set the **working days** (Sunday to Thursday by default) and the **official holidays**, each with a date inside that fiscal year and a name, then **Confirm calendar**. The Executive dashboard shows governance turnaround in working days only for periods whose fiscal years are all confirmed; otherwise those figures read *Not available*. Saving a change to a confirmed year withdraws its confirmation until it is confirmed again. Every change and confirmation is recorded in the security log.
+
 ### Initiative report staleness
 
 On the [Executive tab](../guide/dashboard.md#executive-tab), an initiative whose latest status report is older than this many days counts as **Unknown / not reported** rather than by its last health. Enter a whole number of days (1–3650), or leave the field empty for no threshold. There is **no default**: while the field is empty, every existing report counts however old it is, and the Executive tab says so.

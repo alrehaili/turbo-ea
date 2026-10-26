@@ -201,7 +201,10 @@ async def test_later_batch_indicators_are_not_available_with_reasons(db):
     turnaround = eff["turnaround"]
     assert turnaround["measure"] == "elapsed"
     assert turnaround["processing_time"]["measure"] == "governance_controlled"
-    assert turnaround["working_days"]["reason"]["decisions"] == ["D-38"]
+    # No confirmed business calendar for the period: Not Available, naming the years (D-38).
+    assert turnaround["working_days"]["status"] == "not_available"
+    assert turnaround["working_days"]["reason"]["code"] == "calendar_not_confirmed"
+    assert turnaround["working_days"]["reason"]["fiscal_years"]
     for block in (
         impact["architecture_risks"],
         impact["governed_delivery"],
@@ -1069,3 +1072,60 @@ async def test_processing_time_in_the_summary_uses_the_recorded_attribution(db):
     proc = t["processing_time"]["instruments"]["arb"]
     assert proc["status"] == "ok"
     assert proc["median_days"] == 2.0
+
+
+# --------------------------------------------------------------------------- #
+# GOV-07 working days on the business calendar (D-28, D-38; Batch 3.3)         #
+# --------------------------------------------------------------------------- #
+async def _confirm_years(db, *years):
+    from app.models.business_calendar import BusinessCalendarYear
+
+    for fy in years:
+        db.add(
+            BusinessCalendarYear(
+                fiscal_year=fy, working_weekdays=[7, 1, 2, 3, 4], holidays=[], confirmed=True
+            )
+        )
+    await db.flush()
+
+
+async def test_gov07_working_days_appear_once_the_period_is_confirmed(db):
+    now = datetime.now(timezone.utc)
+    db.add(
+        ArchitectureDecision(
+            reference_number="ADR-WD",
+            title="Timed",
+            status="signed",
+            created_at=now - timedelta(days=7),
+            signed_at=now,
+        )
+    )
+    await db.flush()
+    period = _fy_period()
+    # Seven calendar days always hold five Sunday–Thursday working days; the
+    # span may start in the previous fiscal year, so both are confirmed.
+    await _confirm_years(db, period.fy - 1, period.fy)
+    wd = (await _turnaround(db))["working_days"]
+    assert wd["status"] == "ok" and wd["unit"] == "working_days"
+    adr = wd["instruments"]["adr"]
+    assert (adr["status"], adr["decisions"], adr["median_days"]) == ("ok", 1, 5)
+
+
+async def test_gov07_a_span_into_an_unconfirmed_year_is_untimed_not_estimated(db):
+    now = datetime.now(timezone.utc)
+    db.add(
+        ArchitectureDecision(
+            reference_number="ADR-OLD",
+            title="Started long ago",
+            status="signed",
+            created_at=now.replace(year=now.year - 2),
+            signed_at=now,
+        )
+    )
+    await db.flush()
+    period = _fy_period()
+    await _confirm_years(db, period.fy)  # the period is valid; the span's start year is not
+    adr = (await _turnaround(db))["working_days"]["instruments"]["adr"]
+    assert adr["status"] == "not_available"
+    assert adr["not_computable"] == {"calendar_not_confirmed": 1}
+    assert "median_days" not in adr

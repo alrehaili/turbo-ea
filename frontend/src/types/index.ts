@@ -358,6 +358,33 @@ export interface ExecutiveGovernanceData {
   };
 }
 
+/** One instrument's elapsed working days (D-28, D-38). */
+export type GovernanceWorkingDaysFigure =
+  | {
+      status: "ok";
+      decisions: number;
+      median_days: number;
+      max_days: number;
+      /** Decisions whose span reaches a fiscal year without a confirmed calendar. */
+      not_computable: Record<string, number>;
+    }
+  | {
+      status: "not_available";
+      reason: { code: string };
+      decisions: 0;
+      not_computable: Record<string, number>;
+    };
+
+/** GOV-07 working days: Not available while the period's calendar is not confirmed. */
+export type GovernanceWorkingDays =
+  | {
+      status: "ok";
+      measure: "elapsed";
+      unit: "working_days";
+      instruments: Record<"adr" | "arb" | "exception", GovernanceWorkingDaysFigure>;
+    }
+  | { status: "not_available"; reason: { code: string; fiscal_years?: number[]; [k: string]: unknown } };
+
 /** One instrument's GOV-07 elapsed figure; instruments are never pooled. */
 export type GovernanceElapsed =
   | {
@@ -411,7 +438,8 @@ export interface GovernanceTurnaround {
       exception: GovernanceProcessing;
     };
   };
-  working_days: ExecutiveNotAvailable;
+  /** GOV-07 in working days on the confirmed business calendar (D-28, D-38). */
+  working_days: GovernanceWorkingDays;
 }
 
 /** The GOV-04 outcome buckets; only `remediated_on_time` is the numerator. */

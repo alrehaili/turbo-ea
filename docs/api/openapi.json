@@ -2351,6 +2351,35 @@
         "title": "CalculationUpdate",
         "type": "object"
       },
+      "CalendarYearUpdate": {
+        "properties": {
+          "holidays": {
+            "items": {
+              "$ref": "#/components/schemas/Holiday"
+            },
+            "maxItems": 120,
+            "title": "Holidays",
+            "type": "array"
+          },
+          "working_weekdays": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 7,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Working Weekdays"
+          }
+        },
+        "title": "CalendarYearUpdate",
+        "type": "object"
+      },
       "CardApprovalActionResult": {
         "properties": {
           "approval_status": {
@@ -7702,6 +7731,26 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Holiday": {
+        "properties": {
+          "date": {
+            "maxLength": 10,
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "name"
+        ],
+        "title": "Holiday",
         "type": "object"
       },
       "ImpersonateRequest": {
@@ -27215,6 +27264,159 @@
         "summary": "Get Template",
         "tags": [
           "bpm"
+        ]
+      }
+    },
+    "/api/v1/business-calendar": {
+      "get": {
+        "description": "Every maintained fiscal year, oldest first, with its confirmation.",
+        "operationId": "list_years_api_v1_business_calendar_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Years",
+        "tags": [
+          "business-calendar"
+        ]
+      }
+    },
+    "/api/v1/business-calendar/{fiscal_year}": {
+      "put": {
+        "description": "Create or replace a fiscal year's working week and holidays.\n\nChanging a confirmed year withdraws its confirmation (I-38).",
+        "operationId": "save_year_api_v1_business_calendar__fiscal_year__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fiscal_year",
+            "required": true,
+            "schema": {
+              "title": "Fiscal Year",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarYearUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Year",
+        "tags": [
+          "business-calendar"
+        ]
+      }
+    },
+    "/api/v1/business-calendar/{fiscal_year}/confirm": {
+      "post": {
+        "description": "Confirm a fiscal year's calendar so its working-day figures count (D-38).",
+        "operationId": "confirm_year_api_v1_business_calendar__fiscal_year__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fiscal_year",
+            "required": true,
+            "schema": {
+              "title": "Fiscal Year",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Year",
+        "tags": [
+          "business-calendar"
+        ]
+      }
+    },
+    "/api/v1/business-calendar/{fiscal_year}/unconfirm": {
+      "post": {
+        "description": "Withdraw a confirmation; the year's working-day figures become Not Available.",
+        "operationId": "unconfirm_year_api_v1_business_calendar__fiscal_year__unconfirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fiscal_year",
+            "required": true,
+            "schema": {
+              "title": "Fiscal Year",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unconfirm Year",
+        "tags": [
+          "business-calendar"
         ]
       }
     },

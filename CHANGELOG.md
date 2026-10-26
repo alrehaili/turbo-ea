@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.39.0] - 2026-10-27
+
+### Added
+- **Business calendar** in Settings → General: the working week and official holidays for each fiscal year, with a confirmation step, maintained by holders of the new *Maintain the business calendar* permission (no default role). Changes and confirmations are recorded in the security log.
+- **Governance turnaround in working days (GOV-07)** on the Executive Governance page, per instrument, for periods whose fiscal years all have a confirmed calendar; otherwise it shows Not available and names the years to confirm.
+
 ## [2.38.1] - 2026-10-26
 
 ### Changed

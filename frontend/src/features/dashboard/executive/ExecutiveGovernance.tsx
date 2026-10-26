@@ -27,6 +27,7 @@ import type {
   GovernanceProcessing,
   GovernanceResolution,
   GovernanceTurnaround,
+  GovernanceWorkingDaysFigure,
 } from "@/types";
 import ExecutiveKpiTile from "./ExecutiveKpiTile";
 import { pct, periodLabel } from "./executiveFormat";
@@ -383,7 +384,8 @@ function ResolutionCard({ resolution }: { resolution: GovernanceResolution }) {
  * only waits explicitly attributed to the requester or an external dependency
  * are left out, and a record that cannot be timed is counted by cause.
  * Decisions whose lifecycle was not recorded are never timed from a
- * reconstructed date. Working days (D-38) stay Not available.
+ * reconstructed date. Working days (D-28, D-38) are shown per instrument
+ * only while the business calendar is confirmed for the period.
  */
 function TurnaroundCard({ turnaround }: { turnaround: GovernanceTurnaround }) {
   const { t } = useTranslation("common");
@@ -402,17 +404,53 @@ function TurnaroundCard({ turnaround }: { turnaround: GovernanceTurnaround }) {
             <Grid item xs={12} md={4} key={key}>
               <ElapsedFigure label={t(k(`instrument.${key}`))} figure={turnaround.instruments[key]} />
               <ProcessingFigure figure={turnaround.processing_time.instruments[key]} instrument={key} />
+              {turnaround.working_days.status === "ok" && (
+                <WorkingDaysFigure figure={turnaround.working_days.instruments[key]} instrument={key} />
+              )}
             </Grid>
           ))}
         </Grid>
         <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5 }}>
           {t(k("processingHint"))}
         </Typography>
-        <Typography variant="caption" color="text.secondary" component="div">
-          {t(k("workingDays"))}
-        </Typography>
+        {turnaround.working_days.status === "not_available" && (
+          <Typography variant="caption" color="text.secondary" component="div" data-testid="gov07-working-days-na">
+            {turnaround.working_days.reason.fiscal_years?.length
+              ? t(k("workingDaysUnconfirmed"), {
+                  years: turnaround.working_days.reason.fiscal_years.map((y) => `FY${y}`).join(", "),
+                })
+              : t(k("workingDays"))}
+          </Typography>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function WorkingDaysFigure({ figure, instrument }: { figure: GovernanceWorkingDaysFigure; instrument: string }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.turnaround.workingDaysFigure.${key}`;
+  const untimed = figure.not_computable.calendar_not_confirmed ?? 0;
+  return (
+    <Box data-testid={`gov07-working-days-${instrument}`} sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
+      {figure.status === "ok" ? (
+        <>
+          <Typography variant="body2" fontWeight={700}>
+            {t(k("median"), { days: figure.median_days })}
+          </Typography>
+          <Typography variant="body2">{t(k("max"), { days: figure.max_days })}</Typography>
+        </>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          {t(k("notAvailable"))}
+        </Typography>
+      )}
+      {untimed > 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {t(k("unconfirmedSpan"), { count: untimed })}
+        </Typography>
+      )}
+    </Box>
   );
 }
 

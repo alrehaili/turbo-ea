@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.models.authoritative_source import AuthoritativeSource
+from app.models.business_calendar import BusinessCalendarYear
 from app.models.calculation import Calculation
 from app.models.card_type_category import CardTypeCategory
 from app.models.compliance_regulation import ComplianceRegulation
@@ -63,6 +64,7 @@ SHEET_AUTHORITATIVE_SOURCES = "AuthoritativeSources"
 SHEET_COMPLIANCE_REGS = "ComplianceRegs"
 SHEET_RESOURCE_TYPES = "ResourceTypes"
 SHEET_CARD_TYPE_CATEGORIES = "CardTypeCategories"
+SHEET_BUSINESS_CALENDAR = "BusinessCalendar"
 SHEET_SETTINGS = "Settings"
 SHEET_USERS = "Users"
 SHEET_CARDS = "Cards"
@@ -333,5 +335,15 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "translations",
         ),
         json_columns=frozenset({"translations"}),
+    ),
+    # The business calendar per fiscal year (D-38). ``confirmed_by`` is an
+    # instance-local user and is not carried (nor its time); the confirmation is.
+    ConfigSection(
+        sheet=SHEET_BUSINESS_CALENDAR,
+        model=BusinessCalendarYear,
+        natural_key=("fiscal_year",),
+        columns=("fiscal_year", "working_weekdays", "holidays", "confirmed"),
+        json_columns=frozenset({"working_weekdays", "holidays"}),
+        skip_columns=frozenset({"confirmed_by"}),
     ),
 )

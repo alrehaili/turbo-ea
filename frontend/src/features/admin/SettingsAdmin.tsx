@@ -58,6 +58,7 @@ import { invalidateGovernanceMode } from "@/hooks/useGovernanceMode";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import InitiativeReportStalenessSetting from "./InitiativeReportStalenessSetting";
+import BusinessCalendarSection from "./BusinessCalendarSection";
 
 const AuthAdmin = lazy(() => import("./AuthAdmin"));
 const EolAdmin = lazy(() => import("./EolAdmin"));
@@ -1401,6 +1402,9 @@ function GeneralTab() {
           })}
         </TextField>
       </Paper>
+
+      {/* Business calendar per fiscal year (D-28, D-38) */}
+      <BusinessCalendarSection />
 
       {/* Initiative report staleness (Executive dashboard, D-02) */}
       <InitiativeReportStalenessSetting onSaved={setSnack} onError={setError} />

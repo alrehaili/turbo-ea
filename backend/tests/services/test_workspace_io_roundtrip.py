@@ -2222,3 +2222,34 @@ async def test_import_applies_the_metric_key_rule_without_touching_existing_kpis
 
     errors = [e for s in result.sections for e in s.errors]
     assert sum("metric link dropped" in e for e in errors) == 2, errors
+
+
+async def test_business_calendar_roundtrip(db):
+    """A fiscal year's working week, holidays and confirmation survive an
+    export → delete → import round trip (D-38, Batch 3.3); the confirming
+    user, an instance-local id, is not carried."""
+    from app.models.business_calendar import BusinessCalendarYear
+
+    user = await create_user(db, email="cal-ws@test.com", role="admin")
+    db.add(
+        BusinessCalendarYear(
+            fiscal_year=2026,
+            working_weekdays=[7, 1, 2, 3, 4],
+            holidays=[{"date": "2026-09-23", "name": "National Day"}],
+            confirmed=True,
+            confirmed_by=user.id,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    assert parse_bundle(raw).rows(schema.SHEET_BUSINESS_CALENDAR)
+    await db.execute(delete(BusinessCalendarYear))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    (row,) = (await db.execute(select(BusinessCalendarYear))).scalars().all()
+    assert (row.fiscal_year, row.working_weekdays, row.confirmed) == (2026, [7, 1, 2, 3, 4], True)
+    assert row.holidays == [{"date": "2026-09-23", "name": "National Day"}]
+    assert row.confirmed_by is None

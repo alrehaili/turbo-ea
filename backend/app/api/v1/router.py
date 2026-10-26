@@ -12,6 +12,7 @@ from app.api.v1 import (
     bpm_assessments,
     bpm_reports,
     bpm_workflow,
+    business_calendar,
     calculations,
     capability_catalogue,
     card_logos,
@@ -108,6 +109,7 @@ api_router.include_router(surveys.router)
 api_router.include_router(settings.router)
 api_router.include_router(web_portals.router)
 api_router.include_router(bpm.router)
+api_router.include_router(business_calendar.router)
 api_router.include_router(bpm_assessments.router)
 api_router.include_router(bpm_reports.router)
 api_router.include_router(bpm_workflow.router)

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import statistics
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -48,9 +48,11 @@ from app.models.governance_transition import (
     GovernanceTransition,
 )
 from app.models.tech_standard import StandardException
+from app.services.business_calendar import BusinessCalendar, load_calendar
 from app.services.card_read_scope import CardReadScope
 from app.services.executive import kpis, linkage
 from app.services.executive.periods import Period
+from app.services.fiscal_year import get_fiscal_year_start
 from app.services.tech_standards_scan import assess_standard_compliance
 
 #: ARB outcomes that count as a decision; deferral is reported apart (I-12).
@@ -255,12 +257,14 @@ async def _first_decisions(
 
 def _split(
     records: list[Any], first: dict[uuid.UUID, datetime], period: Period, legacy_decided
-) -> tuple[list[float], int]:
-    """Samples for records first decided in the period, and the not-recorded count.
+) -> tuple[list[float], int, list[tuple[datetime, datetime]]]:
+    """Samples for records first decided in the period, the not-recorded count,
+    and the timed ``(start, end)`` pairs the working-day figure reuses.
 
     ``legacy_decided(record)`` says whether a record with no recorded decision
     transition counts as a decision this figure cannot time."""
     samples: list[float] = []
+    pairs: list[tuple[datetime, datetime]] = []
     not_recorded = 0
     for rec in records:
         decided = first.get(rec.id)
@@ -275,7 +279,8 @@ def _split(
             not_recorded += 1
         else:
             samples.append(days)
-    return samples, not_recorded
+            pairs.append((rec.created_at, decided))
+    return samples, not_recorded, pairs
 
 
 async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period) -> dict[str, Any]:
@@ -295,7 +300,8 @@ async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period
 
     Instruments are never pooled. Governance-controlled processing time is
     computed for the same decisions from their recorded transitions only
-    (:func:`processing_days`); working days wait on the business calendar (D-38).
+    (:func:`processing_days`); working days count the same decisions on the
+    confirmed business calendar (D-28, D-38, :func:`working_days_block`).
     """
     # ADR: kept whole, no card scope, as on the decisions page (D-30).
     adr_rows = await db.execute(
@@ -307,6 +313,7 @@ async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period
         )
     )
     adr_samples: list[float] = []
+    adr_pairs: list[tuple[datetime, datetime]] = []
     adr_unreliable = 0
     adr_timed: list[uuid.UUID] = []
     for adr_id, created_at, signed_at in adr_rows.all():
@@ -317,6 +324,7 @@ async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period
             adr_unreliable += 1
         else:
             adr_samples.append(days)
+            adr_pairs.append((created_at, signed_at))
             adr_timed.append(adr_id)
 
     # ARB: a review of a hidden subject card does not exist for the reader.
@@ -326,7 +334,7 @@ async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period
     )
     reviews = [r for r in reviews if not r.subject_card_id or r.subject_card_id in readable]
     arb_first = await _first_decisions(db, INSTRUMENT_ARB, ARB_DECISION_STATUSES)
-    arb_samples, arb_not_recorded = _split(
+    arb_samples, arb_not_recorded, arb_pairs = _split(
         reviews,
         arb_first,
         period,
@@ -340,7 +348,7 @@ async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period
     )
     exceptions = [e for e in exceptions if e.card_id not in hidden]
     exc_first = await _first_decisions(db, INSTRUMENT_EXCEPTION, EXCEPTION_DECISION_STATUSES)
-    exc_samples, exc_not_recorded = _split(
+    exc_samples, exc_not_recorded, exc_pairs = _split(
         exceptions,
         exc_first,
         period,
@@ -394,9 +402,65 @@ async def turnaround(db: AsyncSession, read_scope: CardReadScope, period: Period
             "unit": "calendar_days",
             "instruments": processing,
         },
-        "working_days": _not_available(
-            {"code": "decision_pending", "decisions": ["D-38"], "batch": "3.3"}
+        # D-28 / D-38: the same elapsed decisions in working days, only where
+        # the business calendar is confirmed for the period (Batch 3.3).
+        "working_days": working_days_block(
+            await load_calendar(db, await get_fiscal_year_start(db)),
+            period,
+            {"adr": adr_pairs, "arb": arb_pairs, "exception": exc_pairs},
         ),
+    }
+
+
+def working_days_figure(
+    calendar: BusinessCalendar, pairs: list[tuple[datetime, datetime]]
+) -> dict[str, Any]:
+    """One instrument's elapsed working days: median and slowest (D-28, D-38).
+
+    A decision whose span reaches into a fiscal year without a confirmed
+    calendar has no working-day duration and is counted by cause, never
+    estimated; with no timed decision the figure is Not Available, never zero."""
+    results = [calendar.working_days(start, end) for start, end in pairs]
+    samples = [days for days in results if days is not None]
+    untimed = len(results) - len(samples)
+    not_computable = {"calendar_not_confirmed": untimed} if untimed else {}
+    if not samples:
+        return {
+            "status": "not_available",
+            "reason": {"code": "no_recorded_decisions"},
+            "decisions": 0,
+            "not_computable": not_computable,
+        }
+    return {
+        "status": "ok",
+        "decisions": len(samples),
+        "median_days": round(statistics.median(samples), 1),
+        "max_days": max(samples),
+        "not_computable": not_computable,
+    }
+
+
+def working_days_block(
+    calendar: BusinessCalendar,
+    period: Period,
+    pairs_by_instrument: dict[str, list[tuple[datetime, datetime]]],
+) -> dict[str, Any]:
+    """GOV-07 in working days, or Not Available while the period is not valid.
+
+    The period is valid only when every fiscal year it touches has a confirmed
+    calendar (D-38); otherwise no instrument gets a working-day figure and the
+    unconfirmed years are named."""
+    years = calendar.fiscal_years(period.start, period.end - timedelta(days=1))
+    missing = calendar.unconfirmed(years)
+    if missing:
+        return _not_available({"code": "calendar_not_confirmed", "fiscal_years": missing})
+    return {
+        "status": "ok",
+        "measure": "elapsed",
+        "unit": "working_days",
+        "instruments": {
+            key: working_days_figure(calendar, pairs) for key, pairs in pairs_by_instrument.items()
+        },
     }
 
 

@@ -329,6 +329,10 @@ APP_PERMISSIONS: dict[str, dict] = {
             "admin.roles": "Manage role definitions and permissions",
             "admin.metamodel": "Manage card types, fields, and relation types",
             "admin.settings": "Manage app settings (email, logo, SSO)",
+            "admin.business_calendar": (
+                "Maintain the business calendar: working week, official holidays and "
+                "confirmation per fiscal year"
+            ),
             "admin.mcp": "Manage MCP integration settings (AI tool access)",
             "admin.events": "View audit trail and event stream",
             "admin.todos": "View and manage other users' todos (not just your own)",
@@ -717,6 +721,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.roles": False,
     "admin.metamodel": False,
     "admin.settings": False,
+    "admin.business_calendar": False,
     "admin.mcp": False,
     "admin.events": False,
     "admin.todos": False,
@@ -825,6 +830,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.roles": False,
     "admin.metamodel": False,
     "admin.settings": False,
+    "admin.business_calendar": False,
     "admin.mcp": False,
     "admin.events": False,
     "admin.todos": False,
@@ -933,6 +939,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.roles": False,
     "admin.metamodel": False,
     "admin.settings": False,
+    "admin.business_calendar": False,
     "admin.mcp": False,
     "admin.events": False,
     "admin.todos": False,
