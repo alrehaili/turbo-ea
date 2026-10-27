@@ -22,6 +22,7 @@ from app.api.v1 import (
     diagram_groups,
     diagrams,
     documents,
+    ea_applicability,
     ea_requirements,
     eol,
     events,
@@ -151,6 +152,8 @@ api_router.include_router(arb.router)
 api_router.include_router(decision_actions.router)
 # Risk ↔ EA governance-record links and Linked risks on ADR / ARB (D-42).
 api_router.include_router(risk_governance.router)
+# EA governance applicability assessments of initiatives (D-37).
+api_router.include_router(ea_applicability.router)
 api_router.include_router(scenarios.router)
 api_router.include_router(ops.router)
 api_router.include_router(viewpoints.router)

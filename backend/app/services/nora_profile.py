@@ -75,7 +75,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
 # national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
 # `srmCode` on SecurityControl) so all six domains have a landing field.
-NORA_PROFILE_VERSION = 14  # v14: RSK-01 option on KPI.metricKey (Batch 3.5)
+NORA_PROFILE_VERSION = 15  # v15: GOV-01 option on KPI.metricKey (Batch 3.6)
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -239,8 +239,30 @@ _RSK01_METRIC_OPTION = {
     ),
 }
 
+#: The ``KPI.metricKey`` option for GOV-01 (profile v15, Batch 3.6).
+_GOV01_METRIC_OPTION = {
+    "key": "GOV-01",
+    "label": "EA review coverage (GOV-01)",
+    "translations": _tr(
+        "EA-Review-Abdeckung (GOV-01)",
+        "Couverture des revues d'architecture (GOV-01)",
+        "Cobertura de revisiones de arquitectura (GOV-01)",
+        "Copertura delle revisioni architetturali (GOV-01)",
+        "Cobertura de revisões de arquitetura (GOV-01)",
+        "企业架构评审覆盖率 (GOV-01)",
+        "Охват архитектурными ревью (GOV-01)",
+        "Dækning af arkitekturgennemgange (GOV-01)",
+        "تغطية مراجعات البنية المؤسسية (GOV-01)",
+    ),
+}
+
 #: Options the profile pass adds to ``KPI.metricKey`` on existing installs.
-_ADDED_METRIC_OPTIONS = (_GOV03_METRIC_OPTION, _GOV05_METRIC_OPTION, _RSK01_METRIC_OPTION)
+_ADDED_METRIC_OPTIONS = (
+    _GOV03_METRIC_OPTION,
+    _GOV05_METRIC_OPTION,
+    _RSK01_METRIC_OPTION,
+    _GOV01_METRIC_OPTION,
+)
 
 NORA_TYPE_FIELDS: dict[str, list[dict]] = {
     "BusinessCapability": [
@@ -3489,6 +3511,7 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
                 _GOV03_METRIC_OPTION,
                 _GOV05_METRIC_OPTION,
                 _RSK01_METRIC_OPTION,
+                _GOV01_METRIC_OPTION,
             ],
         },
         {
@@ -8392,8 +8415,9 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         summary["types_updated"].append(type_key)
         summary["fields_added"] += len(missing)
 
-    # ── Pass 4h (profiles v12-v14): append the GOV-03 (Batch 3.1), GOV-05
-    # (Batch 3.4) and RSK-01 (Batch 3.5) options to KPI.metricKey when missing.
+    # ── Pass 4h (profiles v12-v15): append the GOV-03 (Batch 3.1), GOV-05
+    # (Batch 3.4), RSK-01 (Batch 3.5) and GOV-01 (Batch 3.6) options to
+    # KPI.metricKey when missing.
     # Additive — an admin's existing options and labels are untouched; an
     # option is added only when absent.
     kpi_ct = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one_or_none()

@@ -34,6 +34,7 @@ from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.user import User
+from app.services import ea_applicability as ea
 from app.services import executive_dashboard as exe
 from app.services import kpi_measurement_service as kms
 from app.services import ppm_portfolio_service as portfolio
@@ -320,6 +321,9 @@ async def executive_governance(
         rsk01_link=links.get("RSK-01"),
         rsk01_previous=kpis.previous_from_history(prior, await _verified("RSK-01")),
         grc_enabled=bool(general.get("grcEnabled", True)),
+        gov01_link=links.get("GOV-01"),
+        gov01_previous=kpis.previous_from_history(prior, await _verified("GOV-01")),
+        general=general,
     )
     return {"generated_at": now.isoformat(), "fiscal_year_start": start_month, **summary}
 
@@ -392,6 +396,35 @@ async def executive_kpi_drilldown(
         await PermissionService.require_permission(db, user, "tech_standards.view")
         result = await gov.gov03_drilldown(db, read_scope)
         return {**result, "period": current.to_dict()}
+
+    if key == "GOV-01":
+        # Review records: architecture reviews or decision records (I-62).
+        can_arb = await _can(db, user, "arb.view")
+        can_adr = await _can(db, user, "adr.view")
+        if not (can_arb or can_adr):
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        return {
+            "key": key,
+            "temporal": kpis.CURRENT_STATE,
+            "as_of": today.isoformat(),
+            "status": "ok",
+            "can_assess": await _can(db, user, ea.ASSESS_PERMISSION),
+            "rows": await gov.review_coverage_rows(
+                db, read_scope, include_reviews=can_arb, include_adrs=can_adr
+            ),
+        }
+
+    if key == "GOV-09":
+        # Delivery states are initiative delivery data, gated as TR-03 is.
+        if bool(general.get("ppmEnabled", False)):
+            await PermissionService.require_permission(db, user, "ppm.view")
+        return {
+            "key": key,
+            "temporal": kpis.CURRENT_STATE,
+            "as_of": today.isoformat(),
+            "status": "ok",
+            "rows": await gov.governed_delivery_rows(db, read_scope, today, general),
+        }
 
     if key == "RSK-01":
         # The architecture-related risks behind the count (D-42, I-56).

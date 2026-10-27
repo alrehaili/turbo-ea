@@ -1223,6 +1223,42 @@ async def test_risk_governance_links_roundtrip(db):
     )
 
 
+async def test_ea_review_applicability_roundtrip(db):
+    """An applicability assessment survives a transfer (D-37): the initiative
+    by card reference, the assessor by email, every row kept (append-only)."""
+    from app.models.ea_review_applicability import EaReviewApplicability
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "EaReviewApplicability")
+    assert section.card_fk_columns == ("card_id",)
+    assert section.user_fk_columns == ("decided_by",)
+
+    user = await create_user(db, email="ea@test.com", role="admin")
+    await create_card_type(db, key="Initiative", label="Initiative")
+    init = await create_card(db, card_type="Initiative", name="ERP renewal")
+    for decision in ("required", "not_required"):
+        db.add(
+            EaReviewApplicability(
+                card_id=init.id,
+                decision=decision,
+                criteria_reference="v1 §2",
+                justification=f"{decision} because",
+                decided_by=user.id,
+            )
+        )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    await db.execute(delete(EaReviewApplicability))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    rows = (await db.execute(select(EaReviewApplicability))).scalars().all()
+    assert sorted(r.decision for r in rows) == ["not_required", "required"]
+    assert all(r.decided_by == user.id and r.card_id == init.id for r in rows)
+
+
 async def test_bookmark_shares_roundtrip(db):
     """A saved view shared with another user keeps its share (and can_edit
     flag) across export → delete → re-import; re-apply skips."""

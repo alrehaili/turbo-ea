@@ -427,3 +427,26 @@ async def test_rsk01_is_observed_only_when_a_governance_link_exists(db, env):
     rsk = (await svc.observe_executive_metrics(db, TODAY))["RSK-01"]
     # Open architecture-related risks over all linked ones; the unlinked risk is not counted.
     assert (rsk.value, rsk.numerator, rsk.denominator) == (1.0, None, 2.0)
+
+
+# ── GOV-01 daily capture (Batch 3.6, D-37) ───────────────────────────────
+
+
+async def test_gov01_is_observed_only_when_an_initiative_requires_review(db, env):
+    from app.models.arb_review import ArbReview
+    from app.models.ea_review_applicability import EaReviewApplicability
+
+    await create_card_type(db, key="Initiative", label="Initiative")
+    reviewed = await create_card(db, card_type="Initiative", name="Reviewed")
+    waiting = await create_card(db, card_type="Initiative", name="Waiting")
+    assert "GOV-01" not in await svc.observe_executive_metrics(db, TODAY)
+    for card in (reviewed, waiting):
+        db.add(
+            EaReviewApplicability(
+                card_id=card.id, decision="required", criteria_reference="v1", justification="x"
+            )
+        )
+    db.add(ArbReview(title="Review", subject_card_id=reviewed.id, status="approved"))
+    await db.flush()
+    gov = (await svc.observe_executive_metrics(db, TODAY))["GOV-01"]
+    assert (gov.value, gov.numerator, gov.denominator) == (50.0, 1.0, 2.0)

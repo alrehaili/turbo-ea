@@ -56,6 +56,9 @@ from app.models.governance_transition import (
 from app.models.tech_standard import StandardException
 from app.models.todo import Todo
 from app.services import decision_implementation as impl_service
+from app.services import ea_applicability as ea
+from app.services import executive_dashboard as exe
+from app.services import ppm_portfolio_service as portfolio
 from app.services import risk_governance
 from app.services.business_calendar import BusinessCalendar, load_calendar
 from app.services.card_read_scope import CardReadScope
@@ -907,6 +910,50 @@ async def decision_implementation(
     }
 
 
+async def review_coverage(db: AsyncSession, read_scope: CardReadScope) -> dict[str, Any]:
+    """GOV-01 over the ACTIVE initiatives the viewer may read, completed and on
+    hold included (D-37, I-59). Current state."""
+    initiatives = await exe.load_visible_initiatives(db, read_scope)
+    states, _, reviews = await ea.classify(db, initiatives)
+    return ea.coverage_figures(states, reviews)
+
+
+async def governed_delivery(
+    db: AsyncSession, read_scope: CardReadScope, today: date, general: dict[str, Any]
+) -> dict[str, Any]:
+    """GOV-09 (D-37, D-20, I-61): delivery health of governed and ungoverned
+    initiatives compared, exempt and unknown shown apart, never compared.
+
+    The groups reuse the TR-03 calculation and its reporting coverage over the
+    same in-flight population; a group's rate is shown only when at least five
+    of its initiatives reported. An observed difference is an association, not
+    an effect of governance."""
+    initiatives = await exe.load_visible_initiatives(db, read_scope)
+    states, _, _ = await ea.classify(db, initiatives)
+    latest = (
+        await portfolio.latest_reports(db, [c.id for c in initiatives], as_of=today)
+        if bool(general.get("ppmEnabled", False))
+        else None
+    )
+    stale = exe.staleness_days(general)
+    groups: dict[str, dict[str, Any]] = {}
+    for state in ea.STATES:
+        members = [c for c in initiatives if states[c.id] == state]
+        summary = exe.summarize_delivery_health(members, latest, today=today, stale=stale)
+        groups[state] = ea.group_figure(summary, len(members))
+    common = {
+        "temporal": kpis.CURRENT_STATE,
+        "as_of": today.isoformat(),
+        "minimum_group_size": ea.MIN_GROUP,
+        "interpretation": "association_not_causation",
+        "source": exe.SOURCE_INITIATIVE_STATUS if latest is None else exe.SOURCE_PPM_REPORTS,
+        "groups": groups,
+    }
+    if groups[ea.GOVERNED]["in_flight"] + groups[ea.UNGOVERNED]["in_flight"] == 0:
+        return {"status": "not_available", "reason": {"code": "no_required_reviews"}, **common}
+    return {"status": "ok", "comparison": ea.comparison(groups), **common}
+
+
 async def _impact(
     db: AsyncSession,
     read_scope: CardReadScope,
@@ -914,6 +961,7 @@ async def _impact(
     rsk01_link: dict[str, Any] | None,
     rsk01_previous: dict[str, Any] | None,
     grc_enabled: bool,
+    general: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     today = date.today()
     if grc_enabled:
@@ -930,10 +978,8 @@ async def _impact(
         "architecture_risk_tile": linkage.apply_link(
             kpis.architecture_risk_tile(period, figures, today, rsk01_previous), rsk01_link
         ),
-        # GOV-09 needs the applicability criteria (D-37, Batch 3.6).
-        "governed_delivery": _not_available(
-            {"code": "decision_pending", "decisions": ["D-37"], "batch": "3.6"}
-        ),
+        # GOV-09: governed vs ungoverned delivery, association only (D-37, D-20).
+        "governed_delivery": await governed_delivery(db, read_scope, today, general or {}),
         # Benefits and financial value arrive with the Phase 4 register.
         "business_value": _not_available({"code": "later_phase", "phase": 4}),
     }
@@ -950,6 +996,9 @@ async def governance_summary(
     rsk01_link: dict[str, Any] | None = None,
     rsk01_previous: dict[str, Any] | None = None,
     grc_enabled: bool = True,
+    gov01_link: dict[str, Any] | None = None,
+    gov01_previous: dict[str, Any] | None = None,
+    general: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Activity, effectiveness and impact for the selected period, kept apart.
 
@@ -964,11 +1013,21 @@ async def governance_summary(
         ),
         gov05_link,
     )
+    activity = await _activity(db, read_scope, period)
+    # GOV-01 is governance activity (GOVERNANCE_MEASUREMENT_MODEL §1): reviews
+    # happened where they were required, no value claim.
+    coverage = await review_coverage(db, read_scope)
+    activity["review_coverage"] = coverage
+    activity["review_coverage_tile"] = linkage.apply_link(
+        kpis.review_coverage_tile(period, coverage, date.today(), gov01_previous), gov01_link
+    )
     return {
         "period": period.to_dict(),
-        "activity": await _activity(db, read_scope, period),
+        "activity": activity,
         "effectiveness": effectiveness,
-        "impact": await _impact(db, read_scope, period, rsk01_link, rsk01_previous, grc_enabled),
+        "impact": await _impact(
+            db, read_scope, period, rsk01_link, rsk01_previous, grc_enabled, general
+        ),
     }
 
 
@@ -989,3 +1048,86 @@ async def gov03_drilldown(db: AsyncSession, read_scope: CardReadScope) -> dict[s
         "compliant": scan["compliant"],
         "rows": rows,
     }
+
+
+async def review_coverage_rows(
+    db: AsyncSession,
+    read_scope: CardReadScope,
+    *,
+    include_reviews: bool,
+    include_adrs: bool,
+) -> list[dict[str, Any]]:
+    """The GOV-01 drill-down (I-62): every initiative in the population with
+    its state and latest assessment; its subject reviews with ``arb.view``;
+    its signed ADRs, as context never counted, with ``adr.view``."""
+    initiatives = await exe.load_visible_initiatives(db, read_scope)
+    states, latest, reviews = await ea.classify(db, initiatives)
+    adrs = await ea.signed_adrs(db, [c.id for c in initiatives]) if include_adrs else {}
+    deciders = {a.decided_by for a in latest.values() if a.decided_by}
+    names = await _names(db, deciders)
+    rows = []
+    for c in sorted(initiatives, key=lambda c: (ea.STATES.index(states[c.id]), c.name.lower())):
+        assessment = latest.get(c.id)
+        own = reviews.get(c.id, [])
+        rows.append(
+            {
+                "id": str(c.id),
+                "name": c.name,
+                "subtype": c.subtype,
+                "path": f"/cards/{c.id}",
+                "state": states[c.id],
+                "review_in_progress": states[c.id] == ea.UNGOVERNED and ea.review_in_progress(own),
+                "assessment": ea.assessment_payload(assessment, names) if assessment else None,
+                "reviews": [
+                    {
+                        "id": str(r.id),
+                        "title": r.title,
+                        "status": r.status,
+                        "path": f"/arb?review={r.id}",
+                    }
+                    for r in own
+                ]
+                if include_reviews
+                else None,
+                "signed_adrs": [
+                    {
+                        "id": str(a.id),
+                        "label": f"{a.reference_number} — {a.title}",
+                        "path": f"/ea-delivery/adr/{a.id}/preview",
+                    }
+                    for a in adrs.get(c.id, [])
+                ]
+                if include_adrs
+                else None,
+            }
+        )
+    return rows
+
+
+async def governed_delivery_rows(
+    db: AsyncSession, read_scope: CardReadScope, today: date, general: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """The GOV-09 drill-down (I-62): in-flight initiatives with their
+    governance group and delivery state, from the TR-03 rows."""
+    initiatives = await exe.load_visible_initiatives(db, read_scope)
+    states, _, _ = await ea.classify(db, initiatives)
+    ppm = bool(general.get("ppmEnabled", False))
+    latest = (
+        await portfolio.latest_reports(db, [c.id for c in initiatives], as_of=today)
+        if ppm
+        else None
+    )
+    rows = exe.delivery_rows(initiatives, latest, today=today, stale=exe.staleness_days(general))
+    for row in rows:
+        row["group"] = states.get(uuid.UUID(str(row["id"])), ea.UNKNOWN)
+        row["path"] = f"/ppm/{row['id']}" if ppm else f"/cards/{row['id']}"
+    return rows
+
+
+async def _names(db: AsyncSession, ids: set) -> dict:
+    if not ids:
+        return {}
+    from app.models.user import User
+
+    rows = await db.execute(select(User.id, User.display_name).where(User.id.in_(ids)))
+    return dict(rows.all())

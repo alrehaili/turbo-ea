@@ -324,6 +324,10 @@ export interface ExecutiveGovernanceData {
   fiscal_year_start: number;
   period: ExecutivePeriod;
   activity: {
+    /** GOV-01 figures over assessed applicability (D-37, I-59). */
+    review_coverage: ReviewCoverageFigures;
+    /** GOV-01 as a current-state KPI tile. */
+    review_coverage_tile: ExecutiveKpi;
     adrs_signed: number;
     /** `dating = "latest_decision"`: ARB `decided_at` is overwritten (I-12). */
     arb: { approved: number; rejected: number; deferred: number; dating: string };
@@ -359,7 +363,8 @@ export interface ExecutiveGovernanceData {
     architecture_risks: ArchitectureRiskFigures;
     /** RSK-01: open architecture-related risks as a current-state KPI tile. */
     architecture_risk_tile: ExecutiveKpi;
-    governed_delivery: ExecutiveNotAvailable;
+    /** GOV-09: governed vs ungoverned delivery, association only (D-37, D-20). */
+    governed_delivery: GovernedDelivery;
     business_value: ExecutiveNotAvailable;
   };
 }
@@ -514,6 +519,74 @@ export interface GovernanceImplementation {
     without_actions: number;
     percentage: number | null;
   };
+}
+
+/** An initiative's EA governance state (D-37). */
+export type GovernanceState = "governed" | "ungoverned" | "exempt" | "unknown";
+
+/** GOV-01 EA review coverage (D-37, I-59). */
+export interface ReviewCoverageFigures {
+  status: "ok" | "not_available";
+  value?: number;
+  reason?: Record<string, unknown>;
+  temporal: string;
+  population: number;
+  requiring_review: number;
+  review_completed: number;
+  awaiting_review: number;
+  review_in_progress: number;
+  exempt: number;
+  undetermined: number;
+  assessment_coverage: { assessed: number; population: number; percentage: number | null };
+  basis: string;
+}
+
+/** One GOV-09 group (D-20: rate shown only with at least five reporting). */
+export interface GovernedDeliveryGroup {
+  initiatives: number;
+  in_flight: number;
+  reported: number;
+  reporting_coverage: number | null;
+  on_track_pct: number | null;
+  suppressed: boolean;
+  states: Record<string, number>;
+}
+
+/** GOV-09 governed vs ungoverned delivery (D-37, D-20, I-61). */
+export interface GovernedDelivery {
+  status: "ok" | "not_available";
+  reason?: Record<string, unknown>;
+  temporal: string;
+  as_of: string;
+  minimum_group_size: number;
+  interpretation: "association_not_causation";
+  source: string;
+  groups: Record<GovernanceState, GovernedDeliveryGroup>;
+  comparison?:
+    | { status: "ok"; difference_pct_points: number; interpretation: string; minimum_group_size: number }
+    | { status: "suppressed"; minimum_group_size: number; reason: Record<string, unknown> };
+}
+
+/** An applicability assessment of an initiative (D-37). */
+export interface ApplicabilityAssessment {
+  decision: "required" | "not_required";
+  criteria_reference: string;
+  justification: string;
+  decided_by: { id: string; display_name: string | null } | null;
+  decided_at: string | null;
+}
+
+/** One GOV-01 drill-down row (I-62). */
+export interface ReviewCoverageRow {
+  id: string;
+  name: string;
+  subtype: string | null;
+  path: string;
+  state: GovernanceState;
+  review_in_progress: boolean;
+  assessment: ApplicabilityAssessment | null;
+  reviews: { id: string; title: string; status: string; path: string }[] | null;
+  signed_adrs: { id: string; label: string; path: string }[] | null;
 }
 
 /** A kind of EA governance record a risk can be linked to (D-42). */

@@ -24,6 +24,7 @@ from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
+from app.models.ea_review_applicability import EaReviewApplicability
 from app.models.event import Event
 from app.models.extension import (
     Extension,
@@ -239,4 +240,5 @@ __all__ = [
     "AuditLogEntry",
     "DecisionImplementation",
     "RiskGovernanceLink",
+    "EaReviewApplicability",
 ]

@@ -235,6 +235,64 @@ def governance_effectiveness(
     )
 
 
+def review_coverage_tile(
+    period: Period,
+    figures: dict[str, Any],
+    today: date,
+    previous: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """GOV-01 EA review coverage (D-37, I-59, I-60) as a current-state tile.
+
+    Value = initiatives requiring review whose approved subject review exists ÷
+    initiatives assessed as requiring review. Assessment coverage (assessed ÷
+    population) travels as completeness; exempt and undetermined initiatives
+    are in the details, never in the rate. ``previous`` is only ever the
+    previous period's verified measurement (D-19). Assessments are people's
+    decisions: "medium" confidence at best."""
+    version = "GOV-01@1"
+    cov = figures["assessment_coverage"]
+    completeness = (
+        {
+            "numerator": cov["assessed"],
+            "denominator": cov["population"],
+            "percentage": cov["percentage"],
+        }
+        if cov["population"]
+        else None
+    )
+    details = {k: v for k, v in figures.items() if k not in ("status", "value", "unit")}
+    if figures["status"] != OK:
+        tile = _not_available("GOV-01", "governance", version, period, figures["reason"])
+        return tile | {
+            "temporal": CURRENT_STATE,
+            "period": None,
+            "as_of": today.isoformat(),
+            "previous": previous or NO_HISTORY,
+            "completeness": completeness,
+            "details": details,
+        }
+    return kpi(
+        "GOV-01",
+        "governance",
+        version,
+        status=OK,
+        period=period,
+        value=figures["value"],
+        unit="percent",
+        provenance="recorded",
+        confidence_level=confidence(
+            system_derived=False,
+            completeness_pct=completeness["percentage"] if completeness else None,
+        ),
+        previous=previous,
+        completeness=completeness,
+        drilldown={"api": "GOV-01", "path": GOVERNANCE_PAGE},
+        details=details,
+        temporal=CURRENT_STATE,
+        as_of=today,
+    )
+
+
 def architecture_risk_tile(
     period: Period,
     figures: dict[str, Any],

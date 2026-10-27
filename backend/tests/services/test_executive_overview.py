@@ -437,3 +437,36 @@ def test_rsk01_tile_is_a_current_state_count_with_the_verified_previous():
     )
     assert none["status"] == "not_available" and none["value"] is None
     assert none["temporal"] == "current_state"
+
+
+def test_gov01_tile_is_current_state_with_assessment_coverage():
+    from datetime import date
+
+    figures = {
+        "status": "ok",
+        "value": 75.0,
+        "unit": "percent",
+        "temporal": "current_state",
+        "population": 10,
+        "requiring_review": 4,
+        "review_completed": 3,
+        "awaiting_review": 1,
+        "review_in_progress": 0,
+        "exempt": 2,
+        "undetermined": 4,
+        "assessment_coverage": {"assessed": 6, "population": 10, "percentage": 60.0},
+        "basis": "approved_subject_review",
+    }
+    tile = kpis.review_coverage_tile(PERIOD, figures, date(2026, 10, 27))
+    assert (tile["key"], tile["value"], tile["temporal"]) == ("GOV-01", 75.0, "current_state")
+    assert tile["completeness"] == {"numerator": 6, "denominator": 10, "percentage": 60.0}
+    assert tile["details"]["undetermined"] == 4
+    # Never "high": below 70 % assessment coverage the confidence is "low".
+    assert tile["confidence"] == "low"
+    assert tile["previous"]["status"] == "not_available"
+    none = kpis.review_coverage_tile(
+        PERIOD,
+        {**figures, "status": "not_available", "reason": {"code": "no_required_reviews"}},
+        date(2026, 10, 27),
+    )
+    assert none["status"] == "not_available" and none["value"] is None

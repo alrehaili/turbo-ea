@@ -452,6 +452,16 @@ async def observe_executive_metrics(db: AsyncSession, today: date) -> dict[str, 
         out["GOV-03"] = Observation(
             scan["compliance_pct"], float(scan["compliant"]), float(scan["assessed"])
         )
+    # GOV-01 EA review coverage, landscape-wide (D-37, I-60): recorded only
+    # when at least one initiative is assessed as requiring review.
+    from app.services import ea_applicability as ea
+
+    states, _, reviews = await ea.classify(db, initiatives)
+    gov01 = ea.coverage_figures(states, reviews)
+    if gov01["status"] == "ok":
+        out["GOV-01"] = Observation(
+            gov01["value"], float(gov01["review_completed"]), float(gov01["requiring_review"])
+        )
     # GOV-05 for the fiscal quarter today falls in, as of today (D-41, I-47).
     gov05 = await _gov05_observation(
         db, periods.parse(None, await get_fiscal_year_start(db), today)

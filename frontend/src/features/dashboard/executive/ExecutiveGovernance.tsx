@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Grid from "@mui/material/Grid";
@@ -22,6 +23,10 @@ import { canAccessPath } from "@/lib/routePermissions";
 import { hasPermission } from "@/components/RequirePermission";
 import { STATUS_COLORS } from "@/theme/tokens";
 import type {
+  GovernanceState,
+  GovernedDelivery,
+  ReviewCoverageFigures,
+  ReviewCoverageRow,
   ArchitectureRiskFigures,
   ArchitectureRiskRow,
   ExecutiveGovernanceData,
@@ -33,6 +38,7 @@ import type {
   GovernanceTurnaround,
   GovernanceWorkingDaysFigure,
 } from "@/types";
+import AssessApplicabilityDialog from "./AssessApplicabilityDialog";
 import ExecutiveKpiTile from "./ExecutiveKpiTile";
 import { pct, periodLabel } from "./executiveFormat";
 import { useExecutivePeriod } from "./useExecutivePeriod";
@@ -97,6 +103,15 @@ export default function ExecutiveGovernance() {
       ? "/reports/executive/kpi/RSK-01/drilldown"
       : null;
   const { data: riskDrill } = useApiQuery<{ rows: ArchitectureRiskRow[] }>(riskDrillPath);
+  // GOV-01 rows need a review module permission (I-62); refreshed after an assessment.
+  const [assessKey, setAssessKey] = useState(0);
+  const [assessing, setAssessing] = useState<{ id: string; name: string } | null>(null);
+  const canReviews =
+    hasPermission(user?.permissions, "arb.view") || hasPermission(user?.permissions, "adr.view");
+  const { data: coverageDrill } = useApiQuery<{ rows: ReviewCoverageRow[]; can_assess: boolean }>(
+    data && canReviews ? "/reports/executive/kpi/GOV-01/drilldown" : null,
+    { refetchKey: assessKey },
+  );
 
   if (error) return <Alert severity="error">{error.message || t("errors.generic")}</Alert>;
   if (!data) return loading ? <LinearProgress /> : null;
@@ -130,6 +145,23 @@ export default function ExecutiveGovernance() {
         title={g("dashboard.executive.governancePage.section.activity")}
         hint={g("dashboard.executive.governancePage.sectionHint.activity")}
       />
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={6}>
+          {/* GOV-01: reviews happened where they were required (D-37). */}
+          <ExecutiveKpiTile
+            kpi={activity.review_coverage_tile}
+            icon="fact_check"
+            title={g("dashboard.executive.governancePage.indicator.reviewCoverage")}
+            description={g("dashboard.executive.governancePage.reviewCoverage.description")}
+            periodText={periodText}
+            formatPeriod={label}
+            value={pct(activity.review_coverage_tile.value)}
+            previousValue={pct(activity.review_coverage_tile.previous.value ?? null)}
+          >
+            <ReviewCoverageBreakdown figures={activity.review_coverage} />
+          </ExecutiveKpiTile>
+        </Grid>
+      </Grid>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={4}>
           <CountCard label={g("dashboard.executive.governancePage.activity.adrsSigned")}>
@@ -183,6 +215,86 @@ export default function ExecutiveGovernance() {
           </CountCard>
         </Grid>
       </Grid>
+
+      {coverageDrill && (
+        <Box sx={{ mt: 2 }} data-testid="gov01-drilldown">
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+            {g("dashboard.executive.governancePage.reviewCoverage.drilldownTitle")}
+          </Typography>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{g("dashboard.executive.governancePage.reviewCoverage.col.initiative")}</TableCell>
+                  <TableCell>{g("dashboard.executive.governancePage.reviewCoverage.col.state")}</TableCell>
+                  <TableCell>{g("dashboard.executive.governancePage.reviewCoverage.col.assessment")}</TableCell>
+                  <TableCell>{g("dashboard.executive.governancePage.reviewCoverage.col.reviews")}</TableCell>
+                  {coverageDrill.can_assess && <TableCell />}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {coverageDrill.rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      {canAccessPath(user?.permissions, r.path) ? (
+                        <Link component={RouterLink} to={r.path} underline="hover" dir="auto">
+                          {r.name}
+                        </Link>
+                      ) : (
+                        <bdi>{r.name}</bdi>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {g(`dashboard.executive.governancePage.state.${r.state}`)}
+                      {r.review_in_progress &&
+                        ` · ${g("dashboard.executive.governancePage.reviewCoverage.inProgressFlag")}`}
+                    </TableCell>
+                    <TableCell>
+                      {r.assessment ? (
+                        <bdi>
+                          {r.assessment.criteria_reference}
+                          {r.assessment.decided_at ? ` · ${formatDate(r.assessment.decided_at)}` : ""}
+                        </bdi>
+                      ) : (
+                        g("dashboard.executive.governancePage.state.unknown")
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(r.reviews ?? []).map((rv) => (
+                        <Box key={rv.id}>
+                          <bdi>{rv.title}</bdi> · {rv.status}
+                        </Box>
+                      ))}
+                      {(r.signed_adrs ?? []).length > 0 && (
+                        <Typography variant="caption" color="text.secondary" component="div">
+                          {g("dashboard.executive.governancePage.reviewCoverage.adrContext", {
+                            count: r.signed_adrs!.length,
+                          })}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    {coverageDrill.can_assess && (
+                      <TableCell>
+                        <Button size="small" onClick={() => setAssessing({ id: r.id, name: r.name })}>
+                          {g("dashboard.executive.governancePage.applicability.assess")}
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Box>
+      )}
+      <AssessApplicabilityDialog
+        initiative={assessing}
+        onClose={() => setAssessing(null)}
+        onSaved={() => {
+          setAssessing(null);
+          setAssessKey((n) => n + 1);
+        }}
+      />
 
       {/* ── Effectiveness ────────────────────────────────────────── */}
       <SectionHeader
@@ -319,7 +431,10 @@ export default function ExecutiveGovernance() {
             reason={reason("riskReduction")}
           />
         </Grid>
-        {(["governedDelivery", "businessValue"] as const).map((key) => (
+        <Grid item xs={12}>
+          <GovernedDeliveryCard delivery={data.impact.governed_delivery} />
+        </Grid>
+        {(["businessValue"] as const).map((key) => (
           <Grid item xs={12} sm={6} md={2} key={key}>
             <NotAvailableTile
               label={g(`dashboard.executive.governancePage.indicator.${key}`)}
@@ -393,6 +508,122 @@ export default function ExecutiveGovernance() {
         {g("dashboard.executive.governancePage.footnote")}
       </Typography>
     </Box>
+  );
+}
+
+const GOV_STATES: GovernanceState[] = ["governed", "ungoverned", "exempt", "unknown"];
+
+/**
+ * The GOV-01 breakdown (D-37, I-59): every group of the population apart —
+ * requiring review, completed, awaiting (of which in progress), exempt and
+ * undetermined — with assessment coverage. Undetermined is never exempt or
+ * compliant.
+ */
+function ReviewCoverageBreakdown({ figures }: { figures: ReviewCoverageFigures }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.reviewCoverage.${key}`;
+  return (
+    <Box data-testid="gov01-breakdown">
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
+        {t(k("label"))}
+      </Typography>
+      <Typography variant="body2">{t(k("requiring"), { count: figures.requiring_review })}</Typography>
+      <Typography variant="body2" color="success.main">
+        {t(k("completed"), { count: figures.review_completed })}
+      </Typography>
+      <Typography variant="body2" color="warning.main">
+        {t(k("awaiting"), { count: figures.awaiting_review, inProgress: figures.review_in_progress })}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" data-testid="gov01-exempt">
+        {t(k("exempt"), { count: figures.exempt })}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" data-testid="gov01-undetermined">
+        {t(k("undetermined"), { count: figures.undetermined })}
+      </Typography>
+      <Typography variant="caption" fontWeight={700} component="div" sx={{ mt: 0.5 }}>
+        {t(k("assessmentCoverage"), {
+          assessed: figures.assessment_coverage.assessed,
+          total: figures.assessment_coverage.population,
+          pct: pct(figures.assessment_coverage.percentage) ?? "—",
+        })}
+      </Typography>
+    </Box>
+  );
+}
+
+/**
+ * GOV-09 (D-37, D-20, I-61): delivery health of the four governance groups
+ * side by side. Only governed and ungoverned are compared; a rate is shown
+ * only when at least five initiatives of the group reported; the difference
+ * is an association, never an effect of governance.
+ */
+function GovernedDeliveryCard({ delivery }: { delivery: GovernedDelivery }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.governedDelivery.${key}`;
+  const comparison = delivery.comparison;
+  return (
+    <Card variant="outlined" data-testid="gov09-delivery">
+      <CardContent>
+        <Typography variant="subtitle2" fontWeight={700}>
+          {t("dashboard.executive.governancePage.indicator.governedDelivery")}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 1 }}>
+          {t(k("label"), { min: delivery.minimum_group_size })}
+        </Typography>
+        {delivery.status !== "ok" ? (
+          <Typography variant="body2" color="text.secondary">
+            {t(k("noGroups"))}
+          </Typography>
+        ) : (
+          <>
+            <Box
+              sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(4, 1fr)" }, gap: 1.5 }}
+            >
+              {GOV_STATES.map((state) => {
+                const group = delivery.groups[state];
+                return (
+                  <Box key={state} data-testid={`gov09-${state}`}>
+                    <Typography variant="body2" fontWeight={700}>
+                      {t(`dashboard.executive.governancePage.state.${state}`)}
+                    </Typography>
+                    <Typography variant="body2">
+                      {t(k("inFlight"), { count: group.in_flight })}
+                    </Typography>
+                    <Typography variant="body2">
+                      {group.suppressed
+                        ? t(k("suppressed"), { min: delivery.minimum_group_size })
+                        : t(k("onTrack"), { pct: pct(group.on_track_pct) ?? "—" })}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      {t(k("coverage"), {
+                        reported: group.reported,
+                        total: group.in_flight,
+                        pct: pct(group.reporting_coverage) ?? "—",
+                      })}
+                    </Typography>
+                    {(state === "exempt" || state === "unknown") && (
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        {t(k("notCompared"))}
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+            <Box data-testid="gov09-comparison" sx={{ mt: 1.5, pt: 1, borderTop: 1, borderColor: "divider" }}>
+              <Typography variant="body2" fontWeight={700}>
+                {comparison && comparison.status === "ok"
+                  ? t(k("difference"), { points: comparison.difference_pct_points })
+                  : t(k("comparisonSuppressed"), { min: delivery.minimum_group_size })}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" component="div">
+                {t(k("association"))}
+              </Typography>
+            </Box>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

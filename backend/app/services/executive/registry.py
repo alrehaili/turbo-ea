@@ -33,6 +33,9 @@ METRICS: dict[str, RegisteredMetric] = {
     # Open architecture-related risks: an observed count of risks with an
     # explicit governance link (D-42) — not a risk inventory, not reduction.
     "RSK-01": RegisteredMetric("RSK-01", "count", "RSK-01@1"),
+    # EA review coverage: initiatives requiring review whose approved subject
+    # review exists ÷ initiatives assessed as requiring review (D-37).
+    "GOV-01": RegisteredMetric("GOV-01", "percent", "GOV-01@1"),
 }
 
 #: Metrics whose closed-period value is calculated for that period from its

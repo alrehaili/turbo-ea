@@ -815,3 +815,26 @@ D-42 was approved on 2026-10-27 (explicit risk ↔ governance-record links; arch
 **Validation: Pending Verification.** No tests or builds run. Only `ruff check` / `ruff format`, the app import, the Alembic head (`1173`), ESLint on the changed frontend files and the OpenAPI dump. Tests written and not executed: `tests/api/test_risk_governance_api.py`, the RSK-01 cases in `test_kpi_measurement_service.py` and `test_executive_overview.py`, `test_risk_governance_links_roundtrip`, the v14 cases in `test_nora_profile.py`, `GovernanceRecordsSection.test.tsx` (with `LinkedRisksList`) and the RSK-01 cases in `ExecutiveGovernance.test.tsx`.
 
 **Limitations.** Figures are current state: links and risk statuses keep no history, so a past period shows only its verified RSK-01 measurement (from the day capture starts; nothing backfilled). The record picker on the risk page lists the records the user may see with no search beyond the list's own filter. Link events carry no card, so they appear in the audit/event log rather than on card history timelines.
+
+## Phase 3 — Batch 3.6: governance coverage and governed delivery (2026-10-27, v2.42.0)
+
+D-20 (minimum 5 per comparison group) and D-37 (append-only applicability assessments under `governance.assess_applicability`; Undetermined never exempt or compliant; GOV-01 over active and completed initiatives counting only reviews relevant to the obligation; GOV-09 in four groups comparing governed with ungoverned only) were approved with changes on 2026-10-27. Recorded in `DECISION_LOG.md` with details I-57..I-63. Implemented on `main`, **uncommitted**, not deployed. **Every Phase 3 batch is now implemented**; Phase 4 not started.
+
+**Backend.**
+- Migration `1174` / `models/ea_review_applicability.py`: `ea_review_applicability_assessments` (initiative, `required` / `not_required`, criteria reference, justification, assessor, time; append-only). Permission `governance.assess_applicability` (no default role).
+- `services/ea_applicability.py`: recording (every field required; ACTIVE Initiatives only; `ea_applicability.assessed` on the initiative's history), current status (latest row), the four states, GOV-01 figures, the D-20 group rule and the governed-vs-ungoverned comparison. **Completed review (I-58, rule for review):** an ARB review whose subject is the initiative and whose status is `approved`; signed ADRs are context, never counted.
+- `api/v1/ea_applicability.py`: `GET` / `POST /cards/{id}/ea-applicability`.
+- Executive: Activity carries `review_coverage` and the GOV-01 tile (`GOV-01@1`, KPI-card link, previous period's verified value); Impact carries `governed_delivery` (GOV-09, current state, no KPI); drill-downs `GOV-01` (`arb.view` or `adr.view`; `can_assess`) and `GOV-09` (as TR-03). GOV-01 registered with daily capture; NORA profile v15 option.
+- Workspace transfer: section `EaReviewApplicability` (initiative by card reference, assessor by email).
+
+**Frontend.** Governance page: GOV-01 tile with its breakdown in Activity, the GOV-01 drill-down with an *Assess* action (`AssessApplicabilityDialog`) for assessors, and the GOV-09 card in Impact (four groups, suppression notes, comparison and the association label). EN/AR strings (`common`); the stale overview "governance not available" hint now describes GOV-05.
+
+**Docs.** `docs/guide/dashboard.md` + `.ar.md` (GOV-01, GOV-09), CHANGELOG `[2.42.0]`, VERSION `2.42.0`, DECISION_LOG D-20 + D-37 + I-57..I-63 (no Phase 3 decision left open), PHASED_DELIVERY_PLAN status, RTM P3-11, OpenAPI regenerated.
+
+**Validation: Pending Verification.** No tests or builds run. Only `ruff check` / `ruff format`, the app import, the Alembic head (`1174`), ESLint on the changed frontend files and the OpenAPI dump. Tests written and not executed: `tests/services/test_ea_applicability.py`, `tests/api/test_ea_applicability_api.py`, the GOV-01 cases in `test_kpi_measurement_service.py` and `test_executive_overview.py`, `test_ea_review_applicability_roundtrip`, the v15 cases in `test_nora_profile.py`, `AssessApplicabilityDialog.test.tsx` and the GOV-01 / GOV-09 cases in `ExecutiveGovernance.test.tsx`.
+
+**Rules approved 2026-10-27.** I-58: only an approved ARB review whose subject is the initiative completes its required review; signed ADRs are supporting context and never satisfy it automatically. I-61: GOV-09 comparative rates are suppressed when either compared group has fewer than five reporting initiatives; permitted counts and reporting coverage stay visible.
+
+**Phase 3 status: implementation complete (Batches 3.1–3.6), validation Pending Verification.** The tests written for Batches 3.3–3.6 have not been executed.
+
+**Limitations.** GOV-01 and GOV-09 are current state: applicability history exists only from the first assessment, so past periods show only GOV-01's verified measurements (from the day capture starts). Assessments are recorded from the Governance-page drill-down; there is no assessment field on the initiative card itself. GOV-09 groups are small until many initiatives are assessed, so its rates will often be suppressed at first.

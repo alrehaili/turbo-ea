@@ -31,6 +31,7 @@ from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
+from app.models.ea_review_applicability import EaReviewApplicability
 from app.models.file_attachment import FileAttachment
 from app.models.governance_transition import GovernanceTransition
 from app.models.improvement_opportunity import (
@@ -465,6 +466,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "RiskGovernanceLinks",
         RiskGovernanceLink,
         user_fk_columns=("created_by",),
+    ),
+    # EA governance applicability of initiatives (D-37): append-only rows.
+    EntitySection(
+        "EaReviewApplicability",
+        EaReviewApplicability,
+        card_fk_columns=("card_id",),
+        user_fk_columns=("decided_by",),
     ),
     # --- Scenario planning (scenario before its changes) -----------------
     EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),

@@ -20831,6 +20831,34 @@
         "title": "WorkspaceUpdate",
         "type": "object"
       },
+      "app__api__v1__ea_applicability__AssessmentCreate": {
+        "properties": {
+          "criteria_reference": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Criteria Reference",
+            "type": "string"
+          },
+          "decision": {
+            "pattern": "^(required|not_required)$",
+            "title": "Decision",
+            "type": "string"
+          },
+          "justification": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Justification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "criteria_reference",
+          "justification"
+        ],
+        "title": "AssessmentCreate",
+        "type": "object"
+      },
       "app__api__v1__improvement_opportunities__AiSuggestRequest": {
         "properties": {
           "focus": {
@@ -31138,6 +31166,96 @@
         "summary": "Create Document",
         "tags": [
           "documents"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/ea-applicability": {
+      "get": {
+        "operationId": "get_applicability_api_v1_cards__card_id__ea_applicability_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Applicability",
+        "tags": [
+          "EA governance"
+        ]
+      },
+      "post": {
+        "operationId": "assess_applicability_api_v1_cards__card_id__ea_applicability_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__ea_applicability__AssessmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assess Applicability",
+        "tags": [
+          "EA governance"
         ]
       }
     },

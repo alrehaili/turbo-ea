@@ -100,6 +100,8 @@ Full findings and work items are in `SECURITY_REMEDIATION_PLAN.md`. The decision
 
 ## Phase 3: EA governance effectiveness
 
+> **Status 2026-10-27 (v2.42.0): implementation complete — Batches 3.1–3.6; validation Pending Verification** (tests for Batches 3.3–3.6 written, not executed). Phase 4 not started.
+
 Rules: `DECISION_LOG.md` §3.1 (D-10, D-13, D-28, D-32..D-36 approved with changes 2026-10-25; D-11 deferred; details I-7..I-13). Classes are never mixed: **Activity** (governance happened), **Effectiveness** (governance was acted on), **Impact** (contribution to outcomes). Anything without a defensible calculation shows **Not Available** with its reason.
 
 | Item | Content |
@@ -118,7 +120,7 @@ Rules: `DECISION_LOG.md` §3.1 (D-10, D-13, D-28, D-32..D-36 approved with chang
 | 3.3 | Business calendar (Sun–Thu default, holiday configuration, validity); GOV-07 working-day figures | D-38 | 3.2 |
 | 3.4 | Decision actions on ADR / ARB (Todo source link, owner, due date, evidence); implementation verification; GOV-05 with No Plan; overview tile switches to GOV-05 | — (D-41 approved 2026-10-27) | 3.2 (transition history dates the decisions) |
 | 3.5 | Architecture risks from explicit governance links; verified reduction stays Not Available | — (D-42 approved 2026-10-27) | 3.1 |
-| 3.6 | GOV-01 review coverage and GOV-09 governed vs ungoverned delivery from approved applicability | D-37 | 3.1 |
+| 3.6 | GOV-01 review coverage and GOV-09 governed vs ungoverned delivery from approved applicability | — (D-37, D-20 approved 2026-10-27) | 3.1 |
 
 Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (needs per-card compliance history); business and financial impact (Phase 4).
 
@@ -170,6 +172,8 @@ Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (need
 Explicit risk ↔ governance-record links (D-42); counts of linked open risks by residual level; verified reduction Not Available.
 
 ### Batch 3.6 — Review coverage and governed delivery
+
+> **Status 2026-10-27 (v2.42.0): implemented, uncommitted.** D-37 and D-20 approved; append-only applicability assessments (migration `1174`, `governance.assess_applicability`), GOV-01 (approved subject review only; registry, daily capture, KPI-card link, verified previous period, drill-down with *Assess*), GOV-09 (four groups, governed vs ungoverned only, minimum 5 reporting, association not causation) (I-57..I-63). Validation **Pending Verification**. With this batch every Phase 3 batch is implemented; Phase 4 not started.
 
 Applicability per D-37; GOV-01 over initiatives assessed as requiring review; GOV-09 cohorts with sizes, suppressed below 5 per cohort, "contribution, not causation".
 

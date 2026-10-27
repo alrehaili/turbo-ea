@@ -57,6 +57,30 @@ const data: ExecutiveGovernanceData = {
     is_current: false,
   },
   activity: {
+    review_coverage: {
+      status: "ok",
+      value: 60,
+      temporal: "current_state",
+      population: 12,
+      requiring_review: 5,
+      review_completed: 3,
+      awaiting_review: 2,
+      review_in_progress: 1,
+      exempt: 3,
+      undetermined: 4,
+      assessment_coverage: { assessed: 8, population: 12, percentage: 66.7 },
+      basis: "approved_subject_review",
+    },
+    review_coverage_tile: {
+      ...compliance,
+      key: "GOV-01",
+      calculation_version: "GOV-01@1",
+      temporal: "current_state",
+      period: null,
+      value: 60,
+      confidence: "low",
+      completeness: { numerator: 8, denominator: 12, percentage: 66.7 },
+    },
     adrs_signed: 3,
     arb: { approved: 2, rejected: 1, deferred: 4, dating: "latest_decision" },
     exceptions: {
@@ -216,8 +240,19 @@ const data: ExecutiveGovernanceData = {
       previous: { status: "ok", value: 7, period: "FY2026-Q2", verified: true },
     },
     governed_delivery: {
-      status: "not_available",
-      reason: { code: "decision_pending", decisions: ["D-37"], batch: "3.6" },
+      status: "ok",
+      temporal: "current_state",
+      as_of: "2026-10-25",
+      minimum_group_size: 5,
+      interpretation: "association_not_causation",
+      source: "initiative_status",
+      groups: {
+        governed: { initiatives: 7, in_flight: 6, reported: 6, reporting_coverage: 100, on_track_pct: 83.3, suppressed: false, states: {} },
+        ungoverned: { initiatives: 3, in_flight: 3, reported: 3, reporting_coverage: 100, on_track_pct: null, suppressed: true, states: {} },
+        exempt: { initiatives: 2, in_flight: 2, reported: 2, reporting_coverage: 100, on_track_pct: null, suppressed: true, states: {} },
+        unknown: { initiatives: 4, in_flight: 4, reported: 1, reporting_coverage: 25, on_track_pct: null, suppressed: true, states: {} },
+      },
+      comparison: { status: "suppressed", minimum_group_size: 5, reason: { code: "group_below_minimum" } },
     },
     business_value: { status: "not_available", reason: { code: "later_phase", phase: 4 } },
   },
@@ -351,6 +386,36 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     const overlap = within(breakdown).getByTestId("rsk01-overlap");
     expect(overlap).toHaveTextContent("Decision records: 3 · Reviews: 2 · Exceptions: 4");
     expect(overlap).toHaveTextContent(/do not add up to the total/);
+  });
+
+  it("shows GOV-01 with every applicability group apart (D-37)", () => {
+    renderPage();
+    expect(screen.getByText("EA review coverage")).toBeInTheDocument();
+    const b = screen.getByTestId("gov01-breakdown");
+    expect(b).toHaveTextContent("Requiring review: 5");
+    expect(b).toHaveTextContent("Review completed: 3");
+    expect(b).toHaveTextContent("Awaiting review: 2 (review in progress: 1)");
+    expect(within(b).getByTestId("gov01-exempt")).toHaveTextContent("Exempt (assessed not required): 3");
+    expect(within(b).getByTestId("gov01-undetermined")).toHaveTextContent("Applicability undetermined: 4");
+    expect(b).toHaveTextContent("Assessment coverage: 8 of 12 initiatives (66.7%)");
+  });
+
+  it("compares only governed and ungoverned, suppresses small groups and says association", () => {
+    renderPage();
+    const card = screen.getByTestId("gov09-delivery");
+    expect(within(card).getByTestId("gov09-governed")).toHaveTextContent("On track among those reporting: 83.3%");
+    expect(within(card).getByTestId("gov09-ungoverned")).toHaveTextContent("Rate not shown: fewer than 5 reported");
+    expect(within(card).getByTestId("gov09-exempt")).toHaveTextContent("Shown for context; not compared.");
+    expect(within(card).getByTestId("gov09-unknown")).toHaveTextContent("Reporting: 1 of 4 (25%)");
+    const cmp = within(card).getByTestId("gov09-comparison");
+    expect(cmp).toHaveTextContent(/No comparison: each compared group needs at least 5/);
+    expect(cmp).toHaveTextContent(/association, not causation/);
+  });
+
+  it("does not request the GOV-01 drill-down without a review permission", () => {
+    renderPage();
+    expect(screen.queryByTestId("gov01-drilldown")).toBeNull();
+    expect(useApiQuery).not.toHaveBeenCalledWith("/reports/executive/kpi/GOV-01/drilldown", expect.anything());
   });
 
   it("keeps verified risk reduction Not available", () => {

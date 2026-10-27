@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.42.0] - 2026-10-27
+
+### Added
+- **EA review applicability**: holders of the new *Assess EA review applicability* permission (no default role) record whether an initiative requires EA governance review, with the criteria applied and a justification. Assessments are kept as a history; an initiative not yet assessed stays undetermined.
+- **EA review coverage (GOV-01)** on the Executive Governance page: initiatives requiring review whose approved architecture review exists, with completed, awaiting, exempt and undetermined initiatives and the assessment coverage shown apart, and a drill-down for readers with the architecture review or decisions permission. It can be linked to a KPI card and is recorded in the KPI measurement history.
+- **Governed and ungoverned delivery (GOV-09)**: initiative delivery health for governed, ungoverned, exempt and undetermined initiatives, comparing only governed with ungoverned, hiding rates for groups with fewer than five reporting initiatives, and labelled as an association, not causation.
+
 ## [2.41.0] - 2026-10-27
 
 ### Added
