@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - Faster start-up on every page: the app now loads only the active language's text (Arabic is fetched when chosen) and loads the extension toolkit only when extensions are loaded, cutting the start-up script by about 40%.
+- The inventory opens faster: the Excel import and export and the card preview panel load the first time they are used instead of with the page, about halving what the page loads.
 - The Overview's business value indicator now shows the Finance-confirmed cost savings and revenue of the period's fiscal year instead of *not available*.
 - Rationalization planned savings are labelled an annual run-rate forecast not tied to a fiscal year, and a decision named by a benefit is no longer counted in the forecast.
 

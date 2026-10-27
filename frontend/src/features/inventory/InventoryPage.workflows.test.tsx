@@ -2098,7 +2098,8 @@ describe("InventoryPage grid handlers", () => {
     expect(exportToExcel).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: BTN.exportMenu }));
     await user.click(await screen.findByText("Export all fields"));
-    expect(exportToExcel).toHaveBeenCalledTimes(1);
+    // The export module loads on first use, so the call lands a tick later.
+    await waitFor(() => expect(exportToExcel).toHaveBeenCalledTimes(1));
     const [rows, typeConfig, types, relTypes, opts] = vi.mocked(exportToExcel).mock.calls[0];
     expect(rows.map((r) => r.id)).toEqual(APPS.map((c) => c.id));
     expect(typeConfig?.key).toBe("Application");
@@ -2220,7 +2221,7 @@ describe("InventoryPage chrome", () => {
 
     await user.click(within(screen.getByLabelText("Export")).getByRole("button"));
     await user.click(await screen.findByText("Export all fields"));
-    expect(exportToExcel).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(exportToExcel).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole("button", { name: "Import" }));
     expect(await screen.findByTestId("import-dialog")).toBeInTheDocument();

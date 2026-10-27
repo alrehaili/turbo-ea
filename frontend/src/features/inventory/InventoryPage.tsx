@@ -1,4 +1,13 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router";
 import { AgGridReact } from "ag-grid-react";
@@ -37,7 +46,6 @@ import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import BulkRestoreDialog from "@/features/cards/BulkRestoreDialog";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
-import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
   APPROVAL_STATUS_OPTIONS,
   CORE_COLUMN_KEYS,
@@ -61,7 +69,6 @@ import LogoCell, {
 } from "./LogoCell";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
-import ImportDialog from "./ImportDialog";
 import {
   bandColor,
   bandOf,
@@ -69,7 +76,6 @@ import {
   isDataQualityBand,
   normalizeDataQualityFilter,
 } from "@/lib/dataQualityBands";
-import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { booleanColumnDef } from "./booleanColumn";
 import RelationCellPopover from "./RelationCellPopover";
@@ -188,6 +194,13 @@ import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
 import type { Card, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
+
+// Loaded on first use, not with the page: the preview panel brings the whole
+// card-detail graph (diagram, charts, tabs), and import / export bring the
+// spreadsheet library. Opening the inventory does not need any of them.
+const CardDetailSidePanel = lazy(() => import("@/components/CardDetailSidePanel"));
+const ImportDialog = lazy(() => import("./ImportDialog"));
+const loadExcelExport = () => import("./excelExport");
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
@@ -952,6 +965,12 @@ export default function InventoryPage() {
   const [gridEditMode, setGridEditMode] = useState(false);
   // Card-detail side panel: opened from the eye icon in the Name column.
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
+  // The panel's code loads on the first preview and stays mounted afterwards,
+  // so later opens and closes keep their transition.
+  const [previewOpened, setPreviewOpened] = useState(false);
+  useEffect(() => {
+    if (previewCardId) setPreviewOpened(true);
+  }, [previewCardId]);
 
   // Logo column: the cell the change-logo menu hangs off, and the card it acts
   // on. The target deliberately outlives the menu closing — the file dialog is
@@ -2370,7 +2389,7 @@ export default function InventoryPage() {
     const sheetLabel = typeConfig
       ? typeLabel(typeConfig)
       : t("export.viewSheetName", { defaultValue: "View" });
-    exportCurrentViewToExcel(rows, columns, { sheetLabel });
+    void loadExcelExport().then((m) => m.exportCurrentViewToExcel(rows, columns, { sheetLabel }));
   }, [typeConfig, typeLabel, t]);
 
   // Stable AG Grid config objects — prevents unnecessary grid re-renders.
@@ -4417,16 +4436,15 @@ export default function InventoryPage() {
             onClick={() => {
               // No `rel:` column for a relation whose other end the user may
               // not see — it could only ever be empty for them.
-              exportToExcel(
-                filteredData,
-                typeConfig,
-                types,
-                relationTypes.filter(
-                  (rt) =>
-                    visibleTypeKeys.has(rt.source_type_key) &&
-                    visibleTypeKeys.has(rt.target_type_key),
-                ),
-                { canViewCosts: canViewCostsGlobally },
+              const visibleRelationTypes = relationTypes.filter(
+                (rt) =>
+                  visibleTypeKeys.has(rt.source_type_key) &&
+                  visibleTypeKeys.has(rt.target_type_key),
+              );
+              void loadExcelExport().then((m) =>
+                m.exportToExcel(filteredData, typeConfig, types, visibleRelationTypes, {
+                  canViewCosts: canViewCostsGlobally,
+                }),
               );
               setExportMenuAnchor(null);
             }}
@@ -4902,16 +4920,20 @@ export default function InventoryPage() {
         initialType={selectedType}
       />
 
-      <ImportDialog
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onComplete={loadData}
-        existingCards={data}
-        allTypes={types}
-        relationTypes={relationTypes}
-        preSelectedType={selectedType || undefined}
-        tagGroups={tagGroups}
-      />
+      {importOpen && (
+        <Suspense fallback={null}>
+          <ImportDialog
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            onComplete={loadData}
+            existingCards={data}
+            allTypes={types}
+            relationTypes={relationTypes}
+            preSelectedType={selectedType || undefined}
+            tagGroups={tagGroups}
+          />
+        </Suspense>
+      )}
 
       {/* Bulk Approval Action Dialog */}
       <Dialog open={bulkApprovalOpen} onClose={() => setBulkApprovalOpen(false)} maxWidth="sm" fullWidth>
@@ -5000,12 +5022,16 @@ export default function InventoryPage() {
         </DialogActions>
       </Dialog>
 
-      <CardDetailSidePanel
-        cardId={previewCardId}
-        open={!!previewCardId}
-        onClose={() => setPreviewCardId(null)}
-        nonModal
-      />
+      {previewOpened && (
+        <Suspense fallback={null}>
+          <CardDetailSidePanel
+            cardId={previewCardId}
+            open={!!previewCardId}
+            onClose={() => setPreviewCardId(null)}
+            nonModal
+          />
+        </Suspense>
+      )}
 
       {relEditRelTypes.length > 0 && (
         <RelationCellPopover
