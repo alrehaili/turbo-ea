@@ -8422,7 +8422,10 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     # option is added only when absent.
     kpi_ct = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one_or_none()
     if kpi_ct is not None:
-        schema = [dict(section) for section in (kpi_ct.fields_schema or [])]
+        # A deep copy: the options are changed inside the field dicts, and an
+        # in-place change of the loaded value would leave SQLAlchemy seeing
+        # no difference, so nothing would be written.
+        schema = deepcopy(kpi_ct.fields_schema or [])
         added: list[str] = []
         for section in schema:
             for field in section.get("fields") or []:

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.42.1] - 2026-10-27
+
+### Fixed
+- Upgrading an existing NORA installation now saves the executive metric options (technology standards compliance, decision implementation, open architecture-related risks, EA review coverage) on the KPI card's *Executive Metric* field; before, the upgrade reported them as added without saving them.
+- On the Executive Governance page, recording an EA review applicability assessment now updates the EA review coverage and governed-delivery figures straight away, not only after a page reload.
+
 ## [2.42.0] - 2026-10-27
 
 ### Added

@@ -89,7 +89,11 @@ export default function ExecutiveGovernance() {
   const path = period
     ? `/reports/executive/governance?period=${encodeURIComponent(period)}`
     : "/reports/executive/governance";
-  const { data, error, loading } = useApiQuery<ExecutiveGovernanceData>(path);
+  // Bumped after an applicability assessment so GOV-01 / GOV-09 refresh too.
+  const [assessKey, setAssessKey] = useState(0);
+  const { data, error, loading } = useApiQuery<ExecutiveGovernanceData>(path, {
+    refetchKey: assessKey,
+  });
 
   const canStandards = canAccessPath(user?.permissions, "/tech-standards");
   const drillPath =
@@ -104,7 +108,6 @@ export default function ExecutiveGovernance() {
       : null;
   const { data: riskDrill } = useApiQuery<{ rows: ArchitectureRiskRow[] }>(riskDrillPath);
   // GOV-01 rows need a review module permission (I-62); refreshed after an assessment.
-  const [assessKey, setAssessKey] = useState(0);
   const [assessing, setAssessing] = useState<{ id: string; name: string } | null>(null);
   const canReviews =
     hasPermission(user?.permissions, "arb.view") || hasPermission(user?.permissions, "adr.view");

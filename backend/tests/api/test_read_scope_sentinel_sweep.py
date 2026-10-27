@@ -202,7 +202,7 @@ async def world(db, client):
     # design, the references are what must not leak.
     review = await post("/api/v1/arb", {"title": "Review", "subject_card_id": sentinel["id"]})
     standard = await post("/api/v1/tech-standards", {"name": "Std"})
-    await post(
+    hidden_exception = await post(
         f"/api/v1/tech-standards/{standard['id']}/exceptions",
         {"card_id": sentinel["id"], "justification": "waiver"},
     )
@@ -291,6 +291,14 @@ async def world(db, client):
             "key": "Application",
             "type_key": "Application",
             "review_id": review["id"],
+            # /adr|arb/{decision_id}/implementation (D-41): the review of the
+            # hidden sentinel, so the ARB route must answer 404.
+            "decision_id": review["id"],
+            # /kpis/metrics/{metric_key}/history (D-19): landscape-wide history.
+            "metric_key": "TR-03",
+            # /tech-standards/exceptions/{exception_id}/transitions (D-35): the
+            # exception about the hidden sentinel, so it must answer 404.
+            "exception_id": hidden_exception["id"],
             "standard_id": standard["id"],
             "assessment_id": assessment["id"],
             "workspace_id": workspace["id"],
