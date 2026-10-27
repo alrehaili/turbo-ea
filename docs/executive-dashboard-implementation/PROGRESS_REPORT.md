@@ -796,3 +796,22 @@ The owner approved the four rules added for review and asked for GOV-05 to join 
 - **Pre-existing test fixed.** `test_nora_profile.py` still asserted profile v11 after v12 shipped in Batch 3.1; it now asserts v13.
 
 **Validation: Pending Verification.** No tests or builds run; `ruff`, the app import and ESLint on the changed frontend files only. Tests written and not executed: the GOV-05 capture and period-close cases in `test_kpi_measurement_service.py`, the option pass in `test_nora_profile.py`, the previous-period case in `test_executive_overview.py`, the material / cosmetic cases in `test_decision_implementation.py`, and the GOV-05 tile cases in `ExecutiveGovernance.test.tsx`.
+
+## Phase 3 — Batch 3.5: architecture risk indicators (2026-10-27, v2.41.0)
+
+D-42 was approved on 2026-10-27 (explicit risk ↔ governance-record links; architecture-related only through a link; `risks.manage` plus record visibility; audited link, unlink and deletion; no leaks through names, counts or drill-downs; current-state indicators; RSK-01 in the KPI infrastructure; verified reduction Not Available). Recorded in `DECISION_LOG.md` with details I-51..I-56. Implemented on `main`, **uncommitted**, not deployed. Batch 3.6 not started.
+
+**Backend.**
+- Migration `1173` / `models/risk_governance_link.py`: `risk_governance_links` (risk FK with cascade, instrument, record id without FK, linker, time; unique per risk and record). Existing `risk_cards` untouched.
+- `services/risk_governance.py`: record description and visibility (ADR `adr.view`; ARB `arb.view` + readable subject card; exception `tech_standards.view` + readable card), link / unlink one at a time with `risk.governance_linked` / `risk.governance_unlinked` events, removal on record deletion (`reason: record_deleted`), the figures (each risk once; D-04 open / escalated / mitigated; overlapping breakdowns marked non-additive; reduction Not Available) and the drill-down rows (records the reader cannot open counted, never named).
+- `api/v1/risk_governance.py`: `GET/POST /risks/{id}/governance-links`, `DELETE /risks/{id}/governance-links/{instrument}/{record_id}`, `GET /adr/{id}/risks`, `GET /arb/{id}/risks`. ADR draft delete, ARB delete, exception hard delete and standard delete remove the record's links.
+- Executive: Governance page Impact section carries `architecture_risks` and the `architecture_risk_tile` (RSK-01, current state, KPI-card link, previous period's verified value); `GET /reports/executive/kpi/RSK-01/drilldown` under `risks.view`; RSK-01 registered (`RSK-01@1`) with daily capture when a link exists; `KPI.metricKey` option via NORA profile v14. The CEO Overview is unchanged.
+- Workspace transfer: section `RiskGovernanceLinks` (linker by email; risk and record ids are module PKs kept on import).
+
+**Frontend.** `GovernanceRecordsSection` on the risk detail page (list, add by record type, remove); `LinkedRisksList` on the ADR preview and in the ARB review dialog; the Governance page Impact section shows RSK-01 as a KPI tile with a visible current-state label, the breakdown, a Verified risk-reduction Not Available tile and the drill-down for `risks.view` holders. EN/AR strings (`common`, `grc`).
+
+**Docs.** `docs/guide/risks.md` + `.ar.md` (*Linking risks to governance records*), `docs/guide/dashboard.md` + `.ar.md` (RSK-01), CHANGELOG `[2.41.0]`, VERSION `2.41.0`, DECISION_LOG D-42 + I-51..I-56, PHASED_DELIVERY_PLAN status, RTM P3-10, OpenAPI regenerated.
+
+**Validation: Pending Verification.** No tests or builds run. Only `ruff check` / `ruff format`, the app import, the Alembic head (`1173`), ESLint on the changed frontend files and the OpenAPI dump. Tests written and not executed: `tests/api/test_risk_governance_api.py`, the RSK-01 cases in `test_kpi_measurement_service.py` and `test_executive_overview.py`, `test_risk_governance_links_roundtrip`, the v14 cases in `test_nora_profile.py`, `GovernanceRecordsSection.test.tsx` (with `LinkedRisksList`) and the RSK-01 cases in `ExecutiveGovernance.test.tsx`.
+
+**Limitations.** Figures are current state: links and risk statuses keep no history, so a past period shows only its verified RSK-01 measurement (from the day capture starts; nothing backfilled). The record picker on the risk page lists the records the user may see with no search beyond the list's own filter. Link events carry no card, so they appear in the audit/event log rather than on card history timelines.

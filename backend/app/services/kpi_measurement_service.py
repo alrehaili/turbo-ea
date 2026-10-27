@@ -437,6 +437,13 @@ async def observe_executive_metrics(db: AsyncSession, today: date) -> dict[str, 
         risks = list((await db.execute(select(Risk))).scalars().all())
         picture = dec.classify_risks(risks, today)
         out["DEC-01"] = Observation(float(len(picture.escalated)), None, float(picture.open))
+        # RSK-01: open architecture-related risks (D-42, I-54), recorded only
+        # when at least one explicit governance link exists.
+        from app.services.risk_governance import architecture_risk_figures
+
+        arch = await architecture_risk_figures(db, CardReadScope.everything(), today)
+        if arch["status"] == "ok":
+            out["RSK-01"] = Observation(float(arch["open"]), None, float(arch["total"]))
     # GOV-03 rule-based compliance, landscape-wide (D-33, I-13). Recorded only
     # when the assessed population can be established — an unavailable scan has
     # no defensible value to observe, so nothing is stored for it that day.

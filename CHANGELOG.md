@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.41.0] - 2026-10-27
+
+### Added
+- **Governance records on risks**: a risk can be linked to decision records, architecture reviews and standard exceptions from its detail page by holders of the risk management permission who can see the record; each link and removal is recorded. Only a linked risk counts as architecture-related.
+- **Linked risks** on decision record previews and architecture reviews, for readers who may see risks.
+- **Open architecture-related risks (RSK-01)** on the Executive Governance page: a current-state count of risks with an explicit governance link, with open, escalated and mitigated figures, an overlapping breakdown by kind of governance record, and a drill-down for readers with the risks permission. It can be linked to a KPI card and is recorded in the KPI measurement history. Verified risk reduction stays Not available.
+
 ## [2.40.0] - 2026-10-27
 
 ### Added

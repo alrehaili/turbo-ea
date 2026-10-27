@@ -18,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import DecisionImplementationPanel from "@/features/decision-implementation/DecisionImplementationPanel";
+import LinkedRisksList from "@/features/grc/risk/LinkedRisksList";
 
 interface CardBrief {
   id: string;
@@ -259,6 +260,9 @@ export default function ArchitectureReviewBoard() {
                 decisionId={detail.id}
                 linkedCardIds={detail.subject ? [detail.subject.id] : []}
               />
+
+              <Divider sx={{ my: 1.5 }} />
+              <LinkedRisksList kind="arb" recordId={detail.id} />
             </DialogContent>
             <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
               <Chip

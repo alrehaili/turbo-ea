@@ -188,8 +188,32 @@ const data: ExecutiveGovernanceData = {
   },
   impact: {
     architecture_risks: {
-      status: "not_available",
-      reason: { code: "decision_pending", decisions: ["D-42"], batch: "3.5" },
+      status: "ok",
+      temporal: "current_state",
+      as_of: "2026-10-25",
+      basis: "explicit_governance_links",
+      total: 6,
+      open: 4,
+      escalated: 2,
+      mitigated: 1,
+      by_record_type: { adr: 3, arb: 2, exception: 4, additive: false },
+      linked_to_approved: { count: 5, additive: false },
+      verified_reduction: {
+        status: "not_available",
+        reason: { code: "no_verification_rule", decisions: ["D-36", "D-42"] },
+      },
+    },
+    architecture_risk_tile: {
+      ...compliance,
+      key: "RSK-01",
+      calculation_version: "RSK-01@1",
+      temporal: "current_state",
+      period: null,
+      value: 4,
+      unit: "count",
+      confidence: "medium",
+      completeness: null,
+      previous: { status: "ok", value: 7, period: "FY2026-Q2", verified: true },
     },
     governed_delivery: {
       status: "not_available",
@@ -236,8 +260,35 @@ function renderPage(permissions: Record<string, boolean> = {}) {
   );
 }
 
+const riskRows = [
+  {
+    id: "r1",
+    reference: "R-000001",
+    title: "Vendor lock-in",
+    level: "high",
+    status: "identified",
+    escalated: true,
+    path: "/grc/risks/r1",
+    records: [
+      {
+        instrument: "adr",
+        record_id: "a1",
+        label: "ADR-001 — Event bus",
+        status: "signed",
+        approved: true,
+        path: "/ea-delivery/adr/a1/preview",
+        linked_at: null,
+      },
+    ],
+    records_withheld: 1,
+  },
+];
+
 function mockQueries(drilldown: GovernanceDrilldown | null = drill) {
   useApiQuery.mockImplementation((path: string | null) => {
+    if (path && path.includes("RSK-01/drilldown")) {
+      return { data: { rows: riskRows }, error: null, loading: false };
+    }
     if (path && path.includes("/drilldown")) {
       return { data: drilldown, error: null, loading: false };
     }
@@ -285,6 +336,41 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     expect(screen.getByText("Business value of governance")).toBeInTheDocument();
     expect(screen.getByText(/Arrives with the benefits register/)).toBeInTheDocument();
     expect(screen.getAllByText("Not available").length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("shows RSK-01 as a current-state count with each risk once and the overlap labelled (D-42)", () => {
+    renderPage();
+    const breakdown = screen.getByTestId("rsk01-breakdown");
+    expect(within(breakdown).getByTestId("rsk01-label")).toHaveTextContent(
+      "Current state · an observed count from recorded governance links — not an enterprise risk inventory and not evidence of risk reduction",
+    );
+    expect(within(breakdown).getByTestId("rsk01-total")).toHaveTextContent(
+      "Architecture-related risks (each counted once): 6",
+    );
+    expect(breakdown).toHaveTextContent("Escalated (executive rule): 2");
+    const overlap = within(breakdown).getByTestId("rsk01-overlap");
+    expect(overlap).toHaveTextContent("Decision records: 3 · Reviews: 2 · Exceptions: 4");
+    expect(overlap).toHaveTextContent(/do not add up to the total/);
+  });
+
+  it("keeps verified risk reduction Not available", () => {
+    renderPage();
+    expect(screen.getByText("Verified architecture-risk reduction")).toBeInTheDocument();
+    expect(screen.getByText(/No approved rule verifies risk reduction/)).toBeInTheDocument();
+  });
+
+  it("lists the architecture-related risks only with the risks permission", () => {
+    renderPage({ "risks.view": true });
+    const table = screen.getByTestId("rsk01-drilldown");
+    expect(table).toHaveTextContent("R-000001 — Vendor lock-in");
+    expect(table).toHaveTextContent("ADR-001 — Event bus");
+    expect(table).toHaveTextContent("Linked records you cannot open: 1");
+  });
+
+  it("does not request the risk drill-down without the risks permission", () => {
+    renderPage();
+    expect(screen.queryByTestId("rsk01-drilldown")).toBeNull();
+    expect(useApiQuery).not.toHaveBeenCalledWith("/reports/executive/kpi/RSK-01/drilldown");
   });
 
   it("shows GOV-05 as independently verified implementation by the original deadline (D-41)", () => {

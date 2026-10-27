@@ -23,6 +23,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import DecisionImplementationPanel from "@/features/decision-implementation/DecisionImplementationPanel";
+import LinkedRisksList from "@/features/grc/risk/LinkedRisksList";
 import type { ArchitectureDecision } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -369,6 +370,10 @@ export default function ADRPreview() {
               decisionId={id}
               linkedCardIds={(adr.linked_cards ?? []).map((c) => c.id)}
             />
+            {/* Risks explicitly linked to this decision, read-only (D-42). */}
+            <Box sx={{ mt: 3 }}>
+              <LinkedRisksList kind="adr" recordId={id} />
+            </Box>
           </Box>
         )}
 

@@ -66,6 +66,7 @@ from app.models.reference_model import (
     ReferenceModelVersion,
 )
 from app.models.risk import Risk, RiskCard
+from app.models.risk_governance_link import RiskGovernanceLink
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
 from app.models.roadmap import Roadmap, RoadmapMilestone
 from app.models.saved_report import SavedReport
@@ -457,6 +458,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "DecisionImplementations",
         DecisionImplementation,
         user_fk_columns=("submitted_by", "verified_by"),
+    ),
+    # Risk <-> governance-record links (D-42). After risks, ADRs, ARB reviews
+    # and exceptions: ``record_id`` names a module row whose PK an import keeps.
+    EntitySection(
+        "RiskGovernanceLinks",
+        RiskGovernanceLink,
+        user_fk_columns=("created_by",),
     ),
     # --- Scenario planning (scenario before its changes) -----------------
     EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),

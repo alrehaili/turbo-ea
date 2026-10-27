@@ -235,6 +235,48 @@ def governance_effectiveness(
     )
 
 
+def architecture_risk_tile(
+    period: Period,
+    figures: dict[str, Any],
+    today: date,
+    previous: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """RSK-01 open architecture-related risks (D-42, I-54) as a KPI tile.
+
+    A **current-state** count measured today whatever period is selected, from
+    explicitly recorded governance links only — not an enterprise risk
+    inventory and never evidence of risk reduction. ``previous`` is the
+    previous period's **verified** measurement (D-19), shown apart from the
+    current figure. Links are recorded by people: "medium" confidence."""
+    version = "RSK-01@1"
+    common: dict[str, Any] = {"temporal": CURRENT_STATE, "as_of": today}
+    details = {k: v for k, v in figures.items() if k != "status"}
+    if figures["status"] != OK:
+        tile = _not_available("RSK-01", "governance", version, period, figures["reason"])
+        return tile | {
+            "temporal": CURRENT_STATE,
+            "period": None,
+            "as_of": today.isoformat(),
+            "previous": previous or NO_HISTORY,
+            "details": details,
+        }
+    return kpi(
+        "RSK-01",
+        "governance",
+        version,
+        status=OK,
+        period=period,
+        value=figures["open"],
+        unit="count",
+        provenance="recorded",
+        confidence_level=confidence(system_derived=False, completeness_pct=None),
+        previous=previous,
+        drilldown={"api": "RSK-01", "path": GOVERNANCE_PAGE},
+        details=details,
+        **common,
+    )
+
+
 # ── Slot 3: initiative delivery (TR-03 with TR-04) ──────────────────────
 
 

@@ -7759,6 +7759,26 @@
         "title": "FrameworkProfilePayload",
         "type": "object"
       },
+      "GovernanceLinkCreate": {
+        "properties": {
+          "instrument": {
+            "pattern": "^(adr|arb|exception)$",
+            "title": "Instrument",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument",
+          "record_id"
+        ],
+        "title": "GovernanceLinkCreate",
+        "type": "object"
+      },
       "GovernancePayload": {
         "properties": {
           "chain": {
@@ -24925,6 +24945,48 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/risks": {
+      "get": {
+        "description": "Risks explicitly linked to this decision record (read-only, D-42.9).",
+        "operationId": "adr_linked_risks_api_v1_adr__adr_id__risks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adr Linked Risks",
+        "tags": [
+          "Risks"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/sign": {
       "post": {
         "description": "Sign the ADR as the current user.",
@@ -26268,6 +26330,48 @@
         "summary": "Update Review",
         "tags": [
           "arb"
+        ]
+      }
+    },
+    "/api/v1/arb/{review_id}/risks": {
+      "get": {
+        "description": "Risks explicitly linked to this review (read-only, D-42.9); a review of\na hidden subject card is 404 (D-30).",
+        "operationId": "arb_linked_risks_api_v1_arb__review_id__risks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Arb Linked Risks",
+        "tags": [
+          "Risks"
         ]
       }
     },
@@ -47639,6 +47743,156 @@
           }
         },
         "summary": "Unlink Risk Card",
+        "tags": [
+          "Risks"
+        ]
+      }
+    },
+    "/api/v1/risks/{risk_id}/governance-links": {
+      "get": {
+        "operationId": "list_governance_links_api_v1_risks__risk_id__governance_links_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "risk_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Risk Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Governance Links",
+        "tags": [
+          "Risks"
+        ]
+      },
+      "post": {
+        "operationId": "create_governance_link_api_v1_risks__risk_id__governance_links_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "risk_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Risk Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GovernanceLinkCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Governance Link",
+        "tags": [
+          "Risks"
+        ]
+      }
+    },
+    "/api/v1/risks/{risk_id}/governance-links/{instrument}/{record_id}": {
+      "delete": {
+        "operationId": "delete_governance_link_api_v1_risks__risk_id__governance_links__instrument___record_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "risk_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Risk Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "instrument",
+            "required": true,
+            "schema": {
+              "title": "Instrument",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Governance Link",
         "tags": [
           "Risks"
         ]

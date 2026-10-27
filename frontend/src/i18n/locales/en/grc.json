@@ -361,5 +361,20 @@
   "risks.import.doneFailed": "{{count}} rows were skipped due to errors.",
   "risks.import.willSkip": "{{count}} already exist (skipped)",
   "risks.import.skippedBlock": "Rows whose reference already matches an existing risk are skipped — the importer never updates existing risks.",
-  "risks.import.doneSkipped": "{{count}} rows were skipped (already exist)."
+  "risks.import.doneSkipped": "{{count}} rows were skipped (already exist).",
+  "risks.governance.title": "Governance records",
+  "risks.governance.hint": "Linking this risk to a decision record, architecture review or standard exception marks it as architecture-related.",
+  "risks.governance.none": "No governance record linked.",
+  "risks.governance.loadFailed": "The governance records could not be loaded.",
+  "risks.governance.failed": "The link could not be changed.",
+  "risks.governance.instrument.adr": "Decision record",
+  "risks.governance.instrument.arb": "Architecture review",
+  "risks.governance.instrument.exception": "Standard exception",
+  "risks.governance.approved": "Approved",
+  "risks.governance.unlink": "Remove link",
+  "risks.governance.recordType": "Record type",
+  "risks.governance.link": "Link a governance record",
+  "risks.governance.linkedRisks": "Linked risks ({{count}})",
+  "risks.governance.noLinkedRisks": "No risk is linked to this record.",
+  "risks.governance.escalated": "Escalated"
 }

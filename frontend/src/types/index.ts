@@ -355,7 +355,10 @@ export interface ExecutiveGovernanceData {
     turnaround: GovernanceTurnaround;
   };
   impact: {
-    architecture_risks: ExecutiveNotAvailable;
+    /** Current-state counts over explicit risk ↔ governance links (D-42). */
+    architecture_risks: ArchitectureRiskFigures;
+    /** RSK-01: open architecture-related risks as a current-state KPI tile. */
+    architecture_risk_tile: ExecutiveKpi;
     governed_delivery: ExecutiveNotAvailable;
     business_value: ExecutiveNotAvailable;
   };
@@ -511,6 +514,54 @@ export interface GovernanceImplementation {
     without_actions: number;
     percentage: number | null;
   };
+}
+
+/** A kind of EA governance record a risk can be linked to (D-42). */
+export type GovernanceInstrument = "adr" | "arb" | "exception";
+
+/** Architecture-risk figures on the Governance page (D-42, I-53). */
+export interface ArchitectureRiskFigures {
+  status: "ok" | "not_available";
+  reason?: Record<string, unknown>;
+  temporal: string;
+  as_of?: string;
+  basis?: string;
+  total?: number;
+  open?: number;
+  escalated?: number;
+  mitigated?: number;
+  /** Overlapping: a risk linked to two kinds appears under both. */
+  by_record_type?: Record<GovernanceInstrument, number> & { additive: false };
+  linked_to_approved?: { count: number; additive: false };
+  verified_reduction: ExecutiveNotAvailable;
+}
+
+/** One explicit link from a risk to a governance record the reader may see. */
+export interface RiskGovernanceLink {
+  instrument: GovernanceInstrument;
+  record_id: string;
+  label: string;
+  status: string;
+  approved: boolean;
+  path: string;
+  linked_at: string | null;
+}
+
+/** A risk as the Linked risks lists and the RSK-01 drill-down show it. */
+export interface LinkedRisk {
+  id: string;
+  reference: string;
+  title: string;
+  level: string;
+  status: string;
+  escalated: boolean;
+  path: string;
+}
+
+/** One RSK-01 drill-down row: the risk and the records the reader may name. */
+export interface ArchitectureRiskRow extends LinkedRisk {
+  records: RiskGovernanceLink[];
+  records_withheld: number;
 }
 
 /** A person as the decision-implementation API names them. */

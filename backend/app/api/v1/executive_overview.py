@@ -37,6 +37,7 @@ from app.models.user import User
 from app.services import executive_dashboard as exe
 from app.services import kpi_measurement_service as kms
 from app.services import ppm_portfolio_service as portfolio
+from app.services import risk_governance
 from app.services.card_read_scope import CardReadScope, visible_type_clause
 from app.services.executive import decisions as dec
 from app.services.executive import governance as gov
@@ -300,17 +301,25 @@ async def executive_governance(
     links = await linkage.linked_cards(db, read_scope)
     # GOV-05 history is landscape-wide (D-19, I-5): only for unrestricted readers.
     prior = periods.previous(current, start_month, now.date())
-    previous = None
-    if read_scope.is_unrestricted(mode="module"):
-        m = await kms.current_period_value(db, prior.key, metric_key="GOV-05")
-        previous = m if m is not None and m.status == "verified" else None
+    history_ok = read_scope.is_unrestricted(mode="module")
+
+    async def _verified(key: str):
+        if not history_ok:
+            return None
+        m = await kms.current_period_value(db, prior.key, metric_key=key)
+        return m if m is not None and m.status == "verified" else None
+
+    general = await _general(db)
     summary = await gov.governance_summary(
         db,
         read_scope,
         current,
         gov03_link=links.get("GOV-03"),
         gov05_link=links.get("GOV-05"),
-        gov05_previous=kpis.previous_from_history(prior, previous),
+        gov05_previous=kpis.previous_from_history(prior, await _verified("GOV-05")),
+        rsk01_link=links.get("RSK-01"),
+        rsk01_previous=kpis.previous_from_history(prior, await _verified("RSK-01")),
+        grc_enabled=bool(general.get("grcEnabled", True)),
     )
     return {"generated_at": now.isoformat(), "fiscal_year_start": start_month, **summary}
 
@@ -383,6 +392,19 @@ async def executive_kpi_drilldown(
         await PermissionService.require_permission(db, user, "tech_standards.view")
         result = await gov.gov03_drilldown(db, read_scope)
         return {**result, "period": current.to_dict()}
+
+    if key == "RSK-01":
+        # The architecture-related risks behind the count (D-42, I-56).
+        if not bool(general.get("grcEnabled", True)):
+            raise HTTPException(status_code=404, detail="Risk module is not enabled")
+        await PermissionService.require_permission(db, user, "risks.view")
+        return {
+            "key": key,
+            "temporal": kpis.CURRENT_STATE,
+            "as_of": today.isoformat(),
+            "status": "ok",
+            "rows": await risk_governance.architecture_risk_rows(db, user, read_scope, today),
+        }
 
     if key == "DEC-01":
         if not bool(general.get("grcEnabled", True)):

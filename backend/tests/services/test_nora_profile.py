@@ -109,11 +109,12 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_13(self):
+    def test_profile_version_is_14(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        # v11: KPI metricKey (D-26); v12: GOV-03 option; v13: GOV-05 option (D-41).
-        assert NORA_PROFILE_VERSION == 13
+        # v11: KPI metricKey (D-26); v12: GOV-03 option; v13: GOV-05 option (D-41);
+        # v14: RSK-01 option (D-42).
+        assert NORA_PROFILE_VERSION == 14
 
     def test_kpi_metric_key_offers_every_registered_metric(self):
         from app.services.executive.registry import METRICS
@@ -558,7 +559,7 @@ class TestApplyNoraProfile:
 
         from app.models.card_type import CardType
 
-        assert {"KPI.metricKey.GOV-03", "KPI.metricKey.GOV-05"} <= set(
+        assert {"KPI.metricKey.GOV-03", "KPI.metricKey.GOV-05", "KPI.metricKey.RSK-01"} <= set(
             summary["metric_options_added"]
         )
         ct = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one()

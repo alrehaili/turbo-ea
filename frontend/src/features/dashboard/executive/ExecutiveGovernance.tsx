@@ -19,8 +19,11 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { canAccessPath } from "@/lib/routePermissions";
+import { hasPermission } from "@/components/RequirePermission";
 import { STATUS_COLORS } from "@/theme/tokens";
 import type {
+  ArchitectureRiskFigures,
+  ArchitectureRiskRow,
   ExecutiveGovernanceData,
   GovernanceDrilldown,
   GovernanceElapsed,
@@ -88,6 +91,12 @@ export default function ExecutiveGovernance() {
       ? `/reports/executive/kpi/GOV-03/drilldown${period ? `?period=${encodeURIComponent(period)}` : ""}`
       : null;
   const { data: drill } = useApiQuery<GovernanceDrilldown>(drillPath);
+  // The architecture-related risks behind RSK-01, under the risks permission.
+  const riskDrillPath =
+    data && data.impact.architecture_risks.status === "ok" && hasPermission(user?.permissions, "risks.view")
+      ? "/reports/executive/kpi/RSK-01/drilldown"
+      : null;
+  const { data: riskDrill } = useApiQuery<{ rows: ArchitectureRiskRow[] }>(riskDrillPath);
 
   if (error) return <Alert severity="error">{error.message || t("errors.generic")}</Alert>;
   if (!data) return loading ? <LinearProgress /> : null;
@@ -285,8 +294,33 @@ export default function ExecutiveGovernance() {
         hint={g("dashboard.executive.governancePage.sectionHint.impact")}
       />
       <Grid container spacing={2}>
-        {(["architectureRisks", "governedDelivery", "businessValue"] as const).map((key) => (
-          <Grid item xs={12} sm={4} key={key}>
+        <Grid item xs={12} md={6}>
+          {/* RSK-01: current state, from explicit governance links only (D-42). */}
+          <ExecutiveKpiTile
+            kpi={data.impact.architecture_risk_tile}
+            icon="warning"
+            title={g("dashboard.executive.governancePage.indicator.architectureRisks")}
+            description={g("dashboard.executive.governancePage.architectureRisks.description")}
+            periodText={periodText}
+            formatPeriod={label}
+            value={data.impact.architecture_risk_tile.value ?? undefined}
+            previousValue={
+              data.impact.architecture_risk_tile.previous.value != null
+                ? String(data.impact.architecture_risk_tile.previous.value)
+                : null
+            }
+          >
+            <ArchitectureRiskBreakdown figures={data.impact.architecture_risks} />
+          </ExecutiveKpiTile>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2}>
+          <NotAvailableTile
+            label={g("dashboard.executive.governancePage.indicator.riskReduction")}
+            reason={reason("riskReduction")}
+          />
+        </Grid>
+        {(["governedDelivery", "businessValue"] as const).map((key) => (
+          <Grid item xs={12} sm={6} md={2} key={key}>
             <NotAvailableTile
               label={g(`dashboard.executive.governancePage.indicator.${key}`)}
               reason={reason(key)}
@@ -295,8 +329,115 @@ export default function ExecutiveGovernance() {
         ))}
       </Grid>
 
+      {riskDrill && (
+        <Box sx={{ mt: 2 }} data-testid="rsk01-drilldown">
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+            {g("dashboard.executive.governancePage.architectureRisks.drilldownTitle")}
+          </Typography>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{g("dashboard.executive.governancePage.architectureRisks.col.risk")}</TableCell>
+                  <TableCell>{g("dashboard.executive.governancePage.architectureRisks.col.status")}</TableCell>
+                  <TableCell>{g("dashboard.executive.governancePage.architectureRisks.col.records")}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {riskDrill.rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      {canAccessPath(user?.permissions, r.path) ? (
+                        <Link component={RouterLink} to={r.path} underline="hover" dir="auto">
+                          {r.reference} — {r.title}
+                        </Link>
+                      ) : (
+                        <bdi>
+                          {r.reference} — {r.title}
+                        </bdi>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {r.status} · {r.level}
+                      {r.escalated && ` · ${g("dashboard.executive.governancePage.architectureRisks.escalatedFlag")}`}
+                    </TableCell>
+                    <TableCell>
+                      {r.records.map((rec) => (
+                        <Box key={`${rec.instrument}:${rec.record_id}`}>
+                          {canAccessPath(user?.permissions, rec.path.split("?")[0]) ? (
+                            <Link component={RouterLink} to={rec.path} underline="hover" dir="auto">
+                              {rec.label}
+                            </Link>
+                          ) : (
+                            <bdi>{rec.label}</bdi>
+                          )}
+                        </Box>
+                      ))}
+                      {r.records_withheld > 0 && (
+                        <Typography variant="caption" color="text.secondary">
+                          {g("dashboard.executive.governancePage.architectureRisks.withheld", {
+                            count: r.records_withheld,
+                          })}
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Box>
+      )}
+
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
         {g("dashboard.executive.governancePage.footnote")}
+      </Typography>
+    </Box>
+  );
+}
+
+/**
+ * The architecture-risk breakdown under RSK-01 (D-42, I-53): every risk is
+ * counted once in total / open / escalated / mitigated; the record-type and
+ * approved-record figures overlap and are labelled as not adding up.
+ */
+function ArchitectureRiskBreakdown({ figures }: { figures: ArchitectureRiskFigures }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.architectureRisks.${key}`;
+  if (figures.status !== "ok") return null;
+  const byType = figures.by_record_type!;
+  return (
+    <Box data-testid="rsk01-breakdown">
+      {/* Always visible, not only in the tooltip (D-42.7). */}
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }} data-testid="rsk01-label">
+        {t(k("label"))}
+      </Typography>
+      <Typography variant="body2" data-testid="rsk01-total">
+        {t(k("total"), { count: figures.total })}
+      </Typography>
+      <Typography variant="body2">{t(k("open"), { count: figures.open })}</Typography>
+      <Typography variant="body2" color="error.main">
+        {t(k("escalated"), { count: figures.escalated })}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {t(k("mitigated"), { count: figures.mitigated })}
+      </Typography>
+      <Box data-testid="rsk01-overlap" sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
+        <Typography variant="caption" fontWeight={700} component="div">
+          {t(k("byTypeHeading"))}
+        </Typography>
+        <Typography variant="body2">
+          {t(k("byType"), { adr: byType.adr, arb: byType.arb, exception: byType.exception })}
+        </Typography>
+        <Typography variant="body2">
+          {t(k("approved"), { count: figures.linked_to_approved!.count })}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" component="div">
+          {t(k("overlapHint"))}
+        </Typography>
+      </Box>
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1 }}>
+        {t(k("basisHint"))}
       </Typography>
     </Box>
   );

@@ -359,5 +359,20 @@
   "risks.import.doneFailed": "تم تخطّي {{count}} صف بسبب أخطاء.",
   "risks.import.willSkip": "{{count}} موجودة بالفعل (متخطّاة)",
   "risks.import.skippedBlock": "تُتخطّى الصفوف التي يطابق مرجعها خطرًا موجودًا — لا يقوم المستورِد أبدًا بتحديث المخاطر الموجودة.",
-  "risks.import.doneSkipped": "تم تخطّي {{count}} صف (موجودة بالفعل)."
+  "risks.import.doneSkipped": "تم تخطّي {{count}} صف (موجودة بالفعل).",
+  "risks.governance.title": "سجلات الحوكمة",
+  "risks.governance.hint": "ربط هذا الخطر بسجل قرار أو مراجعة معمارية أو استثناء من المعايير يجعله خطرًا معماريًا.",
+  "risks.governance.none": "لا يوجد سجل حوكمة مرتبط.",
+  "risks.governance.loadFailed": "تعذّر تحميل سجلات الحوكمة.",
+  "risks.governance.failed": "تعذّر تغيير الربط.",
+  "risks.governance.instrument.adr": "سجل قرار",
+  "risks.governance.instrument.arb": "مراجعة معمارية",
+  "risks.governance.instrument.exception": "استثناء من المعايير",
+  "risks.governance.approved": "معتمد",
+  "risks.governance.unlink": "إزالة الربط",
+  "risks.governance.recordType": "نوع السجل",
+  "risks.governance.link": "ربط سجل حوكمة",
+  "risks.governance.linkedRisks": "المخاطر المرتبطة ({{count}})",
+  "risks.governance.noLinkedRisks": "لا يوجد خطر مرتبط بهذا السجل.",
+  "risks.governance.escalated": "مصعَّد"
 }

@@ -57,6 +57,7 @@ import { ExtensionSlot } from "@/lib/extensionHost";
 import { openPrintWindow } from "@/lib/printDocument";
 import { printRisk } from "./riskPrint";
 import AffectedCardsList from "./AffectedCardsList";
+import GovernanceRecordsSection from "./GovernanceRecordsSection";
 import RiskMatrix from "./RiskMatrix";
 import MitigationTasksPanel, {
   type TaskSummary,
@@ -640,6 +641,11 @@ export default function RiskDetailPage() {
                 placeholder={t("risks.cards.linkPlaceholder")}
                 sx={{ maxWidth: 420 }}
               />
+            </Box>
+
+            {/* Explicit governance links: what makes a risk architecture-related (D-42). */}
+            <Box sx={{ mt: 1 }}>
+              <GovernanceRecordsSection riskId={risk.id} canManage={canManage && !isClosed} />
             </Box>
           </Stack>
         </Paper>

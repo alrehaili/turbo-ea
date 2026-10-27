@@ -1182,6 +1182,47 @@ async def test_decision_implementation_and_actions_roundtrip(db):
     assert todo.evidence_refs == [{"kind": "reference", "text": "CHG-1"}]
 
 
+async def test_risk_governance_links_roundtrip(db):
+    """A risk's explicit governance link survives a transfer (D-42): the risk
+    and the review keep their PKs, the linker travels by email."""
+    from app.models.arb_review import ArbReview
+    from app.models.risk import Risk
+    from app.models.risk_governance_link import RiskGovernanceLink
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "RiskGovernanceLinks")
+    assert section.user_fk_columns == ("created_by",)
+    sheets = [s.sheet for s in ENTITY_SECTIONS]
+    assert sheets.index("Risks") < sheets.index("RiskGovernanceLinks")
+
+    user = await create_user(db, email="rgl@test.com", role="admin")
+    review = ArbReview(title="Payments platform", status="approved")
+    risk = Risk(reference="R-900001", title="Coupling")
+    db.add_all([review, risk])
+    await db.flush()
+    db.add(
+        RiskGovernanceLink(
+            risk_id=risk.id, instrument="arb", record_id=review.id, created_by=user.id
+        )
+    )
+    await db.flush()
+    risk_id, review_id = risk.id, review.id
+
+    raw = await build_bundle(db)
+    await db.execute(delete(RiskGovernanceLink))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    kept = (await db.execute(select(RiskGovernanceLink))).scalar_one()
+    assert (kept.risk_id, kept.instrument, kept.record_id, kept.created_by) == (
+        risk_id,
+        "arb",
+        review_id,
+        user.id,
+    )
+
+
 async def test_bookmark_shares_roundtrip(db):
     """A saved view shared with another user keeps its share (and can_edit
     flag) across export → delete → re-import; re-apply skips."""

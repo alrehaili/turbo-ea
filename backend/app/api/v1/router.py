@@ -50,6 +50,7 @@ from app.api.v1 import (
     relations,
     reports,
     resources,
+    risk_governance,
     risk_mitigation_tasks,
     risks,
     roadmaps,
@@ -148,6 +149,8 @@ api_router.include_router(tech_standards.router)
 api_router.include_router(arb.router)
 # Decision actions and implementation verification under /adr and /arb (D-41).
 api_router.include_router(decision_actions.router)
+# Risk ↔ EA governance-record links and Linked risks on ADR / ARB (D-42).
+api_router.include_router(risk_governance.router)
 api_router.include_router(scenarios.router)
 api_router.include_router(ops.router)
 api_router.include_router(viewpoints.router)

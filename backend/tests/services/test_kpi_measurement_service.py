@@ -395,3 +395,35 @@ async def test_gov05_period_value_is_calculated_for_the_period_not_the_last_obse
     assert q3.status == STATUS_SUBMITTED and q3.calculation_version == "GOV-05@1"
     # A quarter the capture never ran in gets no value (nothing invented).
     assert await svc.current_period_value(db, "FY2026-Q2", metric_key="GOV-05") is None
+
+
+# ── RSK-01 daily capture (Batch 3.5, D-42) ───────────────────────────────
+
+
+async def test_rsk01_is_observed_only_when_a_governance_link_exists(db, env):
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.services import risk_governance as rg
+    from tests.conftest import create_risk
+
+    await create_risk(db, title="Unlinked")
+    assert "RSK-01" not in await svc.observe_executive_metrics(db, TODAY)
+    adr = ArchitectureDecision(
+        reference_number=f"ADR-{_uuid.uuid4().hex[:6]}",
+        title="Decision",
+        status="signed",
+        signed_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        signatories=[],
+    )
+    db.add(adr)
+    await db.flush()
+    linked = await create_risk(db, title="Linked")
+    closed = await create_risk(db, title="Closed", status="closed")
+    info = (await rg.describe(db, {("adr", adr.id)}))[("adr", adr.id)]
+    for risk in (linked, closed):
+        await rg.link(db, risk, info, env["admin"].id)
+    rsk = (await svc.observe_executive_metrics(db, TODAY))["RSK-01"]
+    # Open architecture-related risks over all linked ones; the unlinked risk is not counted.
+    assert (rsk.value, rsk.numerator, rsk.denominator) == (1.0, None, 2.0)

@@ -30,6 +30,7 @@ from app.services import (
     decision_implementation,
     governance_transitions,
     notification_service,
+    risk_governance,
 )
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
@@ -470,6 +471,7 @@ async def delete_adr(
         await PermissionService.require_permission(db, user, "adr.manage")
 
     await decision_implementation.delete_decision_records(db, "adr", adr.id)
+    await risk_governance.remove_record_links(db, "adr", adr.id, user.id)
     await db.delete(adr)
     await db.commit()
 

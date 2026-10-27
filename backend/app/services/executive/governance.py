@@ -56,6 +56,7 @@ from app.models.governance_transition import (
 from app.models.tech_standard import StandardException
 from app.models.todo import Todo
 from app.services import decision_implementation as impl_service
+from app.services import risk_governance
 from app.services.business_calendar import BusinessCalendar, load_calendar
 from app.services.card_read_scope import CardReadScope
 from app.services.executive import kpis, linkage
@@ -906,12 +907,28 @@ async def decision_implementation(
     }
 
 
-def _impact() -> dict[str, Any]:
+async def _impact(
+    db: AsyncSession,
+    read_scope: CardReadScope,
+    period: Period,
+    rsk01_link: dict[str, Any] | None,
+    rsk01_previous: dict[str, Any] | None,
+    grc_enabled: bool,
+) -> dict[str, Any]:
+    today = date.today()
+    if grc_enabled:
+        # Only explicitly linked risks are architecture-related (D-36, D-42).
+        figures = await risk_governance.architecture_risk_figures(db, read_scope, today)
+    else:
+        figures = {
+            "status": "not_available",
+            "reason": {"code": "module_disabled", "module": "grc"},
+            "temporal": kpis.CURRENT_STATE,
+        }
     return {
-        # Technology risk is not automatically a governance risk; the explicit
-        # link is D-42 (Batch 3.5), and verified reduction stays Not Available.
-        "architecture_risks": _not_available(
-            {"code": "decision_pending", "decisions": ["D-42"], "batch": "3.5"}
+        "architecture_risks": figures,
+        "architecture_risk_tile": linkage.apply_link(
+            kpis.architecture_risk_tile(period, figures, today, rsk01_previous), rsk01_link
         ),
         # GOV-09 needs the applicability criteria (D-37, Batch 3.6).
         "governed_delivery": _not_available(
@@ -930,6 +947,9 @@ async def governance_summary(
     gov03_link: dict[str, Any] | None,
     gov05_link: dict[str, Any] | None = None,
     gov05_previous: dict[str, Any] | None = None,
+    rsk01_link: dict[str, Any] | None = None,
+    rsk01_previous: dict[str, Any] | None = None,
+    grc_enabled: bool = True,
 ) -> dict[str, Any]:
     """Activity, effectiveness and impact for the selected period, kept apart.
 
@@ -948,7 +968,7 @@ async def governance_summary(
         "period": period.to_dict(),
         "activity": await _activity(db, read_scope, period),
         "effectiveness": effectiveness,
-        "impact": _impact(),
+        "impact": await _impact(db, read_scope, period, rsk01_link, rsk01_previous, grc_enabled),
     }
 
 

@@ -48,6 +48,14 @@ Risks are **many-to-many** with Cards. A risk can affect multiple Applications o
 
 Linked cards are **grouped by card type**, ordered alphabetically inside each group, and colour-coded with the card type's own colour, so a risk touching a dozen cards across several types stays readable at a glance. The same ordering and colours apply to the **Cards** column of the register grid, where each card renders as a chip in its type colour — hover the cell to see the full list under type headings.
 
+## Linking risks to governance records {: #governance-records }
+
+A risk is **architecture-related** only when it is explicitly linked to an EA governance record: a decision record (ADR), an architecture review (ARB) or a technology-standard exception. Nothing is inferred from the risk's category, source or wording, so a technology or security risk is not architecture-related until someone links it.
+
+The **Governance records** section of the risk detail page lists the linked records you may see, with their type, status and whether they are approved. Holders of `risks.manage` add a link by choosing a record type and a record, and remove a link with its button. You can link only records you can open — a decision record needs the decisions permission; a review or exception also needs access to the card it is about. Links to records you cannot see are never shown and never touched when you change the others. Each link and removal is recorded with who did it and when; deleting a decision record, a review or an exception removes its links and records that too.
+
+A decision record's preview page and an architecture review show the risks linked to them as a read-only **Linked risks** list, to readers who may see risks. The Executive *Governance* page counts these risks as **open architecture-related risks (RSK-01)** — see the [Executive dashboard guide](dashboard.md).
+
 ## Mitigation tasks
 
 Mitigation is captured as **owned work items**, not free-text. On the risk detail page the **Mitigation tasks** panel replaces the old single-field "mitigation plan" — each row is a real task with its own owner, due date, history and (optionally) a recurrence rule.

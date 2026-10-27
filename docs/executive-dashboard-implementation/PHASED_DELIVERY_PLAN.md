@@ -117,7 +117,7 @@ Rules: `DECISION_LOG.md` §3.1 (D-10, D-13, D-28, D-32..D-36 approved with chang
 | 3.2 | Auditable transition history for ADR, ARB, exceptions; exception states withdrawn / remediated with verified evidence; GOV-04 exception resolution; GOV-07 elapsed time | D-39 (processing time only), D-40 (remediated only) | 3.1 |
 | 3.3 | Business calendar (Sun–Thu default, holiday configuration, validity); GOV-07 working-day figures | D-38 | 3.2 |
 | 3.4 | Decision actions on ADR / ARB (Todo source link, owner, due date, evidence); implementation verification; GOV-05 with No Plan; overview tile switches to GOV-05 | — (D-41 approved 2026-10-27) | 3.2 (transition history dates the decisions) |
-| 3.5 | Architecture risks from explicit governance links; verified reduction stays Not Available | D-42 | 3.1 |
+| 3.5 | Architecture risks from explicit governance links; verified reduction stays Not Available | — (D-42 approved 2026-10-27) | 3.1 |
 | 3.6 | GOV-01 review coverage and GOV-09 governed vs ungoverned delivery from approved applicability | D-37 | 3.1 |
 
 Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (needs per-card compliance history); business and financial impact (Phase 4).
@@ -164,6 +164,8 @@ Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (need
 | Acceptance | `GOVERNANCE_MEASUREMENT_MODEL.md` §6 GOV-05 end-to-end test (signed → actions → evidence → independent verification → implemented); a self-verification is refused |
 
 ### Batch 3.5 — Architecture risks
+
+> **Status 2026-10-27 (v2.41.0): implemented, uncommitted.** D-42 approved; `risk_governance_links` (migration `1173`), link / unlink under `risks.manage` and record visibility with audit events, Governance records on risk details, Linked risks on ADR / ARB, current-state indicators and RSK-01 (registry, daily capture, KPI-card link, verified previous period, drill-down); verified reduction Not Available (I-51..I-56). Validation **Pending Verification**. Batch 3.6 not started.
 
 Explicit risk ↔ governance-record links (D-42); counts of linked open risks by residual level; verified reduction Not Available.
 

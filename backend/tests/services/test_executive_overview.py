@@ -410,3 +410,30 @@ def test_gov05_tile_carries_the_verified_previous_period():
     assert tile["previous"] == previous
     unavailable = kpis.governance_effectiveness(PERIOD, _implementation(), previous)
     assert unavailable["previous"] == previous
+
+
+def test_rsk01_tile_is_a_current_state_count_with_the_verified_previous():
+    from datetime import date
+
+    figures = {
+        "status": "ok",
+        "temporal": "current_state",
+        "total": 4,
+        "open": 3,
+        "escalated": 1,
+        "mitigated": 1,
+        "verified_reduction": {"status": "not_available"},
+    }
+    previous = {"status": "ok", "value": 5, "period": "FY2026-Q3", "verified": True}
+    tile = kpis.architecture_risk_tile(PERIOD, figures, date(2026, 10, 27), previous)
+    assert (tile["key"], tile["calculation_version"]) == ("RSK-01", "RSK-01@1")
+    assert (tile["value"], tile["unit"], tile["temporal"]) == (3, "count", "current_state")
+    assert tile["period"] is None and tile["previous"] == previous
+    assert tile["details"]["verified_reduction"]["status"] == "not_available"
+    none = kpis.architecture_risk_tile(
+        PERIOD,
+        {"status": "not_available", "reason": {"code": "no_linked_risks"}},
+        date(2026, 10, 27),
+    )
+    assert none["status"] == "not_available" and none["value"] is None
+    assert none["temporal"] == "current_state"

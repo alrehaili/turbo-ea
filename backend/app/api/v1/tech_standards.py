@@ -29,7 +29,7 @@ from app.models.tech_standard import (
     TechStandard,
 )
 from app.models.user import User
-from app.services import audit_log, governance_transitions
+from app.services import audit_log, governance_transitions, risk_governance
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.permission_service import PermissionService
 from app.services.tech_standards_scan import scan_standard_compliance, standard_usage_persists
@@ -502,6 +502,12 @@ async def delete_standard(
                 "message": "This standard has decided exceptions; withdraw or keep them instead",
             },
         )
+    # Pending requests go with the standard; their risk links go with them (D-42.4).
+    pending = await db.scalars(
+        select(StandardException.id).where(StandardException.standard_id == s.id)
+    )
+    for exc_id in list(pending):
+        await risk_governance.remove_record_links(db, "exception", exc_id, user.id)
     await db.delete(s)
     await db.commit()
 
@@ -751,5 +757,6 @@ async def delete_exception(
             "deletion_reason": reason,
         },
     )
+    await risk_governance.remove_record_links(db, "exception", exc.id, user.id)
     await db.delete(exc)
     await db.commit()

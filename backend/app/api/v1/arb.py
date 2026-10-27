@@ -27,7 +27,7 @@ from app.models.governance_transition import INSTRUMENT_ARB
 from app.models.risk import Risk, RiskCard
 from app.models.tech_standard import StandardException, TechStandard
 from app.models.user import User
-from app.services import decision_implementation, governance_transitions
+from app.services import decision_implementation, governance_transitions, risk_governance
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.impact_service import gather_impact
 from app.services.permission_service import PermissionService
@@ -330,5 +330,6 @@ async def delete_review(
     await PermissionService.require_permission(db, user, "arb.manage")
     r = await _get_review(db, review_id, await CardReadScope.load(db, user))
     await decision_implementation.delete_decision_records(db, "arb", r.id)
+    await risk_governance.remove_record_links(db, "arb", r.id, user.id)
     await db.delete(r)
     await db.commit()

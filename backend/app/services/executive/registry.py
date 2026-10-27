@@ -30,6 +30,9 @@ METRICS: dict[str, RegisteredMetric] = {
     # Decisions independently verified by their original approved deadline ÷
     # decisions due (D-32, D-41). A period figure: see ``PERIOD_CALCULATED``.
     "GOV-05": RegisteredMetric("GOV-05", "percent", "GOV-05@1"),
+    # Open architecture-related risks: an observed count of risks with an
+    # explicit governance link (D-42) — not a risk inventory, not reduction.
+    "RSK-01": RegisteredMetric("RSK-01", "count", "RSK-01@1"),
 }
 
 #: Metrics whose closed-period value is calculated for that period from its
