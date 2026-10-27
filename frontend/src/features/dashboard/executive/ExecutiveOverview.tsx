@@ -311,8 +311,21 @@ export default function ExecutiveOverview() {
       const forecast = (kpi.details as {
         forecast?: { status: string; total?: number; currency?: string; conflict_count?: number };
       }).forecast;
+      const confirmed = kpi.details as { currency?: string; fiscal_year?: number };
       return (
-        <ExecutiveKpiTile {...common}>
+        <ExecutiveKpiTile
+          {...common}
+          value={
+            kpi.status === "ok" && kpi.value !== null && confirmed.currency
+              ? money(kpi.value, confirmed.currency)
+              : undefined
+          }
+        >
+          {kpi.status === "ok" && confirmed.fiscal_year && (
+            <Typography variant="caption" color="text.secondary">
+              {t("dashboard.executive.ceo.confirmedFy", { fy: confirmed.fiscal_year })}
+            </Typography>
+          )}
           {forecast && (
             <Box sx={{ p: 1, borderRadius: 1, bgcolor: "action.hover" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>

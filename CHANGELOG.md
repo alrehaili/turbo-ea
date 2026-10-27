@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.43.0] - 2026-10-27
+
+### Added
+- **Benefits register** (Governance → Benefits Register): record the cost savings, cost avoidance, revenue, productivity and other outcomes expected from initiatives and architecture decisions, each with its own currency, and track them from planned, through Finance validation, to actuals reported per fiscal year and confirmed by Finance with a Finance reference and evidence. Every change is kept in the benefit's history. New permissions *View*, *Manage*, *Validate* and *Confirm benefits*, held by no default role; amounts also need cost access.
+- **Independent Finance confirmation**: an actual can be confirmed, rejected or reversed only by someone who did not create, own, estimate or report the benefit, administrators included.
+- **Attribution to initiatives**: each linked initiative is classified as direct, contributing or not attributable, and only Finance allocates amounts, with a rationale, never more than the confirmed value; each benefit is counted once.
+- **Non-financial outcomes**: productivity and other outcomes are measured by a KPI card's verified values against its ratified target, or assessed by the business owner and labelled as assessed; they never carry an amount.
+- **Executive Benefits page**: planned, reported and Finance-confirmed value for the fiscal year shown apart and per currency, cost savings and revenue (FIN-01), cost avoidance (FIN-02), realisation rate (FIN-04), Finance's attribution, and non-financial outcomes. Return on investment is shown as not available until its cost scope and currency rules are approved.
+- **Benefits demo data**: with the demo or NORA demo dataset, the register is seeded once with twelve benefits covering every type, status and Finance step, owned by a demo benefit owner and confirmed by a separate demo Finance officer (neither can sign in).
+- **Executive dashboard demo data**: with the demo or NORA demo dataset, the history the Executive pages measure is seeded once — initiative status reports, budgets and costs, strategic objectives with approved KPI cards, ratified targets and verified values, KPI history for the previous quarter, signed decisions and architecture reviews with their history, implementation deadlines and verification, standard exceptions through their lifecycle, a confirmed business calendar, EA review applicability, risks linked to governance records and escalated risks — so every page shows figures.
+
+### Changed
+- The Overview's business value indicator now shows the Finance-confirmed cost savings and revenue of the period's fiscal year instead of *not available*.
+- Rationalization planned savings are labelled an annual run-rate forecast not tied to a fiscal year, and a decision named by a benefit is no longer counted in the forecast.
+
 ## [2.42.1] - 2026-10-27
 
 ### Fixed

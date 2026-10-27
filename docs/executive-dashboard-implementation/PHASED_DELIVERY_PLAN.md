@@ -179,6 +179,8 @@ Applicability per D-37; GOV-01 over initiatives assessed as requiring review; GO
 
 ## Phase 4: Business impact, benefits realisation, ROI
 
+> **Status 2026-10-27 (v2.43.0): Batches 4.1–4.3 implemented, uncommitted; Batch 4.4 (ROI) not started.** D-12, D-14, D-29, D-31 and D-43 approved (DECISION_LOG §3.2, I-64..I-75); D-15 and the D-05 attestation deferred to Batch 4.4; D-16 deferred. No tests written (owner's instruction 2026-10-27); validation **Pending Verification**.
+
 | Item | Content |
 |---|---|
 | Objective and scope | Benefits register with workflow; Financial & ROI page; Business Impact page; full traceability view |

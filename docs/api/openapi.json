@@ -569,6 +569,49 @@
         "title": "ActionUpdate",
         "type": "object"
       },
+      "ActualCreate": {
+        "properties": {
+          "amount": {
+            "minimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/app__api__v1__benefits__EvidenceRef"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "fiscal_year": {
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "amount",
+          "evidence"
+        ],
+        "title": "ActualCreate",
+        "type": "object"
+      },
       "AiFieldSuggestion": {
         "properties": {
           "confidence": {
@@ -739,6 +782,33 @@
           }
         },
         "title": "AiSuggestResponse",
+        "type": "object"
+      },
+      "Allocation": {
+        "properties": {
+          "amount": {
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "type": "number"
+          },
+          "card_id": {
+            "format": "uuid",
+            "title": "Card Id",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "amount",
+          "rationale"
+        ],
+        "title": "Allocation",
         "type": "object"
       },
       "AnnounceUpgradesEnabledPayload": {
@@ -1417,6 +1487,459 @@
           "tea_target"
         ],
         "title": "AutoMappedColumn",
+        "type": "object"
+      },
+      "BenefitBase": {
+        "properties": {
+          "affected": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affected"
+          },
+          "baseline_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Amount"
+          },
+          "counterfactual_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterfactual Amount"
+          },
+          "counterfactual_note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterfactual Note"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "decision_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "adr",
+                  "arb",
+                  "rationalization",
+                  "opportunity"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Kind"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expected_fiscal_year": {
+            "anyOf": [
+              {
+                "maximum": 2100.0,
+                "minimum": 2000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Fiscal Year"
+          },
+          "initiatives": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InitiativeLink"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiatives"
+          },
+          "kpi_card_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Card Id"
+          },
+          "method_note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method Note"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "planned_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Amount"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_time",
+                  "annual"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurrence"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "BenefitBase",
+        "type": "object"
+      },
+      "BenefitCreate": {
+        "properties": {
+          "affected": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affected"
+          },
+          "baseline_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Amount"
+          },
+          "benefit_type": {
+            "enum": [
+              "cost_saving",
+              "cost_avoidance",
+              "revenue",
+              "productivity",
+              "non_financial"
+            ],
+            "title": "Benefit Type",
+            "type": "string"
+          },
+          "counterfactual_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterfactual Amount"
+          },
+          "counterfactual_note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterfactual Note"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "decision_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "adr",
+                  "arb",
+                  "rationalization",
+                  "opportunity"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Kind"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "expected_fiscal_year": {
+            "anyOf": [
+              {
+                "maximum": 2100.0,
+                "minimum": 2000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Fiscal Year"
+          },
+          "initiatives": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InitiativeLink"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiatives"
+          },
+          "kpi_card_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kpi Card Id"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "enum": [
+                  "financial",
+                  "kpi",
+                  "qualitative"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement"
+          },
+          "method_note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method Note"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "planned_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Amount"
+          },
+          "recurrence": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_time",
+                  "annual"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurrence"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "benefit_type"
+        ],
+        "title": "BenefitCreate",
         "type": "object"
       },
       "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post": {
@@ -4465,6 +4988,30 @@
         "title": "ChangeCreate",
         "type": "object"
       },
+      "CloseBody": {
+        "properties": {
+          "outcome": {
+            "enum": [
+              "withdrawn",
+              "not_realised"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason"
+        ],
+        "title": "CloseBody",
+        "type": "object"
+      },
       "CommentCreate": {
         "properties": {
           "content": {
@@ -5234,6 +5781,41 @@
           }
         },
         "title": "ComplianceRegulationUpdate",
+        "type": "object"
+      },
+      "ConfirmBody": {
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/Allocation"
+            },
+            "maxItems": 50,
+            "title": "Allocations",
+            "type": "array"
+          },
+          "finance_reference": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Finance Reference",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "finance_reference"
+        ],
+        "title": "ConfirmBody",
         "type": "object"
       },
       "ConnectionCreate": {
@@ -6991,26 +7573,6 @@
         "title": "EvidenceItem",
         "type": "object"
       },
-      "EvidenceRef": {
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "pattern": "^(document|attachment)$",
-            "title": "Kind",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "id"
-        ],
-        "title": "EvidenceRef",
-        "type": "object"
-      },
       "ExceptionCreate": {
         "properties": {
           "card_id": {
@@ -8042,6 +8604,30 @@
           "catalogue_ids"
         ],
         "title": "ImportRequest",
+        "type": "object"
+      },
+      "InitiativeLink": {
+        "properties": {
+          "card_id": {
+            "format": "uuid",
+            "title": "Card Id",
+            "type": "string"
+          },
+          "classification": {
+            "enum": [
+              "direct",
+              "contributing",
+              "not_attributable"
+            ],
+            "title": "Classification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "classification"
+        ],
+        "title": "InitiativeLink",
         "type": "object"
       },
       "InitiativeReportStalenessPayload": {
@@ -13770,6 +14356,24 @@
         "title": "RatificationIn",
         "type": "object"
       },
+      "Reason": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "Reason",
+        "type": "object"
+      },
       "ReasonRequest": {
         "properties": {
           "reason": {
@@ -14389,7 +14993,7 @@
           },
           "evidence_refs": {
             "items": {
-              "$ref": "#/components/schemas/EvidenceRef"
+              "$ref": "#/components/schemas/app__api__v1__tech_standards__EvidenceRef"
             },
             "maxItems": 20,
             "title": "Evidence Refs",
@@ -19974,6 +20578,24 @@
         "title": "UserUpdate",
         "type": "object"
       },
+      "ValidateBody": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ValidateBody",
+        "type": "object"
+      },
       "ValidateRequest": {
         "properties": {
           "formula": {
@@ -20829,6 +21451,90 @@
           }
         },
         "title": "WorkspaceUpdate",
+        "type": "object"
+      },
+      "app__api__v1__benefits__AssessmentCreate": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/app__api__v1__benefits__EvidenceRef"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "fiscal_year": {
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Fiscal Year",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "achieved",
+              "partially_achieved",
+              "not_achieved"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fiscal_year",
+          "outcome",
+          "note",
+          "evidence"
+        ],
+        "title": "AssessmentCreate",
+        "type": "object"
+      },
+      "app__api__v1__benefits__EvidenceRef": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "enum": [
+              "document",
+              "attachment",
+              "reference"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "EvidenceRef",
         "type": "object"
       },
       "app__api__v1__ea_applicability__AssessmentCreate": {
@@ -21736,6 +22442,26 @@
           "status"
         ],
         "title": "StagedRecordOut",
+        "type": "object"
+      },
+      "app__api__v1__tech_standards__EvidenceRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^(document|attachment)$",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "EvidenceRef",
         "type": "object"
       },
       "app__api__v1__tech_standards__StandardCreate": {
@@ -26939,6 +27665,636 @@
         "summary": "Validate Setup Token",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/benefits": {
+      "get": {
+        "operationId": "list_benefits_api_v1_benefits_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "benefit_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Benefit Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Benefits",
+        "tags": [
+          "Benefits"
+        ]
+      },
+      "post": {
+        "operationId": "create_benefit_api_v1_benefits_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenefitCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Benefit",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}": {
+      "get": {
+        "operationId": "get_benefit_api_v1_benefits__benefit_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Benefit",
+        "tags": [
+          "Benefits"
+        ]
+      },
+      "patch": {
+        "operationId": "update_benefit_api_v1_benefits__benefit_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenefitBase"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Benefit",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/actuals": {
+      "post": {
+        "operationId": "report_actual_api_v1_benefits__benefit_id__actuals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActualCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Actual",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/actuals/{actual_id}/confirm": {
+      "post": {
+        "operationId": "confirm_actual_api_v1_benefits__benefit_id__actuals__actual_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "actual_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Actual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Actual",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/actuals/{actual_id}/reject": {
+      "post": {
+        "operationId": "reject_actual_api_v1_benefits__benefit_id__actuals__actual_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "actual_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Actual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Actual",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/actuals/{actual_id}/reverse": {
+      "post": {
+        "operationId": "reverse_actual_api_v1_benefits__benefit_id__actuals__actual_id__reverse_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "actual_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Actual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverse Actual",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/assessments": {
+      "post": {
+        "operationId": "assess_benefit_api_v1_benefits__benefit_id__assessments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__benefits__AssessmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assess Benefit",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/close": {
+      "post": {
+        "operationId": "close_benefit_api_v1_benefits__benefit_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Benefit",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/reopen": {
+      "post": {
+        "operationId": "reopen_benefit_api_v1_benefits__benefit_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reopen Benefit",
+        "tags": [
+          "Benefits"
+        ]
+      }
+    },
+    "/api/v1/benefits/{benefit_id}/validate": {
+      "post": {
+        "operationId": "validate_benefit_api_v1_benefits__benefit_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "benefit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Benefit Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Benefit",
+        "tags": [
+          "Benefits"
         ]
       }
     },
@@ -45235,6 +46591,55 @@
           }
         },
         "summary": "Executive Dashboard",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/executive/benefits": {
+      "get": {
+        "description": "Benefits realisation for the fiscal year of the selected period\n(Phase 4 Batches 4.2 and 4.3, DECISION_LOG I-70..I-74).\n\nPlanned, reported and Finance-confirmed value are separate sections and\nnever summed; every amount is per currency and needs ``costs.view``.\nNon-financial outcomes are reported apart, with no amount. ROI is Not\nAvailable until Batch 4.4 (D-15, D-05).",
+        "operationId": "executive_benefits_api_v1_reports_executive_benefits_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Executive Benefits",
         "tags": [
           "reports"
         ]

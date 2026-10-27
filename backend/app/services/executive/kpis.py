@@ -14,8 +14,9 @@ What the builders deliberately do **not** do:
   target, so it cannot stand in for an owner's ratification (D-17).
 * **No fabricated values.** A KPI whose source or rule is not yet decided is
   ``not_available`` with the reason, never 0.
-* **No ROI and no forecast as value.** Realised benefits need the Phase 4
-  register; planned savings are carried only as a labelled forecast detail.
+* **No ROI and no forecast as value.** Realised value is only what Finance
+  confirmed in the benefits register (Phase 4); planned savings are carried
+  only as a labelled forecast detail. ROI waits for Batch 4.4.
 * **No history inferred from the present.** A tile is either a *period* figure
   or a *current-state* figure (``temporal``). A current-state figure (today's
   risk register, pending decisions, undated savings) is labelled as such and
@@ -55,6 +56,8 @@ HISTORICAL_UNAVAILABLE = {"code": "historical_unavailable"}
 DECISIONS_PAGE = "/?tab=executive&page=decisions"
 #: The Executive tab's EA governance page (Batch 3.1).
 GOVERNANCE_PAGE = "/?tab=executive&page=governance"
+#: The Executive tab's benefits page (Phase 4).
+BENEFITS_PAGE = "/?tab=executive&page=benefits"
 
 #: The landing page's six slots, in display order.
 SLOTS = ("strategy", "governance", "delivery", "services", "value", "decisions")
@@ -475,21 +478,53 @@ def services_and_automation(period: Period) -> dict[str, Any]:
 # ── Slot 5: business value (FIN-01, forecast shown apart) ───────────────
 
 
-def business_value(period: Period, planned_savings: dict[str, Any]) -> dict[str, Any]:
-    """Realised benefits need the Phase 4 benefits register, so the value is not
-    available. The planned-savings forecast (Phase 1 rules: deduplicated,
-    conflicts excluded, D-31 open) is carried as a labelled detail only, and is
-    never the tile's value or an input to ROI. The estimates carry no period
-    (D-31), so the forecast is a current-state figure whatever period is shown."""
-    out = _not_available(
-        "FIN-01",
-        "value",
-        "FIN-01@1",
-        period,
-        {"code": "later_phase", "phase": 4, "decisions": ["D-12", "D-14", "D-15"]},
-    )
-    out["details"] = {"forecast": {**planned_savings, "temporal": CURRENT_STATE}}
-    out["drilldown"] = {"path": "/rationalization"}
+def business_value(
+    period: Period,
+    planned_savings: dict[str, Any],
+    realised: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """FIN-01: Finance-confirmed cash benefits (cost saving and revenue) of the
+    period's fiscal year, from the benefits register (Phase 4, I-74).
+
+    ``realised`` is ``{"status": "ok", "by_currency": {code: total}}`` or
+    ``{"status": "restricted"}`` (no ``costs.view``). Shown only when exactly one
+    currency holds confirmed value: mixed currencies are never summed (D-05).
+    Reported-but-unconfirmed actuals never count. The planned-savings forecast
+    (D-31: an annual run-rate with no fiscal year) is carried as a labelled
+    detail only, never the value and never an ROI input."""
+    details = {"forecast": {**planned_savings, "temporal": CURRENT_STATE}}
+    drilldown = {"path": BENEFITS_PAGE}
+    if realised is None or realised.get("status") == RESTRICTED:
+        out = _not_available("FIN-01", "value", "FIN-01@2", period, {"code": "restricted"})
+    else:
+        by_currency = realised.get("by_currency") or {}
+        if not by_currency:
+            out = _not_available(
+                "FIN-01", "value", "FIN-01@2", period, {"code": "no_confirmed_benefits"}
+            )
+        elif len(by_currency) > 1:
+            out = _not_available(
+                "FIN-01", "value", "FIN-01@2", period, {"code": "mixed_currencies"}
+            )
+            details["by_currency"] = by_currency
+        else:
+            ((currency, total),) = by_currency.items()
+            out = kpi(
+                "FIN-01",
+                "value",
+                "FIN-01@2",
+                status=OK,
+                period=period,
+                value=total,
+                unit="money",
+                provenance="recorded",
+                confidence_level=confidence(system_derived=True, completeness_pct=None),
+                drilldown=drilldown,
+                details={**details, "currency": currency, "fiscal_year": period.fy},
+            )
+            return out
+    out["details"] = {**details, "fiscal_year": period.fy}
+    out["drilldown"] = drilldown
     return out
 
 

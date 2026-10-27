@@ -649,6 +649,7 @@ plugins:
             TurboLens AI: TurboLens AI
             Diagrams: المخططات
             EA Delivery: تسليم هندسة المؤسسة
+            Benefits Register: سجل المنافع
             GRC: GRC
             Risk Register: سجل المخاطر
             Tasks & Surveys: المهام والاستبيانات
@@ -745,6 +746,7 @@ nav:
           - PPM: guide/ppm.md
           - BPM: guide/bpm.md
           - EA Delivery: guide/delivery.md
+          - Benefits Register: guide/benefits.md
           - GRC:
               - Overview: guide/grc.md
               - Risk Register: guide/risks.md

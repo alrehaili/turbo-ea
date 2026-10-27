@@ -321,6 +321,28 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
         },
     },
+    "benefits": {
+        "label": "Benefits",
+        "permissions": {
+            "benefits.view": (
+                "View the benefits register and non-financial outcomes "
+                "(amounts additionally need costs.view)"
+            ),
+            "benefits.manage": (
+                "Create and edit benefits, link initiatives and affected cards, report "
+                "actuals with evidence, record qualitative assessments, withdraw benefits"
+            ),
+            "benefits.validate": (
+                "Validate the financial basis of a benefit (method, baseline, counterfactual, "
+                "planned amount) and reopen it"
+            ),
+            "benefits.confirm": (
+                "Independently confirm, reject or reverse reported actuals and allocate "
+                "attributable amounts (Finance). Refused to the benefit's creator, owner, "
+                "estimator and the actual's reporter, administrators included."
+            ),
+        },
+    },
     "users": {
         "label": "Users",
         "permissions": {
@@ -713,6 +735,10 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "governance.verify_implementation": False,
     "governance.assess_applicability": False,
+    "benefits.view": False,
+    "benefits.manage": False,
+    "benefits.validate": False,
+    "benefits.confirm": False,
     "nora.view": True,
     "nora.manage": False,
     "kpis.measure": False,
@@ -824,6 +850,10 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "governance.verify_implementation": False,
     "governance.assess_applicability": False,
+    "benefits.view": False,
+    "benefits.manage": False,
+    "benefits.validate": False,
+    "benefits.confirm": False,
     "nora.view": True,
     "nora.manage": False,
     "kpis.measure": False,
@@ -935,6 +965,10 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "governance.approve_step": False,
     "governance.verify_implementation": False,
     "governance.assess_applicability": False,
+    "benefits.view": False,
+    "benefits.manage": False,
+    "benefits.validate": False,
+    "benefits.confirm": False,
     "nora.view": True,
     "nora.manage": False,
     "kpis.measure": False,

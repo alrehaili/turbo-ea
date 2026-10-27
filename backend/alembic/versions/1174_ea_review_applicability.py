@@ -68,7 +68,9 @@ def downgrade() -> None:
         sa.text("SELECT count(*) FROM ea_review_applicability_assessments")
     ).scalar()
     if in_use:
-        raise RuntimeError(f"{in_use} applicability assessment(s) exist; downgrading would erase them.")
+        raise RuntimeError(
+            f"{in_use} applicability assessment(s) exist; downgrading would erase them."
+        )
     op.drop_index(
         "ix_ea_review_applicability_card", table_name="ea_review_applicability_assessments"
     )

@@ -7,6 +7,7 @@ from app.api.v1 import (
     arb,
     audit_log,
     auth,
+    benefits,
     bookmarks,
     bpm,
     bpm_assessments,
@@ -154,6 +155,8 @@ api_router.include_router(decision_actions.router)
 api_router.include_router(risk_governance.router)
 # EA governance applicability assessments of initiatives (D-37).
 api_router.include_router(ea_applicability.router)
+# Benefits register (D-12, D-14, D-29, D-43; Phase 4).
+api_router.include_router(benefits.router)
 api_router.include_router(scenarios.router)
 api_router.include_router(ops.router)
 api_router.include_router(viewpoints.router)

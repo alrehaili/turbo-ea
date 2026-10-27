@@ -22,6 +22,9 @@ from app.models.adm import AdmPhase, AdmPhaseArtefact, AdmWorkspace
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.benefit import Benefit, BenefitLink
+from app.models.benefit_actual import BenefitActual, BenefitAllocation
+from app.models.benefit_assessment import BenefitAssessment, BenefitHistory
 from app.models.bookmark import Bookmark
 from app.models.card_logo import CardLogo
 from app.models.comment import Comment
@@ -474,6 +477,30 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("card_id",),
         user_fk_columns=("decided_by",),
     ),
+    # Benefits register (D-12, Phase 4), parents before children. A benefit's
+    # ``decision_id`` names a module row (ADR, ARB review, rationalization
+    # decision, opportunity), whose PK an import preserves.
+    EntitySection(
+        "Benefits",
+        Benefit,
+        card_fk_columns=("kpi_card_id",),
+        user_fk_columns=(
+            "owner_id",
+            "created_by",
+            "estimated_by",
+            "validated_by",
+            "closed_by",
+        ),
+    ),
+    EntitySection("BenefitLinks", BenefitLink, card_fk_columns=("card_id",)),
+    EntitySection(
+        "BenefitActuals",
+        BenefitActual,
+        user_fk_columns=("reported_by", "decided_by", "reversed_by"),
+    ),
+    EntitySection("BenefitAllocations", BenefitAllocation, card_fk_columns=("card_id",)),
+    EntitySection("BenefitAssessments", BenefitAssessment, user_fk_columns=("assessed_by",)),
+    EntitySection("BenefitHistory", BenefitHistory, user_fk_columns=("actor_id",)),
     # --- Scenario planning (scenario before its changes) -----------------
     EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),
     EntitySection(

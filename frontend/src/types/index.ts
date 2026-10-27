@@ -95,8 +95,8 @@ export interface ExecutiveDashboardData {
       conflict_detail?: "ok" | "restricted";
       conflicts?: ExecutiveSavingsConflict[] | null;
       excluded_range?: [number, number] | null;
-      /** The fiscal-period half of the dedupe identity is blocked on D-31. */
-      period?: { status: "blocked"; decision: string };
+      /** D-31: an annual run-rate forecast with no fiscal year. */
+      period?: { status: "run_rate"; decision: string };
     };
     realized_savings: { status: ExecutiveSectionStatus };
   };
@@ -3940,3 +3940,243 @@ export type PublicDiagramLegend =
       }>;
       types: CardType[];
     };
+
+// ── Benefits register (Phase 4; DECISION_LOG D-12, D-14, D-29, D-43) ──────
+
+export type BenefitType = "cost_saving" | "cost_avoidance" | "revenue" | "productivity" | "non_financial";
+export type BenefitMeasurement = "financial" | "kpi" | "qualitative";
+export type BenefitStatus = "planned" | "validated" | "not_realised" | "withdrawn";
+export type BenefitClassification = "direct" | "contributing" | "not_attributable";
+export type BenefitDecisionKind = "adr" | "arb" | "rationalization" | "opportunity";
+export type BenefitActualStatus = "reported" | "confirmed" | "rejected" | "reversed";
+export type BenefitOutcome = "achieved" | "partially_achieved" | "not_achieved";
+
+export interface BenefitCardRef {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface BenefitInitiativeRef extends BenefitCardRef {
+  classification: BenefitClassification;
+}
+
+export interface BenefitPermissions {
+  manage: boolean;
+  validate: boolean;
+  confirm: boolean;
+  /** `costs.view`: without it no amount is returned anywhere. */
+  costs: boolean;
+}
+
+export interface BenefitPerson {
+  id: string;
+  name: string | null;
+}
+
+/** A document / file by id, or a recorded reference (I-69). */
+export interface BenefitEvidence {
+  kind: "document" | "attachment" | "reference";
+  id?: string;
+  name?: string;
+  text?: string;
+  card_id?: string;
+  /** On a card the reader cannot see. */
+  restricted?: boolean;
+  missing?: boolean;
+}
+
+export interface BenefitSummary {
+  id: string;
+  reference: string;
+  title: string;
+  benefit_type: BenefitType;
+  measurement: BenefitMeasurement;
+  status: BenefitStatus;
+  owner_id: string | null;
+  owner_name?: string | null;
+  currency: string | null;
+  recurrence: "one_time" | "annual" | null;
+  planned_amount: number | null;
+  expected_fiscal_year: number | null;
+  confirmed_total: number | null;
+  confirmed_years: number[];
+  awaiting_finance: number;
+  governance_link: boolean;
+  initiatives: BenefitInitiativeRef[];
+  kpi_card: BenefitCardRef | null;
+  amounts_restricted: boolean;
+  updated_at: string | null;
+}
+
+export interface BenefitAllocationRow {
+  initiative: BenefitCardRef | null;
+  classification: "direct" | "contributing";
+  amount: number | null;
+  rationale: string;
+}
+
+export interface BenefitActualRow {
+  id: string;
+  fiscal_year: number;
+  amount: number | null;
+  status: BenefitActualStatus;
+  reported_by: BenefitPerson | null;
+  reported_at: string | null;
+  note: string | null;
+  evidence: BenefitEvidence[];
+  decided_by: BenefitPerson | null;
+  decided_at: string | null;
+  finance_reference: string | null;
+  decision_note: string | null;
+  reversed_by: BenefitPerson | null;
+  reversed_at: string | null;
+  reverse_reason: string | null;
+  allocations: BenefitAllocationRow[];
+  /** The viewer created, owns, estimated or reported it: may not decide (D-29). */
+  independence_conflict: boolean;
+}
+
+export interface BenefitAssessmentRow {
+  id: string;
+  fiscal_year: number;
+  outcome: BenefitOutcome;
+  note: string;
+  evidence: BenefitEvidence[];
+  assessed_by: BenefitPerson | null;
+  assessed_at: string | null;
+}
+
+export interface BenefitHistoryRow {
+  id: string;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  note: string | null;
+  changes: Record<string, { old: unknown; new: unknown }> | null;
+  actor: BenefitPerson | null;
+  occurred_at: string | null;
+}
+
+export interface BenefitDecisionRef {
+  kind: BenefitDecisionKind;
+  /** Null when the reader may not see the decision. */
+  id: string | null;
+  title: string | null;
+  path: string | null;
+}
+
+export interface BenefitDetail extends BenefitSummary {
+  description: string | null;
+  baseline_amount: number | null;
+  counterfactual_amount: number | null;
+  counterfactual_note: string | null;
+  method_note: string | null;
+  decision: BenefitDecisionRef | null;
+  affected: BenefitCardRef[];
+  owner: BenefitPerson | null;
+  created_by: BenefitPerson | null;
+  estimated_by: BenefitPerson | null;
+  validated_by: BenefitPerson | null;
+  validated_at: string | null;
+  validation_note: string | null;
+  closed_by: BenefitPerson | null;
+  closed_at: string | null;
+  close_reason: string | null;
+  created_at: string | null;
+  actuals: BenefitActualRow[];
+  assessments: BenefitAssessmentRow[];
+  history: BenefitHistoryRow[];
+  permissions: BenefitPermissions;
+}
+
+export interface BenefitListResponse {
+  items: BenefitSummary[];
+  permissions: BenefitPermissions;
+}
+
+export interface BenefitBucket {
+  total: number;
+  count: number;
+}
+
+export interface BenefitCurrencySummary {
+  currency: string;
+  planned: Record<"planned" | "validated", Record<"one_time" | "annual", BenefitBucket>>;
+  reported: BenefitBucket;
+  confirmed_cash: BenefitBucket;
+  confirmed_avoidance: BenefitBucket;
+  rate: {
+    status: "ok" | "not_available";
+    value: number | null;
+    confirmed: number;
+    validated: number;
+    benefits: number;
+    reason: { code: string } | null;
+  };
+  attribution: { direct: number; contributing: number; unallocated: number };
+  by_initiative: {
+    id: string;
+    name: string | null;
+    path: string;
+    direct: number;
+    contributing: number;
+    total: number;
+  }[];
+  governance: { linked: number; not_linked: number };
+}
+
+export interface BenefitOutcomeItem {
+  id: string;
+  reference: string;
+  title: string;
+  measurement: "kpi" | "qualitative";
+  status: BenefitStatus;
+  state: string;
+  /** `verified_kpi` or `assessed` — never blended (D-43). */
+  evidence: "verified_kpi" | "assessed";
+  kpi?: { id: string; name: string; path: string };
+  value?: number | null;
+  target?: { value?: number | null; unit?: string | null; status?: string } | null;
+  attainment?: number | null;
+  assessed_at?: string | null;
+}
+
+export interface BenefitOutcomeGroup {
+  kpi: Record<string, number>;
+  qualitative: Record<string, number>;
+  items: BenefitOutcomeItem[];
+}
+
+export interface ExecutiveBenefitsData {
+  generated_at: string;
+  period: ExecutivePeriod;
+  available_periods: string[];
+  fiscal_year: number;
+  fiscal_year_start: number;
+  quarter_selected: boolean;
+  counts: {
+    benefits: number;
+    by_status: Record<string, number>;
+    by_type: Record<string, number>;
+    actuals_awaiting_finance: number;
+    actuals_confirmed: number;
+    without_governance_link: number;
+  };
+  financial:
+    | { status: "ok"; currencies: BenefitCurrencySummary[]; mixed_currencies: boolean }
+    | { status: "restricted" };
+  run_rate_forecast: {
+    status: string;
+    total?: number;
+    currency?: string;
+    applications_counted?: number;
+    conflict_count?: number;
+  };
+  roi: { status: "not_available"; reason: { code: string; batch: string; decisions: string[] } };
+  outcomes: {
+    status: "ok";
+    fiscal_year: number;
+    groups: Record<"productivity" | "non_financial", BenefitOutcomeGroup>;
+  };
+}

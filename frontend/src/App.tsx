@@ -82,6 +82,7 @@ const ExecutiveStrategyMap = lazy(() => import("@/features/reports/ExecutiveStra
 const ApplicationRationalizationBoard = lazy(
   () => import("@/features/rationalization/ApplicationRationalizationBoard"),
 );
+const BenefitsRegisterPage = lazy(() => import("@/features/benefits/BenefitsRegisterPage"));
 const RepositoryFreshnessView = lazy(() => import("@/features/reports/RepositoryFreshnessView"));
 const TechnologyStandardsRadar = lazy(
   () => import("@/features/tech-standards/TechnologyStandardsRadar"),
@@ -324,6 +325,7 @@ function AppRoutes() {
                 <Route path="/reports/impact" element={<ChangeImpactWorkbench />} />
                 <Route path="/reports/strategy-map" element={<ExecutiveStrategyMap />} />
                 <Route path="/rationalization" element={<ApplicationRationalizationBoard />} />
+                <Route path="/benefits" element={<BenefitsRegisterPage />} />
                 <Route path="/reports/freshness" element={<RepositoryFreshnessView />} />
                 <Route path="/tech-standards" element={<TechnologyStandardsRadar />} />
                 <Route path="/reports/resilience" element={<ResilienceView />} />

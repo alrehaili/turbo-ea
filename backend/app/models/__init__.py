@@ -7,6 +7,9 @@ from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.audit_log import AuditLogEntry
 from app.models.authoritative_source import AuthoritativeSource
 from app.models.base import Base
+from app.models.benefit import Benefit, BenefitLink
+from app.models.benefit_actual import BenefitActual, BenefitAllocation
+from app.models.benefit_assessment import BenefitAssessment, BenefitHistory
 from app.models.bookmark import Bookmark
 from app.models.business_calendar import BusinessCalendarYear
 from app.models.calculation import Calculation
@@ -241,4 +244,10 @@ __all__ = [
     "DecisionImplementation",
     "RiskGovernanceLink",
     "EaReviewApplicability",
+    "Benefit",
+    "BenefitLink",
+    "BenefitActual",
+    "BenefitAllocation",
+    "BenefitAssessment",
+    "BenefitHistory",
 ]

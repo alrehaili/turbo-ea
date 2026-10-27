@@ -45,6 +45,7 @@ from app.services import executive_dashboard as exe
 from app.services import ppm_portfolio_service as portfolio
 from app.services.bpm_dashboard_service import build_bpm_dashboard
 from app.services.card_read_scope import CardReadScope, visible_type_clause
+from app.services.executive.benefits import all_superseded_ids
 from app.services.fiscal_year import current_fiscal_year, get_fiscal_year_start
 from app.services.permission_service import PermissionService
 
@@ -138,6 +139,8 @@ async def executive_dashboard(
             db, user, "rationalization.view"
         ),
         currency=currency,
+        # A decision a benefit names is counted in the register (D-31, I-71).
+        superseded=await all_superseded_ids(db),
     )
 
     return {

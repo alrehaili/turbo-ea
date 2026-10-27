@@ -141,6 +141,7 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
     permission: [
       "scenarios.view",
       "rationalization.view",
+      "benefits.view",
       "tech_standards.view",
       "arb.view",
       "maturity.view",
@@ -157,6 +158,12 @@ export const NAV_ITEM_DEFS: NavItemDef[] = [
         icon: "recycling",
         path: "/rationalization",
         permission: "rationalization.view",
+      },
+      {
+        labelKey: "governance.benefits",
+        icon: "savings",
+        path: "/benefits",
+        permission: "benefits.view",
       },
       {
         labelKey: "governance.techStandards",

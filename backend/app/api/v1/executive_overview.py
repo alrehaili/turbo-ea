@@ -40,6 +40,7 @@ from app.services import kpi_measurement_service as kms
 from app.services import ppm_portfolio_service as portfolio
 from app.services import risk_governance
 from app.services.card_read_scope import CardReadScope, visible_type_clause
+from app.services.executive import benefits as ben
 from app.services.executive import decisions as dec
 from app.services.executive import governance as gov
 from app.services.executive import kpis, linkage, periods, strategy
@@ -213,12 +214,20 @@ async def executive_overview(
         strategy_tile = kpis.strategy_execution(current, None)
 
     currency = general.get("currency") or DEFAULT_CURRENCY
+    can_costs = await _can(db, user, "costs.view")
     rationalization = exe.summarize_rationalization(
         await exe.load_rationalization_decisions(db, readable),
-        can_view_costs=await _can(db, user, "costs.view"),
+        can_view_costs=can_costs,
         can_view_rationalization=await _can(db, user, "rationalization.view"),
         currency=currency,
+        superseded=await ben.all_superseded_ids(db),
     )
+    # FIN-01 (Phase 4): Finance-confirmed cash of the period's fiscal year.
+    if can_costs:
+        bundles, _ = await ben.load_visible(db, read_scope)
+        realised = {"status": "ok", "by_currency": ben.confirmed_cash(bundles, current.fy)}
+    else:
+        realised = {"status": "restricted"}
 
     sections, picture = await _decisions(db, user, read_scope, general, today)
     pipeline = {k: sections[k].get("count", 0) for k in ("adrs", "arb", "exceptions")}
@@ -246,7 +255,7 @@ async def executive_overview(
             ),
             linkage.apply_link(delivery_tile, links.get("TR-03")),
             kpis.services_and_automation(current),
-            kpis.business_value(current, rationalization["planned_savings"]),
+            kpis.business_value(current, rationalization["planned_savings"], realised),
             linkage.apply_link(
                 kpis.decisions_and_escalations(current, picture, pipeline, today),
                 links.get("DEC-01"),
@@ -326,6 +335,70 @@ async def executive_governance(
         general=general,
     )
     return {"generated_at": now.isoformat(), "fiscal_year_start": start_month, **summary}
+
+
+@router.get("/benefits")
+async def executive_benefits(
+    period: str | None = Query(None, max_length=12),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Benefits realisation for the fiscal year of the selected period
+    (Phase 4 Batches 4.2 and 4.3, DECISION_LOG I-70..I-74).
+
+    Planned, reported and Finance-confirmed value are separate sections and
+    never summed; every amount is per currency and needs ``costs.view``.
+    Non-financial outcomes are reported apart, with no amount. ROI is Not
+    Available until Batch 4.4 (D-15, D-05)."""
+    await PermissionService.require_permission(db, user, "reports.executive_dashboard")
+    await PermissionService.require_permission(db, user, "benefits.view")
+    read_scope = await CardReadScope.load(db, user)
+    readable_clause = (*read_scope.where(Card, mode="module"), visible_type_clause(Card))
+    general = await _general(db)
+    start_month = await get_fiscal_year_start(db)
+    now = datetime.now(timezone.utc)
+    try:
+        current = periods.parse(period, start_month, now.date())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    fy = current.fy
+    bundles, readable = await ben.load_visible(db, read_scope)
+    can_costs = await _can(db, user, "costs.view")
+    allocation_ids = {
+        al.card_id
+        for b in bundles
+        for allocs in b.allocations.values()
+        for al in allocs
+        if al.card_id in readable
+    }
+    financial = (
+        ben.financial_summary(bundles, fy, readable, await ben.card_names(db, allocation_ids))
+        if can_costs
+        else {"status": "restricted"}
+    )
+    currency = general.get("currency") or DEFAULT_CURRENCY
+    forecast = exe.summarize_rationalization(
+        await exe.load_rationalization_decisions(db, readable_clause),
+        can_view_costs=can_costs,
+        can_view_rationalization=await _can(db, user, "rationalization.view"),
+        currency=currency,
+        superseded=await ben.all_superseded_ids(db),
+    )["planned_savings"]
+    return {
+        "generated_at": now.isoformat(),
+        "period": current.to_dict(),
+        "available_periods": periods.available(now.date(), start_month),
+        "fiscal_year": fy,
+        "fiscal_year_start": start_month,
+        # The register is read by fiscal year: a quarter shows its year (I-70).
+        "quarter_selected": current.quarter is not None,
+        "counts": ben.counts(bundles, fy),
+        "financial": financial,
+        # D-31: an annual run-rate forecast with no fiscal year, never realised.
+        "run_rate_forecast": {**forecast, "temporal": "current_state"},
+        "roi": ben.ROI_NOT_AVAILABLE,
+        "outcomes": await ben.outcomes(db, bundles, fy, readable),
+    }
 
 
 @router.get("/decisions")

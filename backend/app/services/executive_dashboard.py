@@ -445,9 +445,13 @@ class DecisionRow:
     assessment_name: str
     time_decision: str
     planned_savings: float | None
+    #: The ``assessment_decisions`` row, which a benefit may name (I-71).
+    decision_id: uuid.UUID | None = None
 
 
-def summarize_planned_savings(rows: Sequence[DecisionRow]) -> dict[str, Any]:
+def summarize_planned_savings(
+    rows: Sequence[DecisionRow], superseded: set[uuid.UUID] | None = None
+) -> dict[str, Any]:
     """Deduplicate planned savings by identity and flag conflicts (D-24).
 
     Identity is the application (``card_id``) — no benefit record exists before
@@ -456,11 +460,16 @@ def summarize_planned_savings(rows: Sequence[DecisionRow]) -> dict[str, Any]:
     candidate and excluded from the total. Neither the latest nor the lowest
     amount is ever picked. A decision with no estimate is not a candidate.
 
-    The financial-period half of the identity is blocked on D-31 (decisions
-    carry no period), so the figure is not bound to a fiscal year and says so.
+    D-31 (approved 2026-10-27, option c): planned savings are an **annual
+    run-rate forecast with no fiscal year**, so the identity has no period half
+    and the figure says so. They never count as realised or as an ROI input.
     """
     by_identity: dict[uuid.UUID, list[DecisionRow]] = {}
+    superseded = superseded or set()
     for row in rows:
+        # A decision a benefit names is counted in the register, not here (I-71).
+        if row.decision_id is not None and row.decision_id in superseded:
+            continue
         if row.planned_savings is not None:
             by_identity.setdefault(row.card_id, []).append(row)
 
@@ -501,7 +510,7 @@ def summarize_planned_savings(rows: Sequence[DecisionRow]) -> dict[str, Any]:
         "conflict_count": len(conflicts),
         "conflicts": conflicts,
         "excluded_range": [min(amounts), max(amounts)] if amounts else None,
-        "period": {"status": "blocked", "decision": "D-31"},
+        "period": {"status": "run_rate", "decision": "D-31"},
     }
 
 
@@ -511,6 +520,7 @@ def summarize_rationalization(
     can_view_costs: bool,
     can_view_rationalization: bool,
     currency: str,
+    superseded: set[uuid.UUID] | None = None,
 ) -> dict[str, Any]:
     """TIME decisions and planned savings.
 
@@ -524,7 +534,7 @@ def summarize_rationalization(
     for row in rows:
         by_decision[row.time_decision] = by_decision.get(row.time_decision, 0) + 1
     if can_view_costs:
-        savings = summarize_planned_savings(rows)
+        savings = summarize_planned_savings(rows, superseded)
         if can_view_rationalization:
             savings["conflict_detail"] = OK
         else:
@@ -539,9 +549,8 @@ def summarize_rationalization(
         by_decision=by_decision,
         # Planned estimates captured on TIME decisions — a forecast, never realised.
         planned_savings={**planned, "provenance": "forecast"},
-        # Realised savings need verified benefits (Phase 4 register); until then
-        # the figure is unavailable rather than zero, and never mixed with the
-        # forecast above.
+        # Realised savings are Finance-confirmed benefits (Phase 4 register),
+        # reported on the Benefits page — never mixed with the forecast above.
         realized_savings=section(NOT_AVAILABLE),
     )
 
@@ -555,6 +564,7 @@ async def load_rationalization_decisions(db: AsyncSession, readable: tuple) -> l
             RationalizationAssessment.name,
             AssessmentDecision.time_decision,
             AssessmentDecision.planned_savings,
+            AssessmentDecision.id,
         )
         .join(
             RationalizationAssessment,

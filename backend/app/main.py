@@ -1229,6 +1229,43 @@ async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
             else:
                 print(f"[seed_workspace] Skipped: {result.get('reason', 'unknown')}")
 
+    # Seed the executive dashboard's history (status reports, ratified KPI
+    # targets and verified values, governance decisions and their history,
+    # implementation, exceptions, calendar, applicability, risk links) over
+    # whichever demo landscape is present. Before benefits: it adds initiatives.
+    if settings.SEED_DEMO or settings.SEED_NORA:
+        from app.services.seed_demo_executive import seed_executive_demo_data
+
+        try:
+            async with async_session() as db:
+                result = await seed_executive_demo_data(db)
+            if result.get("skipped"):
+                print(f"[seed_executive] Skipped: {result.get('reason', 'unknown')}")
+            else:
+                seeded = sum(v for v in result.values() if v is not True)
+                print(f"[seed_executive] Seeded {seeded} records")
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_executive] FAILED: %s", exc)
+
+    # Seed the benefits register (Phase 4) over whichever demo landscape is
+    # present: initiatives, KPI cards and governance records must exist first.
+    if settings.SEED_DEMO or settings.SEED_NORA:
+        from app.services.seed_demo_benefits import seed_benefits_demo_data
+
+        try:
+            async with async_session() as db:
+                result = await seed_benefits_demo_data(db)
+            if result.get("skipped"):
+                print(f"[seed_benefits] Skipped: {result.get('reason', 'unknown')}")
+            else:
+                print(
+                    f"[seed_benefits] Seeded {result['benefits']} benefits, "
+                    f"{result['actuals']} actuals, {result['allocations']} allocations, "
+                    f"{result['assessments']} assessments"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_benefits] FAILED: %s", exc)
+
     # ── Extension Store: mint/load the instance ID (licensing identity —
     # must exist before the registry evaluates license binding), then
     # reconcile statuses, load license/registry, run per-extension

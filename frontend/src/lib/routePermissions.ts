@@ -168,6 +168,8 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // Executive drill-down targets: the page's own API answers 403 without these,
   // so a link to it must not be offered (or followed by URL) without them.
   { path: "/rationalization", permission: "rationalization.view" },
+  // Benefits register (Phase 4, D-12): amounts additionally need costs.view.
+  { path: "/benefits", permission: "benefits.view" },
   { path: "/arb", permission: "arb.view" },
   { path: "/tech-standards", permission: "tech_standards.view" },
   { path: "/turbolens", permission: "turbolens.view" },
