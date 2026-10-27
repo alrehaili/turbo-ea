@@ -3,9 +3,9 @@ import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
 import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
 import { stopEventStream } from "@/hooks/useEventStream";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
-import { resetExtensionHost } from "@/lib/extensionHost";
+import { resetExtensionHost } from "@/lib/extensionRegistry";
 import { clearReturnPath } from "@/lib/returnPath";
-import i18n from "@/i18n";
+import { changeLanguage } from "@/i18n";
 import type { User } from "@/types";
 
 /**
@@ -64,7 +64,7 @@ export function useAuth() {
       // manifest + dynamic import; failures are captured per-extension).
       void import("@/lib/extensionHost").then((m) => m.loadUiExtensions());
       setUser(u as User);
-      i18n.changeLanguage(u.locale || "en");
+      void changeLanguage(u.locale || "en");
       startRefreshTimer();
       return u as User;
     } catch {

@@ -19,22 +19,6 @@ import notificationsEn from "./locales/en/notifications.json";
 import validationEn from "./locales/en/validation.json";
 import admEn from "./locales/en/adm.json";
 
-// Arabic
-import commonAr from "./locales/ar/common.json";
-import authAr from "./locales/ar/auth.json";
-import navAr from "./locales/ar/nav.json";
-import inventoryAr from "./locales/ar/inventory.json";
-import cardsAr from "./locales/ar/cards.json";
-import reportsAr from "./locales/ar/reports.json";
-import adminAr from "./locales/ar/admin.json";
-import bpmAr from "./locales/ar/bpm.json";
-import ppmAr from "./locales/ar/ppm.json";
-import diagramsAr from "./locales/ar/diagrams.json";
-import deliveryAr from "./locales/ar/delivery.json";
-import grcAr from "./locales/ar/grc.json";
-import notificationsAr from "./locales/ar/notifications.json";
-import validationAr from "./locales/ar/validation.json";
-import admAr from "./locales/ar/adm.json";
 
 // [FORK] This deployment targets Saudi government entities: only English and
 // Arabic are supported. The other upstream locale files stay on disk (for
@@ -87,23 +71,6 @@ i18n
         validation: validationEn,
         adm: admEn,
       },
-      ar: {
-        common: commonAr,
-        auth: authAr,
-        nav: navAr,
-        inventory: inventoryAr,
-        cards: cardsAr,
-        reports: reportsAr,
-        admin: adminAr,
-        bpm: bpmAr,
-        ppm: ppmAr,
-        diagrams: diagramsAr,
-        delivery: deliveryAr,
-        grc: grcAr,
-        notifications: notificationsAr,
-        validation: validationAr,
-        adm: admAr,
-      },
     },
     fallbackLng: "en",
     returnEmptyString: false, // treat "" as missing → fall back to English
@@ -117,5 +84,56 @@ i18n
       lookupLocalStorage: "turboea-locale",
     },
   });
+
+/**
+ * Languages bundled with the app shell. English is the fallback for every
+ * missing key, so it is always present; any other language is a separate
+ * chunk fetched by {@link loadLanguage} — an English session never downloads
+ * or parses the Arabic strings.
+ */
+const LOADERS: Partial<Record<SupportedLocale, () => Promise<Record<string, Record<string, unknown>>>>> =
+  {
+    ar: () => import("./arResources").then((m) => m.default),
+  };
+const loaded = new Set<string>(["en"]);
+const inflight = new Map<string, Promise<void>>();
+
+function baseLocale(locale: string | undefined | null): string {
+  return (locale ?? "en").split("-")[0];
+}
+
+/**
+ * Make a language's strings available. Resolves at once for English or a
+ * language already loaded; concurrent calls share one request. An unknown
+ * language resolves without loading anything (English covers it).
+ */
+export function loadLanguage(locale: string | undefined | null): Promise<void> {
+  const lng = baseLocale(locale);
+  if (loaded.has(lng)) return Promise.resolve();
+  const loader = LOADERS[lng as SupportedLocale];
+  if (!loader) return Promise.resolve();
+  let pending = inflight.get(lng);
+  if (!pending) {
+    pending = loader()
+      .then((bundles) => {
+        for (const [ns, data] of Object.entries(bundles)) {
+          i18n.addResourceBundle(lng, ns, data, true, true);
+        }
+        loaded.add(lng);
+      })
+      .finally(() => inflight.delete(lng));
+    inflight.set(lng, pending);
+  }
+  return pending;
+}
+
+/**
+ * Switch the UI language once its strings are loaded, so the screen never
+ * shows English keys mid-switch. Use instead of `i18n.changeLanguage`.
+ */
+export async function changeLanguage(locale: string): Promise<void> {
+  await loadLanguage(locale);
+  await i18n.changeLanguage(locale);
+}
 
 export default i18n;

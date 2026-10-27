@@ -29,7 +29,7 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import {
   useExtensionAdrGridColumns,
   type RegisteredAdrGridColumn,
-} from "@/lib/extensionHost";
+} from "@/lib/extensionRegistry";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { loadAdrGridPrefs, updateAdrGridPrefs } from "./adrGridPrefs";
 import type { ArchitectureDecision, CardType } from "@/types";

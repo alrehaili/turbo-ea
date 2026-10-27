@@ -21,7 +21,7 @@ import {
 } from "@/features/ea-delivery/adrGridPrefs";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import { useAuthContext } from "@/hooks/AuthContext";
-import { useExtensionAdrGridColumns } from "@/lib/extensionHost";
+import { useExtensionAdrGridColumns } from "@/lib/extensionRegistry";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { toIsoDate, toLocalDate } from "@/lib/dates";

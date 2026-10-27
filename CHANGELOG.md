@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Executive dashboard demo data**: with the demo or NORA demo dataset, the history the Executive pages measure is seeded once — initiative status reports, budgets and costs, strategic objectives with approved KPI cards, ratified targets and verified values, KPI history for the previous quarter, signed decisions and architecture reviews with their history, implementation deadlines and verification, standard exceptions through their lifecycle, a confirmed business calendar, EA review applicability, risks linked to governance records and escalated risks — so every page shows figures.
 
 ### Changed
+- Faster start-up on every page: the app now loads only the active language's text (Arabic is fetched when chosen) and loads the extension toolkit only when extensions are loaded, cutting the start-up script by about 40%.
 - The Overview's business value indicator now shows the Finance-confirmed cost savings and revenue of the period's fiscal year instead of *not available*.
 - Rationalization planned savings are labelled an annual run-rate forecast not tied to a fiscal year, and a decision named by a benefit is no longer counted in the forecast.
 

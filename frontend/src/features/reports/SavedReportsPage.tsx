@@ -25,7 +25,7 @@ import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import EditReportDialog from "./EditReportDialog";
 import { api } from "@/api/client";
-import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionHost";
+import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionRegistry";
 import type { SavedReport } from "@/types";
 import {
   REPORT_TYPE_STYLE,

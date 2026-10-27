@@ -16,7 +16,7 @@ import {
   convertInchesToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
-import { getExtensionAdrExportSections } from "@/lib/extensionHost";
+import { getExtensionAdrExportSections } from "@/lib/extensionRegistry";
 import type { ArchitectureDecision } from "@/types";
 
 // ─── style constants (mirroring soawExport.ts) ──────────────────────────────

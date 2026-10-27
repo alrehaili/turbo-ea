@@ -13,7 +13,7 @@ import {
   formatDateWith,
   getCachedDateFormat,
 } from "@/hooks/useDateFormat";
-import { getExtensionAdrExportSections } from "@/lib/extensionHost";
+import { getExtensionAdrExportSections } from "@/lib/extensionRegistry";
 import {
   documentHeader,
   escapeHtml,

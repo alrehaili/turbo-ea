@@ -1,6 +1,6 @@
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
-import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
+import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionRegistry";
 import type { FieldDef } from "@/types";
 
 /**

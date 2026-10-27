@@ -52,7 +52,7 @@ function readStoredTab(): TabKey | null {
     return null;
   }
 }
-import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
+import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionRegistry";
 import EntitlementChip from "./extensions/EntitlementChip";
 import ExtensionLogo from "./extensions/ExtensionLogo";
 import StoreCheckStatusLine from "./extensions/StoreCheckStatusLine";

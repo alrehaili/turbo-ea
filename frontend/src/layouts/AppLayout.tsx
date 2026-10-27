@@ -49,14 +49,14 @@ import {
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { useNavbarStyle } from "@/hooks/useNavbarStyle";
-import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
+import { SUPPORTED_LOCALES, LOCALE_LABELS, changeLanguage, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import SearchDialog from "@/components/SearchDialog";
 import {
   EXTENSION_NAV_GROUPS,
   getExtensionRoutesForGroup,
   useExtensionUI,
-} from "@/lib/extensionHost";
+} from "@/lib/extensionRegistry";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import {
   ADMIN_ITEM_DEFS,
@@ -501,7 +501,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     async (locale: SupportedLocale) => {
       setLangMenu(null);
       setUserMenu(null);
-      i18n.changeLanguage(locale);
+      void changeLanguage(locale);
       try {
         await api.patch(`/users/${user.id}`, { locale });
       } catch {

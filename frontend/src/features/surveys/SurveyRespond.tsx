@@ -40,7 +40,7 @@ import { api } from "@/api/client";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
+import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionRegistry";
 import { FieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import type { SurveyRespondForm, SurveyField, SurveyPersonRef } from "@/types";
 

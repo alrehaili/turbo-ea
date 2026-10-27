@@ -30,7 +30,7 @@ import {
   useActiveReferenceModels,
 } from "@/hooks/useActiveReferenceModels";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
-import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
+import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionRegistry";
 import type { FieldDef, ReferenceModelItem, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
 import { bandColor } from "@/lib/dataQualityBands";

@@ -23,7 +23,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import DeleteSurveyDialog from "@/features/admin/DeleteSurveyDialog";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { useExtensionSurveyTemplates } from "@/lib/extensionHost";
+import { useExtensionSurveyTemplates } from "@/lib/extensionRegistry";
 import type { Survey } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {

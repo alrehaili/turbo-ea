@@ -20,7 +20,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
-import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
+import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionRegistry";
 import { printAdr } from "./adrPrint";
 import DecisionImplementationPanel from "@/features/decision-implementation/DecisionImplementationPanel";
 import LinkedRisksList from "@/features/grc/risk/LinkedRisksList";

@@ -6,7 +6,7 @@ import { useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { hasPermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
-import { ExtensionBoundary, useExtensionIntegrationPanels } from "@/lib/extensionHost";
+import { ExtensionBoundary, useExtensionIntegrationPanels } from "@/lib/extensionRegistry";
 
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 

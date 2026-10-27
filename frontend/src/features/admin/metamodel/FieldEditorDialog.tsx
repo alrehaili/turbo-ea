@@ -21,7 +21,7 @@ import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
 import { LOCALE_LABELS } from "@/i18n";
-import { useExtensionFieldTypes, ExtensionBoundary } from "@/lib/extensionHost";
+import { useExtensionFieldTypes, ExtensionBoundary } from "@/lib/extensionRegistry";
 import type { FieldDef, FieldOption, TranslationMap } from "@/types";
 import { FIELD_TYPE_OPTIONS, DEFAULT_OPTION_COLOR } from "./constants";
 import ConfigEditor from "./ConfigEditor";

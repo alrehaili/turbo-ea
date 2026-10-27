@@ -14,7 +14,7 @@ import { matchPath, useLocation } from "react-router";
 
 import RequirePermission from "@/components/RequirePermission";
 import { usePageSubject } from "@/hooks/usePageTitle";
-import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
+import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionRegistry";
 
 export default function ExtensionRoutesOutlet() {
   const { t } = useTranslation("common");

@@ -49,7 +49,7 @@ import {
   ExtensionSlot,
   useExtensionUI,
   useExtensionFieldVisibilityProviders,
-} from "@/lib/extensionHost";
+} from "@/lib/extensionRegistry";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
 import {
   allFieldsHidden,

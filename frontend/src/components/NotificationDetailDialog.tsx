@@ -15,7 +15,7 @@ import {
   ExtensionSlot,
   canOpenExtensionPath,
   getExtensionDisplayName,
-} from "@/lib/extensionHost";
+} from "@/lib/extensionRegistry";
 import { routePermissionsFor } from "@/components/RequirePermission";
 import { canAccessPath } from "@/lib/routePermissions";
 import type { Notification } from "@/types";

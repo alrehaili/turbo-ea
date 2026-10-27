@@ -16,7 +16,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { api } from "@/api/client";
-import { ExtensionSlot, useExtensionSlots } from "@/lib/extensionHost";
+import { ExtensionSlot, useExtensionSlots } from "@/lib/extensionRegistry";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { NotificationPreferences, NotificationTypeSpec } from "@/types";
 

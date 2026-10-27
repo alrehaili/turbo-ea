@@ -9,7 +9,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { SavedReport } from "@/types";
 import { REPORT_TYPE_STYLE } from "@/features/reports/savedReportStyles";
-import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionHost";
+import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionRegistry";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
 
 const MAX_VISIBLE = 6;
