@@ -25,7 +25,12 @@ from app.schemas.adr import (
     ADRSignRequest,
     ADRUpdate,
 )
-from app.services import adr_service, governance_transitions, notification_service
+from app.services import (
+    adr_service,
+    decision_implementation,
+    governance_transitions,
+    notification_service,
+)
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -464,6 +469,7 @@ async def delete_adr(
             raise HTTPException(403, "Only the author or an admin can delete a draft decision")
         await PermissionService.require_permission(db, user, "adr.manage")
 
+    await decision_implementation.delete_decision_records(db, "adr", adr.id)
     await db.delete(adr)
     await db.commit()
 
@@ -655,6 +661,10 @@ async def sign_adr(
     if all_signed:
         adr.signed_at = datetime.now(timezone.utc)
         governance_transitions.set_adr_status(db, adr, "signed", user.id, occurred_at=adr.signed_at)
+        # The proposed implementation deadline is approved with the decision (D-41.3).
+        await decision_implementation.approve_proposed_due_date(
+            db, "adr", adr.id, user.id, occurred_at=adr.signed_at
+        )
 
         if adr.created_by:
             await notification_service.create_notification(

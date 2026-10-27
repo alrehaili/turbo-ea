@@ -237,17 +237,37 @@ async def create_todo(
     return todo
 
 
+#: Bridge-only mirror fields an extension may still write on a decision action.
+_MIRROR_FIELDS = frozenset({"external_ref", "external_url", "external_source"})
+
+
+def _guard_decision_action(todo: Todo, changes: dict[str, Any] | None = None) -> None:
+    """A decision action (D-13) changes only through its decision's actions
+    endpoints, which enforce owner, due date, evidence and verification rules
+    (services/decision_implementation.py). An extension may still mirror it."""
+    if todo.source_kind is None:
+        return
+    if changes is not None and set(changes) <= _MIRROR_FIELDS:
+        return
+    raise TodoConflictError("This is a decision action; manage it from its decision")
+
+
 async def update_todo(
     db: AsyncSession,
     actor: TodoActor,
     todo: Todo,
     changes: dict[str, Any],
+    *,
+    allow_decision_action: bool = False,
 ) -> Todo:
     """Apply ``changes`` (TodoUpdate field names, plus ``external_ref`` /
     ``external_url`` / ``external_source`` when called from the bridge) with
     the guards, roll-forward, notification and event side effects. Flushes,
     never commits. Emits ``todo.completed`` instead of ``todo.updated`` when
-    the change set transitions status to done."""
+    the change set transitions status to done. A decision action is refused
+    unless the decision-implementation service is the caller."""
+    if not allow_decision_action:
+        _guard_decision_action(todo, changes)
     # System-generated todos (e.g. sign requests) cannot be manually toggled
     if todo.is_system and "status" in changes:
         raise TodoForbiddenError("This action must be completed from its linked page")
@@ -332,9 +352,14 @@ async def promote_todo(db: AsyncSession, actor: TodoActor, todo: Todo) -> Todo:
     return todo
 
 
-async def delete_todo(db: AsyncSession, actor: TodoActor, todo: Todo) -> None:
+async def delete_todo(
+    db: AsyncSession, actor: TodoActor, todo: Todo, *, allow_decision_action: bool = False
+) -> None:
     """Delete a todo, emitting ``todo.deleted`` first (the payload needs the
-    row). Flushes, never commits."""
+    row). Flushes, never commits. A decision action is deleted only through its
+    decision."""
+    if not allow_decision_action:
+        _guard_decision_action(todo)
     await _publish(db, actor, "todo.deleted", todo)
     await db.delete(todo)
     await db.flush()

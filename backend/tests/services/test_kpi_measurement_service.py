@@ -330,3 +330,68 @@ async def test_gov03_is_not_observed_when_nothing_is_assessable(db, env):
     # No technology standard governs any category, so there is nothing to record.
     observed = await svc.observe_executive_metrics(db, TODAY)
     assert "GOV-03" not in observed
+
+
+# ── GOV-05 daily capture and period value (Batch 3.4, D-41) ──────────────
+
+
+async def _decision(db, author, due, verified_at=None):
+    import uuid as _uuid
+    from datetime import datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.decision_implementation import DecisionImplementation
+
+    adr = ArchitectureDecision(
+        reference_number=f"ADR-{_uuid.uuid4().hex[:6]}",
+        title="Decision",
+        status="signed",
+        created_by=author.id,
+        signed_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        signatories=[],
+    )
+    db.add(adr)
+    await db.flush()
+    db.add(
+        DecisionImplementation(
+            decision_kind="adr",
+            decision_id=adr.id,
+            status="verified" if verified_at else "open",
+            due_date=due,
+            original_due_date=due,
+            due_date_basis="with_decision",
+            verified_at=verified_at,
+        )
+    )
+    await db.flush()
+
+
+async def test_gov05_is_observed_for_the_current_quarter_only_when_decisions_are_due(db, env):
+    observed = await svc.observe_executive_metrics(db, TODAY)
+    # Nothing due in FY2026-Q4 yet: no value, never a zero.
+    assert "GOV-05" not in observed
+    await _decision(db, env["admin"], date(2026, 10, 10))
+    observed = await svc.observe_executive_metrics(db, TODAY)
+    gov = observed["GOV-05"]
+    assert (gov.value, gov.numerator, gov.denominator) == (0.0, 0.0, 1.0)
+
+
+async def test_gov05_period_value_is_calculated_for_the_period_not_the_last_observation(db, env):
+    from datetime import datetime, timezone
+
+    await _decision(
+        db,
+        env["admin"],
+        date(2026, 8, 15),
+        verified_at=datetime(2026, 8, 10, tzinfo=timezone.utc),
+    )
+    # The capture ran in Q3; whatever it observed, the closed value is Q3's own.
+    await svc._store_daily(db, "GOV-05", date(2026, 9, 1), svc.Observation(0.0, 0, 1))
+    await db.flush()
+    await svc.close_ended_periods(db, TODAY)
+    q3 = await svc.current_period_value(db, "FY2026-Q3", metric_key="GOV-05")
+    assert (q3.value, q3.numerator, q3.denominator) == (100.0, 1.0, 1.0)
+    assert q3.observed_on == date(2026, 9, 30)
+    assert q3.status == STATUS_SUBMITTED and q3.calculation_version == "GOV-05@1"
+    # A quarter the capture never ran in gets no value (nothing invented).
+    assert await svc.current_period_value(db, "FY2026-Q2", metric_key="GOV-05") is None

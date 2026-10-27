@@ -17,6 +17,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import DecisionImplementationPanel from "@/features/decision-implementation/DecisionImplementationPanel";
 
 interface CardBrief {
   id: string;
@@ -60,6 +61,9 @@ export default function ArchitectureReviewBoard() {
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editSummary, setEditSummary] = useState("");
+  // Approving may carry the implementation deadline approved with it (D-41.3).
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveDue, setApproveDue] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,9 +101,12 @@ export default function ArchitectureReviewBoard() {
     await open(r.id);
   };
 
-  const decide = async (status: string) => {
+  const decide = async (status: string, implementationDueDate?: string) => {
     if (!detail) return;
-    await api.patch(`/arb/${detail.id}`, { status });
+    await api.patch(`/arb/${detail.id}`, {
+      status,
+      ...(implementationDueDate ? { implementation_due_date: implementationDueDate } : {}),
+    });
     await open(detail.id);
     await load();
   };
@@ -244,6 +251,14 @@ export default function ArchitectureReviewBoard() {
                   {e.standard} <Chip size="small" label={e.status} sx={{ ml: 1 }} />
                 </Typography>
               ))}
+
+              <Divider sx={{ my: 1.5 }} />
+              <DecisionImplementationPanel
+                key={`${detail.id}:${detail.status}`}
+                kind="arb"
+                decisionId={detail.id}
+                linkedCardIds={detail.subject ? [detail.subject.id] : []}
+              />
             </DialogContent>
             <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
               <Chip
@@ -251,7 +266,13 @@ export default function ArchitectureReviewBoard() {
                 color={STATUS_COLOR[detail.status]}
               />
               <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <Button color="success" onClick={() => decide("approved")}>
+                <Button
+                  color="success"
+                  onClick={() => {
+                    setApproveDue("");
+                    setApproveOpen(true);
+                  }}
+                >
                   {t("arb.approve")}
                 </Button>
                 <Button color="error" onClick={() => decide("rejected")}>
@@ -281,6 +302,36 @@ export default function ArchitectureReviewBoard() {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Approve dialog: the implementation deadline approved with the decision */}
+      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullWidth maxWidth="xs" disableRestoreFocus>
+        <DialogTitle>{t("arb.approveTitle")}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t("arb.approveDeadlineHelp")}
+          </Typography>
+          <TextField
+            type="date"
+            label={t("arb.implementationDeadline")}
+            value={approveDue}
+            onChange={(e) => setApproveDue(e.target.value)}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={async () => {
+              setApproveOpen(false);
+              await decide("approved", approveDue || undefined);
+            }}
+          >
+            {t("arb.approve")}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Create dialog */}

@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
+import DecisionImplementationPanel from "@/features/decision-implementation/DecisionImplementationPanel";
 import type { ArchitectureDecision } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -357,6 +358,18 @@ export default function ADRPreview() {
               ))}
             </Box>
           </>
+        )}
+
+        {/* Implementation: deadline, actions, independent verification (D-41) */}
+        {id && (
+          <Box className="no-print" sx={{ mt: 4 }}>
+            <Divider sx={{ mb: 3 }} />
+            <DecisionImplementationPanel
+              kind="adr"
+              decisionId={id}
+              linkedCardIds={(adr.linked_cards ?? []).map((c) => c.id)}
+            />
+          </Box>
         )}
 
         {/* Generic extension slot below the signature block — post-decision,

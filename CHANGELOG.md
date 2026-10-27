@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.40.0] - 2026-10-27
+
+### Added
+- **Decision implementation** on signed architecture decisions and approved architecture reviews: an implementation deadline approved with the decision, actions with an accountable owner and due date, completion with a note and evidence (a document or file on a linked card, or a system reference such as a change ticket), and submission for verification.
+- **Independent implementation verification**: holders of the new *Verify decision implementation* permission (no default role) verify a submitted implementation with a written attestation, or return it with a note; nobody who owned, completed or submitted the work can verify it.
+- **Decision implementation rate (GOV-05)** on the Executive Governance page and the overview: decisions verified by their original approved deadline, with late, awaiting-verification, in-progress and no-plan decisions listed apart, performance against revised deadlines shown separately, and decisions without a deadline and the planning coverage disclosed beside the rate.
+- GOV-05 can be linked to a KPI card (*Executive Metric* = Decision implementation) for its target and owner, is recorded daily in the KPI measurement history, and shows the previous period's verified value; nothing is recorded for periods before the capture started.
+
+### Changed
+- Revising an approved implementation deadline needs a reason and is recorded in the decision's implementation history; the original approved deadline is kept.
+- Decision actions are managed from their decision; the task list shows them but no longer lets them be edited, completed or deleted there.
+- Rewording a decision action no longer affects its implementation's submission or verification; changing an action's owner or due date after submission returns the implementation to in progress.
+
 ## [2.39.0] - 2026-10-27
 
 ### Added

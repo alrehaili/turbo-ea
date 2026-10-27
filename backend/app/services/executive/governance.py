@@ -15,7 +15,10 @@ Three classes, **never mixed** (GOVERNANCE_MEASUREMENT_MODEL.md §1):
   attributed to the requester or an external dependency are left out; working
   days wait on the business calendar, D-38, Batch 3.3). GOV-04 exception
   resolution counts verified remediation only, with rejection, withdrawal and
-  expired-unresolved reported apart (D-40). GOV-05 is Not Available (D-41).
+  expired-unresolved reported apart (D-40). GOV-05 decision implementation
+  counts only **independently verified** implementation against the original
+  approved deadline, with planning coverage and every excluded decision
+  disclosed beside it (D-32, D-41; Batch 3.4).
 * **Impact** — governed work performs better. Architecture risks, governed vs
   ungoverned delivery (GOV-09) and business value are Not Available with their
   reason until their batch or Phase 4 lands.
@@ -38,16 +41,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.decision_implementation import DECISION_ADR, DECISION_ARB, DecisionImplementation
 from app.models.governance_transition import (
     ATTRIBUTION_EXTERNAL,
     ATTRIBUTION_REQUESTER,
     EVENT_EXPIRY_CHANGED,
     INSTRUMENT_ADR,
+    INSTRUMENT_ADR_IMPL,
     INSTRUMENT_ARB,
+    INSTRUMENT_ARB_IMPL,
     INSTRUMENT_EXCEPTION,
     GovernanceTransition,
 )
 from app.models.tech_standard import StandardException
+from app.models.todo import Todo
+from app.services import decision_implementation as impl_service
 from app.services.business_calendar import BusinessCalendar, load_calendar
 from app.services.card_read_scope import CardReadScope
 from app.services.executive import kpis, linkage
@@ -196,10 +204,7 @@ async def _effectiveness(
         "compliance": compliance,
         "coverage": coverage,
         "exception_resolution": await exception_resolution(db, read_scope, period),
-        # GOV-05 needs the decision actions and their verification (D-41).
-        "decision_implementation": _not_available(
-            {"code": "decision_pending", "decisions": ["D-41"], "batch": "3.4"}
-        ),
+        "decision_implementation": await decision_implementation(db, read_scope, period),
         "turnaround": await turnaround(db, read_scope, period),
     }
 
@@ -750,6 +755,157 @@ async def exception_resolution(
     }
 
 
+#: GOV-05 outcomes of an eligible decision; they always sum to ``eligible``.
+GOV05_OUTCOMES = (
+    "verified_on_time",
+    "verified_late",
+    impl_service.STATE_AWAITING,
+    impl_service.STATE_IN_PROGRESS,
+    impl_service.STATE_NO_PLAN,
+)
+
+
+async def approved_decisions(
+    db: AsyncSession, read_scope: CardReadScope
+) -> list[tuple[str, uuid.UUID]]:
+    """Every decision that can be implemented, as ``(kind, id)``: signed ADRs
+    (kept whole, no card scope, as on the decisions page) and approved ARB
+    reviews whose subject card the viewer may read (D-30)."""
+    adr_ids = (
+        (
+            await db.execute(
+                select(ArchitectureDecision.id).where(ArchitectureDecision.status == "signed")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    reviews = (
+        await db.execute(
+            select(ArbReview.id, ArbReview.subject_card_id).where(ArbReview.status == "approved")
+        )
+    ).all()
+    readable = await read_scope.readable_card_ids(
+        db, {subject for _, subject in reviews if subject}, mode="module"
+    )
+    return [(DECISION_ADR, i) for i in adr_ids] + [
+        (DECISION_ARB, rid) for rid, subject in reviews if not subject or subject in readable
+    ]
+
+
+async def decision_implementation(
+    db: AsyncSession, read_scope: CardReadScope, period: Period
+) -> dict[str, Any]:
+    """GOV-05: approved decisions **independently verified** as implemented by
+    their **original** approved deadline (D-32, D-41).
+
+    Eligible: approved decisions whose original deadline falls in the period
+    and has passed (today while the period runs, its end once closed). Each
+    counts once, judged from its recorded history up to the period's end, so a
+    closed period never changes. Numerator: verification recorded on or before
+    the original deadline; completed actions alone never count. Every other
+    eligible decision sits in its own bucket — verified late, awaiting
+    verification, in progress, no plan (no actions) — and the buckets sum to
+    ``eligible``. Performance against **revised** deadlines is reported apart.
+
+    Decisions with no approved deadline cannot be timed, so they are outside
+    the rate's denominator — never hidden: they are counted in
+    ``excluded.no_deadline`` and in ``planning_coverage``, the share of
+    approved decisions that have both a deadline and at least one action
+    (current state)."""
+    cutoff = date.today() if period.is_current else period.end
+    decisions = await approved_decisions(db, read_scope)
+    impls = {
+        (i.decision_kind, i.decision_id): i
+        for i in (await db.execute(select(DecisionImplementation))).scalars().all()
+    }
+    action_rows = (
+        await db.execute(
+            select(Todo.source_kind, Todo.source_id, Todo.created_at).where(
+                Todo.source_kind.is_not(None)
+            )
+        )
+    ).all()
+    actions: dict[tuple[str, uuid.UUID], list[datetime]] = {}
+    for kind, source_id, created_at in action_rows:
+        actions.setdefault((kind, source_id), []).append(created_at)
+    instrument_kind = {INSTRUMENT_ADR_IMPL: DECISION_ADR, INSTRUMENT_ARB_IMPL: DECISION_ARB}
+    events: dict[tuple[str, uuid.UUID], list[GovernanceTransition]] = {}
+    rows = await db.execute(
+        select(GovernanceTransition)
+        .where(GovernanceTransition.instrument.in_(tuple(instrument_kind)))
+        .order_by(GovernanceTransition.occurred_at, GovernanceTransition.created_at)
+    )
+    for t in rows.scalars().all():
+        events.setdefault((instrument_kind[t.instrument], t.record_id), []).append(t)
+
+    outcomes = dict.fromkeys(GOV05_OUTCOMES, 0)
+    by_instrument = {
+        k: {"eligible": 0, "verified_on_time": 0} for k in (DECISION_ADR, DECISION_ARB)
+    }
+    revised = verified_within_revised = 0
+    with_deadline = with_actions = planned = 0
+    for key in decisions:
+        impl = impls.get(key)
+        original = impl.original_due_date if impl else None
+        has_actions = bool(actions.get(key))
+        with_deadline += original is not None
+        with_actions += has_actions
+        planned += original is not None and has_actions
+        if original is None or not (period.start <= original < period.end and original < cutoff):
+            continue
+        history = events.get(key, [])
+        outcome = impl_service.outcome_at(
+            original, impl.verified_at, history, actions.get(key, []), period.end
+        )
+        outcomes[outcome] += 1
+        by_instrument[key[0]]["eligible"] += 1
+        by_instrument[key[0]]["verified_on_time"] += outcome == "verified_on_time"
+        in_force = impl_service.due_in_force(original, history, period.end)
+        if in_force != original:
+            revised += 1
+            verified = impl.verified_at is not None and impl.verified_at.date() < period.end
+            verified_within_revised += verified and impl.verified_at.date() <= in_force
+
+    eligible = sum(outcomes.values())
+    total = len(decisions)
+    common: dict[str, Any] = {
+        "unit_of_count": "decisions",
+        "basis": "verified_by_original_deadline",
+        "eligible": eligible,
+        "outcomes": outcomes,
+        "overdue_or_unverified": eligible
+        - outcomes["verified_on_time"]
+        - outcomes["verified_late"],
+        "revised_deadlines": {
+            "revised": revised,
+            "verified_within_revised": verified_within_revised,
+        },
+        "by_instrument": by_instrument,
+        # Never hidden: decisions the rate cannot time, disclosed beside it.
+        "excluded": {"no_deadline": total - with_deadline},
+        "planning_coverage": {
+            "temporal": kpis.CURRENT_STATE,
+            "approved_decisions": total,
+            "with_deadline": with_deadline,
+            "with_actions": with_actions,
+            "planned": planned,
+            "without_deadline": total - with_deadline,
+            "without_actions": total - with_actions,
+            "percentage": round(100 * planned / total, 1) if total else None,
+        },
+    }
+    if eligible == 0:
+        reason = "no_approved_decisions" if total == 0 else "no_eligible_decisions"
+        return {"status": "not_available", "reason": {"code": reason}, **common}
+    return {
+        "status": "ok",
+        "value": round(100 * outcomes["verified_on_time"] / eligible, 1),
+        "unit": "percent",
+        **common,
+    }
+
+
 def _impact() -> dict[str, Any]:
     return {
         # Technology risk is not automatically a governance risk; the explicit
@@ -772,12 +928,26 @@ async def governance_summary(
     period: Period,
     *,
     gov03_link: dict[str, Any] | None,
+    gov05_link: dict[str, Any] | None = None,
+    gov05_previous: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Activity, effectiveness and impact for the selected period, kept apart."""
+    """Activity, effectiveness and impact for the selected period, kept apart.
+
+    GOV-05 is returned twice from one calculation: the breakdown
+    (``decision_implementation``) and the KPI tile built from it
+    (``decision_implementation_tile``) with its KPI-card target and the
+    previous period's verified value."""
+    effectiveness = await _effectiveness(db, read_scope, period, gov03_link)
+    effectiveness["decision_implementation_tile"] = linkage.apply_link(
+        kpis.governance_effectiveness(
+            period, effectiveness["decision_implementation"], gov05_previous
+        ),
+        gov05_link,
+    )
     return {
         "period": period.to_dict(),
         "activity": await _activity(db, read_scope, period),
-        "effectiveness": await _effectiveness(db, read_scope, period, gov03_link),
+        "effectiveness": effectiveness,
         "impact": _impact(),
     }
 

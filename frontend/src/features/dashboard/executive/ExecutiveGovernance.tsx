@@ -24,6 +24,7 @@ import type {
   ExecutiveGovernanceData,
   GovernanceDrilldown,
   GovernanceElapsed,
+  GovernanceImplementation,
   GovernanceProcessing,
   GovernanceResolution,
   GovernanceTurnaround,
@@ -211,10 +212,18 @@ export default function ExecutiveGovernance() {
           <ResolutionCard resolution={effectiveness.exception_resolution} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <NotAvailableTile
-            label={g("dashboard.executive.governancePage.indicator.decisionImplementation")}
-            reason={reason("decisionImplementation")}
-          />
+          <ExecutiveKpiTile
+            kpi={effectiveness.decision_implementation_tile}
+            icon="task_alt"
+            title={g("dashboard.executive.governancePage.indicator.decisionImplementation")}
+            description={g("dashboard.executive.governancePage.implementation.description")}
+            periodText={periodText}
+            formatPeriod={label}
+            value={pct(effectiveness.decision_implementation_tile.value)}
+            previousValue={pct(effectiveness.decision_implementation_tile.previous.value ?? null)}
+          >
+            <ImplementationBreakdown implementation={effectiveness.decision_implementation} />
+          </ExecutiveKpiTile>
         </Grid>
       </Grid>
 
@@ -289,6 +298,64 @@ export default function ExecutiveGovernance() {
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
         {g("dashboard.executive.governancePage.footnote")}
       </Typography>
+    </Box>
+  );
+}
+
+const IMPLEMENTATION_OUTCOMES = [
+  "verified_on_time",
+  "verified_late",
+  "awaiting_verification",
+  "in_progress",
+  "no_plan",
+] as const;
+
+/**
+ * The GOV-05 breakdown under its KPI tile (D-32, D-41): every outcome of the
+ * decisions due apart from the verified-on-time numerator, performance against
+ * revised deadlines separately, and the decisions the rate cannot time (no
+ * deadline) disclosed with the planning coverage — never hidden.
+ */
+function ImplementationBreakdown({ implementation }: { implementation: GovernanceImplementation }) {
+  const { t } = useTranslation("common");
+  const k = (key: string) => `dashboard.executive.governancePage.implementation.${key}`;
+  const coverage = implementation.planning_coverage;
+  return (
+    <Box data-testid="gov05-implementation">
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
+        {t(k("basis"), { count: implementation.eligible })}
+      </Typography>
+      {IMPLEMENTATION_OUTCOMES.map((o) => (
+        <Typography variant="body2" key={o} data-testid={`gov05-${o}`}>
+          {t(k(`outcome.${o}`), { count: implementation.outcomes[o] })}
+        </Typography>
+      ))}
+      {implementation.revised_deadlines.revised > 0 && (
+        <Typography variant="body2" color="text.secondary" data-testid="gov05-revised">
+          {t(k("revised"), {
+            count: implementation.revised_deadlines.revised,
+            verified: implementation.revised_deadlines.verified_within_revised,
+          })}
+        </Typography>
+      )}
+      <Box data-testid="gov05-coverage" sx={{ mt: 1, pt: 1, borderTop: 1, borderColor: "divider" }}>
+        <Typography variant="caption" fontWeight={700} component="div">
+          {t(k("coverage"), {
+            planned: coverage.planned,
+            total: coverage.approved_decisions,
+            pct: pct(coverage.percentage) ?? "—",
+          })}
+        </Typography>
+        <Typography variant="body2" color="warning.main" data-testid="gov05-excluded">
+          {t(k("noDeadline"), { count: implementation.excluded.no_deadline })}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t(k("noActions"), { count: coverage.without_actions })}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" component="div">
+          {t(k("coverageHint"))}
+        </Typography>
+      </Box>
     </Box>
   );
 }

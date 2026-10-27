@@ -1107,6 +1107,81 @@ async def test_governance_transitions_and_exception_decision_roundtrip(db):
     assert (kept.remediation_evidence, kept.remediation_verified_by) == ("Moved to REST", user.id)
 
 
+async def test_decision_implementation_and_actions_roundtrip(db):
+    """A decision's implementation record and its actions survive a transfer (D-41).
+
+    ``submitted_by`` / ``verified_by`` / ``completed_by`` are user FKs and travel
+    by email; ``decision_id`` / ``source_id`` name module rows whose PKs an
+    import preserves; the action evidence holds module ids or references only.
+    """
+    from datetime import date, datetime, timezone
+
+    from app.models.arb_review import ArbReview
+    from app.models.decision_implementation import DecisionImplementation
+    from app.models.todo import Todo
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "DecisionImplementations")
+    assert section.user_fk_columns == ("submitted_by", "verified_by")
+    todos = next(s for s in ENTITY_SECTIONS if s.sheet == "Todos")
+    assert "completed_by" in todos.user_fk_columns
+
+    user = await create_user(db, email="impl@test.com", role="admin")
+    review = ArbReview(title="Payments platform", status="approved")
+    db.add(review)
+    await db.flush()
+    at = datetime(2026, 10, 20, 9, 30, tzinfo=timezone.utc)
+    action = Todo(
+        description="Cut over",
+        status="done",
+        assigned_to=user.id,
+        due_date=date(2026, 11, 1),
+        source_kind="arb",
+        source_id=review.id,
+        completion_note="Switched",
+        evidence_refs=[{"kind": "reference", "text": "CHG-1"}],
+        completed_by=user.id,
+        completed_at=at,
+    )
+    impl = DecisionImplementation(
+        decision_kind="arb",
+        decision_id=review.id,
+        status="verified",
+        due_date=date(2026, 12, 1),
+        original_due_date=date(2026, 11, 15),
+        due_date_basis="with_decision",
+        submitted_by=user.id,
+        submitted_at=at,
+        verified_by=user.id,
+        verified_at=at,
+        attestation={"examined": "CHG-1", "demonstrates": "live", "confirmed": True},
+    )
+    db.add_all([action, impl])
+    await db.flush()
+    review_id = review.id
+
+    raw = await build_bundle(db)
+    await db.execute(delete(DecisionImplementation))
+    await db.execute(delete(Todo))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    kept = (await db.execute(select(DecisionImplementation))).scalar_one()
+    assert (kept.decision_kind, kept.decision_id, kept.status) == ("arb", review_id, "verified")
+    assert (kept.original_due_date, kept.due_date) == (date(2026, 11, 15), date(2026, 12, 1))
+    assert (kept.submitted_by, kept.verified_by) == (user.id, user.id)
+    assert kept.attestation["examined"] == "CHG-1"
+    todo = (await db.execute(select(Todo).where(Todo.source_id == review_id))).scalar_one()
+    assert (todo.source_kind, todo.completed_by, todo.completion_note) == (
+        "arb",
+        user.id,
+        "Switched",
+    )
+    assert todo.evidence_refs == [{"kind": "reference", "text": "CHG-1"}]
+
+
 async def test_bookmark_shares_roundtrip(db):
     """A saved view shared with another user keeps its share (and can_edit
     flag) across export → delete → re-import; re-apply skips."""

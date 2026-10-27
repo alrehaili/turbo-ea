@@ -57,6 +57,9 @@ def _todo_to_dict(t: Todo, read_scope: CardReadScope | None = None) -> dict:
         "external_ref": t.external_ref,
         "external_url": t.external_url,
         "external_source": t.external_source,
+        # A decision action (D-13) is managed from its decision, never here.
+        "source_kind": t.source_kind,
+        "source_id": str(t.source_id) if t.source_id else None,
     }
 
 
@@ -271,5 +274,8 @@ async def delete_todo(
         if not await PermissionService.has_app_permission(db, user, "admin.todos"):
             raise HTTPException(403, "Not enough permissions")
 
-    await todo_service.delete_todo(db, _actor(user), todo)
+    try:
+        await todo_service.delete_todo(db, _actor(user), todo)
+    except TodoError as e:
+        raise HTTPException(e.status_code, e.message) from e
     await db.commit()

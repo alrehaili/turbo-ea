@@ -347,7 +347,10 @@ export interface ExecutiveGovernanceData {
       | ExecutiveNotAvailable;
     /** GOV-04: verified remediation by expiry over due exceptions (D-40). */
     exception_resolution: GovernanceResolution;
-    decision_implementation: ExecutiveNotAvailable;
+    /** GOV-05: decisions verified by their original approved deadline (D-41). */
+    decision_implementation: GovernanceImplementation;
+    /** The same GOV-05 as a KPI tile: linked KPI card target, owner, previous period. */
+    decision_implementation_tile: ExecutiveKpi;
     /** GOV-07 elapsed calendar days per instrument (Batch 3.2, D-35). */
     turnaround: GovernanceTurnaround;
   };
@@ -471,6 +474,106 @@ export interface GovernanceResolution {
     eligible: number;
     outcomes: GovernanceResolutionOutcomes;
   };
+}
+
+/** GOV-05 outcomes of eligible decisions; they sum to `eligible` (D-41). */
+export interface GovernanceImplementationOutcomes {
+  verified_on_time: number;
+  verified_late: number;
+  awaiting_verification: number;
+  in_progress: number;
+  no_plan: number;
+}
+
+/** GOV-05 decision implementation (D-32, D-41; Batch 3.4). */
+export interface GovernanceImplementation {
+  status: "ok" | "not_available";
+  value?: number;
+  unit?: "percent";
+  reason?: Record<string, unknown>;
+  unit_of_count: "decisions";
+  basis: string;
+  eligible: number;
+  outcomes: GovernanceImplementationOutcomes;
+  overdue_or_unverified: number;
+  revised_deadlines: { revised: number; verified_within_revised: number };
+  by_instrument: Record<"adr" | "arb", { eligible: number; verified_on_time: number }>;
+  /** Decisions the rate cannot time, disclosed beside it, never hidden. */
+  excluded: { no_deadline: number };
+  /** Current state: approved decisions with a deadline and at least one action. */
+  planning_coverage: {
+    temporal: string;
+    approved_decisions: number;
+    with_deadline: number;
+    with_actions: number;
+    planned: number;
+    without_deadline: number;
+    without_actions: number;
+    percentage: number | null;
+  };
+}
+
+/** A person as the decision-implementation API names them. */
+export interface ImplementationPerson {
+  id: string;
+  display_name: string | null;
+}
+
+/** Evidence cited by a decision action (D-41.2). */
+export type ImplementationEvidence =
+  | { kind: "document" | "attachment"; id: string; name: string }
+  | { kind: "reference"; text: string }
+  | { kind: "document" | "attachment"; hidden: true };
+
+export interface DecisionAction {
+  id: string;
+  description: string;
+  status: string;
+  assigned_to: ImplementationPerson | null;
+  due_date: string | null;
+  completed_by: ImplementationPerson | null;
+  completed_at: string | null;
+  completion_note: string | null;
+  evidence: ImplementationEvidence[];
+  evidence_count: number;
+  /** The caller owns the action or manages the decision. */
+  can_complete: boolean;
+}
+
+export interface ImplementationHistoryRow {
+  from_status: string | null;
+  to_status: string;
+  occurred_at: string | null;
+  actor: ImplementationPerson | null;
+  reason: string | null;
+  reason_withheld: boolean;
+  event_kind: string | null;
+  previous_due_date: string | null;
+  due_date: string | null;
+}
+
+/** `GET /adr/{id}/implementation` and `/arb/{id}/implementation` (D-41). */
+export interface DecisionImplementationState {
+  decision: { kind: "adr" | "arb"; id: string; status: string; approved: boolean };
+  state: "no_plan" | "in_progress" | "awaiting_verification" | "implemented";
+  overdue: boolean;
+  implementation: {
+    status: "open" | "submitted" | "verified";
+    due_date: string | null;
+    original_due_date: string | null;
+    due_date_basis: "with_decision" | "set_after_decision" | null;
+    revised: boolean;
+    submitted_by: ImplementationPerson | null;
+    submitted_at: string | null;
+    submission_note: string | null;
+    verified_by: ImplementationPerson | null;
+    verified_at: string | null;
+    attestation: { examined: string; demonstrates: string; confirmed: boolean } | null;
+    text_withheld: boolean;
+  };
+  actions: DecisionAction[];
+  history: { recorded: boolean; transitions: ImplementationHistoryRow[] };
+  permissions: { manage: boolean; verify: boolean; submit: boolean };
 }
 
 /** One non-compliant card behind GOV-03 (`/reports/executive/kpi/GOV-03/drilldown`). */

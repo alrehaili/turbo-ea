@@ -27,7 +27,17 @@ METRICS: dict[str, RegisteredMetric] = {
     "DEC-01": RegisteredMetric("DEC-01", "count", "DEC-01@2"),
     # Rule-based technology-standards compliance: compliant ÷ assessed (D-33).
     "GOV-03": RegisteredMetric("GOV-03", "percent", "GOV-03@1"),
+    # Decisions independently verified by their original approved deadline ÷
+    # decisions due (D-32, D-41). A period figure: see ``PERIOD_CALCULATED``.
+    "GOV-05": RegisteredMetric("GOV-05", "percent", "GOV-05@1"),
 }
+
+#: Metrics whose closed-period value is calculated for that period from its
+#: recorded history, not taken from the last daily observation (D-19, I-2).
+#: GOV-05's daily observation is the running figure of the fiscal quarter that
+#: day falls in, so the last observation of a fiscal year would be its fourth
+#: quarter's figure, not the year's.
+PERIOD_CALCULATED = frozenset({"GOV-05"})
 
 
 def is_registered(key: str) -> bool:

@@ -27,7 +27,7 @@
 
 1. **Scope (GOV-01 denominator)**: initiatives meeting the "in scope" rule (D-10). Proposal: subtype `program` or `project`, and FY budget ≥ an admin-set threshold, or tag `eaReviewRequired`. The rule is a setting, not code.
 2. **Early engagement (GOV-02)**: first ARB review or ADR linked to the initiative dated **before** the gate (D-11). Proposal: the ADM phase for Architecture Vision approved, else `Initiative.startDate`.
-3. **Decision implemented (GOV-05)**: every action todo linked to the decision is done, **and** at least one action exists (a decision without actions is "no plan", reported separately). Window: decisions signed or approved ≥ 90 days before period end.
+3. **Decision implemented (GOV-05)** — *superseded 2026-10-27 by D-32 / D-41 (`DECISION_LOG.md` I-47)*: a decision is implemented only when its implementation is **independently verified**; completed actions alone never count. The rate is decisions verified by their **original approved deadline** ÷ decisions whose original deadline fell due in the period; late, awaiting-verification, in-progress and no-plan decisions are reported apart, revised deadlines separately, and decisions without a deadline and the planning coverage are disclosed beside the rate. No waiting window.
 4. **Corrective action (GOV-06)**: union of decision actions, exception remediation actions (`source_kind=exception`) and risk mitigation occurrences. On time = completed ≤ due date.
 5. **Exception resolution (GOV-04)**: an approved exception is resolved when closed (the card becomes compliant per scan, or the exception is rejected / withdrawn) before `expiry_date`. "Expired-but-active" = approved, past expiry, card still non-compliant.
 6. **Turnaround (GOV-07)**: median working days (fiscal calendar, weekends per D-28) request → decision, per instrument.
@@ -47,6 +47,6 @@ Governance KPIs count only governance records whose subject card(s) the caller c
 ## 6. Acceptance criteria (model level)
 
 - Each governance tile shows its class label.
-- GOV-05 is computable end-to-end for a test decision: ADR signed → two actions → both done → counted as implemented in the next period.
+- GOV-05 is computable end-to-end for a test decision: ADR signed with a deadline → two actions → both done with evidence → submitted → independently verified before the deadline → counted as implemented on time in the period the deadline falls in (as amended by D-41).
 - GOV-09 shows cohort sizes and the suppression rule.
 - Removing read access to a decision's subject card removes that decision from every governance count for that user.

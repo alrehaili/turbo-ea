@@ -57,7 +57,7 @@ from app.services.card_read_scope import CardReadScope, visible_type_clause
 from app.services.event_bus import event_bus
 from app.services.executive import decisions as dec
 from app.services.executive import periods
-from app.services.executive.registry import METRICS
+from app.services.executive.registry import METRICS, PERIOD_CALCULATED
 from app.services.fiscal_year import (
     fiscal_quarter_bounds,
     fiscal_year_bounds,
@@ -445,7 +445,31 @@ async def observe_executive_metrics(db: AsyncSession, today: date) -> dict[str, 
         out["GOV-03"] = Observation(
             scan["compliance_pct"], float(scan["compliant"]), float(scan["assessed"])
         )
+    # GOV-05 for the fiscal quarter today falls in, as of today (D-41, I-47).
+    gov05 = await _gov05_observation(
+        db, periods.parse(None, await get_fiscal_year_start(db), today)
+    )
+    if gov05 is not None:
+        out["GOV-05"] = gov05
     return out
+
+
+async def _gov05_observation(db: AsyncSession, period: periods.Period) -> Observation | None:
+    """GOV-05 for ``period``, landscape-wide: verified by the original deadline
+    (numerator) over decisions due (denominator). ``None`` when no decision is
+    due — a rate with no eligible decision has no defensible value (C-04), so
+    nothing is recorded rather than a zero."""
+    # Imported here: the executive package imports this module (linkage).
+    from app.services.executive.governance import decision_implementation
+
+    result = await decision_implementation(db, CardReadScope.everything(), period)
+    if result["status"] != "ok":
+        return None
+    return Observation(
+        result["value"],
+        float(result["outcomes"]["verified_on_time"]),
+        float(result["eligible"]),
+    )
 
 
 async def _store_daily(db: AsyncSession, key: str, day: date, obs: Observation) -> None:
@@ -531,6 +555,16 @@ async def close_ended_periods(db: AsyncSession, today: date) -> int:
             ).scalar_one_or_none()
             if obs is None:
                 continue
+            value, numerator, denominator = obs.value, obs.numerator, obs.denominator
+            observed_on = obs.period_start
+            if key in PERIOD_CALCULATED:
+                # The period's own figure from its recorded history (GOV-05),
+                # only for periods the daily capture ran in; nothing earlier.
+                calc = await _gov05_observation(db, periods.parse(pkey, start_month, today))
+                if calc is None:
+                    continue
+                value, numerator, denominator = calc.value, calc.numerator, calc.denominator
+                observed_on = last
             m = KpiMeasurement(
                 kind=KIND_PERIOD,
                 metric_key=key,
@@ -538,10 +572,10 @@ async def close_ended_periods(db: AsyncSession, today: date) -> int:
                 period_key=pkey,
                 period_start=first,
                 period_end=last,
-                observed_on=obs.period_start,
-                value=obs.value,
-                numerator=obs.numerator,
-                denominator=obs.denominator,
+                observed_on=observed_on,
+                value=value,
+                numerator=numerator,
+                denominator=denominator,
                 unit=obs.unit,
                 calculation_version=obs.calculation_version,
                 source="system",

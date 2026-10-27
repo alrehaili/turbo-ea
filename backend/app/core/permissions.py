@@ -240,6 +240,11 @@ APP_PERMISSIONS: dict[str, dict] = {
                 "(NORA stage gates). The user must also hold the chain role of "
                 "the step being decided."
             ),
+            "governance.verify_implementation": (
+                "Independently verify that an approved architecture decision (ADR or "
+                "ARB review) was implemented. Refused to anyone who owns, completed "
+                "or submitted the decision's implementation actions."
+            ),
         },
     },
     "nora": {
@@ -702,6 +707,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "grc.view": True,
     "grc.manage": True,
     "governance.approve_step": False,
+    "governance.verify_implementation": False,
     "nora.view": True,
     "nora.manage": False,
     "kpis.measure": False,
@@ -811,6 +817,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "grc.view": True,
     "grc.manage": True,
     "governance.approve_step": False,
+    "governance.verify_implementation": False,
     "nora.view": True,
     "nora.manage": False,
     "kpis.measure": False,
@@ -920,6 +927,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "grc.view": True,
     "grc.manage": False,
     "governance.approve_step": False,
+    "governance.verify_implementation": False,
     "nora.view": True,
     "nora.manage": False,
     "kpis.measure": False,

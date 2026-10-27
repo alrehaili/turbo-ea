@@ -25,6 +25,7 @@ from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
 from app.models.card_logo import CardLogo
 from app.models.comment import Comment
+from app.models.decision_implementation import DecisionImplementation
 from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
@@ -106,7 +107,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "Todos",
         Todo,
         card_fk_columns=("card_id",),
-        user_fk_columns=("assigned_to", "created_by"),
+        user_fk_columns=("assigned_to", "created_by", "completed_by"),
         # An in-app link: /cards/{id}, /ppm/{id}?tab=…
         rewrite=remap.rewrite_todo_row,
         id_bearing_columns=("link",),
@@ -449,6 +450,13 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "GovernanceTransitions",
         GovernanceTransition,
         user_fk_columns=("actor_id",),
+    ),
+    # Implementation of a signed ADR / approved ARB review (D-41). After both:
+    # ``decision_id`` names a module row, whose PK an import preserves.
+    EntitySection(
+        "DecisionImplementations",
+        DecisionImplementation,
+        user_fk_columns=("submitted_by", "verified_by"),
     ),
     # --- Scenario planning (scenario before its changes) -----------------
     EntitySection("Scenarios", Scenario, user_fk_columns=("created_by", "merged_by")),

@@ -75,7 +75,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
 # national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
 # `srmCode` on SecurityControl) so all six domains have a landing field.
-NORA_PROFILE_VERSION = 12  # v12: GOV-03 option on KPI.metricKey (Batch 3.1)
+NORA_PROFILE_VERSION = 13  # v13: GOV-05 option on KPI.metricKey (Batch 3.4)
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -203,6 +203,27 @@ _GOV03_METRIC_OPTION = {
         "الامتثال لمعايير التقنية (GOV-03)",
     ),
 }
+
+#: The ``KPI.metricKey`` option for GOV-05 (profile v13, Batch 3.4), added the
+#: same way as GOV-03 (fresh installs below, existing installs by the pass).
+_GOV05_METRIC_OPTION = {
+    "key": "GOV-05",
+    "label": "Decision implementation (GOV-05)",
+    "translations": _tr(
+        "Umsetzung von Entscheidungen (GOV-05)",
+        "Mise en œuvre des décisions (GOV-05)",
+        "Implementación de decisiones (GOV-05)",
+        "Attuazione delle decisioni (GOV-05)",
+        "Implementação de decisões (GOV-05)",
+        "决策落实 (GOV-05)",
+        "Реализация решений (GOV-05)",
+        "Gennemførelse af beslutninger (GOV-05)",
+        "تنفيذ القرارات (GOV-05)",
+    ),
+}
+
+#: Options the profile pass adds to ``KPI.metricKey`` on existing installs.
+_ADDED_METRIC_OPTIONS = (_GOV03_METRIC_OPTION, _GOV05_METRIC_OPTION)
 
 NORA_TYPE_FIELDS: dict[str, list[dict]] = {
     "BusinessCapability": [
@@ -3449,6 +3470,7 @@ NORA_V4_TYPE_FIELDS: dict[str, list[dict]] = {
                     ),
                 },
                 _GOV03_METRIC_OPTION,
+                _GOV05_METRIC_OPTION,
             ],
         },
         {
@@ -8352,26 +8374,28 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
         summary["types_updated"].append(type_key)
         summary["fields_added"] += len(missing)
 
-    # ── Pass 4h (profile v12): append the GOV-03 option to KPI.metricKey when
-    # missing (Batch 3.1). Additive — an admin's existing options and labels are
-    # untouched; only the GOV-03 option is added, and only when absent.
+    # ── Pass 4h (profiles v12, v13): append the GOV-03 (Batch 3.1) and GOV-05
+    # (Batch 3.4) options to KPI.metricKey when missing. Additive — an admin's
+    # existing options and labels are untouched; an option is added only when
+    # absent.
     kpi_ct = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one_or_none()
     if kpi_ct is not None:
         schema = [dict(section) for section in (kpi_ct.fields_schema or [])]
-        changed = False
+        added: list[str] = []
         for section in schema:
             for field in section.get("fields") or []:
                 if field.get("key") != "metricKey":
                     continue
                 options = list(field.get("options") or [])
-                if any(o.get("key") == "GOV-03" for o in options):
-                    continue
-                options.append(deepcopy(_GOV03_METRIC_OPTION))
+                for option in _ADDED_METRIC_OPTIONS:
+                    if any(o.get("key") == option["key"] for o in options):
+                        continue
+                    options.append(deepcopy(option))
+                    added.append(f"KPI.metricKey.{option['key']}")
                 field["options"] = options
-                changed = True
-        if changed:
+        if added:
             kpi_ct.fields_schema = schema
-            summary.setdefault("metric_options_added", []).append("KPI.metricKey.GOV-03")
+            summary.setdefault("metric_options_added", []).extend(added)
 
     # ── Pass 4f (profile v4): sectioned field injection — fields that live in
     # their own named section rather than "NORA Alignment" (ITComponent

@@ -83,6 +83,12 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("Documents", "url"): "an external link the user entered",
     ("Comments", "content"): PROSE,
     ("Todos", "description"): PROSE,
+    ("Todos", "completion_note"): PROSE,
+    # Decision-action evidence: document / file ids (kept on import) or a system reference.
+    ("Todos", "evidence_refs"): MODULE_IDS,
+    ("DecisionImplementations", "submission_note"): PROSE,
+    # Verifier's prose + the action evidence as verified (module ids, kept on import).
+    ("DecisionImplementations", "attestation"): MODULE_IDS,
     ("FileAttachments", "data"): BINARY,
     ("CardLogos", "data"): BINARY,
     ("Diagrams", "description"): PROSE,

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Date, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -54,6 +54,21 @@ class Todo(Base, UUIDMixin, TimestampMixin):
     external_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     external_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # --- Decision action (D-13, D-41; migration 1172) ----------------------
+    # A todo that implements a signed ADR (``source_kind = "adr"``) or an
+    # approved ARB review (``"arb"``). Managed only through the decision's
+    # actions endpoints (services/decision_implementation.py): the generic todo
+    # routes refuse to change or delete it. ``source_id`` has no FK (it names
+    # either table); completion carries a note and evidence references.
+    source_kind: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    completion_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_refs: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    completed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    completed_at = mapped_column(DateTime(timezone=True), nullable=True)
+
     card = relationship("Card", lazy="noload")
     assignee = relationship("User", foreign_keys=[assigned_to], lazy="noload")
     creator = relationship("User", foreign_keys=[created_by], lazy="noload")
@@ -66,4 +81,5 @@ class Todo(Base, UUIDMixin, TimestampMixin):
         # the invariant is owned at the application layer (same posture as
         # relation idempotency), so a historical duplicate merges, never 500s.
         Index("ix_todos_external_source_ref", "external_source", "external_ref"),
+        Index("ix_todos_source", "source_kind", "source_id"),
     )

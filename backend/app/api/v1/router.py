@@ -18,6 +18,7 @@ from app.api.v1 import (
     card_logos,
     cards,
     comments,
+    decision_actions,
     diagram_groups,
     diagrams,
     documents,
@@ -145,6 +146,8 @@ api_router.include_router(principles_catalogue.router)
 api_router.include_router(rationalization.router)
 api_router.include_router(tech_standards.router)
 api_router.include_router(arb.router)
+# Decision actions and implementation verification under /adr and /arb (D-41).
+api_router.include_router(decision_actions.router)
 api_router.include_router(scenarios.router)
 api_router.include_router(ops.router)
 api_router.include_router(viewpoints.router)

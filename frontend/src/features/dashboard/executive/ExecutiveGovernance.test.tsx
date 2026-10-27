@@ -31,6 +31,19 @@ const compliance: ExecutiveKpi = {
   details: {},
 };
 
+/** GOV-05 as the KPI tile the page renders (linked target, previous period). */
+const gov05Tile: ExecutiveKpi = {
+  ...compliance,
+  key: "GOV-05",
+  calculation_version: "GOV-05@1",
+  value: 40,
+  confidence: "medium",
+  target: { status: "ratified", value: 80, unit: "%", direction: "higherIsBetter", achieved: false },
+  owner: { status: "ok", name: "EA Governance Office" },
+  previous: { status: "ok", value: 30, period: "FY2026-Q2", verified: true },
+  completeness: { numerator: 5, denominator: 10, percentage: 50 },
+};
+
 const data: ExecutiveGovernanceData = {
   generated_at: "2026-10-25T08:00:00Z",
   fiscal_year_start: 1,
@@ -78,9 +91,38 @@ const data: ExecutiveGovernanceData = {
       basis: "verified_by_expiry",
     },
     decision_implementation: {
-      status: "not_available",
-      reason: { code: "decision_pending", decisions: ["D-41"], batch: "3.4" },
+      status: "ok",
+      value: 40,
+      unit: "percent",
+      unit_of_count: "decisions",
+      basis: "verified_by_original_deadline",
+      eligible: 5,
+      outcomes: {
+        verified_on_time: 2,
+        verified_late: 1,
+        awaiting_verification: 1,
+        in_progress: 0,
+        no_plan: 1,
+      },
+      overdue_or_unverified: 2,
+      revised_deadlines: { revised: 2, verified_within_revised: 1 },
+      by_instrument: {
+        adr: { eligible: 3, verified_on_time: 1 },
+        arb: { eligible: 2, verified_on_time: 1 },
+      },
+      excluded: { no_deadline: 4 },
+      planning_coverage: {
+        temporal: "current_state",
+        approved_decisions: 10,
+        with_deadline: 6,
+        with_actions: 7,
+        planned: 5,
+        without_deadline: 4,
+        without_actions: 3,
+        percentage: 50,
+      },
     },
+    decision_implementation_tile: gov05Tile,
     turnaround: {
       status: "ok",
       measure: "elapsed",
@@ -240,10 +282,77 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
 
   it("shows every unbuilt indicator as Not available with a reason, never a zero", () => {
     renderPage();
-    expect(screen.getByText("Decision implementation")).toBeInTheDocument();
     expect(screen.getByText("Business value of governance")).toBeInTheDocument();
     expect(screen.getByText(/Arrives with the benefits register/)).toBeInTheDocument();
-    expect(screen.getAllByText("Not available").length).toBeGreaterThanOrEqual(4);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("shows GOV-05 as independently verified implementation by the original deadline (D-41)", () => {
+    renderPage();
+    expect(screen.getByText("Decision implementation")).toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
+    const card = screen.getByTestId("gov05-implementation");
+    expect(card).toHaveTextContent(/Decisions due in this period: 5/);
+    expect(within(card).getByTestId("gov05-verified_on_time")).toHaveTextContent(
+      "Verified by the original deadline: 2",
+    );
+    expect(within(card).getByTestId("gov05-verified_late")).toHaveTextContent(
+      "Verified after the original deadline: 1",
+    );
+    expect(within(card).getByTestId("gov05-no_plan")).toHaveTextContent("No actions (no plan): 1");
+    expect(within(card).getByTestId("gov05-revised")).toHaveTextContent(
+      "Deadlines revised: 2 · verified within the revised deadline: 1",
+    );
+  });
+
+  it("discloses decisions without a deadline and the planning coverage beside GOV-05", () => {
+    renderPage();
+    const coverage = screen.getByTestId("gov05-coverage");
+    expect(coverage).toHaveTextContent("5 of 10 approved decisions (50%)");
+    expect(within(coverage).getByTestId("gov05-excluded")).toHaveTextContent(
+      "Approved decisions without a deadline (outside the rate): 4",
+    );
+    expect(coverage).toHaveTextContent("Approved decisions without actions: 3");
+  });
+
+  it("shows the GOV-05 target from its linked KPI card and the verified previous period", () => {
+    renderPage();
+    // The ratified target and the previous period's verified value (D-26, D-19).
+    expect(screen.getAllByText(/80/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/30%/)).toBeInTheDocument();
+    expect(screen.getByText(/EA Governance Office/)).toBeInTheDocument();
+  });
+
+  it("shows GOV-05 as Not available, never zero, when no decision fell due", () => {
+    const none: ExecutiveGovernanceData = {
+      ...data,
+      effectiveness: {
+        ...data.effectiveness,
+        decision_implementation: {
+          ...data.effectiveness.decision_implementation,
+          status: "not_available",
+          value: undefined,
+          reason: { code: "no_eligible_decisions" },
+          eligible: 0,
+        },
+        decision_implementation_tile: {
+          ...gov05Tile,
+          status: "not_available",
+          value: null,
+          confidence: null,
+          reason: { code: "no_eligible_decisions" },
+        },
+      },
+    };
+    useApiQuery.mockImplementation((path: string | null) =>
+      path && path.includes("/reports/executive/governance")
+        ? { data: none, error: null, loading: false }
+        : { data: null, error: null, loading: false },
+    );
+    renderPage();
+    expect(screen.queryByText("40%")).toBeNull();
+    expect(screen.getByText(/No approved decision's implementation deadline fell due/)).toBeInTheDocument();
+    expect(screen.getByTestId("gov05-excluded")).toBeInTheDocument();
   });
 
   it("shows GOV-07 elapsed days per instrument, never pooled, with untimed decisions counted apart", () => {
@@ -370,7 +479,7 @@ describe("ExecutiveGovernance (Batch 3.1)", () => {
     renderPage();
     const card = screen.getByTestId("gov04-resolution");
     expect(card).toHaveTextContent("Not available");
-    expect(card).not.toHaveTextContent("0%");
+    expect(card).not.toHaveTextContent("40%");
   });
 
   it("names the unconfirmed fiscal years when working days are not available (D-38)", () => {

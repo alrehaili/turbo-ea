@@ -116,7 +116,7 @@ Rules: `DECISION_LOG.md` §3.1 (D-10, D-13, D-28, D-32..D-36 approved with chang
 | **3.1** | Governance page; activity counts; assessment coverage; rule-based standards compliance (GOV-03) with drill-down; GOV-03 registered for daily capture and KPI-card linkage | — (all rules approved) | Phase 2 |
 | 3.2 | Auditable transition history for ADR, ARB, exceptions; exception states withdrawn / remediated with verified evidence; GOV-04 exception resolution; GOV-07 elapsed time | D-39 (processing time only), D-40 (remediated only) | 3.1 |
 | 3.3 | Business calendar (Sun–Thu default, holiday configuration, validity); GOV-07 working-day figures | D-38 | 3.2 |
-| 3.4 | Decision actions on ADR / ARB (Todo source link, owner, due date, evidence); implementation verification; GOV-05 with No Plan; overview tile switches to GOV-05 | D-41 | 3.2 (transition history dates the decisions) |
+| 3.4 | Decision actions on ADR / ARB (Todo source link, owner, due date, evidence); implementation verification; GOV-05 with No Plan; overview tile switches to GOV-05 | — (D-41 approved 2026-10-27) | 3.2 (transition history dates the decisions) |
 | 3.5 | Architecture risks from explicit governance links; verified reduction stays Not Available | D-42 | 3.1 |
 | 3.6 | GOV-01 review coverage and GOV-09 governed vs ungoverned delivery from approved applicability | D-37 | 3.1 |
 
@@ -145,7 +145,7 @@ Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (need
 
 ### Batch 3.3 — Business calendar
 
-> **Status 2026-10-27 (v2.39.0): implemented, uncommitted.** D-38 approved; business calendar per fiscal year, `admin.business_calendar`, working-day GOV-07 (I-38..I-41). Validation **Pending Verification**. Batch 3.4 not started.
+> **Status 2026-10-27 (v2.39.0): implemented and committed on `main` (`481f1238`).** D-38 approved; business calendar per fiscal year, `admin.business_calendar`, working-day GOV-07 (I-38..I-41). Validation **Pending Verification**. Batch 3.4 not started.
 
 | Item | Content |
 |---|---|
@@ -153,6 +153,8 @@ Out of Phase 3: GOV-02 early engagement (D-11 deferred); repeat violations (need
 | Acceptance | Sun–Thu default; a period touching an unconfirmed year yields no working-day figure |
 
 ### Batch 3.4 — Decision actions and implementation verification
+
+> **Status 2026-10-27 (v2.40.0): implemented, uncommitted.** D-41 approved with changes; decision actions on todos, `decision_implementations` (migration `1172`), `governance.verify_implementation`, independent verification with attestation, original and revised deadlines, GOV-05 on the Governance page and the overview (I-42..I-49); completed the same day with the approved rules and GOV-05 in the KPI registry, daily capture, KPI-card linkage and history (I-50). Validation **Pending Verification**. Batches 3.5 and 3.6 not started.
 
 | Item | Content |
 |---|---|

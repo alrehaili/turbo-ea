@@ -80,6 +80,18 @@ An **Architecture Decision Record (ADR)** captures an important architecture dec
 
 The **master ADR registry** — where every ADR across the landscape is filtered, searched, signed off, revised and previewed — lives in the GRC module at **GRC → Governance → [Decisions](grc.md#governance)**. See the GRC guide for the full ADR lifecycle (grid columns, filter sidebar, sign-off workflow, revisions, preview).
 
+### Implementing a decision
+
+A signed decision record, and an architecture review once approved, carries an **Implementation** section (on the decision's preview page, and in the review's detail dialog) that tracks whether the decision was actually carried out:
+
+- **Implementation deadline.** For a decision record, set the deadline before it is signed: the signatories approve it together with the decision. For an architecture review, give the deadline when you approve it. The deadline approved with the decision is kept as the **original deadline**. A decision manager may revise it later only with a reason; every change is recorded in the implementation history, and the original stays visible. A decision approved without a deadline can be given one later, with a reason; it is then marked *set after the decision*.
+- **Actions.** Decision managers add actions, each with an **accountable owner** and a **due date**. Actions appear in their owner's task list but are managed from the decision.
+- **Completing an action** needs a note on what was done and at least one piece of evidence: a document or file already on a card linked to the decision, or a **system reference** such as a change ticket, release, deployment record or document number. A decision with no linked card is completed with references.
+- **Submit for verification.** Once every action is complete, a manager or an action owner submits the implementation. Adding, reopening or deleting an action, or changing an action's owner or due date, afterwards returns it to in progress; rewording an action's description does not.
+- **Verification.** A holder of the *Verify decision implementation* permission (no role has it by default) verifies the implementation, stating what they examined and why it shows the decision implemented, or returns it with a note. Nobody who owns, completed or submitted any of the actions can verify it; signatories and reviewers may, when they took no part in the work. Only a verified decision counts as **implemented** — completed actions alone do not. After verification only an action's wording can still be edited; its owner, due date and the deadline can no longer change.
+
+The Executive *Governance* page measures this as **decision implementation (GOV-05)** — see the [Executive dashboard guide](dashboard.md).
+
 ## Resources Tab
 
 ![Card Resources Tab](../assets/img/en/17c_card_resources.png)

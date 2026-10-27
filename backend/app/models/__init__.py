@@ -17,6 +17,7 @@ from app.models.card_type_category import CardTypeCategory
 from app.models.catalogue_cache import CatalogueCache
 from app.models.comment import Comment
 from app.models.compliance_regulation import ComplianceRegulation
+from app.models.decision_implementation import DecisionImplementation
 from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup, diagram_group_members
@@ -235,4 +236,5 @@ __all__ = [
     "CardTypeCategory",
     "OpsRequestNonce",
     "AuditLogEntry",
+    "DecisionImplementation",
 ]

@@ -109,10 +109,18 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_11(self):
+    def test_profile_version_is_13(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
-        assert NORA_PROFILE_VERSION == 11  # v11: KPI metricKey (D-26)
+        # v11: KPI metricKey (D-26); v12: GOV-03 option; v13: GOV-05 option (D-41).
+        assert NORA_PROFILE_VERSION == 13
+
+    def test_kpi_metric_key_offers_every_registered_metric(self):
+        from app.services.executive.registry import METRICS
+        from app.services.nora_profile import NORA_TYPE_FIELDS
+
+        field = next(f for f in NORA_TYPE_FIELDS["KPI"] if f["key"] == "metricKey")
+        assert {o["key"] for o in field["options"]} == set(METRICS)
 
     def test_v8_rm_code_fields_defined(self):
         """Profile v8 — every one of the six domains has an RM code field."""
@@ -532,6 +540,36 @@ class TestApplyNoraProfile:
         ]
         assert len(arm_fields) == 1
         assert arm_fields[0]["label"] == "My ARM Ref"
+
+    async def test_apply_adds_missing_metric_options_and_keeps_admin_labels(self, db):
+        """An install whose KPI.metricKey predates GOV-03 / GOV-05 gains both
+        options; an option already there (with an admin's label) is untouched."""
+        own = {"key": "TR-03", "label": "Delivery (our wording)"}
+        await create_card_type(
+            db,
+            key="KPI",
+            fields_schema=[{"section": "KPI", "fields": [{"key": "metricKey", "options": [own]}]}],
+            built_in=True,
+        )
+
+        summary = await apply_nora_profile(db)
+
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        assert {"KPI.metricKey.GOV-03", "KPI.metricKey.GOV-05"} <= set(
+            summary["metric_options_added"]
+        )
+        ct = (await db.execute(select(CardType).where(CardType.key == "KPI"))).scalar_one()
+        field = next(
+            f for s in ct.fields_schema for f in s.get("fields", []) if f["key"] == "metricKey"
+        )
+        options = {o["key"]: o for o in field["options"]}
+        assert options["TR-03"]["label"] == "Delivery (our wording)"
+        assert options["GOV-05"]["label"] == "Decision implementation (GOV-05)"
+        again = await apply_nora_profile(db)
+        assert "metric_options_added" not in again
 
     async def test_missing_types_are_skipped(self, db):
         """Applying against an empty metamodel still records the profile flag."""

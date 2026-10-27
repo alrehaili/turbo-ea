@@ -192,8 +192,9 @@ async def test_later_batch_indicators_are_not_available_with_reasons(db):
         db, CardReadScope.everything(), _period(), gov03_link=None
     )
     eff, impact = summary["effectiveness"], summary["impact"]
+    # No approved decision: GOV-05 is Not Available, never zero (D-41).
     assert eff["decision_implementation"]["status"] == "not_available"
-    assert eff["decision_implementation"]["reason"]["decisions"] == ["D-41"]
+    assert eff["decision_implementation"]["reason"] == {"code": "no_approved_decisions"}
     # Nothing due: GOV-04 is Not Available with its reason, never zero.
     assert eff["exception_resolution"]["status"] == "not_available"
     assert eff["exception_resolution"]["reason"] == {"code": "no_eligible_exceptions"}

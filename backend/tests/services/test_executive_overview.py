@@ -173,10 +173,30 @@ def _delivery(on_track, reported, in_flight, latest="2026-09-01"):
     }
 
 
+def _implementation(status="not_available", value=None, planned=0, total=0, eligible=0):
+    """A ``governance.decision_implementation`` result, as the overview takes it."""
+    out = {
+        "status": status,
+        "eligible": eligible,
+        "outcomes": {},
+        "excluded": {"no_deadline": total - planned},
+        "planning_coverage": {
+            "approved_decisions": total,
+            "planned": planned,
+            "percentage": round(100 * planned / total, 1) if total else None,
+        },
+    }
+    if status == "ok":
+        out |= {"value": value, "unit": "percent"}
+    else:
+        out["reason"] = {"code": "no_eligible_decisions"}
+    return out
+
+
 def test_every_tile_shows_target_and_owner_as_not_linked():
     tiles = [
         kpis.strategy_execution(PERIOD, None),
-        kpis.governance_effectiveness(PERIOD),
+        kpis.governance_effectiveness(PERIOD, _implementation()),
         kpis.services_and_automation(PERIOD),
         kpis.initiative_delivery(PERIOD, _delivery(3, 4, 5), PRIOR),
     ]
@@ -186,13 +206,31 @@ def test_every_tile_shows_target_and_owner_as_not_linked():
 
 
 def test_blocked_kpis_are_not_available_with_reason_never_zero():
-    for tile, decision in (
-        (kpis.governance_effectiveness(PERIOD), "D-13"),
-        (kpis.services_and_automation(PERIOD), "D-08"),
-    ):
-        assert tile["status"] == "not_available"
-        assert tile["value"] is None and tile["confidence"] is None
-        assert decision in tile["reason"]["decisions"]
+    tile = kpis.services_and_automation(PERIOD)
+    assert tile["status"] == "not_available"
+    assert tile["value"] is None and tile["confidence"] is None
+    assert "D-08" in tile["reason"]["decisions"]
+
+
+def test_gov05_tile_is_the_verified_rate_with_planning_coverage():
+    tile = kpis.governance_effectiveness(
+        PERIOD, _implementation("ok", value=50.0, planned=3, total=4, eligible=2)
+    )
+    assert (tile["key"], tile["calculation_version"]) == ("GOV-05", "GOV-05@1")
+    assert tile["status"] == "ok" and tile["value"] == 50.0
+    assert tile["completeness"] == {"numerator": 3, "denominator": 4, "percentage": 75.0}
+    # Decisions without a deadline are disclosed, never dropped.
+    assert tile["details"]["excluded"] == {"no_deadline": 1}
+    # Verification is a person's attestation: never "high" confidence.
+    assert tile["confidence"] == "medium"
+    assert tile["drilldown"] == {"path": kpis.GOVERNANCE_PAGE}
+
+
+def test_gov05_tile_without_due_decisions_is_not_available_never_zero():
+    tile = kpis.governance_effectiveness(PERIOD, _implementation(planned=1, total=2))
+    assert tile["status"] == "not_available" and tile["value"] is None
+    assert tile["reason"] == {"code": "no_eligible_decisions"}
+    assert tile["completeness"]["denominator"] == 2
 
 
 def test_delivery_tile_value_and_confidence_for_the_current_period():
@@ -362,3 +400,13 @@ def test_previous_and_finished_period_come_only_from_verified_history():
     waiting = kpis.recorded_delivery(FINISHED, submitted, kpis.historical_previous(PRIOR))
     assert waiting["status"] == "not_available"
     assert waiting["reason"] == {"code": "awaiting_verification"}
+
+
+def test_gov05_tile_carries_the_verified_previous_period():
+    previous = {"status": "ok", "value": 60.0, "period": "FY2026-Q3", "verified": True}
+    tile = kpis.governance_effectiveness(
+        PERIOD, _implementation("ok", value=50.0, planned=1, total=1, eligible=1), previous
+    )
+    assert tile["previous"] == previous
+    unavailable = kpis.governance_effectiveness(PERIOD, _implementation(), previous)
+    assert unavailable["previous"] == previous

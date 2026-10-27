@@ -1950,5 +1950,8 @@
     },
     "summary": "Summary",
     "summaryText": "All 47 NEA viewpoints are organized across {{phases}} methodology phases and {{domains}} EA domains. Each viewpoint is defined by its stakeholder questions, visualization kind (list/matrix/diagram), and abstraction level (conceptual/logical/physical)."
-  }
+  },
+  "arb.approveTitle": "Approve review",
+  "arb.approveDeadlineHelp": "Optionally set the implementation deadline approved with this decision. Later changes need a reason and are recorded.",
+  "arb.implementationDeadline": "Implementation deadline"
 }

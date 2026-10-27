@@ -10,6 +10,7 @@ subject card: change-impact summary, linked risks, ADRs, and standard exceptions
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -26,7 +27,7 @@ from app.models.governance_transition import INSTRUMENT_ARB
 from app.models.risk import Risk, RiskCard
 from app.models.tech_standard import StandardException, TechStandard
 from app.models.user import User
-from app.services import governance_transitions
+from app.services import decision_implementation, governance_transitions
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.impact_service import gather_impact
 from app.services.permission_service import PermissionService
@@ -49,6 +50,9 @@ class ReviewUpdate(BaseModel):
     # D-39: only with ``status = deferred`` — who the deferral is due to, and why.
     delay_attribution: str | None = Field(default=None, pattern="^(governance|requester|external)$")
     delay_reason: str | None = Field(default=None, max_length=2000)
+    # D-41.3: only with ``status = approved`` — the implementation deadline
+    # approved with the decision. Revised later with a reason, never here.
+    implementation_due_date: date | None = None
 
 
 def _review_dict(r: ArbReview, subject: dict | None = None) -> dict:
@@ -282,6 +286,15 @@ async def update_review(
         )
     except governance_transitions.LifecycleError as err:
         raise HTTPException(err.status, {"code": err.code, "message": str(err)}) from err
+    due = data.pop("implementation_due_date", None)
+    if due is not None and data.get("status") != "approved":
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "due_date_only_on_approval",
+                "message": "An implementation deadline is approved with the decision",
+            },
+        )
     if data.get("subject_card_id"):
         await require_card_readable(db, user, data["subject_card_id"], mode="module")
     if "status" in data:
@@ -296,6 +309,11 @@ async def update_review(
             reason=delay_reason,
             delay_attribution=delay_attribution,
         )
+    if due is not None:
+        try:
+            await decision_implementation.approve_with_due_date(db, "arb", r.id, due, user.id)
+        except governance_transitions.LifecycleError as err:
+            raise HTTPException(err.status, {"code": err.code, "message": str(err)}) from err
     for key, value in data.items():
         setattr(r, key, value)
     await db.commit()
@@ -311,5 +329,6 @@ async def delete_review(
 ):
     await PermissionService.require_permission(db, user, "arb.manage")
     r = await _get_review(db, review_id, await CardReadScope.load(db, user))
+    await decision_implementation.delete_decision_records(db, "arb", r.id)
     await db.delete(r)
     await db.commit()

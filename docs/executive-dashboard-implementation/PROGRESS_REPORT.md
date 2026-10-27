@@ -743,7 +743,7 @@ Batch 3.2 is closed at v2.38.1 and committed to `main`. Scope is frozen: nothing
 
 ## Phase 3 — Batch 3.3: business calendar and GOV-07 working days (2026-10-27, v2.39.0)
 
-D-38 was approved on 2026-10-27 (the EA Governance Office owns the calendar; authorized administrators maintain official Saudi holidays by fiscal year; a period is valid only when all its fiscal-year calendars are confirmed; otherwise working-day GOV-07 is Not Available). Recorded in `DECISION_LOG.md` with details I-38..I-41. Implemented on `main`, **uncommitted**, not deployed. Batch 3.4 not started.
+D-38 was approved on 2026-10-27 (the EA Governance Office owns the calendar; authorized administrators maintain official Saudi holidays by fiscal year; a period is valid only when all its fiscal-year calendars are confirmed; otherwise working-day GOV-07 is Not Available). Recorded in `DECISION_LOG.md` with details I-38..I-41. **Committed on `main`** as `481f1238` ("Executive dashboard Phase 3 Batch 3.3: business calendar, GOV-07 working days (v2.39.0)"); not deployed. *(Corrected 2026-10-27: this section originally said uncommitted.)*
 
 **Backend.**
 - `models/business_calendar.py` + migration `1171`: `business_calendar_years` (fiscal year, working week, holidays, confirmation, confirming user / time). Additive; no row created.
@@ -761,3 +761,38 @@ D-38 was approved on 2026-10-27 (the EA Governance Office owns the calendar; aut
 **Rules added for approval.** A change to a confirmed year withdraws its confirmation (I-38); the half-open working-day count and UTC dating (I-39).
 
 **Deferred.** Governance-controlled processing time in working days (stays calendar days, I-41); importing a holiday file (option (b) of D-38, not chosen).
+
+## Phase 3 — Batch 3.4: decision actions, implementation verification, GOV-05 (2026-10-27, v2.40.0)
+
+D-41 was approved **with changes** on 2026-10-27 (verifier independence from execution, signatories allowed when independent; credible evidence per action without a file requirement or fingerprinting; original and revised deadlines with reasons and history; decisions without linked cards verifiable through directly associated evidence; GOV-05 with the excluded population and planning coverage disclosed). Recorded in `DECISION_LOG.md` with details I-42..I-49. Implemented on `main`, **uncommitted**, not deployed. Batches 3.5 and 3.6 not started.
+
+**Backend.**
+- Migration `1172`: `todos.source_kind` / `source_id` (+ index), `completion_note`, `evidence_refs`, `completed_by`, `completed_at`; new table `decision_implementations` (deadline in force, original deadline and its basis, `open` / `submitted` / `verified`, submitter, verifier, attestation); `governance_transitions` gains instruments `adr_impl` / `arb_impl`, event kinds `due_date_set` / `due_date_changed`, and `due_date` / `previous_due_date`. Everything nullable without defaults on existing tables; downgrade refuses while records exist.
+- `services/decision_implementation.py`: the one definition of decision actions, evidence checks, submission, independent verification, deadlines and the GOV-05 classification (`outcome_at`, `due_in_force`).
+- `api/v1/decision_actions.py`: under `/adr/{id}` and `/arb/{id}` — `GET …/implementation`, `POST …/actions`, `PATCH` / `DELETE …/actions/{id}`, `POST …/actions/{id}/complete` / `reopen`, `POST …/implementation/submit` / `verify`, `PUT …/implementation/due-date`. New permission `governance.verify_implementation` (no default role).
+- ADR signing approves a proposed deadline; the ARB approve request takes `implementation_due_date`; deleting a draft ADR or an ARB review removes its actions and implementation record (history rows kept).
+- Generic todo routes and the extension todos bridge refuse to change or delete a decision action (409), except the bridge's mirror fields; the todo list returns `source_kind` / `source_id`.
+- `services/executive/governance.py`: `decision_implementation` (GOV-05) replaces the Not Available placeholder; `kpis.governance_effectiveness` builds the overview tile `GOV-05@1` from it.
+- Workspace transfer: new section `DecisionImplementations` (user FKs by email); `completed_by` added to the Todos section; `evidence_refs`, `completion_note`, `submission_note` and `attestation` allowlisted (module ids or prose — no card id is stored in the evidence).
+
+**Frontend.** `features/decision-implementation/DecisionImplementationPanel.tsx` on the ADR preview and in the ARB review dialog (deadline with original and revisions, actions, complete-with-evidence, submit, verify / return, history); the ARB *Approve* button asks for the optional implementation deadline; the Governance page shows a GOV-05 card (rate, outcomes, revised deadlines, decisions without a deadline, planning coverage). Types in `src/types/index.ts`; EN/AR strings (`delivery`, `reports`, `common`).
+
+**Docs.** `docs/guide/delivery.md` + `.ar.md` (*Implementing a decision*), `docs/guide/dashboard.md` + `.ar.md` (GOV-05; governance no longer listed as Not Available), CHANGELOG `[2.40.0]`, VERSION `2.40.0`, DECISION_LOG D-41 + I-42..I-49, PHASED_DELIVERY_PLAN status, RTM P3-08 / P3-09 / FR-12, GOVERNANCE_MEASUREMENT_MODEL §3.3 and §6 amended, `D41_DECISION_AND_BATCH_3_4_INSTRUCTIONS.md` marked superseded. OpenAPI regenerated.
+
+**Validation: Pending Verification.** As instructed, no tests, builds, type checks or browser checks were run. Only `ruff check` / `ruff format`, the app import, the Alembic head (`1172`), ESLint on the changed frontend files and the OpenAPI dump were run. Tests written and not executed: `tests/services/test_decision_implementation.py`, `tests/api/test_decision_actions_api.py` (including the end-to-end acceptance flow and the self-verification refusal), `test_decision_implementation_and_actions_roundtrip` in `tests/services/test_workspace_io_roundtrip.py`, the GOV-05 tile cases in `tests/services/test_executive_overview.py`, the updated case in `tests/services/test_executive_governance.py`, `DecisionImplementationPanel.test.tsx`, and three GOV-05 cases in `ExecutiveGovernance.test.tsx`.
+
+**Rules added for review.** The "authorized governance owner" who revises a deadline is the decision's manage-permission holder (`adr.manage` / `arb.manage`) (I-46); an approved deadline cannot be removed, only revised (I-46); any change to an action after submission returns the implementation to `open` (I-44).
+
+**Not built.** No new attachment target on ADR / ARB records — a system reference is the evidence for a decision with no linked card (I-49).
+
+### Batch 3.4 completion (2026-10-27, v2.40.0)
+
+The owner approved the four rules added for review and asked for GOV-05 to join the KPI infrastructure, without widening the batch.
+
+- **Rules (I-44, I-45, I-46).** Deadline revisions by `adr.manage` / `arb.manage` with a reason and history, and no removal of an approved deadline — as built. Decision authors may verify when independent — as built. **Changed:** only a *material* change (action added, reopened or deleted; owner or due date changed) returns a submitted implementation to In progress and is refused once verified; rewording a description is cosmetic and accepted in every state (`decision_implementation.is_material_change`).
+- **GOV-05 in the KPI infrastructure (I-50).** Registered in `services/executive/registry.py` (`GOV-05@1`) with `PERIOD_CALCULATED`; `KPI.metricKey` option (NORA profile v13, pass 4h now adds GOV-03 and GOV-05 when missing); `kpi_measurement_service.observe_executive_metrics` records the current quarter's GOV-05 when a decision is due; `close_ended_periods` records GOV-05's closed-period value calculated for that period, only for periods the capture ran in. Overview tile: KPI-card target and owner (`linkage.apply_link`) and the previous period's verified value. Governance page: `decision_implementation_tile` rendered with `ExecutiveKpiTile`, the breakdown and coverage beneath it. The calculation, the original-deadline rule and the planning-coverage disclosure are unchanged.
+- **Strings.** EN/AR: the GOV-05 tile description and the overview slot hint (it described GOV-05 as complete follow-up actions, which D-32 rules out).
+- **Correction.** Batch 3.3 is committed on `main` (`481f1238`); the progress report, plan and RTM now say so.
+- **Pre-existing test fixed.** `test_nora_profile.py` still asserted profile v11 after v12 shipped in Batch 3.1; it now asserts v13.
+
+**Validation: Pending Verification.** No tests or builds run; `ruff`, the app import and ESLint on the changed frontend files only. Tests written and not executed: the GOV-05 capture and period-close cases in `test_kpi_measurement_service.py`, the option pass in `test_nora_profile.py`, the previous-period case in `test_executive_overview.py`, the material / cosmetic cases in `test_decision_implementation.py`, and the GOV-05 tile cases in `ExecutiveGovernance.test.tsx`.

@@ -232,7 +232,16 @@ async def executive_overview(
         "currency": currency,
         "kpis": [
             strategy_tile,
-            kpis.governance_effectiveness(current),
+            # GOV-05 (D-41): target and owner from its KPI card, the previous
+            # period from its verified period measurement (D-19, D-26).
+            linkage.apply_link(
+                kpis.governance_effectiveness(
+                    current,
+                    await gov.decision_implementation(db, read_scope, current),
+                    kpis.previous_from_history(prior, await _verified("GOV-05", prior)),
+                ),
+                links.get("GOV-05"),
+            ),
             linkage.apply_link(delivery_tile, links.get("TR-03")),
             kpis.services_and_automation(current),
             kpis.business_value(current, rationalization["planned_savings"]),
@@ -289,7 +298,20 @@ async def executive_governance(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     links = await linkage.linked_cards(db, read_scope)
-    summary = await gov.governance_summary(db, read_scope, current, gov03_link=links.get("GOV-03"))
+    # GOV-05 history is landscape-wide (D-19, I-5): only for unrestricted readers.
+    prior = periods.previous(current, start_month, now.date())
+    previous = None
+    if read_scope.is_unrestricted(mode="module"):
+        m = await kms.current_period_value(db, prior.key, metric_key="GOV-05")
+        previous = m if m is not None and m.status == "verified" else None
+    summary = await gov.governance_summary(
+        db,
+        read_scope,
+        current,
+        gov03_link=links.get("GOV-03"),
+        gov05_link=links.get("GOV-05"),
+        gov05_previous=kpis.previous_from_history(prior, previous),
+    )
     return {"generated_at": now.isoformat(), "fiscal_year_start": start_month, **summary}
 
 

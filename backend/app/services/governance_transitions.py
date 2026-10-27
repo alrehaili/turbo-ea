@@ -665,6 +665,9 @@ async def transition_history(
             "event_kind": t.event_kind,
             "previous_expiry_date": _date(t.previous_expiry_date),
             "expiry_date": _date(t.approved_expiry_date),
+            # A decision deadline set or revised (D-41.3).
+            "previous_due_date": _date(t.previous_due_date),
+            "due_date": _date(t.due_date),
         }
         for t, name in rows.all()
     ]

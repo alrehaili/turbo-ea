@@ -27,12 +27,25 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 INSTRUMENT_ADR = "adr"
 INSTRUMENT_ARB = "arb"
 INSTRUMENT_EXCEPTION = "exception"
-INSTRUMENTS = (INSTRUMENT_ADR, INSTRUMENT_ARB, INSTRUMENT_EXCEPTION)
+#: The implementation lifecycle of a signed ADR / approved ARB review (D-41,
+#: migration 1172): ``open`` -> ``submitted`` -> ``verified``, or back to ``open``.
+INSTRUMENT_ADR_IMPL = "adr_impl"
+INSTRUMENT_ARB_IMPL = "arb_impl"
+INSTRUMENTS = (
+    INSTRUMENT_ADR,
+    INSTRUMENT_ARB,
+    INSTRUMENT_EXCEPTION,
+    INSTRUMENT_ADR_IMPL,
+    INSTRUMENT_ARB_IMPL,
+)
 
 #: Who a waiting interval is attributable to (D-39). Only ``requester`` and
 #: ``external`` intervals, with a reason, leave governance-controlled time.
 #: A lifecycle event that is not a status change (I-35).
 EVENT_EXPIRY_CHANGED = "expiry_changed"
+#: A decision's implementation deadline set or revised (D-41.3, migration 1172).
+EVENT_DUE_DATE_SET = "due_date_set"
+EVENT_DUE_DATE_CHANGED = "due_date_changed"
 
 ATTRIBUTION_GOVERNANCE = "governance"
 ATTRIBUTION_REQUESTER = "requester"
@@ -69,10 +82,14 @@ class GovernanceTransition(UUIDMixin, TimestampMixin, Base):
     # 1170, I-35) and records the expiry it replaced.
     event_kind: Mapped[str | None] = mapped_column(String(24), nullable=True)
     previous_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # On a ``due_date_set`` / ``due_date_changed`` event of an implementation
+    # instrument: the deadline set and the one it replaced (migration 1172).
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    previous_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
-            "instrument IN ('adr', 'arb', 'exception')",
+            "instrument IN ('adr', 'arb', 'exception', 'adr_impl', 'arb_impl')",
             name="ck_governance_transitions_instrument",
         ),
         CheckConstraint(
@@ -81,7 +98,8 @@ class GovernanceTransition(UUIDMixin, TimestampMixin, Base):
             name="ck_governance_transitions_delay_attribution",
         ),
         CheckConstraint(
-            "event_kind IS NULL OR event_kind IN ('expiry_changed')",
+            "event_kind IS NULL OR event_kind IN "
+            "('expiry_changed', 'due_date_set', 'due_date_changed')",
             name="ck_governance_transitions_event_kind",
         ),
         Index("ix_governance_transitions_record", "instrument", "record_id"),

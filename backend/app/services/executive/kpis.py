@@ -175,23 +175,64 @@ def strategy_execution(period: Period, summary: dict[str, Any] | None) -> dict[s
     )
 
 
-# ── Slot 2: governance effectiveness (GOV-05, fallback GOV-01) ──────────
+# ── Slot 2: governance effectiveness (GOV-05) ───────────────────────────
 
 
-def governance_effectiveness(period: Period) -> dict[str, Any]:
-    """GOV-05 needs decision actions (D-13); its fallback GOV-01 the in-scope rule
-    (D-10). Both are later-batch Phase 3 decisions, so no review count stands in
-    for them (I-7). The tile links to the Governance page, where activity and the
-    rule-based compliance that *are* available in Batch 3.1 are shown."""
-    tile = _not_available(
+def governance_effectiveness(
+    period: Period,
+    implementation: dict[str, Any],
+    previous: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """GOV-05 decision implementation (D-32, D-41; Batch 3.4).
+
+    ``implementation`` is ``governance.decision_implementation`` for the period.
+    Value = decisions independently verified by their original approved
+    deadline, as a share of the decisions due; planning coverage (approved
+    decisions with a deadline and actions) travels as completeness, and the
+    decisions without a deadline are disclosed in the details, never dropped.
+    Verification is a person's attestation, so confidence is "medium" at best.
+    ``previous`` is the previous period's **verified** period measurement
+    (``previous_from_history``, D-19); without one the comparison says so.
+    Target and owner come from the KPI card linked with ``metricKey = GOV-05``
+    (``linkage.apply_link``), judged only once ratified (D-17a)."""
+    version = "GOV-05@1"
+    coverage = implementation["planning_coverage"]
+    completeness = (
+        {
+            "numerator": coverage["planned"],
+            "denominator": coverage["approved_decisions"],
+            "percentage": coverage["percentage"],
+        }
+        if coverage["approved_decisions"]
+        else None
+    )
+    details = {k: v for k, v in implementation.items() if k not in ("status", "value", "unit")}
+    if implementation["status"] != OK:
+        tile = _not_available("GOV-05", "governance", version, period, implementation["reason"])
+        return tile | {
+            "previous": previous or NO_HISTORY,
+            "details": details,
+            "completeness": completeness,
+            "drilldown": {"path": GOVERNANCE_PAGE},
+        }
+    return kpi(
         "GOV-05",
         "governance",
-        "GOV-05@0",
-        period,
-        {"code": "later_phase", "phase": 3, "decisions": ["D-10", "D-13"]},
+        version,
+        status=OK,
+        period=period,
+        value=implementation["value"],
+        unit="percent",
+        provenance="recorded",
+        confidence_level=confidence(
+            system_derived=False,
+            completeness_pct=completeness["percentage"] if completeness else None,
+        ),
+        completeness=completeness,
+        previous=previous,
+        drilldown={"path": GOVERNANCE_PAGE},
+        details=details,
     )
-    tile["drilldown"] = {"path": GOVERNANCE_PAGE}
-    return tile
 
 
 # ── Slot 3: initiative delivery (TR-03 with TR-04) ──────────────────────
