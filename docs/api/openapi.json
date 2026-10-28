@@ -4449,6 +4449,28 @@
             ],
             "title": "Created By"
           },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "created_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created Via"
+          },
           "data_quality": {
             "title": "Data Quality",
             "type": "number"
@@ -4608,6 +4630,28 @@
               }
             ],
             "title": "Updated By"
+          },
+          "updated_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By Name"
+          },
+          "updated_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Via"
           }
         },
         "required": [
@@ -6600,6 +6644,11 @@
             ],
             "title": "Description"
           },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -6737,6 +6786,11 @@
               }
             ],
             "title": "Description"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
           },
           "name": {
             "anyOf": [
@@ -16602,6 +16656,17 @@
             ],
             "title": "Created By"
           },
+          "created_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created Via"
+          },
           "description": {
             "title": "Description",
             "type": "string"
@@ -16779,6 +16844,17 @@
               }
             ],
             "title": "Updated At"
+          },
+          "updated_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Via"
           }
         },
         "required": [
@@ -31037,6 +31113,25 @@
               "description": "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`).",
               "title": "Stale",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Keep only cards created through this channel: `web` (the web UI), `mcp` (an AI agent through the MCP server), `api` (a direct API call), `ext` (an extension) or `system` (a background job).",
+            "in": "query",
+            "name": "created_via",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(mcp|web|api|ext|system)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep only cards created through this channel: `web` (the web UI), `mcp` (an AI agent through the MCP server), `api` (a direct API call), `ext` (an extension) or `system` (a background job).",
+              "title": "Created Via"
             }
           },
           {

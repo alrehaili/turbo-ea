@@ -5,6 +5,40 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.180.2] - 2026-10-28
+
+### Changed
+- Maintenance of extension license handling.
+
+## [2.180.1] - 2026-10-28
+
+### Fixed
+- **Manage relation values** on Business Process → Application saves again: hiding a built-in Usage value or adding a value was always refused with "cannot be edited" ([#1327](https://github.com/vincentmakes/turbo-ea/issues/1327)).
+- When **Manage relation values** refuses a change to a built-in type or value, the message is now in the user's language and names the value by its label.
+- Relation attributes are translated in every language: the Usage values of Business Process → Application (Creates, Reads, Updates, Deletes, Orchestrates), Usage Type, Support Type, the Create / Read / Update / Delete flags and Annual Cost. Existing installations receive them on the next restart.
+- Arabic: four relation verbs showed the name of an attribute (“usage type”, “support type”, “usage”) instead of the verb; they now read *uses*, *supports* and *is supported by*.
+
+## [2.180.0] - 2026-10-28
+
+### Added
+- Every record an AI tool creates through the MCP server now says so: cards, diagrams, risks, decisions (ADRs), statements of architecture work, comments and process-flow versions carry the channel that made them (**web**, **MCP**, API, extension or system) next to the person who made them. The card header, the inventory (two optional columns and an **Origin** filter), a card's History tab, the diagrams gallery and each module's created-by column show a **via MCP** marker; nothing is shown for records made in the web UI.
+- Creating or editing a diagram from an AI tool now has a real dry run: the backend checks the permission, the card links and what the user may read, then rolls everything back and returns the verified preview, including which card links an edit would add or remove.
+
+### Changed
+- Every call an AI tool makes through the MCP server, previews included, is now one mutation batch in **Admin → Audit log → Changes**. A preview shows as a *Dry run* batch, so an administrator can see what an agent proposed as well as what it committed. Previously the diagram, BPMN import, comment, ADR signing and lifecycle tools recorded nothing on preview, and three of them recorded nothing on commit either.
+- Diagram creation, edits and deletion are now recorded in the Changes audit log — from the web UI as well as from an AI tool. Rolling back a batch deletes a diagram it created, unless the diagram has been published since; a diagram edit is reported as not reversible, because the previous canvas is not kept.
+
+### Fixed
+- The MCP `create_diagram` tool's preview no longer skips the backend: card links are verified before anything is committed, instead of being rejected only on commit.
+
+## [2.179.0] - 2026-10-26
+
+### Added
+- MCP: `MCP_ALLOWED_HOSTS` lists extra host names the MCP endpoint accepts, for a proxy that forwards a host name other than the public one, such as Azure Front Door in front of an Azure Container Apps route. Without it, those connections fail with *421 Misdirected Request* ([#1323](https://github.com/vincentmakes/turbo-ea/discussions/1323)).
+
+### Fixed
+- MCP: with Docker Compose, `MCP_ALLOWED_ORIGINS` and `MCP_OAUTH_ALLOWED_REDIRECT_URIS` set in `.env` now reach the MCP server; they were previously ignored.
+
 ## [2.43.0] - 2026-10-27
 
 ### Added

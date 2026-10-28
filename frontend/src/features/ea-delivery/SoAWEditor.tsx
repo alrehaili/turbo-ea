@@ -29,6 +29,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import AdmSoAWSection from "@/features/adm/AdmSoAWSection";
+import OriginChip from "@/components/OriginChip";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
 import SignatureRequestDialog from "./SignatureRequestDialog";
@@ -124,6 +125,9 @@ export default function SoAWEditor() {
   const [signatories, setSignatories] = useState<SoAWSignatory[]>([]);
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [revisionNumber, setRevisionNumber] = useState(1);
+  // The channel the document was created through (MCP, API, …) — null for
+  // the web UI and for documents made before it was tracked.
+  const [createdVia, setCreatedVia] = useState<string | null>(null);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
@@ -181,6 +185,7 @@ export default function SoAWEditor() {
         setSignatories(data.signatories ?? []);
         setSignedAt(data.signed_at);
         setRevisionNumber(data.revision_number ?? 1);
+        setCreatedVia(data.created_via ?? null);
 
         // Merge persisted sections with template defaults so new template
         // sections added later still appear.
@@ -780,6 +785,7 @@ export default function SoAWEditor() {
               variant="outlined"
             />
           )}
+          <OriginChip origin={createdVia} />
         </Box>
       </Paper>
 

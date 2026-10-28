@@ -70,6 +70,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `MCP_PORT` | `8001` | Intern port for MCP-containeren (sjældent behov for at ændre) |
 | `SECRET_KEY` | *(ingen)* | Sæt den til backends værdi. Signerer de OAuth-klient-id'er, MCP-serveren udsteder, så en klient, der er registreret én gang, fortsat virker efter en genstart; uden den signerer serveren med en nøgle, der forsvinder med processen, og logger en advarsel. Docker Compose, Helm-chartet og cloud-skabelonerne sender den automatisk med |
 | `MCP_ALLOWED_ORIGINS` | *(tom)* | Kommaseparerede ekstra origins, hvis browserforespørgsler MCP-endpointet accepterer. Forespørgsler uden `Origin`-header accepteres altid |
+| `MCP_ALLOWED_HOSTS` | *(tom)* | Kommaseparerede ekstra værtsnavne, som MCP-endpointet accepterer i `Host`-headeren ud over værterne i `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL`. Kun nødvendig, når en proxy videresender et andet værtsnavn; se [Bag en proxy, der ændrer værtsnavnet](#proxy-host-name) |
 
 ### Trin 3: Tilføj OAuth-redirect-URI'en til din SSO-app
 
@@ -134,6 +135,18 @@ Copilot Studio forbinder til MCP-servere fra Microsofts cloud, ikke fra brugeren
 
 Copilot Studio registrerer sig én gang og beholder det klient-id, den får. Id'et bærer sine egne redirect-URI'er, signeret med instansens `SECRET_KEY`, så forbindelsen fortsat virker, når MCP-containeren genstartes eller opgraderes. Ændres `SECRET_KEY`, bliver alle registrerede klienter ugyldige: opret derefter værktøjet igen i Copilot Studio.
 
+### Bag en proxy, der ændrer værtsnavnet { #proxy-host-name }
+
+MCP-endpointet beskytter sig mod DNS rebinding ved at kontrollere `Host`-headeren i hver forespørgsel. Det accepterer værtsnavnene fra `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL` samt `localhost` og `127.0.0.1`. MCP-containeren logger den fulde liste én gang ved start. Alle andre værtsnavne afvises med `421 Misdirected Request`, og MCP-containeren logger `Invalid Host header: <name>`.
+
+Nogle proxyer videresender et andet værtsnavn end det offentlige. Azure Front Door foran en HTTP-rute i Azure Container Apps sender for eksempel rutens eget navn, `<route>.<environment>.azurecontainerapps.io`. Login fungerer stadig i så fald, men alle MCP-forbindelser fejler. Angiv det videresendte navn i `MCP_ALLOWED_HOSTS`:
+
+```dotenv
+MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
+```
+
+Indtastningerne er kun værtsnavne, adskilt af kommaer, uden `https://` eller sti; containeren logger en advarsel for en indtastning, der aldrig kan matche. Matchningen er præcis, mod headeren som proxyen sender den, med små bogstaver. Tilføj `:port`, når proxyen sender en port, eller `:*` for at acceptere enhver port. Wildcards for underdomæner understøttes ikke. På Kubernetes sættes variablen via `mcp.extraEnv` i Helm-værdierne.
+
 ---
 
 ## Lokal test (stdio-tilstand)
@@ -174,7 +187,12 @@ MCP-serveren eksponerer **51 værktøjer** på tværs af to grupper: **32 læsev
 
 ### Dry-run-sikkerhed på skrivninger
 
-Hvert skriveværktøj har **`dry_run=true`** som standard. I denne tilstand kører backenden hver validator og resolver, bygger den komplette plan og **ruller derefter transaktionen tilbage**, så intet persisteres. AI-værktøjet returnerer forhåndsvisningen til brugeren; først efter eksplicit bekræftelse skal det kalde værktøjet igen med `dry_run=false` for at committe. Dette forhindrer en entusiastisk agent i stille at seede hundredvis af kort på et fejltolket regneark.
+Hvert skriveværktøj har **`dry_run=true`** som standard, og intet persisteres, før AI-værktøjet kalder det igen med `dry_run=false` — hvilket det først bør gøre, når brugeren har set forhåndsvisningen og bekræftet. Dette forhindrer en entusiastisk agent i stille at seede hundredvis af kort på et fejltolket regneark. Forhåndsvisningen kommer i to slags:
+
+- **Verificeret af backenden.** Hvor det underliggende endpoint understøtter en dry-run, kører backenden hver validator og resolver — rettigheder, kort-id'er, hvad brugeren må læse —, bygger det komplette resultat og **ruller derefter transaktionen tilbage**. Det gælder kort (`create_cards_bulk`, `update_cards_bulk`), relationer (`upsert_relations_bulk`) og diagrammer (`create_diagram`, `update_diagram`). En diagramforhåndsvisning returnerer de kortlinks, backenden accepterede, og for en opdatering den præcise ændring: omdøbte felter, tilføjede og fjernede kortlinks, og om lærredet er ændret.
+- **Bygget af MCP-serveren.** Hvor endpointet ikke har nogen dry-run, validerer og oversætter værktøjet sit input og viser den præcise payload, en commit ville sende, uden at kalde skriveendpointet: `import_bpmn` (forløbet kladde → indsend → godkend; antallet af flowknuder er et skøn, og forhåndsvisningen siger `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (som viser arkiveringspåvirkningen for hvert kort) og `set_card_logos` / `clear_card_logos` (som slår hvert korts type og nuværende logo op og henter hver `image_url`).
+
+Uanset hvad registreres forhåndsvisningen i auditloggen som en dry-run-batch, så en administrator kan se, hvad en agent foreslog, og hvad den committede.
 
 ### Læseværktøjer
 
@@ -313,7 +331,7 @@ Forsvar i dybden ovenpå dry-run, så en LLM-fejltagelse ikke kan forårsage mas
 - **Kill switch.** `MCP_WRITES_ENABLED=false` slår alle 19 skriveværktøjer fra uden at re-deploye kode. De 32 læseværktøjer fortsætter med at virke.
 - **Logo-hentning sker kun fra tilladte værter.** De medfølgende ikonpakker kan ikke dække alle produkter hos en kunde, og en assistent kører ofte i en sandkasse uden adgang til nettet, så `set_card_logos` accepterer en `image_url`, som MCP-serveren henter. Kun `https`, kun værter fra `MCP_LOGO_FETCH_HOSTS`, kun offentlige adresser, højst to omdirigeringer (hver kontrolleret på ny), højst 1 MB læst som stream, og byte-strømmen skal bære en ægte PNG/JPEG/WebP/GIF-signatur. Hentningen sker i MCP-kanten, aldrig i backend'en, og billedet uploades derefter ad den almindelige vej — en URL valgt af en sprogmodel når aldrig den proces, der holder databasen. `MCP_LOGO_FETCH_ENABLED=false` slår det fra.
 - **Audit origin-tag.** Hver backend-anmodning fra MCP-serveren bærer en `X-Turbo-EA-Origin: mcp`-header. Hændelser udsendt fra disse anmodninger er tagget `origin: "mcp"` i revisions-log-payloaden, så admins kan filtrere MCP-drevne skrivninger ud af tidslinjen adskilt fra web-UI-handlinger.
-- **Mutations-batches.** Hvert MCP-skrivekald åbner en mutations-batch før nogen skrivninger; hver hændelse udsendt under kaldet stemples med batch-id'et. Admins (eller værktøjet `get_change_history`) kan rekonstruere den fulde per-hændelses-diff for en commit fra ét id, og `rollback_batch` kan tilbagerulle den. Commits over `MCP_BATCH_CONFIRMATION_THRESHOLD` rækker skal sende den engangs-`confirm_token` tilbage, som den forudgående dry-run returnerede. Backenden kontrollerer den, når commit-batchen åbnes, før noget skrives: den skal stamme fra en dry-run af samme værktøj, af samme bruger, for under 15 minutter siden, og den godkender én enkelt commit. Alle bulk-skriveværktøjer følger denne cyklus med forhåndsvisning og bekræftelse: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
+- **Mutations-batches.** Hvert MCP-skrivekald — både forhåndsvisningen og commit'en — er én mutations-batch i auditloggen, åbnet før noget skrives; hver hændelse udsendt under kaldet stemples med batch-id'et, og hvert skriveværktøj returnerer dette `batch_id`. Admins (eller værktøjet `get_change_history`) kan rekonstruere den fulde per-hændelses-diff for en commit fra ét id, og `rollback_batch` kan tilbagerulle den — herunder sletning af et diagram, som `create_diagram` har oprettet, medmindre nogen har publiceret det siden. En diagramopdatering rapporteres som ikke reversibel, fordi det tidligere lærred ikke gemmes. Commits over `MCP_BATCH_CONFIRMATION_THRESHOLD` rækker skal sende den engangs-`confirm_token` tilbage, som den forudgående dry-run returnerede. Backenden kontrollerer den, når commit-batchen åbnes, før noget skrives: den skal stamme fra en dry-run af samme værktøj, af samme bruger, for under 15 minutter siden, og den godkender én enkelt commit. Alle bulk-skriveværktøjer følger denne cyklus med forhåndsvisning og bekræftelse: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
 - **Ingen hård sletning.** Værktøjssættet udelader bevidst permanent kortsletning. `archive_cards` og `update_cards_bulk` *er* eksponeret, men arkivering er en genoprettelig soft-delete (30-dages gendannelsesvindue), og begge er destruktivitets-annoterede og dry-run-gatede. Tilføjelse af et værktøj, der udfører en irreversibel mutation (hård sletning, tvungen udrensning), ville kræve en eksplicit designgennemgang.
 
 De seks rettesnore-miljøvariabler på MCP-containeren:
@@ -367,6 +385,7 @@ Dataadgang gennem MCP — læse eller skrive — følger den samme RBAC-model so
 - **OAuth 2.1 med PKCE**: Autentificeringsflowet bruger Proof Key for Code Exchange (S256) for at forhindre autorisationskode-aflytning.
 - **Per-bruger RBAC**: Hver MCP-forespørgsel — læse eller skrive — kører med den autentificerede brugers tilladelser. Ingen delte servicekonti.
 - **Dry-run som standard på skrivninger**: Skriveværktøjer har som standard en valider-og-tilbageruk-forhåndsvisning. AI-værktøjet skal eksplicit kalde igen med `dry_run=false`, før noget persisteres, og hver ændring revideres under brugerens identitet.
+- **Hver post siger, at den kom via MCP**: hvert kort, diagram, risiko, beslutning, SoAW, kommentar og BPM-flowversion, en agent opretter, bærer `created_via: mcp` ved siden af den person, der kørte agenten, og en agents senere redigering sætter `updated_via: mcp`. Webgrænsefladen viser det som en **MCP**-chip på posten, og Lagerets filter **Oprindelse** viser alt, en agent har oprettet.
 - **Ingen filparsing i MCP**: MCP-serveren selv accepterer ikke PDF'er, Excel-filer, billeder eller andre binære artefakter. Det kaldende AI-værktøj parser dem i sin egen kontekst og sender strukturerede rækker. Dette holder angrebsfladen smal og undgår at eksponere serveren for misformet binær input.
 - **Token-rotation**: Access-tokens udløber efter 1 time. Refresh-tokens varer 30 dage. Autorisationskoder er engangsbrug og udløber efter 10 minutter.
 - **Kun intern port**: MCP-containeren eksponerer port 8001 kun på det interne Docker-netværk. Al ekstern adgang går gennem Nginx reverse proxy.
@@ -385,3 +404,4 @@ Dataadgang gennem MCP — læse eller skrive — følger den samme RBAC-model so
 | Forbindelse droppes efter 1 time | AI-værktøjet bør håndtere token-fornyelse automatisk. Hvis ikke, genopret forbindelse. |
 | Copilot Studio melder "Connection creation failed" | Copilot Studio kalder fra Microsofts cloud. Tjek, at `https://your-domain.example.com/mcp` kan nås fra internettet med et offentligt betroet certifikat, og at `MCP_PUBLIC_URL` er netop den offentlige adresse. Nginx-loggen under et forsøg viser den sidste forespørgsel, der nåede frem; når der slet ingen kommer, kan instansen ikke nås. |
 | Et Copilot Studio-værktøj holdt op med at virke efter opgradering til 2.175.2 | Værktøjer oprettet før 2.175.2 har et klient-id, der ikke overlevede en genstart. Slet værktøjet, og tilføj det igen én gang; det nye id overlever senere genstarter. |
+| MCP-forbindelser fejler med `421 Misdirected Request`, og MCP-loggen viser `Invalid Host header` | En proxy foran Turbo EA videresender et andet værtsnavn end det offentlige. Tilføj navnet fra loglinjen til `MCP_ALLOWED_HOSTS`, og genstart MCP-containeren; se [Bag en proxy, der ændrer værtsnavnet](#proxy-host-name). |

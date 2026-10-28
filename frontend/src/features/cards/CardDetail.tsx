@@ -47,6 +47,7 @@ import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill, SuccessorFieldSection } from "@/features/cards/sections";
+import OriginChip from "@/components/OriginChip";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import type {
@@ -776,6 +777,11 @@ export default function CardDetail() {
             {card.reference && (
               <CardIdPill reference={card.reference} typeColor={typeConfig?.color} />
             )}
+            <OriginChip
+              origin={card.created_via}
+              name={card.created_by_name}
+              at={card.created_at}
+            />
           </Box>
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}

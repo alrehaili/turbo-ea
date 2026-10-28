@@ -60,6 +60,8 @@ import type {
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
+import { ORIGIN_META } from "@/components/originMeta";
+import { CATEGORICAL_COLORS } from "@/theme/tokens";
 import {
   EOL_STATUSES,
   EOL_STATUS_COLORS,
@@ -113,6 +115,13 @@ export interface Filters {
    * what `hierarchyLabelColumnApplies` already gates the column on.
    */
   linkTypes: string[];
+  /**
+   * Channels the cards were created through (`created_via`: `web`, `mcp`,
+   * `api`, `ext`, `system`). Exactly one selected goes to the server as
+   * `GET /cards?created_via=`; several are applied client-side over the
+   * loaded page. Optional: views and prefs saved before the facet carry none.
+   */
+  origins?: string[];
 }
 
 interface Props {
@@ -182,6 +191,17 @@ export const APPROVAL_STATUS_OPTIONS = [
   { key: "APPROVED", tKey: "common:status.approved" as const, color: "#4caf50" },
   { key: "BROKEN", tKey: "common:status.broken" as const, color: "#ff9800" },
   { key: "REJECTED", tKey: "common:status.rejected" as const, color: "#f44336" },
+];
+
+/** The Origin facet's options: every channel a card can be created through,
+ *  web included (the chip itself never marks web — the facet must offer it so
+ *  "only what people made by hand" is one click). */
+export const ORIGIN_OPTIONS: { key: string; icon: string; color: string }[] = [
+  { key: "web", icon: "language", color: CATEGORICAL_COLORS[2] },
+  { key: "mcp", ...ORIGIN_META.mcp },
+  { key: "api", ...ORIGIN_META.api },
+  { key: "ext", ...ORIGIN_META.ext },
+  { key: "system", ...ORIGIN_META.system },
 ];
 
 export const LIFECYCLE_PHASES = [
@@ -461,6 +481,7 @@ export default function InventoryFilterSidebar({
     approvalStatus: false,
     architectureState: false,
     changeType: false,
+    origin: false,
     attributes: false,
     relationships: false,
     tags: false,
@@ -575,6 +596,12 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, eolStatuses: next });
   };
 
+  const toggleOrigin = (key: string) => {
+    const current = filters.origins ?? [];
+    const next = current.includes(key) ? current.filter((o) => o !== key) : [...current, key];
+    onFiltersChange({ ...filters, origins: next });
+  };
+
   const toggleApprovalStatus = (key: string) => {
     const next = filters.approvalStatuses.includes(key)
       ? filters.approvalStatuses.filter((s) => s !== key)
@@ -663,7 +690,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, filterSides]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [], orphanedOnly: false, staleOnly: false, eolStatuses: [], linkTypes: [] });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], architectureStates: [], changeTypes: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, segmentIds: [], orphanedOnly: false, staleOnly: false, eolStatuses: [], linkTypes: [], origins: [] });
 
   const activeCount =
     filters.types.length +
@@ -683,7 +710,8 @@ export default function InventoryFilterSidebar({
     (filters.orphanedOnly ? 1 : 0) +
     (filters.staleOnly ? 1 : 0) +
     filters.eolStatuses.length +
-    (filters.linkTypes?.length ?? 0);
+    (filters.linkTypes?.length ?? 0) +
+    (filters.origins?.length ?? 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -740,6 +768,7 @@ export default function InventoryFilterSidebar({
         staleOnly: filters.staleOnly,
         eolStatuses: filters.eolStatuses,
         linkTypes: filters.linkTypes,
+        origins: filters.origins ?? [],
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
@@ -785,6 +814,7 @@ export default function InventoryFilterSidebar({
         staleOnly: f.staleOnly || false,
         eolStatuses: f.eolStatuses || [],
         linkTypes: f.linkTypes || [],
+        origins: f.origins || [],
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -1242,6 +1272,38 @@ export default function InventoryFilterSidebar({
                       }
                     />
                   ))}
+                </Box>
+              </Collapse>
+
+              {/* Origin — the channel each card was created through */}
+              <SectionHeader
+                label={t("filter.origin")}
+                icon="smart_toy"
+                expanded={expandedSections.origin}
+                onToggle={() => toggleSection("origin")}
+                count={filters.origins?.length ?? 0}
+              />
+              <Collapse in={expandedSections.origin}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                  {ORIGIN_OPTIONS.map((o) => {
+                    const selected = (filters.origins ?? []).includes(o.key);
+                    return (
+                      <Chip
+                        key={o.key}
+                        label={t(`common:origin.${o.key}`)}
+                        size="small"
+                        icon={<MaterialSymbol icon={o.icon} size={14} color={selected ? "inherit" : o.color} />}
+                        onClick={() => toggleOrigin(o.key)}
+                        variant={selected ? "filled" : "outlined"}
+                        data-origin-option={o.key}
+                        sx={
+                          selected
+                            ? { bgcolor: o.color, color: "common.white", borderColor: o.color }
+                            : { borderColor: o.color, color: o.color }
+                        }
+                      />
+                    );
+                  })}
                 </Box>
               </Collapse>
 
@@ -1723,7 +1785,7 @@ export default function InventoryFilterSidebar({
                           const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
                           const filteredTags = (searchTerm
                             ? group.tags.filter((tg) => tg.name.toLowerCase().includes(searchTerm))
-                            : group.tags).sort((a, b) => a.name.localeCompare(b.name));
+                            : [...group.tags]).sort((a, b) => a.name.localeCompare(b.name));
                           return (
                             <FormControl key={group.id} size="small" fullWidth>
                               <InputLabel sx={{ fontSize: 14 }}>{group.name}</InputLabel>
@@ -2447,6 +2509,8 @@ const METADATA_COLUMNS = [
   { key: "meta_updated_at", icon: "update", tKey: "columns.updatedAt" as const },
   { key: "meta_created_by", icon: "person_add", tKey: "columns.createdBy" as const },
   { key: "meta_updated_by", icon: "person", tKey: "columns.updatedBy" as const },
+  { key: "meta_created_via", icon: "smart_toy", tKey: "columns.createdVia" as const },
+  { key: "meta_updated_via", icon: "edit_note", tKey: "columns.updatedVia" as const },
 ];
 
 // Default-visible "core" columns that are always rendered by the grid unless

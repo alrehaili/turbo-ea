@@ -296,6 +296,15 @@ describe("SoAWEditor — loading an existing document", () => {
     expect(button(t("editor.preview"))).toBeInTheDocument();
     expect(button(t("editor.requestSignatures"))).toBeInTheDocument();
     expect(screen.queryByText(t("editor.revisionLabel", { number: 1 }))).not.toBeInTheDocument();
+    // Made in the web UI (the fixture carries no channel): no origin chip.
+    expect(document.querySelector("[data-origin]")).toBeNull();
+  });
+
+  it("marks a document an AI agent created in its title row", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, created_via: "mcp" });
+    renderEdit();
+    await waitForLoaded();
+    expect(screen.getByText("MCP").closest("[data-origin]")).toHaveAttribute("data-origin", "mcp");
   });
 
   it("re-hydrates a custom section in its anchored place and marks a hidden section", async () => {
@@ -727,12 +736,13 @@ describe("SoAWEditor — export", () => {
     expect(pdfArgs[4]).toEqual([
       { id: "custom_7", title: "Appendix A", content: "<p>Appendix body</p>", insertAfter: "1.2" },
     ]);
-    expect(pdfArgs.slice(5)).toEqual([1, [], null]);
+    expect(pdfArgs.slice(5)).toEqual([1, [], null, "soaw"]);
 
     fireEvent.click(button(t("editor.word")));
     expect(exportToDocx).toHaveBeenCalledTimes(1);
     const docxArgs = vi.mocked(exportToDocx).mock.calls[0];
-    expect(docxArgs).toHaveLength(5);
+    expect(docxArgs).toHaveLength(6);
+    expect(docxArgs[5]).toBe("soaw");
     expect(docxArgs[0]).toBe("Renamed SoAW");
     expect(docxArgs[4]).toEqual(pdfArgs[4]);
   });

@@ -1214,6 +1214,10 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
                     confidence=data.get("confidence"),
                     architecture_state=data.get("architecture_state") or "current",
                     change_type=data.get("change_type"),
+                    # The exported channel, verbatim. A pre-157 bundle carries
+                    # none: None lets ``ProvenanceMixin`` stamp the importing
+                    # request's channel instead.
+                    created_via=data.get("created_via"),
                     created_by=user.id,
                     updated_by=user.id,
                 )

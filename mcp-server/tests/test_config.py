@@ -103,3 +103,26 @@ class TestParseOrigins:
     @pytest.mark.parametrize("raw", ["", " ", ",", " , "])
     def test_nothing_set_is_no_origin(self, raw):
         assert config.parse_origins(raw) == []
+
+
+class TestParseHosts:
+    def test_trims_lower_cases_and_drops_empty_entries(self):
+        assert config.parse_hosts(
+            " Route.Env.AzureContainerApps.io , ,proxy.internal:* ,box:8443/"
+        ) == [
+            "route.env.azurecontainerapps.io",
+            "proxy.internal:*",
+            "box:8443",
+        ]
+
+    def test_only_the_trailing_slash_is_removed(self):
+        # A host can end in any character ("BOX"); only "/" is stripped. A
+        # pasted URL keeps its scheme and path; the server warns about it.
+        assert config.parse_hosts("BOX/,https://Box.example/mcp/") == [
+            "box",
+            "https://box.example/mcp",
+        ]
+
+    @pytest.mark.parametrize("raw", ["", " ", ",", " , ", "/", " / ,"])
+    def test_nothing_set_is_no_host(self, raw):
+        assert config.parse_hosts(raw) == []

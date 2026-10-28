@@ -8,13 +8,14 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 # Architecture-state dimension (NORA current/target — noraPlan.md WP2.1).
 ARCHITECTURE_STATES = ("current", "transition", "target")
 CHANGE_TYPES = ("create", "modify", "replace", "retire", "consolidate")
 
 
-class Card(Base, UUIDMixin, TimestampMixin):
+class Card(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     __tablename__ = "cards"
 
     type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)

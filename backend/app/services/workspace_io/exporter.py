@@ -131,6 +131,9 @@ CARD_COLUMNS = (
     "change_type",
     "lifecycle",
     "attributes",
+    # The channel that created the card (migration 157). ``updated_via`` is
+    # deliberately not carried: the import re-stamps it, like ``updated_by``.
+    "created_via",
 )
 CARD_JSON = frozenset({"lifecycle", "attributes"})
 

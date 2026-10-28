@@ -142,6 +142,24 @@ def parse_origins(raw: str) -> list[str]:
 
 MCP_ALLOWED_ORIGINS: list[str] = parse_origins(os.environ.get("MCP_ALLOWED_ORIGINS", ""))
 
+
+# Host names, beyond the two public URLs above, that the MCP endpoint accepts
+# in the ``Host`` header. For a proxy that forwards a name other than the
+# public one — Azure Front Door in front of a Container Apps route sends the
+# route's ``*.azurecontainerapps.io`` name — FastMCP's DNS-rebinding guard
+# otherwise answers 421. Comma-separated; matched as the SDK matches them —
+# exactly (``host`` or ``host:port``), or any port for ``host:*``. No subdomain
+# wildcards. The SDK compares the header as the proxy sends it, and proxies
+# send host names in lower case, so entries are lower-cased. Empty by default.
+def parse_hosts(raw: str) -> list[str]:
+    """Comma-separated host names, trimmed, lower-cased and without a trailing
+    slash (a Host header never carries one)."""
+    hosts = (h.strip().rstrip("/").lower() for h in raw.split(","))
+    return [h for h in hosts if h]
+
+
+MCP_ALLOWED_HOSTS: list[str] = parse_hosts(os.environ.get("MCP_ALLOWED_HOSTS", ""))
+
 # The context string that separates the client-id signing key from every
 # other use of SECRET_KEY (the backend signs JWTs and derives its Fernet key
 # from the same secret): the raw secret never signs anything here.
