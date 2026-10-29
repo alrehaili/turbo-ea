@@ -1,5 +1,21 @@
 .git
 .env
+# Never send runtime secrets, private TLS keys, or customer uploads to builders.
+# In particular Vite reads frontend/.env.production during npm run build.
+**/.env
+**/.env.*
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+certs/
+data/
+backend/data/
+uploads/
+backups/
+pgdata/
+**/.venv/
+**/__pycache__/
 *.md
 # …except the changelog, which the backend image ships so the post-upgrade
 # "what's new" dialog can read the running version's notes without a network

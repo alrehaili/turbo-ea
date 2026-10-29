@@ -77,6 +77,8 @@ ENV TRUST_PROXY_HEADERS=true
 USER ${APP_UID}:${APP_GID}
 
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
 
 
@@ -167,6 +169,8 @@ RUN mkdir -p /var/cache/nginx /var/run && \
 USER ${APP_UID}:${APP_GID}
 
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q -T 4 -O /dev/null http://127.0.0.1:8080/
 CMD ["nginx", "-g", "daemon off;"]
 
 
