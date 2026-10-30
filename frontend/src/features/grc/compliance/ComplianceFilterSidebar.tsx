@@ -37,6 +37,7 @@ import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import {
   CARD_TYPE_COLORS,
   COMPLIANCE_LIFECYCLE_COLORS,
@@ -172,6 +173,7 @@ export default function ComplianceFilterSidebar({
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
   const { getType } = useMetamodel();
+  const typeLabel = useTypeLabel();
   // Metamodel color (admin-editable) first, static token as fallback.
   const cardTypeColor = (ct: "Application" | "ITComponent") =>
     getType(ct)?.color || CARD_TYPE_COLORS[ct];
@@ -408,7 +410,7 @@ export default function ComplianceFilterSidebar({
           <FilterCheckboxList
             items={CARD_TYPES.map((ct) => ({
               key: ct,
-              label: ct,
+              label: typeLabel(getType(ct)) || t(ct === "Application" ? "eol.application" : "eol.itComponent"),
               color: cardTypeColor(ct),
               icon: CARD_TYPE_ICONS[ct],
               checked: filters.cardTypes.has(ct),

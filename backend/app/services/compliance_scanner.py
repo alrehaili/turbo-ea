@@ -931,8 +931,8 @@ async def run_compliance_scan(
 # ---------------------------------------------------------------------------
 
 
-def compliance_score(rows: list[TurboLensComplianceFinding]) -> int:
-    """0-100 compliance score.
+def compliance_score(rows: list[TurboLensComplianceFinding]) -> int | None:
+    """0-100 compliance score, or None when there are no assessed findings.
 
     * compliant:       +1.0 weight
     * not_applicable:  +1.0 weight (counts as fully covered)
@@ -941,7 +941,7 @@ def compliance_score(rows: list[TurboLensComplianceFinding]) -> int:
     * non_compliant:   0 weight
     """
     if not rows:
-        return 100
+        return None
     weights = {
         "compliant": 1.0,
         "not_applicable": 1.0,

@@ -1,5 +1,7 @@
 # GRC
 
+Sin hallazgos evaluados, la puntuación de cumplimiento no está disponible (— en la interfaz, `null` en los lotes vacíos de la API). Una puntuación medida de 0 % se distingue de la ausencia de datos. Los filtros de tipos de tarjeta usan las etiquetas traducidas del metamodelo configuradas por el administrador. Los controles del registro de riesgos se ajustan a varias líneas en pantallas estrechas.
+
 El módulo **GRC** reúne Gobernanza, Riesgo y Cumplimiento en un único espacio de trabajo en `/grc`. Consolida tareas que antes vivían entre Entrega EA y TurboLens, de modo que arquitectas, propietarios de riesgo y revisores de cumplimiento operen sobre una base común.
 
 !!! note

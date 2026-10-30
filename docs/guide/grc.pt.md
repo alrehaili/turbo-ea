@@ -1,5 +1,7 @@
 # GRC
 
+Sem constatações avaliadas, a pontuação de conformidade está indisponível (— na interface, `null` nos pacotes vazios da API). Uma pontuação medida de 0% distingue-se da ausência de dados. Os filtros de tipos de cartão usam os rótulos traduzidos do metamodelo configurados pelo administrador. Os controlos do registo de riscos quebram de linha em ecrãs estreitos.
+
 O módulo **GRC** reúne Governança, Risco e Conformidade num único espaço de trabalho em `/grc`. Consolida tarefas que antes viviam entre Entrega EA e TurboLens, para que arquitetas, proprietários de risco e revisores de conformidade trabalhem sobre um terreno comum.
 
 !!! note

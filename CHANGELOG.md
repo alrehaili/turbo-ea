@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.43.2] - 2026-10-31
+
+### Fixed
+- Show unavailable compliance scores for empty assessments, wrap Risk Register toolbar controls on narrow screens, and use translated metamodel labels in compliance filters.
+
 ## [2.43.1] - 2026-10-31
 
 ### Fixed

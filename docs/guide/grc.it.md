@@ -1,5 +1,7 @@
 # GRC
 
+Senza rilievi valutati, il punteggio di conformità non è disponibile (— nell’interfaccia, `null` nei pacchetti API vuoti). Un punteggio misurato dello 0% resta distinto dai dati mancanti. I filtri dei tipi di scheda usano le etichette tradotte del metamodello configurate dall’amministratore. I controlli del registro dei rischi vanno a capo sugli schermi stretti.
+
 Il modulo **GRC** riunisce Governance, Rischio e Conformità in un unico spazio di lavoro a `/grc`. Consolida attività che prima vivevano tra Consegna EA e TurboLens, in modo che un'architetta, un proprietario di rischio e un revisore di conformità lavorino su un terreno comune.
 
 !!! note

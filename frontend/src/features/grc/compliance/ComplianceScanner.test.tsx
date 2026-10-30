@@ -444,12 +444,20 @@ describe("ComplianceScanner — overview", () => {
     expect(screen.getByText(ta("compliance_summary_label", { count: 6, regs: 2 }))).toBeInTheDocument();
   });
 
-  it("says so when no scan has ever run and scores to 100 without data", async () => {
+  it("shows an unavailable score when no scan has ever run and there is no data", async () => {
     mockApi.on("get", "/compliance/overview", NEVER_RAN);
     renderPage();
     await waitForOverview();
     expect(screen.getAllByText(ta("compliance_never_scanned")).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("100%")).not.toBeInTheDocument();
+  });
+
+  it("keeps a measured zero score distinct from missing data", async () => {
+    mockApi.on("get", "/compliance/overview", { ...OVERVIEW, compliance_scores: { gdpr: 0 } });
+    renderPage();
+    await waitForOverview();
+    expect(screen.getByText("0%")).toBeInTheDocument();
   });
 
   it("colours the score tile by band", async () => {

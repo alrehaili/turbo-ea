@@ -90,7 +90,7 @@ class TestListCompliance:
             "label": "NIS2",
             "is_enabled": True,
             "is_known": True,
-            "score": 100,
+            "score": None,
             "findings": [],
         }
         assert bundles["gdpr"]["score"] == 0 and len(bundles["gdpr"]["findings"]) == 1

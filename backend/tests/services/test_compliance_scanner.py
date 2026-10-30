@@ -70,8 +70,8 @@ def test_landscape_summary_counts_types_subtypes_vendors_and_criticals():
 # ---------------------------------------------------------------------------
 
 
-def test_compliance_score_is_perfect_for_empty_landscape():
-    assert compliance_score([]) == 100
+def test_compliance_score_is_unavailable_for_empty_landscape():
+    assert compliance_score([]) is None
 
 
 def test_compliance_score_weights_statuses():

@@ -5132,9 +5132,15 @@
             "type": "string"
           },
           "score": {
-            "default": 0,
-            "title": "Score",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
           }
         },
         "required": [
@@ -53549,7 +53555,7 @@
         ]
       },
       "patch": {
-        "description": "Admin endpoint \u2014 enable or disable self-registration.",
+        "description": "Admin endpoint \u2014 self-registration cannot be enabled.",
         "operationId": "update_registration_settings_api_v1_settings_registration_patch",
         "requestBody": {
           "content": {

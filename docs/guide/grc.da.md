@@ -1,5 +1,7 @@
 # GRC
 
+Uden vurderede fund er compliance-scoren ikke tilgængelig (— i brugerfladen, `null` for tomme API-pakker). En målt score på 0 % adskilles fra manglende data. Korttypefiltre bruger oversatte, administratorkonfigurerede metamodelnavne. Risikoregistrets værktøjslinje ombrydes på smalle skærme.
+
 **GRC**-modulet samler Governance, Risk og Compliance i ét arbejdsområde på `/grc`. Det konsoliderer arbejde, der tidligere var spredt på tværs af EA Delivery og TurboLens, så en arkitekt, en risikoejer og en compliance-reviewer kan stå på fælles grund.
 
 !!! note

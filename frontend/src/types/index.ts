@@ -3285,7 +3285,7 @@ export interface TurboLensComplianceBundle {
    *  `compliance_regulations` table. False for orphan findings whose
    *  regulation was hard-deleted. */
   is_known?: boolean;
-  score: number;
+  score: number | null;
   findings: TurboLensComplianceFinding[];
 }
 

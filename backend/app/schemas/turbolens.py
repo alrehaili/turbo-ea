@@ -414,5 +414,5 @@ class ComplianceBundleOut(BaseModel):
     label: str | None = None
     is_enabled: bool = True
     is_known: bool = True
-    score: int = 0
+    score: int | None = None
     findings: list[ComplianceFindingOut] = Field(default_factory=list)

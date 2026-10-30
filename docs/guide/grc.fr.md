@@ -1,5 +1,7 @@
 # GRC
 
+Sans constats évalués, le score de conformité est indisponible (— dans l’interface, `null` pour les lots API vides). Un score mesuré de 0 % reste distinct des données absentes. Les filtres de types de cartes utilisent les libellés traduits du métamodèle configuré par l’administrateur. Les commandes du registre des risques passent à la ligne sur les écrans étroits.
+
 Le module **GRC** réunit la Gouvernance, le Risque et la Conformité dans un espace de travail unique à `/grc`. Il regroupe des activités auparavant éparpillées entre Livraison EA et TurboLens, afin que l'architecte, le propriétaire de risque et l'examinateur de conformité partagent un terrain commun.
 
 !!! note

@@ -1,5 +1,7 @@
 # GRC
 
+Compliance scores are unavailable (— in the interface, `null` for empty API bundles) when no findings have been assessed. A measured score of 0% remains distinct from missing data. Compliance card-type filters use the translated, administrator-configured metamodel labels. Risk Register toolbar controls wrap on narrow screens so the page stays within the viewport.
+
 The **GRC** module brings Governance, Risk and Compliance into a single workspace at `/grc`. It consolidates work that previously lived across EA Delivery and TurboLens so an architect, a risk owner and a compliance reviewer can stand on common ground.
 
 !!! note

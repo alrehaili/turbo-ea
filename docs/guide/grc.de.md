@@ -1,5 +1,7 @@
 # GRC
 
+Ohne bewertete Feststellungen ist der Compliance-Wert nicht verfügbar (— in der Oberfläche, `null` bei leeren API-Paketen). Ein gemessener Wert von 0 % bleibt davon unterscheidbar. Die Kartentypfilter verwenden übersetzte, administrativ konfigurierte Metamodellbezeichnungen. Die Werkzeugleiste des Risikoregisters wird auf schmalen Bildschirmen umgebrochen.
+
 Das **GRC**-Modul vereint Governance, Risk und Compliance in einem gemeinsamen Arbeitsbereich unter `/grc`. Es bündelt Aufgaben, die zuvor zwischen EA-Bereitstellung und TurboLens verteilt waren, sodass Architektin, Risikoeigentümer und Compliance-Prüferin auf gemeinsamem Boden arbeiten.
 
 !!! note

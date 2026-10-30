@@ -258,6 +258,15 @@ beforeEach(() => {
 });
 
 describe("RiskRegisterPage — loading", () => {
+  it("wraps toolbar groups so the sidebar does not push actions beyond the page", async () => {
+    renderPage();
+    await waitForRows();
+    const create = screen.getByRole("button", { name: /Create$/ });
+    expect(create.parentElement).toHaveStyle({ flexWrap: "wrap", minWidth: "0" });
+    const title = screen.getByRole("heading", { level: 6, name: t("risks.tableTitle") });
+    expect(title.parentElement).toHaveStyle({ flexWrap: "wrap", minWidth: "0" });
+  });
+
   it("fetches the rows and the metrics once and renders the KPI tiles", async () => {
     renderPage();
     await waitForRows();

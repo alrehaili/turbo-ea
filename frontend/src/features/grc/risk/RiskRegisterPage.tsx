@@ -1040,7 +1040,7 @@ export default function RiskRegisterPage() {
             sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
             useFlexGap
           >
-            <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", minWidth: 0 }}>
               <Typography variant="h6" fontWeight={700}>
                 {t("risks.tableTitle", { defaultValue: "Risk Register" })}
               </Typography>
@@ -1054,7 +1054,7 @@ export default function RiskRegisterPage() {
               />
               <GroupByMenuButton axes={groupAxes} groupBy={groupBy} onChange={setGroupBy} />
             </Stack>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", minWidth: 0 }}>
               <Button
                 variant="outlined"
                 color="inherit"

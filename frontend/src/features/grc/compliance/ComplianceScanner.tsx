@@ -542,7 +542,7 @@ export default function ComplianceScanner() {
     const complianceScoresVals = Object.values(overview?.compliance_scores || {});
     const avgCompliance =
       complianceScoresVals.length === 0
-        ? 100
+        ? null
         : Math.round(
             complianceScoresVals.reduce((a, b) => a + b, 0) /
               complianceScoresVals.length,
@@ -633,7 +633,7 @@ export default function ComplianceScanner() {
 
   function renderKpisAndCharts(
     overview: ComplianceOverview,
-    avgCompliance: number,
+    avgCompliance: number | null,
   ) {
     return (
       <Stack spacing={3}>
@@ -641,14 +641,16 @@ export default function ComplianceScanner() {
           <Grid item xs={12} md={4}>
             <MetricCard
               label={t("compliance_kpi_compliance_score")}
-              value={`${avgCompliance}%`}
+              value={avgCompliance === null ? "—" : `${avgCompliance}%`}
               icon="verified"
               color={
-                avgCompliance >= 80
-                  ? "#2e7d32"
-                  : avgCompliance >= 60
-                    ? "#f57c00"
-                    : "#d32f2f"
+                avgCompliance === null
+                  ? "#757575"
+                  : avgCompliance >= 80
+                    ? "#2e7d32"
+                    : avgCompliance >= 60
+                      ? "#f57c00"
+                      : "#d32f2f"
               }
             />
           </Grid>
@@ -728,7 +730,7 @@ export default function ComplianceScanner() {
                         sx={{ height: 18, fontSize: 10 }}
                       />
                     )}
-                    {bundle.findings.length === 0 ? (
+                    {bundle.findings.length === 0 || bundle.score === null ? (
                       <Chip
                         size="small"
                         variant="outlined"
