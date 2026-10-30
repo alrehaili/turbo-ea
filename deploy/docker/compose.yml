@@ -5,7 +5,7 @@ services:
     image: turbo-ea-local/backend:${DEPLOY_TAG:?Set DEPLOY_TAG to the source revision}
     pull_policy: build
     build:
-      context: ../..
+      context: .
       dockerfile: Dockerfile
       target: backend
     restart: unless-stopped
@@ -77,7 +77,7 @@ services:
     image: turbo-ea-local/frontend:${DEPLOY_TAG:?Set DEPLOY_TAG to the source revision}
     pull_policy: build
     build:
-      context: ../..
+      context: .
       dockerfile: Dockerfile
       target: frontend
     restart: unless-stopped
@@ -94,7 +94,7 @@ services:
     image: turbo-ea-local/gateway:${DEPLOY_TAG:?Set DEPLOY_TAG to the source revision}
     pull_policy: build
     build:
-      context: ../..
+      context: .
       dockerfile: Dockerfile
       target: nginx
     restart: unless-stopped
