@@ -115,7 +115,7 @@ COPY frontend/package.json frontend/package-lock.json frontend/xlsx-0.20.3.tgz .
 RUN npm ci
 COPY VERSION ./VERSION
 COPY frontend/ ./
-RUN npm run build
+RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 
 FROM alpine/git:v2.54.0 AS drawio
