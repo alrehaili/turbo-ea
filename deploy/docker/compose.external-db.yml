@@ -1,0 +1,10 @@
+# Attach ONLY the backend to the pre-existing private database network.
+services:
+  backend:
+    networks:
+      - database
+
+networks:
+  database:
+    external: true
+    name: ${POSTGRES_NETWORK:?Set the existing private Docker database network}

@@ -1,0 +1,136 @@
+# Source-built deployment behind a TLS-terminating proxy (including Coolify).
+# Run from the repository root; do not combine with the upstream root compose.
+services:
+  backend:
+    image: turbo-ea-local/backend:${DEPLOY_TAG:?Set DEPLOY_TAG to the source revision}
+    pull_policy: build
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: backend
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:?Set the private PostgreSQL hostname}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY:?Set a persistent random SECRET_KEY}
+      ENVIRONMENT: production
+      ALLOWED_ORIGINS: ${TURBO_EA_PUBLIC_URL:?Set the public HTTPS origin}
+      TRUST_PROXY_HEADERS: "true"
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      # No reset or sample landscape on this production path.
+      RESET_DB: "false"
+      RESET_NORA_DEMO: "false"
+      SEED_DEMO: "false"
+      SEED_BPM: "false"
+      SEED_PPM: "false"
+      SEED_SECURITY: "false"
+      SEED_NORA: "false"
+      SEED_PROFILE: ${SEED_PROFILE:-nora}
+      AI_AUTO_CONFIGURE: "false"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@turboea.local}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      # Ordinary password/OIDC authentication needs no proxy identity headers.
+      # Keep the existing opt-in controls for deployments using a trusted IdP proxy.
+      TURBO_EA_PROXY_AUTH_ENABLED: ${TURBO_EA_PROXY_AUTH_ENABLED:-false}
+      TURBO_EA_PROXY_AUTH_MODE: ${TURBO_EA_PROXY_AUTH_MODE:-azure_easyauth}
+      TURBO_EA_PROXY_AUTH_SHARED_SECRET: ${TURBO_EA_PROXY_AUTH_SHARED_SECRET:-}
+      TURBO_EA_PROXY_AUTH_SECRET_HEADER: ${TURBO_EA_PROXY_AUTH_SECRET_HEADER:-X-Turbo-EA-Proxy-Secret}
+      TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS: ${TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS:-false}
+      TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN: ${TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN:-false}
+      TURBO_EA_PROXY_AUTH_ISSUER: ${TURBO_EA_PROXY_AUTH_ISSUER:-}
+      TURBO_EA_PROXY_AUTH_AUDIENCE: ${TURBO_EA_PROXY_AUTH_AUDIENCE:-}
+      TURBO_EA_PROXY_AUTH_JWKS_URI: ${TURBO_EA_PROXY_AUTH_JWKS_URI:-}
+      TURBO_EA_PROXY_AUTH_EMAIL_HEADER: ${TURBO_EA_PROXY_AUTH_EMAIL_HEADER:-X-Forwarded-Email}
+      TURBO_EA_PROXY_AUTH_NAME_HEADER: ${TURBO_EA_PROXY_AUTH_NAME_HEADER:-X-Forwarded-User}
+      TURBO_EA_PROXY_AUTH_SUBJECT_HEADER: ${TURBO_EA_PROXY_AUTH_SUBJECT_HEADER:-X-Forwarded-Subject}
+      TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS: ${TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS:-}
+      TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN: ${TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN:-false}
+      TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL: ${TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL:-}
+      TURBO_EA_PROXY_AUTH_LOGOUT_URL: ${TURBO_EA_PROXY_AUTH_LOGOUT_URL:-}
+      TURBO_EA_PROXY_AUTH_ROLE_CLAIM: ${TURBO_EA_PROXY_AUTH_ROLE_CLAIM:-roles}
+      TURBO_EA_PROXY_AUTH_ROLE_MAP: ${TURBO_EA_PROXY_AUTH_ROLE_MAP:-}
+      TURBO_EA_PROXY_AUTH_ROLE_HEADER: ${TURBO_EA_PROXY_AUTH_ROLE_HEADER:-X-Forwarded-Groups}
+    expose: ["8000"]
+    volumes:
+      - backend_data:/app/data
+    networks: [application]
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEMORY_LIMIT:-2G}
+
+  frontend:
+    image: turbo-ea-local/frontend:${DEPLOY_TAG:?Set DEPLOY_TAG to the source revision}
+    pull_policy: build
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: frontend
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    expose: ["8080"]
+    networks: [application]
+    deploy:
+      resources:
+        limits:
+          memory: ${FRONTEND_MEMORY_LIMIT:-256M}
+
+  gateway:
+    image: turbo-ea-local/gateway:${DEPLOY_TAG:?Set DEPLOY_TAG to the source revision}
+    pull_policy: build
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: nginx
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:?Set the public HTTPS origin}
+      # TLS and HTTP->HTTPS redirect belong to the outer ingress.
+      TURBO_EA_TLS_ENABLED: "false"
+      NGINX_FORWARDED_PROTO: https
+      NGINX_TRUSTED_PROXIES: ${NGINX_TRUSTED_PROXIES:-}
+      TURBO_EA_EMBED_ALLOWED_ORIGINS: ${TURBO_EA_EMBED_ALLOWED_ORIGINS:-}
+      NGINX_BACKEND_UPSTREAM: http://backend:8000
+      NGINX_FRONTEND_UPSTREAM: http://frontend:8080
+    expose: ["8080"]
+    ports:
+      - "127.0.0.1:${TURBO_EA_HOST_PORT:-18920}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -T 4 -O /dev/null http://127.0.0.1:8080/api/health && wget -q -T 4 -O /dev/null http://127.0.0.1:8080/
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks: [application]
+    deploy:
+      resources:
+        limits:
+          memory: ${GATEWAY_MEMORY_LIMIT:-128M}
+
+networks:
+  application:
+
+volumes:
+  backend_data:

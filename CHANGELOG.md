@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.43.0] - 2026-10-27
 
 ### Added
+- Source-built modular production deployment with independent frontend/backend builds, retained gateway security, and private external or dedicated PostgreSQL support; see `deploy/docker/README.md`.
 - **Benefits register** (Governance → Benefits Register): record the cost savings, cost avoidance, revenue, productivity and other outcomes expected from initiatives and architecture decisions, each with its own currency, and track them from planned, through Finance validation, to actuals reported per fiscal year and confirmed by Finance with a Finance reference and evidence. Every change is kept in the benefit's history. New permissions *View*, *Manage*, *Validate* and *Confirm benefits*, held by no default role; amounts also need cost access.
 - **Independent Finance confirmation**: an actual can be confirmed, rejected or reversed only by someone who did not create, own, estimate or report the benefit, administrators included.
 - **Attribution to initiatives**: each linked initiative is classified as direct, contributing or not attributable, and only Finance allocates amounts, with a rationale, never more than the confirmed value; each benefit is counted once.
