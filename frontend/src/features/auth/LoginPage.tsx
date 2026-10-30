@@ -6,8 +6,6 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -21,7 +19,6 @@ import type { SsoConfig } from "@/types";
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
-  onRegister: (email: string, displayName: string, password: string) => Promise<void>;
   /** Sign in from a reverse proxy's already-established identity (#1006). */
   onProxySession?: () => Promise<void>;
 }
@@ -42,11 +39,9 @@ function readCachedSsoConfig(): SsoConfig | null {
   }
 }
 
-export default function LoginPage({ onLogin, onRegister, onProxySession }: Props) {
+export default function LoginPage({ onLogin, onProxySession }: Props) {
   const { t } = useTranslation("auth");
-  const [tab, setTab] = useState(0);
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -121,26 +116,19 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
 
   const ssoEnabled = ssoConfig?.enabled === true;
   const proxyAuthEnabled = ssoConfig?.proxy_auth === true;
-  // Registration is refused server-side while proxy auth is on, so don't offer it.
   const federated = ssoEnabled || proxyAuthEnabled;
   // Hide the email/password form when SSO is on and every account is SSO-based
   // (the backend reports no local accounts). Any local/invited account keeps
   // the form visible so those users can still sign in or set a password.
   const showLocalLogin =
     !federated || ssoConfig?.local_login_available !== false;
-  const registrationAllowed =
-    !federated && ssoConfig?.registration_enabled !== false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      if (tab === 0) {
-        await onLogin(email, password);
-      } else {
-        await onRegister(email, displayName, password);
-      }
+      await onLogin(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common:errors.occurred"));
     } finally {
@@ -366,14 +354,6 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
           </>
         )}
 
-        {/* Only show Login/Register tabs when registration is allowed */}
-        {registrationAllowed && (
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 2 }}>
-            <Tab label={t("login.tabLogin")} />
-            <Tab label={t("login.tabRegister")} />
-          </Tabs>
-        )}
-
         {showLocalLogin && (
           <>
             <form onSubmit={handleSubmit}>
@@ -386,16 +366,6 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
                 required
                 sx={{ mb: 2 }}
               />
-              {tab === 1 && registrationAllowed && (
-                <TextField
-                  fullWidth
-                  label={t("register.displayName")}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  required
-                  sx={{ mb: 2 }}
-                />
-              )}
               <TextField
                 fullWidth
                 label={t("login.password")}
@@ -403,9 +373,9 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                sx={{ mb: tab === 0 && branding.smtpConfigured ? 1 : 3 }}
+                sx={{ mb: branding.smtpConfigured ? 1 : 3 }}
               />
-              {tab === 0 && branding.smtpConfigured && (
+              {branding.smtpConfigured && (
                 <Box sx={{ textAlign: "right", mb: 2 }}>
                   <Link
                     component={RouterLink}
@@ -424,11 +394,7 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
                 disabled={loading}
                 size="large"
               >
-                {loading
-                  ? "..."
-                  : tab === 0 || !registrationAllowed
-                    ? t("login.submitLogin")
-                    : t("login.submitRegister")}
+                {loading ? "..." : t("login.submitLogin")}
               </Button>
             </form>
           </>

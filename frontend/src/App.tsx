@@ -191,7 +191,6 @@ function AppRoutes() {
     user,
     loading,
     login,
-    register,
     ssoCallback,
     setPassword,
     logout,
@@ -230,7 +229,7 @@ function AppRoutes() {
         <Route
           path="*"
           element={
-            <LoginPage onLogin={login} onRegister={register} onProxySession={proxySession} />
+            <LoginPage onLogin={login} onProxySession={proxySession} />
           }
         />
       </Routes>

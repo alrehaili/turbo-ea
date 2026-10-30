@@ -7,7 +7,7 @@ from typing import Any, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_optional_user
@@ -218,13 +218,9 @@ async def _provision_federated_user(
     paths cannot drift apart — a divergence between them is exactly where the next
     authentication bug would land.
 
-    The two flags are what the proxy path tightens:
-
-    - ``allow_create=False`` lets an identity sign in an account that already
-      exists but never mint one. The proxy path passes False unless the identity
-      was signature-verified, so a forged header cannot conjure a user. The seeded
-      default role is ``member``, which can create, edit and archive across the
-      whole inventory, so "it would only be a member" is not a mitigation.
+    - ``allow_create=False`` requires an existing administrator-created account.
+      Only the explicitly configured proxy-admin bootstrap may create an account
+      during sign-in.
     - ``honour_invitation=False`` ignores a pending ``SsoInvitation`` role. On the
       SSO path the invitee proved control of the mailbox by completing an OIDC
       flow. On the proxy path nothing binds the asserted email to the invitation,
@@ -262,9 +258,8 @@ async def _provision_federated_user(
     if not allow_create:
         raise HTTPException(
             403,
-            "No Turbo EA account exists for this identity, and one cannot be created "
-            "automatically from an unverified proxy header. Ask an administrator to "
-            "invite you, or enable identity-token verification on this instance.",
+            "No Turbo EA account exists for this identity. "
+            "Ask an administrator to create your account.",
         )
 
     role = await _default_role_key(db)
@@ -294,14 +289,8 @@ async def _provision_federated_user(
 def _is_bootstrap_admin(email: str) -> bool:
     """Whether this email is the configured first admin for a proxy-auth install.
 
-    Deliberately *only* the explicitly configured address. Mirroring ``register``'s
-    "first user on an empty instance becomes admin" rule here looked tempting, but
-    on the proxy path the identity can come from an unverified header, so an empty
-    instance would hand admin to whoever arrived first. ``register`` keeps that
-    rule and is safe because it always bypasses its own blocks for the first user
-    (see ``is_first_user`` below), so a fresh proxy-auth install can still be
-    bootstrapped that way. This env var is the alternative for operators who would
-    rather never open registration at all.
+    Only the explicitly configured address may bootstrap an account during
+    proxy sign-in. Public registration is disabled, including on empty instances.
     """
     configured = settings.PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL.strip().lower()
     return bool(configured) and configured == email
@@ -372,64 +361,7 @@ async def register(
     body: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    general = await _get_general_settings(db)
-
-    # ── M1: Use advisory lock to prevent race condition on first-user admin ──
-    await db.execute(text("SELECT pg_advisory_xact_lock(1)"))
-    count_result = await db.execute(select(func.count(User.id)))
-    user_count = count_result.scalar()
-    is_first_user = user_count == 0
-    role = "admin" if is_first_user else await _default_role_key(db)
-
-    # Always allow first-user bootstrap registration
-    if not is_first_user:
-        # Block registration when SSO is enabled
-        sso_config = general.get("sso", {})
-        if sso_config.get("enabled"):
-            raise HTTPException(
-                403, "Registration is disabled when SSO is enabled. Sign in via SSO."
-            )
-
-        # Same for trusted-proxy auth. Without this, a proxy-auth install — where
-        # sso.enabled is false by design — would leave self-registration open to
-        # anyone who can reach the login page.
-        if proxy_auth_service.is_enabled():
-            raise HTTPException(
-                403,
-                "Registration is disabled when proxy authentication is enabled. "
-                "Sign in through your identity provider.",
-            )
-
-        # Block registration when admin has disabled self-registration
-        if not general.get("registrationEnabled", True):
-            raise HTTPException(403, "Self-registration is disabled. Contact an administrator.")
-
-    existing = await db.execute(select(User).where(User.email == body.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(400, "Email already registered")
-
-    user = User(
-        email=body.email,
-        display_name=body.display_name,
-        password_hash=hash_password(body.password),
-        role=role,
-        auth_provider="local",
-    )
-    db.add(user)
-    # Flushed first so the audit row can snapshot the new user's id.
-    await db.flush()
-    await audit_log.record(
-        db,
-        action="auth.register",
-        category="auth",
-        actor=user,
-        context={"role": await _role_label(db, role), "first_user": is_first_user},
-    )
-    await db.commit()
-    await db.refresh(user)
-    token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token, secure=_is_secure_request(request))
-    return TokenResponse(access_token=token)
+    raise HTTPException(403, "Self-registration is disabled. Contact an administrator.")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -761,7 +693,7 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     Also includes registration_enabled so the login page knows whether to
     show the Register tab."""
     general = await _get_general_settings(db)
-    registration_enabled = general.get("registrationEnabled", True)
+    registration_enabled = False
 
     # Trusted-proxy auth is independent of SSO and must be advertised even when
     # SSO is off, which is the whole point of it — so this is resolved before the
@@ -926,7 +858,7 @@ async def sso_callback(
             email=email,
             subject_id=sso_subject_id,
             display_name=display_name,
-            allow_create=True,
+            allow_create=False,
             honour_invitation=True,
         )
     except HTTPException as exc:
@@ -1036,8 +968,8 @@ async def proxy_session(
             },
         )
 
-    # An unverified header may sign in an existing user but must never create one.
-    # A verified identity came from a signature-checked id token, so it may.
+    # Accounts must be created by an administrator, except for the explicitly
+    # configured proxy-admin bootstrap identity.
     existed = await _federated_user_exists(db, subject_id=identity.subject_id, email=identity.email)
     try:
         user = await _provision_federated_user(
@@ -1045,7 +977,7 @@ async def proxy_session(
             email=identity.email,
             subject_id=identity.subject_id,
             display_name=identity.display_name,
-            allow_create=identity.verified or _is_bootstrap_admin(identity.email),
+            allow_create=_is_bootstrap_admin(identity.email),
             honour_invitation=False,
         )
     except HTTPException as exc:

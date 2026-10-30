@@ -64,7 +64,6 @@ function StakeholdersTab({
 
   const canInvite = !!(
     currentUser?.permissions?.["*"] ||
-    currentUser?.permissions?.["users.invite"] ||
     currentUser?.permissions?.["admin.users"]
   );
 

@@ -1963,10 +1963,7 @@ class RegistrationPayload(BaseModel):
 @router.get("/registration")
 async def get_registration_settings(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns whether self-registration is enabled."""
-    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    row = result.scalar_one_or_none()
-    general = (row.general_settings if row else None) or {}
-    return {"enabled": general.get("registrationEnabled", True)}
+    return {"enabled": False}
 
 
 @router.patch("/registration")
@@ -1975,8 +1972,13 @@ async def update_registration_settings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Admin endpoint — enable or disable self-registration."""
+    """Admin endpoint — self-registration cannot be enabled."""
     await PermissionService.require_permission(db, user, "admin.settings")
+
+    if body.enabled:
+        raise HTTPException(
+            403, "Self-registration is disabled. Only administrators can create users."
+        )
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})

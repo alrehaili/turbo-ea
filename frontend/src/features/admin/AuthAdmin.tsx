@@ -60,10 +60,6 @@ export default function AuthAdmin() {
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
 
-  // Registration toggle state
-  const [registrationEnabled, setRegistrationEnabled] = useState(true);
-  const [savingRegistration, setSavingRegistration] = useState(false);
-
   // SSO state
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [ssoProvider, setSsoProvider] = useState("microsoft");
@@ -78,11 +74,8 @@ export default function AuthAdmin() {
   const [savingSso, setSavingSso] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api.get<SsoSettings>("/settings/sso"),
-      api.get<{ enabled: boolean }>("/settings/registration"),
-    ])
-      .then(([ssoData, regData]) => {
+    api.get<SsoSettings>("/settings/sso")
+      .then((ssoData) => {
         setSsoEnabled(ssoData.enabled);
         setSsoProvider(ssoData.provider || "microsoft");
         setSsoClientId(ssoData.client_id);
@@ -93,29 +86,10 @@ export default function AuthAdmin() {
         setSsoAuthEndpoint(ssoData.authorization_endpoint || "");
         setSsoTokenEndpoint(ssoData.token_endpoint || "");
         setSsoJwksUri(ssoData.jwks_uri || "");
-        setRegistrationEnabled(regData.enabled);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
   }, []);
-
-  const handleRegistrationToggle = async (enabled: boolean) => {
-    setSavingRegistration(true);
-    setError("");
-    try {
-      await api.patch("/settings/registration", { enabled });
-      setRegistrationEnabled(enabled);
-      setSnack(
-        enabled
-          ? t("settings.registration.enabledSuccess")
-          : t("settings.registration.disabledSuccess"),
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common:errors.generic"));
-    } finally {
-      setSavingRegistration(false);
-    }
-  };
 
   const handleSsoSave = async () => {
     setSavingSso(true);
@@ -167,31 +141,14 @@ export default function AuthAdmin() {
             {t("settings.registration.title")}
           </Typography>
           <Chip
-            label={registrationEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
+            label={t("settings.bpm.disabled")}
             size="small"
-            color={registrationEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t("settings.registration.description")}
+        <Typography variant="body2" color="text.secondary">
+          {t("settings.registration.onlyAdmins")}
         </Typography>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={registrationEnabled}
-              onChange={(e) => handleRegistrationToggle(e.target.checked)}
-              disabled={savingRegistration || ssoEnabled}
-            />
-          }
-          label={
-            ssoEnabled
-              ? t("settings.registration.managedBySso")
-              : registrationEnabled
-                ? t("settings.registration.usersCanRegister")
-                : t("settings.registration.onlyAdmins")
-          }
-        />
       </Paper>
 
       {/* ── Single Sign-On ────────────────────────────────────────── */}
