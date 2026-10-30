@@ -1,0 +1,659 @@
+{
+  "summary": {
+    "card_types": 64,
+    "visible_types": 48,
+    "hidden_types": 16,
+    "cards": 456,
+    "relations": 2805,
+    "configured_fields": 384,
+    "populated_attribute_values": 3389,
+    "manual_metric_link_blanks": 8,
+    "inactive_synthetic_users": 6,
+    "stakeholders": 456,
+    "documents": 456,
+    "relation_types_used": 222,
+    "unlinked_cards": 0
+  },
+  "types": [
+    {
+      "type": "Objective",
+      "label": "Objective",
+      "category": "Business",
+      "hidden": false,
+      "records": 8,
+      "fields": 5,
+      "populated_cells": 40,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Platform",
+      "label": "Platform",
+      "category": "Business",
+      "hidden": true,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Vision",
+      "label": "Vision",
+      "category": "Business",
+      "hidden": false,
+      "records": 1,
+      "fields": 2,
+      "populated_cells": 2,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Mission",
+      "label": "Mission",
+      "category": "Business",
+      "hidden": false,
+      "records": 2,
+      "fields": 2,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Initiative",
+      "label": "Initiative",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 14,
+      "populated_cells": 84,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Organization",
+      "label": "Organization",
+      "category": "Business",
+      "hidden": true,
+      "records": 4,
+      "fields": 5,
+      "populated_cells": 20,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "BusinessCapability",
+      "label": "Business Capability",
+      "category": "Business",
+      "hidden": false,
+      "records": 16,
+      "fields": 9,
+      "populated_cells": 144,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "BusinessContext",
+      "label": "Business Context",
+      "category": "Business",
+      "hidden": true,
+      "records": 5,
+      "fields": 5,
+      "populated_cells": 25,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "GovService",
+      "label": "Government Service",
+      "category": "Business",
+      "hidden": false,
+      "records": 12,
+      "fields": 14,
+      "populated_cells": 168,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Beneficiary",
+      "label": "Beneficiary",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "BusinessProcess",
+      "label": "Business Process",
+      "category": "Business",
+      "hidden": false,
+      "records": 24,
+      "fields": 16,
+      "populated_cells": 384,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Project",
+      "label": "Project",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 12,
+      "populated_cells": 72,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Application",
+      "label": "Application",
+      "category": "Application",
+      "hidden": false,
+      "records": 18,
+      "fields": 29,
+      "populated_cells": 522,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "BeneficiaryPersona",
+      "label": "Beneficiary Persona",
+      "category": "Business",
+      "hidden": true,
+      "records": 3,
+      "fields": 1,
+      "populated_cells": 3,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Interface",
+      "label": "Interface",
+      "category": "Application",
+      "hidden": false,
+      "records": 12,
+      "fields": 11,
+      "populated_cells": 132,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "OrganizationalUnit",
+      "label": "Organizational Unit",
+      "category": "Business",
+      "hidden": false,
+      "records": 14,
+      "fields": 3,
+      "populated_cells": 42,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "BeneficiaryJourney",
+      "label": "Beneficiary Journey",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 7,
+      "populated_cells": 42,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ServiceProvider",
+      "label": "Service Provider",
+      "category": "Business",
+      "hidden": false,
+      "records": 5,
+      "fields": 7,
+      "populated_cells": 35,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataObject",
+      "label": "Data Object",
+      "category": "Data",
+      "hidden": false,
+      "records": 22,
+      "fields": 14,
+      "populated_cells": 308,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ModelTemplate",
+      "label": "Model/Template",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Policy",
+      "label": "Policy",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataDomain",
+      "label": "Data Domain",
+      "category": "Data",
+      "hidden": true,
+      "records": 6,
+      "fields": 5,
+      "populated_cells": 30,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ITComponent",
+      "label": "IT Component",
+      "category": "Technology",
+      "hidden": true,
+      "records": 6,
+      "fields": 37,
+      "populated_cells": 222,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataProduct",
+      "label": "Data Product",
+      "category": "Data",
+      "hidden": true,
+      "records": 4,
+      "fields": 4,
+      "populated_cells": 16,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Position",
+      "label": "Position",
+      "category": "Business",
+      "hidden": false,
+      "records": 8,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "TechCategory",
+      "label": "Tech Category",
+      "category": "Technology",
+      "hidden": true,
+      "records": 6,
+      "fields": 1,
+      "populated_cells": 6,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ProcessesGroup",
+      "label": "Processes Group",
+      "category": "Business",
+      "hidden": false,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Provider",
+      "label": "Provider",
+      "category": "Technology",
+      "hidden": true,
+      "records": 4,
+      "fields": 7,
+      "populated_cells": 28,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataTerm",
+      "label": "Data Term",
+      "category": "Data",
+      "hidden": true,
+      "records": 10,
+      "fields": 2,
+      "populated_cells": 20,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Persona",
+      "label": "Persona",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 4,
+      "populated_cells": 24,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataAttribute",
+      "label": "Data Attribute",
+      "category": "Data",
+      "hidden": false,
+      "records": 24,
+      "fields": 1,
+      "populated_cells": 24,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Journey",
+      "label": "Journey",
+      "category": "Business",
+      "hidden": true,
+      "records": 3,
+      "fields": 5,
+      "populated_cells": 15,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Product",
+      "label": "Product",
+      "category": "Business",
+      "hidden": false,
+      "records": 4,
+      "fields": 3,
+      "populated_cells": 12,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataVault",
+      "label": "Data Vault",
+      "category": "Technology",
+      "hidden": false,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Datacenter",
+      "label": "Datacenter",
+      "category": "Technology",
+      "hidden": false,
+      "records": 2,
+      "fields": 8,
+      "populated_cells": 16,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Location",
+      "label": "Location",
+      "category": "Technology",
+      "hidden": true,
+      "records": 3,
+      "fields": 1,
+      "populated_cells": 3,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Role",
+      "label": "Role",
+      "category": "Business",
+      "hidden": false,
+      "records": 8,
+      "fields": 1,
+      "populated_cells": 8,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "NetworkCircuit",
+      "label": "Network Circuit",
+      "category": "Technology",
+      "hidden": false,
+      "records": 4,
+      "fields": 9,
+      "populated_cells": 36,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "SecurityService",
+      "label": "Security Service",
+      "category": "Security",
+      "hidden": false,
+      "records": 5,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "SecurityFunction",
+      "label": "Security Function",
+      "category": "Security",
+      "hidden": true,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Activity",
+      "label": "Activity",
+      "category": "Business",
+      "hidden": false,
+      "records": 10,
+      "fields": 4,
+      "populated_cells": 40,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Mandate",
+      "label": "Mandate",
+      "category": "Business",
+      "hidden": true,
+      "records": 5,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Server",
+      "label": "Server",
+      "category": "Technology",
+      "hidden": false,
+      "records": 12,
+      "fields": 14,
+      "populated_cells": 168,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataExchange",
+      "label": "Data Exchange",
+      "category": "Data",
+      "hidden": false,
+      "records": 6,
+      "fields": 5,
+      "populated_cells": 30,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "PhysicalHost",
+      "label": "Physical Host",
+      "category": "Technology",
+      "hidden": false,
+      "records": 6,
+      "fields": 14,
+      "populated_cells": 84,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Pillar",
+      "label": "Pillar",
+      "category": "Business",
+      "hidden": false,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "NetworkDevice",
+      "label": "Network Device",
+      "category": "Technology",
+      "hidden": false,
+      "records": 6,
+      "fields": 12,
+      "populated_cells": 72,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "JourneyImprovement",
+      "label": "Journey Improvement",
+      "category": "Business",
+      "hidden": true,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "KPI",
+      "label": "KPI",
+      "category": "Business",
+      "hidden": false,
+      "records": 8,
+      "fields": 13,
+      "populated_cells": 96,
+      "intentional_blanks": "metricKey on manual service KPIs"
+    },
+    {
+      "type": "Phase",
+      "label": "Phase",
+      "category": "Business",
+      "hidden": false,
+      "records": 6,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Storage",
+      "label": "Storage",
+      "category": "Technology",
+      "hidden": false,
+      "records": 4,
+      "fields": 10,
+      "populated_cells": 40,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "DataDictionary",
+      "label": "Data Dictionary",
+      "category": "Data",
+      "hidden": true,
+      "records": 4,
+      "fields": 1,
+      "populated_cells": 4,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ContainerizationEngine",
+      "label": "Containerization Engine",
+      "category": "Technology",
+      "hidden": false,
+      "records": 3,
+      "fields": 9,
+      "populated_cells": 27,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Channel",
+      "label": "Channel",
+      "category": "Beneficiary Experience",
+      "hidden": false,
+      "records": 6,
+      "fields": 2,
+      "populated_cells": 12,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "Step",
+      "label": "Step",
+      "category": "Business",
+      "hidden": false,
+      "records": 12,
+      "fields": 5,
+      "populated_cells": 60,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "InfrastructureService",
+      "label": "Infrastructure Service",
+      "category": "Technology",
+      "hidden": false,
+      "records": 5,
+      "fields": 8,
+      "populated_cells": 40,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "SecurityControl",
+      "label": "Security Control",
+      "category": "Security",
+      "hidden": false,
+      "records": 12,
+      "fields": 4,
+      "populated_cells": 48,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "InfrastructureManagementTool",
+      "label": "Infrastructure Management Tool",
+      "category": "Technology",
+      "hidden": false,
+      "records": 5,
+      "fields": 8,
+      "populated_cells": 40,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "PeripheralDevice",
+      "label": "Peripheral Device",
+      "category": "Technology",
+      "hidden": false,
+      "records": 4,
+      "fields": 10,
+      "populated_cells": 40,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "License",
+      "label": "License",
+      "category": "Technology",
+      "hidden": false,
+      "records": 6,
+      "fields": 7,
+      "populated_cells": 42,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ApplicationModule",
+      "label": "Application Module",
+      "category": "Application",
+      "hidden": false,
+      "records": 8,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "ApplicationFunction",
+      "label": "Application Function",
+      "category": "Application",
+      "hidden": false,
+      "records": 10,
+      "fields": 0,
+      "populated_cells": 0,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "SecurityHardware",
+      "label": "Security Hardware",
+      "category": "Security",
+      "hidden": false,
+      "records": 4,
+      "fields": 5,
+      "populated_cells": 20,
+      "intentional_blanks": ""
+    },
+    {
+      "type": "SecuritySoftware",
+      "label": "Security Software",
+      "category": "Security",
+      "hidden": false,
+      "records": 5,
+      "fields": 3,
+      "populated_cells": 15,
+      "intentional_blanks": ""
+    }
+  ]
+}

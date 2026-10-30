@@ -1,0 +1,10 @@
+{
+  "CSTD-full-import.zip": "b58ec32fff14323d0d3bc36b3bbb1281985c830712b7bb0e8985bdc8c4c21056",
+  "CSTD-full-organization.xlsx": "27fef777e3d00ee18f5f432a5bc813bf53882eca8b80ce54b0e60765c8a8750f",
+  "CSTD-blank-collection-template.xlsx": "031772bc25a0ccab9ceb41f735590eabcebd59318cdc72c45bda2a49f896d40a",
+  "prepare_import.py": "1abbe10c95f670e5df6193698d6d1fc977b9fbcfddb79d4b5ff9f97a117174ba",
+  "collection-schema.json": "88c9fbf7f5b29a722ff519bfbba0eb31f9689a3016b404227925f1c3dd852dbf",
+  "README.md": "626b2be9f5b5aa685b6b16ac7e936a080250c097db8a18b3194f7845db1cdc52",
+  "coverage.json": "f0e5a71b45c4ee96e4854f6983e0ab5b34ca5099501f67a1a18679e304f83faa",
+  "import-validation.json": "3ca4193c8ece07074e5b19f05a3c6beb131c5d095c513cf28f45b9e7d64e063c"
+}
