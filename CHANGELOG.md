@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.43.1] - 2026-10-31
+
+### Fixed
+- Render imported card descriptions safely, keep long card titles readable, correct NORA landscape totals and filtering, and distinguish unavailable trend percentages from zero change.
+
 ## [2.180.2] - 2026-10-28
 
 ### Changed

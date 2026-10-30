@@ -1,5 +1,7 @@
 # Painel Principal
 
+As tendências mostram um travessão quando não é possível calcular a percentagem, incluindo uma base zero. A variação absoluta continua visível. O panorama NORA conta os cartões atuais, de transição e de destino; um clique filtra o inventário pelos cartões atuais. Nomes e aliases longos quebram de linha. As descrições HTML importadas mantêm formatação e ligações sanitizadas; o texto simples mantém as quebras de linha.
+
 O Painel Principal é a primeira tela que você vê após fazer login. Ele fornece uma **visão geral rápida** de todo o status da arquitetura empresarial.
 
 ![Painel Principal - Visão Superior](../assets/img/pt/01_painel.png)

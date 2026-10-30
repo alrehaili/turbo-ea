@@ -1,5 +1,7 @@
 # Dashboard
 
+Trendprozente zeigen einen Gedankenstrich, wenn keine Prozentänderung berechnet werden kann, auch bei einer Nullbasis. Absolute Änderungen bleiben sichtbar. Die NORA-Landschaft zählt aktuelle, Übergangs- und Zielkarten; ein Klick filtert das Inventar nach aktuellen Karten. Lange Kartennamen und Aliasse werden umgebrochen. Importierte HTML-Beschreibungen behalten bereinigte Formatierung und Links; Klartext behält Zeilenumbrüche.
+
 Das Dashboard ist der erste Bildschirm, den Sie nach der Anmeldung sehen. Es bietet einen **schnellen Überblick** über den gesamten Status der Unternehmensarchitektur.
 
 ![Dashboard - Obere Ansicht](../assets/img/de/01_dashboard.png)

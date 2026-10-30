@@ -1,5 +1,7 @@
 # Panel de Control
 
+Las tendencias muestran un guion cuando no se puede calcular el porcentaje, incluida una base de cero. El cambio absoluto sigue visible. El panorama NORA cuenta las tarjetas actuales, de transición y objetivo; al pulsarlo, el inventario se filtra por tarjetas actuales. Los nombres y alias largos se ajustan a varias líneas. Las descripciones HTML importadas conservan el formato y los enlaces saneados; el texto plano conserva los saltos de línea.
+
 El Panel de Control es la primera pantalla que ve después de iniciar sesión. Proporciona una **visión rápida** del estado general de toda la arquitectura empresarial.
 
 ![Panel de Control - Vista superior](../assets/img/es/01_panel_de_control.png)

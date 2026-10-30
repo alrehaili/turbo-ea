@@ -230,10 +230,12 @@ async def get_dashboard(
 
     # --- Landscape split by architecture state ------------------------------
     async def _landscape():
+        # Reuse the expression so asyncpg binds the fallback once in both clauses.
+        # Separate coalesce() calls produce distinct parameters and PostgreSQL
+        # rejects the SELECT expression as absent from GROUP BY.
+        state = func.coalesce(Card.architecture_state, "current")
         rows = await db.execute(
-            select(func.coalesce(Card.architecture_state, "current"), func.count())
-            .where(Card.status != "ARCHIVED", *visible)
-            .group_by(func.coalesce(Card.architecture_state, "current"))
+            select(state, func.count()).where(Card.status != "ARCHIVED", *visible).group_by(state)
         )
         return {state: count for state, count in rows.all()}
 

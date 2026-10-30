@@ -101,3 +101,17 @@ describe("DescriptionSection — links in the description", () => {
     expect(screen.getByText(/Runbook:/)).toHaveTextContent("Runbook: https://wiki.example.com/erp.");
   });
 });
+
+it("renders imported HTML descriptions safely with formatting and links", () => {
+  const { container } = render(
+    <DescriptionSection
+      card={{ ...card, description: '<p><strong>Imported description</strong></p><p>See https://example.com</p><img src="x" onerror="alert(1)"><script>alert(1)</script>' } as Card}
+      onSave={async () => {}}
+    />,
+  );
+  expect(screen.getByText("Imported description").tagName).toBe("STRONG");
+  expect(screen.getByRole("link", { name: "https://example.com" })).toHaveAttribute("rel", "noopener noreferrer");
+  expect(container.querySelector("script")).toBeNull();
+  expect(container.querySelector("[onerror]")).toBeNull();
+  expect(container.textContent).not.toContain("<p>");
+});

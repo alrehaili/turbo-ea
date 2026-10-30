@@ -1,5 +1,7 @@
 # Tableau de bord
 
+Les tendances affichent un tiret lorsqu’un pourcentage ne peut pas être calculé, notamment avec une base nulle. La variation absolue reste visible. Le paysage NORA compte les cartes actuelles, de transition et cibles ; un clic filtre l’inventaire sur les cartes actuelles. Les noms et alias longs passent à la ligne. Les descriptions HTML importées conservent une mise en forme et des liens sécurisés ; le texte brut conserve ses sauts de ligne.
+
 Le tableau de bord est le premier écran que vous voyez après la connexion. Il fournit un **aperçu rapide** de l'état global de l'architecture d'entreprise.
 
 ![Tableau de bord - Vue supérieure](../assets/img/fr/01_tableau_de_bord.png)

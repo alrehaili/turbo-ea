@@ -32,10 +32,8 @@ const defaultFormatAbs = (value: number): string => {
 
 /**
  * Small inline delta indicator rendered in the top-right of a Dashboard KPI
- * tile. Always renders a concrete value — "+0.0%" in a muted colour on a
- * fresh install with no baseline, and a coloured up/down arrow whenever any
- * movement has occurred (including small counts like +1 that produce <1 %
- * change on a large base).
+ * tile. An undefined percentage (for example growth from a zero baseline)
+ * is shown as an em dash, never as a measured zero percent change.
  */
 export default function TrendIndicator({
   deltaPct,
@@ -70,7 +68,7 @@ export default function TrendIndicator({
   }
 
   const pctSign = pct >= 0 ? "+" : "";
-  const pctLabel = `${pctSign}${pct.toFixed(1)}%`;
+  const pctLabel = deltaPct === null ? "—" : `${pctSign}${pct.toFixed(1)}%`;
 
   return (
     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>

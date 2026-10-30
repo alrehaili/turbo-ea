@@ -569,7 +569,7 @@ export default function NoraProgramPage() {
                     {dash.landscape.target} F)
                   </>
                 }
-                onClick={() => handleTileClick("/inventory")}
+                onClick={() => handleTileClick("/inventory?architecture_state=current")}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>

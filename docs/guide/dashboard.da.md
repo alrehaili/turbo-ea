@@ -1,5 +1,7 @@
 # Dashboard
 
+Procentvise tendenser viser en tankestreg, når procentændringen ikke kan beregnes, også ved et nulgrundlag. Den absolutte ændring vises stadig. NORA-landskabet tæller aktuelle kort, overgangskort og målkort; et klik filtrerer inventaret til aktuelle kort. Lange kortnavne og aliaser ombrydes. Importerede HTML-beskrivelser bevarer renset formatering og links; almindelig tekst bevarer linjeskift.
+
 Dashboardet er den første skærm, du ser efter login. Det giver et **hurtigt overblik** over hele enterprise-arkitekturstatussen.
 
 ![Dashboard - topvisning](../assets/img/da/01_dashboard.png)

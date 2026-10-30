@@ -598,7 +598,7 @@ export default function CardDetail() {
             </Box>
           </Tooltip>
         )}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 0, flexBasis: { xs: "70%", sm: "60%", md: 0 } }}>
           {editingName ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
@@ -660,7 +660,7 @@ export default function CardDetail() {
                 "&:hover .edit-name-btn": { opacity: 1 },
               }}
             >
-              <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
+              <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 {card.name}
               </Typography>
               {perms.can_edit && !isArchived && (
@@ -690,7 +690,7 @@ export default function CardDetail() {
               <Typography
                 variant="body2"
                 color="text.secondary"
-                noWrap
+                sx={{ overflowWrap: "anywhere" }}
                 data-testid="card-alias"
               >
                 {card.alias}
@@ -785,7 +785,7 @@ export default function CardDetail() {
           </Box>
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, flexWrap: "wrap", justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
           {/* WP100.1 — Pillar cards deep-link to the Strategy Cascade */}
           {card.type === "Pillar" && (
             <Chip

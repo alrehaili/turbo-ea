@@ -475,3 +475,19 @@ class TestAdrCommitteeFields:
         assert body["committee"] == "EA Governance Committee"
         assert body["meeting_date"] == "2026-07-01"
         assert body["stage_no"] == 7
+
+
+class TestNoraDashboardLandscape:
+    async def test_counts_architecture_states_and_excludes_archived(self, client, db, program_env):
+        await create_card_type(db, key="LandscapeTest", label="Landscape Test")
+        for state in ("current", "current", "transition", "target"):
+            card = await create_card(db, card_type="LandscapeTest", name=state)
+            card.architecture_state = state
+        archived = await create_card(db, card_type="LandscapeTest", name="Archived")
+        archived.status = "ARCHIVED"
+        await db.flush()
+        resp = await client.get(
+            "/api/v1/nora-program/dashboard", headers=auth_headers(program_env["admin"])
+        )
+        assert resp.status_code == 200
+        assert resp.json()["landscape"] == {"current": 2, "transition": 1, "target": 1}

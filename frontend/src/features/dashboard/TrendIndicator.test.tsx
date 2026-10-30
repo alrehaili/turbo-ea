@@ -23,10 +23,10 @@ const renderWith = (props: Parameters<typeof TrendIndicator>[0]) =>
   );
 
 describe("TrendIndicator", () => {
-  it("renders a muted +0.0% baseline when deltas are null", () => {
+  it("renders an unavailable percentage when deltas are null", () => {
     renderWith({ deltaPct: null, deltaAbs: null, goodDirection: "up" });
     expect(screen.getByText("trending_flat")).toBeInTheDocument();
-    expect(screen.getByText("+0.0%")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
     const color = screen.getByText("trending_flat").style.color;
     expect(color).not.toBe(hexToRgb(theme.palette.success.main));
     expect(color).not.toBe(hexToRgb(theme.palette.error.main));
@@ -112,4 +112,12 @@ describe("TrendIndicator", () => {
     expect(screen.queryByText(/vs last/i)).toBeNull();
     expect(screen.queryByText(/collecting/i)).toBeNull();
   });
+});
+
+it("does not claim zero percent growth from a zero baseline", () => {
+  renderWith({ deltaPct: null, deltaAbs: 385, goodDirection: "up" });
+  expect(screen.getByText("—")).toBeInTheDocument();
+  expect(screen.getByText("(+385)")).toBeInTheDocument();
+  expect(screen.queryByText("+0.0%")).toBeNull();
+  expect(screen.getByText("trending_up")).toBeInTheDocument();
 });

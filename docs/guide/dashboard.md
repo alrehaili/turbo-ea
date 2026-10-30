@@ -34,6 +34,10 @@ Clicking on a type card navigates to the [Inventory](inventory.md) pre-filtered 
 
 ![Dashboard - Bottom View with Charts](../assets/img/en/02_dashboard_bottom.png)
 
+Trend percentages display an em dash when no percentage can be calculated (including a zero baseline); any available absolute change is still shown. The NORA Landscape tile counts current, transition and target cards; clicking it opens the inventory filtered to current cards.
+
+Card detail pages wrap long names and aliases. Imported HTML descriptions retain sanitized formatting and links; plain text descriptions retain line breaks.
+
 ## Charts and Statistics
 
 In the bottom section of the Dashboard you will find:

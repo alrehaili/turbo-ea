@@ -1,5 +1,7 @@
 # Dashboard
 
+Le tendenze mostrano un trattino quando la percentuale non è calcolabile, anche con una base pari a zero. La variazione assoluta resta visibile. Il panorama NORA conta le schede attuali, di transizione e obiettivo; un clic filtra l’inventario sulle schede attuali. Nomi e alias lunghi vanno a capo. Le descrizioni HTML importate mantengono formattazione e collegamenti sanitizzati; il testo semplice mantiene le interruzioni di riga.
+
 La Dashboard è la prima schermata visualizzata dopo il login. Fornisce una **panoramica rapida** dell'intero stato dell'enterprise architecture.
 
 ![Dashboard - Vista superiore](../assets/img/it/01_dashboard.png)
