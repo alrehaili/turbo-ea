@@ -881,6 +881,44 @@ async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
     async with async_session() as db:
         await ensure_framework_profile(db)
 
+    # Explicit operator bootstrap for production installs with public signup disabled.
+    # Runs under the startup lock; never promotes or resets an existing account.
+    if settings.BOOTSTRAP_ADMIN_EMAIL or settings.BOOTSTRAP_ADMIN_PASSWORD:
+        from app.core.security import hash_password
+        from app.models.user import User
+        from app.schemas.auth import RegisterRequest
+
+        async with async_session() as db:
+            admin_id = await db.scalar(_sel(User.id).where(User.role == "admin").limit(1))
+            if admin_id is None:
+                try:
+                    credentials = RegisterRequest(
+                        email=settings.BOOTSTRAP_ADMIN_EMAIL.strip().lower(),
+                        display_name="Administrator",
+                        password=settings.BOOTSTRAP_ADMIN_PASSWORD,
+                    )
+                except ValueError:
+                    raise RuntimeError(
+                        "Set a valid TURBO_EA_BOOTSTRAP_ADMIN_EMAIL and "
+                        "TURBO_EA_BOOTSTRAP_ADMIN_PASSWORD (at least 10 characters, "
+                        "including an uppercase letter and a digit)."
+                    ) from None
+                existing_id = await db.scalar(_sel(User.id).where(User.email == credentials.email))
+                if existing_id is not None:
+                    raise RuntimeError("Bootstrap email already belongs to an existing account.")
+                db.add(
+                    User(
+                        email=credentials.email,
+                        display_name=credentials.display_name,
+                        password_hash=hash_password(credentials.password),
+                        role="admin",
+                        auth_provider="local",
+                        is_active=True,
+                    )
+                )
+                await db.commit()
+                logger.info("[startup] Created configured bootstrap administrator")
+
     # Seed the NORA demo landscape ([FORK]): SEED_NORA=true.
     # RESET_NORA_DEMO=true clears the previously seeded rows first so the
     # enriched dataset can replace an already-seeded install (the marker check

@@ -127,6 +127,8 @@ class Settings:
     RESET_NORA_DEMO: bool = os.getenv("RESET_NORA_DEMO", "").lower() in ("1", "true", "yes")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
+    BOOTSTRAP_ADMIN_EMAIL: str = os.getenv("TURBO_EA_BOOTSTRAP_ADMIN_EMAIL", "")
+    BOOTSTRAP_ADMIN_PASSWORD: str = os.getenv("TURBO_EA_BOOTSTRAP_ADMIN_PASSWORD", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
     # Lifetime of an SSO-gated web-portal visitor session (account-less). Kept
