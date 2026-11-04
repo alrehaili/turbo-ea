@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -27,7 +27,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import ClickableCardName from "@/components/ClickableCardName";
-import OptionChip from "@/components/OptionChip";
+import { OptionChip } from "@/components/OptionChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -35,12 +35,20 @@ import { useOptionLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolv
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { api } from "@/api/client";
+import { sectionAnchor } from "@/features/cards/dataQualityJump";
 import type { Card, FieldOption, HierarchyData, HierarchyNode, SubtypeDef } from "@/types";
 import { bucketBySubtype, shouldGroupBySubtype } from "./cardDetailUtils";
 import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
+import { HEATMAP_RAMP } from "@/theme/tokens";
 
 // ── Section: Hierarchy ───────────────────────────────────────────
-const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
+const LEVEL_COLORS = [
+  HEATMAP_RAMP.light[8],
+  HEATMAP_RAMP.light[4],
+  HEATMAP_RAMP.light[2],
+  HEATMAP_RAMP.light[1],
+  HEATMAP_RAMP.light[0],
+];
 
 /**
  * The link type on one parent→child edge (discussion #1100).
@@ -206,7 +214,6 @@ function HierarchySection({
   initialExpanded?: boolean;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
-  const navigate = useNavigate();
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const subtypeLabel = useSubtypeLabel();
@@ -421,7 +428,7 @@ function HierarchySection({
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <ClickableCardName
           name={child.name}
-          onClick={() => navigate(`/cards/${child.id}`)}
+          to={`/cards/${child.id}`}
           icon={typeConfig?.icon || "category"}
           iconColor={typeConfig?.color}
         />
@@ -437,7 +444,12 @@ function HierarchySection({
   );
 
   return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
+    <Accordion
+      id={sectionAnchor("hierarchy")}
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
+      disableGutters
+    >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="account_tree" size={20} />
@@ -446,7 +458,7 @@ function HierarchySection({
             <Chip
               size="small"
               label={t("hierarchy.level", { level })}
-              sx={{ ml: 1, height: 20, fontSize: "0.7rem", bgcolor: levelColor, color: "#fff" }}
+              sx={{ ml: 1, height: 20, fontSize: "0.7rem", bgcolor: levelColor, color: "common.white" }}
             />
           )}
         </Box>
@@ -489,7 +501,9 @@ function HierarchySection({
                         <Chip
                           size="small"
                           label={ancestor.name}
-                          onClick={() => navigate(`/cards/${ancestor.id}`)}
+                          component={RouterLink}
+                          to={`/cards/${ancestor.id}`}
+                          clickable
                           sx={{ cursor: "pointer", borderColor: aColor, color: aColor, fontWeight: 500 }}
                           variant="outlined"
                         />
@@ -500,7 +514,7 @@ function HierarchySection({
                   <Chip
                     size="small"
                     label={card.name}
-                    sx={{ bgcolor: levelColor, color: "#fff", fontWeight: 600 }}
+                    sx={{ bgcolor: levelColor, color: "common.white", fontWeight: 600 }}
                   />
                 </Box>
               </Box>
@@ -518,7 +532,9 @@ function HierarchySection({
                   <Chip
                     size="small"
                     label={hierarchy.ancestors[hierarchy.ancestors.length - 1].name}
-                    onClick={() => navigate(`/cards/${hierarchy.ancestors[hierarchy.ancestors.length - 1].id}`)}
+                    component={RouterLink}
+                    to={`/cards/${hierarchy.ancestors[hierarchy.ancestors.length - 1].id}`}
+                    clickable
                     sx={{ cursor: "pointer" }}
                     icon={<MaterialSymbol icon={typeConfig?.icon || "category"} size={16} />}
                   />

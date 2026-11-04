@@ -5,6 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -27,6 +28,7 @@ export default function PrinciplesPanel() {
 
 function ReadOnlyPrinciples() {
   const { t } = useTranslation("grc");
+  const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [principles, setPrinciples] = useState<EAPrinciple[]>([]);
 
@@ -66,7 +68,7 @@ function ReadOnlyPrinciples() {
           borderRadius: 2,
         }}
       >
-        <MaterialSymbol icon="bookmark_star" size={40} color="#bbb" />
+        <MaterialSymbol icon="bookmark_star" size={40} color={theme.palette.action.disabled} />
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           {t("governance.principles.empty")}
         </Typography>

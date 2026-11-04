@@ -47,6 +47,8 @@ The four MUI status hues. Wired into `palette.success/warning/error/info`, so `<
 | `STATUS_COLORS.info` | `#2196f3` | Informational, neutral feedback |
 | `STATUS_COLORS.neutral` | `#9e9e9e` | Draft, not set, archived |
 
+`WARNING_STRONG_COLOR` (`#ed6c02`, orange 800 — MUI's *default* `warning.main`, not wired into the app theme) is the warning drawn as a small icon or dot: a pending signature, an invited user, an at-risk project, a medium TurboLens finding. `STATUS_COLORS.warning` is too faint on white for a glyph (2.2:1); `RAG_COLORS.amber` (`#f57c00`) is the status-report amber, a different role.
+
 ### 2.3 Approval Status
 
 | Token | Hex |
@@ -129,6 +131,44 @@ Section spacing is `mb: 2`. Inline element gap is `gap: 1` or `gap: 1.5`.
 
 Default page header is `<Typography variant="h5">`. Use `variant="h6"` for in-card headers, `variant="subtitle2"` for tile labels.
 
+### 2.10 Lifecycle Phases
+
+One palette wherever a phase is drawn as a colour (card Lifecycle section, LDV phase dot, Lifecycle report, inventory phase filter and group-by, web portal lifecycle bar). Darker Material steps so a phase told apart by colour alone clears 3:1 on both papers.
+
+| Token | Hex |
+| --- | --- |
+| `LIFECYCLE_PHASE_COLORS.plan` | `#9e9e9e` |
+| `LIFECYCLE_PHASE_COLORS.phaseIn` | `#1976d2` |
+| `LIFECYCLE_PHASE_COLORS.active` | `#2e7d32` |
+| `LIFECYCLE_PHASE_COLORS.phaseOut` | `#ed6c02` |
+| `LIFECYCLE_PHASE_COLORS.endOfLife` | `#d32f2f` |
+
+### 2.11 Feature Palettes
+
+| Token | Use |
+| --- | --- |
+| `STATUS_CHIP_COLORS.{success,warning,error}` | A soft status chip: `fill` (Material 50) + `text` (800–900) — portal approval and data-quality chips |
+| `ROLE_COLOR_PRESETS` | The twelve swatches the role editor offers; `[0]` is a new role's colour |
+| `FIELD_TYPE_COLORS` | The field-type chip in the card-layout editor; `other` for a type without its own hue |
+| `PPM_GANTT_COLORS.{status}` | PPM Gantt bars per task status: `bar`, `progress`, `barSelected`, `progressSelected` |
+| `HEATMAP_RAMP.{light,dark}` | Ten discrete steps for a grid of counts (Matrix report). Continuous heatmaps use `CHART_SEQUENTIAL` |
+| `SURFACE_SHADOW.sticky` / `.hover` | Hairline under a pinned bar; lift of a clickable card under the pointer |
+| `THIRD_PARTY_BRAND.{microsoft,google,okta}` | The SSO providers' logo colours on the login page's sign-in button. The colour is the brand (data, like `ROLE_COLOR_PRESETS`): never re-tuned, never reused for anything else |
+| `MEDAL_COLORS.{gold,silver,bronze}` | Ranking tiers in TurboLens (gap-analysis product ranks, Dashboard quality tiers): `fill` for the medal (border, bar, icon), `text` for its label. The colours are the convention, like a brand: never re-tuned, never reused for a status |
+| `DELIVERABLE_COLORS.{soaw,adr,diagram}` | The accent per EA Delivery deliverable kind (initiative deliverable sections, New-artefact menu, SoAW header). Role aliases: orange 900, the info blue, the Application type colour |
+
+### 2.12 Role Aliases
+
+A screen whose meaning is not another feature's does not borrow that feature's token, even when the value matches: it takes a **role alias**, a named token that references the source and adds no colour. Each is pinned equal to its source in `tokens.test.ts`.
+
+| Token | Source | Use |
+| --- | --- | --- |
+| `REPORT_ICON_COLORS.{dataQuality,costDriver,privateReport}` | `FIELD_TYPE_COLORS.{percentage,cost,other}` | Report icon accents: the Data Quality report tile, the Cost report's top-cost-driver KPI, a private saved report's lock |
+| `FAVORITE_COLOR` | `DASHBOARD_KPI_COLORS.favorites` | A favourite: the star on a card, an initiative or a diagram, the favourites-only filter, the My Favourites section |
+| `UNSET_VALUE_COLOR` | `BPM_UNSET_COLOR` | "No value" on any colour-by screen: a diagram card with no value, a PPM project with no RAG yet, a Lifecycle bar in no bucket |
+| `SCREEN_INK.{onLightFill,onDark,secondary,muted,rule,ruleDark,paper}` | `PRINT_COLORS.{text,control,inkSecondary,muted,control,subheading,paper}` | Fixed on-screen inks set by the fill, not the theme: text on a light card-type or heat fill (capability map, portfolio, process map, matrix counts), Layered Dependency View lines, labels and arrowheads |
+| `MATRIX_DIAGONAL_COLOR` | `FIELD_TYPE_COLORS.multiple_select` (deep purple 800) | The Matrix report's hovered diagonal, as a wash: `alpha(…, 0.1)` light, `alpha(…, 0.18)` dark |
+
 ---
 
 ## 3. Layout Patterns
@@ -158,7 +198,7 @@ Default page header is `<Typography variant="h5">`. Use `variant="h6"` for in-ca
 | --- | --- |
 | KPI / metric tile | `<MetricCard/>` (already a styled `Paper variant="outlined"`) |
 | Generic surface | `<Card>` (configured to default to `variant="outlined"`) |
-| Drag-and-drop card | `<Paper elevation={1}>` with hover elevation |
+| Drag-and-drop card | `<Paper elevation={1}>` with hover elevation. An **outlined** `<Card>` that becomes movable in an arrange mode (the homepage dashboards' customize mode) keeps its border and takes the `CARD_SHADOW` tokens instead: `soft` at rest (it can be picked up), `lifted` while dragged (it is in hand) |
 
 Do **not** mix `<Paper elevation={…}>` and `<Card>` in the same surface family — pick one.
 
@@ -631,10 +671,11 @@ Every user-visible string must use a translation key. See `CLAUDE.md` for the fu
 ## 7. Adding a New Token
 
 1. Decide the **semantic** name. Status? Severity? Layer? Card type?
-2. Add it to `src/theme/tokens.ts`. Use `as const`.
-3. Add a row to the table in this doc (sec. 2).
-4. If it's a status hue, also wire it into the MUI palette in `src/theme/index.ts`.
-5. Confirm WCAG AA contrast against `#ffffff` and the dark `#1e1e1e` paper.
+2. **Reuse before you add — the palette does not grow.** A value within CIEDE2000 ΔE 5 of an existing token with the same kind of role *is* that token: reference it, or add a role alias (§2.12) when the meaning differs. A new hex value is only for a role nothing in the palette can carry, and two members of one scale or categorical group that must be told apart (severity steps, lifecycle phases, chart series, ramps) stay distinct. Brand marks and medal metals are never merged.
+3. Add it to `src/theme/tokens.ts`. Use `as const`.
+4. Add a row to the table in this doc (sec. 2).
+5. If it's a status hue, also wire it into the MUI palette in `src/theme/index.ts`.
+6. Confirm WCAG AA contrast against `#ffffff` and the dark `#1e1e1e` paper.
 
 ### 3.13 Naming a Relation Type in the UI
 
@@ -721,20 +762,108 @@ A card name that opens the card — card detail's Hierarchy children, Relations 
 Lineage lists — renders through **`ClickableCardName`** (`components/ClickableCardName.tsx`).
 It draws the type icon (or a type-colour dot) as a **sibling** of the name and puts the
 hover underline on the name span alone, so the icon and the gap are never underlined. The
-whole row stays the click target, and navigation is the caller's `onClick`, so the
-component is a MUI-only leaf with no router dependency. Each of the three sections used
+whole row stays the click target. Pass **`to`** (`/cards/<id>`) and the row is a real router
+link — an `<a href>` — so middle-click, Ctrl/Cmd-click and the browser's "Open in new tab"
+work, while a plain left click still navigates in-app; `onClick` is then only a side effect
+(close a drawer) and is skipped on modified clicks (`isModifiedClick`, `lib/modifiedClick.ts`).
+Without `to`, `onClick` is the whole action. Each of the three sections used
 to carry its own wrapper `Box` with `"&:hover": { textDecoration: "underline" }` holding
 icon and name together — that is the drift this exists to end.
 
 ✅ Do
 - Reach for `ClickableCardName` for any new list row whose name opens a card; pass `icon`
   + `iconColor` for a typed row, `dotColor` where the row is a relation.
+- Open a card through a link (`to`, or `Chip component={RouterLink} to=… clickable`), never
+  through `onClick={() => navigate(…)}` alone: a `div` with a click handler cannot be
+  middle-clicked or opened in a new tab (#1335). A link's side effect skips modified clicks.
 
 ❌ Don't
 - Don't put a hover underline on a flex wrapper that also holds an icon or a chip.
+- Don't nest a link inside a link, or a button inside one: an `<a>` may not hold another
+  `<a>`, and a chip inside a row link is a second control a keyboard user cannot tell from
+  the row. Where a row also opens other cards (the sub-items drawer's `via` chips), the name
+  is one link and each chip is its own link beside it (`Chip component={RouterLink}`), on a
+  plain `ListItem` rather than a whole-row button.
 - Don't swap it for a whole-row `ListItemButton` to "fix" the underline: the background wash
-  is for rows that are entirely the control (search results, the sub-items drawer), not for
-  a row that also carries an unlink button and a link-type chip.
+  is for rows that are entirely the control (search results), not for a row that also
+  carries an unlink button, a link-type chip or links of its own.
+
+### 3.16 Motion
+
+Motion is feedback, never decoration, and nothing may depend on it to be understood. The
+reference implementation is TurboRPG mode, gamified data quality
+(`features/cards/gamification/`), which an administrator turns on in Settings → General →
+Modules. The data quality ring (`DataQualityPill`) and the sticky score bar's figure — a
+small outlined chip-button with a trailing chevron, tooltip **Raise score** — open one
+breakdown; the docked side panel and its small-screen drawer
+(`DataQualityBreakdownHost`) both show the one `DataQualityBreakdownContent` over
+`useDataQualityBreakdown`; never fork a second copy.
+
+A breakdown row jumps to where its slot is filled and asks that section to **open for
+editing** (`CardDetailContent`'s `editOn(anchor)`, the Stakeholders tab's `addOn`): one
+request object per jump, carrying its nonce and what to edit (`fieldKey`, `tagGroupId`,
+`relation`). A section acts on it through `useEditRequest(request, canAct, act)`
+(`hooks/useEditRequest.ts`): once per request, never again after a remount (a Card-tab
+section remounts when the user returns to the tab), and **deferred until `canAct`** — the
+user's edit rights plus whatever loads after mount (the tag groups, the relation list and
+types). A field is focused through its edit wrapper's `data-field-key`
+(`focusFieldControl`). No request, or no edit rights, leaves the jump an expand-and-scroll.
+
+- **Durations** (Material 3 range): 100–200 ms for state changes (a pop is 300 ms with its
+  overshoot, the impact flash 180 ms), **500 ms** for fills (`FILL_MS`), **650 ms** for a
+  flight (`FLIGHT_MS`), and at most **1.2 s** for a celebration (`CONFETTI_MS`). The
+  constants live in `gamification/scoreGain.ts`; reuse them.
+- **Easing tokens**: `EASE_DECELERATE` (`cubic-bezier(0, 0, 0, 1)`) for fills and anything
+  that arrives; `EASE_OVERSHOOT` (`cubic-bezier(0.34, 1.56, 0.64, 1)`) for a pop only —
+  never on a bar or a number, which must land exactly on the value.
+- **Animate `transform` and `opacity` only.** A bar grows with `transform: scaleX(...)` from
+  its start edge, a ring pulses with `scale` + `opacity`; never `width`, `height`, `top`,
+  `left` or `box-shadow`, which relayout or repaint every frame.
+- **Glow rule**: a glow is a **static** `box-shadow` on its own element whose `opacity` is
+  what animates (`dq-impact-glow`) — the shadow is painted once and the fade stays on the
+  compositor. Never animate the shadow itself.
+- **Flights** (something travelling from where the user acted to where the value lives, as
+  `GainFlight` carries a gain from the saved section to the score): portal a
+  `position: fixed`, `pointer-events: none` element into `document.body`, measure both ends
+  once on mount with `getBoundingClientRect()`, and move it with the **Web Animations API**
+  (`el.animate(keyframes, { duration, easing, fill: "forwards" })`) along a quadratic arc
+  sampled into keyframes (`flightKeyframes`), `transform` + `opacity` only. Keep the duration
+  **fixed** (`FLIGHT_MS`) — the arc and the distance scale, the timing does not — and let the
+  landing (`onfinish`) be the moment the destination reacts, so the effect reads as cause
+  and impact. Guard for a missing `Element.prototype.animate` with a timer of the same
+  length, and skip the flight (react at once) when either end is missing or motion is
+  reduced. A destination that is itself in transition must not be measured mid-way: a
+  `Slide`-in bar hands its box over from `onEntered` and takes it back on `onExit`
+  (`StickyScoreBar`'s `onFigureRef`), and the flight waits a short, fixed `TARGET_WAIT_MS`
+  for a box that is not there yet before it gives up. Trailing copies run the same
+  keyframes with a delay and `fill: "both"`.
+- **Keyframes are a CSS string injected once** into a `<style>` element (`DQ_MOTION_CSS` /
+  `injectDqMotionStyles`, the pattern of `TIMELINE_PULSE_KEYFRAMES`), and run through class
+  names (`dq-pop`, `dq-float`, …). To replay a CSS animation without remounting, alternate
+  two identical keyframes (`dq-pop` / `dq-pop-alt`).
+- **Every animation respects `prefers-reduced-motion`**: the keyframes and the classes that
+  play them sit inside `@media (prefers-reduced-motion: no-preference)`, a
+  `@media (prefers-reduced-motion: reduce)` block switches them off, and components read
+  `useReducedMotion()` to render the static fallback (instant values, a static chip, no
+  particles).
+- **Announce, don't only show**: a change that animates is also told once through an
+  `aria-live="polite"` region.
+
+✅ Do
+- Celebrate gains only. A loss caused by the user's own edit may be shown as its toned-down
+  mirror (points leaving: a drain, a count-down, a brief dim, an error-coloured "−X%"),
+  never with a flash, a pop, particles or a caption; a reset or a failed save updates the
+  value without movement.
+- Keep celebrations rare and earned (milestones), behind the admin toggle, and remove their
+  DOM when they finish (`setTimeout` cleared on unmount).
+- Share the moving part between the places that show the same value (`ScoreBar` in the pill
+  and the sticky bar), so they always move the same way.
+
+❌ Don't
+- Don't add a motion library; CSS keyframes and transitions cover it.
+- Don't hardcode colours in keyframes or particles — take them from `@/theme/tokens`
+  (`STATUS_COLORS`, `brand`) or the band colour (`bandColor`).
+- Don't loop an animation or start one the user did not cause.
 
 ---
 

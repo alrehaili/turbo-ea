@@ -5,6 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.44.0] - 2026-11-04
+
+### Added
+- Merged upstream Turbo EA **v2.180.2 → v2.186.6** into the fork.
+- Upstream editable homepage dashboards: administrators can customize the Overview, My Workspace and Admin dashboards, add their own with KPI tiles, ECharts charts and module tiles, and limit each dashboard to chosen roles (migrations 160, 161).
+- The Executive dashboard and the original Overview page (now **Classic overview**) stay on the homepage as fixed tabs beside the configurable dashboards.
+- Upstream data quality guidance: hovering a card's score lists what would raise it most, clicking it opens the full breakdown, and an optional TurboRPG mode animates score gains; a Data quality leaderboard dashboard widget ranks stakeholders by their cards' data quality.
+
+### Changed
+- Upstream charts on the Cost, Data Quality, BPM and PPM reports are drawn with ECharts; colours across the app come from one shared palette.
+- Upstream UI SDK 1.33: extensions draw charts through `loadECharts`; the deprecated `loadRecharts` and `useChartTheme` entries are removed.
+- Upgraded the bundled DrawIO editor to v32.6.9.
+
+### Fixed
+- Upstream fixes: diagram relation groups remember removed and rearranged cards on re-expand, and nested buttons on card section headers are gone.
+
+### Security
+- Upstream hardening: extension licence files are stored encrypted at rest (migration 162; rotating `SECRET_KEY` requires re-entering licences), confirmation dialogs escape the names they quote, and the stakeholder-roles list requires a signed-in user.
+
 ## [2.43.2] - 2026-10-31
 
 ### Fixed

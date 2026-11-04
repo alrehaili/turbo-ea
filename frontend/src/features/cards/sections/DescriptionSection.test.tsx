@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Accordion, AccordionDetails, AccordionSummary } from "@mui/material";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,6 +9,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import "@/i18n";
+import { brand } from "@/theme/tokens";
 import type { Card, FieldDef } from "@/types";
 import DescriptionSection from "./DescriptionSection";
 
@@ -114,4 +117,128 @@ it("renders imported HTML descriptions safely with formatting and links", () => 
   expect(container.querySelector("script")).toBeNull();
   expect(container.querySelector("[onerror]")).toBeNull();
   expect(container.textContent).not.toContain("<p>");
+});
+
+describe("DescriptionSection — data-quality jump", () => {
+  it("carries its jump anchor and opens on a jump request", () => {
+    const { container, rerender } = render(
+      <DescriptionSection card={card} onSave={async () => {}} initialExpanded={false} />,
+    );
+    const root = container.querySelector(".MuiAccordion-root")!;
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(root.id).toBe("card-section-description");
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+
+    rerender(
+      <DescriptionSection card={card} onSave={async () => {}} initialExpanded={false} expandOn={1} />,
+    );
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
+describe("DescriptionSection — a jump opens it in edit mode", () => {
+  const owner: FieldDef = { key: "owner", label: "Owner", type: "text" };
+  const withOwner = { ...card, attributes: { progress: 40, owner: "Ann" } } as unknown as Card;
+  const request = (fieldKey?: string, nonce = 1) => ({
+    anchor: "card-section-description",
+    nonce,
+    fieldKey,
+  });
+
+  it("enters edit mode on a description jump with the description focused", () => {
+    const { rerender } = render(<DescriptionSection card={card} onSave={async () => {}} />);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    rerender(<DescriptionSection card={card} onSave={async () => {}} editOn={request()} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    const textarea = screen.getByRole("textbox", { name: "Description" });
+    expect(textarea.tagName).toBe("TEXTAREA");
+    expect(textarea).toHaveValue("Some text");
+    expect(document.activeElement).toBe(textarea);
+  });
+
+  it("focuses the __description field a field jump names", () => {
+    const { container } = render(
+      <DescriptionSection
+        card={withOwner}
+        onSave={async () => {}}
+        extraFields={[progress, owner]}
+        editOn={request("owner")}
+      />,
+    );
+    const input = container.querySelector('[data-field-key="owner"] input');
+    expect(input).toHaveValue("Ann");
+    expect(document.activeElement).toBe(input);
+    expect(document.activeElement).not.toBe(screen.getByRole("textbox", { name: "Description" }));
+  });
+
+  it("stays read-only on a jump without edit rights", () => {
+    render(
+      <DescriptionSection card={card} onSave={async () => {}} canEdit={false} editOn={request()} />,
+    );
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("acts once per jump: after Cancel the same jump does not reopen it", () => {
+    const jump = request();
+    const { rerender } = render(<DescriptionSection card={card} onSave={async () => {}} editOn={jump} />);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    rerender(<DescriptionSection card={card} onSave={async () => {}} editOn={jump} />);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    rerender(<DescriptionSection card={card} onSave={async () => {}} editOn={request(undefined, 2)} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+});
+
+describe('AccordionSummary component="div" (the card sections rely on it)', () => {
+  function Plain() {
+    const [open, setOpen] = useState(false);
+    return (
+      <Accordion expanded={open} onChange={(_, v) => setOpen(v)}>
+        <AccordionSummary component="div">Header</AccordionSummary>
+        <AccordionDetails>Body</AccordionDetails>
+      </Accordion>
+    );
+  }
+
+  it("renders a focusable div[role=button] that still toggles on click, Enter and Space", () => {
+    const { container } = render(<Plain />);
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary).toHaveAttribute("tabindex", "0");
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.keyDown(summary, { key: "Enter" });
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.keyDown(summary, { key: " " });
+    fireEvent.keyUp(summary, { key: " " });
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+describe("DescriptionSection — the header is not a button inside a button", () => {
+  it("draws the AI-suggest button in the brand colour", () => {
+    render(<DescriptionSection card={card} onSave={async () => {}} onAiSuggest={() => {}} />);
+    expect(screen.getByTestId("ai-suggest-button")).toHaveStyle({ color: brand.primary });
+  });
+
+  it("renders its summary as a div[role=button] around the AI and edit buttons", () => {
+    const { container } = render(
+      <DescriptionSection card={card} onSave={async () => {}} onAiSuggest={() => {}} />,
+    );
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary.querySelectorAll("button")).toHaveLength(2);
+    expect(container.querySelectorAll("button button")).toHaveLength(0);
+
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+  });
 });

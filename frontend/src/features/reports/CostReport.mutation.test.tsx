@@ -2,18 +2,18 @@
  * Cost report behaviour the coverage-oriented suites ran but never checked
  * (CostReport.test.tsx covers scope + fiscal year, CostReport.branches.test.tsx
  * the branches): the exact print parameters, how a saved configuration is
- * restored and persisted, out-of-order answers, how each treemap cell is drawn
- * at its size, the table's per-group ordering and shares, and which toolbar
+ * restored and persisted, out-of-order answers, how each treemap tile is drawn
+ * and labelled, the table's per-group ordering and shares, and which toolbar
  * controls appear when.
  *
- * Recharts lays out nothing in jsdom, so `Treemap` is a stub that hands each
- * datum to the page's own `content` renderer at a size the test chooses (by
- * card name), and renders the tooltip once per datum plus the two inert cases.
+ * jsdom has no canvas, so the chart wrapper is the shared `echartMock`: the
+ * tests read the treemap option the page built (tiles, colours, labels,
+ * cursor, tooltip, height) and deliver a tile click the way ECharts would.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { cloneElement, createRef, type ReactElement } from "react";
+import { createRef } from "react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -63,55 +63,10 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
     props.open ? <div data-testid="side-panel">{props.cardId}</div> : null,
 }));
 
-/** Cell sizes by card name; anything unlisted is drawn large (300×100). */
-const chart = vi.hoisted(() => ({ sizes: {} as Record<string, [number, number]> }));
-
-vi.mock("recharts", async () => {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const { createContext, useContext } = await vi.importActual<typeof import("react")>("react");
-  const Data = createContext<any[]>([]);
-  return {
-    ResponsiveContainer: ({ children, height }: any) => (
-      <div data-testid="chart-container" data-height={String(height)}>
-        {children}
-      </div>
-    ),
-    Treemap: ({ data, content, children }: any) => (
-      <div data-testid="treemap">
-        <svg>
-          {data.map((d: any, i: number) => {
-            const [width, height] = chart.sizes[d.name] ?? [300, 100];
-            return (
-              <g key={i} data-cell={d.name}>
-                {cloneElement(content as ReactElement<any>, { ...d, x: 10, y: 10, width, height })}
-              </g>
-            );
-          })}
-        </svg>
-        <Data.Provider value={data}>{children}</Data.Provider>
-      </div>
-    ),
-    Tooltip: ({ content }: any) => {
-      const data = useContext(Data);
-      return (
-        <div data-testid="treemap-tooltip">
-          {data.map((d: any, i: number) => (
-            <div key={i} data-tip={d.name}>
-              {cloneElement(content, { active: true, payload: [{ payload: d }] })}
-            </div>
-          ))}
-          <div data-tip="inactive">
-            {cloneElement(content, { active: false, payload: [{ payload: data[0] }] })}
-          </div>
-          <div data-tip="nopayload">{cloneElement(content, { active: true })}</div>
-        </div>
-      );
-    },
-  };
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-});
+vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { mockApi } from "@/test/apiMock";
+import { echartState, type CapturedEChart } from "@/test/echartMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeUser, renderWithProviders, userWith } from "@/test/render";
 import {
@@ -125,6 +80,9 @@ import {
   makeSection,
 } from "@/test/fixtures/metamodel";
 import CostReport from "./CostReport";
+import { createTheme } from "@mui/material/styles";
+import { CHART_LABEL_ON_DARK, CHART_LABEL_ON_DARK_MUTED, COST_TREEMAP_COLORS } from "@/theme/tokens";
+import { costTooltipHtml } from "./costTreemapOption";
 
 /* ------------------------------------------------------------------ */
 /*  Fixtures                                                            */
@@ -207,8 +165,55 @@ const lastTreemapParams = () => params(treemapCalls()[treemapCalls().length - 1]
 const toolbar = () => document.querySelector(".report-toolbar") as HTMLElement;
 const metricValue = (label: string) =>
   screen.getByText(label).closest(".MuiPaper-root")!.querySelector("h5")!.textContent;
-const cell = (name: string) => document.querySelector(`[data-cell="${name}"]`) as Element;
-const tip = (name: string) => document.querySelector(`[data-tip="${name}"]`) as HTMLElement;
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- an option tree is plain JSON a test digs into */
+
+/** The charts on screen now: a drill unmounts the root treemap, whose slot `echartState` keeps. */
+function mountedCharts(): CapturedEChart[] {
+  return screen
+    .queryAllByTestId("echart")
+    .map((el) => echartState.props[Number(el.getAttribute("data-echart"))]);
+}
+
+/** A chart's treemap series, and its tiles. */
+const seriesOf = (chart: CapturedEChart): any => chart.option.series[0];
+const tilesOf = (chart: CapturedEChart): any[] => seriesOf(chart).data;
+
+function chartWithTile(name: string): CapturedEChart | undefined {
+  return mountedCharts().find((c) => tilesOf(c).some((d) => d.name === name));
+}
+
+/** The tile named `name` on a chart on screen now, if any. */
+function tile(name: string): any {
+  const chart = chartWithTile(name);
+  return chart && tilesOf(chart).find((d) => d.name === name);
+}
+
+/** Wait for a chart on screen to draw a tile named `name`. */
+function findTile(name: string): Promise<any> {
+  return waitFor(() => {
+    const d = tile(name);
+    expect(d, `a tile named ${name}`).toBeDefined();
+    return d;
+  });
+}
+
+/** Click a tile the way ECharts delivers it: with the tile's own datum. */
+async function clickTile(name: string): Promise<void> {
+  const datum = await findTile(name);
+  const chart = chartWithTile(name)!;
+  act(() => chart.onClick!({ name, data: datum }));
+}
+
+/** The first chart on screen, once there is one. */
+const findChart = async () => (await screen.findAllByTestId("echart"))[0];
+
+/** The root treemap, named after the report. */
+const rootChart = () => echartState.byName("Cost Analysis");
+
+/** What the root treemap's tooltip shows for the tile named `name`. */
+const tipOf = (name: string): string =>
+  rootChart().option.tooltip.formatter({ data: tilesOf(rootChart()).find((d) => d.name === name) });
 const drillNav = () => screen.queryByRole("navigation", { name: /drill-down path/i });
 const crumbTexts = (nav: HTMLElement) =>
   within(nav)
@@ -272,7 +277,7 @@ beforeEach(() => {
   saved.setSaveDialogOpen = vi.fn();
   saved.resetAll = vi.fn();
   saved.persistConfig = vi.fn();
-  chart.sizes = {};
+  echartState.reset();
 
   mockApi.on("get", "/cards*", { items: HIERARCHY, total: HIERARCHY.length });
   mockApi.on("get", "/reports/cost-treemap*", (path: string) => {
@@ -308,13 +313,13 @@ describe("CostReport loading and requests", () => {
     expect(screen.queryByText("Total Cost")).not.toBeInTheDocument();
 
     await act(async () => pending.resolve({ items: ITEMS, total: 700 }));
-    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(await findChart()).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("asks for the default cost field from the very first request", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(treemapCalls().length).toBeGreaterThan(0);
     for (const path of treemapCalls()) expect(params(path).get("cost_field")).toBe("costTotalAnnual");
   });
@@ -322,7 +327,7 @@ describe("CostReport loading and requests", () => {
   it("sends every report request, root and drilled, with an abort signal", async () => {
     saved.config = { costSources: [ITC], drillStack: [ERP_FRAME] };
     renderCost();
-    await screen.findByText("Database", { selector: "text" });
+    await findTile("Database");
     const calls = mockApi.api.get.mock.calls.filter(([p]) =>
       String(p).startsWith("/reports/cost-treemap"),
     );
@@ -339,7 +344,7 @@ describe("CostReport loading and requests", () => {
       params(path).get("cost_field") === "costRun" ? stale.promise : { items: ITEMS, total: 700 },
     );
     renderCost();
-    await screen.findByText("ERP", { selector: "text" });
+    await findTile("ERP");
     await pickOption(/cost field/i, /Run Cost/);
     await waitFor(() => expect(lastTreemapParams().get("cost_field")).toBe("costRun"));
     await pickOption(/cost field/i, /Total Annual Cost/);
@@ -348,7 +353,8 @@ describe("CostReport loading and requests", () => {
 
     await act(async () => stale.resolve({ items: [{ id: "old", name: "Stale", cost: 999 }], total: 999 }));
     expect(screen.queryByText("Stale")).not.toBeInTheDocument();
-    expect(screen.getByText("ERP", { selector: "text" })).toBeInTheDocument();
+    expect(tile("Stale")).toBeUndefined();
+    expect(tile("ERP")).toBeDefined();
   });
 
   it("ignores a drilled answer that lands after the user went back to the root", async () => {
@@ -358,7 +364,7 @@ describe("CostReport loading and requests", () => {
       params(path).get("parent_card_id") ? late.promise : { items: ITEMS, total: 700 },
     );
     renderCost();
-    fireEvent.click(await screen.findByText("ERP", { selector: "text" }));
+    await clickTile("ERP");
     const nav = await screen.findByRole("navigation", { name: /drill-down path/i });
     await waitFor(() => expect(lastTreemapParams().get("parent_card_id")).toBe("erp"));
     fireEvent.click(within(nav).getByRole("button", { name: /All Application/ }));
@@ -369,7 +375,8 @@ describe("CostReport loading and requests", () => {
       late.resolve({ items: [{ id: "db", name: "Database", cost: 40 }], total: 40 }),
     );
     expect(screen.queryByText("Database")).not.toBeInTheDocument();
-    expect(screen.getByText("ERP", { selector: "text" })).toBeInTheDocument();
+    expect(tile("Database")).toBeUndefined();
+    expect(tile("ERP")).toBeDefined();
   });
 });
 
@@ -383,7 +390,7 @@ describe("CostReport fiscal year", () => {
   it("names no year when the answer gives the year without its start month", async () => {
     mockApi.on("get", "/reports/cost-treemap*", { items: ITEMS, total: 700, fiscal_year: 2026 });
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(chip()).toBeNull();
     expect(printParams().map(([l]) => l)).not.toContain("Fiscal year");
   });
@@ -391,7 +398,7 @@ describe("CostReport fiscal year", () => {
   it("names no year when the answer gives the start month without the year", async () => {
     mockApi.on("get", "/reports/cost-treemap*", { items: ITEMS, total: 700, fiscal_year_start: 1 });
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(chip()).toBeNull();
   });
 
@@ -403,8 +410,8 @@ describe("CostReport fiscal year", () => {
         : { items: ITEMS, total: 700, fiscal_year: 2026, fiscal_year_start: 1 },
     );
     renderCost();
-    fireEvent.click(await screen.findByText("ERP", { selector: "text" }));
-    expect(await screen.findByText("Database", { selector: "text" })).toBeInTheDocument();
+    await clickTile("ERP");
+    await findTile("Database");
     expect(chip()).toHaveTextContent("Current fiscal year: FY 2026");
   });
 
@@ -421,7 +428,7 @@ describe("CostReport fiscal year", () => {
         : { items: ITEMS, total: 700, fiscal_year: 2025, fiscal_year_start: 1 },
     );
     renderCost();
-    await screen.findByText("Database", { selector: "text" });
+    await findTile("Database");
     await waitFor(() => expect(chip()).toHaveTextContent("Current fiscal year: FY 2027"));
   });
 
@@ -442,7 +449,7 @@ describe("CostReport print parameters", () => {
   it("states only the card type and the fiscal year by default", async () => {
     saved.config = { view: "chart" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() =>
       expect(printParams()).toEqual([
         ["Type", "Application"],
@@ -462,7 +469,7 @@ describe("CostReport print parameters", () => {
     saved.config = { cardTypeKey: "Gone" };
     renderCost();
     await waitFor(() => expect(lastTreemapParams().get("type")).toBe("Gone"));
-    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(await findChart()).toBeInTheDocument();
     await waitFor(() => expect(printParams()[0]).toEqual(["Type", "Gone"]));
     for (const path of treemapCalls()) expect(params(path).get("cost_field")).not.toBe("undefined");
   });
@@ -487,7 +494,7 @@ describe("CostReport print parameters", () => {
   it("states the chosen cost field when the type has several", async () => {
     withMetamodel([APP_TWO_COSTS, IT_COMPONENT_TYPE, CONTRACT_TYPE], RELATIONS);
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() =>
       expect(printParams()).toEqual([
         ["Type", "Application"],
@@ -503,7 +510,7 @@ describe("CostReport print parameters", () => {
     withMetamodel([APP_TWO_COSTS, IT_COMPONENT_TYPE, CONTRACT_TYPE], RELATIONS);
     saved.config = { costSources: [ITC, "Contract:contractValue"] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() =>
       expect(printParams()).toEqual([
         ["Type", "Application"],
@@ -546,7 +553,7 @@ describe("CostReport print parameters", () => {
   it("states the scope", async () => {
     saved.config = { scopeIds: ["crm"] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(printParams()).toContainEqual(["Scope", "1 card"]));
   });
 });
@@ -603,9 +610,11 @@ describe("CostReport drill-down", () => {
       ],
     };
     renderCost();
-    expect(await screen.findByText("Database", { selector: "text" })).toBeInTheDocument();
+    await findTile("Database");
     expect(treemapCalls().filter((p) => p.includes("parent_card_id"))).toHaveLength(1);
-    expect(screen.getAllByTestId("treemap")).toHaveLength(1);
+    expect(screen.getAllByTestId("echart")).toHaveLength(1);
+    // A drilled panel is named after its source; an unlabelled one after "<type> · <field>".
+    expect(screen.getByRole("img", { name: "ITComponent · licenseCost" })).toBeInTheDocument();
   });
 
   it("shows the current level as text and pops back to a middle crumb", async () => {
@@ -652,7 +661,7 @@ describe("CostReport drill-down", () => {
   it("drops the scope while drilled and brings it back at the root", async () => {
     saved.config = { scopeIds: ["crm"], costSources: [ITC], drillStack: [ERP_FRAME] };
     renderCost();
-    await screen.findByText("Database", { selector: "text" });
+    await findTile("Database");
     expect(printParams().map(([l]) => l)).not.toContain("Scope");
     expect(mockApi.callsOf("get", "/cards*")).toHaveLength(0);
 
@@ -670,11 +679,14 @@ describe("CostReport drill-down", () => {
       total: 550,
     });
     renderCost();
-    await screen.findByText("Unlinked", { selector: "text" });
-    expect((cell("ERP").firstElementChild as SVGElement).style.cursor).toBe("pointer");
-    expect((cell("Unlinked").firstElementChild as SVGElement).style.cursor).toBe("");
+    await findTile("Unlinked");
+    // ECharts sets the cursor per series, not per tile: the pointer stands
+    // over every tile once the treemap drills, an id-less one included.
+    expect(seriesOf(rootChart()).cursor).toBe("pointer");
+    expect(tile("ERP").id).toBe("erp");
+    expect(tile("Unlinked").id).toBeUndefined();
 
-    fireEvent.click(screen.getByText("Unlinked", { selector: "text" }));
+    await clickTile("Unlinked");
     expect(drillNav()).not.toBeInTheDocument();
     expect(treemapCalls().some((p) => p.includes("parent_card_id"))).toBe(false);
     expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
@@ -682,8 +694,26 @@ describe("CostReport drill-down", () => {
 
   it("draws no click affordance when there is nothing to drill into", async () => {
     renderCost();
-    await screen.findByText("ERP", { selector: "text" });
-    expect((cell("ERP").firstElementChild as SVGElement).style.cursor).toBe("");
+    await findTile("ERP");
+    expect(seriesOf(rootChart()).cursor).toBe("default");
+  });
+
+  it("drills on a tile click that carries no name, under an empty crumb", async () => {
+    saved.config = { costSources: [ITC] };
+    renderCost();
+    await findTile("ERP");
+    act(() => rootChart().onClick!({ data: { id: "erp" } }));
+    await waitFor(() => expect(lastTreemapParams().get("parent_card_id")).toBe("erp"));
+    expect(crumbTexts(drillNav()!)).toEqual(["All Application", ""]);
+  });
+
+  it("ignores a click that hands back no datum", async () => {
+    saved.config = { costSources: [ITC] };
+    renderCost();
+    await findTile("ERP");
+    act(() => rootChart().onClick!({ name: "ERP" }));
+    expect(drillNav()).not.toBeInTheDocument();
+    expect(treemapCalls().some((p) => p.includes("parent_card_id"))).toBe(false);
   });
 });
 
@@ -692,94 +722,157 @@ describe("CostReport drill-down", () => {
 /* ------------------------------------------------------------------ */
 
 describe("CostReport treemap cells", () => {
-  // [name, cost, size] — costs fix the order, so each cell's palette index too.
-  const SIZED: [string, number, [number, number]][] = [
-    ["Big", 1100, [300, 100]],
-    ["W4", 1000, [4, 100]],
-    ["W3", 900, [3, 100]],
-    ["H4", 800, [100, 4]],
-    ["H3", 700, [100, 3]],
-    ["L51", 600, [51, 31]],
-    ["L50", 500, [50, 100]],
-    ["L30", 400, [100, 30]],
-    ["C71", 300, [71, 46]],
-    ["ABCDEFGHIJ", 200, [70, 100]],
-    ["C45", 100, [100, 45]],
+  // [name, cost] — costs fix the order, so each tile's palette index too;
+  // eleven of them, so the palette wraps once.
+  const SIZED: [string, number][] = [
+    ["Big", 1100],
+    ["W4", 1000],
+    ["W3", 900],
+    ["H4", 800],
+    ["H3", 700],
+    ["L51", 600],
+    ["L50", 500],
+    ["L30", 400],
+    ["C71", 300],
+    ["ABCDEFGHIJ", 200],
+    ["C45", 100],
   ];
 
   beforeEach(() => {
-    chart.sizes = Object.fromEntries(SIZED.map(([n, , s]) => [n, s]));
     mockApi.on("get", "/reports/cost-treemap*", {
       items: SIZED.map(([name, cost]) => ({ id: name.toLowerCase(), name, cost })),
       total: 6600,
     });
   });
 
-  const drawn = (name: string) => cell(name).querySelector("rect") !== null;
-  const texts = (name: string) => Array.from(cell(name).querySelectorAll("text"));
-
-  it("draws, labels and prices each cell according to its size", async () => {
+  it("draws, labels and prices each tile, hiding only the ones too small to see", async () => {
     renderCost();
-    await screen.findByText("Big", { selector: "text" });
+    await findTile("Big");
+    const series = seriesOf(rootChart());
 
-    // Too small in either direction: nothing at all.
-    expect(drawn("W3")).toBe(false);
-    expect(drawn("H3")).toBe(false);
-    expect(drawn("W4")).toBe(true);
-    expect(drawn("H4")).toBe(true);
-    expect(texts("W4")).toHaveLength(0);
-    expect(texts("H4")).toHaveLength(0);
+    // ECharts lays the tiles out and skips any smaller than 4 px²; whether a
+    // name or its cost fits is measured by ECharts and truncated, not decided
+    // by the page's old width/height thresholds.
+    expect(series.visibleMin).toBe(4);
+    expect(series.label.show).toBe(true);
+    expect(series.label.overflow).toBe("truncate");
+    expect(tilesOf(rootChart()).map((d) => [d.name, d.value, d.id])).toEqual(
+      SIZED.map(([name, cost]) => [name, cost, name.toLowerCase()]),
+    );
 
-    // A label needs more than 50 wide and 30 high.
-    expect(texts("L51").map((t) => t.textContent)).toEqual(["L51"]);
-    expect(texts("L50")).toHaveLength(0);
-    expect(texts("L30")).toHaveLength(0);
-
-    // A cost line needs more than 70 wide and 45 high.
-    expect(texts("C71").map((t) => t.textContent)).toEqual(["C71", "$300"]);
-    expect(texts("C45").map((t) => t.textContent)).toEqual(["C45"]);
-    // A name exactly as long as the cell fits is shown whole.
-    expect(texts("ABCDEFGHIJ").map((t) => t.textContent)).toEqual(["ABCDEFGHIJ"]);
+    // Each tile reads its name, then its cost on a second, smaller line.
+    expect(series.label.formatter(tile("C71"))).toBe("C71\n{value|$300}");
+    expect(series.label.formatter(tile("ABCDEFGHIJ"))).toBe("ABCDEFGHIJ\n{value|$200}");
+    expect(series.label).toMatchObject({ color: CHART_LABEL_ON_DARK, fontSize: 11, fontWeight: 600 });
+    expect(series.label.rich.value).toEqual({ color: CHART_LABEL_ON_DARK_MUTED, fontSize: 10, lineHeight: 16 });
   });
 
-  it("places the label and the cost in the cell's top-left corner", async () => {
+  it("places the label and the cost in the tile's top-left corner", async () => {
     renderCost();
-    await screen.findByText("Big", { selector: "text" });
-    const [label, cost] = texts("Big");
-    expect(label).toHaveAttribute("x", "16");
-    expect(label).toHaveAttribute("y", "26");
-    expect(cost).toHaveTextContent("$1100");
-    expect(cost).toHaveAttribute("x", "16");
-    expect(cost).toHaveAttribute("y", "40");
+    await findTile("Big");
+    const { label } = seriesOf(rootChart());
+    expect(label.position).toBe("insideTopLeft");
+    expect(label.align).toBe("left");
+    expect(label.padding).toEqual([6, 6]);
+    expect(label.formatter(tile("Big"))).toBe("Big\n{value|$1100}");
+  });
+
+  it("places them in the top-right corner in a right-to-left locale", async () => {
+    hookState.isRtl = true;
+    renderCost();
+    await findTile("Big");
+    const { label } = seriesOf(rootChart());
+    expect(label.position).toBe("insideTopRight");
+    expect(label.align).toBe("right");
+  });
+
+  it("separates the tiles with a paper-coloured, rounded border and nothing else to click", async () => {
+    renderCost();
+    await findTile("Big");
+    const series = seriesOf(rootChart());
+    expect(series.itemStyle).toEqual({
+      borderColor: createTheme().palette.background.paper,
+      borderWidth: 2,
+      gapWidth: 2,
+      borderRadius: 3,
+    });
+    expect(series).toMatchObject({ type: "treemap", roam: false, nodeClick: false, breadcrumb: { show: false } });
+    expect(rootChart().option.animationDuration).toBe(300);
   });
 
   it("cycles the palette by position", async () => {
     renderCost();
-    await screen.findByText("Big", { selector: "text" });
-    const fill = (name: string) => cell(name).querySelector("rect")!.getAttribute("fill");
-    expect(fill("Big")).toBe("#1565c0");
-    expect(fill("W4")).toBe("#1976d2");
-    expect(fill("C45")).toBe("#1565c0");
+    await findTile("Big");
+    const fill = (name: string) => tile(name).itemStyle.color;
+    expect(fill("Big")).toBe(COST_TREEMAP_COLORS[0]);
+    expect(fill("W4")).toBe(COST_TREEMAP_COLORS[1]);
+    expect(fill("ABCDEFGHIJ")).toBe(COST_TREEMAP_COLORS[9]);
+    // The eleventh tile wraps back to the first blue.
+    expect(fill("C45")).toBe(COST_TREEMAP_COLORS[0]);
+    expect(tilesOf(rootChart()).map((d) => d.itemStyle.color)).toEqual(
+      SIZED.map((_, i) => COST_TREEMAP_COLORS[i % 10]),
+    );
   });
 });
 
 describe("CostReport treemap tooltip", () => {
-  it("names the hovered card, its cost and its share, and nothing when inactive", async () => {
+  it("names the hovered card, its cost and its share, and nothing without a datum", async () => {
     renderCost();
-    await screen.findByTestId("treemap-tooltip");
-    expect(tip("ERP")).toHaveTextContent("ERP");
-    expect(tip("ERP")).toHaveTextContent("$500");
+    await findTile("ERP");
     // 500 of 700.
-    expect(tip("ERP")).toHaveTextContent("ERP$50071.4% of total");
-    expect(tip("inactive")).toBeEmptyDOMElement();
-    expect(tip("nopayload")).toBeEmptyDOMElement();
+    expect(tipOf("ERP")).toBe(
+      '<div style="font-weight:700">ERP</div>' +
+        '<div style="font-size:12px">$500</div>' +
+        '<div style="font-size:12px;opacity:.7">71.4% of total</div>',
+    );
+    expect(rootChart().option.tooltip.trigger).toBe("item");
+    expect(rootChart().option.tooltip.formatter({})).toBe("");
+    expect(rootChart().option.tooltip.formatter(undefined)).toBe("");
   });
 
-  it("leaves the share out when the panel totals nothing", async () => {
+  it("draws no tile for a card that costs nothing, but prices one if ECharts hands it over", async () => {
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [{ id: "z", name: "Zero", cost: 0 }, { id: "r", name: "Real", cost: 10 }],
+      total: 10,
+    });
+    renderCost();
+    await findChart();
+    // ECharts cannot lay out a zero area, so the tile is left out of the option.
+    expect(tilesOf(rootChart()).map((d: { name: string }) => d.name)).toEqual(["Real"]);
+    // The tooltip still reads a zero-cost datum, and leaves the share out when
+    // the panel totals nothing.
+    const html = '<div style="font-weight:700">Zero</div><div style="font-size:12px">$0</div>';
+    expect(
+      costTooltipHtml({ name: "Zero", cost: 0 }, { format: (v) => `$${v}`, panelTotal: 0, percentOfTotal: () => "x" }),
+    ).toBe(html);
+  });
+
+  it("shows the empty state, not a blank chart, when every card costs nothing", async () => {
     mockApi.on("get", "/reports/cost-treemap*", { items: [{ id: "z", name: "Zero", cost: 0 }], total: 0 });
     renderCost();
-    await screen.findByTestId("treemap-tooltip");
-    expect(tip("Zero").textContent).toBe("Zero$0");
+    expect(await screen.findByText("No cost data found.")).toBeInTheDocument();
+    expect(mountedCharts()).toEqual([]);
+  });
+
+  it("reads each drilled panel's share against that panel's own total", async () => {
+    saved.config = { costSources: [ITC], drillStack: [ERP_FRAME] };
+    renderCost();
+    const database = await findTile("Database");
+    const panel = echartState.byName("IT Component · License Cost");
+    // 40 of the panel's 50, not of anything summed across panels.
+    expect(panel.option.tooltip.formatter({ data: database })).toContain(">80.0% of total</div>");
+  });
+
+  it("escapes a card name before the tooltip renders it as HTML", async () => {
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [{ id: "x", name: "<b>Bold</b> & co", cost: 10 }],
+      total: 10,
+    });
+    renderCost();
+    await findTile("<b>Bold</b> & co");
+    const html = tipOf("<b>Bold</b> & co");
+    expect(html).toContain("&lt;b&gt;Bold&lt;/b&gt; &amp; co");
+    expect(html).not.toContain("<b>");
   });
 });
 
@@ -823,14 +916,14 @@ describe("CostReport permission", () => {
     expect(screen.queryByText("Total Cost")).not.toBeInTheDocument();
 
     await act(async () => pending.resolve({ items: ITEMS, total: 700 }));
-    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(await findChart()).toBeInTheDocument();
     expect(metricValue("Total Cost")).toBe("$700");
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("forgets the costs it showed when costs.view is withdrawn, so a regrant spins first", async () => {
     const view = renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(metricValue("Total Cost")).toBe("$700");
     const page = () => (
       <MemoryRouter>
@@ -849,17 +942,17 @@ describe("CostReport permission", () => {
     await waitFor(() => expect(treemapCalls()).toHaveLength(2));
     // The figures from before the withdrawal are not shown as if current.
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
-    expect(screen.queryByTestId("treemap")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("echart")).not.toBeInTheDocument();
     expect(screen.queryByText("Total Cost")).not.toBeInTheDocument();
 
     await act(async () => pending.resolve({ items: [{ id: "n", name: "New", cost: 5 }], total: 5 }));
-    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(await findChart()).toBeInTheDocument();
     expect(metricValue("Total Cost")).toBe("$5");
   });
 
   it("titles the report", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.getByRole("heading", { name: "Cost Analysis" })).toBeInTheDocument();
   });
 });
@@ -875,7 +968,7 @@ describe("CostReport saved configuration", () => {
   it("persists every parameter at its default when the saved config sets none", async () => {
     saved.config = { view: "chart" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() =>
       expect(lastPersisted()).toEqual({
         cardTypeKey: "Application",
@@ -893,7 +986,7 @@ describe("CostReport saved configuration", () => {
 
   it("persists a parameter as soon as it changes", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     fireEvent.click(screen.getByRole("button", { name: /table view/i }));
     await screen.findByRole("table");
     await waitFor(() => expect(lastPersisted()).toMatchObject({ view: "table" }));
@@ -926,7 +1019,7 @@ describe("CostReport saved configuration", () => {
   it("treats an empty legacy cost source as none", async () => {
     saved.config = { costSource: "" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.getByRole("combobox", { name: /cost source/i })).toHaveTextContent(
       "Direct (this card type)",
     );
@@ -935,7 +1028,7 @@ describe("CostReport saved configuration", () => {
   it("treats a non-string legacy cost source as none", async () => {
     saved.config = { costSource: 7 };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.getByRole("combobox", { name: /cost source/i })).toHaveTextContent(
       "Direct (this card type)",
     );
@@ -944,7 +1037,7 @@ describe("CostReport saved configuration", () => {
   it("keeps only string scope ids", async () => {
     saved.config = { scopeIds: ["crm", 5, null] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(lastPersisted()).toMatchObject({ scopeIds: ["crm"] }));
   });
 
@@ -953,7 +1046,7 @@ describe("CostReport saved configuration", () => {
     // scope is restored for its own type, so the type change cannot drop it.
     saved.config = { cardTypeKey: "ITComponent", scopeIds: ["crm"] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
     await waitFor(() =>
       expect(lastPersisted()).toMatchObject({ cardTypeKey: "ITComponent", scopeIds: ["crm"] }),
@@ -965,7 +1058,7 @@ describe("CostReport saved configuration", () => {
     // scope is kept for it.
     saved.config = { cardTypeKey: 7, scopeIds: ["crm"] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(lastTreemapParams().get("type")).toBe("Application");
     expect(await within(toolbar()).findByText("1 card")).toBeInTheDocument();
     await waitFor(() =>
@@ -975,7 +1068,7 @@ describe("CostReport saved configuration", () => {
 
   it("applies a saved report that finishes loading after the page mounted", async () => {
     const view = renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     saved.config = { view: "table" };
     saved.loadedConfig = { view: "table" };
     view.rerender(
@@ -991,7 +1084,7 @@ describe("CostReport saved configuration", () => {
     withMetamodel([APP_TWO_COSTS], []);
     saved.config = { view: "chart" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(lastPersisted()).toMatchObject({ costField: "costTotalAnnual" }));
     for (const path of treemapCalls()) expect(params(path).get("cost_field")).toBe("costTotalAnnual");
   });
@@ -1000,7 +1093,7 @@ describe("CostReport saved configuration", () => {
     withMetamodel([APP_TWO_COSTS], []);
     saved.config = { costField: "costRun" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(lastTreemapParams().get("cost_field")).toBe("costRun"));
     expect(screen.getByRole("combobox", { name: /cost field/i })).toHaveTextContent("Run Cost");
   });
@@ -1015,7 +1108,7 @@ describe("CostReport reset", () => {
     withMetamodel([APP_TWO_COSTS, IT_COMPONENT_TYPE, CONTRACT_TYPE], RELATIONS);
     saved.config = { costField: "costRun", costSources: [ITC], drillStack: [ERP_FRAME], scopeIds: ["crm"] };
     renderCost();
-    await screen.findByText("Database", { selector: "text" });
+    await findTile("Database");
 
     fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
     expect(saved.resetAll).toHaveBeenCalled();
@@ -1045,7 +1138,7 @@ describe("CostReport reset", () => {
     saved.config = { cardTypeKey: "ITComponent" };
     renderCost();
     await waitFor(() => expect(lastTreemapParams().get("type")).toBe("ITComponent"));
-    await screen.findByTestId("treemap");
+    await findChart();
     fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
     await waitFor(() => expect(lastTreemapParams().get("type")).toBe("Application"));
     await waitFor(() =>
@@ -1069,7 +1162,7 @@ describe("CostReport toolbar", () => {
     expect(await optionsOf(/group by/i)).toEqual(["None", "Business Criticality", "Cloud Hosted"]);
 
     fireEvent.click(screen.getByRole("button", { name: /chart view/i }));
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.queryByRole("combobox", { name: /group by/i })).not.toBeInTheDocument();
   });
 
@@ -1198,7 +1291,7 @@ describe("CostReport toolbar", () => {
       ],
     );
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(await optionsOf(/cost source/i)).toEqual([
       "Contract · Contract Value",
       "IT Component · License Cost",
@@ -1208,14 +1301,14 @@ describe("CostReport toolbar", () => {
   it("leaves the cost source picker out when no related type carries a cost", async () => {
     withMetamodel([APPLICATION_TYPE], []);
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.queryByRole("combobox", { name: /cost source/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Sum costs from related cards/)).not.toBeInTheDocument();
   });
 
   it("explains what summing a source does", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     const help = screen.getByLabelText(/Sum costs from related cards/);
     fireEvent.mouseOver(help);
     expect(await screen.findByRole("tooltip")).toHaveTextContent(/Each entry targets a unique/);
@@ -1223,7 +1316,7 @@ describe("CostReport toolbar", () => {
 
   it("lets several sources be ticked in one opening of the picker", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     fireEvent.mouseDown(screen.getByRole("combobox", { name: /cost source/i }));
     const listbox = await screen.findByRole("listbox");
     expect(listbox).toHaveAttribute("aria-multiselectable", "true");
@@ -1241,7 +1334,7 @@ describe("CostReport toolbar", () => {
 
   it("accepts a source the browser autofills into the picker's hidden input", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     const combo = screen.getByRole("combobox", { name: /cost source/i });
     fireEvent.change(combo.parentElement!.querySelector("input")!, { target: { value: ITC } });
     await waitFor(() => expect(lastTreemapParams().getAll("aggregate")).toEqual([ITC]));
@@ -1266,7 +1359,7 @@ describe("CostReport toolbar", () => {
 
   it("offers no cost field picker for a type with a single cost field", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.queryByRole("combobox", { name: /cost field/i })).not.toBeInTheDocument();
   });
 
@@ -1274,24 +1367,126 @@ describe("CostReport toolbar", () => {
     const TEAM = makeCardType({ key: "Team", label: "Team" });
     withMetamodel([APPLICATION_TYPE, TEAM], []);
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await pickOption(/card type/i, /^Team$/);
     await waitFor(() => expect(lastTreemapParams().get("type")).toBe("Team"));
-    expect(await screen.findByTestId("treemap")).toBeInTheDocument();
+    expect(await findChart()).toBeInTheDocument();
   });
 
   it("never offers a hidden card type", async () => {
     withMetamodel([APPLICATION_TYPE, IT_COMPONENT_TYPE, CONTRACT_TYPE, HIDDEN_TYPE], RELATIONS);
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(await optionsOf(/card type/i)).toEqual(["Application", "IT Component", "Contract"]);
   });
 
   it("offers every type to a reports user who may not browse the inventory", async () => {
     renderWithProviders(<CostReport />, { user: userWith("costs.view") });
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(screen.getByRole("combobox", { name: /cost source/i })).toBeInTheDocument();
     expect(await optionsOf(/card type/i)).toEqual(["Application", "IT Component", "Contract"]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Tile labels by tile rectangle                                       */
+/* ------------------------------------------------------------------ */
+
+describe("CostReport tile labels by tile rectangle", () => {
+  /** A stand-in ECharts instance whose treemap lays tile `i` out as `rects[i]`. */
+  function fakeChart(rects: Record<number, { width: number; height: number }>) {
+    const getItemLayout = vi.fn((i: number) => (rects[i] ? { x: 0, y: 0, ...rects[i] } : undefined));
+    const getSeriesByIndex = vi.fn(() => ({ getData: () => ({ getItemLayout }) }));
+    return { chart: { getModel: () => ({ getSeriesByIndex }) }, getItemLayout, getSeriesByIndex };
+  }
+  /** What the chart's series label prints for the tile at `dataIndex`. */
+  const labelOf = (chart: CapturedEChart, dataIndex: number) => {
+    const d = tilesOf(chart)[dataIndex];
+    return seriesOf(chart).label.formatter({ dataIndex, name: d.name, value: d.value });
+  };
+
+  beforeEach(() => {
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [
+        { id: "big", name: "Big", cost: 1_000_000 },
+        { id: "mid", name: "Mid", cost: 95_000 },
+        { id: "tiny", name: "Tiny", cost: 1_000 },
+      ],
+      total: 1_096_000,
+    });
+  });
+
+  it("hands the chart to the panel, which labels each tile by the rectangle ECharts laid it out in", async () => {
+    renderCost();
+    await findTile("Big");
+    const chart = rootChart();
+    expect(typeof chart.onInit).toBe("function");
+    const option = chart.option;
+    const fake = fakeChart({
+      0: { width: 300, height: 100 },
+      1: { width: 60, height: 35 },
+      2: { width: 48, height: 28 },
+    });
+    act(() => chart.onInit!(fake.chart));
+    // The chart is read at label time, so handing it over rebuilds nothing.
+    expect(rootChart().option).toBe(option);
+    expect(labelOf(rootChart(), 0)).toBe("Big\n{value|$1000000}");
+    expect(labelOf(rootChart(), 1)).toBe("Mid");
+    expect(labelOf(rootChart(), 2)).toBe("");
+    expect(fake.getSeriesByIndex).toHaveBeenCalledWith(0);
+    expect(fake.getItemLayout.mock.calls.map((c) => c[0])).toEqual([0, 1, 2]);
+    // No tile carries a label of its own: the series formatter decides.
+    expect(tilesOf(rootChart()).filter((d) => "label" in d)).toEqual([]);
+  });
+
+  it("re-reads the rectangles on every render ECharts does, as a resize re-lays the tiles", async () => {
+    renderCost();
+    await findTile("Big");
+    const rects: Record<number, { width: number; height: number }> = { 1: { width: 60, height: 35 } };
+    act(() => rootChart().onInit!(fakeChart(rects).chart));
+    expect(labelOf(rootChart(), 1)).toBe("Mid");
+    rects[1] = { width: 120, height: 80 };
+    expect(labelOf(rootChart(), 1)).toBe("Mid\n{value|$95000}");
+  });
+
+  it("prints every tile's name and cost before the chart is handed over", async () => {
+    renderCost();
+    await findTile("Big");
+    expect(labelOf(rootChart(), 0)).toBe("Big\n{value|$1000000}");
+    expect(labelOf(rootChart(), 1)).toBe("Mid\n{value|$95000}");
+    expect(labelOf(rootChart(), 2)).toBe("Tiny\n{value|$1000}");
+  });
+
+  it("falls back to name and cost when ECharts' internals throw", async () => {
+    renderCost();
+    await findTile("Big");
+    const broken = {
+      getModel: () => {
+        throw new Error("disposed");
+      },
+    };
+    act(() => rootChart().onInit!(broken));
+    expect(labelOf(rootChart(), 2)).toBe("Tiny\n{value|$1000}");
+  });
+
+  it("labels each drilled panel by its own chart", async () => {
+    mockApi.on("get", "/reports/cost-treemap*", (path: string) => {
+      if (!params(path).get("parent_card_id")) return { items: ITEMS, total: 700 };
+      return params(path).get("type") === "ITComponent"
+        ? { items: [{ id: "db", name: "Database", cost: 40 }, { id: "os", name: "OS", cost: 10 }], total: 50 }
+        : { items: [{ id: "lic", name: "Licence", cost: 30 }], total: 30 };
+    });
+    saved.config = { costSources: [ITC, "Contract:contractValue"], drillStack: [] };
+    renderCost();
+    await clickTile("ERP");
+    await findTile("Database");
+    await findTile("Licence");
+    const itc = echartState.byName("IT Component · License Cost");
+    const contract = echartState.byName("Contract · Contract Value");
+    act(() => itc.onInit!(fakeChart({ 0: { width: 48, height: 28 }, 1: { width: 48, height: 28 } }).chart));
+    act(() => contract.onInit!(fakeChart({ 0: { width: 60, height: 35 } }).chart));
+    expect(labelOf(echartState.byName("IT Component · License Cost"), 0)).toBe("");
+    expect(labelOf(echartState.byName("Contract · Contract Value"), 0)).toBe("Licence");
   });
 });
 
@@ -1311,8 +1506,7 @@ describe("CostReport summary and panels", () => {
   it("gives a top driver that costs nothing a zero share", async () => {
     mockApi.on("get", "/reports/cost-treemap*", { items: [{ id: "z", name: "Zero", cost: 0 }], total: 0 });
     renderCost();
-    await screen.findByTestId("treemap");
-    expect(screen.getByText("$0 (0%)")).toBeInTheDocument();
+    expect(await screen.findByText("$0 (0%)")).toBeInTheDocument();
   });
 
   it("offers no drill hint over an empty report", async () => {
@@ -1325,20 +1519,21 @@ describe("CostReport summary and panels", () => {
 
   it("gives a single panel the full height", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
-    expect(screen.getAllByTestId("chart-container").map((c) => c.getAttribute("data-height"))).toEqual([
-      "450",
-    ]);
+    await findChart();
+    expect(mountedCharts().map((c) => c.style?.height)).toEqual([450]);
+    // Drawn at the export's pixel ratio, so the saved PNG / PPTX stays crisp.
+    expect(rootChart().devicePixelRatio).toBe(2);
+    expect(screen.getByRole("img", { name: "Cost Analysis" })).toHaveStyle({ height: "450px" });
   });
 
   it("shortens the panels when several sources sit side by side", async () => {
     saved.config = { costSources: [ITC, "Contract:contractValue"], drillStack: [] };
     renderCost();
-    fireEvent.click(await screen.findByText("ERP", { selector: "text" }));
-    await screen.findByText("Database", { selector: "text" });
-    expect(screen.getAllByTestId("chart-container").map((c) => c.getAttribute("data-height"))).toEqual([
-      "360",
-    ]);
+    await clickTile("ERP");
+    await findTile("Database");
+    // The contract panel is empty, so only the IT Component panel draws a chart.
+    expect(mountedCharts().map((c) => c.style?.height)).toEqual([360]);
+    expect(echartState.byName("IT Component · License Cost").devicePixelRatio).toBe(2);
   });
 });
 
@@ -1445,13 +1640,13 @@ describe("CostReport scope chip", () => {
   it("counts the scoped cards, and clearing the scope widens the report back", async () => {
     saved.config = { scopeIds: ["crm"] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     const label = await within(toolbar()).findByText("1 card");
-    await waitFor(() => expect(screen.queryByText("ERP", { selector: "text" })).not.toBeInTheDocument());
+    await waitFor(() => expect(tile("ERP")).toBeUndefined());
 
     fireEvent.click(label.closest(".MuiChip-root")!.querySelector(".MuiChip-deleteIcon")!);
     expect(await within(toolbar()).findByText("All cards")).toBeInTheDocument();
-    expect(await screen.findByText("ERP", { selector: "text" })).toBeInTheDocument();
+    await findTile("ERP");
     expect(drillNav()).not.toBeInTheDocument();
     await waitFor(() =>
       expect(saved.persistConfig).toHaveBeenLastCalledWith(
@@ -1462,7 +1657,7 @@ describe("CostReport scope chip", () => {
 
   it("opens the scope picker with the report's own title and help", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     fireEvent.click(within(toolbar()).getByText("All cards"));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Scope to cards")).toBeInTheDocument();
@@ -1473,7 +1668,7 @@ describe("CostReport scope chip", () => {
 
   it("explains the scope chip on hover", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     fireEvent.mouseOver(within(toolbar()).getByText("All cards"));
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Show only the selected cards and everything beneath them",
@@ -1484,7 +1679,7 @@ describe("CostReport scope chip", () => {
 describe("CostReport saving", () => {
   it("saves as a cost report and opens the save dialog once the thumbnail is captured", async () => {
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     expect(new Set(saved.reportTypes)).toEqual(new Set(["cost"]));
     fireEvent.click(screen.getByRole("button", { name: /save report/i }));
     expect(saved.setSaveDialogOpen).toHaveBeenCalledWith(true);
@@ -1518,7 +1713,7 @@ describe("CostReport fixes", () => {
     withMetamodel([APPLICATION_TYPE, PROJECT_TYPE], []);
     saved.config = { cardTypeKey: "Project", costField: "opex" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(lastTreemapParams().get("type")).toBe("Project"));
     expect(screen.getByRole("combobox", { name: /cost field/i })).toHaveTextContent("Opex");
     const projectFields = treemapCalls()
@@ -1532,7 +1727,7 @@ describe("CostReport fixes", () => {
   it("drops a restored cost source that is no longer offered", async () => {
     saved.config = { costSources: ["Gone:budget", ITC] };
     renderCost();
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(lastPersisted()).toMatchObject({ costSources: [ITC] }));
     expect(screen.getByRole("combobox", { name: /cost source/i })).toHaveTextContent(
       "IT Component · License Cost",
@@ -1552,7 +1747,7 @@ describe("CostReport fixes", () => {
         <CostReport />
       </MemoryRouter>,
     );
-    await screen.findByTestId("treemap");
+    await findChart();
     await waitFor(() => expect(lastTreemapParams().getAll("aggregate")).toEqual([ITC]));
     expect(lastPersisted()).toMatchObject({ costSources: [ITC] });
   });

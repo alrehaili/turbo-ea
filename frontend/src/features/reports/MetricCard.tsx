@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 
 interface Props {
   label: string;
@@ -32,7 +33,7 @@ export default function MetricCard({
   label,
   value,
   icon,
-  iconColor = "#1976d2",
+  iconColor = brand.primary,
   subtitle,
   color,
   ariaLabel,

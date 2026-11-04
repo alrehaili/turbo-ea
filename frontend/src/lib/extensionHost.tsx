@@ -28,15 +28,13 @@
  * (multi-select filter dropdown), and `sdk.CardDetailSidePanel` (card drawer)
  * — ReportShell/CardDetailSidePanel lazy-loaded with Suspense handled
  * internally. Since SDK 1.8 the sdk also carries `useCurrency` (workspace
- * currency formatting), `MetricCard` (KPI tile), `ReportLegend`,
- * `UserMultiSelect` (shared multi-user picker over GET /users), and
- * `loadRecharts` — an async loader returning the recharts module from core's
- * code-split chunk, so extensions never bundle a charting library. Since SDK
- * 1.9 `useChartTheme` returns the theme-aware Recharts chrome (grid stroke,
- * axis ticks, tooltip styling) core reports use, so extension charts match
- * core's look without hand-rolling it. Since SDK 1.11 `useThumbnailCapture`
- * captures a chart container as the PNG preview shown on saved-report cards
- * (html-to-image loads lazily on first capture). Since SDK 1.14
+ * currency formatting), `MetricCard` (KPI tile), `ReportLegend` and
+ * `UserMultiSelect` (shared multi-user picker over GET /users); its chart
+ * loader `loadRecharts` and 1.9's `useChartTheme` were deprecated at 1.32 and
+ * removed at 1.33 — `loadECharts` is the only chart stack. Since SDK 1.11
+ * `useThumbnailCapture` captures a chart container as the PNG preview shown
+ * on saved-report cards (html-to-image loads lazily on first capture). Since
+ * SDK 1.14
  * `CardScopeDialog` is the shared hierarchy-aware multi-select card picker
  * report scope controls are built on — pick cards and everything beneath them
  * comes with — plus its `dedupeScopeRoots` helper. Since SDK 1.15 the rest of
@@ -67,6 +65,15 @@
  * selects ONE card is built on — browse on open, rank as you type, page in
  * more as the list scrolls — so an extension dialog that links one card
  * behaves exactly like core's instead of hand-rolling an Autocomplete.
+ * Since SDK 1.32 `loadECharts` resolves the charting stack core draws every
+ * chart with (dashboards and reports) — the `EChart` wrapper with its
+ * `EXPORT_DPR` / `ECHART_CLASS` constants, `useEChartsTheme` /
+ * `buildEChartsChrome` (the MUI-derived chrome) and the pure `chrome` option
+ * helpers — from core's code-split chunk, so an extension chart matches
+ * core's in light, dark and right-to-left and never bundles a chart library.
+ * It is the only chart stack: since SDK 1.33 it also draws scatter plots and
+ * shaded reference areas (`markArea`), and the two deprecated chart entries of
+ * 1.8 / 1.9 are gone.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -105,7 +112,6 @@ import MetricCard from "@/features/reports/MetricCard";
 import ReportLegend from "@/features/reports/ReportLegend";
 import SaveReportDialog from "@/features/reports/SaveReportDialog";
 import type { ReportShellProps } from "@/features/reports/ReportShell";
-import { useChartTheme } from "@/hooks/useChartTheme";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
@@ -127,7 +133,7 @@ import { useNavigate } from "react-router";
 // draft), so an extension form gets the same date-entry behaviour as core
 // and cannot reintroduce the mid-edit value-clobber bug (#865). MUI-only
 // leaf module, so a static import is safe.
-import DateField from "@/components/DateField";
+import { DateField } from "@/components/DateField";
 // SDK 1.21 — the shared filter-sidebar building blocks (UI_GUIDELINES §3.11).
 // MUI-only leaf modules like FilterSelect, so static imports are safe: no
 // code-split graph is dragged into the eager bundle and no cycle back here.
@@ -327,10 +333,9 @@ export function initExtensionHost(): void {
       FilterSelect,
       CardDetailSidePanel: ExtensionCardDetailSidePanel,
       // SDK 1.8 — dashboard-building additions: currency formatting, KPI tile,
-      // legend, the shared multi-user picker, and a lazy Recharts loader so
-      // extension charts reuse core's code-split chunk instead of bundling
-      // their own copy (a static import here would drag Recharts into the
-      // eager main bundle — same caveat as ReportShell above).
+      // legend and the shared multi-user picker. (`loadRecharts` 1.8 and
+      // `useChartTheme` 1.9 were removed at 1.33 — charts go through
+      // `loadECharts`.)
       useCurrency,
       MetricCard,
       ReportLegend,
@@ -349,11 +354,6 @@ export function initExtensionHost(): void {
       PHASES,
       getPhaseLabels,
       buildGanttArrowPath,
-      loadRecharts: () => import("recharts"),
-      // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip), the same
-      // conventions core reports use, so extension charts cannot drift from
-      // core's look in either light or dark mode.
-      useChartTheme,
       useThumbnailCapture,
       // SDK 1.14 — the shared card scope picker. An extension report that
       // wants "narrow this to a few cards (and everything under them)" gets
@@ -451,7 +451,7 @@ export function initExtensionHost(): void {
       // `loadDependencyView` resolves the house dependency notation (the
       // Layered Dependency View) plus its layout engine from core's own
       // code-split chunk (React Flow + dagre ride along) — the same
-      // reuse-over-rebuild posture as `loadRecharts`/`loadAgGrid`, and the
+      // reuse-over-rebuild posture as `loadECharts`/`loadAgGrid`, and the
       // §3.10 rule applies: never substitute another graph library. The
       // layout module is handed back as a namespace so its node/edge
       // builders and helpers stay available without re-listing them here.
@@ -488,7 +488,7 @@ export function initExtensionHost(): void {
       // what is on screen" (rows and displayed columns read off the grid
       // API), the two readers are the leaf `lib/spreadsheet.ts` lifted out
       // of the card importer, and `xlsx` is the vendored library itself (the
-      // `loadRecharts` posture for a bare heavy dependency) so a caller can
+      // lazy-loader posture for a bare heavy dependency) so a caller can
       // append its own machine-readable sheet to the workbook core built.
       // An extension must never bundle a spreadsheet library of its own.
       loadSpreadsheet: () =>
@@ -502,6 +502,25 @@ export function initExtensionHost(): void {
           buildCurrentViewWorkbook: exp.buildCurrentViewWorkbook,
           parseWorkbook: sheet.parseWorkbook,
           readWorkbookSheets: sheet.readWorkbookSheets,
+        })),
+      // SDK 1.32 — the charting stack core draws every chart with (dashboards
+      // and reports): the ECharts wrapper, the MUI-derived chrome and the pure
+      // option helpers, resolved from the code-split chunk core already ships,
+      // so an extension never bundles a chart library. The only chart stack:
+      // since 1.33 it also serves scatter plots and shaded reference areas
+      // (`markArea`), and the deprecated 1.8 / 1.9 chart entries are gone.
+      loadECharts: () =>
+        Promise.all([
+          import("@/components/charts/EChart"),
+          import("@/components/charts/echartsTheme"),
+          import("@/components/charts/chrome"),
+        ]).then(([chart, theme, chrome]) => ({
+          EChart: chart.default,
+          EXPORT_DPR: chart.EXPORT_DPR,
+          ECHART_CLASS: chart.ECHART_CLASS,
+          useEChartsTheme: theme.useEChartsTheme,
+          buildEChartsChrome: theme.buildEChartsChrome,
+          chrome,
         })),
     },
     register: registerExtension,

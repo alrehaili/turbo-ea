@@ -394,6 +394,10 @@ APP_PERMISSIONS: dict[str, dict] = {
                 "extension bundles, apply their content, upload license files, "
                 "and enable/disable or uninstall extensions."
             ),
+            "admin.dashboards": (
+                "Manage homepage dashboards (create, edit widgets and layout, "
+                "duplicate, restrict by role)"
+            ),
         },
     },
 }
@@ -767,6 +771,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.export_workspace": False,
     "admin.import_workspace": False,
     "admin.manage_extensions": False,
+    "admin.dashboards": False,
 }
 
 MEMBER_PERMISSIONS: dict[str, bool] = {
@@ -882,6 +887,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.export_workspace": False,
     "admin.import_workspace": False,
     "admin.manage_extensions": False,
+    "admin.dashboards": False,
 }
 
 VIEWER_PERMISSIONS: dict[str, bool] = {
@@ -997,6 +1003,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.export_workspace": False,
     "admin.import_workspace": False,
     "admin.manage_extensions": False,
+    "admin.dashboards": False,
 }
 
 # ---------------------------------------------------------------------------

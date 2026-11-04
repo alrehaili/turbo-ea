@@ -14,7 +14,7 @@ import InputLabel from "@mui/material/InputLabel";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import { DateField } from "@/components/DateField";
@@ -23,7 +23,7 @@ import { PercentageInput } from "@/components/PercentageInput";
 import { BooleanField } from "@/components/BooleanField";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
-import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
+import { OptionChip, chipWidthForField } from "@/components/OptionChip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   RM_CODE_FIELD_DOMAINS,
@@ -33,9 +33,9 @@ import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionRegistry";
 import type { FieldDef, ReferenceModelItem, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
-import { bandColor } from "@/lib/dataQualityBands";
 import { booleanOption, facetOptions } from "@/lib/fieldFacets";
 import { orderByOptions } from "@/lib/optionOrder";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -237,62 +237,14 @@ export function isValidUrl(value: string): boolean {
   if (!value) return true; // empty is valid (field not required)
   return ALLOWED_URL_SCHEMES.some((s) => value.trim().startsWith(s));
 }
-export const URL_ERROR_MSG_KEY = "cards:utils.urlError";
-export const URL_ERROR_MSG = "Must use http://, https://, or mailto: scheme";
 export function getUrlErrorMsg(t: (key: string) => string): string {
   return t("utils.urlError");
 }
 
 // ── Data Quality Pill ───────────────────────────────────────────
-export function DataQualityPill({ value }: { value: number }) {
-  const { t } = useTranslation(["cards", "common"]);
-  const v = Math.max(0, Math.min(100, Math.round(value)));
-  const color = bandColor(v);
-  return (
-    <Tooltip title={t("utils.dataQuality", { value: v })}>
-      <Box
-        sx={{
-          position: "relative",
-          height: 24,
-          minWidth: 52,
-          borderRadius: "12px",
-          border: `1px solid ${color}`,
-          overflow: "hidden",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          bgcolor: "transparent",
-          px: 1,
-          boxSizing: "border-box",
-        }}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: 0,
-            width: `${v}%`,
-            bgcolor: color,
-            opacity: 0.18,
-          }}
-        />
-        <Typography
-          variant="caption"
-          fontWeight={700}
-          sx={{
-            position: "relative",
-            color,
-            lineHeight: 1,
-            fontSize: "0.7rem",
-          }}
-        >
-          {v}%
-        </Typography>
-      </Box>
-    </Tooltip>
-  );
-}
+// Lives in its own file since it explains its score (#1334); re-exported so
+// every existing import site keeps working.
+export { DataQualityPill } from "./DataQualityPill";
 
 // ── Card ID Pill (human-readable reference, #811) ────────────────
 /** Read-only, copy-to-clipboard pill. Colored in the card type's light tint —
@@ -313,12 +265,9 @@ export function CardIdPill({
 
   const isDark = theme.palette.mode === "dark";
   // Guard non-hex metamodel colors (mirrors LayeredDependencyView's fallback).
-  const hex = /^#[0-9a-fA-F]{6}$/.test(typeColor || "") ? (typeColor as string) : "#9e9e9e";
+  const hex = /^#[0-9a-fA-F]{6}$/.test(typeColor || "") ? (typeColor as string) : STATUS_COLORS.neutral;
   const accent = readableTypeColor(hex, isDark);
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const bg = `rgba(${r},${g},${b},${isDark ? 0.18 : 0.12})`;
+  const bg = alpha(hex, isDark ? 0.18 : 0.12);
 
   const copy = () => {
     void navigator.clipboard?.writeText(reference).then(() => {
@@ -362,15 +311,8 @@ export function CardIdPill({
 // ── Lifecycle Phase Labels ──────────────────────────────────────
 // `PHASES` / `getPhaseLabels` moved to the leaf `@/lib/lifecyclePhases` so the
 // extension host can re-export them without importing this module, which
-// imports the host. Re-exported here so every existing call site is unchanged.
-export { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
-export const PHASE_LABELS: Record<string, string> = {
-  plan: "Plan",
-  phaseIn: "Phase In",
-  active: "Active",
-  phaseOut: "Phase Out",
-  endOfLife: "End of Life",
-};
+// imports the host. `getPhaseLabels` is re-exported here for its existing call sites.
+export { getPhaseLabels } from "@/lib/lifecyclePhases";
 
 // ── Safe string coercion (never returns an object/array) ────────
 export function safeString(value: unknown): string {
@@ -383,9 +325,9 @@ export function safeString(value: unknown): string {
 
 // The select-option pill lives in `@/components/OptionChip` (a leaf module, so
 // the extension SDK can re-export it without a cycle back into this file).
-// Re-exported here because these two names are imported from `cardDetailUtils`
+// Re-exported here because `chipWidthForField` is imported from `cardDetailUtils`
 // across the app.
-export { SELECT_CHIP_BASE, chipWidthForField };
+export { chipWidthForField };
 
 // ── Read-only field value renderer ──────────────────────────────
 export function FieldValue({
@@ -409,7 +351,7 @@ export function FieldValue({
     return (
       <Tooltip title={t("cards:utils.costRestricted")}>
         <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-          <MaterialSymbol icon="lock" size={14} color="#9e9e9e" />
+          <MaterialSymbol icon="lock" size={14} color={STATUS_COLORS.neutral} />
           <Typography variant="body2" color="text.secondary">
             —
           </Typography>

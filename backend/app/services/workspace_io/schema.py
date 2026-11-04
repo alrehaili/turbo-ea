@@ -27,6 +27,7 @@ from app.models.business_calendar import BusinessCalendarYear
 from app.models.calculation import Calculation
 from app.models.card_type_category import CardTypeCategory
 from app.models.compliance_regulation import ComplianceRegulation
+from app.models.dashboard import Dashboard
 from app.models.ea_principle import EAPrinciple
 from app.models.resource_type import ResourceType
 from app.models.role import Role
@@ -65,6 +66,7 @@ SHEET_COMPLIANCE_REGS = "ComplianceRegs"
 SHEET_RESOURCE_TYPES = "ResourceTypes"
 SHEET_CARD_TYPE_CATEGORIES = "CardTypeCategories"
 SHEET_BUSINESS_CALENDAR = "BusinessCalendar"
+SHEET_DASHBOARDS = "Dashboards"
 SHEET_SETTINGS = "Settings"
 SHEET_USERS = "Users"
 SHEET_CARDS = "Cards"
@@ -345,5 +347,29 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
         columns=("fiscal_year", "working_weekdays", "holidays", "confirmed"),
         json_columns=frozenset({"working_weekdays", "holidays"}),
         skip_columns=frozenset({"confirmed_by"}),
+    ),
+    # Homepage dashboards. ``widgets`` names card-type, field and status keys
+    # only — never a card, relation or tag id (the widget schema refuses one) —
+    # so it transfers verbatim with no remap. The generic applier overwrites
+    # ``built_in`` and ``is_hidden`` too, which is safe: the built-in keys are
+    # the same on every instance. ``dashboard_kpi_snapshots`` is instance-local
+    # history and is not transferred, like ``kpi_snapshots``.
+    ConfigSection(
+        sheet=SHEET_DASHBOARDS,
+        model=Dashboard,
+        natural_key=("key",),
+        columns=(
+            "key",
+            "name",
+            "translations",
+            "description",
+            "icon",
+            "built_in",
+            "is_hidden",
+            "sort_order",
+            "allowed_roles",
+            "widgets",
+        ),
+        json_columns=frozenset({"translations", "allowed_roles", "widgets"}),
     ),
 )

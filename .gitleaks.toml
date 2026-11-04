@@ -40,8 +40,10 @@ regexes = [
 ]
 
 # pytest fixtures: the extension-store tests exercise claim/renewal tokens with
-# literal counting-sequence values, and the password-reset tests set a second
-# throwaway password to prove the old one stopped working.
+# literal counting-sequence values (and pass one through ``self.RENEWAL_KEY``,
+# an attribute reference the generic-api-key rule reads as a value), and the
+# password-reset tests set a second throwaway password to prove the old one
+# stopped working.
 [[allowlists]]
 description = "backend/tests/api — literal token and password fixtures"
 condition = "AND"
@@ -53,5 +55,19 @@ regexTarget = "secret"
 regexes = [
   '''^tok_1234567890abcdef$''',
   '''^rk_0123456789abcdef$''',
+  '''^rk_auditsecret0123456$''',
+  '''^tok_auditclaim0123456789$''',
+  '''^self\.RENEWAL_KEY$''',
+  '''^renewal_key=self\.RENEWAL_KEY$''',
   '''^OtherPass1234$''',
 ]
+
+# The 50-character role key the #1330 regression tests assign (``LONG_ROLE_KEY``):
+# a readable role name at the width ``POST /roles`` accepts, flagged only because
+# the constant's name ends in KEY.
+[[allowlists]]
+description = "backend/tests/conftest.py — the 50-character role key fixture"
+condition = "AND"
+paths = ['''^backend/tests/conftest\.py$''']
+regexTarget = "secret"
+regexes = ['''^regional_application_owner_for_emea_and_apac_zone1$''']

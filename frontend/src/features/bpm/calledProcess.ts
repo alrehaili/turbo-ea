@@ -20,6 +20,8 @@
  * `backend/app/services/bpmn_parser.py` / `process_element_sync.py`.
  */
 
+import { BPM_CALLED_PROCESS_COLOR } from "@/theme/tokens";
+
 const CARD_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The extension attribute, as moddle names it once the descriptor is registered. */
@@ -151,9 +153,6 @@ export function linkDotTitles(links: ElementLinks): Partial<Record<LinkKind, str
   }
   return titles;
 }
-
-/** @deprecated alias kept for the call-activity-only helpers below. */
-export type CallActivityLike = FlowNodeLike;
 
 export function isCallActivity(element: FlowNodeLike | null | undefined): boolean {
   return element?.businessObject?.$type === "bpmn:CallActivity";
@@ -336,4 +335,4 @@ export function calledProcessPath(cardId: string): string {
  * cannot read the metamodel — it also renders inside account-less portals —
  * so the colour is mirrored here, like the Application badge's primary blue.
  */
-export const CALLED_PROCESS_COLOR = "#028f00";
+export const CALLED_PROCESS_COLOR = BPM_CALLED_PROCESS_COLOR;

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -30,6 +29,7 @@ import { api, isAbortError } from "@/api/client";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { Card, Relation } from "@/types";
 import { findSuccessorRelationType } from "@/lib/successorRelation";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 function SuccessorsSection({
   card,
@@ -41,7 +41,6 @@ function SuccessorsSection({
   initialExpanded?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const navigate = useNavigate();
   const { getType, relationTypes } = useMetamodel();
   const resolveTypeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
@@ -258,7 +257,7 @@ function SuccessorsSection({
                             <MaterialSymbol
                               icon="link_off"
                               size={16}
-                              color="#f44336"
+                              color={STATUS_COLORS.error}
                             />
                           </IconButton>
                         ) : undefined
@@ -266,7 +265,7 @@ function SuccessorsSection({
                     >
                       <ClickableCardName
                         name={rel.target?.name || rel.target_id}
-                        onClick={() => navigate(`/cards/${rel.target_id}`)}
+                        to={`/cards/${rel.target_id}`}
                         icon={typeConfig.icon || "category"}
                         iconColor={typeConfig.color}
                       />
@@ -329,7 +328,7 @@ function SuccessorsSection({
                             <MaterialSymbol
                               icon="link_off"
                               size={16}
-                              color="#f44336"
+                              color={STATUS_COLORS.error}
                             />
                           </IconButton>
                         ) : undefined
@@ -337,7 +336,7 @@ function SuccessorsSection({
                     >
                       <ClickableCardName
                         name={rel.source?.name || rel.source_id}
-                        onClick={() => navigate(`/cards/${rel.source_id}`)}
+                        to={`/cards/${rel.source_id}`}
                         icon={typeConfig.icon || "category"}
                         iconColor={typeConfig.color}
                       />

@@ -1,8 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import CardDetail from "./CardDetail";
+import { installIntersectionObserver } from "@/test/dom";
+import { alpha, createTheme } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -33,8 +35,10 @@ vi.mock("@/hooks/useCurrency", () => ({
 
 // Stub all card section components to keep tests focused on CardDetail logic
 vi.mock("@/features/cards/sections", () => ({
-  DataQualityPill: ({ value }: { value: number }) => (
-    <div data-testid="data-quality">{value}%</div>
+  DataQualityPill: ({ value, animate }: { value: number; animate?: boolean }) => (
+    <div data-testid="data-quality" data-animate={String(!!animate)}>
+      {value}%
+    </div>
   ),
   DescriptionSection: () => <div data-testid="description-section" />,
   LifecycleSection: () => <div data-testid="lifecycle-section" />,
@@ -92,6 +96,11 @@ vi.mock("@/hooks/usePermissions", () => ({
 
 vi.mock("@/hooks/usePpmEnabled", () => ({
   usePpmEnabled: () => ({ ppmEnabled: false }),
+}));
+
+const gamification = vi.hoisted(() => ({ enabled: false }));
+vi.mock("@/hooks/useGamificationEnabled", () => ({
+  useGamificationEnabled: () => gamification.enabled,
 }));
 
 import { api } from "@/api/client";
@@ -169,6 +178,7 @@ const mockPerms = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  gamification.enabled = false;
 
   vi.mocked(useMetamodel).mockReturnValue({
     types: [APPLICATION_TYPE, BUSINESS_PROCESS_TYPE],
@@ -897,6 +907,19 @@ describe("CardDetail custom logo", () => {
     });
   });
 
+  it("shades the logo's edit overlay with white on translucent black", async () => {
+    mockTypes(LOGO_TYPE);
+    mockCardWith(mockCard);
+    renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    const { common } = createTheme().palette;
+    expect(document.querySelector(".card-logo-edit")).toHaveStyle({
+      color: common.white,
+      backgroundColor: alpha(common.black, 0.45),
+    });
+  });
+
   it("offers no logo menu when the type has logos switched off", async () => {
     mockTypes(NO_LOGO_TYPE);
     mockCardWith(mockCard);
@@ -946,5 +969,53 @@ describe("CardDetail custom logo", () => {
     expect(input.getAttribute("accept")).toBe("image/png,image/jpeg,image/webp,image/gif");
     // SVG is refused server-side; offering it in the picker would invite a 400.
     expect(input.getAttribute("accept")).not.toContain("svg");
+  });
+});
+
+describe("CardDetail — gamified data quality sticky bar", () => {
+  let restoreIO: (() => void) | null = null;
+
+  afterEach(() => {
+    restoreIO?.();
+    restoreIO = null;
+  });
+
+  function loadCard() {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve(mockCard);
+    });
+  }
+
+  it("shows the sticky score bar once the header has scrolled away", async () => {
+    gamification.enabled = true;
+    restoreIO = installIntersectionObserver(false);
+    loadCard();
+    renderCardDetail();
+
+    const bar = await screen.findByRole("region", { name: "Data quality" });
+    expect(bar).toHaveTextContent("My Application");
+    expect(bar).toHaveTextContent("75%");
+    expect(screen.getByTestId("data-quality")).toHaveAttribute("data-animate", "true");
+  });
+
+  it("keeps the bar away while the header is in view", async () => {
+    gamification.enabled = true;
+    restoreIO = installIntersectionObserver(true);
+    loadCard();
+    renderCardDetail();
+
+    await screen.findByTestId("data-quality");
+    expect(screen.queryByTestId("sticky-score-bar")).not.toBeInTheDocument();
+  });
+
+  it("never shows the bar with gamification off, even with the header gone", async () => {
+    restoreIO = installIntersectionObserver(false);
+    loadCard();
+    renderCardDetail();
+
+    const pill = await screen.findByTestId("data-quality");
+    expect(pill).toHaveAttribute("data-animate", "false");
+    expect(screen.queryByTestId("sticky-score-bar")).not.toBeInTheDocument();
   });
 });

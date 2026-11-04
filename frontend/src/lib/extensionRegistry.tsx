@@ -19,7 +19,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.31";
+export const UI_SDK_VERSION = "1.33";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
