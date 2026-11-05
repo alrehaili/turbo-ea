@@ -84,6 +84,7 @@ import ExtFieldCell from "./ExtFieldCell";
 import LinkifiedText from "@/components/LinkifiedText";
 import MuiLink from "@mui/material/Link";
 import { isLinkableHref } from "@/lib/linkify";
+import { richHtmlToText } from "@/lib/richHtml";
 import { PercentBar, percentValue } from "@/components/PercentBar";
 
 /**
@@ -108,12 +109,14 @@ const percentageColumnDef = {
  * into a description is a link in the grid too. The value stays a plain
  * string — no `valueFormatter` needed, the export reads the raw text. A
  * `url`-typed value is one whole link when it passes the scheme allowlist
- * (mailto included), else plain text.
+ * (mailto included), else plain text. A value stored as HTML (imported rich
+ * text) shows its text only — card detail renders the formatting; a one-line
+ * cell would show the raw tags or break the row.
  */
 const linkifiedCell = {
   cellRenderer: (p: { value?: unknown }) =>
     p.value === null || p.value === undefined || p.value === "" ? null : (
-      <LinkifiedText text={String(p.value)} />
+      <LinkifiedText text={richHtmlToText(String(p.value))} />
     ),
 } as const;
 const urlCell = {

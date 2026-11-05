@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.44.1] - 2026-11-05
+
+### Fixed
+- The Inventory grid shows a description or text attribute stored as HTML as readable text instead of raw tags.
+
+### Security
+- The archive, delete, restore and link-diagrams dialogs build their bold card or initiative name as React elements instead of injected HTML, and show a name containing markup exactly as typed.
+
 ## [2.44.0] - 2026-11-04
 
 ### Added

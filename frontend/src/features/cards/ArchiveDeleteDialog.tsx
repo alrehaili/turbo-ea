@@ -22,6 +22,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
+import EscapedTrans from "@/components/EscapedTrans";
 import { api, ApiError } from "@/api/client";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import type {
@@ -267,15 +268,14 @@ export default function ArchiveDeleteDialog(props: Props) {
 
             {scope === "single" && (
               <Typography>
-                <span
-                  dangerouslySetInnerHTML={{
-                    __html: t(
-                      mode === "archive"
-                        ? "cards:detail.dialogs.archive.confirm"
-                        : "cards:detail.dialogs.delete.confirm",
-                      { name: cardName, interpolation: { escapeValue: true } },
-                    ),
-                  }}
+                <EscapedTrans
+                  t={t}
+                  i18nKey={
+                    mode === "archive"
+                      ? "cards:detail.dialogs.archive.confirm"
+                      : "cards:detail.dialogs.delete.confirm"
+                  }
+                  values={{ name: cardName }}
                 />
               </Typography>
             )}

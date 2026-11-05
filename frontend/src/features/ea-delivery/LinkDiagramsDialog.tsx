@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import EscapedTrans from "@/components/EscapedTrans";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -86,13 +87,9 @@ export default function LinkDiagramsDialog({
           variant="body2"
           color="text.secondary"
           sx={{ mb: 1.5, flexShrink: 0 }}
-          dangerouslySetInnerHTML={{
-            __html: t("linkDialog.description", {
-              name: initiativeName,
-              interpolation: { escapeValue: true },
-            }),
-          }}
-        />
+        >
+          <EscapedTrans t={t} i18nKey="linkDialog.description" values={{ name: initiativeName }} />
+        </Typography>
 
         <TextField
           size="small"

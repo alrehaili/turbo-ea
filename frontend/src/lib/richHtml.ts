@@ -82,6 +82,36 @@ function autolinkTextNodes(html: string): string {
 }
 
 /**
+ * Whether a free-text value carries HTML markup (an opening or closing tag).
+ * Card detail renders such a description as rich text; a plain-text surface
+ * flattens it with {@link richHtmlToText}.
+ */
+export function looksLikeHtml(text: string | null | undefined): boolean {
+  return !!text && /<\/?[a-z][^>]*>/i.test(text);
+}
+
+/** Elements whose start and end are word breaks once the markup is gone. */
+const BREAKING = "p,div,br,li,tr,td,th,h1,h2,h3,h4,h5,h6,blockquote,pre,hr";
+
+/**
+ * The visible text of a value that may hold HTML, for a one-line surface
+ * (a grid cell) that cannot lay out paragraphs. Tags are dropped, entities
+ * decoded, each block edge becomes a space and runs of whitespace collapse.
+ * A value without markup comes back unchanged. Parsing is inert (`DOMParser`):
+ * nothing in the value runs or loads.
+ */
+export function richHtmlToText(text: string): string {
+  if (!looksLikeHtml(text)) return text;
+  const doc = new DOMParser().parseFromString(text, "text/html");
+  for (const el of doc.body.querySelectorAll(BREAKING)) {
+    el.before(" ");
+    el.after(" ");
+  }
+  // Stryker disable next-line StringLiteral: <body> always has textContent
+  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
  * Sanitised HTML for `dangerouslySetInnerHTML`, with every link opening in a
  * new tab and every bare URL linked. Empty input gives `""`.
  */

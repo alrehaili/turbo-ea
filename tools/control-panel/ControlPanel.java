@@ -321,8 +321,16 @@ public class ControlPanel {
             return probe("127.0.0.1", port) || probe("::1", port);
         }
 
+        /**
+         * Whether something accepts TCP connections on host:port. Connect-only:
+         * no byte is written or read and the socket closes at once, so there is
+         * nothing to encrypt - TLS would only fail against the plain services
+         * probed here (Vite, uvicorn, PostgreSQL). SAST "unencrypted socket"
+         * findings on this line are not applicable.
+         */
         static boolean probe(String host, int port) {
-            try (Socket s = new Socket()) {
+            // Connect-only reachability check; no data is exchanged. nosemgrep
+            try (Socket s = new Socket()) { // NOSONAR - port probe, no payload
                 s.connect(new InetSocketAddress(host, port), 600);
                 return true;
             } catch (IOException e) {

@@ -15,6 +15,7 @@ import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
+import EscapedTrans from "@/components/EscapedTrans";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { Card, CardRestoreResponse, RestoreImpact, RestoreImpactPassenger } from "@/types";
@@ -112,13 +113,10 @@ export default function RestoreDialog({ open, cardId, cardName, onClose, onConfi
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
             <Typography>
-              <span
-                dangerouslySetInnerHTML={{
-                  __html: t("cards:detail.dialogs.restore.confirm", {
-                    name: cardName,
-                    interpolation: { escapeValue: true },
-                  }),
-                }}
+              <EscapedTrans
+                t={t}
+                i18nKey="cards:detail.dialogs.restore.confirm"
+                values={{ name: cardName }}
               />
             </Typography>
 

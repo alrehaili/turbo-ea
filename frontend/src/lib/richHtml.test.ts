@@ -2,7 +2,51 @@ import DOMPurify from "dompurify";
 import { describe, expect, it, vi } from "vitest";
 
 import * as linkify from "./linkify";
-import { sanitizeRichHtml } from "./richHtml";
+import { looksLikeHtml, richHtmlToText, sanitizeRichHtml } from "./richHtml";
+
+describe("looksLikeHtml", () => {
+  it.each([
+    ["<p>x</p>", true],
+    ["a</strong>", true],
+    ["line<br/>", true],
+    ["<B>loud</B>", true],
+    ["plain text", false],
+    ["2 < 3 and 4 > 1", false],
+    ["< p>", false],
+    ["<3 you", false],
+    ["", false],
+    [null, false],
+    [undefined, false],
+  ])("%j → %s", (text, expected) => {
+    expect(looksLikeHtml(text)).toBe(expected);
+  });
+});
+
+describe("richHtmlToText", () => {
+  it("returns a value without markup unchanged, whitespace included", () => {
+    expect(richHtmlToText("  a  &amp;\n b ")).toBe("  a  &amp;\n b ");
+  });
+
+  it("drops tags, decodes entities and breaks words at block ends", () => {
+    expect(
+      richHtmlToText(
+        "<p><strong>SYNTHETIC</strong> record &amp; test.</p><p>Scope:\n  goals.</p>" +
+          "<ul><li>one</li><li>two</li></ul>a<br>b<h2>H</h2><div>d</div><table><tr><td>c1</td><td>c2</td></tr></table>",
+      ),
+    ).toBe("SYNTHETIC record & test. Scope: goals. one two a b H d c1 c2");
+  });
+
+  it("keeps inline elements joined to their word", () => {
+    expect(richHtmlToText("<p>re<em>ad</em>able</p>")).toBe("readable");
+  });
+
+  it("never runs what it parses", () => {
+    const spy = vi.fn();
+    (window as unknown as { __pwn: () => void }).__pwn = spy;
+    expect(richHtmlToText('<img src=x onerror="__pwn()"><p>safe</p>')).toBe("safe");
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
 
 function anchors(html: string): HTMLAnchorElement[] {
   const div = document.createElement("div");

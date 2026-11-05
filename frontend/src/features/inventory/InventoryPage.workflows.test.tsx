@@ -1688,6 +1688,21 @@ describe("InventoryPage column definitions", () => {
     );
     expect(notes.cellEditor).toBe("agLargeTextCellEditor");
 
+    // A description stored as HTML shows its text, never the raw tags; a URL
+    // inside it is still a link.
+    const desc = gridStub.colDef("core_description");
+    const { container: cell } = mount(
+      desc.cellRenderer({
+        value: "<p><strong>Synthetic</strong> record.</p><p>See https://cst.example</p>",
+      }),
+    );
+    expect(cell.textContent).toBe("Synthetic record. See https://cst.example");
+    expect(cell.querySelector("strong")).toBeNull();
+    expect(screen.getByRole("link", { name: "https://cst.example" })).toHaveAttribute(
+      "href",
+      "https://cst.example",
+    );
+
     const docs = gridStub.colDef("attr_docsUrl");
     expect(docs.cellRenderer({ value: null })).toBeNull();
     expect(docs.cellRenderer({ value: "not a url" })).toBe("not a url");

@@ -11,9 +11,9 @@ vi.mock("@/api/client", () => ({
 
 import { api } from "@/api/client";
 
-// A card name is user-typed text. The confirm line is rendered through
-// `dangerouslySetInnerHTML` (the translation carries `<strong>`), so the name
-// must be HTML-escaped on interpolation or it becomes live markup.
+// A card name is user-typed text. The confirm line's translation carries
+// `<strong>`, rendered as React elements by `EscapedTrans`; the name must stay
+// text or it becomes live markup.
 const MALICIOUS_NAME = '<img src="x" onerror="window.__xss=1">';
 
 describe("RestoreDialog", () => {
