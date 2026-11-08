@@ -100,6 +100,8 @@ Cada fase tiene un **selector de fecha** para registrar cuándo el componente en
 
 Si una fase tiene una fecha posterior a la de una fase que debería seguirla —por ejemplo, **Fase de Salida** después de **Fin de Vida**—, aparece un icono de advertencia junto a esa fecha, y la misma advertencia se muestra bajo el campo durante la edición. Es solo un aviso: las fechas se pueden guardar igualmente tal como se introdujeron.
 
+Un icono de información junto a cada fase en la línea de tiempo explica qué significa la fase: pase el cursor sobre él para leer la definición. Muestra una explicación predeterminada, salvo que su administrador la haya cambiado para describir cómo su organización usa la fase, o la haya eliminado. La línea de tiempo, con sus iconos, sigue visible mientras edita las fechas. Los textos se definen en **Administración → Metamodelo → Fases del ciclo de vida** (véase [Fases del ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
+
 ### Secciones de Atributos Personalizados
 
 Dependiendo del tipo de ficha, verá secciones adicionales con **campos personalizados** configurados en el metamodelo. Los tipos de campo incluyen:
@@ -113,6 +115,8 @@ Dependiendo del tipo de ficha, verá secciones adicionales con **campos personal
 - **URL** — Enlace interactivo (validado para http/https/mailto)
 - **Selección única** — Desplegable con opciones predefinidas
 - **Selección múltiple** — Selección múltiple con visualización de chips
+
+Cuando su administrador ha redactado un **texto de ayuda** para un campo, aparece un icono de información junto a su etiqueta: pase el cursor sobre él (o llegue a él con el teclado mediante la tecla Tab) para leer qué significa el campo. Mientras edita la sección, el mismo icono está junto al campo. En el Inventario, al pasar el cursor sobre el encabezado de columna del campo también se muestra.
 
 Los campos marcados como **calculados** muestran una insignia y no pueden editarse manualmente — sus valores son calculados por [fórmulas definidas por el administrador](../admin/calculations.es.md).
 
@@ -163,11 +167,14 @@ La pestaña de **Recursos** consolida todos los materiales de apoyo de una ficha
 
 ### Sección EOL
 
-Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.date/) (a través de la [Administración de EOL](../admin/eol.es.md)):
+Se muestra por defecto en Aplicaciones y Componentes TI, y en cualquier otro tipo de ficha cuyo administrador la [haya activado](../admin/eol.md#fin-de-vida-en-otros-tipos-de-ficha). Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.date/) (a través de la [Administración de EOL](../admin/eol.es.md)):
 
-- **Nombre del producto y versión**
-- **Estado de soporte** — Codificado por colores: Con Soporte, Próximo a EOL, Fin de Vida
-- **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fin de soporte de seguridad, fecha EOL
+- **Nombre del producto y versión** — un producto personalizado se nombra con su título y se marca como **Personalizado**
+- **Estado de soporte** — Codificado por colores, con la misma regla que el informe EOL: Con Soporte, Próximo a EOL (a menos de seis meses de la fecha EOL o una vez finalizado el soporte activo), Fin de Vida
+- **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fecha EOL, la última versión y su fecha de lanzamiento
+- **Notas de la versión** — un enlace a la página del producto en endoflife.date, o la **Página del proveedor** de un producto personalizado
+
+**Vincular**, **Cambiar** y **Desvincular** aparecen solo si puede editar la ficha. Los usuarios con el permiso **Gestionar EOL** pueden definir un [producto EOL personalizado](../admin/eol.es.md) directamente desde esta sección, mediante el enlace **Definirlo como producto personalizado…** bajo la búsqueda de producto: el formulario se abre con el nombre de la ficha (o lo que escribió) como nombre del producto, y la ficha queda vinculada al nuevo producto al guardar. También disponen de un acceso directo a **Gestionar productos personalizados** en la configuración y pueden añadir un ciclo de versión que falte desde la lista de ciclos. El resto de usuarios ve una sugerencia para pedírselo a un gestor de EOL cuando endoflife.date no tiene coincidencia. Los productos personalizados se comportan como los productos de endoflife.date en el resto de lugares.
 
 ## Pestaña de Comentarios
 
@@ -201,6 +208,8 @@ Las partes interesadas son personas con un **rol** específico en esta ficha. Lo
 Las asignaciones de partes interesadas afectan los **permisos**: los permisos efectivos de un usuario en una ficha son la combinación de su rol a nivel de aplicación y cualquier rol de parte interesada que tenga en esa ficha.
 
 Cuando un rol tiene un **color** definido en el metamodelo, su grupo se marca con él, de modo que puede distinguir un propietario de un observador de un vistazo.
+
+Cuando un rol tiene una **descripción**, aparece un icono de información junto a su nombre: pase el cursor sobre él para leer qué significa el rol. La descripción también se muestra bajo el nombre del rol en el selector de roles al añadir una parte interesada.
 
 ### Búsqueda e invitación
 

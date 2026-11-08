@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import Chip from "@mui/material/Chip";
-import Collapse from "@mui/material/Collapse";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Checkbox from "@mui/material/Checkbox";
@@ -29,6 +28,7 @@ import {
   RM_CODE_FIELD_DOMAINS,
   useActiveReferenceModels,
 } from "@/hooks/useActiveReferenceModels";
+import HelpTip, { HELP_TIP_IN_LABEL_SIZE, labelWithHelp } from "@/components/HelpTip";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionRegistry";
 import type { FieldDef, ReferenceModelItem, Relation } from "@/types";
@@ -144,52 +144,10 @@ export function shouldGroupBySubtype(
 export function useFieldHelp(): (field: FieldDef) => string {
   const { i18n } = useTranslation();
   const locale = i18n.language;
-  return (field: FieldDef) =>
-    (field.helpTranslations?.[locale] as string) || field.help || "";
-}
-
-/** Collapsible guidance rendered under a field during data entry. */
-export function FieldHelp({ text }: { text: string }) {
-  const { t } = useTranslation(["cards", "common"]);
-  const [open, setOpen] = useState(false);
-  if (!text) return null;
-  return (
-    <Box sx={{ mt: 0.25 }}>
-      <Box
-        component="button"
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        sx={{
-          all: "unset",
-          cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.25,
-          color: "primary.main",
-        }}
-      >
-        <MaterialSymbol icon="help" size={14} />
-        {/* The hover underline belongs to the caption alone: set on the button
-            it ran under the question mark and the chevron too. */}
-        <Typography
-          variant="caption"
-          component="span"
-          sx={{ "button:hover > &": { textDecoration: "underline" } }}
-        >
-          {t("cards:utils.fieldHelp")}
-        </Typography>
-        <MaterialSymbol icon={open ? "expand_less" : "expand_more"} size={14} />
-      </Box>
-      <Collapse in={open}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mt: 0.25, whiteSpace: "pre-wrap" }}
-        >
-          <LinkifiedText text={text} />
-        </Typography>
-      </Collapse>
-    </Box>
+  // Stable per locale, so a column memo can list it as a dependency.
+  return useCallback(
+    (field: FieldDef) => (field.helpTranslations?.[locale] as string) || field.help || "",
+    [locale],
   );
 }
 
@@ -579,6 +537,11 @@ export function FieldEditor({
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const help = useFieldHelp()(field);
+  // Edit mode puts the help icon inside the control's floating label; `notch`
+  // is the label copy in the border's <legend>, which gets a spacer instead
+  // (see `labelWithHelp`).
+  const { label, notch } = labelWithHelp(fieldLabel(field), help);
+  const helpAdornment = help.trim() ? <HelpTip text={help} size={HELP_TIP_IN_LABEL_SIZE} /> : undefined;
   const extFieldTypes = useExtensionFieldTypes();
   const isRequired = isEnforcedRequiredField(field);
 
@@ -610,10 +573,10 @@ export function FieldEditor({
     case "single_select":
       return (
         <FormControl size="small" required={isRequired} error={!!error} sx={{ minWidth: 200 }}>
-          <InputLabel>{fieldLabel(field)}</InputLabel>
+          <InputLabel>{label}</InputLabel>
           <Select
             value={strVal}
-            label={fieldLabel(field)}
+            label={notch}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
             <MenuItem value="">
@@ -642,17 +605,16 @@ export function FieldEditor({
       );
     case "multiple_select": {
       const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
-      const labelText = fieldLabel(field);
       return (
         <FormControl size="small" required={isRequired} error={!!error} sx={{ minWidth: 200 }}>
           {/* The theme floats every label and notches every outline
               (UI_GUIDELINES §3.5), so the displayEmpty placeholder below
               renders under a label that is already on the border. */}
-          <InputLabel>{labelText}</InputLabel>
+          <InputLabel>{label}</InputLabel>
           <Select
             multiple
             value={arrVal}
-            label={labelText}
+            label={notch}
             onChange={(e) => {
               const v = e.target.value;
               onChange(typeof v === "string" ? v.split(",") : v);
@@ -719,11 +681,12 @@ export function FieldEditor({
         return (
           <TextField
             size="small"
-            label={fieldLabel(field)}
+            label={label}
             value={t("cards:utils.costRestricted")}
             disabled
             slotProps={{
               input: {
+                label: notch,
                 startAdornment: (
                   <InputAdornment position="start">
                     <MaterialSymbol icon="lock" size={14} />
@@ -738,7 +701,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={fieldLabel(field)}
+          label={label}
           type="number"
           required={isRequired}
           error={!!error}
@@ -747,7 +710,12 @@ export function FieldEditor({
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
-          slotProps={{ input: { startAdornment: <InputAdornment position="start">{currencySymbol || "$"}</InputAdornment> } }}
+          slotProps={{
+            input: {
+              label: notch,
+              startAdornment: <InputAdornment position="start">{currencySymbol || "$"}</InputAdornment>,
+            },
+          }}
           sx={{ minWidth: 200 }}
         />
       );
@@ -755,7 +723,8 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={fieldLabel(field)}
+          label={label}
+          slotProps={{ input: { label: notch } }}
           type="number"
           required={isRequired}
           error={!!error}
@@ -771,6 +740,7 @@ export function FieldEditor({
       return (
         <PercentageInput
           label={fieldLabel(field)}
+          labelAdornment={helpAdornment}
           required={isRequired}
           error={error}
           value={value}
@@ -783,6 +753,7 @@ export function FieldEditor({
       return (
         <BooleanField
           label={fieldLabel(field)}
+          labelAdornment={helpAdornment}
           required={isRequired}
           error={error}
           value={value}
@@ -793,7 +764,8 @@ export function FieldEditor({
       return (
         <DateField
           size="small"
-          label={fieldLabel(field)}
+          label={label}
+          slotProps={{ input: { label: notch } }}
           required={isRequired}
           error={!!error}
           helperText={error}
@@ -806,7 +778,8 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={fieldLabel(field)}
+          label={label}
+          slotProps={{ input: { label: notch } }}
           type="url"
           placeholder="https://"
           required={isRequired}
@@ -821,7 +794,8 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={fieldLabel(field)}
+          label={label}
+          slotProps={{ input: { label: notch } }}
           required={isRequired}
           error={!!error}
           helperText={error}
@@ -848,7 +822,8 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={fieldLabel(field)}
+          label={label}
+          slotProps={{ input: { label: notch } }}
           required={isRequired}
           error={!!error}
           helperText={error}
@@ -860,10 +835,20 @@ export function FieldEditor({
     }
   })();
 
-  return (
-    <Box sx={{ display: "flex", flexDirection: "column" }}>
-      {control}
-      <FieldHelp text={help} />
-    </Box>
-  );
+  // Core controls carry the help icon in their floating label (above). An
+  // extension's own editor takes a string label, so its icon sits beside the
+  // control, centred on a 40 px input's first line ((40 - 14) / 2 = 13 px).
+  if (custom?.contribution.editor) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>{control}</Box>
+        {help && (
+          <Box sx={{ pt: "13px", flexShrink: 0, lineHeight: 0 }}>
+            <HelpTip text={help} />
+          </Box>
+        )}
+      </Box>
+    );
+  }
+  return <Box sx={{ display: "flex", flexDirection: "column" }}>{control}</Box>;
 }

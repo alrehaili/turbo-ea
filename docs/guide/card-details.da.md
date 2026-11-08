@@ -95,6 +95,8 @@ Hver fase har en **datovælger**, så du kan registrere, hvornår komponenten er
 
 Hvis en fase er dateret efter en fase, der burde komme efter den — for eksempel **Phase Out** efter **End of Life** — vises et advarselsikon ved siden af datoen, og den samme advarsel vises under feltet under redigering. Det er kun et hint: datoerne kan stadig gemmes, som de er indtastet.
 
+Et infoikon ved siden af hver fase på tidslinjen forklarer, hvad fasen betyder – hold musen over det for at læse definitionen. Det viser en standardforklaring, medmindre din administrator har ændret den, så den beskriver, hvordan din organisation bruger fasen, eller har fjernet den. Tidslinjen med dens ikoner forbliver synlig, mens du redigerer datoerne. Teksterne angives under **Administration → Metamodel → Livscyklusfaser** (se [Livscyklusfaser](../admin/metamodel.md#lifecycle-phases)).
+
 ### Brugerdefinerede egenskabs-sektioner
 
 Afhængigt af korttypen vil du se yderligere sektioner med **brugerdefinerede felter** konfigureret i metamodellen. Felttyper inkluderer:
@@ -108,6 +110,8 @@ Afhængigt af korttypen vil du se yderligere sektioner med **brugerdefinerede fe
 - **URL** — Klikbart link (valideret for http/https/mailto)
 - **Single select** — Dropdown med foruddefinerede muligheder
 - **Multiple select** — Multi-valg med chip-visning
+
+Hvor din administrator har skrevet en **hjælpetekst** til et felt, vises et infoikon ved siden af dets etiket: hold musen over det (eller tab til det med tastaturet) for at læse, hvad feltet betyder. Mens du redigerer sektionen, sidder det samme ikon ved siden af feltet. I Lageret vises den også, når du holder musen over feltets kolonneoverskrift.
 
 Felter markeret som **calculated** viser et badge og kan ikke redigeres manuelt — deres værdier beregnes af [admin-definerede formler](../admin/calculations.md).
 
@@ -158,11 +162,14 @@ Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af 
 
 ### EOL-sektion
 
-Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
+Vises som standard på Applications og IT Components og på enhver anden korttype, hvor administratoren har [slået den til](../admin/eol.md#end-of-life-pa-andre-korttyper). Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
 
-- **Produktnavn og version**
-- **Support-status** — Farvekodet: Supported, Approaching EOL, End of Life
-- **Nøgle-datoer** — Udgivelsesdato, aktiv support slut, sikkerheds-support slut, EOL-dato
+- **Produktnavn og version** – et brugerdefineret produkt navngives med sin titel og er markeret **Brugerdefineret**
+- **Supportstatus** — Farvekodet efter samme regel som EOL-rapporten: Supporteret, Nærmer sig EOL (inden for seks måneder før EOL-datoen eller når den aktive support er ophørt), End of Life
+- **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, EOL-dato, den seneste version og dens udgivelsesdato
+- **Udgivelsesnoter** — et link til produktets side på endoflife.date eller **Leverandørside** for et brugerdefineret produkt
+
+**Tilknyt**, **Skift** og **Fjern tilknytning** vises kun, hvis du må redigere kortet. Brugere med tilladelsen **Administrer EOL** kan definere et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion via linket **Definér det som et brugerdefineret produkt…** under produktsøgningen: Formularen åbner med kortets navn (eller det, du skrev) som produktnavn, og kortet tilknyttes det nye produkt ved gemning. De får også en genvej til **Administrer brugerdefinerede produkter** i indstillingerne og kan tilføje en manglende udgivelsescyklus fra cykluslisten. Alle andre ser et tip om at bede en EOL-manager, når endoflife.date ikke har noget match. Brugerdefinerede produkter opfører sig som endoflife.date-produkter alle andre steder.
 
 ## Kommentarer-fane
 
@@ -196,6 +203,8 @@ Interessenter er personer med en specifik **rolle** på dette kort. De tilgænge
 Interessenttildelinger påvirker **tilladelser**: en brugers effektive tilladelser på et kort er kombinationen af deres app-niveau-rolle og enhver interessentrolle, de har på det kort.
 
 Når en rolle har en **farve** angivet i metamodellen, markeres dens gruppe med den, så du med et enkelt blik kan skelne en ejer fra en observatør.
+
+Hvor en rolle har en **beskrivelse**, vises et infoikon ved siden af dens navn: hold musen over det for at læse, hvad rollen betyder. Beskrivelsen vises også under rollens navn i rollevælgeren, når du tilføjer en interessent.
 
 ### Søgning og invitation
 

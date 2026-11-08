@@ -19,7 +19,7 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 - **Qualità dei dati** — Filtro per fascia (selezione multipla): Completo (≥80%), Parziale (40-79%), Minimo (sotto il 40%). Sono le fasce del [report Qualità dei dati](reports.md#data-quality-report): un clic su un segmento di barra porta qui.
 - **Orfane** — Solo schede senza alcuna relazione, in entrambe le direzioni. Valutato lato server, quindi funziona anche senza un tipo selezionato.
 - **Obsolete** — Solo schede non aggiornate negli ultimi 90 giorni. Entrambe rispecchiano i riquadri del [report Qualità dei dati](reports.md#data-quality-report): un clic su un riquadro porta qui.
-- **Fine vita** — Per applicazioni e componenti IT, filtra in base allo stato di supporto che Turbo EA ricava dal [collegamento EOL](../admin/eol.md) di ogni scheda: Fine vita, In avvicinamento, Supportato o Sconosciuto. **(vuoto)** elenca le schede per cui non è stato registrato nulla. La colonna **Fine vita** corrispondente mostra la data accanto a un pallino di stato e viene ordinata ed esportata come data.
+- **Fine vita** — Per i tipi di card che tracciano il fine vita (Applicazioni e componenti IT per impostazione predefinita, vedere [Fine vita su altri tipi di card](../admin/eol.md#fine-vita-su-altri-tipi-di-card)), filtra in base allo stato di supporto che Turbo EA ricava dal [collegamento EOL](../admin/eol.md) di ogni scheda: Fine vita, In avvicinamento, Supportato o Sconosciuto. **(vuoto)** elenca le schede per cui non è stato registrato nulla. La colonna **Fine vita** corrispondente mostra la data accanto a un pallino di stato e viene ordinata ed esportata come data.
 - **Tipo di collegamento** — Quando è selezionato un solo tipo di scheda gerarchico e un amministratore ha definito dei [tipi di collegamento](../admin/metamodel.md) per esso, filtra in base al tipo del collegamento di ogni scheda verso la scheda superiore — per esempio le filiali *commerciali* anziché *vendite*. **(vuoto)** elenca le schede il cui collegamento non porta alcun tipo, e le schede di primo livello, poiché per nessuna delle due è registrato qualcosa. La colonna **Tipo di collegamento** corrispondente mostra il valore come chip colorato ed è modificabile in modalità di modifica della griglia.
 - **Tag** — Filtra per tag di qualsiasi gruppo di tag
 - **Relazioni** — Filtra per card correlate attraverso i tipi di relazione
@@ -169,6 +169,19 @@ Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio 
 - Scorrendo un gruppo lungo, la sua intestazione resta fissata appena sotto le intestazioni di colonna, così sai sempre quale gruppo stai leggendo; l'intestazione del gruppo successivo la spinge via quando arriva. È l'intestazione completa, casella di controllo inclusa, così puoi selezionare un gruppo lungo senza tornare al suo inizio.
 - La casella di controllo nell'intestazione seleziona tutte le schede del gruppo: per riclassificare un lotto, espandi **Non impostato**, spunta l'intestazione e imposta il valore con la [Modifica di massa](#mass-edit). Non c'è volutamente alcun drag and drop: selezionare e impostare funziona allo stesso modo su desktop, tablet e telefono.
 - L'ordinamento si applica all'interno di ogni gruppo; il raggruppamento viene ricordato dopo un ricaricamento, salvato nelle viste salvate e condivisibile tramite il parametro URL `group_by`.
+
+### Rientrare i figli sotto i genitori { #group-by-parents }
+
+Spunta **Genitore** in cima al menu **Raggruppa per** per mostrare le schede come un albero: prima ogni genitore, con i suoi figli rientrati sotto di esso. Funziona da sola (l'intera griglia diventa un unico albero) o sopra qualsiasi raggruppamento (ogni gruppo diventa un albero a sé). Il menu resta aperto quando la spunti, così puoi scegliere un raggruppamento subito dopo.
+
+![Inventario con i figli rientrati sotto i genitori](../assets/img/it/98c_inventario_raggruppamento_genitori.png)
+
+- Una scheda non lascia mai il proprio gruppo. Un figlio il cui genitore si trova in un altro gruppo, è nascosto da un filtro di colonna o non è caricato inizia un proprio ramo, con gli antenati mancanti mostrati in grigio prima del suo nome (ad esempio *SAP S/4HANA / SAP FI /* prima del nome del modulo). I conteggi dei gruppi, la casella dell'intestazione e la modifica di massa corrispondono quindi sempre al contenuto del gruppo.
+- Fai clic sul chevron prima del nome di un genitore per nascondere o mostrare il suo ramo. Un genitore compresso continua a contare le schede nascoste nel numero di elementi e nell'intestazione del gruppo. I rami che comprimi con il chevron non vengono ricordati, e modificare un filtro di colonna li riapre tutti; cancellando l'ultimo filtro di colonna si torna al livello scelto con il selettore.
+- Mentre il livello dei genitori è attivo, una coppia **−** / **+** accanto al pulsante Raggruppa per chiude o apre l'intero albero un livello alla volta. Il livello scelto viene ricordato tra i ricaricamenti, salvato nelle viste salvate e condivisibile con `group_tree_level=<n>`; il livello mostrato segue anche ciò che apri e chiudi a mano.
+- L'ordinamento si applica tra fratelli: i genitori sono ordinati e, sotto ciascuno, i suoi figli.
+- L'opzione è offerta solo quando un tipo di scheda in vista ha una gerarchia. Viene ricordata tra i ricaricamenti, salvata nelle viste salvate e condivisibile con il parametro URL `group_tree=1`.
+- L'**esportazione** segue l'ordine dell'albero e omette le schede nei rami compressi, come fa per i gruppi compressi.
 
 ## Suggerimenti di descrizione AI { #ai-description-suggestions }
 

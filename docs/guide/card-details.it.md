@@ -98,6 +98,8 @@ Ogni fase ha un **selettore di data** per registrare quando il componente è ent
 
 Se una fase ha una data successiva a quella di una fase che dovrebbe seguirla — ad esempio **Phase Out** dopo **End of Life** — accanto a quella data compare un'icona di avviso, e lo stesso avviso è mostrato sotto il campo durante la modifica. È solo un'indicazione: le date possono comunque essere salvate così come sono state inserite.
 
+Un'icona informativa accanto a ogni fase nella timeline spiega che cosa significa la fase: passaci sopra il cursore per leggere la definizione. Mostra una spiegazione predefinita, a meno che l'amministratore non l'abbia modificata per descrivere come la tua organizzazione usa la fase, o non l'abbia rimossa. La timeline, con le sue icone, resta visibile durante la modifica delle date. I testi si impostano in **Amministrazione → Metamodello → Fasi del ciclo di vita** (vedi [Fasi del ciclo di vita](../admin/metamodel.md#lifecycle-phases)).
+
 ### Sezioni attributi personalizzati
 
 A seconda del tipo di card, vedrete sezioni aggiuntive con **campi personalizzati** configurati nel metamodello. I tipi di campo includono:
@@ -111,6 +113,8 @@ A seconda del tipo di card, vedrete sezioni aggiuntive con **campi personalizzat
 - **URL** — Link cliccabile (validato per http/https/mailto)
 - **Selezione singola** — Menu a tendina con opzioni predefinite
 - **Selezione multipla** — Selezione multipla con visualizzazione a chip
+
+Dove l'amministratore ha scritto un **testo di aiuto** per un campo, accanto alla sua etichetta compare un'icona informativa: passaci sopra il cursore (o raggiungila con la tastiera tramite il tasto Tab) per leggere che cosa significa il campo. Durante la modifica della sezione, la stessa icona è accanto al campo. Nell'Inventario, anche passare il cursore sull'intestazione di colonna del campo lo mostra.
 
 I campi contrassegnati come **calcolati** mostrano un badge e non possono essere modificati manualmente — i loro valori sono calcolati da [formule definite dall'amministratore](../admin/calculations.md).
 
@@ -161,11 +165,14 @@ La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
 ### Sezione EOL
 
-Se la card è collegata a un prodotto [endoflife.date]( (tramite [Amministrazione EOL](../admin/eol.md)):
+Mostrata per impostazione predefinita su Application e IT Component, e su qualsiasi altro tipo di card per cui l'amministratore l'ha [attivata](../admin/eol.md#fine-vita-su-altri-tipi-di-card). Se la card è collegata a un prodotto [endoflife.date](https://endoflife.date/) (tramite [Amministrazione EOL](../admin/eol.md)):
 
-- **Nome del prodotto e versione**
-- **Stato del supporto** — Con codice colore: Supportato, In avvicinamento a EOL, End of Life
-- **Date chiave** — Data di rilascio, fine supporto attivo, fine supporto di sicurezza, data EOL
+- **Nome del prodotto e versione** — un prodotto personalizzato è denominato con il suo titolo e contrassegnato come **Personalizzato**
+- **Stato del supporto** — Con codice colore, con la stessa regola del report EOL: Supportato, In avvicinamento a EOL (entro sei mesi dalla data EOL o una volta terminato il supporto attivo), End of Life
+- **Date chiave** — Data di rilascio, fine supporto attivo, data EOL, l'ultima versione e la sua data di rilascio
+- **Note di rilascio** — un link alla pagina del prodotto su endoflife.date, oppure la **Pagina del fornitore** di un prodotto personalizzato
+
+**Collega**, **Cambia** e **Scollega** compaiono solo se potete modificare la scheda. Gli utenti con il permesso **Gestire EOL** possono definire un [prodotto EOL personalizzato](../admin/eol.md) direttamente da questa sezione, tramite il link **Lo definisca come prodotto personalizzato…** sotto la ricerca del prodotto: il modulo si apre con il nome della scheda (o quanto avete digitato) come nome del prodotto, e al salvataggio la scheda viene collegata al nuovo prodotto. Dispongono inoltre di una scorciatoia a **Gestisci i prodotti personalizzati** nelle impostazioni e possono aggiungere un ciclo di rilascio mancante dall'elenco dei cicli. Gli altri utenti vedono un suggerimento a rivolgersi a un responsabile EOL quando endoflife.date non ha corrispondenze. I prodotti personalizzati altrove si comportano come i prodotti di endoflife.date.
 
 ## Scheda Commenti
 
@@ -199,6 +206,8 @@ Gli stakeholder sono persone con un **ruolo** specifico su questa card. I ruoli 
 Le assegnazioni degli stakeholder influenzano i **permessi**: i permessi effettivi di un utente su una card sono la combinazione del suo ruolo a livello di applicazione e di qualsiasi ruolo di stakeholder che detiene su quella card.
 
 Quando un ruolo ha un **colore** impostato nel metamodello, il suo gruppo ne viene contrassegnato, così da distinguere a colpo d'occhio un proprietario da un osservatore.
+
+Dove un ruolo ha una **descrizione**, accanto al suo nome compare un'icona informativa: passaci sopra il cursore per leggere che cosa significa il ruolo. La descrizione compare anche sotto il nome del ruolo nel selettore dei ruoli quando aggiungi uno stakeholder.
 
 ### Ricerca e invito
 

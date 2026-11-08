@@ -19,7 +19,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Data Quality** — Band filtering (multi-select): Complete (≥80%), Partial (40–79%), Minimal (below 40%). Same bands the [Data Quality report](reports.md#data-quality-report) charts, so clicking a bar segment there lands here.
 - **Orphaned** — Only cards with no relation in either direction. Evaluated server-side, so it works with no card type selected.
 - **Stale** — Only cards not updated in the last 90 days. Both mirror the [Data Quality report](reports.md#data-quality-report)'s KPI tiles, so clicking a tile there lands here.
-- **End of life** — For Applications and IT Components, filter by the support status Turbo EA resolves from the [EOL link](../admin/eol.md) on each card: End of Life, Approaching, Supported or Unknown. **(empty)** lists the cards with nothing recorded at all. The matching **End of life** column shows the date beside a status dot, and sorts and exports as a date.
+- **End of life** — For the card types that track End of Life (Applications and IT Components by default; see [End of Life on other card types](../admin/eol.md#end-of-life-on-other-card-types)), filter by the support status Turbo EA resolves from the [EOL link](../admin/eol.md) on each card: End of Life, Approaching, Supported or Unknown. **(empty)** lists the cards with nothing recorded at all. The matching **End of life** column shows the date beside a status dot, and sorts and exports as a date.
 - **Link type** — When a single hierarchical card type is selected and an administrator has defined [link types](../admin/metamodel.md) for it, filter by the type of link each card has to its parent — for example the subsidiaries that are *commercial* rather than *sales*. **(empty)** lists the cards whose link carries no type, and the top-level cards, since neither has one recorded. The matching **Link type** column shows the value as a coloured chip and is editable in grid edit mode.
 - **Tags** — Filter by tags from any tag group
 - **Relations** — Filter by related cards across relation types
@@ -171,6 +171,19 @@ Click **Group by** in the toolbar (next to the item count) to organise the grid 
 - Scroll into a long group and its header stays pinned just below the column headers, so you always know which group you are reading; the next group's header slides it aside as it arrives. It is the whole header, tick box included, so you can select a long group without scrolling back to its start.
 - The header checkbox selects every card in the group, so reclassifying a batch is: expand **Not set**, tick the header, then [Mass Edit](#mass-edit) the value. There is deliberately no drag and drop — select and set works the same on desktop, tablet, and phone.
 - Sorting applies within each group, and the grouping is remembered across reloads, stored in saved views, and shareable via the `group_by` URL parameter.
+
+### Indenting children under parents { #group-by-parents }
+
+Tick **Parent** at the top of the **Group by** menu to show cards as a tree: each parent first, its children indented beneath it. It works on its own (the whole grid becomes one tree) or on top of any grouping (each group becomes its own tree). The menu stays open when you tick it, so you can pick a grouping straight after.
+
+![Inventory indented under parents](../assets/img/en/98c_inventory_group_by_parents.png)
+
+- A card never leaves its own group. A child whose parent sits in another group, is hidden by a column filter, or is not loaded starts its own branch, with its missing ancestors shown in grey before its name (for example *SAP S/4HANA / SAP FI /* before the module's name). Group counts, the header checkbox and Mass Edit therefore always match what the group holds.
+- Click the chevron before a parent's name to hide or show its branch. A collapsed parent still counts its hidden cards in the item count and the group header. Branches you collapse with the chevron are not remembered, and changing a column filter opens them all again; clearing the last column filter returns to the level you chose with the stepper.
+- While the parent layer is on, a **−** / **+** pair next to the Group by button closes or opens the whole tree one level at a time. The level you choose is remembered across reloads, stored in saved views and shareable with `group_tree_level=<n>`; the level shown also follows what you open and close by hand.
+- Sorting applies among siblings: parents are sorted, and each parent's children are sorted beneath it.
+- The option is offered only when a card type in view has a hierarchy. It is remembered across reloads, stored in saved views, and can be shared with the `group_tree=1` URL parameter.
+- **Export** follows the tree order and leaves out the cards inside collapsed branches, as it does for collapsed groups.
 
 ## AI Description Suggestions { #ai-description-suggestions }
 

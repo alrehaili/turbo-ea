@@ -252,7 +252,7 @@
   "cost.costSourceDirect": "Direto (este tipo de cartão)",
   "cost.costSourceItem": "{{type}} · {{field}}",
   "cost.costSourceMultiple": "{{count}} origens",
-  "cost.costSourceHelp": "Soma os custos dos cartões relacionados. Cada entrada aponta para um par (tipo, campo) único, por isso nenhum cartão é contado duas vezes.",
+  "cost.costSourceHelp": "Soma os custos dos cartões relacionados. Dentro de um bloco, cada cartão relacionado conta uma só vez, independentemente de quantas relações o liguem. Um cartão ligado a vários blocos conta em cada um deles; escolha uma Atribuição para decidir como.",
   "cost.drillDown.allItems": "Todos os {{type}}",
   "cost.drillDown.hint": "Dica: clique num retângulo para detalhar o seu custo.",
   "cost.drillDown.path": "Caminho de detalhamento",
@@ -519,7 +519,7 @@
   "eol.noEolDataKpi": "Sem dados de fim de vida",
   "dataQuality.eolCoverage": "Cobertura de fim de vida",
   "dataQuality.eolCoverageHint": "Aplicações e componentes de TI, consoante tenha sido registado um fim de vida. Clique num segmento para listar os cartões correspondentes.",
-  "dataQuality.eolLinked": "Ligado ao endoflife.date",
+  "dataQuality.eolLinked": "Ligado a um produto EOL",
   "dataQuality.eolManual": "Data introduzida à mão",
   "dependency.targetBadge": "Alvo",
   "transformationRoadmap.title": "Roteiro de transformação",
@@ -1176,5 +1176,15 @@
     "parent": "Item pai",
     "noParent": "Nenhum (item raiz)",
     "export": "Exportar (.xlsx)"
-  }
+  },
+  "cost.attribution": "Atribuição",
+  "cost.attributionFull": "Integral",
+  "cost.attributionSplit": "Em partes iguais",
+  "cost.attributionHelp": "Integral atribui o custo total de um cartão relacionado a cada cartão a que está ligado, e o total conta-o uma só vez. Em partes iguais divide-o pelo número de cartões a que está ligado, para que a soma dos blocos seja igual ao total.",
+  "cost.sharedCountedOnce": "Custos partilhados contados uma vez",
+  "cost.sharedSources": "Algumas das suas origens são partilhadas com outros cartões",
+  "cost.sharedSourcesTooltip_one": "{{count}} das suas origens também está ligada a outros cartões do tipo {{type}}",
+  "cost.sharedSourcesTooltip_other": "{{count}} das suas origens também estão ligadas a outros cartões do tipo {{type}}",
+  "eol.custom": "Produto personalizado",
+  "eol.customTooltip": "Vinculado a um dos produtos EOL personalizados da sua organização (Definições → EOL → Produtos personalizados), e não ao endoflife.date"
 }

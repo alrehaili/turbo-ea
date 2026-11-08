@@ -195,6 +195,10 @@ Estos campos solo se sugieren cuando la IA encuentra evidencia clara — no se e
 !!! note
     Aparte de los campos específicos de Aplicación, las sugerencias de IA generan principalmente el campo de **descripción**. Los campos personalizados para otros tipos de fichas aún no están cubiertos.
 
+### Productos EOL personalizados
+
+El mismo botón aparece en los diálogos **Crear un producto EOL personalizado** y **Editar producto EOL personalizado** ([Administración de EOL](eol.md)), una vez que el producto tiene nombre. La sugerencia se redacta a partir del nombre del producto y de su enlace del proveedor, con una búsqueda del ciclo de vida de soporte del producto. Un producto personalizado no es un tipo de ficha, por lo que el interruptor por tipo anterior no se aplica: la función solo necesita que las sugerencias de IA estén activadas y configuradas, además del permiso `ai.suggest`.
+
 ---
 
 ## Análisis del portafolio
@@ -250,6 +254,7 @@ Las claves de permiso son `ai.suggest` y `ai.portfolio_insights`. Los roles pers
 | Sugerencias lentas | La velocidad de inferencia del LLM depende del hardware (para Ollama) o la latencia de red (para proveedores comerciales). Modelos más pequeños como `gemma3:4b` son más rápidos que los grandes. |
 | Puntuaciones de confianza bajas | El LLM puede no encontrar suficiente información relevante mediante búsqueda web. Intente un nombre de ficha más específico, o considere usar Google Custom Search para mejores resultados. |
 | La prueba de conexión falla | Verifique que la URL del proveedor sea accesible desde el contenedor del backend. Para configuraciones Docker, asegúrese de que ambos contenedores estén en la misma red. |
+| «El proveedor de IA rechazó la solicitud» | Se llegó al proveedor, pero este rechazó la solicitud, y el mensaje indica su motivo (con un 401 o un 403, compruebe la clave de API y el acceso al modelo). Corrija el nombre del modelo o el ajuste del proveedor que se indica y haga clic en Probar Conexión: envía la misma solicitud que una sugerencia, por lo que ahora falla o funciona igual que ella. |
 | Bedrock devuelve «AccessDeniedException» | Dos causas posibles: al rol IAM le falta el permiso `bedrock:InvokeModel`, o no se ha habilitado el acceso a ese modelo en la consola de Bedrock. Compruebe ambas. |
 | Bedrock dice que no se admite el rendimiento bajo demanda | El modelo solo es accesible mediante un perfil de inferencia regional. Ejecute la prueba de conexión y elija un ID con prefijo `eu.`, `us.` o `apac.`. |
 | OpenAI rechaza un modelo con un 403 | La clave es válida, pero el proyecto de OpenAI no puede llamar a ese modelo. La prueba de conexión envía una petición breve al modelo configurado y muestra el motivo indicado por OpenAI. Conceda al proyecto acceso al modelo (o complete la verificación de la organización) en el panel de OpenAI, o elija otro modelo. |

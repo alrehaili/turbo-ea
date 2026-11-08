@@ -34,6 +34,7 @@ import { expandSides, sideKey } from "@/lib/relationSort";
 import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import { normalizeTreeLevel } from "@/components/grid/rowGrouping";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
@@ -71,7 +72,7 @@ import {
   EOL_STATUSES,
   EOL_STATUS_COLORS,
   EOL_STATUS_LABEL_KEYS,
-  isEolType,
+  typeKeyTracksEol,
 } from "@/lib/eol";
 
 /* ------------------------------------------------------------------ */
@@ -189,6 +190,14 @@ interface Props {
   // and restored on apply, like the sidebar filters themselves.
   groupBy?: string | null;
   onGroupByChange?: (groupBy: string | null) => void;
+  // "Parent" (the tree layer) — saved into a view beside `groupBy` and
+  // restored on apply (views saved before the option restore it off).
+  groupTree?: boolean;
+  onGroupTreeChange?: (enabled: boolean) => void;
+  // The tree level chosen with the level stepper (null = fully open) — saved
+  // beside `groupTree`; views saved before the stepper restore null.
+  groupTreeLevel?: number | null;
+  onGroupTreeLevelChange?: (level: number | null) => void;
 }
 
 export const APPROVAL_STATUS_OPTIONS = [
@@ -452,6 +461,10 @@ export default function InventoryFilterSidebar({
   onApplyColumnFilters,
   groupBy = null,
   onGroupByChange,
+  groupTree = false,
+  onGroupTreeChange,
+  groupTreeLevel = null,
+  onGroupTreeLevelChange,
 }: Props) {
   const { t, i18n } = useTranslation(["inventory", "common"]);
   // EOL status labels live in the reports namespace — the EOL report owns
@@ -781,6 +794,8 @@ export default function InventoryFilterSidebar({
         // Not a Filters field — rides inside the free-form JSONB payload so a
         // saved view restores its grouping (older views simply restore null).
         groupBy,
+        groupTree: !!groupTree,
+        groupTreeLevel: groupTreeLevel ?? null,
       },
       columns: Array.from(selectedColumns),
       column_state: columnState ?? null,
@@ -831,6 +846,10 @@ export default function InventoryFilterSidebar({
     onGroupByChange?.(
       ((f as { groupBy?: string | null } | undefined)?.groupBy as string | null | undefined) ??
         null,
+    );
+    onGroupTreeChange?.(!!(f as { groupTree?: boolean } | undefined)?.groupTree);
+    onGroupTreeLevelChange?.(
+      normalizeTreeLevel((f as { groupTreeLevel?: unknown } | undefined)?.groupTreeLevel),
     );
     // Restore saved columns if present
     const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
@@ -2592,8 +2611,10 @@ export function hierarchyLabelColumnApplies(
  * to prevent. The whole-inventory question ("what has no EOL at all?") is the
  * Missing EOL scope instead, which is server-evaluated across both types.
  */
-export function eolColumnApplies(selectedTypeKeys: string[]): boolean {
-  return selectedTypeKeys.length === 1 && isEolType(selectedTypeKeys[0]);
+export function eolColumnApplies(types: CardType[], selectedTypeKeys: string[]): boolean {
+  return (
+    selectedTypeKeys.length === 1 && typeKeyTracksEol(selectedTypeKeys[0], types)
+  );
 }
 
 /**
@@ -2610,6 +2631,20 @@ export function logoColumnApplies(types: CardType[], selectedTypeKeys: string[])
       ? types.filter((ct) => selectedTypeKeys.includes(ct.key))
       : types;
   return inView.some((ct) => ct.allow_card_logo);
+}
+
+/**
+ * Whether "Parent" (the tree layer) applies to what is on screen — i.e.
+ * whether any card type in view has a hierarchy at all. Same "applies to what
+ * is in view" shape as `logoColumnApplies`: with no type filter every readable
+ * type qualifies.
+ */
+export function treeGroupingApplies(types: CardType[], selectedTypeKeys: string[]): boolean {
+  const inView =
+    selectedTypeKeys.length > 0
+      ? types.filter((ct) => selectedTypeKeys.includes(ct.key))
+      : types;
+  return inView.some((ct) => ct.has_hierarchy);
 }
 
 // Columns that must always be visible — deselecting them broke the inventory
@@ -2758,7 +2793,7 @@ function ColumnsTab({
     if (c.key === LOGO_COLUMN_KEY && !logoAvailable) return false;
     // Same rule the grid uses to build it — offering a column the grid will
     // not render is a checkbox that does nothing.
-    if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(filters.types)) return false;
+    if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(types, filters.types)) return false;
     if (
       c.key === HIERARCHY_LABEL_COLUMN_KEY &&
       !hierarchyLabelColumnApplies(types, filters.types)

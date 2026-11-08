@@ -54,6 +54,7 @@ from app.models.user import User
 from app.services import card_reference, card_type_categories, kpi_metric_link
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
+from app.services.principle_service import ensure_principle_references
 from app.services.relation_orientation import oriented
 from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import remap as rm
@@ -276,6 +277,9 @@ async def _run(
             sr = SectionResult(sheet=sheet)
             result.sections.append(sr)
             await applier(db, bundle, sr, dry_run)
+        # The Principles sheet does not carry the source's references (each
+        # instance numbers its own), so number whatever that section created.
+        await ensure_principle_references(db)
 
         # --- Generic entity sections (module + card-context tables) -----
         # Built after the cards pass so every card FK resolves. Cards never

@@ -189,6 +189,232 @@
         "title": "ADRDelayNote",
         "type": "object"
       },
+      "ADRImportItem": {
+        "description": "One spreadsheet row for ``POST /adr/bulk-import``.\n\n``title`` is not length-checked here so a blank or over-long title fails\nits own row instead of 422-ing the batch. The four sections arrive as\nHTML (the dialog converts plain-text cells). ``status`` is read only to\nwarn that an imported decision always lands as a draft.",
+        "properties": {
+          "alternatives_considered": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alternatives Considered"
+          },
+          "card_names": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Card Names",
+            "type": "array"
+          },
+          "consequences": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consequences"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "related_references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Related References",
+            "type": "array"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 5000,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index"
+        ],
+        "title": "ADRImportItem",
+        "type": "object"
+      },
+      "ADRImportRequest": {
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ADRImportItem"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ADRImportRequest",
+        "type": "object"
+      },
+      "ADRImportResponse": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ADRImportResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "created",
+          "skipped",
+          "failed"
+        ],
+        "title": "ADRImportResponse",
+        "type": "object"
+      },
+      "ADRImportResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "row_index",
+          "status"
+        ],
+        "title": "ADRImportResult",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
@@ -610,6 +836,34 @@
           "evidence"
         ],
         "title": "ActualCreate",
+        "type": "object"
+      },
+      "AiEolProductSuggestRequest": {
+        "description": "A custom EOL product to describe: its name and, if known, its vendor page.",
+        "properties": {
+          "link": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AiEolProductSuggestRequest",
         "type": "object"
       },
       "AiFieldSuggestion": {
@@ -7769,6 +8023,18 @@
             ],
             "title": "Eol Product"
           },
+          "eol_product_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A custom product's title; null for endoflife.date links",
+            "title": "Eol Product Title"
+          },
           "latest": {
             "anyOf": [
               {
@@ -7781,7 +8047,7 @@
             "title": "Latest"
           },
           "source": {
-            "description": "api (endoflife.date link) | manual (lifecycle date)",
+            "description": "api (endoflife.date link) | custom (custom EOL product) | manual (lifecycle date)",
             "title": "Source",
             "type": "string"
           },
@@ -7824,6 +8090,569 @@
           "items"
         ],
         "title": "EolCardStatusResponse",
+        "type": "object"
+      },
+      "EolCustomCycleCreate": {
+        "properties": {
+          "cycle": {
+            "title": "Cycle",
+            "type": "string"
+          },
+          "eol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "description": "A date, false (none announced) or true (ended)",
+            "title": "Eol"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "latestReleaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreleasedate"
+          },
+          "releaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasedate"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          }
+        },
+        "required": [
+          "eol",
+          "cycle"
+        ],
+        "title": "EolCustomCycleCreate",
+        "type": "object"
+      },
+      "EolCustomCycleOut": {
+        "properties": {
+          "cycle": {
+            "title": "Cycle",
+            "type": "string"
+          },
+          "eol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "latestReleaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreleasedate"
+          },
+          "linked_cards": {
+            "default": 0,
+            "title": "Linked Cards",
+            "type": "integer"
+          },
+          "releaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasedate"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "cycle"
+        ],
+        "title": "EolCustomCycleOut",
+        "type": "object"
+      },
+      "EolCustomCycleUpdate": {
+        "description": "Partial update; a field left out of the body is left alone.",
+        "properties": {
+          "cycle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle"
+          },
+          "eol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "latestReleaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreleasedate"
+          },
+          "releaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasedate"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          }
+        },
+        "title": "EolCustomCycleUpdate",
+        "type": "object"
+      },
+      "EolCustomProductCreate": {
+        "properties": {
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/EolCustomCycleCreate"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "eol_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Category"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "release_policy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Policy Note"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "EolCustomProductCreate",
+        "type": "object"
+      },
+      "EolCustomProductOut": {
+        "properties": {
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/EolCustomCycleOut"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "eol_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Category"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "linked_cards": {
+            "default": 0,
+            "title": "Linked Cards",
+            "type": "integer"
+          },
+          "product": {
+            "description": "The value a card stores: \"custom:<key>\"",
+            "title": "Product",
+            "type": "string"
+          },
+          "release_policy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Policy Note"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "product",
+          "title"
+        ],
+        "title": "EolCustomProductOut",
+        "type": "object"
+      },
+      "EolCustomProductUpdate": {
+        "description": "Title, description, link and the proposal fields. The key is\nimmutable: cards store it.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "eol_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Category"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "release_policy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Policy Note"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "EolCustomProductUpdate",
+        "type": "object"
+      },
+      "EolCustomSwitchRequest": {
+        "description": "Move a custom product's card links onto an endoflife.date product.",
+        "properties": {
+          "cycle_map": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Cycle Map",
+            "type": "object"
+          },
+          "delete_when_unused": {
+            "default": false,
+            "title": "Delete When Unused",
+            "type": "boolean"
+          },
+          "target_product": {
+            "title": "Target Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_product"
+        ],
+        "title": "EolCustomSwitchRequest",
+        "type": "object"
+      },
+      "EolCustomSwitchResult": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "kept": {
+            "title": "Kept",
+            "type": "integer"
+          },
+          "relinked": {
+            "title": "Relinked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "relinked",
+          "kept",
+          "deleted"
+        ],
+        "title": "EolCustomSwitchResult",
         "type": "object"
       },
       "EolCycle": {
@@ -7943,6 +8772,17 @@
               }
             ],
             "title": "Support"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -7952,11 +8792,27 @@
         "type": "object"
       },
       "EolProduct": {
-        "description": "A product identifier returned from the product list.",
+        "description": "A product identifier returned from the product list.\n\n``custom`` products are the organisation's own (``name`` is then\n``custom:<key>`` and ``title`` its display name).",
         "properties": {
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -7967,6 +8823,40 @@
       },
       "EolProductMatch": {
         "description": "A product with a fuzzy match score.",
+        "properties": {
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "name",
+          "score"
+        ],
+        "title": "EolProductMatch",
+        "type": "object"
+      },
+      "EolUpstreamMatch": {
         "properties": {
           "name": {
             "title": "Name",
@@ -7981,7 +8871,7 @@
           "name",
           "score"
         ],
-        "title": "EolProductMatch",
+        "title": "EolUpstreamMatch",
         "type": "object"
       },
       "EvidenceItem": {
@@ -9464,6 +10354,25 @@
         "title": "LicenseOut",
         "type": "object"
       },
+      "LifecyclePhaseHelpPayload": {
+        "properties": {
+          "phases": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Phases",
+            "type": "object"
+          }
+        },
+        "required": [
+          "phases"
+        ],
+        "title": "LifecyclePhaseHelpPayload",
+        "type": "object"
+      },
       "LoginBrandingPayload": {
         "properties": {
           "login_help_link": {
@@ -9654,6 +10563,11 @@
             "title": "Card Type",
             "type": "string"
           },
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "eol_product": {
             "title": "Eol Product",
             "type": "string"
@@ -9661,6 +10575,17 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -9716,6 +10641,17 @@
               }
             ],
             "title": "Current Eol Product"
+          },
+          "current_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Title"
           }
         },
         "required": [
@@ -14537,6 +15473,230 @@
           "title"
         ],
         "title": "PrincipleCreate",
+        "type": "object"
+      },
+      "PrincipleImportItem": {
+        "description": "One spreadsheet row.\n\nEvery column except ``title`` is optional, and ``None`` means *the sheet\nhas no such column*: the importer then leaves that field as it is. An\nempty string is a deliberate blank and clears the field. ``is_active``\nand ``sort_order`` arrive as text so a bad cell fails only its own row\ninstead of 422-ing the whole batch; so does ``title`` (a blank title is a\nper-row error).",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "implications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implications"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index"
+        ],
+        "title": "PrincipleImportItem",
+        "type": "object"
+      },
+      "PrincipleImportRequest": {
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrincipleImportItem"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PrincipleImportRequest",
+        "type": "object"
+      },
+      "PrincipleImportResponse": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PrincipleImportResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "created",
+          "updated",
+          "skipped",
+          "failed"
+        ],
+        "title": "PrincipleImportResponse",
+        "type": "object"
+      },
+      "PrincipleImportResult": {
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "updated",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "row_index",
+          "status"
+        ],
+        "title": "PrincipleImportResult",
         "type": "object"
       },
       "PrincipleUpdate": {
@@ -25737,6 +26897,18 @@
               ],
               "title": "Signed To"
             }
+          },
+          {
+            "description": "Also return every section's text and related decision references (the spreadsheet export)",
+            "in": "query",
+            "name": "include_content",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also return every section's text and related decision references (the spreadsheet export)",
+              "title": "Include Content",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -25797,6 +26969,48 @@
           }
         },
         "summary": "Create Adr",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/bulk-import": {
+      "post": {
+        "description": "Spreadsheet importer for decision records \u2014 create-only.\n\nA row whose ``reference_number`` already exists is skipped, so\nre-importing an exported register is a no-op; every other row creates a\n**draft** with a fresh ``ADR-NNN`` reference (status and signatories are\nnever imported). Cards are linked by exact name among those the caller\nmay read; related decisions resolve against existing references and the\nfile's own rows. ``dry_run=True`` runs everything, publishes nothing and\nrolls back, so the dialog previews exactly what applying will do.",
+        "operationId": "bulk_import_adrs_api_v1_adr_bulk_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ADRImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Import Adrs",
         "tags": [
           "adr"
         ]
@@ -27050,6 +28264,48 @@
           }
         },
         "summary": "Suggest",
+        "tags": [
+          "AI Suggestions"
+        ]
+      }
+    },
+    "/api/v1/ai/suggest-eol-product": {
+      "post": {
+        "description": "Suggest a description for a custom EOL product (Settings \u2192 EOL, or a\ncard's End of Life section).\n\nThe same pipeline as ``/suggest`` with a product-lifecycle search context.\nA product is not a card type, so the per-type enablement does not apply:\nthe switch and the provider configuration are what gate it.",
+        "operationId": "suggest_eol_product_api_v1_ai_suggest_eol_product_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiEolProductSuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSuggestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suggest Eol Product",
         "tags": [
           "AI Suggestions"
         ]
@@ -36996,12 +38252,12 @@
         "operationId": "eol_card_status_api_v1_eol_card_status_get",
         "parameters": [
           {
-            "description": "Application or ITComponent",
+            "description": "A card type that tracks End of Life",
             "in": "query",
             "name": "type",
             "required": true,
             "schema": {
-              "description": "Application or ITComponent",
+              "description": "A card type that tracks End of Life",
               "title": "Type",
               "type": "string"
             }
@@ -37030,6 +38286,401 @@
           }
         },
         "summary": "Eol Card Status",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products": {
+      "get": {
+        "description": "Every custom product with its cycles and how many cards link to each.\n\nThe counts cover the cards the caller may read, never naming one.",
+        "operationId": "list_custom_products_api_v1_eol_custom_products_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EolCustomProductOut"
+                  },
+                  "title": "Response List Custom Products Api V1 Eol Custom Products Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Custom Products",
+        "tags": [
+          "End of Life"
+        ]
+      },
+      "post": {
+        "description": "Create a custom product, optionally with its first cycles.\n\nOne request, so a user who found nothing on endoflife.date from a card\ncan define the product and link the card without leaving it.",
+        "operationId": "create_custom_product_api_v1_eol_custom_products_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomProductCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomProductOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/upstream-matches": {
+      "get": {
+        "description": "Custom products that now look covered by endoflife.date.\n\n``{key: {name, score}}`` for each custom product whose title or key\nclosely matches an upstream product \u2014 the cue to switch its cards over.\nAn unreachable endoflife.date yields an empty map, not an error: this is\na hint, and the grid must still load without it.",
+        "operationId": "custom_product_upstream_matches_api_v1_eol_custom_products_upstream_matches_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EolUpstreamMatch"
+                  },
+                  "title": "Response Custom Product Upstream Matches Api V1 Eol Custom Products Upstream Matches Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Custom Product Upstream Matches",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}": {
+      "delete": {
+        "description": "Delete a product no card links to (409 ``cards_linked`` otherwise).",
+        "operationId": "delete_custom_product_api_v1_eol_custom_products__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      },
+      "patch": {
+        "description": "Edit a product's title, description or link. The key never changes.",
+        "operationId": "update_custom_product_api_v1_eol_custom_products__key__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomProductUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomProductOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}/cycles": {
+      "post": {
+        "description": "Add a release cycle to a custom product.",
+        "operationId": "create_custom_cycle_api_v1_eol_custom_products__key__cycles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomCycleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomCycleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Custom Cycle",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}/cycles/{cycle_id}": {
+      "delete": {
+        "description": "Delete a cycle no card links (409 ``cards_linked`` otherwise).",
+        "operationId": "delete_custom_cycle_api_v1_eol_custom_products__key__cycles__cycle_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cycle_id",
+            "required": true,
+            "schema": {
+              "title": "Cycle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Custom Cycle",
+        "tags": [
+          "End of Life"
+        ]
+      },
+      "patch": {
+        "description": "Patch one cycle: the admin grid's per-cell and drag-fill write.",
+        "operationId": "update_custom_cycle_api_v1_eol_custom_products__key__cycles__cycle_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cycle_id",
+            "required": true,
+            "schema": {
+              "title": "Cycle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomCycleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomCycleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Custom Cycle",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}/switch": {
+      "post": {
+        "description": "Move a custom product's card links onto an endoflife.date product.\n\nOnce endoflife.date tracks a product (perhaps after someone proposed it),\nthe custom copy should give way. The target's cycles are fetched first,\nwith no connection held, then the cards the caller can read are relinked\ncycle by cycle as ``cycle_map`` says; a cycle mapped to null keeps its\ncards. Lifecycle dates are never touched, as with mass-link.",
+        "operationId": "switch_custom_product_api_v1_eol_custom_products__key__switch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomSwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomSwitchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Switch Custom Product",
         "tags": [
           "End of Life"
         ]
@@ -37086,12 +38737,12 @@
         "operationId": "mass_eol_search_api_v1_eol_mass_search_post",
         "parameters": [
           {
-            "description": "Card type to search (Application or ITComponent)",
+            "description": "Card type to search (one that tracks End of Life)",
             "in": "query",
             "name": "type_key",
             "required": true,
             "schema": {
-              "description": "Card type to search (Application or ITComponent)",
+              "description": "Card type to search (one that tracks End of Life)",
               "title": "Type Key",
               "type": "string"
             }
@@ -37245,7 +38896,7 @@
     },
     "/api/v1/eol/products/{product}": {
       "get": {
-        "description": "Return all release cycles for a given product.",
+        "description": "Return all release cycles for a given product.\n\nA ``custom:<key>`` product is served from the database and never reaches\nthe upstream proxy below.",
         "operationId": "get_product_cycles_api_v1_eol_products__product__get",
         "parameters": [
           {
@@ -37285,6 +38936,32 @@
           }
         },
         "summary": "Get Product Cycles",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/types": {
+      "get": {
+        "description": "The card types that track End of Life.\n\nA type tracks it when its End of Life section is shown in the Card Layout\neditor \u2014 Applications and IT Components unless an admin hid it there,\nany other type once an admin shows it (``card_flags.type_tracks_eol``).",
+        "operationId": "eol_types_api_v1_eol_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Eol Types Api V1 Eol Types Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Eol Types",
         "tags": [
           "End of Life"
         ]
@@ -39443,6 +41120,48 @@
           }
         },
         "summary": "Create Principle",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/principles/bulk-import": {
+      "post": {
+        "description": "Spreadsheet importer for EA principles (admin only).\n\nEach row is matched on ``reference_number``, then on title\n(case-insensitive). A matched principle is updated when a value differs\nand skipped when nothing does; any other row creates a principle with a\nfresh ``P-NNN`` reference. A column missing from the sheet leaves that\nfield untouched. ``dry_run=True`` validates and matches every row, then\nrolls back, so the dialog can preview exactly what applying will do.",
+        "operationId": "bulk_import_principles_api_v1_metamodel_principles_bulk_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrincipleImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipleImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Import Principles",
         "tags": [
           "metamodel"
         ]
@@ -47667,7 +49386,7 @@
     },
     "/api/v1/reports/capability-heatmap": {
       "get": {
-        "description": "Business capability heatmap with hierarchy, plateau and segment filtering.",
+        "description": "Business capability heatmap with hierarchy, plateau and segment filtering.\n\n``total_cost`` per capability sums its applications' cost fields. With\n``attribution=\"full\"`` (the default) an application linked to several\ncapabilities counts in full on each; with ``\"split\"`` its cost is divided\nequally between the readable capabilities it links to. Each application\nlists those capabilities (``capability_ids``) so the page can roll a branch\nup without counting a shared application twice.",
         "operationId": "capability_heatmap_api_v1_reports_capability_heatmap_get",
         "parameters": [
           {
@@ -47714,6 +49433,16 @@
               ],
               "description": "Optional segment ID for scope filtering by segment membership.",
               "title": "Segment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attribution",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "title": "Attribution",
+              "type": "string"
             }
           }
         ],
@@ -47787,7 +49516,7 @@
     },
     "/api/v1/reports/cost-treemap": {
       "get": {
-        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
+        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.\n\n``attribution`` (``\"full\"``, the default, or ``\"split\"``) decides what a\nrelated card shared by several cards contributes to each (discussion #1362;\nthe arithmetic is ``app.services.cost_attribution``):\n\n* In ``aggregate`` mode each item lists the related cards it sums\n  (``source_ids``) and the response maps every one of them to its full cost\n  (``source_costs``). ``full`` puts a related card's whole cost on every\n  card it links to, and ``total`` counts each related card once, so it is\n  no longer the sum of the tiles when one is shared. ``split`` divides the\n  cost equally between the readable, active, live cards of ``type`` it\n  links to \u2014 counted before the ``parent_card_id`` restriction, so a drill\n  never changes a share, and never counting a card the reader cannot see \u2014\n  and ``total`` is the sum of the items.\n* Without ``aggregate`` but with ``parent_card_id``, ``split`` divides each\n  item's own cost by the number of readable live cards of the parent's\n  type it links to, so the drilled panel adds up to the parent's tile.\n  Without either, ``attribution`` changes nothing.\n* With ``group_by``, each item lists every group it links to (``groups``,\n  sorted) and is filed under the alphabetically first (``group``); a group's\n  ``cost`` counts an item in full in each of its groups (``full``) or\n  shares it equally between them (``split``).",
         "operationId": "cost_treemap_api_v1_reports_cost_treemap_get",
         "parameters": [
           {
@@ -47878,6 +49607,16 @@
               ],
               "description": "Optional segment ID for scope filtering by segment membership.",
               "title": "Segment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attribution",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "title": "Attribution",
+              "type": "string"
             }
           }
         ],
@@ -48198,7 +49937,7 @@
     },
     "/api/v1/reports/eol": {
       "get": {
-        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
+        "description": "End-of-Life risk & impact report.\n\nReturns every card of a type that tracks End of Life (Applications and IT\nComponents by default; see ``card_flags.type_tracks_eol``) with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"custom\"`` for items linked to one of the\norganisation's own custom EOL products, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
         "operationId": "eol_report_api_v1_reports_eol_get",
         "responses": {
           "200": {
@@ -54749,6 +56488,64 @@
           }
         },
         "summary": "Update Initiative Report Staleness",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/lifecycle-phase-help": {
+      "get": {
+        "description": "The admin-written help text of each lifecycle phase.\n\nSigned-in only: nothing before sign-in shows a lifecycle. ``/bootstrap``\ncarries the same map, so this is the refresh path after an admin edit.",
+        "operationId": "get_lifecycle_phase_help_api_v1_settings_lifecycle_phase_help_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Lifecycle Phase Help",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 replace the lifecycle phase help texts.\n\nGated on ``admin.metamodel``: what a phase means is metamodel\nconfiguration, edited under Admin \u2192 Metamodel.",
+        "operationId": "update_lifecycle_phase_help_api_v1_settings_lifecycle_phase_help_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecyclePhaseHelpPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Lifecycle Phase Help",
         "tags": [
           "settings"
         ]

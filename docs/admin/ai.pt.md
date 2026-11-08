@@ -195,6 +195,10 @@ Esses campos só são sugeridos quando a IA encontra evidências claras — não
 !!! note
     Além dos campos específicos de Aplicação, as sugestões de IA geram principalmente o campo **descrição**. Campos personalizados para outros tipos de cards ainda não são cobertos.
 
+### Produtos EOL personalizados
+
+O mesmo botão aparece nas caixas de diálogo **Criar um produto EOL personalizado** e **Editar produto EOL personalizado** ([Administração de EOL](eol.md)), assim que o produto tem um nome. A sugestão é redigida a partir do nome do produto e da sua ligação do fornecedor, com uma pesquisa do ciclo de vida de suporte do produto. Um produto personalizado não é um tipo de ficha, pelo que o interruptor por tipo acima não se aplica: a funcionalidade só precisa de que as sugestões de IA estejam ativadas e configuradas, além da permissão `ai.suggest`.
+
 ---
 
 ## Análises do portfólio
@@ -250,6 +254,7 @@ As chaves de permissão são `ai.suggest` e `ai.portfolio_insights`. Papéis per
 | Sugestões lentas | A velocidade de inferência do LLM depende do hardware (para Ollama) ou da latência de rede (para provedores comerciais). Modelos menores como `gemma3:4b` são mais rápidos que modelos maiores. |
 | Pontuações de confiança baixas | O LLM pode não encontrar informações relevantes suficientes via busca web. Tente um nome de card mais específico, ou considere usar Google Custom Search para melhores resultados. |
 | Teste de conexão falha | Verifique se a URL do provedor é acessível a partir do contêiner do backend. Para configurações Docker, certifique-se de que ambos os contêineres estão na mesma rede. |
+| «O fornecedor de IA rejeitou o pedido» | O fornecedor foi contactado mas recusou o pedido, e a mensagem indica o motivo (com um 401 ou 403, verifique a chave de API e o acesso ao modelo). Corrija o nome do modelo ou a definição do fornecedor indicada e clique em Testar Conexão: envia o mesmo pedido que uma sugestão, pelo que agora falha ou passa da mesma forma. |
 | O Bedrock devolve «AccessDeniedException» | Duas causas possíveis: falta ao papel IAM a permissão `bedrock:InvokeModel`, ou o acesso àquele modelo não foi ativado na consola do Bedrock. Verifique ambas. |
 | O Bedrock diz que o throughput on-demand não é suportado | O modelo só é acessível através de um perfil de inferência regional. Execute o teste de ligação e escolha um ID com prefixo `eu.`, `us.` ou `apac.`. |
 | A OpenAI recusa um modelo com 403 | A chave é válida, mas o projeto OpenAI não pode chamar esse modelo. O teste de ligação envia um pedido curto ao modelo configurado e mostra o motivo indicado pela OpenAI. Conceda ao projeto acesso ao modelo (ou conclua a verificação da organização) no painel da OpenAI, ou escolha outro modelo. |

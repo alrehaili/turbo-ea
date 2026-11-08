@@ -19,7 +19,7 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Calidad de Datos** — Filtrado por banda (selección múltiple): Completo (≥80%), Parcial (40–79%), Mínimo (menos del 40%). Son las bandas del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en un segmento de barra allí se llega aquí.
 - **Huérfanas** — Solo fichas sin ninguna relación, en ningún sentido. Se evalúa en el servidor, por lo que funciona sin seleccionar un tipo de ficha.
 - **Desactualizadas** — Solo fichas sin actualizar en los últimos 90 días. Ambas reflejan los mosaicos del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en uno se llega aquí.
-- **Fin de vida** — Para aplicaciones y componentes de TI, filtra por el estado de soporte que Turbo EA resuelve a partir del [enlace EOL](../admin/eol.md) de cada tarjeta: Fin de vida, Próximo, Con soporte o Desconocido. **(vacío)** lista las tarjetas sin nada registrado. La columna **Fin de vida** correspondiente muestra la fecha junto a un punto de estado, y se ordena y exporta como fecha.
+- **Fin de vida** — Para los tipos de ficha que realizan el seguimiento del fin de vida (Aplicaciones y Componentes de TI por defecto, véase [Fin de vida en otros tipos de ficha](../admin/eol.md#fin-de-vida-en-otros-tipos-de-ficha)), filtra por el estado de soporte que Turbo EA resuelve a partir del [enlace EOL](../admin/eol.md) de cada tarjeta: Fin de vida, Próximo, Con soporte o Desconocido. **(vacío)** lista las tarjetas sin nada registrado. La columna **Fin de vida** correspondiente muestra la fecha junto a un punto de estado, y se ordena y exporta como fecha.
 - **Tipo de vínculo** — Cuando hay un único tipo de ficha jerárquico seleccionado y un administrador ha definido [tipos de vínculo](../admin/metamodel.md) para él, filtra por el tipo del vínculo de cada ficha con su ficha padre — por ejemplo las filiales *comerciales* en lugar de *ventas*. **(vacío)** lista las fichas cuyo vínculo no lleva tipo, y las fichas de primer nivel, ya que para ninguna hay nada registrado. La columna **Tipo de vínculo** correspondiente muestra el valor como una etiqueta de color y es editable en el modo de edición de la cuadrícula.
 - **Etiquetas** — Filtrar por etiquetas de cualquier grupo de etiquetas
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
@@ -169,6 +169,19 @@ Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de e
 - Al desplazarse por un grupo largo, su cabecera permanece fijada justo debajo de las cabeceras de columna, de modo que siempre sabe qué grupo está leyendo; la cabecera del grupo siguiente la desplaza al llegar. Es la cabecera completa, casilla incluida, de modo que puede seleccionar un grupo largo sin volver a su principio.
 - La casilla de la cabecera selecciona todas las tarjetas del grupo: para reclasificar un lote, despliegue **Sin definir**, marque la cabecera y establezca el valor con la [Edición masiva](#mass-edit). Deliberadamente no hay arrastrar y soltar: seleccionar y establecer funciona igual en escritorio, tableta y móvil.
 - La ordenación se aplica dentro de cada grupo; la agrupación se conserva al recargar, se guarda en las vistas guardadas y puede compartirse mediante el parámetro de URL `group_by`.
+
+### Sangrar los hijos bajo sus padres { #group-by-parents }
+
+Marque **Padre** en la parte superior del menú **Agrupar por** para mostrar las fichas como un árbol: primero cada padre y debajo, sangrados, sus hijos. Funciona por sí sola (toda la cuadrícula se convierte en un único árbol) o sobre cualquier agrupación (cada grupo se convierte en su propio árbol). El menú permanece abierto al marcarla, de modo que puede elegir una agrupación justo después.
+
+![Inventario con los hijos sangrados bajo sus padres](../assets/img/es/98c_inventario_agrupacion_padres.png)
+
+- Una ficha nunca sale de su propio grupo. Un hijo cuyo padre está en otro grupo, oculto por un filtro de columna o sin cargar inicia su propia rama, con sus ancestros ausentes mostrados en gris antes de su nombre (por ejemplo, *SAP S/4HANA / SAP FI /* antes del nombre del módulo). Por ello, los recuentos de los grupos, la casilla del encabezado y la edición masiva siempre coinciden con lo que contiene el grupo.
+- Haga clic en el chevrón antes del nombre de un padre para ocultar o mostrar su rama. Un padre contraído sigue contando sus fichas ocultas en el número de elementos y en el encabezado del grupo. Las ramas que contrae con el chevrón no se recuerdan, y cambiar un filtro de columna las vuelve a abrir todas; al borrar el último filtro de columna se vuelve al nivel que eligió con el selector.
+- Mientras la capa de padres está activada, un par **−** / **+** junto al botón Agrupar por cierra o abre todo el árbol un nivel cada vez. El nivel elegido se recuerda entre recargas, se guarda en las vistas guardadas y se puede compartir con `group_tree_level=<n>`; el nivel mostrado también sigue lo que abre y cierra a mano.
+- La ordenación se aplica entre hermanos: se ordenan los padres y, debajo de cada uno, sus hijos.
+- La opción solo se ofrece cuando un tipo de ficha en pantalla tiene jerarquía. Se recuerda entre recargas, se guarda en las vistas guardadas y se puede compartir con el parámetro de URL `group_tree=1`.
+- **Exportar** sigue el orden del árbol y omite las fichas de las ramas contraídas, igual que hace con los grupos contraídos.
 
 ## Sugerencias de Descripción con IA { #ai-description-suggestions }
 

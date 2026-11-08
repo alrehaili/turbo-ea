@@ -252,7 +252,7 @@
   "cost.costSourceDirect": "Direct (ce type de fiche)",
   "cost.costSourceItem": "{{type}} · {{field}}",
   "cost.costSourceMultiple": "{{count}} sources",
-  "cost.costSourceHelp": "Additionne les coûts des fiches liées. Chaque entrée cible un couple (type, champ) unique, donc aucune fiche n'est comptabilisée deux fois.",
+  "cost.costSourceHelp": "Additionne les coûts des fiches liées. Dans une même tuile, chaque fiche liée compte une seule fois, quel que soit le nombre de relations qui la relient. Une fiche liée à plusieurs tuiles compte sur chacune d'elles ; choisissez une Imputation pour décider comment.",
   "cost.drillDown.allItems": "Tous les {{type}}",
   "cost.drillDown.hint": "Astuce : cliquez sur un rectangle pour décomposer son coût.",
   "cost.drillDown.path": "Chemin d'exploration",
@@ -519,7 +519,7 @@
   "eol.noEolDataKpi": "Aucune donnée de fin de vie",
   "dataQuality.eolCoverage": "Couverture de fin de vie",
   "dataQuality.eolCoverageHint": "Applications et composants informatiques, selon qu'une fin de vie a été renseignée ou non. Cliquez sur un segment pour lister les fiches correspondantes.",
-  "dataQuality.eolLinked": "Lié à endoflife.date",
+  "dataQuality.eolLinked": "Lié à un produit EOL",
   "dataQuality.eolManual": "Date saisie à la main",
   "dependency.targetBadge": "Cible",
   "transformationRoadmap.title": "Feuille de route de transformation",
@@ -1176,5 +1176,15 @@
     "parent": "Élément parent",
     "noParent": "Aucun (élément racine)",
     "export": "Exporter (.xlsx)"
-  }
+  },
+  "cost.attribution": "Imputation",
+  "cost.attributionFull": "Intégrale",
+  "cost.attributionSplit": "À parts égales",
+  "cost.attributionHelp": "Intégrale impute la totalité du coût d'une fiche liée à chaque fiche à laquelle elle est liée, et le total ne la compte qu'une fois. À parts égales le divise par le nombre de fiches auxquelles elle est liée, de sorte que la somme des tuiles égale le total.",
+  "cost.sharedCountedOnce": "Coûts partagés comptés une seule fois",
+  "cost.sharedSources": "Certaines de ses sources sont partagées avec d'autres fiches",
+  "cost.sharedSourcesTooltip_one": "{{count}} de ses sources est aussi liée à d'autres fiches de type {{type}}",
+  "cost.sharedSourcesTooltip_other": "{{count}} de ses sources sont aussi liées à d'autres fiches de type {{type}}",
+  "eol.custom": "Produit personnalisé",
+  "eol.customTooltip": "Lié à l'un des produits EOL personnalisés de votre organisation (Paramètres → EOL → Produits personnalisés), et non à endoflife.date"
 }

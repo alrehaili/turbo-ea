@@ -19,7 +19,7 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Datakvalitet** — Båndfiltrering (multivalg): Komplet (≥80%), Delvis (40–79%), Minimal (under 40%). Samme bånd som [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et bjælkesegment der lander her.
 - **Forældreløse** — Kun kort uden relationer i nogen retning. Vurderes på serveren og virker derfor uden en valgt korttype.
 - **Forældede** — Kun kort, der ikke er opdateret de seneste 90 dage. Begge spejler felterne i [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et felt lander her.
-- **End of life** — For applikationer og it-komponenter kan du filtrere efter den supportstatus, Turbo EA udleder af kortets [EOL-link](../admin/eol.md): End of life, På vej, Understøttet eller Ukendt. **(tom)** viser de kort, hvor intet er registreret. Den tilhørende kolonne **End of life** viser datoen ved siden af en statusprik og sorteres og eksporteres som en dato.
+- **End of life** — For de korttyper, der sporer End of Life (som standard applikationer og it-komponenter, se [End of life på andre korttyper](../admin/eol.md#end-of-life-pa-andre-korttyper)), kan du filtrere efter den supportstatus, Turbo EA udleder af kortets [EOL-link](../admin/eol.md): End of life, På vej, Understøttet eller Ukendt. **(tom)** viser de kort, hvor intet er registreret. Den tilhørende kolonne **End of life** viser datoen ved siden af en statusprik og sorteres og eksporteres som en dato.
 - **Forbindelsestype** — Når der er valgt én hierarkisk korttype, og en administrator har defineret [forbindelsestyper](../admin/metamodel.md) for den, kan du filtrere efter typen af hvert korts forbindelse til sit overordnede kort — for eksempel de datterselskaber, der er *kommercielle* frem for *salg*. **(tom)** viser de kort, hvis forbindelse ikke bærer nogen type, samt kortene på øverste niveau, da der ikke er registreret noget for nogen af dem. Den tilhørende kolonne **Forbindelsestype** viser værdien som en farvet chip og kan redigeres i gitterets redigeringstilstand.
 - **Tags** — Filtrer efter tags fra en hvilken som helst tag-gruppe
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
@@ -171,6 +171,19 @@ Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af element
 - Når du ruller gennem en lang gruppe, forbliver dens overskrift fastgjort lige under kolonneoverskrifterne, så du altid ved, hvilken gruppe du læser; den næste gruppes overskrift skubber den væk, når den når frem. Det er hele overskriften inklusive afkrydsningsfeltet, så du kan vælge en lang gruppe uden at rulle tilbage til dens begyndelse.
 - Afkrydsningsfeltet i overskriften vælger alle kort i gruppen: for at omklassificere en stak skal du folde **Ikke angivet** ud, markere overskriften og sætte værdien med [Masseredigering](#mass-edit). Der er bevidst ingen træk-og-slip — vælg og sæt fungerer ens på computer, tablet og telefon.
 - Sortering gælder inden for hver gruppe; grupperingen huskes efter genindlæsning, gemmes i gemte visninger og kan deles via URL-parameteren `group_by`.
+
+### Indryk børn under forældre { #group-by-parents }
+
+Sæt kryds ved **Forælder** øverst i menuen **Gruppér efter** for at vise kortene som et træ: hver forælder først og dens børn indrykket nedenunder. Den virker alene (hele gitteret bliver ét træ) eller oven på en vilkårlig gruppering (hver gruppe bliver sit eget træ). Menuen forbliver åben, når du sætter krydset, så du kan vælge en gruppering lige bagefter.
+
+![Lager med børn indrykket under forældre](../assets/img/da/98c_inventory_group_by_parents.png)
+
+- Et kort forlader aldrig sin egen gruppe. Et barn, hvis forælder ligger i en anden gruppe, er skjult af et kolonnefilter eller ikke er indlæst, starter sin egen gren, hvor de manglende forfædre vises i gråt før navnet (for eksempel *SAP S/4HANA / SAP FI /* før modulets navn). Gruppetællinger, afkrydsningsfeltet i overskriften og masseredigering svarer derfor altid til det, gruppen indeholder.
+- Klik på pilen foran en forælders navn for at skjule eller vise dens gren. En sammenfoldet forælder tæller stadig sine skjulte kort med i antallet af elementer og i gruppeoverskriften. Grene, du folder sammen med pilen, huskes ikke, og en ændring af et kolonnefilter åbner dem alle igen; når du rydder det sidste kolonnefilter, vender visningen tilbage til det niveau, du valgte med trinvælgeren.
+- Mens forældrelaget er slået til, lukker eller åbner et **−** / **+**-par ved siden af knappen Gruppér efter hele træet ét niveau ad gangen. Det valgte niveau huskes ved genindlæsning, gemmes i gemte visninger og kan deles med `group_tree_level=<n>`; det viste niveau følger også det, du åbner og lukker manuelt.
+- Sorteringen gælder blandt søskende: forældrene sorteres, og hver forælders børn sorteres under den.
+- Indstillingen tilbydes kun, når en korttype i visningen har et hierarki. Den huskes ved genindlæsning, gemmes i gemte visninger og kan deles med URL-parameteren `group_tree=1`.
+- **Eksport** følger trærækkefølgen og udelader kortene i sammenfoldede grene, som den også gør for sammenfoldede grupper.
 
 ## AI-beskrivelsesforslag { #ai-description-suggestions }
 

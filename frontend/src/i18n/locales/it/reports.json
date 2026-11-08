@@ -252,7 +252,7 @@
   "cost.costSourceDirect": "Diretto (questo tipo di scheda)",
   "cost.costSourceItem": "{{type}} · {{field}}",
   "cost.costSourceMultiple": "{{count}} origini",
-  "cost.costSourceHelp": "Somma i costi delle schede collegate. Ogni voce punta a una coppia (tipo, campo) univoca, quindi nessuna scheda viene conteggiata due volte.",
+  "cost.costSourceHelp": "Somma i costi delle schede collegate. All'interno di un riquadro ogni scheda collegata conta una sola volta, indipendentemente da quante relazioni la collegano. Una scheda collegata a più riquadri conta su ciascuno di essi; scegliere un'Attribuzione per decidere come.",
   "cost.drillDown.allItems": "Tutti gli elementi: {{type}}",
   "cost.drillDown.hint": "Suggerimento: fare clic su un rettangolo per scomporne il costo.",
   "cost.drillDown.path": "Percorso di drill-down",
@@ -519,7 +519,7 @@
   "eol.noEolDataKpi": "Nessun dato di fine vita",
   "dataQuality.eolCoverage": "Copertura di fine vita",
   "dataQuality.eolCoverageHint": "Applicazioni e componenti IT, in base al fatto che sia stata registrata una fine vita. Fai clic su un segmento per elencare le schede che lo compongono.",
-  "dataQuality.eolLinked": "Collegato a endoflife.date",
+  "dataQuality.eolLinked": "Collegato a un prodotto EOL",
   "dataQuality.eolManual": "Data inserita a mano",
   "dependency.targetBadge": "Meta",
   "transformationRoadmap.title": "Roadmap di trasformazione",
@@ -1176,5 +1176,15 @@
     "parent": "Elemento padre",
     "noParent": "Nessuno (elemento radice)",
     "export": "Esporta (.xlsx)"
-  }
+  },
+  "cost.attribution": "Attribuzione",
+  "cost.attributionFull": "Intera",
+  "cost.attributionSplit": "Ripartita equamente",
+  "cost.attributionHelp": "Intera assegna l'intero costo di una scheda collegata a ogni scheda a cui è collegata, e il totale la conta una sola volta. Ripartita equamente lo divide per il numero di schede a cui è collegata, così la somma dei riquadri corrisponde al totale.",
+  "cost.sharedCountedOnce": "Costi condivisi conteggiati una volta",
+  "cost.sharedSources": "Alcune delle sue origini sono condivise con altre schede",
+  "cost.sharedSourcesTooltip_one": "{{count}} delle sue origini è collegata anche ad altre schede di tipo {{type}}",
+  "cost.sharedSourcesTooltip_other": "{{count}} delle sue origini sono collegate anche ad altre schede di tipo {{type}}",
+  "eol.custom": "Prodotto personalizzato",
+  "eol.customTooltip": "Collegato a uno dei prodotti EOL personalizzati della Sua organizzazione (Impostazioni → EOL → Prodotti personalizzati), non a endoflife.date"
 }

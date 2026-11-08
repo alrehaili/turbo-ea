@@ -252,7 +252,7 @@
   "cost.costSourceDirect": "直接（此卡片类型）",
   "cost.costSourceItem": "{{type}} · {{field}}",
   "cost.costSourceMultiple": "{{count}} 个来源",
-  "cost.costSourceHelp": "合计相关卡片的成本。每个条目对应唯一的（类型，字段）组合，因此同一张卡片不会被重复计算。",
+  "cost.costSourceHelp": "合计相关卡片的成本。在同一图块内，每张相关卡片只计算一次，无论有多少关系与之关联。关联到多个图块的卡片会计入每个图块；请选择分摊方式来决定计算方法。",
   "cost.drillDown.allItems": "全部「{{type}}」",
   "cost.drillDown.hint": "提示：点击矩形可分解其成本构成。",
   "cost.drillDown.path": "下钻路径",
@@ -519,7 +519,7 @@
   "eol.noEolDataKpi": "无生命周期终止数据",
   "dataQuality.eolCoverage": "生命周期终止覆盖率",
   "dataQuality.eolCoverageHint": "按是否已记录生命周期终止信息划分的应用与 IT 组件。点击任一分段可列出其背后的卡片。",
-  "dataQuality.eolLinked": "已关联 endoflife.date",
+  "dataQuality.eolLinked": "已关联 EOL 产品",
   "dataQuality.eolManual": "手动填写日期",
   "dependency.targetBadge": "目标",
   "transformationRoadmap.title": "转型路线图",
@@ -1176,5 +1176,15 @@
     "parent": "父级条目",
     "noParent": "无（根条目）",
     "export": "导出 (.xlsx)"
-  }
+  },
+  "cost.attribution": "分摊方式",
+  "cost.attributionFull": "全额",
+  "cost.attributionSplit": "平均分摊",
+  "cost.attributionHelp": "全额：将相关卡片的全部成本计入其关联的每张卡片，总计中只计算一次。平均分摊：按其关联的卡片数量均分成本，使各图块之和等于总计。",
+  "cost.sharedCountedOnce": "共享成本只计一次",
+  "cost.sharedSources": "其部分来源与其他卡片共享",
+  "cost.sharedSourcesTooltip_one": "其中 {{count}} 个来源也关联到其他{{type}}卡片",
+  "cost.sharedSourcesTooltip_other": "其中 {{count}} 个来源也关联到其他{{type}}卡片",
+  "eol.custom": "自定义产品",
+  "eol.customTooltip": "已关联到贵组织的自定义 EOL 产品之一（设置 → EOL → 自定义产品），而非 endoflife.date"
 }

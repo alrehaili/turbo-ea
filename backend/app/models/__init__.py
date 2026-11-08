@@ -29,6 +29,8 @@ from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.ea_review_applicability import EaReviewApplicability
+from app.models.eol_custom_cycle import EolCustomCycle
+from app.models.eol_custom_product import EolCustomProduct
 from app.models.event import Event
 from app.models.extension import (
     Extension,
@@ -253,4 +255,6 @@ __all__ = [
     "BenefitAllocation",
     "BenefitAssessment",
     "BenefitHistory",
+    "EolCustomProduct",
+    "EolCustomCycle",
 ]

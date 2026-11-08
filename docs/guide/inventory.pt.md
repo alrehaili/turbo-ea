@@ -19,7 +19,7 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Qualidade dos Dados** — Filtragem por faixa (seleção múltipla): Completo (≥80%), Parcial (40-79%), Mínimo (abaixo de 40%). São as faixas do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num segmento de barra leva até aqui.
 - **Órfãs** — Apenas fichas sem qualquer relação, em ambos os sentidos. Avaliado no servidor, pelo que funciona sem um tipo selecionado.
 - **Desatualizadas** — Apenas fichas não atualizadas nos últimos 90 dias. Ambas espelham os blocos do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num bloco leva até aqui.
-- **Fim de vida** — Para aplicações e componentes de TI, filtre pelo estado de suporte que o Turbo EA determina a partir da [ligação EOL](../admin/eol.md) de cada cartão: Fim de vida, A aproximar-se, Suportado ou Desconhecido. **(vazio)** lista os cartões sem nada registado. A coluna **Fim de vida** correspondente mostra a data ao lado de um ponto de estado, e é ordenada e exportada como data.
+- **Fim de vida** — Para os tipos de card que rastreiam o fim de vida (Aplicações e Componentes de TI por padrão, veja [Fim de vida em outros tipos de card](../admin/eol.md#fim-de-vida-em-outros-tipos-de-card)), filtre pelo estado de suporte que o Turbo EA determina a partir da [ligação EOL](../admin/eol.md) de cada cartão: Fim de vida, A aproximar-se, Suportado ou Desconhecido. **(vazio)** lista os cartões sem nada registado. A coluna **Fim de vida** correspondente mostra a data ao lado de um ponto de estado, e é ordenada e exportada como data.
 - **Tipo de ligação** — Quando está selecionado um único tipo de cartão hierárquico e um administrador definiu [tipos de ligação](../admin/metamodel.md) para ele, filtre pelo tipo da ligação de cada cartão ao seu cartão pai — por exemplo as filiais *comerciais* em vez de *vendas*. **(vazio)** lista os cartões cuja ligação não tem tipo, e os cartões de primeiro nível, pois nem uns nem outros têm algo registado. A coluna **Tipo de ligação** correspondente mostra o valor como uma etiqueta colorida e é editável no modo de edição da grelha.
 - **Tags** — Filtrar por tags de qualquer grupo de tags
 - **Relacionamentos** — Filtrar por cards relacionados através de tipos de relacionamento
@@ -169,6 +169,19 @@ Clique em **Agrupar por** na barra de ferramentas (ao lado da contagem de itens)
 - Ao percorrer um grupo longo, o seu cabeçalho permanece fixo logo abaixo dos cabeçalhos de coluna, para que saiba sempre que grupo está a ler; o cabeçalho do grupo seguinte empurra-o ao chegar. É o cabeçalho completo, incluindo a caixa de seleção, pelo que pode selecionar um grupo longo sem voltar ao seu início.
 - A caixa de seleção do cabeçalho seleciona todos os cartões do grupo: para reclassificar um lote, expanda **Não definido**, marque o cabeçalho e defina o valor com a [Edição em massa](#mass-edit). Deliberadamente não há arrastar e largar: selecionar e definir funciona da mesma forma em computador, tablet e telemóvel.
 - A ordenação aplica-se dentro de cada grupo; o agrupamento é mantido após recarregar, guardado nas vistas guardadas e partilhável através do parâmetro de URL `group_by`.
+
+### Recuar os filhos sob os pais { #group-by-parents }
+
+Marque **Pai** no topo do menu **Agrupar por** para mostrar as fichas como uma árvore: primeiro cada pai e, por baixo, os seus filhos recuados. Funciona sozinha (toda a grelha passa a ser uma única árvore) ou sobre qualquer agrupamento (cada grupo passa a ser a sua própria árvore). O menu permanece aberto ao marcá-la, para poder escolher um agrupamento logo a seguir.
+
+![Inventário com os filhos recuados sob os pais](../assets/img/pt/98c_inventario_agrupamento_pais.png)
+
+- Uma ficha nunca sai do seu próprio grupo. Um filho cujo pai está noutro grupo, oculto por um filtro de coluna ou não carregado inicia o seu próprio ramo, com os ascendentes em falta apresentados a cinzento antes do seu nome (por exemplo, *SAP S/4HANA / SAP FI /* antes do nome do módulo). As contagens dos grupos, a caixa de seleção do cabeçalho e a edição em massa correspondem, por isso, sempre ao conteúdo do grupo.
+- Clique no chevron antes do nome de um pai para ocultar ou mostrar o seu ramo. Um pai recolhido continua a contar as fichas ocultas no número de itens e no cabeçalho do grupo. Os ramos que recolhe com o chevron não são memorizados, e alterar um filtro de coluna volta a abri-los todos; limpar o último filtro de coluna regressa ao nível que escolheu com o seletor.
+- Enquanto a camada de pais está ativa, um par **−** / **+** junto ao botão Agrupar por fecha ou abre toda a árvore um nível de cada vez. O nível escolhido é memorizado entre recarregamentos, guardado nas vistas guardadas e partilhável com `group_tree_level=<n>`; o nível apresentado também acompanha o que abre e fecha manualmente.
+- A ordenação aplica-se entre irmãos: os pais são ordenados e, por baixo de cada um, os respetivos filhos.
+- A opção só é oferecida quando um tipo de ficha em vista tem hierarquia. É memorizada entre recarregamentos, guardada nas vistas guardadas e pode ser partilhada com o parâmetro de URL `group_tree=1`.
+- A **exportação** segue a ordem da árvore e omite as fichas dos ramos recolhidos, tal como faz com os grupos recolhidos.
 
 ## Sugestões de Descrição com IA { #ai-description-suggestions }
 

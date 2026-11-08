@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.45.0] - 2026-11-08
+
+### Added
+- Merged upstream Turbo EA **v2.186.6 → v2.193.0** into the fork.
+- Upstream custom EOL products: define a product endoflife.date does not track, with its release cycles, from a card's End of Life section or Settings → EOL → Custom products, and link cards to it (migrations 164, 165).
+- Upstream End of Life on any card type through the type's End of Life section toggle; in the fork it stays on by default for Applications, IT Components and the NORA infrastructure types.
+- Upstream spreadsheet export and import for EA principles and architecture decisions; every principle gets a reference number (P-001, …) (migration 163).
+- Upstream help text: info icons beside fields, stakeholder roles and lifecycle phases, with a new Admin → Metamodel → Lifecycle phases tab for per-language phase explanations.
+- Upstream Cost Report and Capability Map **Attribution** choice (Full or Split equally) for related cards shared by several cards.
+- Upstream Inventory **Group by → Parent** tree with a level stepper, and click-to-sort columns in the PPM Gantt task list.
+
+### Fixed
+- Upstream fixes: the Cost Report total no longer counts a shared related card more than once, and AI suggestions work again with Anthropic models that refuse a custom temperature.
+- Admin → Metamodel: the Resource Types tab shows its content again instead of opening empty while the Regulations tab showed both.
+
 ## [2.44.1] - 2026-11-05
 
 ### Fixed

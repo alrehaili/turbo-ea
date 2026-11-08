@@ -199,6 +199,10 @@ Disse felter foreslås kun, når AI'en finder klart bevis — de spekuleres ikke
 !!! note
     Bortset fra Application-specifikke felter genererer AI-forslag primært **beskrivelsesfeltet**. Brugerdefinerede felter for andre korttyper er endnu ikke dækket.
 
+### Brugerdefinerede EOL-produkter
+
+Den samme knap vises i dialogerne **Opret et brugerdefineret EOL-produkt** og **Rediger brugerdefineret EOL-produkt** ([EOL-administration](eol.md)), når produktet har et navn. Forslaget udarbejdes ud fra produktnavnet og dets leverandørlink, med en søgning efter produktets supportlivscyklus. Et brugerdefineret produkt er ikke en korttype, så kontakten pr. type ovenfor gælder ikke: Funktionen kræver blot, at AI-forslag er aktiveret og konfigureret, samt tilladelsen `ai.suggest`.
+
 ---
 
 ## Porteføljeindsigt
@@ -264,6 +268,7 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 | Langsomme forslag | LLM-inferenshastighed afhænger af hardware (for Ollama) eller netværkslatens (for kommercielle udbydere). Mindre modeller som `gemma3:4b` er hurtigere end større. |
 | Lave confidence-scores | LLM'en kan muligvis ikke finde nok relevant information via websøgning. Prøv et mere specifikt kortnavn, eller overvej at bruge Google Custom Search for bedre resultater. |
 | Forbindelsestest mislykkes | Bekræft, at udbyder-URL'en er tilgængelig fra backend-containeren. For Docker-opsætninger skal du sikre dig, at begge containere er på samme netværk. |
+| «AI-udbyderen afviste anmodningen» | Udbyderen blev kontaktet, men afviste anmodningen, og meddelelsen angiver årsagen (ved 401 eller 403 skal du kontrollere API-nøglen og modeladgangen). Ret det modelnavn eller den udbyderindstilling, der nævnes, og klik derefter på Test forbindelse: den sender samme anmodning som et forslag og fejler eller lykkes derfor nu på samme måde. |
 | Bedrock returnerer «AccessDeniedException» | To mulige årsager: IAM-rollen mangler rettigheden `bedrock:InvokeModel`, eller modeladgang er ikke aktiveret for den model i Bedrock-konsollen. Tjek begge. |
 | Bedrock siger, at on-demand-gennemløb ikke understøttes | Modellen kan kun nås via en regional inferensprofil. Kør forbindelsestesten, og vælg et ID med præfikset `eu.`, `us.` eller `apac.`. |
 | OpenAI afviser en model med 403 | Nøglen er gyldig, men OpenAI-projektet må ikke kalde den model. Forbindelsestesten sender en kort forespørgsel til den konfigurerede model og viser OpenAIs egen begrundelse. Giv projektet adgang til modellen (eller gennemfør organisationsverificeringen) i OpenAI-dashboardet, eller vælg en anden model. |

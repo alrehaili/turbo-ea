@@ -195,6 +195,10 @@ Ces champs ne sont suggérés que lorsque l'IA trouve des preuves claires — il
 !!! note
     En dehors des champs spécifiques aux Applications, les suggestions IA génèrent principalement le champ **description**. Les champs personnalisés pour les autres types de fiches ne sont pas encore couverts.
 
+### Produits EOL personnalisés
+
+Le même bouton apparaît dans les boîtes de dialogue **Créer un produit EOL personnalisé** et **Modifier le produit EOL personnalisé** ([Administration EOL](eol.md)), dès que le produit a un nom. La suggestion est rédigée à partir du nom du produit et de son lien fournisseur, avec une recherche sur le cycle de vie du support du produit. Un produit personnalisé n'est pas un type de fiche : le commutateur par type ci-dessus ne s'applique donc pas. La fonctionnalité exige seulement que les suggestions IA soient activées et configurées, ainsi que la permission `ai.suggest`.
+
 ---
 
 ## Analyses du portefeuille
@@ -250,6 +254,7 @@ Les clés de permission sont `ai.suggest` et `ai.portfolio_insights`. Les rôles
 | Suggestions lentes | La vitesse d'inférence LLM dépend du matériel (pour Ollama) ou de la latence réseau (pour les fournisseurs commerciaux). Les modèles plus petits comme `gemma3:4b` sont plus rapides que les plus grands. |
 | Scores de confiance faibles | Le LLM peut ne pas trouver suffisamment d'informations pertinentes via la recherche web. Essayez un nom de fiche plus spécifique, ou envisagez d'utiliser Google Custom Search pour de meilleurs résultats. |
 | Le test de connexion échoue | Vérifiez que l'URL du fournisseur est accessible depuis le conteneur backend. Pour les configurations Docker, assurez-vous que les deux conteneurs sont sur le même réseau. |
+| «Le fournisseur d'IA a rejeté la requête» | Le fournisseur a été joint mais a refusé la requête, et le message en indique la raison (avec un 401 ou un 403, vérifiez la clé API et l'accès au modèle). Corrigez le nom du modèle ou le paramètre du fournisseur indiqué, puis cliquez sur Tester la connexion : le test envoie la même requête qu'une suggestion et échoue ou réussit donc désormais de la même façon. |
 | Bedrock renvoie «AccessDeniedException» | Deux causes possibles : le rôle IAM n'a pas la permission `bedrock:InvokeModel`, ou l'accès au modèle n'a pas été activé dans la console Bedrock. Vérifiez les deux. |
 | Bedrock indique que le débit à la demande n'est pas pris en charge | Le modèle n'est accessible que via un profil d'inférence régional. Lancez le test de connexion et choisissez un ID préfixé `eu.`, `us.` ou `apac.`. |
 | OpenAI refuse un modèle avec une erreur 403 | La clé est valide, mais le projet OpenAI n'a pas le droit d'appeler ce modèle. Le test de connexion envoie une courte requête au modèle configuré et affiche la raison donnée par OpenAI. Accordez au projet l'accès au modèle (ou terminez la vérification de l'organisation) dans le tableau de bord OpenAI, ou choisissez un autre modèle. |

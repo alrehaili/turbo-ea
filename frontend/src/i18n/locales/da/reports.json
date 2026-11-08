@@ -252,7 +252,7 @@
   "cost.costSourceDirect": "Direkte (denne korttype)",
   "cost.costSourceItem": "{{type}} · {{field}}",
   "cost.costSourceMultiple": "{{count}} kilder",
-  "cost.costSourceHelp": "Sum omkostninger fra relaterede kort. Hver post peger på en unik (type, felt), så intet kort tælles to gange.",
+  "cost.costSourceHelp": "Sum omkostninger fra relaterede kort. Inden for én flise tæller hvert relateret kort én gang, uanset hvor mange relationer der forbinder det. Et kort, der er knyttet til flere fliser, tæller på hver af dem; vælg en fordeling for at bestemme hvordan.",
   "cost.drillDown.allItems": "Alle {{type}}",
   "cost.drillDown.hint": "Tip: klik på et rektangel for at bryde dets omkostninger ned.",
   "cost.drillDown.path": "Borings-sti",
@@ -519,7 +519,7 @@
   "eol.noEolDataKpi": "Ingen EOL-data",
   "dataQuality.eolCoverage": "End-of-life-dækning",
   "dataQuality.eolCoverageHint": "Applikationer og it-komponenter, opdelt efter om der er registreret en end of life. Klik på et segment for at se kortene bag det.",
-  "dataQuality.eolLinked": "Knyttet til endoflife.date",
+  "dataQuality.eolLinked": "Knyttet til et EOL-produkt",
   "dataQuality.eolManual": "Dato indtastet manuelt",
   "dependency.targetBadge": "Mål",
   "transformationRoadmap.title": "Transformationsplan",
@@ -1176,5 +1176,15 @@
     "parent": "Overordnet post",
     "noParent": "Ingen (rodpost)",
     "export": "Eksportér (.xlsx)"
-  }
+  },
+  "cost.attribution": "Fordeling",
+  "cost.attributionFull": "Fuld",
+  "cost.attributionSplit": "Fordel ligeligt",
+  "cost.attributionHelp": "Fuld lægger hele omkostningen for et relateret kort på hvert kort, det er knyttet til, og totalen tæller det én gang. Fordel ligeligt deler den med antallet af kort, det er knyttet til, så fliserne tilsammen giver totalen.",
+  "cost.sharedCountedOnce": "Delte omkostninger talt én gang",
+  "cost.sharedSources": "Nogle af dets kilder deles med andre kort",
+  "cost.sharedSourcesTooltip_one": "{{count}} af dets kilder er også knyttet til andre kort af typen {{type}}",
+  "cost.sharedSourcesTooltip_other": "{{count}} af dets kilder er også knyttet til andre kort af typen {{type}}",
+  "eol.custom": "Brugerdefineret produkt",
+  "eol.customTooltip": "Tilknyttet et af din organisations brugerdefinerede EOL-produkter (Indstillinger → EOL → Brugerdefinerede produkter), ikke til endoflife.date"
 }

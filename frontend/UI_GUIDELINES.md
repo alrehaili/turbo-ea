@@ -380,10 +380,19 @@ rules the module exists to hold, each of which has a cheap way to get wrong:
   `stopPropagation()`s so the cell menu's long-press never even arms. Hooks stay
   clear of each other by construction, not by spread order.
 - **A hook never claims a `gridProps` key another hook already owns.**
-  `useRowGrouping` returns `onModelUpdated`; a second hook returning it would
-  silently win in a later spread and break grouping. `useDragFill` returns
-  `onCellFocused` alone and subscribes to everything else through
-  `api.addEventListener`, which is additive.
+  `useRowGrouping`'s `gridProps` own `postSortRows`, `isFullWidthRow`,
+  `fullWidthCellRenderer`, `isRowSelectable` and `context`, and its
+  `handleModelUpdated` / `handleFilterChanged` are chained by each page inside
+  its own `onModelUpdated` / `onFilterChanged`; a second hook returning one of
+  those keys would silently win in a later spread and break grouping.
+  `useDragFill` returns `onCellFocused` alone and subscribes to everything else
+  through `api.addEventListener`, which is additive.
+- **The grouping tree layer ("Indent children under parents") never clones a
+  leaf row.** Depth, ancestor crumb and collapse state live in a side map the
+  hook exposes as `context.getTreeInfo(id)`, and the hook forces
+  `refreshCells` on the tree's columns whenever that map changes, because AG
+  Grid does not re-render a row whose object is unchanged. A clone rebuilt
+  from `data` would revert a Name edit that mutated the row in place.
 - **The fill is write-then-reload, never optimistic.** It persists each row and
   re-reads once at the end — it must not call `node.setDataValue()`, which would
   re-fire `onCellValueChanged` and write every row twice, and it never touches a
@@ -864,6 +873,54 @@ types). A field is focused through its edit wrapper's `data-field-key`
 - Don't hardcode colours in keyframes or particles — take them from `@/theme/tokens`
   (`STATUS_COLORS`, `brand`) or the band colour (`bandColor`).
 - Don't loop an animation or start one the user did not cause.
+
+---
+
+### 3.17 Help Text: One Shape
+
+Admin-written help (a field's help text, a stakeholder role's description, a
+lifecycle phase's help) has one shape, **`HelpTip`** (`src/components/HelpTip.tsx`):
+a small `help` icon that shows the text in a tooltip on hover, keyboard focus
+or tap. It renders nothing for empty text, so pass whatever the resolver returns.
+The icon opens on a tap or click as well as on hover and focus (a second tap, a
+tap elsewhere or Escape closes it), and its click is prevented, so inside a
+control's `<label>` it never activates or focuses the field.
+
+- **Read mode**: the icon sits beside the label, inside the label's `Typography`.
+- **Edit mode**: the icon sits inside the control's floating label, after the
+  label text, at `HELP_TIP_IN_LABEL_SIZE` (18 px, which the label's 0.75 scale
+  renders level with the label text). Build the label with
+  `labelWithHelp(text, help)`, which returns `{ label, notch }`: `label` goes to
+  the visible label (`TextField label`, `InputLabel` children) and `notch` to
+  the outline's notch label (`slotProps.input.label` on a `TextField`, `Select
+  label`). A component that owns its label (`BooleanField`, `PercentageInput`)
+  takes the icon as `labelAdornment` and builds the pair itself. `FieldEditor`
+  (`features/cards/sections/cardDetailUtils.tsx`) does this for every core
+  control type, so a form built on `FieldEditor` needs nothing more; an
+  extension's own editor takes a string label, so its icon stays beside the
+  control. Where a read-mode icon stays on screen while editing (the Lifecycle
+  timeline above its date fields), the edit row gets none.
+- **The notch gets the spacer, never the icon.** MUI renders an outlined
+  control's label twice: the visible label and an invisible copy in the
+  border's `<legend>` that only sizes the gap in the border line. An icon in
+  both would leave a focusable, invisible duplicate tab stop in the legend, so
+  the notch carries `HelpTipNotchSpacer`, the icon's width and nothing else. On
+  a required field MUI appends the asterisk after the label's children, so it
+  reads "Label (i) *".
+- **Grids** use AG Grid's native `headerTooltip` on the column with the same text.
+
+✅ Do
+- Resolve the text with its localizing resolver (`useFieldHelp`,
+  `useTypeDescription`, `useLifecyclePhaseHelp`) — never show the English
+  column directly.
+- Put the icon after the label text, in read mode and in the floating label in
+  edit mode.
+
+❌ Don't
+- Don't hand-roll a `Tooltip` + icon for help text, don't add a second shape
+  (a collapsible, an always-visible caption), and don't show the same help twice.
+- Don't pass the icon to the notch label, and don't pin `shrink` / `notched` to
+  make room for it (§3.5): the spacer sizes the gap.
 
 ---
 

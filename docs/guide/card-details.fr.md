@@ -98,6 +98,8 @@ Chaque phase dispose d'un **sélecteur de date** pour enregistrer quand le compo
 
 Si une phase est datée après une phase qui devrait la suivre — par exemple **Retrait progressif** après **Fin de vie** —, une icône d'avertissement apparaît à côté de cette date, et le même avertissement s'affiche sous le champ pendant la modification. Ce n'est qu'une indication : les dates peuvent tout de même être enregistrées telles quelles.
 
+Une icône d'information à côté de chaque phase dans la chronologie explique ce que la phase signifie – survolez-la pour lire la définition. Elle affiche une explication par défaut, sauf si votre administrateur l'a modifiée pour décrire l'usage de la phase dans votre organisation, ou l'a supprimée. La chronologie, avec ses icônes, reste affichée pendant la modification des dates. Les textes se définissent sous **Admin → Métamodèle → Phases du cycle de vie** (voir [Phases du cycle de vie](../admin/metamodel.md#lifecycle-phases)).
+
 ### Sections d'attributs personnalisés
 
 Selon le type de fiche, vous verrez des sections supplémentaires avec des **champs personnalisés** configurés dans le métamodèle. Les types de champs incluent :
@@ -111,6 +113,8 @@ Selon le type de fiche, vous verrez des sections supplémentaires avec des **cha
 - **URL** -- Lien cliquable (validé pour http/https/mailto)
 - **Sélection unique** -- Liste déroulante avec options prédéfinies
 - **Sélection multiple** -- Multi-sélection avec affichage en puces
+
+Lorsque votre administrateur a rédigé un **texte d'aide** pour un champ, une icône d'information apparaît à côté de son libellé : survolez-la (ou atteignez-la au clavier avec la touche Tab) pour lire ce que signifie le champ. Pendant la modification de la section, la même icône se trouve à côté du champ. Dans l'Inventaire, survoler l'en-tête de colonne du champ l'affiche également.
 
 Les champs marqués comme **calculés** affichent un badge et ne peuvent pas être modifiés manuellement -- leurs valeurs sont calculées par des [formules définies par l'administrateur](../admin/calculations.md).
 
@@ -161,11 +165,14 @@ L'onglet **Ressources** regroupe tous les documents de support d'une fiche :
 
 ### Section EOL
 
-Si la fiche est liée à un produit [endoflife.date]( (via [Administration EOL](../admin/eol.md)) :
+Affichée par défaut sur les Applications et les Composants IT, et sur tout autre type de fiche pour lequel l'administrateur l'a [activée](../admin/eol.md#fin-de-vie-sur-dautres-types-de-fiches). Si la fiche est liée à un produit [endoflife.date](https://endoflife.date/) (via [Administration EOL](../admin/eol.md)) :
 
-- **Nom du produit et version**
-- **Statut de support** -- Code couleur : Supporté, Approchant la fin de vie, Fin de vie
-- **Dates clés** -- Date de sortie, fin du support actif, fin du support sécurité, date de fin de vie
+- **Nom du produit et version** -- un produit personnalisé porte son titre comme nom et est marqué **Personnalisé**
+- **Statut de support** -- Code couleur, selon la même règle que le rapport EOL : Supporté, Approchant la fin de vie (à moins de six mois de la date de fin de vie, ou une fois le support actif terminé), Fin de vie
+- **Dates clés** -- Date de sortie, fin du support actif, date de fin de vie, dernière version et sa date de publication
+- **Notes de version** -- un lien vers la page du produit sur endoflife.date, ou la **Page éditeur** d'un produit personnalisé
+
+**Lier**, **Modifier** et **Dissocier** n'apparaissent que si vous pouvez modifier la fiche. Les utilisateurs disposant de la permission **Gérer l'EOL** peuvent définir un [produit EOL personnalisé](../admin/eol.md) directement depuis cette section, via le lien **Le définir comme produit personnalisé…** sous la recherche de produit : le formulaire s'ouvre avec le nom de la fiche (ou ce que vous avez saisi) comme nom de produit, et la fiche est liée au nouveau produit à l'enregistrement. Ils disposent aussi d'un raccourci vers **Gérer les produits personnalisés** dans les paramètres et peuvent ajouter un cycle de version manquant depuis la liste des cycles. Les autres utilisateurs voient une invitation à solliciter un gestionnaire EOL lorsque endoflife.date n'a aucune correspondance. Les produits personnalisés se comportent partout ailleurs comme les produits endoflife.date.
 
 ## Onglet Commentaires
 
@@ -199,6 +206,8 @@ Les parties prenantes sont des personnes ayant un **rôle** spécifique sur cett
 Les affectations de parties prenantes affectent les **permissions** : les permissions effectives d'un utilisateur sur une fiche sont la combinaison de son rôle au niveau de l'application et de tous les rôles de parties prenantes qu'il détient sur cette fiche.
 
 Lorsqu'une **couleur** est définie pour un rôle dans le métamodèle, son groupe en est marqué, ce qui permet de distinguer un propriétaire d'un observateur d'un coup d'œil.
+
+Lorsqu'un rôle possède une **description**, une icône d'information apparaît à côté de son nom : survolez-la pour lire ce que signifie le rôle. La description s'affiche aussi sous le nom du rôle dans le sélecteur de rôle lorsque vous ajoutez une partie prenante.
 
 ### Recherche et invitation
 

@@ -199,6 +199,10 @@ These fields are only suggested when the AI finds clear evidence — they are no
 !!! note
     Apart from Application-specific fields, AI suggestions primarily generate the **description** field. Custom fields for other card types are not yet covered.
 
+### Custom EOL Products
+
+The same button appears in the **Create a custom EOL product** and **Edit custom EOL product** dialogs ([EOL Administration](eol.md#custom-eol-products)), once the product has a name. The suggestion is drafted from the product name and its vendor link, with a search for the product's support lifecycle. A custom product is not a card type, so the per-type switch above does not apply: the feature only needs AI suggestions to be enabled and configured, plus the `ai.suggest` permission.
+
 ---
 
 ## Portfolio Insights
@@ -264,6 +268,7 @@ Custom roles can be granted these permissions through the Roles administration p
 | Slow suggestions | LLM inference speed depends on hardware (for Ollama) or network latency (for commercial providers). Smaller models like `gemma3:4b` are faster than larger ones. |
 | Low confidence scores | The LLM may not find enough relevant information via web search. Try a more specific card name, or consider using Google Custom Search for better results. |
 | Connection test fails | Verify the provider URL is reachable from the backend container. For Docker setups, ensure both containers are on the same network. |
+| "The AI provider rejected the request" | The provider was reached but refused the request, and the message carries its reason (with a 401 or 403, check the API key and the model access instead). Correct the model name or the provider setting it names, then click Test Connection: it sends the same request a suggestion does, so it now fails or passes the same way. |
 | Bedrock returns "AccessDeniedException" | Two different causes: the IAM role is missing the `bedrock:InvokeModel` permission, or model access has not been enabled for that model in the Bedrock console. Check both. |
 | Bedrock says on-demand throughput is not supported | The model is only reachable through a regional inference profile. Run Test Connection and pick an ID prefixed `eu.`, `us.` or `apac.`. |
 | OpenAI refuses a model with 403 | The key is valid, but the OpenAI project may not call that model. Test Connection sends a short request to the configured model and shows OpenAI's own reason. Grant the project access to the model (or complete organization verification) in the OpenAI dashboard, or pick another model. |
