@@ -21,6 +21,8 @@ import ListItemButton from "@mui/material/ListItemButton";
 import Collapse from "@mui/material/Collapse";
 import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { alpha, darken } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
@@ -60,8 +62,12 @@ import {
 import CreateCardDialog from "@/components/CreateCardDialog";
 import {
   ADMIN_ITEM_DEFS,
+  EXTENSION_GROUP_HOSTS,
+  MENU_FILTER_THRESHOLD,
   NAV_ITEM_DEFS,
+  menuRowsFor,
   resolveNavPlacement,
+  type NavChildDef,
   type NavItemDef,
 } from "@/layouts/navItems";
 import { hasPermission, routePermissionsFor } from "@/components/RequirePermission";
@@ -72,8 +78,18 @@ interface NavItem {
   label: string;
   icon: string;
   path?: string;
-  children?: { label: string; icon: string; path: string; permission?: string | string[]; dividerLabel?: string }[];
+  children?: NavChild[];
   permission?: string | string[];
+}
+
+interface NavChild {
+  label: string;
+  icon: string;
+  path: string;
+  permission?: string | string[];
+  dividerLabel?: string;
+  pinned?: boolean;
+  secondary?: { label: string; icon: string; path: string };
 }
 
 interface PermissionMap {
@@ -95,9 +111,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // right-side controls fit; the nav container also scrolls as a safety net.
   const isCompact = useMediaQuery("(max-width:1279px)");
   const isCondensed = useMediaQuery("(max-width:1279px)");
-  // Use the hamburger drawer on any laptop-width screen; only a genuinely wide
-  // monitor (>=1536px) keeps the horizontal nav bar.
-  const isNarrowNav = useMediaQuery("(max-width:1535px)");
+  // [FORK] The bar is seven grouped entries, so it fits from 1280px up; below
+  // that the hamburger drawer takes over.
+  const isNarrowNav = useMediaQuery("(max-width:1279px)");
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
   const { grcEnabled } = useGrcEnabled();
@@ -201,58 +217,60 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // Resolve nav item labels via i18n and filter based on BPM/PPM/TurboLens/permissions
   const navItems = useMemo(() => {
     let items = NAV_ITEM_DEFS as NavItemDef[];
-    if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
-    if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
-    if (!grcEnabled) items = items.filter((item) => item.labelKey !== "grc");
+    // Pages switched off by a module flag or the framework profile. Most now
+    // sit inside a group, so they are dropped from wherever they are.
+    const hidden = new Set<string>();
+    if (!bpmEnabled) hidden.add("/bpm");
+    if (!ppmEnabled) hidden.add("/ppm");
+    if (!grcEnabled) hidden.add("/grc");
     if (frameworkProfile !== "nora") {
-      items = items.filter(
-        (item) => item.labelKey !== "noraProgram" && item.labelKey !== "referenceModels",
-      );
-      // EA Maturity + Reference Models live under Governance but are
       // NORA-methodology tools.
-      const noraOnly = ["governance.maturity", "governance.referenceModels"];
-      items = items.map((item) =>
-        item.labelKey === "governance" && item.children
-          ? {
-              ...item,
-              children: item.children.filter((c) => !noraOnly.includes(c.labelKey)),
-            }
+      for (const p of ["/nora-program", "/reference-models", "/maturity", "/reference-models/manage"]) {
+        hidden.add(p);
+      }
+    }
+    items = items
+      .filter((item) => !item.path || !hidden.has(item.path))
+      .map((item) =>
+        item.children
+          ? { ...item, children: item.children.filter((c) => !hidden.has(c.path)) }
           : item,
       );
-    }
 
     // When PPM is disabled, EA Delivery has no parent tab to live under —
-    // promote it to a top-level nav item, sitting in PPM's old slot (between
-    // BPM and Diagrams) so the surface stays reachable from the top menu.
+    // promote it to a top-level nav item, in PPM's slot (just before Todos),
+    // so the surface stays reachable from the top menu.
     if (!ppmEnabled) {
       const eaDeliveryItem: NavItemDef = {
         labelKey: "delivery",
         icon: "architecture",
         path: "/reports/ea-delivery",
       };
-      const diagramsIdx = items.findIndex((i) => i.labelKey === "diagrams");
-      const insertAt = diagramsIdx >= 0 ? diagramsIdx : items.length;
+      const todosIdx = items.findIndex((i) => i.labelKey === "todos");
+      const insertAt = todosIdx >= 0 ? todosIdx : items.length;
       items = [...items.slice(0, insertAt), eaDeliveryItem, ...items.slice(insertAt)];
     }
 
-    // Reference Models dropdown: append one entry per domain that currently
-    // has a *published* model (probe is cached + permission-gated; before it
-    // resolves — or when nothing is published — only the landing entry shows).
-    items = items.map((item) =>
-      item.labelKey === "referenceModels" && item.children
-        ? {
-            ...item,
-            children: [
-              ...item.children,
-              ...RM_DOMAIN_ORDER.filter((d) => rmSummary[d]).map((d) => ({
-                labelKey: `noraProgram.domain.${d}`,
-                icon: RM_DOMAIN_META[d].icon,
-                path: `/reference-models/${d}`,
-              })),
-            ],
-          }
-        : item,
-    );
+    // Reference Models: one entry per domain that currently has a *published*
+    // model, right after the landing entry (probe is cached + permission-gated;
+    // before it resolves — or when nothing is published — only the landing
+    // entry shows).
+    const rmDomains: NavChildDef[] = RM_DOMAIN_ORDER.filter((d) => rmSummary[d]).map((d) => ({
+      labelKey: `noraProgram.domain.${d}`,
+      icon: RM_DOMAIN_META[d].icon,
+      path: `/reference-models/${d}`,
+      permission: "reference_models.view",
+    }));
+    if (rmDomains.length) {
+      items = items.map((item) => {
+        const at = item.children?.findIndex((c) => c.path === "/reference-models") ?? -1;
+        if (!item.children || at < 0) return item;
+        return {
+          ...item,
+          children: [...item.children.slice(0, at + 1), ...rmDomains, ...item.children.slice(at + 1)],
+        };
+      });
+    }
 
     // Append single TurboLens entry to Reports dropdown when AI is configured
     if (turboLensReady && can("turbolens.view")) {
@@ -289,9 +307,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
     // Inject extension routes that requested a core nav group as children of
     // that group's menu (desktop dropdown + mobile drawer both read `children`).
+    // [FORK] `EXTENSION_GROUP_HOSTS` maps a group to the item hosting it:
     // Reports places them before the "saved" entry so they sit with the core
-    // reports; other groups append. Labels are plain strings from the bundle,
-    // so t() falls through to them.
+    // reports; GRC, now a child of Governance, places them right after the GRC
+    // entry. Labels are plain strings from the bundle, so t() falls through.
     //
     // A group whose nav item is absent for this user — the module is off, or
     // they lack its permission — would otherwise swallow the route entirely, so
@@ -310,17 +329,42 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         permission: route.permission,
       }));
       if (!groupRoutes.length) continue;
-      const host = items.find((item) => item.labelKey === group);
+      const placement = EXTENSION_GROUP_HOSTS[group] ?? { host: group };
+      const host = items.find((item) => item.labelKey === placement.host);
+      const anchor = placement.afterPath
+        ? host?.children?.find((c) => c.path === placement.afterPath)
+        : undefined;
       // The permission check matters here, not only below: injecting into a
       // host that the final filter then drops would swallow the route silently.
       // Via hasNavPerm, so a core host whose permission is derived from
-      // ROUTE_PERMISSIONS rather than declared inline is still checked.
-      if (!host || !hasNavPerm(host)) {
+      // ROUTE_PERMISSIONS rather than declared inline is still checked. A
+      // group anchored on a child (GRC) also needs that child to be visible.
+      if (
+        !host ||
+        !hasNavPerm(host) ||
+        (placement.afterPath !== undefined && (!anchor || !hasNavPerm(anchor)))
+      ) {
         groupedFallbacks.push(...groupRoutes);
         continue;
       }
+      if (placement.afterPath !== undefined) {
+        const after = placement.afterPath;
+        items = items.map((item) => {
+          if (item !== host || !item.children) return item;
+          const at = item.children.findIndex((c) => c.path === after);
+          return {
+            ...item,
+            children: [
+              ...item.children.slice(0, at + 1),
+              ...groupRoutes,
+              ...item.children.slice(at + 1),
+            ],
+          };
+        });
+        continue;
+      }
       items = items.map((item) => {
-        if (item.labelKey !== group) return item;
+        if (item.labelKey !== placement.host) return item;
         const kids = [...(item.children || [])];
         // A group that is itself a page (GRC) turns into a dropdown the moment
         // it gains children, so seed its own link as the first entry or the
@@ -365,7 +409,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     const resolve = (def: NavItemDef): NavItem => {
       const children = def.children
         ?.filter((c) => hasNavPerm(c))
-        .map((c) => ({ ...c, label: t(c.labelKey) }));
+        .map((c) => ({
+          ...c,
+          label: t(c.labelKey),
+          // A second action the role cannot open is dropped; the row stays.
+          secondary:
+            c.secondary && hasNavPerm(c.secondary)
+              ? { ...c.secondary, label: t(c.secondary.labelKey) }
+              : undefined,
+        }));
       return {
         ...def,
         label: t(def.labelKey),
@@ -376,7 +428,13 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       };
     };
 
-    return items.filter((item) => hasNavPerm(item)).map(resolve);
+    return (
+      items
+        .filter((item) => hasNavPerm(item))
+        .map(resolve)
+        // A pathless group whose children were all filtered out leads nowhere.
+        .filter((item) => item.path || item.children)
+    );
   }, [bpmEnabled, ppmEnabled, grcEnabled, frameworkProfile, turboLensReady, rmSummary, uiExtensions, can, user, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions.
@@ -434,17 +492,27 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // Which group's children the dropdown is currently showing (supports multiple
   // grouped nav items, e.g. Reports and Governance).
   const [menuChildren, setMenuChildren] = useState<NavItem["children"] | null>(null);
+  // [FORK] Filter box text for a long dropdown (Reports); reset per opening.
+  const [menuQuery, setMenuQuery] = useState("");
+  const menuFilterRef = useRef<HTMLInputElement>(null);
   const openGroupMenu = useCallback(
     (anchor: HTMLElement, children: NavItem["children"]) => {
       setReportsMenu(anchor);
       setMenuChildren(children ?? null);
+      setMenuQuery("");
     },
     [],
   );
   const closeGroupMenu = useCallback(() => {
     setReportsMenu(null);
     setMenuChildren(null);
+    setMenuQuery("");
   }, []);
+  const menuFilterable = (menuChildren?.length ?? 0) > MENU_FILTER_THRESHOLD;
+  const menuRows = useMemo(
+    () => menuRowsFor(menuChildren ?? [], menuQuery),
+    [menuChildren, menuQuery],
+  );
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [impersonateDialogOpen, setImpersonateDialogOpen] = useState(false);
   const [stopImpersonatingBusy, setStopImpersonatingBusy] = useState(false);
@@ -667,7 +735,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemButton>
               <Collapse in={!!drawerGroupOpen[item.label]}>
                 <List disablePadding sx={{ pl: 2 }}>
-                  {item.children.map((child) => (
+                  {menuRowsFor(item.children, "").map((child) => (
                     <Box key={child.path}>
                       {child.dividerLabel && (
                         <Typography
@@ -697,6 +765,18 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                         </ListItemIcon>
                         <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
                       </ListItemButton>
+                      {child.secondary && (
+                        <ListItemButton
+                          selected={isActive(child.secondary.path)}
+                          onClick={() => drawerNav(child.secondary!.path)}
+                          sx={{ borderRadius: 1, pl: 6, py: 0.25, color: nav.fgMuted, "&.Mui-selected": { color: nav.fg, bgcolor: nav.activeBg } }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 28, color: "inherit" }}>
+                            <MaterialSymbol icon={child.secondary.icon} size={16} color="inherit" />
+                          </ListItemIcon>
+                          <ListItemText primary={child.secondary.label} primaryTypographyProps={{ fontSize: "0.8rem" }} />
+                        </ListItemButton>
+                      )}
                     </Box>
                   ))}
                 </List>
@@ -929,9 +1009,52 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             anchorEl={reportsMenu}
             open={!!reportsMenu}
             onClose={closeGroupMenu}
+            // With a filter box, typing goes to the box, not to item typeahead.
+            disableAutoFocusItem={menuFilterable}
+            autoFocus={!menuFilterable}
+            slotProps={{
+              paper: { sx: { maxHeight: "min(80vh, 720px)" } },
+              // The modal's focus trap takes focus once the menu has opened, so
+              // the filter box claims it back after the transition.
+              transition: { onEntered: () => menuFilterRef.current?.focus() },
+            }}
           >
-            {menuChildren?.map((child, idx) => (
-              <Box key={child.path}>
+            {menuFilterable && (
+              <Box
+                sx={{ px: 1.5, pt: 0.5, pb: 1 }}
+                // Keep MenuList's typeahead and arrow handling out of the box.
+                onKeyDown={(e) => {
+                  if (e.key !== "Escape") e.stopPropagation();
+                }}
+              >
+                <TextField
+                  autoFocus
+                  inputRef={menuFilterRef}
+                  fullWidth
+                  size="small"
+                  placeholder={t("menu.filterPlaceholder")}
+                  value={menuQuery}
+                  onChange={(e) => setMenuQuery(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <MaterialSymbol icon="search" size={18} />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { "aria-label": t("menu.filterPlaceholder") },
+                  }}
+                />
+              </Box>
+            )}
+            {menuFilterable && menuRows.length === 0 && (
+              <Typography variant="body2" sx={{ px: 2, py: 1, color: "text.secondary" }}>
+                {t("menu.noMatches")}
+              </Typography>
+            )}
+            {menuRows.map((child, idx) => (
+              <Box key={child.path} sx={child.secondary ? { display: "flex", alignItems: "center" } : undefined}>
                 {child.dividerLabel && (
                   <>
                     {idx > 0 && <Divider sx={{ my: 0.5 }} />}
@@ -956,12 +1079,30 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   to={child.path}
                   selected={isActive(child.path)}
                   onClick={closeGroupMenu}
+                  sx={child.secondary ? { flex: 1, minWidth: 0 } : undefined}
                 >
                   <ListItemIcon>
                     <MaterialSymbol icon={child.icon} size={18} />
                   </ListItemIcon>
                   <ListItemText>{child.label}</ListItemText>
                 </MenuItem>
+                {child.secondary && (
+                  <Tooltip title={child.secondary.label} placement="right">
+                    <IconButton
+                      size="small"
+                      component={RouterLink}
+                      to={child.secondary.path}
+                      aria-label={child.secondary.label}
+                      onClick={closeGroupMenu}
+                      sx={{
+                        mr: 1,
+                        color: isActive(child.secondary.path) ? "primary.main" : "text.secondary",
+                      }}
+                    >
+                      <MaterialSymbol icon={child.secondary.icon} size={18} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             ))}
           </Menu>

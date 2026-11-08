@@ -11,11 +11,13 @@ At the top of the screen, you will find the **main navigation bar** with the fol
 - **Turbo EA** (logo): Click to return to the Dashboard from any section
 - **Dashboard**: Overview of the architecture status
 - **Inventory**: Complete listing of all cards
-- **Reports**: Visual and analytical reports
-- **BPM**: Business Process Management (if enabled)
-- **Diagrams**: Visual architecture diagram editor
-- **EA Delivery**: Architecture initiative management
+- **Architecture**: The architecture layers, then the modelling workspaces: View Library, Diagrams, **Business Processes** (BPM, if enabled) and the reference models. Each layer row has a small icon at its end that opens the layer's summary.
+- **Reports**: Visual and analytical reports, grouped by theme. **Saved Reports** is listed first, and the **Filter** box at the top narrows the list as you type.
+- **Governance**: Review Board, ADM Governance, Scenarios, App Rationalization, Benefits Register and Technology Radar, plus the **Risk & Compliance** (GRC) and NORA programmes when they are enabled
+- **Projects**: Project and portfolio management (PPM, if enabled). When PPM is off, **EA Delivery** takes its place.
 - **Todos**: Pending tasks and assigned surveys
+
+The labelled bar is shown on screens 1280 pixels wide or more; narrower screens use the menu button (☰), which opens the same groups in a side drawer.
 - **Search cards**: Quick search bar with autocomplete
 - **+ Create**: Button to quickly create new cards
 - **Notification bell**: System alerts and [notifications](notifications.md)

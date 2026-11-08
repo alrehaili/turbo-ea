@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.46.0] - 2026-11-08
+
+### Changed
+- The top menu is regrouped into seven entries: Dashboard, Inventory, Architecture, Reports, Governance, Projects and Todos. Layers, View Library, Diagrams, Business Processes and Reference Models now sit under **Architecture**; ADM, Risk & Compliance (GRC) and the NORA Program sit under **Governance**.
+- Each architecture layer is one menu row, with its summary opened from the icon at the end of the row.
+- The Reports menu lists Saved Reports first, has a filter box that narrows the list as you type, and gives every report its own icon.
+- BPM, PPM and GRC are labelled Business Processes, Projects and Risk & Compliance in the menu.
+- The labelled menu bar now shows on screens from 1280 px wide instead of 1536 px; narrower screens keep the side drawer.
+
+### Removed
+- Duplicate Reference Models entries: the browse pages stay under Architecture, the management console is now **Manage Reference Models** under Governance, and the coverage report is **Reference Model Coverage** under Reports.
+
 ## [2.45.0] - 2026-11-08
 
 ### Added
