@@ -229,6 +229,8 @@
   "noraProgram.landscape.phase.endOfLife": "End of life",
   "noraProgram.landscape.phase.unknown": "Unknown",
   "reports.serviceCatalogue": "Service Catalogue",
+  "reports.strategyLayer": "Strategy Layer",
+  "reports.strategySummary": "Strategy Summary",
   "reports.businessLayer": "Business Layer",
   "reports.businessSummary": "Business Summary",
   "reports.technologyLayer": "Technology Layer",

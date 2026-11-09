@@ -37,6 +37,7 @@ from app.services.card_read_scope import CardReadScope
 # Canonical EA-layer ordering used to sort grouped output. Layers not in this
 # list (custom card-type categories) sort last, alphabetically.
 LAYER_ORDER = [
+    "Strategy",
     "Business",
     "Beneficiary Experience",
     "Application",

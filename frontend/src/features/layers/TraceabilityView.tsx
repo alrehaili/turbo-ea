@@ -1,6 +1,6 @@
 /**
  * TraceabilityView — the "Relationships / Traceability" page in the ea-ui-mvp
- * style: pick one card and see its connections across all six EA layers — a
+ * style: pick one card and see its connections across all seven EA layers — a
  * selected-component summary, a direct-traceability diagram (one band per
  * layer), direct connections grouped by layer, and the two-hop extended
  * impact. Clicking any node opens the component-details side drawer.

@@ -109,12 +109,12 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_15(self):
+    def test_profile_version_is_16(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
         # v11: KPI metricKey (D-26); v12 GOV-03; v13 GOV-05 (D-41); v14 RSK-01 (D-42);
-        # v15 GOV-01 (D-37).
-        assert NORA_PROFILE_VERSION == 15
+        # v15 GOV-01 (D-37); v16 seven architecture layers.
+        assert NORA_PROFILE_VERSION == 16
 
     def test_kpi_metric_key_offers_every_registered_metric(self):
         from app.services.executive.registry import METRICS
@@ -1022,7 +1022,7 @@ class TestProfileV3SixLayers:
             ("Channel", "Beneficiary Experience"),
             ("SecurityControl", "Security"),
             ("GovService", "Beneficiary Experience"),
-            ("KPI", "Business"),
+            ("KPI", "Strategy"),  # v16: the Strategy layer
             ("DataExchange", "Data"),
         ):
             ct = (await db.execute(select(CardType).where(CardType.key == key))).scalar_one()
@@ -1069,7 +1069,8 @@ class TestProfileV3SixLayers:
         from app.models.card_type import CardType
 
         cats = dict((await db.execute(select(CardType.key, CardType.category))).all())
-        assert cats["Objective"] == "Business"
+        # Legacy four-layer name → Business (v3) → Strategy (v16), in one apply.
+        assert cats["Objective"] == "Strategy"
         assert cats["DataObject"] == "Data"
         # Admin-customised category untouched.
         assert cats["ITComponent"] == "My Custom Layer"
@@ -1174,3 +1175,114 @@ class TestProfileV4GfsaMetamodel:
         ]
         assert len(cores) == 1
         assert cores[0]["label"] == "My Cores"
+
+
+class TestArchitectureLayoutPlan:
+    """Profile v16 — the seven-layer layout, as a pure plan (no database)."""
+
+    def test_every_layer_in_order_with_strategy_first(self):
+        from app.services.nora_profile import ARCHITECTURE_LAYOUT
+
+        assert [layer for layer, _ in ARCHITECTURE_LAYOUT] == [
+            "Strategy",
+            "Business",
+            "Beneficiary Experience",
+            "Application",
+            "Data",
+            "Technology",
+            "Security",
+        ]
+
+    def test_no_type_is_listed_twice(self):
+        from app.services.nora_profile import ARCHITECTURE_LAYOUT
+
+        keys = [k for _, ks in ARCHITECTURE_LAYOUT for k in ks]
+        assert len(keys) == len(set(keys))
+
+    def test_every_move_lands_where_the_layout_lists_the_type(self):
+        from app.services.nora_profile import ARCHITECTURE_LAYER_MOVES, ARCHITECTURE_LAYOUT
+
+        layer_of = {k: layer for layer, ks in ARCHITECTURE_LAYOUT for k in ks}
+        for key, (_, new_layer) in ARCHITECTURE_LAYER_MOVES.items():
+            assert layer_of[key] == new_layer, key
+
+    def test_moves_strategy_beneficiary_and_data_vault_types(self):
+        from app.services.nora_profile import plan_architecture_layout
+
+        plan = plan_architecture_layout(
+            {"Vision": "Business", "GovService": "Business", "DataVault": "Technology"}
+        )
+        assert plan["Vision"][0] == "Strategy"
+        assert plan["GovService"][0] == "Beneficiary Experience"
+        assert plan["DataVault"][0] == "Data"
+
+    def test_orders_types_by_layer_then_position(self):
+        from app.services.nora_profile import plan_architecture_layout
+
+        plan = plan_architecture_layout(
+            {
+                "Mission": "Business",
+                "Vision": "Business",
+                "BusinessCapability": "Business",
+                "Interface": "Application",
+                "Application": "Application",
+            }
+        )
+        assert plan["Vision"] == ("Strategy", 0)
+        assert plan["Mission"] == ("Strategy", 1)
+        assert plan["BusinessCapability"] == ("Business", 100)
+        assert plan["Application"] == ("Application", 300)
+        assert plan["Interface"] == ("Application", 303)
+
+    def test_a_type_an_admin_moved_elsewhere_is_left_alone(self):
+        from app.services.nora_profile import plan_architecture_layout
+
+        # Vision sits in a custom layer; Server sits in Security by hand.
+        plan = plan_architecture_layout({"Vision": "My Layer", "Server": "Security"})
+        assert plan == {}
+
+    def test_a_type_already_in_its_new_layer_is_ordered_not_moved(self):
+        from app.services.nora_profile import plan_architecture_layout
+
+        assert plan_architecture_layout({"KPI": "Strategy"}) == {"KPI": ("Strategy", 4)}
+
+    def test_types_the_layout_does_not_name_are_untouched(self):
+        from app.services.nora_profile import plan_architecture_layout
+
+        assert plan_architecture_layout({"ITComponent": "Technology"}) == {}
+
+
+class TestArchitectureLayoutApply:
+    """Profile v16 against the database: once per install."""
+
+    async def test_moves_orders_and_records_the_marker(self, db):
+        from app.services.nora_profile import (
+            ARCHITECTURE_LAYOUT_MARKER,
+            apply_architecture_layout,
+        )
+
+        vision = await create_card_type(db, key="Vision", label="Vision", category="Business")
+        cap = await create_card_type(
+            db, key="BusinessCapability", label="Capability", category="Business"
+        )
+        general: dict = {}
+        moved = await apply_architecture_layout(db, general)
+
+        assert moved == ["Vision → Strategy"]
+        assert (vision.category, vision.sort_order) == ("Strategy", 0)
+        assert (cap.category, cap.sort_order) == ("Business", 100)
+        assert general[ARCHITECTURE_LAYOUT_MARKER] is True
+
+    async def test_does_nothing_once_the_marker_is_set(self, db):
+        from app.services.nora_profile import (
+            ARCHITECTURE_LAYOUT_MARKER,
+            apply_architecture_layout,
+        )
+
+        vision = await create_card_type(db, key="Vision", label="Vision", category="Business")
+        vision.sort_order = 42  # an order an admin set by hand
+        await db.flush()
+        moved = await apply_architecture_layout(db, {ARCHITECTURE_LAYOUT_MARKER: True})
+
+        assert moved == []
+        assert (vision.category, vision.sort_order) == ("Business", 42)

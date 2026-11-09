@@ -8,22 +8,25 @@
 
 ## أنواع البطاقات
 
-يسرد تبويب Card Types جميع الأنواع في النظام. يأتي Turbo EA مع 14 نوعًا مدمجًا موزّعة على طبقات نورا 2.0 الست:
+يسرد تبويب Card Types جميع الأنواع في النظام. مع ملف نورا، يجمعها Turbo EA في سبع طبقات هندسية، من الأعلى إلى الأسفل:
 
 | الطبقة | الأنواع |
 |-------|-------|
-| **الأعمال** | Objective، Platform، Initiative، Organization، Business Capability، Business Context، Business Process |
-| **تجربة المستفيد** | Government Service، Beneficiary Journey، Channel *(عبر ملف نورا)* |
-| **التطبيقات** | Application، Interface |
-| **البيانات** | Data Object *(+ Data Exchange عبر ملف نورا)* |
-| **التقنية** | IT Component، Tech Category، Provider، System |
-| **الأمن** | Security Control *(عبر ملف نورا)* |
+| **بنية الاستراتيجية** | Vision، Mission، Pillar، Objective، KPI، Platform، Initiative، Project |
+| **بنية الأعمال** | Business Capability، Processes Group، Business Process، Activity، Organizational Unit، Position، Role، Policy، Service Provider، Product، Model/Template |
+| **بنية تجربة المستفيد** | Government Service، Beneficiary، Persona، Beneficiary Journey، Phase، Step، Channel |
+| **بنية التطبيقات** | Application، Application Module، Application Function، Interface |
+| **بنية البيانات** | Data Object، Data Attribute، Data Exchange، Data Vault |
+| **البنية التقنية** | Datacenter، Physical Host، Server، Storage، Network Device، Network Circuit، Containerization Engine، Infrastructure Service، Infrastructure Management Tool، Peripheral Device، License |
+| **بنية الأمن** | Security Service، Security Control، Security Software، Security Hardware |
+
+تُعرض الأنواع بهذا الترتيب داخل كل طبقة أينما سُردت الأنواع حسب الطبقة: مرشّح الأنواع في المخزون، ومنتقي الأنواع، وهذا التبويب. يمكنك تغيير ترتيب الأنواع لاحقًا، ولا تُعيد الترقية ضبطه.
 
 ### الفئات (الطبقات الهندسية)
 
 ينتمي كل نوع بطاقة إلى **فئة** — وهي الطبقة الهندسية التي يُجمَّع تحتها. ترتيب الفئات هو ترتيب الطبقات أينما رُسمت: مرشّح الأنواع في المخزون، و**مخطط النموذج الوصفي**، ومسارات عرض Layered Dependency View، وكل منها بلون فئته وبلغة القارئ.
 
-- **الطبقات الست المدمجة مقفلة.** لا يمكن إعادة تسمية الأعمال، وتجربة المستفيد، والتطبيقات، والبيانات، والتقنية، والأمن (طبقات نورا 2.0)، ولا تغيير لونها أو حذفها، وهي مترجمة إلى كل اللغات المدعومة.
+- **الطبقات السبع المدمجة مقفلة.** لا يمكن إعادة تسمية بنية الاستراتيجية وطبقات نورا 2.0 الست (بنية الأعمال، وبنية تجربة المستفيد، وبنية التطبيقات، وبنية البيانات، والبنية التقنية، وبنية الأمن)، ولا تغيير لونها أو حذفها، وهي مترجمة إلى كل اللغات المدعومة.
 - **أنشئ فئاتك الخاصة.** في حقل **Category** في محرر النوع أو في **+ New Type**، اكتب اسمًا غير موجود بعد واختر **إنشاء الفئة «…»**. اختر لونًا وأضف الترجمات إن شئت، فينتقل النوع إلى الفئة الجديدة.
 - **انقل أي نوع.** يمكن نقل الأنواع المدمجة أيضًا — ضع مثلًا Interface في طبقة مخصّصة باسم *التكامل*.
 - **إدارة الفئات.** يسرد زر **إدارة الفئات** بجانب **+ New Type** كل الفئات مع لونها وعدد أنواع البطاقات التي تستخدمها. استخدم الأسهم لتغيير ترتيب الطبقات (يمكن أن تقع طبقة مخصّصة بين طبقتين مدمجتين)، والقلم لإعادة تسمية فئة مخصّصة أو تغيير لونها أو ترجمتها، وسلة المهملات لحذفها. لا يمكن حذف فئة لا يزال يستخدمها نوع بطاقة — انقل أنواعها إلى فئة أخرى أولًا.

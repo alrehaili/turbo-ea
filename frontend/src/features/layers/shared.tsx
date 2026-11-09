@@ -17,8 +17,9 @@ import { getCurrentPhase } from "@/components/LifecycleBadge";
 import { CARD_TYPE_COLORS, EXPLORER_COLORS } from "@/theme/tokens";
 import type { Card, CardType } from "@/types";
 
-/** The six NORA 2.0 EA layers, top-to-bottom — the layer-stack order. */
+/** [FORK] The seven EA layers — Strategy above the NORA 2.0 six — top-to-bottom. */
 export const EA_LAYERS = [
+  "Strategy",
   "Business",
   "Beneficiary Experience",
   "Application",
@@ -29,6 +30,7 @@ export const EA_LAYERS = [
 
 /** Layer `category` → url slug / i18n key. */
 export const LAYER_SLUG: Record<string, string> = {
+  Strategy: "strategy",
   Business: "business",
   "Beneficiary Experience": "beneficiary",
   Application: "application",

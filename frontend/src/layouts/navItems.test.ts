@@ -50,6 +50,7 @@ describe("NAV_ITEM_DEFS — the grouped bar", () => {
     const arch = NAV_ITEM_DEFS.find((d) => d.labelKey === "architecture")!.children!;
     const layers = arch.filter((c) => c.secondary);
     expect(layers.map((c) => [c.path, c.secondary!.path])).toEqual([
+      ["/layers/strategy", "/layers/strategy-summary"],
       ["/layers/business", "/layers/business-summary"],
       ["/layers/beneficiary", "/layers/beneficiary-summary"],
       ["/layers/application", "/layers/application-summary"],

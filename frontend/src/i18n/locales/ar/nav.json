@@ -227,6 +227,8 @@
   "noraProgram.landscape.phase.endOfLife": "نهاية العمر",
   "noraProgram.landscape.phase.unknown": "غير معروف",
   "reports.serviceCatalogue": "كتالوج الخدمات",
+  "reports.strategyLayer": "طبقة الاستراتيجية",
+  "reports.strategySummary": "ملخص الاستراتيجية",
   "reports.businessLayer": "طبقة الأعمال",
   "reports.businessSummary": "ملخص الأعمال",
   "reports.technologyLayer": "طبقة التقنية",

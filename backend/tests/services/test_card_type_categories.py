@@ -122,9 +122,10 @@ class TestValidateOrder:
 
 
 class TestSeedConstant:
-    def test_six_defaults_in_layer_order(self):
-        # The fork seeds the NORA layers, not upstream's four.
+    def test_seven_defaults_in_layer_order(self):
+        # The fork seeds Strategy above the NORA six, not upstream's four.
         assert [c["key"] for c in CARD_TYPE_CATEGORIES] == [
+            "Strategy",
             "Business",
             "Beneficiary Experience",
             "Application",
@@ -132,11 +133,13 @@ class TestSeedConstant:
             "Technology",
             "Security",
         ]
-        assert [c["sort_order"] for c in CARD_TYPE_CATEGORIES] == [0, 1, 2, 3, 4, 5]
+        assert [c["sort_order"] for c in CARD_TYPE_CATEGORIES] == [0, 1, 2, 3, 4, 5, 6]
         assert DEFAULT_CATEGORY_KEYS == {c["key"] for c in CARD_TYPE_CATEGORIES}
 
-    def test_label_is_the_key(self):
-        assert all(c["label"] == c["key"] for c in CARD_TYPE_CATEGORIES)
+    def test_label_is_the_key_as_an_architecture(self):
+        # Keys stay the bare layer names (card types and reports key on them);
+        # the label is what the sidebar and the metamodel admin show.
+        assert all(c["label"] == f"{c['key']} Architecture" for c in CARD_TYPE_CATEGORIES)
 
 
 async def _rows(db) -> dict[str, CardTypeCategory]:
@@ -152,8 +155,9 @@ class TestSeedDefaults:
         app_layer = rows["Application"]
         assert app_layer.built_in is True
         assert app_layer.color == "#0f7eb5"
-        assert app_layer.sort_order == 2
-        assert app_layer.translations["de"] == "Anwendung"
+        assert app_layer.label == "Application Architecture"
+        assert app_layer.sort_order == 3
+        assert app_layer.translations["ar"] == "بنية التطبيقات"
 
     async def test_insert_only(self, db):
         await ctc.seed_default_categories(db)

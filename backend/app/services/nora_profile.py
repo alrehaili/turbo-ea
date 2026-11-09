@@ -75,7 +75,10 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v8: WP100.3 — Reference Models: kit-preview starter RMs seeded (draft,
 # national, built_in) + the last two RM code fields (`bxrmCode` on GovService,
 # `srmCode` on SecurityControl) so all six domains have a landing field.
-NORA_PROFILE_VERSION = 15  # v15: GOV-01 option on KPI.metricKey (Batch 3.6)
+# v16: seven architecture layers — the Strategy layer, the strategy and
+# beneficiary types moved out of Business, and a set type order per layer
+# (``apply_architecture_layout``; the registry half is migration 1178).
+NORA_PROFILE_VERSION = 16
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -140,6 +143,157 @@ SIX_LAYER_CATEGORY_MOVES: dict[str, tuple[str, str]] = {
     "TechCategory": ("Technical Architecture", "Technology"),
     "Provider": ("Technical Architecture", "Technology"),
 }
+
+# ── Seven architecture layers (profile v16) ──────────────────────────────
+#
+# Every layer top-down, and the card types inside it in display order. The
+# Inventory sidebar, the metamodel admin and the Layers pages order types by
+# ``sort_order`` inside their layer, so this list is what they show.
+ARCHITECTURE_LAYOUT: list[tuple[str, list[str]]] = [
+    (
+        "Strategy",
+        [
+            "Vision",
+            "Mission",
+            "Pillar",
+            "Objective",
+            "KPI",
+            "Platform",
+            "Initiative",
+            "Project",
+        ],
+    ),
+    (
+        "Business",
+        [
+            "BusinessCapability",
+            "ProcessesGroup",
+            "BusinessProcess",
+            "Activity",
+            "OrganizationalUnit",
+            "Position",
+            "Role",
+            "Policy",
+            "ServiceProvider",
+            "Product",
+            "ModelTemplate",
+        ],
+    ),
+    (
+        "Beneficiary Experience",
+        [
+            "GovService",
+            "Beneficiary",
+            "Persona",
+            "BeneficiaryJourney",
+            "Phase",
+            "Step",
+            "Channel",
+        ],
+    ),
+    (
+        "Application",
+        ["Application", "ApplicationModule", "ApplicationFunction", "Interface"],
+    ),
+    ("Data", ["DataObject", "DataAttribute", "DataExchange", "DataVault"]),
+    (
+        "Technology",
+        [
+            "Datacenter",
+            "PhysicalHost",
+            "Server",
+            "Storage",
+            "NetworkDevice",
+            "NetworkCircuit",
+            "ContainerizationEngine",
+            "InfrastructureService",
+            "InfrastructureManagementTool",
+            "PeripheralDevice",
+            "License",
+        ],
+    ),
+    (
+        "Security",
+        ["SecurityService", "SecurityControl", "SecuritySoftware", "SecurityHardware"],
+    ),
+]
+
+# The types that change layer, and the layer each must still be in to move —
+# an admin who re-categorised one keeps their choice.
+ARCHITECTURE_LAYER_MOVES: dict[str, tuple[str, str]] = {
+    **{
+        key: ("Business", "Strategy")
+        for key in (
+            "Vision",
+            "Mission",
+            "Pillar",
+            "Objective",
+            "KPI",
+            "Platform",
+            "Initiative",
+            "Project",
+        )
+    },
+    **{
+        key: ("Business", "Beneficiary Experience")
+        for key in ("GovService", "Beneficiary", "Persona", "BeneficiaryJourney", "Phase", "Step")
+    },
+    "DataVault": ("Technology", "Data"),
+}
+
+# One-shot marker in general_settings: the type order is written once, so a
+# later profile upgrade never undoes an order an admin set by hand.
+ARCHITECTURE_LAYOUT_MARKER = "architectureLayoutV1Applied"
+
+# Room between layers in the global ``sort_order``: layer N's types are
+# N * 100 + position, so the API's flat order is also layer order.
+_LAYER_STRIDE = 100
+
+
+def plan_architecture_layout(types: dict[str, str | None]) -> dict[str, tuple[str | None, int]]:
+    """The new ``(category, sort_order)`` for each type in ``types``
+    (key → current category) that the layout names. Pure — no database.
+
+    A type moves only while it is still in the layer it is moved out of. A
+    type is ordered by the layer it ends up in: if it is not the layer the
+    layout lists it under (an admin moved it), its order is left alone.
+    """
+    result: dict[str, tuple[str | None, int]] = {}
+    for layer_index, (layer, keys) in enumerate(ARCHITECTURE_LAYOUT):
+        for position, key in enumerate(keys):
+            if key not in types:
+                continue
+            category = types[key]
+            move = ARCHITECTURE_LAYER_MOVES.get(key)
+            if move is not None and category == move[0]:
+                category = move[1]
+            if category != layer:
+                continue
+            result[key] = (category, layer_index * _LAYER_STRIDE + position)
+    return result
+
+
+async def apply_architecture_layout(db: AsyncSession, general: dict) -> list[str]:
+    """Move the strategy / beneficiary / data types into their layers and set
+    the type order inside every layer — once per install (marker in
+    ``general``, which the caller saves). Returns ``"Key → Layer"`` for each
+    type that changed layer. Flushes nothing itself; never commits."""
+    if general.get(ARCHITECTURE_LAYOUT_MARKER):
+        return []
+    rows = (await db.execute(select(CardType))).scalars().all()
+    by_key = {ct.key: ct for ct in rows}
+    moved: list[str] = []
+    for key, (category, sort_order) in plan_architecture_layout(
+        {ct.key: ct.category for ct in rows}
+    ).items():
+        ct = by_key[key]
+        if ct.category != category:
+            ct.category = category
+            moved.append(f"{key} → {category}")
+        ct.sort_order = sort_order
+    general[ARCHITECTURE_LAYOUT_MARKER] = True
+    return moved
+
 
 FRAMEWORK_PROFILES = ("togaf", "nora")
 
@@ -5511,7 +5665,7 @@ NORA_CARD_TYPES: list[dict] = [
         ),
         "icon": "speed",
         "color": "#c2185b",
-        "category": "Business",
+        "category": "Strategy",
         "has_hierarchy": False,
         "subtypes": [],
         "sort_order": 22,
@@ -6975,7 +7129,7 @@ NORA_CARD_TYPES: list[dict] = [
         ),
         "icon": "foundation",
         "color": "#7b1fa2",
-        "category": "Business",
+        "category": "Strategy",
         "has_hierarchy": False,
         "subtypes": [],
         "sort_order": 26,
@@ -8612,6 +8766,14 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
             ct.category = new_cat
             summary.setdefault("categories_moved", []).append(f"{type_key} → {new_cat}")
 
+    # ── Pass 4f (profile v16): seven architecture layers — the strategy,
+    # beneficiary and Data Vault moves and the type order inside each layer.
+    # Once per install (marker), so an order set by hand afterwards survives.
+    layout_row = await _get_or_create_settings_row(db)
+    layout_general = dict(layout_row.general_settings or {})
+    for moved in await apply_architecture_layout(db, layout_general):
+        summary.setdefault("categories_moved", []).append(moved)
+
     # ── Pass 5: seed the EA Program deliverable catalogue (WP3.1 + WP6.1) ──
     # Methodology resolution: an explicit stored version wins; otherwise an
     # install that already carries deliverable rows is a pre-WP6.1 v1
@@ -8667,6 +8829,7 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     general["frameworkProfile"] = "nora"
     general["noraProfileVersion"] = NORA_PROFILE_VERSION
     general["noraMethodologyVersion"] = methodology
+    general[ARCHITECTURE_LAYOUT_MARKER] = True
     row.general_settings = general
 
     await db.commit()

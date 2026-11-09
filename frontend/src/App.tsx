@@ -273,12 +273,14 @@ function AppRoutes() {
                 {/* Layers tab — rich per-layer swim-lane overviews (moved off /reports/). */}
                 <Route path="/layers/overview" element={<LayersDashboard />} />
                 <Route path="/layers/traceability" element={<TraceabilityView />} />
+                <Route path="/layers/strategy" element={<LayerSwimlaneOverview layer="Strategy" />} />
                 <Route path="/layers/business" element={<LayerSwimlaneOverview layer="Business" />} />
                 <Route path="/layers/beneficiary" element={<LayerSwimlaneOverview layer="Beneficiary Experience" />} />
                 <Route path="/layers/application" element={<LayerSwimlaneOverview layer="Application" />} />
                 <Route path="/layers/data" element={<LayerSwimlaneOverview layer="Data" />} />
                 <Route path="/layers/technology" element={<LayerSwimlaneOverview layer="Technology" />} />
                 <Route path="/layers/security" element={<SecurityOverviewReport />} />
+                <Route path="/layers/strategy-summary" element={<LayerSummaryReport layer="Strategy" />} />
                 <Route path="/layers/business-summary" element={<LayerSummaryReport layer="Business" />} />
                 <Route path="/layers/beneficiary-summary" element={<LayerSummaryReport layer="Beneficiary Experience" />} />
                 <Route path="/layers/application-summary" element={<ApplicationSummaryReport />} />
@@ -286,17 +288,15 @@ function AppRoutes() {
                 <Route path="/layers/technology-summary" element={<LayerSummaryReport layer="Technology" />} />
                 <Route path="/layers/security-summary" element={<LayerSummaryReport layer="Security" />} />
                 {/* Back-compat redirects — pre-six-layer slugs + old /reports/*-layer paths. */}
-                <Route path="/layers/strategy" element={<Navigate to="/layers/business" replace />} />
                 <Route path="/layers/technical" element={<Navigate to="/layers/technology" replace />} />
-                <Route path="/layers/strategy-summary" element={<Navigate to="/layers/business-summary" replace />} />
                 <Route path="/layers/technical-summary" element={<Navigate to="/layers/technology-summary" replace />} />
                 <Route path="/reports/application-layer" element={<Navigate to="/layers/application" replace />} />
-                <Route path="/reports/strategy-layer" element={<Navigate to="/layers/business" replace />} />
+                <Route path="/reports/strategy-layer" element={<Navigate to="/layers/strategy" replace />} />
                 <Route path="/reports/business-layer" element={<Navigate to="/layers/business" replace />} />
                 <Route path="/reports/technology-layer" element={<Navigate to="/layers/technology" replace />} />
                 <Route path="/reports/security-layer" element={<Navigate to="/layers/security" replace />} />
                 <Route path="/reports/application-summary" element={<Navigate to="/layers/application-summary" replace />} />
-                <Route path="/reports/strategy-summary" element={<Navigate to="/layers/business-summary" replace />} />
+                <Route path="/reports/strategy-summary" element={<Navigate to="/layers/strategy-summary" replace />} />
                 <Route path="/reports/business-summary" element={<Navigate to="/layers/business-summary" replace />} />
                 <Route path="/reports/technology-summary" element={<Navigate to="/layers/technology-summary" replace />} />
                 <Route path="/reports/portfolio" element={<PortfolioReport />} />

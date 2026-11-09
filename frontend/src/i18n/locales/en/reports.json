@@ -1330,7 +1330,8 @@
     "mappingEmpty": "No cross-layer relations captured yet. Link cards from this layer to other layers to build traceability.",
     "integrationEmpty": "No relations between cards within this layer.",
     "about": {
-      "business": "Capabilities, services, processes, objectives, and the operating model of the organization.",
+      "strategy": "Vision, mission, pillars, objectives, KPIs, platforms, initiatives, and projects that set the direction.",
+      "business": "Capabilities, processes, organizational units, roles, policies, and the operating model of the organization.",
       "beneficiary": "Beneficiary groups, journeys, channels, touchpoints, pain points, and accessibility needs.",
       "application": "Applications, modules, integrations, APIs, vendors, lifecycle, and modernization needs.",
       "data": "Data domains, entities, ownership, classification, quality, sharing, and analytics.",
@@ -1388,6 +1389,7 @@
     "print": "Print",
     "cards": "{{count}} cards",
     "layerName": {
+      "strategy": "Strategy",
       "business": "Business",
       "beneficiary": "Beneficiary Experience",
       "application": "Application",
@@ -1399,13 +1401,13 @@
   "layersDashboard": {
     "eyebrow": "Executive view",
     "heroTitle": "Understand the full enterprise architecture from beneficiaries to security controls.",
-    "heroText": "One connected picture across the six EA layers: business capabilities and services, beneficiary journeys, applications, data, technology, and security controls.",
+    "heroText": "One connected picture across the seven EA layers: strategy, business capabilities and processes, beneficiary journeys, applications, data, technology, and security controls.",
     "exploreTraceability": "Explore traceability",
     "metric": {
       "total": "Total cards",
       "risks": "Risks / gaps"
     },
-    "domainsEyebrow": "Six critical layers",
+    "domainsEyebrow": "Seven critical layers",
     "domainsTitle": "Enterprise architecture overview",
     "stackTitle": "From strategy to controls",
     "stackMeta": "{{count}} cards • {{health}}% health",
@@ -1421,7 +1423,7 @@
     "subtitle": "Select one card and see connected components across all EA layers — journeys, services, applications, data, infrastructure, and controls.",
     "pickerLabel": "Card",
     "pickerPlaceholder": "Select a card to trace…",
-    "empty": "Pick a card above to explore its connections across the six EA layers.",
+    "empty": "Pick a card above to explore its connections across the seven EA layers.",
     "selectedEyebrow": "Selected component",
     "openDetails": "Open details",
     "directCount_one": "{{count}} direct relationship",

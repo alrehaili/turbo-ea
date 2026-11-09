@@ -35,7 +35,8 @@ import { cardSizes, LDV_NODE_W, type SizeLookup } from "./ldvHandles";
 /* ------------------------------------------------------------------ */
 
 export const CATEGORY_ORDER = [
-  // [FORK] NORA 2.0 six-layer model (see features/admin/metamodel/constants.ts).
+  // [FORK] Seven layers: Strategy above the NORA 2.0 six (registry: seed.py CARD_TYPE_CATEGORIES).
+  "Strategy",
   "Business",
   "Beneficiary Experience",
   "Application",

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.47.0] - 2026-11-09
+
+### Added
+- A **Strategy Architecture** layer above Business, holding Vision, Mission, Pillar, Objective, KPI, Platform, Initiative and Project, with its own page and summary under **Architecture → Layers**.
+
+### Changed
+- The architecture layers are now named Strategy, Business, Beneficiary Experience, Application, Data, Technology and Security **Architecture**, in that order, in the Inventory's type filter and the metamodel.
+- Government Service, Beneficiary, Persona, Beneficiary Journey, Phase and Step move to the Beneficiary Experience layer, and Data Vault moves to the Data layer.
+- Card types inside each layer follow a set order, from the broadest type to the most detailed. An order you change afterwards is kept.
+
 ## [2.46.0] - 2026-11-08
 
 ### Changed

@@ -216,7 +216,7 @@ NORA_STRATEGIC_TYPES: list[dict] = [
         "benefit reflecting the entity's ambition.",
         "icon": "visibility",
         "color": "#c7527d",
-        "category": "Business",
+        "category": "Strategy",
         "has_hierarchy": False,
         "translations": {
             "label": _tx(
@@ -312,7 +312,7 @@ NORA_STRATEGIC_TYPES: list[dict] = [
         "and activities that help realize the vision.",
         "icon": "assignment",
         "color": "#c7527d",
-        "category": "Business",
+        "category": "Strategy",
         "has_hierarchy": False,
         "translations": {
             "label": _tx(
@@ -409,7 +409,7 @@ NORA_STRATEGIC_TYPES: list[dict] = [
         "specific resources to achieve a specific objective.",
         "icon": "assignment_turned_in",
         "color": "#33cc58",
-        "category": "Business",
+        "category": "Strategy",
         "has_hierarchy": False,
         "translations": {
             "label": _tx(

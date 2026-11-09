@@ -3179,6 +3179,7 @@ async def service_traceability_report(
     categories = dict((await db.execute(select(CardType.key, CardType.category))).all())
 
     layer_order = [
+        "Strategy",
         "Business",
         "Beneficiary Experience",
         "Application",

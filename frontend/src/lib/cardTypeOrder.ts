@@ -32,7 +32,8 @@ import type { CardType, CardTypeCategory } from "@/types";
  * registry is available. Also the keys of the built-in registry rows.
  */
 export const CARD_TYPE_CATEGORY_ORDER: readonly string[] = [
-  // [FORK] NORA 2.0 six-layer model (see features/admin/metamodel/constants.ts).
+  // [FORK] Seven layers: Strategy above the NORA 2.0 six (registry: seed.py CARD_TYPE_CATEGORIES).
+  "Strategy",
   "Business",
   "Beneficiary Experience",
   "Application",

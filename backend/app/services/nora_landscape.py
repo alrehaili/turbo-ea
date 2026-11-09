@@ -168,6 +168,7 @@ async def resolve_segment(
 
     # Group into layers preserving a stable EA order.
     layer_order = [
+        "Strategy",
         "Business",
         "Beneficiary Experience",
         "Application",

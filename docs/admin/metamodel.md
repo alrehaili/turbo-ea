@@ -8,22 +8,25 @@ Navigate to **Admin > Metamodel** to access the metamodel editor. It has nine ta
 
 ## Card Types
 
-The Card Types tab lists all types in the system. Turbo EA ships with 14 built-in types across the six NORA 2.0 architecture layers:
+The Card Types tab lists all types in the system. With the NORA profile, Turbo EA groups them into seven architecture layers, top to bottom:
 
 | Layer | Types |
 |-------|-------|
-| **Business** | Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process |
-| **Beneficiary Experience** | Government Service, Beneficiary Journey, Channel *(via the NORA profile)* |
-| **Application** | Application, Interface |
-| **Data** | Data Object *(+ Data Exchange via the NORA profile)* |
-| **Technology** | IT Component, Tech Category, Provider, System |
-| **Security** | Security Control *(via the NORA profile)* |
+| **Strategy Architecture** | Vision, Mission, Pillar, Objective, KPI, Platform, Initiative, Project |
+| **Business Architecture** | Business Capability, Processes Group, Business Process, Activity, Organizational Unit, Position, Role, Policy, Service Provider, Product, Model/Template |
+| **Beneficiary Experience Architecture** | Government Service, Beneficiary, Persona, Beneficiary Journey, Phase, Step, Channel |
+| **Application Architecture** | Application, Application Module, Application Function, Interface |
+| **Data Architecture** | Data Object, Data Attribute, Data Exchange, Data Vault |
+| **Technology Architecture** | Datacenter, Physical Host, Server, Storage, Network Device, Network Circuit, Containerization Engine, Infrastructure Service, Infrastructure Management Tool, Peripheral Device, License |
+| **Security Architecture** | Security Service, Security Control, Security Software, Security Hardware |
+
+Types are listed in this order inside each layer wherever types are listed by layer: the Inventory's type filter, the type picker and this tab. You can change the order of types afterwards; an upgrade does not reset it.
 
 ### Categories (architecture layers)
 
 Every card type sits in a **category** — the architecture layer it is grouped under. The category order is the order of the layers wherever they are drawn: the Inventory's type filter, the **Metamodel Graph** and the swim lanes of the Layered Dependency View, each shown in the category's color and in the reader's language.
 
-- **The six built-in layers are locked.** Business, Beneficiary Experience, Application, Data, Technology and Security (the NORA 2.0 layers) cannot be renamed, recolored or deleted, and are translated into every supported language.
+- **The seven built-in layers are locked.** Strategy Architecture and the six NORA 2.0 layers (Business, Beneficiary Experience, Application, Data, Technology and Security Architecture) cannot be renamed, recolored or deleted, and are translated into every supported language.
 - **Create your own.** In the **Category** field of the type editor or of **+ New Type**, type a name that does not exist yet and choose **Create category "…"**. Pick a color, optionally add translations, and the type moves into the new category.
 - **Move any type.** Built-in types can be moved too — for example, put Interface into a custom *Integration* layer.
 - **Manage categories.** The **Manage categories** button next to **+ New Type** lists every category with its color and the number of card types that use it. Use the arrows to change the layer order (a custom layer can sit between two built-in ones), the pencil to rename, recolor or translate a custom category, and the bin to delete one. A category still used by a card type cannot be deleted — move its types to another category first.

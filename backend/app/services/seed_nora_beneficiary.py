@@ -89,7 +89,7 @@ NORA_BENEFICIARY_TYPES: list[dict] = [
         "goes through to obtain a service or achieve a value.",
         "icon": "linear_scale",
         "color": "#fe6690",
-        "category": "Business",
+        "category": "Beneficiary Experience",
         "has_hierarchy": False,
         "translations": {
             "label": _tx(
@@ -135,7 +135,7 @@ NORA_BENEFICIARY_TYPES: list[dict] = [
         "their journey with the entity.",
         "icon": "footprint",
         "color": "#fe6690",
-        "category": "Business",
+        "category": "Beneficiary Experience",
         "has_hierarchy": False,
         "translations": {
             "label": _tx(

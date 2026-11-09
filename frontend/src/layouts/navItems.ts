@@ -51,6 +51,7 @@ export interface NavItemDef {
  * child survives the permission filter, and disappears otherwise.
  */
 const LAYER_ROWS: [key: string, icon: string, permission?: string][] = [
+  ["strategy", "flag"],
   ["business", "domain"],
   ["beneficiary", "diversity_3"],
   ["application", "apps"],

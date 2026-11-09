@@ -52,6 +52,7 @@ const ATTENTION_ITEMS = 8;
 const PREVIEW_ROWS = 12;
 
 const LAYER_ICONS: Record<string, string> = {
+  Strategy: "flag",
   Business: "domain",
   "Beneficiary Experience": "diversity_3",
   Application: "apps",
@@ -212,7 +213,7 @@ export default function LayersDashboard() {
         </Alert>
       )}
 
-      {/* KPI grid — total, six layers, risks/gaps */}
+      {/* KPI grid — total, seven layers, risks/gaps */}
       <Box sx={{ display: "flex", gap: 1.25, flexWrap: "wrap", mb: 2 }}>
         <MetricCard
           icon="dashboard"
@@ -240,7 +241,7 @@ export default function LayersDashboard() {
         />
       </Box>
 
-      {/* Row A — six layer cards | layer stack */}
+      {/* Row A — seven layer cards | layer stack */}
       <Box
         sx={{
           display: "grid",

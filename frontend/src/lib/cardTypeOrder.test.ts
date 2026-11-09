@@ -29,7 +29,7 @@ function makeType(partial: Partial<CardType> & { key: string }): CardType {
   } as CardType;
 }
 
-const [STRATEGY, BUSINESS, APPLICATION, TECHNICAL] = CARD_TYPE_CATEGORY_ORDER;
+const [STRATEGY, BUSINESS, , APPLICATION, , TECHNICAL] = CARD_TYPE_CATEGORY_ORDER;
 
 /** The 13 seeded types, in the order the API hands them over. */
 function seeded(): CardType[] {

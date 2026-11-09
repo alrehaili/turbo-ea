@@ -391,8 +391,9 @@ export const CARD_TYPE_COLORS = {
 
 // ── EA layers (Layered Dependency View, capability map, dependency report) ─
 
-// NORA 2.0 six-layer model (categories on card_types.category).
+// [FORK] Seven architecture layers — Strategy above the NORA 2.0 six (categories on card_types.category).
 export const LAYER_COLORS = {
+  Strategy: "#c7527d",
   Business: "#2889ff",
   "Beneficiary Experience": "#00a3a3",
   Application: "#0f7eb5",
