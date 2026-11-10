@@ -14,16 +14,167 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # 1. Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # 2. Scan dependencies and configurations
       - name: Scan dependencies and configurations
+        id: scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig
-          severity: CRITICAL,HIGH,MEDIUM
-          format: table
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          format: json
+          output: trivy-report.json
           exit-code: '0'
           skip-dirs: node_modules,.venv,dist,build
+          hide-progress: true
+
+      # 3. Generate readable GitHub Actions report
+      - name: Generate security summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Turbo-EA Security Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Scanner:** Trivy" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Repository:** $GITHUB_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Commit:** \`${GITHUB_SHA:0:12}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Scan type:** Filesystem" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ ! -s trivy-report.json ]; then
+            echo "### Scan failed or incomplete" >> "$GITHUB_STEP_SUMMARY"
+            echo "No Trivy JSON report was generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if ! jq -e '.Results | type == "array"' \
+              trivy-report.json >/dev/null; then
+            echo "### Invalid report" >> "$GITHUB_STEP_SUMMARY"
+            echo "Trivy did not produce a valid results array." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "### Severity Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Severity | Findings |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|" >> "$GITHUB_STEP_SUMMARY"
+
+          for severity in CRITICAL HIGH MEDIUM LOW UNKNOWN; do
+            count=$(jq --arg s "$severity" '
+              [
+                .Results[]? |
+                (
+                  .Vulnerabilities[]?,
+                  .Misconfigurations[]?
+                ) |
+                select(.Severity == $s)
+              ] | length
+            ' trivy-report.json)
+
+            echo "| $severity | $count |" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          total=$(jq '
+            [
+              .Results[]? |
+              (
+                .Vulnerabilities[]?,
+                .Misconfigurations[]?
+              )
+            ] | length
+          ' trivy-report.json)
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Total findings:** $total" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Top Findings" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "| Severity | ID | Package / Target | Fix |" \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          jq -r '
+            [
+              .Results[]? as $result |
+              (
+                $result.Vulnerabilities[]? |
+                {
+                  severity: .Severity,
+                  id: .VulnerabilityID,
+                  item: (.PkgName // $result.Target),
+                  fix: (.FixedVersion // "Not available")
+                }
+              ),
+              (
+                $result.Misconfigurations[]? |
+                {
+                  severity: .Severity,
+                  id: .ID,
+                  item: $result.Target,
+                  fix: "Review configuration"
+                }
+              )
+            ]
+            | sort_by(
+                if .severity == "CRITICAL" then 0
+                elif .severity == "HIGH" then 1
+                elif .severity == "MEDIUM" then 2
+                elif .severity == "LOW" then 3
+                else 4 end
+              )
+            | .[:20][]
+            | [
+                .severity,
+                .id,
+                .item,
+                .fix
+              ]
+            | map(
+                tostring
+                | gsub("[\\r\\n|]"; " ")
+                | .[0:160]
+              )
+            | "| " + join(" | ") + " |"
+          ' trivy-report.json >> "$GITHUB_STEP_SUMMARY"
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Showing up to 20 findings. Download the JSON artifact for full details." \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # 4. Store detailed report for 7 days
+      - name: Upload detailed security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-security-report
+          path: trivy-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      # 5. Make scan execution failures visible
+      - name: Validate scan execution
+        if: always()
+        shell: bash
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: |
+          if [ "$SCAN_OUTCOME" != "success" ]; then
+            echo "::error::Trivy scan execution failed."
+            exit 1
+          fi
+
+          if [ ! -s trivy-report.json ]; then
+            echo "::error::Trivy report is missing."
+            exit 1
+          fi
+
+          jq -e '.Results | type == "array"' \
+            trivy-report.json >/dev/null
