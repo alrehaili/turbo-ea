@@ -171,3 +171,10 @@ class User(Base, UUIDMixin, TimestampMixin):
     access_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    # Session tokens issued before this moment are refused. Set whenever the
+    # password is set or replaced (``services/session_revocation.py``), so a
+    # reset evicts whoever held an older token. Instance-local: not transferred.
+    sessions_valid_after: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

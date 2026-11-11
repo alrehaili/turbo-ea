@@ -123,6 +123,46 @@ beforeEach(() => {
 });
 afterEach(() => vi.clearAllMocks());
 
+/** Deliver a message the way the embedded DrawIO frame does. */
+function fromDrawio(msg: unknown, init: Partial<MessageEventInit> = {}) {
+  const frame = document.querySelector("iframe")!;
+  act(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify(msg),
+        origin: window.location.origin,
+        source: frame.contentWindow,
+        ...init,
+      }),
+    );
+  });
+}
+
+describe("DiagramEditor message origin", () => {
+  const EXIT = { event: "exit", modified: true, xml: "<mxGraphModel/>" };
+
+  it("saves on an exit message from its own DrawIO frame", async () => {
+    vi.mocked(api.patch).mockResolvedValue({});
+    renderEditor();
+    await screen.findByText("Landscape");
+    fromDrawio(EXIT);
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.patch).mock.calls[0][0]).toBe("/diagrams/d1");
+  });
+
+  it.each([
+    ["a foreign origin", { origin: "https://attacker.invalid" }],
+    ["another window on the same origin", { source: window }],
+    ["no sender at all", { origin: "", source: null }],
+  ])("ignores an exit message from %s", async (_n, init) => {
+    renderEditor();
+    await screen.findByText("Landscape");
+    fromDrawio(EXIT, init);
+    await Promise.resolve();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+});
+
 describe("DiagramEditor colours", () => {
   it("pulses the sync button in the strong warning colour", async () => {
     renderEditor();
@@ -141,9 +181,7 @@ describe("DiagramEditor colours", () => {
     renderEditor();
     await screen.findByText("Landscape");
     const msg = { event: "edgeConnected", edgeCellId: "e1", sourceType: "Application", targetType: "Application", ...colours };
-    act(() => {
-      window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(msg) }));
-    });
+    fromDrawio(msg);
     const endpoints = JSON.parse((await screen.findByTestId("rel-endpoints")).textContent!);
     expect(endpoints).toMatchObject({ sourceColor: source, targetColor: target });
   });

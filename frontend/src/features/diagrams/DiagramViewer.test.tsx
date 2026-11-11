@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 
 /* ── mocks ─────────────────────────────────────────────────────── */
@@ -41,7 +41,10 @@ vi.mock("@/hooks/useMetamodel", () => ({
   }),
 }));
 // Drags in the whole cards feature; the viewer only mounts it closed.
-vi.mock("@/components/CardDetailSidePanel", () => ({ default: () => null }));
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ open, cardId }: { open: boolean; cardId: string | null }) =>
+    open ? <div data-testid="side-panel">{cardId}</div> : null,
+}));
 // jsdom never fires `Image.onload`, so the real composer would hang. Partial:
 // `drawio-shapes` reads the module's pure helpers when it paints the style.
 vi.mock("./cardLogoImage", async (importOriginal) => ({
@@ -105,6 +108,44 @@ const iframe = () => document.querySelector("iframe");
 describe("DiagramViewer", () => {
   beforeEach(() => {
     mockGet.mockReset();
+  });
+
+  describe("card clicks posted by the DrawIO frame", () => {
+    function click(init: Partial<MessageEventInit> = {}) {
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: JSON.stringify({ event: "cardClicked", cardId: "card-1" }),
+            origin: window.location.origin,
+            source: iframe()!.contentWindow,
+            ...init,
+          }),
+        );
+      });
+    }
+
+    async function open() {
+      mockGet.mockImplementation(async (path: string) =>
+        path === "/diagrams/d1" ? diagram([]) : [],
+      );
+      renderViewer();
+      await waitFor(() => expect(iframe()).not.toBeNull());
+    }
+
+    it("opens the card the frame reports", async () => {
+      await open();
+      click();
+      expect(screen.getByTestId("side-panel")).toHaveTextContent("card-1");
+    });
+
+    it.each([
+      ["a foreign origin", { origin: "https://attacker.invalid" }],
+      ["another window on the same origin", { source: window }],
+    ])("ignores a click from %s", async (_n, init) => {
+      await open();
+      click(init);
+      expect(screen.queryByTestId("side-panel")).toBeNull();
+    });
   });
 
   it("still renders the diagram when the card lookup fails (#1093)", async () => {

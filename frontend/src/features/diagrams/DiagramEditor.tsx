@@ -155,6 +155,7 @@ import {
 } from "@/lib/cardDisplayFields";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { isFromDrawioFrame } from "./drawioMessage";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 import {
   flowDirectionBadge,
@@ -2702,6 +2703,9 @@ export default function DiagramEditor() {
   /* ---------- PostMessage handler ---------- */
   useEffect(() => {
     const handler = (e: MessageEvent) => {
+      // Only our own DrawIO frame may drive the editor: `exit` saves the XML
+      // it carries, so an unchecked sender is a cross-site write.
+      if (!isFromDrawioFrame(e, iframeRef.current, DRAWIO_BASE_URL)) return;
       if (typeof e.data !== "string") return;
       let msg: DrawIOMessage;
       try {

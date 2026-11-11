@@ -4,13 +4,13 @@ import copy
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
-from app.core.security import hash_password
+from app.api.deps import current_session_id, get_current_user
+from app.core.security import create_access_token, hash_password
 from app.database import get_db
 from app.models.role import Role
 from app.models.sso_invitation import SsoInvitation
@@ -20,9 +20,11 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
+from app.schemas.auth import validate_optional_password
 from app.services import audit_changes, audit_labels, audit_log
 from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
+from app.services.session_revocation import revoke_all_sessions
 from app.services.sso_service import get_sso_config
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -43,6 +45,10 @@ class UserCreate(BaseModel):
     # even in SSO-enabled tenants, and vice versa (#584 follow-up).
     auth_provider: Literal["local", "sso"] | None = None
 
+    # The same rule as registration and reset: an admin cannot hand out a
+    # password the user could not have chosen themselves.
+    _password_strength = field_validator("password")(validate_optional_password)
+
 
 class UserUpdate(BaseModel):
     display_name: str | None = None
@@ -52,6 +58,8 @@ class UserUpdate(BaseModel):
     password: str | None = None
     locale: str | None = None
     auth_provider: str | None = None  # admin only: "local" or "sso"
+
+    _password_strength = field_validator("password")(validate_optional_password)
 
 
 class NotificationPreferencesUpdate(BaseModel):
@@ -846,6 +854,8 @@ def _build_invite_email(
 async def update_user(
     user_id: str,
     body: UserUpdate,
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -860,6 +870,9 @@ async def update_user(
         raise HTTPException(404, "User not found")
 
     data = body.model_dump(exclude_unset=True)
+    # A null or empty password means "leave it alone", never "set it to nothing".
+    if data.get("password", "") is None:
+        del data["password"]
     # Read before ``password`` is popped below. An administrator setting someone
     # else's password is an admin action, not this one.
     changes_own_password = is_self and "password" in data
@@ -939,6 +952,11 @@ async def update_user(
         # Pending list so admin can still resend it, and disappears once
         # the user signs in for the first time (#539).
         u.password_setup_token = None
+        # A reset link mailed before this change must not be able to overwrite
+        # the new password, and sessions opened with the old one end here.
+        u.password_reset_token = None
+        u.password_reset_expires_at = None
+        revoke_all_sessions(u)
 
     for field, value in data.items():
         setattr(u, field, value)
@@ -972,6 +990,20 @@ async def update_user(
             changes=changes,
         )
     await db.commit()
+    if changes_own_password and request.cookies.get("access_token"):
+        # Changing the password just ended every session of this account,
+        # this one included. Hand the browser that made the change a fresh
+        # token for the same session so the user is not signed out by it.
+        from app.api.v1.auth import _is_secure_request, _set_auth_cookie
+
+        payload = getattr(request.state, "token_payload", None) or {}
+        token = create_access_token(
+            u.id,
+            u.role,
+            impersonated_role=payload.get("impersonated_role"),
+            session_id=current_session_id(request),
+        )
+        _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return _user_response(u)
 
 

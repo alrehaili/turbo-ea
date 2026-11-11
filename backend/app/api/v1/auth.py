@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_optional_user
+from app.api.deps import current_session_id, get_current_user, get_optional_user
 from app.config import settings
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -31,6 +31,7 @@ from app.services import audit_labels, audit_log, email_service, proxy_auth_serv
 # ``web_portals``). The underscore-aliased re-exports keep this module's route
 # bodies — and ``app.api.v1.users`` which imports ``_get_sso_config`` — working
 # unchanged.
+from app.services.session_revocation import revoke_all_sessions, revoke_session
 from app.services.sso_service import PROVIDER_LABELS
 from app.services.sso_service import discover_oidc as _discover_oidc
 from app.services.sso_service import get_general_settings as _get_general_settings
@@ -598,7 +599,9 @@ async def impersonate_role(
     )
     await db.commit()
 
-    token = create_access_token(user.id, user.role, impersonated_role=target)
+    token = create_access_token(
+        user.id, user.role, impersonated_role=target, session_id=current_session_id(request)
+    )
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -642,7 +645,7 @@ async def stop_impersonating(
     )
     await db.commit()
 
-    token = create_access_token(user.id, user.role)
+    token = create_access_token(user.id, user.role, session_id=current_session_id(request))
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -658,7 +661,9 @@ async def refresh_token(
     """Issue a new short-lived access token. Re-reads role and active status from DB."""
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
-    token = create_access_token(user.id, user.role)
+    # Same session, new token: the ``sid`` is what a later logout revokes, so
+    # a copy of the token refreshed elsewhere is signed out with it.
+    token = create_access_token(user.id, user.role, session_id=current_session_id(request))
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -1106,6 +1111,10 @@ async def set_password(
 
     user.password_hash = hash_password(body.password)
     user.password_setup_token = None
+    # A new password ends every other way in: older sessions and reset links.
+    user.password_reset_token = None
+    user.password_reset_expires_at = None
+    revoke_all_sessions(user)
     if user.auth_provider != "sso":
         user.auth_provider = "local"
     # The user has now accepted the invite (set-password effectively logs them
@@ -1135,6 +1144,9 @@ async def logout(
     nothing: there is nobody to attribute it to. The cookie is cleared either way.
     """
     if user is not None:
+        # Deleting the cookie only signs this browser out; revoking the session
+        # is what stops a copy of the token from being used or refreshed.
+        await revoke_session(db, getattr(request.state, "token_payload", None))
         await audit_log.record(db, action="auth.logout", category="auth", actor=user)
         await db.commit()
     _clear_auth_cookie(response, secure=_is_secure_request(request))
@@ -1260,18 +1272,17 @@ def _build_setup_email_body(display_name: str, app_title: str, setup_url: str) -
     return body_html, body_text
 
 
-def _resolve_app_base_url(request: Request) -> str:
-    """Resolve the public base URL for emailed links.
+def _resolve_app_base_url() -> str | None:
+    """The public base URL for emailed recovery links, or ``None`` when unset.
 
-    Priority:
-    1. Admin-configured `app_base_url` (general / email settings push it onto
-       `app_config._app_base_url`).
-    2. The current request's base URL (works for direct deployments).
+    Only the admin-configured `app_base_url` (general / email settings push it
+    onto `app_config._app_base_url`) is used. It is deliberately **not** derived
+    from the request: `forgot-password` is unauthenticated, so a caller who
+    sends `Host: attacker.example` would otherwise have the victim mailed a
+    link that hands the reset token to that host.
     """
-    explicit = settings._app_base_url
-    if explicit:
-        return explicit.rstrip("/")
-    return str(request.base_url).rstrip("/")
+    explicit = (settings._app_base_url or "").strip()
+    return explicit.rstrip("/") or None
 
 
 @router.post("/forgot-password")
@@ -1303,9 +1314,15 @@ async def forgot_password(
         user = result.scalar_one_or_none()
 
     email_sent = False
-    if user is not None and user.is_active and email_service._is_configured():
+    base_url = _resolve_app_base_url()
+    can_mail = user is not None and user.is_active and email_service._is_configured()
+    if can_mail and not base_url:
+        logger.warning(
+            "Password email not sent: no application URL is configured, so the "
+            "recovery link cannot be built. Set it in the admin email settings."
+        )
+    elif can_mail:
         message: tuple[str, str, str] | None = None
-        base_url = _resolve_app_base_url(request)
         app_title = email_service._get_app_title()
 
         if user.password_hash is not None:
@@ -1422,6 +1439,9 @@ async def reset_password(
     user.password_hash = hash_password(body.password)
     user.password_reset_token = None
     user.password_reset_expires_at = None
+    user.password_setup_token = None
+    # The point of a reset: whoever held a session before it is signed out.
+    revoke_all_sessions(user)
     # A successful reset clears any account lockout — the user proved
     # control of their inbox.
     user.failed_login_attempts = 0

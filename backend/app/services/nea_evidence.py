@@ -57,6 +57,22 @@ def _autosize(ws: Worksheet) -> None:
         ws.column_dimensions[col[0].column_letter].width = min(60, max(12, width + 2))
 
 
+def _neutralise_formulas(wb: Workbook) -> None:
+    """Store every cell that openpyxl read as a formula as plain text.
+
+    openpyxl turns any string starting with ``=`` into a formula cell, and the
+    sheets carry text people typed — card names, attributes, deliverable and
+    standard titles, display names. This workbook authors no formulas of its
+    own, so every formula cell is such a string: keep the characters, drop the
+    formula type, and the spreadsheet application shows it instead of running it.
+    """
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.data_type == "f":
+                    cell.data_type = "s"
+
+
 async def _gather(db: AsyncSession) -> dict:
     """Collect every dataset once. Sub-queries are individually guarded so a
     single failure never aborts the whole pack."""
@@ -357,6 +373,7 @@ async def build_evidence_pack(db: AsyncSession) -> tuple[bytes, dict]:
     # Overview reuses the default active sheet, so it is already first.
     _sheet_overview(wb, data, summary)
 
+    _neutralise_formulas(wb)
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue(), summary

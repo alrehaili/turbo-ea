@@ -13,6 +13,18 @@ def _validate_password_strength(v: str) -> str:
     return v
 
 
+def validate_optional_password(v: str | None) -> str | None:
+    """The strength rule for a password field that may be left out.
+
+    ``None`` (and, where the form sends it, an empty string) means "no password
+    given" and is passed through as ``None``; anything else must meet the same
+    rule as registration, so no path can set a weaker password than another.
+    """
+    if v is None or v == "":
+        return None
+    return _validate_password_strength(v)
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     display_name: str = Field(..., min_length=1, max_length=200)

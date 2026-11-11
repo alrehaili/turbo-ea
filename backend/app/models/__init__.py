@@ -80,6 +80,7 @@ from app.models.reference_model import (
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
+from app.models.revoked_session import RevokedSession
 from app.models.risk import Risk, RiskCard
 from app.models.risk_governance_link import RiskGovernanceLink
 from app.models.risk_mitigation_task import (
@@ -162,6 +163,7 @@ __all__ = [
     "MaturityAssessment",
     "MaturityDimensionScore",
     "NeaEvidencePack",
+    "RevokedSession",
     "NoraPlateau",
     "NoraSegment",
     "Scenario",

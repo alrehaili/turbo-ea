@@ -188,7 +188,7 @@ class TestCreateUser:
             json={
                 "email": "blocked@test.com",
                 "display_name": "Blocked",
-                "password": "Pass123",
+                "password": "StrongPass1",
                 "role": "viewer",
             },
             headers=auth_headers(member),
@@ -202,7 +202,7 @@ class TestCreateUser:
             json={
                 "email": "admin@test.com",
                 "display_name": "Dup",
-                "password": "Pass123",
+                "password": "StrongPass1",
                 "role": "member",
             },
             headers=auth_headers(admin),
@@ -216,7 +216,7 @@ class TestCreateUser:
             json={
                 "email": "badrole@test.com",
                 "display_name": "Bad Role",
-                "password": "Pass123",
+                "password": "StrongPass1",
                 "role": "nonexistent_role",
             },
             headers=auth_headers(admin),
@@ -252,7 +252,7 @@ class TestInviteUser:
             json={
                 "email": "invitee@test.com",
                 "display_name": "Invitee",
-                "password": "Pass1234",
+                "password": "StrongPass1",
                 "role": "member",
             },
             headers=auth_headers(inviter),
@@ -274,7 +274,7 @@ class TestInviteUser:
             json={
                 "email": "escalation@test.com",
                 "display_name": "Escalation",
-                "password": "Pass1234",
+                "password": "StrongPass1",
                 "role": "admin",
             },
             headers=auth_headers(inviter),
@@ -289,7 +289,7 @@ class TestInviteUser:
             json={
                 "email": "new-admin@test.com",
                 "display_name": "New Admin",
-                "password": "Pass1234",
+                "password": "StrongPass1",
                 "role": "admin",
             },
             headers=auth_headers(admin),
@@ -304,7 +304,7 @@ class TestInviteUser:
             json={
                 "email": "blocked2@test.com",
                 "display_name": "Blocked2",
-                "password": "Pass1234",
+                "password": "StrongPass1",
                 "role": "viewer",
             },
             headers=auth_headers(viewer),
@@ -900,7 +900,7 @@ class TestUpdateUser:
             json={
                 "email": "bad-provider@test.com",
                 "display_name": "Bad Provider",
-                "password": "Pass1234",
+                "password": "StrongPass1",
                 "role": "member",
                 "auth_provider": "ldap",
             },

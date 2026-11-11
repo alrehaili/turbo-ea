@@ -23,6 +23,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.nea_evidence import NeaEvidencePack
 from app.models.user import User
+from app.services.card_read_scope import CardReadScope
 from app.services.nea_evidence import build_evidence_pack
 from app.services.permission_service import PermissionService
 
@@ -55,6 +56,18 @@ def _pack_dict(p: NeaEvidencePack, names: dict | None = None) -> dict:
     }
 
 
+async def _require_whole_landscape(db: AsyncSession, user: User) -> None:
+    """A pack is one stored snapshot of the whole landscape, shared by every reader.
+
+    Its workbook and its summary name and count cards of every type, and it
+    cannot be re-cut per reader after the fact. So a reader who is denied View
+    on any card type may not list, open, download, generate or delete packs —
+    the same line the maturity indicators and the TurboLens architect draw.
+    """
+    if not (await CardReadScope.load(db, user)).is_unrestricted(mode="module"):
+        raise HTTPException(403, "Evidence packs need read access to every card type")
+
+
 async def _get_pack(db: AsyncSession, pid: uuid.UUID) -> NeaEvidencePack:
     row = (
         await db.execute(select(NeaEvidencePack).where(NeaEvidencePack.id == pid))
@@ -70,6 +83,7 @@ async def list_packs(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.view")
+    await _require_whole_landscape(db, user)
     rows = list(
         (await db.execute(select(NeaEvidencePack).order_by(NeaEvidencePack.created_at.desc())))
         .scalars()
@@ -90,6 +104,7 @@ async def generate_pack(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.manage")
+    await _require_whole_landscape(db, user)
     ts = datetime.now(timezone.utc)
     title = body.title or f"NEA evidence pack {ts.strftime('%Y-%m-%d %H:%M')}"
     pack = NeaEvidencePack(title=title, status="generating", generated_by=user.id)
@@ -124,6 +139,7 @@ async def get_pack(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.view")
+    await _require_whole_landscape(db, user)
     return _pack_dict(await _get_pack(db, pack_id))
 
 
@@ -134,6 +150,7 @@ async def download_pack(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.view")
+    await _require_whole_landscape(db, user)
     pack = await _get_pack(db, pack_id)
     if pack.status != "ready" or not pack.storage_path:
         raise HTTPException(409, "Pack is not ready for download")
@@ -154,6 +171,7 @@ async def delete_pack(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "nora.manage")
+    await _require_whole_landscape(db, user)
     pack = await _get_pack(db, pack_id)
     if pack.storage_path:
         Path(pack.storage_path).unlink(missing_ok=True)
