@@ -33,7 +33,20 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 
         if user.access_expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail="Account access has expired")
+    from app.services.session_revocation import token_is_revoked
+
+    if await token_is_revoked(db, user, payload):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    # Kept for the endpoints that re-issue or end *this* session.
+    request.state.token_payload = payload
     return user
+
+
+def current_session_id(request: Request) -> str | None:
+    """The ``sid`` of the token ``get_current_user`` accepted for this request."""
+    payload = getattr(request.state, "token_payload", None) or {}
+    sid = payload.get("sid")
+    return sid if isinstance(sid, str) and sid else None
 
 
 async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)) -> User | None:

@@ -6,12 +6,21 @@ nonexistent emails, invalid tokens, expired tokens, and SSO config.
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
 from app.models.app_settings import AppSettings
 from app.models.sso_invitation import SsoInvitation
 from app.models.user import User
 from tests.conftest import auth_headers, create_user
+
+
+@pytest.fixture(autouse=True)
+def _application_url(monkeypatch):
+    """Recovery links are only built from the configured application URL."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "_app_base_url", "http://test", raising=False)
 
 
 async def _enable_sso(db):

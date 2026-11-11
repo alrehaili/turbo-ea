@@ -36,6 +36,14 @@ PROXY_SECRET_HEADER = "X-Turbo-EA-Proxy-Secret"
 STRONG = "BrandNewPass1"
 
 
+@pytest.fixture(autouse=True)
+def _application_url(monkeypatch):
+    """Recovery links are only built from the configured application URL."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "_app_base_url", "http://test", raising=False)
+
+
 async def _committed(db, prefix: str = "auth.") -> list[AuditLogEntry]:
     """Discard whatever the request flushed but never committed, then read the log.
 

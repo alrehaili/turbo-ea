@@ -26,6 +26,7 @@ from app.services.card_read_scope import (
 )
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.session_revocation import token_is_revoked
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -91,6 +92,8 @@ async def event_stream(request: Request, token: str = Query("")):
             timezone.utc
         ):
             raise HTTPException(status_code=401, detail="Account access has expired")
+        if await token_is_revoked(db, user, payload):
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
 
         is_events_admin = await PermissionService.has_app_permission(db, user, "admin.events")
         user_id = str(user.id)

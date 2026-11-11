@@ -28,6 +28,7 @@ import {
 import { composeCardLogoImage } from "./cardLogoImage";
 import { DEFAULT_LAYER_COLOR } from "@/theme/tokens";
 import DiagramViewLegend from "./DiagramViewLegend";
+import { isFromDrawioFrame } from "./drawioMessage";
 import { buildLegend, normaliseViewSource, type ViewResolvers } from "./viewSource";
 import type { Card } from "@/types";
 
@@ -77,8 +78,12 @@ function buildViewerSrc(xml: string): string {
  * parent). PostConfig.js posts {event: "cardClicked", cardId} back; this
  * function just installs the listener.
  */
-function listenForCardClicks(onCardClick: (cardId: string) => void) {
+function listenForCardClicks(
+  getFrame: () => HTMLIFrameElement | null,
+  onCardClick: (cardId: string) => void,
+) {
   const handler = (e: MessageEvent) => {
+    if (!isFromDrawioFrame(e, getFrame(), DRAWIO_BASE_URL)) return;
     if (typeof e.data !== "string") return;
     try {
       const msg = JSON.parse(e.data);
@@ -189,7 +194,7 @@ export default function DiagramViewer() {
   }, [user?.permissions]);
 
   /* ---------- Listen for card clicks from the lightbox ---------- */
-  useEffect(() => listenForCardClicks(setSelectedCardId), []);
+  useEffect(() => listenForCardClicks(() => iframeRef.current, setSelectedCardId), []);
 
   /* ---------- Load diagram, then draw each card's logo into its XML ----------
      The viewer hands DrawIO its XML in the URL fragment and never builds a

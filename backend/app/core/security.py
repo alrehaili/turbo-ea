@@ -30,11 +30,19 @@ def create_access_token(
     role: str = "member",
     *,
     impersonated_role: str | None = None,
+    session_id: str | None = None,
 ) -> str:
+    """Mint a session token.
+
+    ``session_id`` becomes the ``sid`` claim. Pass the current session's when
+    re-issuing a token for it (refresh, impersonation), so logging out revokes
+    every token of the session; leave it out to start a new session.
+    """
     now = datetime.now(timezone.utc)
     payload: dict = {
         "sub": str(user_id),
         "role": role,
+        "sid": session_id or uuid.uuid4().hex,
         "iat": now,
         "exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         "iss": "turbo-ea",

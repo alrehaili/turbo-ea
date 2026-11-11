@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.47.1] - 2026-11-11
+
+### Security
+- The diagram editor and viewer only act on messages from their own embedded DrawIO frame, so another site can no longer make a signed-in user's editor save a diagram.
+- Password-reset and set-password emails are built only from the application URL set in the email settings, never from the address a request arrived on. **If that URL is not set, these emails are no longer sent** — set it under the admin email settings.
+- Resetting, setting or changing a password signs out every other session of that account and cancels any reset link mailed earlier; signing out now ends the session on the server, so a copied session token stops working and cannot be renewed.
+- Passwords set from the user administration screen or from a user's own profile must meet the same strength rule as registration (10 characters, one uppercase letter, one digit).
+- NEA evidence packs can only be listed, downloaded, generated or deleted by a role allowed to see every card type, since a pack is a snapshot of the whole landscape.
+- Text beginning with `=` in an NEA evidence pack is written as plain text, not as a spreadsheet formula.
+
 ## [2.47.0] - 2026-11-09
 
 ### Added

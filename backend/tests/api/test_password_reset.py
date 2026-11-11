@@ -18,11 +18,20 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from sqlalchemy import select
 
 from app.core.security import verify_password
 from app.models.user import User
 from tests.conftest import create_user
+
+
+@pytest.fixture(autouse=True)
+def _application_url(monkeypatch):
+    """Recovery links are only built from the configured application URL."""
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "_app_base_url", "http://test", raising=False)
 
 
 def _patch_smtp_on():
