@@ -136,9 +136,14 @@ variable "log_retention_days" {
 # ── Network (existing) ─────────────────────────────────────────────────
 
 variable "infrastructure_subnet_id" {
-  description = "Resource ID of a /27 (or larger) subnet delegated to Microsoft.App/environments for VNet integration. null = no VNet integration; the database must then be reachable over its public endpoint."
+  description = "Resource ID of a /27 (or larger) subnet delegated to Microsoft.App/environments, with the Microsoft.Storage service endpoint enabled. Required for restricted Azure Files access."
   type        = string
   default     = null
+
+  validation {
+    condition     = var.infrastructure_subnet_id != null
+    error_message = "infrastructure_subnet_id is required; enable Microsoft.Storage on this subnet before deploying."
+  }
 }
 
 variable "postgresql_delegated_subnet_id" {
@@ -148,7 +153,12 @@ variable "postgresql_delegated_subnet_id" {
 
   validation {
     condition     = (var.postgresql_delegated_subnet_id == null) == (var.postgresql_private_dns_zone_id == null)
-    error_message = "postgresql_delegated_subnet_id and postgresql_private_dns_zone_id must be set together (private access) or both left null (public endpoint)."
+    error_message = "postgresql_delegated_subnet_id and postgresql_private_dns_zone_id must be set together; both may be null only when bringing your own database."
+  }
+
+  validation {
+    condition     = !var.create_database || var.postgresql_delegated_subnet_id != null
+    error_message = "A created database requires postgresql_delegated_subnet_id and postgresql_private_dns_zone_id; public database access is disabled."
   }
 }
 
@@ -159,6 +169,29 @@ variable "postgresql_private_dns_zone_id" {
 }
 
 # ── Storage (/app/data) ────────────────────────────────────────────────
+
+variable "storage_replication_type" {
+  description = "Azure Files redundancy. GRS is the production default; LRS can be selected explicitly for disposable environments."
+  type        = string
+  default     = "GRS"
+
+  validation {
+    condition     = contains(["LRS", "ZRS", "GRS", "GZRS"], var.storage_replication_type)
+    error_message = "Choose a replication type supported by Azure Files: LRS, ZRS, GRS or GZRS."
+  }
+}
+
+variable "storage_allowed_subnet_ids" {
+  description = "Additional subnets with Microsoft.Storage service endpoints allowed to access the file share. The application infrastructure subnet is always allowed."
+  type        = set(string)
+  default     = []
+}
+
+variable "storage_allowed_ip_rules" {
+  description = "Optional public IPv4 addresses/CIDRs for administrative storage access. No public addresses are allowed by default."
+  type        = set(string)
+  default     = []
+}
 
 variable "storage_account_name" {
   description = "Globally unique storage account name for the file share behind /app/data. null = derived from name."

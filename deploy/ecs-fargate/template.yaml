@@ -102,6 +102,32 @@ Resources:
     Properties:
       LogGroupName: !Sub /ecs/${AWS::StackName}
       RetentionInDays: 30
+      KmsKeyId: !GetAtt LogEncryptionKey.Arn
+
+  LogEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Turbo EA CloudWatch log encryption
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccountKeyAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: WorkspaceLogEncryption
+            Effect: Allow
+            Principal:
+              Service: !Sub logs.${AWS::Region}.amazonaws.com
+            Action: [kms:Encrypt, kms:Decrypt, "kms:ReEncrypt*", "kms:GenerateDataKey*", kms:DescribeKey]
+            Resource: "*"
+            Condition:
+              ArnEquals:
+                kms:EncryptionContext:aws:logs:arn: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/${AWS::StackName}
 
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -204,10 +230,12 @@ Resources:
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
+          Description: Public HTTP entry point redirects to HTTPS
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
+          Description: Public HTTPS entry point
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
@@ -219,6 +247,7 @@ Resources:
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
+          Description: Application traffic and health checks from the load balancer
           FromPort: 8920
           ToPort: 8920
           SourceSecurityGroupId: !Ref AlbSecurityGroup
@@ -230,6 +259,7 @@ Resources:
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
+          Description: NFS mount access from the Turbo EA task
           FromPort: 2049
           ToPort: 2049
           SourceSecurityGroupId: !Ref TaskSecurityGroup
@@ -239,6 +269,7 @@ Resources:
     Condition: HasDbSg
     Properties:
       GroupId: !Ref DbSecurityGroupId
+      Description: PostgreSQL connections from the Turbo EA task
       IpProtocol: tcp
       FromPort: !Ref DbPort
       ToPort: !Ref DbPort
@@ -255,6 +286,8 @@ Resources:
         # The event stream is a long-lived response; 4000 s is the ALB maximum.
         - Key: idle_timeout.timeout_seconds
           Value: "4000"
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: "true"
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup

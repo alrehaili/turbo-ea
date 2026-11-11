@@ -7,7 +7,7 @@ Equipes que gerenciam sua nuvem com Terraform podem implantar o Turbo EA da mesm
 | Módulo | Plataforma | Cria | Você traz |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | Cluster, tarefa e serviço, Application Load Balancer com HTTPS, EFS, segredos do Secrets Manager, RDS for PostgreSQL (opcional) | Uma VPC com sub-redes públicas e privadas (NAT), um certificado ACM |
-| `azure-container-apps` | Azure Container Apps | Ambiente, container app, Log Analytics, conta de armazenamento e compartilhamento de arquivos, Flexible Server (opcional) | Um grupo de recursos; opcionalmente uma sub-rede delegada e uma zona DNS privada |
+| `azure-container-apps` | Azure Container Apps | Ambiente, container app, Log Analytics, conta de armazenamento e compartilhamento de arquivos, Flexible Server (opcional) | Grupo de recursos, sub-rede da aplicação com Microsoft.Storage e sub-rede/DNS privados para banco criado |
 | `cloud-run` | Google Cloud Run | Serviço, Filestore, segredos do Secret Manager, repositório remoto do Artifact Registry, balanceador de carga HTTPS global com certificado gerenciado, Cloud SQL (opcional) | Um projeto, uma VPC com uma sub-rede, acesso a serviços privados nessa VPC |
 | `kubernetes` | Qualquer cluster Kubernetes | Namespace, Secret de credenciais, a release do Helm | Um cluster e um kubeconfig, um servidor PostgreSQL |
 
@@ -48,7 +48,7 @@ As implantações são parar-e-iniciar (`deployment_minimum_healthy_percent = 0`
 
 ## Azure Container Apps
 
-**Antes de começar**: um grupo de recursos existente. Para integração com VNet, uma sub-rede `/27` delegada a `Microsoft.App/environments`. Para um banco inacessível pela Internet, uma *segunda* sub-rede delegada a `Microsoft.DBforPostgreSQL/flexibleServers` e uma zona DNS privada terminada em `.postgres.database.azure.com` vinculada à VNet — defina `postgresql_delegated_subnet_id` e `postgresql_private_dns_zone_id` juntos. Sem eles, o servidor criado mantém um ponto de extremidade público restrito aos serviços do Azure.
+**Antes de começar**: um grupo de recursos existente e uma sub-rede da aplicação `/27` ou maior, delegada a `Microsoft.App/environments`, com o ponto de extremidade de serviço `Microsoft.Storage` ativado. Defina `infrastructure_subnet_id`. Um banco criado também exige outra sub-rede delegada a `Microsoft.DBforPostgreSQL/flexibleServers` e uma zona DNS privada vinculada à VNet da aplicação: `postgresql_delegated_subnet_id` e `postgresql_private_dns_zone_id`. O acesso público ao banco está desativado.
 
 Entradas a definir: `subscription_id`, `resource_group_name`, `location`, `public_url`, `image_tag`, e `storage_account_name` e `postgresql_server_name` globalmente únicos. A primeira implantação responde na saída `fqdn`; vincule um domínio personalizado com `az containerapp hostname add` / `bind` como descrito na página Serviços de contêineres gerenciados, depois defina `public_url` e aplique de novo. O Azure não tem um sinalizador de proteção contra exclusão em um Flexible Server, por isso o módulo coloca bloqueios `CanNotDelete` no servidor e na conta de armazenamento (`db_deletion_protection`, `storage_deletion_protection`).
 
@@ -85,3 +85,9 @@ Cada módulo traz testes em `tests/` que rodam contra **provedores simulados**: 
 | `db_host is required when create_database is false` | Trazer o seu banco exige `db_host` e `db_password` (`TF_VAR_db_password`). |
 | `terraform destroy` recusa | A proteção contra exclusão ou um bloqueio `CanNotDelete` está ativo; veja *Atualizações e remoção*. |
 | A aplicação responde na URL da plataforma, mas não em `public_url` | O DNS aponta para outro lugar, ou `public_url` ainda nomeia o FQDN da plataforma — defina a origem final e aplique; o cookie de sessão está vinculado a ela. |
+
+## Alterações de segurança na versão 2.47.2
+
+O Azure Storage recusa redes não autorizadas, usa GRS por padrão, ativa a criptografia de infraestrutura e registra operações do Azure Files. Em contas existentes, essa criptografia pode exigir substituição: faça backup e migre os arquivos, revise o plano e os bloqueios de exclusão. Não aplique uma substituição destrutiva apenas para eliminar um alerta. Mover um banco público para uma sub-rede privada delegada também pode substituir o servidor: faça backup e migre o banco antes de uma transição controlada.
+
+A AWS restringe conexões de saída ao banco, EFS e HTTPS; SMTP/LDAP e outras integrações precisam de `additional_egress_rules` explícitas. Restrinja `https_egress_cidrs` quando possível. Segredos e logs usam chaves gerenciadas pelo cliente. Bancos Google Cloud SQL criados exigem TLS, e o backend verifica a CA montada automaticamente. O Azure verifica o certificado e o nome de host do banco. Implante uma imagem com essas configurações TLS antes de exigi-las; leia o README de cada módulo antes de atualizar.

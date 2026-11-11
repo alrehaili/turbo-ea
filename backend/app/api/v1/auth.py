@@ -199,7 +199,7 @@ def _issue_session(request: Request, response: Response, user: User) -> TokenRes
     blocked = _session_block(user)
     if blocked is not None:
         raise HTTPException(403, blocked[1])
-    token = create_access_token(user.id, user.role)
+    token = create_access_token(user.id, user.role, generation=user.session_generation)
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -497,7 +497,7 @@ async def login(
     )
     await db.commit()
 
-    token = create_access_token(user.id, user.role)
+    token = create_access_token(user.id, user.role, generation=user.session_generation)
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -600,7 +600,11 @@ async def impersonate_role(
     await db.commit()
 
     token = create_access_token(
-        user.id, user.role, impersonated_role=target, session_id=current_session_id(request)
+        user.id,
+        user.role,
+        impersonated_role=target,
+        session_id=current_session_id(request),
+        generation=user.session_generation,
     )
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
@@ -645,7 +649,12 @@ async def stop_impersonating(
     )
     await db.commit()
 
-    token = create_access_token(user.id, user.role, session_id=current_session_id(request))
+    token = create_access_token(
+        user.id,
+        user.role,
+        session_id=current_session_id(request),
+        generation=user.session_generation,
+    )
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -663,7 +672,12 @@ async def refresh_token(
         raise HTTPException(403, "Account disabled")
     # Same session, new token: the ``sid`` is what a later logout revokes, so
     # a copy of the token refreshed elsewhere is signed out with it.
-    token = create_access_token(user.id, user.role, session_id=current_session_id(request))
+    token = create_access_token(
+        user.id,
+        user.role,
+        session_id=current_session_id(request),
+        generation=user.session_generation,
+    )
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
@@ -1126,7 +1140,7 @@ async def set_password(
     await audit_log.record(db, action="auth.password.set", category="auth", actor=user)
     await db.commit()
 
-    token = create_access_token(user.id, user.role)
+    token = create_access_token(user.id, user.role, generation=user.session_generation)
     _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 

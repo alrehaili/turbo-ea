@@ -57,3 +57,28 @@ resource "google_secret_manager_secret_iam_member" "db_password" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.run.email}"
 }
+
+# Cloud SQL's default per-instance CA authenticates its private-IP endpoint
+# without requiring a publicly trusted certificate or disabling verification.
+resource "google_secret_manager_secret" "db_ca" {
+  count     = var.create_database ? 1 : 0
+  secret_id = "${var.name}-postgres-ca"
+  labels    = var.labels
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.this]
+}
+
+resource "google_secret_manager_secret_version" "db_ca" {
+  count       = var.create_database ? 1 : 0
+  secret      = google_secret_manager_secret.db_ca[0].id
+  secret_data = google_sql_database_instance.this[0].server_ca_cert[0].cert
+}
+
+resource "google_secret_manager_secret_iam_member" "db_ca" {
+  count     = var.create_database ? 1 : 0
+  secret_id = google_secret_manager_secret.db_ca[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
+}

@@ -1002,6 +1002,7 @@ async def update_user(
             u.role,
             impersonated_role=payload.get("impersonated_role"),
             session_id=current_session_id(request),
+            generation=u.session_generation,
         )
         _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return _user_response(u)

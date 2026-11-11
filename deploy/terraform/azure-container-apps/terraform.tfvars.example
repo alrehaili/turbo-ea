@@ -13,11 +13,12 @@ image_tag           = "2.141.0"
 storage_account_name   = "turboeadata"
 postgresql_server_name = "turbo-ea-pg"
 
-# VNet integration and private database access (recommended). Both subnets
-# must be different; the private DNS zone must be linked to the VNet.
-# infrastructure_subnet_id       = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/aca"
-# postgresql_delegated_subnet_id = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
-# postgresql_private_dns_zone_id = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/turbo-ea.postgres.database.azure.com"
+# Required private networking. Enable the Microsoft.Storage service endpoint
+# on the application subnet. The database needs a different delegated subnet
+# and a private DNS zone linked to the application VNet.
+infrastructure_subnet_id       = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/aca"
+postgresql_delegated_subnet_id = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
+postgresql_private_dns_zone_id = "/subscriptions/…/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/turbo-ea.postgres.database.azure.com"
 
 # Created Flexible Server (default). To bring your own instead:
 # create_database = false

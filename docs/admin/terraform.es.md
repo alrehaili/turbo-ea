@@ -7,7 +7,7 @@ Los equipos que gestionan su nube con Terraform pueden desplegar Turbo EA de la 
 | Módulo | Plataforma | Crea | Usted aporta |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | Clúster, tarea y servicio, Application Load Balancer con HTTPS, EFS, secretos de Secrets Manager, RDS for PostgreSQL (opcional) | Una VPC con subredes públicas y privadas (NAT), un certificado ACM |
-| `azure-container-apps` | Azure Container Apps | Entorno, container app, Log Analytics, cuenta de almacenamiento y recurso compartido de archivos, Flexible Server (opcional) | Un grupo de recursos; opcionalmente una subred delegada y una zona DNS privada |
+| `azure-container-apps` | Azure Container Apps | Entorno, container app, Log Analytics, cuenta de almacenamiento y recurso compartido de archivos, Flexible Server (opcional) | Grupo de recursos, subred de aplicación con Microsoft.Storage y subred/DNS privados para una base creada |
 | `cloud-run` | Google Cloud Run | Servicio, Filestore, secretos de Secret Manager, repositorio remoto de Artifact Registry, balanceador de carga HTTPS global con certificado gestionado, Cloud SQL (opcional) | Un proyecto, una VPC con una subred, acceso a servicios privados en esa VPC |
 | `kubernetes` | Cualquier clúster de Kubernetes | Namespace, Secret de credenciales, la release de Helm | Un clúster y un kubeconfig, un servidor PostgreSQL |
 
@@ -48,7 +48,7 @@ Los despliegues son parar-y-arrancar (`deployment_minimum_healthy_percent = 0`),
 
 ## Azure Container Apps
 
-**Antes de empezar**: un grupo de recursos existente. Para la integración con VNet, una subred `/27` delegada a `Microsoft.App/environments`. Para una base no accesible desde Internet, una *segunda* subred delegada a `Microsoft.DBforPostgreSQL/flexibleServers` y una zona DNS privada terminada en `.postgres.database.azure.com` vinculada a la VNet — fije `postgresql_delegated_subnet_id` y `postgresql_private_dns_zone_id` juntos. Sin ellos, el servidor creado conserva un punto de conexión público restringido a los servicios de Azure.
+**Antes de empezar**: un grupo de recursos existente y una subred de aplicación `/27` o mayor, delegada a `Microsoft.App/environments`, con el punto de conexión de servicio `Microsoft.Storage` habilitado. Configure `infrastructure_subnet_id`. Una base creada también requiere otra subred delegada a `Microsoft.DBforPostgreSQL/flexibleServers` y una zona DNS privada vinculada a la VNet de la aplicación: `postgresql_delegated_subnet_id` y `postgresql_private_dns_zone_id`. El acceso público a la base está deshabilitado.
 
 Entradas que fijar: `subscription_id`, `resource_group_name`, `location`, `public_url`, `image_tag`, y unos `storage_account_name` y `postgresql_server_name` únicos a nivel global. El primer despliegue responde en la salida `fqdn`; vincule un dominio personalizado con `az containerapp hostname add` / `bind` como describe la página Servicios de contenedores gestionados, fije después `public_url` y vuelva a aplicar. Azure no tiene un indicador de protección contra eliminación en un Flexible Server, así que el módulo coloca bloqueos `CanNotDelete` en el servidor y en la cuenta de almacenamiento (`db_deletion_protection`, `storage_deletion_protection`).
 
@@ -85,3 +85,9 @@ Cada módulo incluye pruebas en `tests/` que se ejecutan contra **proveedores si
 | `db_host is required when create_database is false` | Traer su base requiere `db_host` y `db_password` (`TF_VAR_db_password`). |
 | `terraform destroy` se niega | La protección contra eliminación o un bloqueo `CanNotDelete` está activo; véase *Actualizaciones y eliminación*. |
 | La aplicación responde en la URL de la plataforma pero no en `public_url` | El DNS apunta a otro sitio, o `public_url` aún nombra el FQDN de la plataforma: fíjelo al origen definitivo y aplique; la cookie de sesión está ligada a él. |
+
+## Cambios de seguridad en 2.47.2
+
+Azure Storage rechaza las redes no autorizadas, usa GRS de forma predeterminada, habilita el cifrado de infraestructura y registra las operaciones de Azure Files. En cuentas existentes, este cifrado puede requerir sustitución: haga una copia y migre los archivos, revise el plan y los bloqueos de eliminación. No aplique una sustitución destructiva solo para eliminar una alerta. Pasar una base pública a una subred privada delegada también puede sustituir el servidor: haga una copia y migre la base antes de un cambio controlado.
+
+AWS limita las conexiones salientes a la base, EFS y HTTPS; SMTP/LDAP y otras integraciones necesitan `additional_egress_rules` explícitas. Restrinja `https_egress_cidrs` cuando sea posible. Los secretos y registros usan claves administradas por el cliente. Las bases Google Cloud SQL creadas exigen TLS y el backend verifica su CA montada automáticamente. Azure verifica el certificado y el nombre de host de la base. Despliegue una imagen con estos ajustes TLS antes de exigirlos; lea el README de cada módulo antes de actualizar.

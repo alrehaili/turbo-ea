@@ -214,6 +214,46 @@ variable "db_security_group_id" {
   default     = null
 }
 
+variable "https_egress_cidrs" {
+  description = "IPv4 destinations for outbound HTTPS (registries, cloud APIs, IdP and AI). Narrow to approved networks or an egress proxy where possible."
+  type        = set(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "db_egress_cidrs" {
+  description = "Approved IPv4 database CIDRs when bringing a database without a security group. Never use unrestricted 0.0.0.0/0."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = var.create_database || var.db_security_group_id != null || length(var.db_egress_cidrs) > 0
+    error_message = "An existing database requires db_security_group_id or explicit db_egress_cidrs."
+  }
+
+  validation {
+    condition     = alltrue([for cidr in var.db_egress_cidrs : can(cidrnetmask(cidr)) && cidr != "0.0.0.0/0"])
+    error_message = "db_egress_cidrs must contain restricted IPv4 CIDRs."
+  }
+}
+
+variable "additional_egress_rules" {
+  description = "Explicit TCP egress for integrations such as SMTP or LDAP, keyed by a stable name. Use restricted destination CIDRs."
+  type = map(object({
+    description = string
+    port        = number
+    cidr_ipv4   = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([for rule in values(var.additional_egress_rules) :
+      can(cidrnetmask(rule.cidr_ipv4)) && rule.cidr_ipv4 != "0.0.0.0/0" &&
+      rule.port >= 1 && rule.port <= 65535 && floor(rule.port) == rule.port && length(trimspace(rule.description)) > 0
+    ])
+    error_message = "Additional egress requires a description, a TCP port (1-65535) and a restricted IPv4 CIDR."
+  }
+}
+
 variable "db_port" {
   description = "PostgreSQL port."
   type        = number

@@ -7,7 +7,7 @@
 | 模块 | 平台 | 创建 | 你需要准备 |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | 集群、任务与服务、启用 HTTPS 的 Application Load Balancer、EFS、Secrets Manager 密钥、RDS for PostgreSQL（可选） | 带公有和私有子网（NAT）的 VPC、一张 ACM 证书 |
-| `azure-container-apps` | Azure Container Apps | 环境、container app、Log Analytics、存储账户与文件共享、Flexible Server（可选） | 一个资源组；可选一个委派子网和一个私有 DNS 区域 |
+| `azure-container-apps` | Azure Container Apps | 环境、container app、Log Analytics、存储账户与文件共享、Flexible Server（可选） | 资源组、启用 Microsoft.Storage 的应用子网，以及新建数据库所需的专用子网和 DNS |
 | `cloud-run` | Google Cloud Run | 服务、Filestore、Secret Manager 密钥、Artifact Registry 远程仓库、带托管证书的全局 HTTPS 负载均衡器、Cloud SQL（可选） | 一个项目、带子网的 VPC、该 VPC 上的私有服务访问 |
 | `kubernetes` | 任意 Kubernetes 集群 | 命名空间、凭据 Secret、Helm release | 集群和 kubeconfig、一台 PostgreSQL 服务器 |
 
@@ -48,7 +48,7 @@ terraform apply
 
 ## Azure Container Apps
 
-**开始之前**：一个已存在的资源组。若需 VNet 集成，准备一个委派给 `Microsoft.App/environments` 的 `/27` 子网。若数据库不应从互联网访问，再准备*第二个*委派给 `Microsoft.DBforPostgreSQL/flexibleServers` 的子网，以及一个以 `.postgres.database.azure.com` 结尾并链接到该 VNet 的私有 DNS 区域——`postgresql_delegated_subnet_id` 与 `postgresql_private_dns_zone_id` 必须同时设置。若不设置，创建的服务器保留一个仅限 Azure 服务访问的公共端点。
+**开始之前**：准备现有资源组，以及委派给 `Microsoft.App/environments`、大小至少为 `/27` 的应用子网，并启用 `Microsoft.Storage` 服务终结点。设置 `infrastructure_subnet_id`。创建数据库还需要另一个委派给 `Microsoft.DBforPostgreSQL/flexibleServers` 的子网，以及链接到应用 VNet 的专用 DNS 区域：设置 `postgresql_delegated_subnet_id` 和 `postgresql_private_dns_zone_id`。数据库公共访问已禁用。
 
 需要设置的输入：`subscription_id`、`resource_group_name`、`location`、`public_url`、`image_tag`，以及全局唯一的 `storage_account_name` 和 `postgresql_server_name`。首次部署在 `fqdn` 输出上响应；按托管容器服务页面所述，用 `az containerapp hostname add` / `bind` 绑定自定义域名，然后设置 `public_url` 并再次 apply。Azure 的 Flexible Server 没有删除保护标志，因此模块改为在服务器和存储账户上放置 `CanNotDelete` 锁（`db_deletion_protection`、`storage_deletion_protection`）。
 
@@ -85,3 +85,9 @@ terraform apply
 | `db_host is required when create_database is false` | 自带数据库需要 `db_host` 和 `db_password`（`TF_VAR_db_password`）。 |
 | `terraform destroy` 被拒绝 | 删除保护或 `CanNotDelete` 锁处于开启状态；参见*升级与删除*。 |
 | 应用在平台 URL 上响应，但在 `public_url` 上不响应 | DNS 指向别处，或 `public_url` 仍写着平台 FQDN——改为最终源并 apply；会话 Cookie 绑定于它。 |
+
+## 2.47.2 安全变更
+
+Azure Storage 现在拒绝未经批准的网络，默认使用 GRS，启用基础结构加密，并记录 Azure Files 操作。现有账户启用基础结构加密可能需要替换：请备份并迁移文件，检查执行计划和删除锁。不要仅为消除扫描警告而执行会破坏数据的替换。 将现有公共数据库迁移到委派的专用子网也可能需要替换服务器：请先备份并迁移数据库，再进行受控切换。
+
+AWS 将出站连接限制为数据库、EFS 和 HTTPS；SMTP/LDAP 等集成需要明确配置 `additional_egress_rules`。尽可能缩小 `https_egress_cidrs` 的范围。密钥和日志使用客户管理的加密密钥。新建 Google Cloud SQL 数据库强制使用 TLS，后端验证自动挂载的实例 CA。Azure 验证数据库证书和主机名。强制执行前，请先部署包含这些 TLS 设置的应用镜像；升级前请阅读各模块的 README。

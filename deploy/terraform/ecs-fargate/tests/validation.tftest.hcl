@@ -9,6 +9,25 @@ variables {
   public_subnet_ids  = ["subnet-0aaaaaaaaaaaaaaa1", "subnet-0aaaaaaaaaaaaaaa2"]
   private_subnet_ids = ["subnet-0bbbbbbbbbbbbbbb1", "subnet-0bbbbbbbbbbbbbbb2"]
   certificate_arn    = "arn:aws:acm:eu-west-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+  db_egress_cidrs    = ["10.30.0.4/32"]
+}
+
+run "unrestricted_database_egress" {
+  command = plan
+  variables {
+    db_egress_cidrs = ["0.0.0.0/0"]
+  }
+  expect_failures = [var.db_egress_cidrs]
+}
+
+run "unrestricted_integration_egress" {
+  command = plan
+  variables {
+    additional_egress_rules = {
+      smtp = { description = "Too broad", port = 587, cidr_ipv4 = "0.0.0.0/0" }
+    }
+  }
+  expect_failures = [var.additional_egress_rules]
 }
 
 run "byo_without_host" {

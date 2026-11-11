@@ -12,6 +12,7 @@ resource "random_password" "db" {
 resource "aws_secretsmanager_secret" "secret_key" {
   name_prefix = "${var.name}/secret-key-"
   description = "Turbo EA SECRET_KEY (HMAC + Fernet)"
+  kms_key_id  = aws_kms_key.workspace.arn
 }
 
 resource "aws_secretsmanager_secret_version" "secret_key" {
@@ -22,6 +23,7 @@ resource "aws_secretsmanager_secret_version" "secret_key" {
 resource "aws_secretsmanager_secret" "db_password" {
   name_prefix = "${var.name}/db-password-"
   description = "Turbo EA PostgreSQL password"
+  kms_key_id  = aws_kms_key.workspace.arn
 }
 
 resource "aws_secretsmanager_secret_version" "db_password" {

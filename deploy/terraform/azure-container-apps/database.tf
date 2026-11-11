@@ -1,6 +1,5 @@
 # Azure Database for PostgreSQL Flexible Server (create_database = true).
-# Private access (delegated subnet + private DNS zone) when both inputs are
-# given, the public endpoint restricted to Azure services otherwise.
+# Private access only: a delegated subnet and linked private DNS zone are required.
 
 resource "random_password" "db" {
   count = var.create_database ? 1 : 0
@@ -27,7 +26,7 @@ resource "azurerm_postgresql_flexible_server" "this" {
 
   delegated_subnet_id           = var.postgresql_delegated_subnet_id
   private_dns_zone_id           = var.postgresql_private_dns_zone_id
-  public_network_access_enabled = !local.postgresql_private
+  public_network_access_enabled = false
 
   tags = var.tags
 
@@ -46,15 +45,17 @@ resource "azurerm_postgresql_flexible_server_database" "this" {
   collation = "en_US.utf8"
 }
 
-# Public endpoint: only Azure-internal traffic (the Container Apps
-# environment) may reach the server.
-resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
-  count = var.create_database && !local.postgresql_private ? 1 : 0
+resource "azurerm_postgresql_flexible_server_configuration" "security" {
+  for_each = var.create_database ? merge({
+    log_connections          = "on"
+    log_checkpoints          = "on"
+    require_secure_transport = "on"
+    ssl_min_protocol_version = "TLSv1.2"
+  }, tonumber(var.postgresql_version) < 18 ? { "connection_throttle.enable" = "on" } : {}) : {}
 
-  name             = "azure-services"
-  server_id        = azurerm_postgresql_flexible_server.this[0].id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "0.0.0.0"
+  name      = each.key
+  server_id = azurerm_postgresql_flexible_server.this[0].id
+  value     = each.value
 }
 
 # Azure has no deletion-protection flag on a Flexible Server; a resource lock

@@ -10,6 +10,7 @@ resource "aws_ecs_cluster" "this" {
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/ecs/${var.name}"
   retention_in_days = var.log_retention_days
+  kms_key_id        = aws_kms_key.workspace.arn
 }
 
 locals {

@@ -28,6 +28,8 @@ locals {
     POSTGRES_PORT           = tostring(var.db_port)
     POSTGRES_DB             = var.db_name
     POSTGRES_USER           = var.db_user
+    POSTGRES_SSLMODE        = var.create_database ? "verify-ca" : var.db_sslmode
+    POSTGRES_SSLROOTCERT    = var.create_database ? "/etc/turbo-ea/db-ca/server-ca.pem" : var.db_sslrootcert
     ENVIRONMENT             = "production"
     ALLOWED_ORIGINS         = join(",", coalescelist(var.allowed_origins, [var.public_url]))
     DB_POOL_SIZE            = tostring(var.db_pool_size)

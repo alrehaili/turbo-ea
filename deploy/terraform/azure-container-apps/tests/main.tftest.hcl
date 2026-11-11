@@ -22,23 +22,40 @@ mock_provider "azurerm" {
 }
 
 variables {
-  subscription_id     = "00000000-0000-0000-0000-000000000000"
-  resource_group_name = "rg-turbo-ea"
-  location            = "westeurope"
-  public_url          = "https://ea.example.com"
-  image_tag           = "2.141.0"
-  secret_key          = "0123456789abcdef0123456789abcdef0123456789abcdef"
+  subscription_id                = "00000000-0000-0000-0000-000000000000"
+  resource_group_name            = "rg-turbo-ea"
+  location                       = "westeurope"
+  public_url                     = "https://ea.example.com"
+  image_tag                      = "2.141.0"
+  secret_key                     = "0123456789abcdef0123456789abcdef0123456789abcdef"
+  infrastructure_subnet_id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/aca"
+  postgresql_delegated_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
+  postgresql_private_dns_zone_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/turbo-ea.postgres.database.azure.com"
 }
 
 run "defaults" {
+  assert {
+    condition     = azurerm_storage_account.data.network_rules[0].default_action == "Deny" && contains(azurerm_storage_account.data.network_rules[0].virtual_network_subnet_ids, var.infrastructure_subnet_id) && azurerm_storage_account.data.infrastructure_encryption_enabled && azurerm_storage_account.data.account_replication_type == "GRS"
+    error_message = "storage is restricted to approved networks, geo-redundant and double encrypted"
+  }
+
+  assert {
+    condition     = toset([for item in azurerm_monitor_diagnostic_setting.files.enabled_log : item.category]) == toset(["StorageRead", "StorageWrite", "StorageDelete"])
+    error_message = "Azure Files read, write and delete operations must be audited"
+  }
+
+  assert {
+    condition     = azurerm_postgresql_flexible_server_configuration.security["require_secure_transport"].value == "on" && azurerm_postgresql_flexible_server_configuration.security["ssl_min_protocol_version"].value == "TLSv1.2" && azurerm_postgresql_flexible_server_configuration.security["connection_throttle.enable"].value == "on" && local.backend_env.POSTGRES_SSLMODE == "verify-full"
+    error_message = "database connections require verified TLS and failed-login throttling"
+  }
   assert {
     condition     = length(azurerm_postgresql_flexible_server.this) == 1 && length(azurerm_postgresql_flexible_server_database.this) == 1
     error_message = "the database is created by default"
   }
 
   assert {
-    condition     = azurerm_postgresql_flexible_server.this[0].public_network_access_enabled == true && length(azurerm_postgresql_flexible_server_firewall_rule.azure_services) == 1
-    error_message = "without a delegated subnet the server has a public endpoint restricted to Azure services"
+    condition     = azurerm_postgresql_flexible_server.this[0].public_network_access_enabled == false
+    error_message = "the database never exposes a public endpoint"
   }
 
   assert {
@@ -127,6 +144,16 @@ run "defaults" {
   }
 }
 
+run "postgres_18_has_no_removed_throttling_parameter" {
+  variables {
+    postgresql_version = "18"
+  }
+  assert {
+    condition     = !contains(keys(azurerm_postgresql_flexible_server_configuration.security), "connection_throttle.enable")
+    error_message = "PostgreSQL 18 removed connection throttling; do not send an unsupported parameter"
+  }
+}
+
 run "private_database" {
   variables {
     postgresql_delegated_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
@@ -135,7 +162,7 @@ run "private_database" {
   }
 
   assert {
-    condition     = azurerm_postgresql_flexible_server.this[0].public_network_access_enabled == false && length(azurerm_postgresql_flexible_server_firewall_rule.azure_services) == 0
+    condition     = azurerm_postgresql_flexible_server.this[0].public_network_access_enabled == false
     error_message = "private access disables the public endpoint"
   }
 
@@ -186,7 +213,7 @@ run "byo_database" {
   }
 
   assert {
-    condition     = length(azurerm_postgresql_flexible_server.this) == 0 && length(azurerm_postgresql_flexible_server_firewall_rule.azure_services) == 0 && length(azurerm_management_lock.db) == 0
+    condition     = length(azurerm_postgresql_flexible_server.this) == 0 && length(azurerm_postgresql_flexible_server_configuration.security) == 0 && length(azurerm_management_lock.db) == 0
     error_message = "no database resources when bringing your own"
   }
 

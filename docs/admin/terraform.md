@@ -7,7 +7,7 @@ Teams that manage their cloud with Terraform can deploy Turbo EA the same way. T
 | Module | Platform | Creates | You bring |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | Cluster, task and service, Application Load Balancer with HTTPS, EFS, Secrets Manager secrets, RDS for PostgreSQL (optional) | A VPC with public and private subnets (NAT), an ACM certificate |
-| `azure-container-apps` | Azure Container Apps | Environment, container app, Log Analytics, storage account and file share, Flexible Server (optional) | A resource group; optionally a delegated subnet and a private DNS zone |
+| `azure-container-apps` | Azure Container Apps | Environment, container app, Log Analytics, storage account and file share, Flexible Server (optional) | A resource group, an application subnet with Microsoft.Storage, and private database subnet/DNS when creating a database |
 | `cloud-run` | Google Cloud Run | Service, Filestore, Secret Manager secrets, Artifact Registry remote repository, global HTTPS load balancer with a managed certificate, Cloud SQL (optional) | A project, a VPC with a subnet, private services access on that VPC |
 | `kubernetes` | Any Kubernetes cluster | Namespace, credentials Secret, the Helm release | A cluster and a kubeconfig, a PostgreSQL server |
 
@@ -48,7 +48,7 @@ Deploys are stop-then-start (`deployment_minimum_healthy_percent = 0`), so a rel
 
 ## Azure Container Apps
 
-**Before you start**: an existing resource group. For VNet integration, a `/27` subnet delegated to `Microsoft.App/environments`. For a database that is not reachable from the internet, a *second* subnet delegated to `Microsoft.DBforPostgreSQL/flexibleServers` and a private DNS zone ending in `.postgres.database.azure.com` linked to the VNet — set `postgresql_delegated_subnet_id` and `postgresql_private_dns_zone_id` together. Without them the created server keeps a public endpoint restricted to Azure services.
+**Before you start**: an existing resource group and a `/27` or larger application subnet delegated to `Microsoft.App/environments`, with the `Microsoft.Storage` service endpoint enabled. Set `infrastructure_subnet_id`. A created database also requires a different subnet delegated to `Microsoft.DBforPostgreSQL/flexibleServers` and a private DNS zone linked to the application VNet: set `postgresql_delegated_subnet_id` and `postgresql_private_dns_zone_id`. Public database access is disabled.
 
 Inputs to set: `subscription_id`, `resource_group_name`, `location`, `public_url`, `image_tag`, and globally unique `storage_account_name` and `postgresql_server_name`. The first deploy answers on the `fqdn` output; bind a custom domain with `az containerapp hostname add` / `bind` as described on the Managed Container Services page, then set `public_url` and apply again. Azure has no deletion-protection flag on a Flexible Server, so the module places `CanNotDelete` locks on the server and the storage account instead (`db_deletion_protection`, `storage_deletion_protection`).
 
@@ -85,3 +85,9 @@ Every module ships tests under `tests/` that run against **mock providers**: rea
 | `db_host is required when create_database is false` | Bring-your-own needs `db_host` and `db_password` (`TF_VAR_db_password`). |
 | `terraform destroy` refuses | Deletion protection or a `CanNotDelete` lock is on; see *Upgrades and removal*. |
 | The application answers on the platform URL but not on `public_url` | DNS points elsewhere, or `public_url` still names the platform FQDN — set it to the final origin and apply; the session cookie is scoped to it. |
+
+## Security changes in 2.47.2
+
+Azure storage now denies unapproved networks, uses GRS by default, enables infrastructure encryption and records Azure Files operations. Enabling infrastructure encryption on an existing account may require replacement: back up and migrate its files, review the plan and deletion locks, and never apply a destructive replacement merely to clear a scanner warning. Moving an existing public database to a private delegated subnet may also replace the server: back up and migrate the database before a controlled cutover.
+
+AWS restricts outbound access to the database, EFS and HTTPS; SMTP/LDAP and other integrations need explicit `additional_egress_rules`. Narrow `https_egress_cidrs` where possible. Secrets and logs use customer-managed encryption keys. Created Google Cloud SQL databases require TLS, and the backend verifies their automatically mounted instance CA. Azure verifies the database certificate and hostname. Deploy an application image containing these TLS settings before enforcing them; review each module README before upgrading.

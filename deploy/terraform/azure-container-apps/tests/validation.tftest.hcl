@@ -1,12 +1,15 @@
 mock_provider "azurerm" {}
 
 variables {
-  subscription_id     = "00000000-0000-0000-0000-000000000000"
-  resource_group_name = "rg-turbo-ea"
-  location            = "westeurope"
-  public_url          = "https://ea.example.com"
-  image_tag           = "2.141.0"
-  secret_key          = "0123456789abcdef0123456789abcdef0123456789abcdef"
+  subscription_id                = "00000000-0000-0000-0000-000000000000"
+  resource_group_name            = "rg-turbo-ea"
+  location                       = "westeurope"
+  public_url                     = "https://ea.example.com"
+  image_tag                      = "2.141.0"
+  secret_key                     = "0123456789abcdef0123456789abcdef0123456789abcdef"
+  infrastructure_subnet_id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/aca"
+  postgresql_delegated_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
+  postgresql_private_dns_zone_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/turbo-ea.postgres.database.azure.com"
 }
 
 run "byo_without_host" {
@@ -25,8 +28,26 @@ run "delegated_subnet_without_dns_zone" {
 
   variables {
     postgresql_delegated_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet/subnets/postgres"
+    postgresql_private_dns_zone_id = null
   }
 
+  expect_failures = [var.postgresql_delegated_subnet_id]
+}
+
+run "no_application_network" {
+  command = plan
+  variables {
+    infrastructure_subnet_id = null
+  }
+  expect_failures = [var.infrastructure_subnet_id]
+}
+
+run "public_database_is_rejected" {
+  command = plan
+  variables {
+    postgresql_delegated_subnet_id = null
+    postgresql_private_dns_zone_id = null
+  }
   expect_failures = [var.postgresql_delegated_subnet_id]
 }
 

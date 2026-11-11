@@ -25,6 +25,32 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 
 ## What runs when
 
+### Standalone filesystem security gate
+
+[`trivy-security.yml`](workflows/trivy-security.yml) runs on pull requests,
+pushes to `main`, daily and by manual dispatch, independently of `ci.yml`.
+It preserves an all-severity JSON report before failing on any unaccepted
+dependency or configuration finding. Separate jobs resolve and audit production
+Python dependencies for both `backend` and `mcp-server`; a filesystem scan of
+bare `pyproject.toml` files is not a Python dependency audit.
+
+Filesystem exceptions live in [`trivy-fs-exceptions.yaml`](trivy-fs-exceptions.yaml),
+with exact rule/file scope, rationale and quarterly expiry. They cover intentional
+public entry points, verified scanner/provider mismatches and the CI fixture's
+deployment context. The single inline HTTPS egress exception in the AWS Terraform
+module is resource-scoped: it permits changing external HTTPS destinations, not
+all ports or unrestricted database access. The Guard Ratchet watches the central
+exception file. Never pass this filesystem exception file to an image scan or
+exclude the entire deployment/CI directories.
+
+The November 11 report contained 54 configuration findings. Remediation adds
+private Azure database access, restricted storage networks, service-specific
+AWS egress, customer-managed encryption, database TLS and logging, and explicit
+CI PostgreSQL restrictions. Deployment prerequisites and migration cautions are
+documented alongside each Terraform module. GitHub workflow activation and
+required-check rules are repository settings; committing this workflow does not
+automatically enable other workflows that an administrator disabled.
+
 ### On every PR + push to `main`
 [`ci.yml`](workflows/ci.yml) (path-filtered per area; a change under `.github/workflows/` re-runs every suite):
 - **Backend lint / unit tests / integration tests / type check**

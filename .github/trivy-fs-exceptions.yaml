@@ -1,0 +1,78 @@
+# Filesystem-only exceptions. Never use this file for published-image scans.
+# Reviewed 2026-11-11 in the security-report remediation. Every entry names an
+# exact file and rule and expires at the next quarterly review. Controls that
+# can be enforced are fixed in code rather than suppressed here.
+misconfigurations:
+  - id: AVD-AZU-0010
+    paths:
+      - deploy/terraform/azure-container-apps/storage.tf
+    statement: >-
+      bypass=None is stricter than the check's requested AzureServices bypass.
+      Access is limited to the explicit application/admin subnet and IP rules;
+      no broad trusted-services network bypass is needed by this deployment.
+    expired_at: 2027-02-11
+  - id: AVD-AWS-0053
+    paths:
+      - deploy/ecs-fargate/template.yaml
+      - deploy/terraform/ecs-fargate/loadbalancer.tf
+    statement: >-
+      These are the intentional public HTTPS entry points. HTTP redirects to
+      HTTPS; application tasks only accept traffic from the load balancer.
+    expired_at: 2027-02-11
+  - id: AVD-AWS-0176
+    paths:
+      - deploy/terraform/ecs-fargate/database.tf
+    statement: >-
+      The application uses a generated database password held in Secrets Manager.
+      IAM authentication requires connection-time token generation, grants and
+      application support; enabling the instance flag alone does not replace
+      password authentication. The RDS instance is private and SG-restricted.
+    expired_at: 2027-02-11
+  - id: AVD-AZU-0021
+    paths:
+      - deploy/terraform/azure-container-apps/database.tf
+    statement: >-
+      The check expects the classic server parameter connection_throttling.
+      Flexible Server uses connection_throttle.enable, explicitly managed here
+      for supported versions below 18. PostgreSQL 18 removed this feature.
+      Database access is private and restricted to the application VNet.
+    expired_at: 2027-02-11
+  - id: AVD-AZU-0026
+    paths:
+      - deploy/terraform/azure-container-apps/database.tf
+    statement: >-
+      The check expects the classic server TLS attribute. Flexible Server has
+      explicit require_secure_transport=on and ssl_min_protocol_version=TLSv1.2
+      configuration resources; the application uses verify-full TLS.
+    expired_at: 2027-02-11
+  - id: AVD-AZU-0057
+    paths:
+      - deploy/terraform/azure-container-apps/storage.tf
+    statement: >-
+      This account serves Azure Files, not Blob/Queue/Table workloads. Read,
+      write and delete logs are explicitly sent from fileServices/default to
+      Log Analytics by azurerm_monitor_diagnostic_setting.files.
+    expired_at: 2027-02-11
+  - id: KSV-0020
+    paths:
+      - charts/turbo-ea/ci/postgres.yaml
+    statement: >-
+      The disposable CI fixture explicitly runs as the official postgres:18-alpine
+      non-root postgres user (UID 70), with no capabilities or privilege
+      escalation and a read-only root filesystem. A low UID is not root.
+    expired_at: 2027-02-11
+  - id: KSV-0021
+    paths:
+      - charts/turbo-ea/ci/postgres.yaml
+    statement: >-
+      GID/fsGroup 70 matches the official Alpine PostgreSQL user and owns only
+      the disposable emptyDir volumes. This fixture is excluded from the chart.
+    expired_at: 2027-02-11
+  - id: KSV-0110
+    paths:
+      - charts/turbo-ea/ci/postgres.yaml
+    statement: >-
+      The fixture is never shipped. CI applies it using kubectl -n "$NS" after
+      creating the turbo-ea namespace; standalone YAML scanning lacks that
+      deployment context. Hardcoding a namespace would defeat the CI override.
+    expired_at: 2027-02-11

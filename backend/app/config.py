@@ -75,6 +75,10 @@ class Settings:
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "turboea")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "turboea")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "turboea")
+    # Local Docker networks keep their existing behavior. Managed deployments
+    # explicitly verify certificates using the system trust store or a mounted CA.
+    POSTGRES_SSLMODE: str = os.getenv("POSTGRES_SSLMODE", "prefer")
+    POSTGRES_SSLROOTCERT: str = os.getenv("POSTGRES_SSLROOTCERT", "")
 
     # Connection-pool sizing for the single async engine (app/database.py).
     # The backend runs one uvicorn process, so its total connection budget is

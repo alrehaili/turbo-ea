@@ -542,6 +542,7 @@ REGISTRY: tuple[Watched, ...] = (
     # Security scanners' accepted findings.
     Watched(".gitleaks.toml", "allowlists", GROW, _gitleaks),
     Watched(".github/trivy-allowlist", "CVE ids", GROW, _plain_lines),
+    Watched(".github/trivy-fs-exceptions.yaml", "filesystem scan exceptions", GROW, _plain_lines),
     Watched(".github/audit-ci.jsonc", "allowlist", GROW, _audit_ci),
     Watched(".github/zap-rules.tsv", "non-FAIL rules", GROW, _zap),
     # What satisfies a guard (growth loosens it).

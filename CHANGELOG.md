@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.47.2] - 2026-11-11
+
+### Security
+- Hardened cloud deployment templates with private Azure database access, restricted storage and outbound networks, customer-managed AWS encryption, and database TLS and audit logging. Existing Azure installations must review private-network prerequisites and storage migration before applying.
+- Hardened the disposable CI PostgreSQL container and made filesystem security checks run automatically and fail on findings, with scoped, expiring exceptions for intentional behavior and scanner mismatches.
+- Added explicit database TLS settings shared by the application and migration CLI, and independent production dependency audits for the backend and MCP server.
+- A password reset or change now ends every earlier session of the account, including one signed in during the same second. **Everyone is signed out once by this upgrade**: sessions started before 2.47.1 could not be ended by signing out, so they are no longer accepted.
+- An open live-update connection is re-checked while it runs and closes once its session is signed out, the password changes, the account is deactivated or its access expires; losing the audit permission stops audit events on it.
+
 ## [2.47.1] - 2026-11-11
 
 ### Security

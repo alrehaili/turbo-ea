@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -55,6 +56,37 @@ def _event_visible_to(is_events_admin: bool, message: dict[str, Any], user_id: s
     return str(data.get("user_id")) == str(user_id)
 
 
+# How old the stream's authorisation may be before the next event re-checks it.
+STREAM_REVALIDATE_SECONDS = 5
+
+
+def _token_expired(payload: dict) -> bool:
+    exp = payload.get("exp")
+    if isinstance(exp, bool) or not isinstance(exp, (int, float)):
+        return True
+    return exp <= time.time()
+
+
+async def _stream_permission(payload: dict) -> bool | None:
+    """Whether the stream's token still holds ``admin.events``; None if it no longer authenticates.
+
+    Opens its own short-lived session, so a long-lived stream never holds a
+    pooled connection between checks.
+    """
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.id == uuid.UUID(payload.get("sub"))))
+        user = result.scalar_one_or_none()
+        if user is None or not user.is_active:
+            return None
+        if user.access_expires_at is not None and user.access_expires_at < datetime.now(
+            timezone.utc
+        ):
+            return None
+        if await token_is_revoked(db, user, payload):
+            return None
+        return await PermissionService.has_app_permission(db, user, "admin.events")
+
+
 @router.get("/stream")
 async def event_stream(request: Request, token: str = Query("")):
     """SSE endpoint. Accepts token via query parameter or httpOnly cookie.
@@ -100,10 +132,22 @@ async def event_stream(request: Request, token: str = Query("")):
     # Session closed: its connection is back in the pool before the stream opens.
 
     async def generate():
+        admin_view = is_events_admin
+        checked_at = time.monotonic()
         async for message in event_bus.subscribe():
             if await request.is_disconnected():
                 break
-            if _event_visible_to(is_events_admin, message, user_id):
+            if _token_expired(payload):
+                break
+            # Re-ask before sending once the last answer is old: a logout,
+            # password reset, deactivation or role change made while the
+            # stream is open must end what it receives.
+            if time.monotonic() - checked_at >= STREAM_REVALIDATE_SECONDS:
+                admin_view = await _stream_permission(payload)
+                if admin_view is None:
+                    break
+                checked_at = time.monotonic()
+            if _event_visible_to(admin_view, message, user_id):
                 yield f"data: {json.dumps(message, default=str)}\n\n"
 
     return StreamingResponse(

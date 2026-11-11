@@ -3,6 +3,12 @@
 # secrets by reference, the data volume — not that AWS would accept the plan.
 
 mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = { account_id = "123456789012" }
+  }
+  mock_resource "aws_kms_key" {
+    defaults = { arn = "arn:aws:kms:eu-west-1:123456789012:key/00000000-0000-0000-0000-000000000000" }
+  }
   # The provider validates ARN-shaped arguments even against mocked values,
   # so the resources other resources reference by ARN get plausible ones.
   mock_resource "aws_iam_role" {
@@ -46,6 +52,25 @@ variables {
 }
 
 run "defaults" {
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.alb.referenced_security_group_id == aws_security_group.task.id && aws_vpc_security_group_egress_rule.alb.from_port == 8920 && aws_vpc_security_group_egress_rule.alb.to_port == 8920 && aws_vpc_security_group_egress_rule.alb.ip_protocol == "tcp"
+    error_message = "the ALB can only forward traffic to the task on 8920"
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.task_db[0].referenced_security_group_id == aws_security_group.db[0].id && aws_vpc_security_group_egress_rule.task_db[0].from_port == 5432 && aws_vpc_security_group_egress_rule.task_efs.referenced_security_group_id == aws_security_group.efs.id && aws_vpc_security_group_egress_rule.task_efs.from_port == 2049
+    error_message = "database and file access must be restricted to their security groups and ports"
+  }
+
+  assert {
+    condition     = aws_secretsmanager_secret.secret_key.kms_key_id == aws_kms_key.workspace.arn && aws_secretsmanager_secret.db_password.kms_key_id == aws_kms_key.workspace.arn && aws_cloudwatch_log_group.this.kms_key_id == aws_kms_key.workspace.arn && aws_kms_key.workspace.enable_key_rotation
+    error_message = "secrets and logs use the rotating workspace key"
+  }
+
+  assert {
+    condition     = aws_db_instance.this[0].performance_insights_enabled && aws_db_instance.this[0].performance_insights_kms_key_id == aws_kms_key.workspace.arn
+    error_message = "database monitoring is enabled and encrypted with the workspace key"
+  }
   assert {
     condition     = length(aws_db_instance.this) == 1
     error_message = "the database is created by default"
@@ -148,6 +173,19 @@ run "defaults" {
   assert {
     condition     = length(aws_route53_record.alias) == 0 && length(aws_vpc_security_group_ingress_rule.byo_db) == 0
     error_message = "no DNS record and no bring-your-own rule by default"
+  }
+}
+
+run "restricted_external_services" {
+  variables {
+    https_egress_cidrs = ["10.20.0.0/24"]
+    additional_egress_rules = {
+      smtp = { description = "Approved SMTP relay", port = 587, cidr_ipv4 = "10.30.0.5/32" }
+    }
+  }
+  assert {
+    condition     = keys(aws_vpc_security_group_egress_rule.task_https) == ["10.20.0.0/24"] && aws_vpc_security_group_egress_rule.task_https["10.20.0.0/24"].from_port == 443 && aws_vpc_security_group_egress_rule.task_extra["smtp"].from_port == 587
+    error_message = "operators can narrow HTTPS and explicitly allow an integration port"
   }
 }
 

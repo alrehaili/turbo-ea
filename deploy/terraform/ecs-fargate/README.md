@@ -39,6 +39,33 @@ db_security_group_id = "sg-…"   # opens db_port from the task; or use the task
 
 and `export TF_VAR_db_password='…'`.
 
+If the existing database has no security group input, supply restricted
+`db_egress_cidrs` instead, such as `["10.30.0.4/32"]`.
+
+## Security and outbound integrations
+
+The load balancer can only reach application tasks on TCP 8920. Tasks can reach
+their database port, EFS on TCP 2049, and HTTPS on TCP 443. Restrict
+`https_egress_cidrs` to approved destination networks or an egress proxy where
+possible (the compatibility default allows HTTPS to any IPv4 address). SMTP,
+LDAP and other ports need explicit `additional_egress_rules`; inventory those
+integrations before upgrading. VPC DNS resolver traffic is handled by AWS and
+does not require an unrestricted egress rule.
+
+```hcl
+additional_egress_rules = {
+  smtp = { description = "Corporate SMTP relay", port = 587, cidr_ipv4 = "10.30.0.5/32" }
+}
+```
+
+Secrets, CloudWatch logs and database Performance Insights use a rotating
+customer-managed KMS key. The execution role can decrypt secrets only through
+Secrets Manager; the log-service key grant is scoped to this workspace's log
+group. Review key retention before destroying an installation: encrypted data
+cannot be recovered after its key is deleted. RDS uses password authentication;
+IAM database authentication is a documented scanner exception until the
+application supports connection-time IAM tokens.
+
 ## Day two
 
 - **Upgrade**: bump `image_tag`, `terraform apply`. The service stops the old
@@ -73,6 +100,9 @@ and `export TF_VAR_db_password='…'`.
 | `create_database` | `true` | RDS instance |
 | `db_host`, `db_password`, `db_security_group_id` | `null` | Bring your own |
 | `db_port`, `db_name`, `db_user` | `5432`, `turboea`, `turboea` | |
+| `https_egress_cidrs` | `["0.0.0.0/0"]` | TCP 443 only; narrow where possible |
+| `db_egress_cidrs` | `[]` | Required for an existing database without a security group input |
+| `additional_egress_rules` | `{}` | Named objects with `description`, TCP `port` and restricted `cidr_ipv4` |
 | `db_instance_class` | `db.t4g.micro` | |
 | `db_engine_version` | `17` | Major version |
 | `db_allocated_storage` | `20` | GiB, grows to 5× |

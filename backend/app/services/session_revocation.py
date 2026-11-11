@@ -2,18 +2,25 @@
 
 Two mechanisms, because they answer different questions:
 
-- **Every session of a user** — ``users.sessions_valid_after``. Set whenever
-  the account's password is set or replaced; a token issued before that moment
-  is refused. This is what makes a password reset actually evict whoever held
-  a stolen token.
+- **Every session of a user** — ``users.session_generation``. Bumped whenever
+  the account's password is set or replaced; every token carries the
+  generation it was issued under (``gen`` claim) and is refused once the
+  counter has moved on. A counter, not a timestamp: JWT ``iat`` is whole
+  seconds, so a time cutoff cannot refuse a token issued earlier in the same
+  second as the reset without also refusing the one issued just after it.
 - **One session** — a ``revoked_sessions`` row keyed by the token's ``sid``
-  claim, written at logout. ``sid`` is carried through ``/auth/refresh`` and
-  impersonation, so a copy of the token that was refreshed elsewhere is the
-  same session and dies with it.
+  claim, written at logout. ``sid`` and ``gen`` are carried through
+  ``/auth/refresh`` and impersonation, so a copy of the token that was
+  refreshed elsewhere is the same session and dies with it.
+
+A token without ``sid`` or ``gen`` was issued before this scheme existed and
+can be revoked by neither mechanism, so it is refused outright: such a user
+signs in once more after the upgrade.
 
 Every place that turns a token into a user must ask ``token_is_revoked``:
-``get_current_user`` (``api/deps.py``) and the SSE stream (``api/v1/events.py``).
-None of these helpers commit — the caller owns the transaction.
+``get_current_user`` (``api/deps.py``) and the SSE stream (``api/v1/events.py``,
+at open and again periodically while it runs). None of these helpers commit —
+the caller owns the transaction.
 """
 
 from __future__ import annotations
@@ -29,41 +36,39 @@ from app.models.revoked_session import RevokedSession
 from app.models.user import User
 
 
-def _issued_at(payload: dict) -> int | None:
-    iat = payload.get("iat")
-    # ``bool`` is an ``int``; a token claiming ``iat: true`` is not a timestamp.
-    if isinstance(iat, bool) or not isinstance(iat, (int, float)):
+def token_generation(payload: dict) -> int | None:
+    """The ``gen`` claim, or None when the token has none (or a non-integer)."""
+    gen = payload.get("gen")
+    # ``bool`` is an ``int``; a token claiming ``gen: true`` is not a generation.
+    if isinstance(gen, bool) or not isinstance(gen, int):
         return None
-    return int(iat)
+    return gen
 
 
-def issued_before_cutoff(user: User, payload: dict) -> bool:
-    """True when the token predates the user's ``sessions_valid_after``."""
-    cutoff = user.sessions_valid_after
-    if cutoff is None:
-        return False
-    iat = _issued_at(payload)
-    if iat is None:
-        return True
-    # ``iat`` is whole seconds, so compare against the cutoff's own second:
-    # the token minted right after a password change must stay valid.
-    return iat < int(cutoff.timestamp())
+def is_stale_generation(user: User, payload: dict) -> bool:
+    """True when the token was issued before the user's sessions were last ended."""
+    gen = token_generation(payload)
+    return gen is None or gen != (user.session_generation or 0)
 
 
 async def token_is_revoked(db: AsyncSession, user: User, payload: dict) -> bool:
     """Whether this token's session was revoked, for the user or on its own."""
-    if issued_before_cutoff(user, payload):
+    if is_stale_generation(user, payload):
         return True
     sid = payload.get("sid")
     if not isinstance(sid, str) or not sid:
-        # Issued before sessions carried an id; only the cutoff can revoke it.
-        return False
+        # Pre-upgrade token: logout could never revoke it, so refuse it now.
+        return True
     hit = await db.execute(select(RevokedSession.sid).where(RevokedSession.sid == sid))
     return hit.first() is not None
 
 
 def revoke_all_sessions(user: User) -> None:
-    """Refuse every token issued to ``user`` so far. Call when a password is set."""
+    """Refuse every token issued to ``user`` so far. Call when a password is set.
+
+    Tokens minted afterwards must pass ``generation=user.session_generation``.
+    """
+    user.session_generation = (user.session_generation or 0) + 1
     user.sessions_valid_after = datetime.now(timezone.utc)
 
 

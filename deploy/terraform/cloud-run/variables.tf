@@ -290,6 +290,28 @@ variable "db_port" {
   default     = 5432
 }
 
+variable "db_sslmode" {
+  description = "TLS mode for a bring-your-own database. Created Cloud SQL instances always use verify-ca with their instance CA mounted automatically."
+  type        = string
+  default     = "verify-full"
+
+  validation {
+    condition     = contains(["verify-ca", "verify-full"], var.db_sslmode)
+    error_message = "db_sslmode must verify the database certificate (verify-ca or verify-full)."
+  }
+}
+
+variable "db_sslrootcert" {
+  description = "Optional path inside the backend container to the trusted database CA. Requires verify-ca or verify-full and an operator-provided certificate mount."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.db_sslrootcert == "" || contains(["verify-ca", "verify-full"], var.db_sslmode)
+    error_message = "db_sslrootcert requires verify-ca or verify-full."
+  }
+}
+
 variable "db_name" {
   description = "Database name."
   type        = string

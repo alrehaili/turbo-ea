@@ -10,7 +10,13 @@ mock_provider "google" {
     defaults = { networks = { ip_addresses = ["10.10.0.2"] } }
   }
   mock_resource "google_sql_database_instance" {
-    defaults = { private_ip_address = "10.20.0.3" }
+    defaults = {
+      private_ip_address = "10.20.0.3"
+      server_ca_cert     = [{ cert = "test-instance-ca" }]
+    }
+  }
+  mock_resource "google_secret_manager_secret_version" {
+    defaults = { version = "1" }
   }
   mock_resource "google_service_account" {
     defaults = { email = "turbo-ea-run@my-project.iam.gserviceaccount.com" }
@@ -28,6 +34,20 @@ variables {
 }
 
 run "defaults" {
+  assert {
+    condition     = google_sql_database_instance.this[0].settings[0].ip_configuration[0].ssl_mode == "ENCRYPTED_ONLY" && local.backend_env.POSTGRES_SSLMODE == "verify-ca" && local.backend_env.POSTGRES_SSLROOTCERT == "/etc/turbo-ea/db-ca/server-ca.pem"
+    error_message = "Cloud SQL must require TLS and the backend must verify its instance CA"
+  }
+
+  assert {
+    condition     = google_secret_manager_secret_version.db_ca[0].secret_data == google_sql_database_instance.this[0].server_ca_cert[0].cert && [for v in google_cloud_run_v2_service.this.template[0].volumes : v.secret[0].items[0].path if v.name == "db-ca"] == ["server-ca.pem"]
+    error_message = "the created instance's CA must be mounted into the backend"
+  }
+
+  assert {
+    condition     = { for flag in google_sql_database_instance.this[0].settings[0].database_flags : flag.name => flag.value } == { log_temp_files = "0", log_connections = "on", log_disconnections = "on", log_lock_waits = "on", log_checkpoints = "on" }
+    error_message = "database connections, locks, checkpoints and temporary files must be logged"
+  }
   assert {
     condition     = length(google_sql_database_instance.this) == 1 && length(google_service_networking_connection.psa) == 0
     error_message = "the database is created by default, private services access is not"

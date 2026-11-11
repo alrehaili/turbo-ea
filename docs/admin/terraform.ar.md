@@ -7,7 +7,7 @@
 | الوحدة | المنصّة | تُنشئ | ما تُحضره أنت |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | عنقودًا ومهمّة وخدمة، وApplication Load Balancer مع HTTPS، وEFS، وأسرار Secrets Manager، وRDS for PostgreSQL (اختياري) | VPC بشبكات فرعية عامة وخاصة (NAT)، وشهادة ACM |
-| `azure-container-apps` | Azure Container Apps | بيئة وcontainer app وLog Analytics وحساب تخزين ومشاركة ملفات وFlexible Server (اختياري) | مجموعة موارد؛ واختياريًا شبكة فرعية مفوَّضة ومنطقة DNS خاصة |
+| `azure-container-apps` | Azure Container Apps | بيئة وcontainer app وLog Analytics وحساب تخزين ومشاركة ملفات وFlexible Server (اختياري) | مجموعة موارد وشبكة تطبيق مع Microsoft.Storage وشبكة قاعدة بيانات وDNS خاصان عند إنشاء قاعدة البيانات |
 | `cloud-run` | Google Cloud Run | خدمة وFilestore وأسرار Secret Manager ومستودعًا بعيدًا في Artifact Registry وموازن حمل HTTPS عالميًا بشهادة مُدارة وCloud SQL (اختياري) | مشروعًا، وVPC بشبكة فرعية، ووصولًا إلى الخدمات الخاصة على تلك الـ VPC |
 | `kubernetes` | أي عنقود Kubernetes | مساحة أسماء، وSecret لبيانات الاعتماد، وإصدار Helm | عنقودًا وملف kubeconfig، وخادم PostgreSQL |
 
@@ -48,7 +48,7 @@ terraform apply
 
 ## Azure Container Apps
 
-**قبل البدء**: مجموعة موارد موجودة. لتكامل VNet، شبكة فرعية `/27` مفوَّضة إلى `Microsoft.App/environments`. ولقاعدة بيانات لا يمكن الوصول إليها من الإنترنت، شبكة فرعية *ثانية* مفوَّضة إلى `Microsoft.DBforPostgreSQL/flexibleServers` ومنطقة DNS خاصة تنتهي بـ `.postgres.database.azure.com` ومرتبطة بالـ VNet — اضبط `postgresql_delegated_subnet_id` و`postgresql_private_dns_zone_id` معًا. وبدونهما يحتفظ الخادم المُنشأ بنقطة نهاية عامة مقيّدة بخدمات Azure.
+**قبل البدء**: مجموعة موارد موجودة وشبكة فرعية للتطبيق بحجم `/27` أو أكبر، مفوضة إلى `Microsoft.App/environments`، مع تفعيل نقطة نهاية الخدمة `Microsoft.Storage`. اضبط `infrastructure_subnet_id`. تتطلب قاعدة البيانات التي تنشئها الوحدة شبكة فرعية مختلفة مفوضة إلى `Microsoft.DBforPostgreSQL/flexibleServers` ومنطقة DNS خاصة مرتبطة بشبكة التطبيق: `postgresql_delegated_subnet_id` و`postgresql_private_dns_zone_id`. الوصول العام إلى قاعدة البيانات معطل.
 
 المُدخلات المطلوبة: `subscription_id` و`resource_group_name` و`location` و`public_url` و`image_tag`، إضافة إلى `storage_account_name` و`postgresql_server_name` فريدين عالميًا. يستجيب النشر الأول على المخرج `fqdn`؛ اربط نطاقًا مخصصًا عبر `az containerapp hostname add` / `bind` كما هو موضح في صفحة خدمات الحاويات المُدارة، ثم اضبط `public_url` وطبّق مجددًا. لا يملك Azure علامة حماية من الحذف لـ Flexible Server، لذا تضع الوحدة أقفال `CanNotDelete` على الخادم وحساب التخزين بدلًا من ذلك (`db_deletion_protection` و`storage_deletion_protection`).
 
@@ -85,3 +85,9 @@ terraform apply
 | `db_host is required when create_database is false` | يتطلب استخدام قاعدتك `db_host` و`db_password` (`TF_VAR_db_password`). |
 | يرفض `terraform destroy` | الحماية من الحذف أو قفل `CanNotDelete` مفعّل؛ انظر *الترقيات والإزالة*. |
 | يستجيب التطبيق على عنوان المنصّة لا على `public_url` | يشير DNS إلى مكان آخر، أو ما زال `public_url` يذكر FQDN المنصّة — اضبطه على الأصل النهائي وطبّق؛ فملف تعريف ارتباط الجلسة مرتبط به. |
+
+## تغييرات الأمان في الإصدار 2.47.2
+
+يرفض Azure Storage الشبكات غير المعتمدة، ويستخدم GRS افتراضيًا، ويفعل تشفير البنية الأساسية ويسجل عمليات Azure Files. قد يتطلب تفعيل هذا التشفير لحساب موجود استبداله: انسخ الملفات احتياطيًا وانقلها، وراجع خطة التنفيذ وأقفال الحذف. لا تنفذ استبدالًا مدمرًا لمجرد إزالة تحذير الماسح. قد يؤدي نقل قاعدة بيانات عامة إلى شبكة فرعية خاصة مفوضة إلى استبدال الخادم أيضًا: انسخ قاعدة البيانات احتياطيًا وانقلها قبل التحويل المنظم.
+
+يقيد AWS الاتصالات الصادرة بقاعدة البيانات وEFS وHTTPS؛ وتتطلب تكاملات SMTP/LDAP وغيرها قواعد `additional_egress_rules` صريحة. ضيق `https_egress_cidrs` متى أمكن. تستخدم الأسرار والسجلات مفاتيح تشفير يديرها العميل. تفرض قواعد Google Cloud SQL المنشأة TLS، وتتحقق الخلفية من شهادة سلطة التصديق الخاصة بالمثيل والمثبتة تلقائيًا. يتحقق Azure من شهادة قاعدة البيانات واسم مضيفها. انشر صورة تطبيق تتضمن إعدادات TLS هذه قبل فرضها، واقرأ README لكل وحدة قبل الترقية.

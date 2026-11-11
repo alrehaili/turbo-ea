@@ -33,9 +33,21 @@ a Cloud SQL for PostgreSQL instance with a private IP only.
 
 ## Bring your own database
 
+Created Cloud SQL instances require TLS and log connections, disconnections,
+lock waits, checkpoints and temporary files. The backend uses `verify-ca` against
+that instance's CA, automatically mounted read-only from Secret Manager. Keep
+Terraform's exported CA current when rotating the database certificate. Deploy
+an application image containing this release's TLS support before enforcing it.
+
+For an existing database, `db_sslmode` defaults to `verify-full`: use its DNS
+hostname and a certificate trusted by the backend's system trust store. A
+private CA requires an operator-provided mount and `db_sslrootcert` pointing to
+the file inside the container. Disabling certificate verification is not a
+supported module option.
+
 ```hcl
 create_database = false
-db_host         = "10.20.0.3"   # reachable from the subnet
+db_host         = "postgres.internal.example.com" # reachable DNS name matching its certificate
 ```
 
 and `export TF_VAR_db_password='…'`.
@@ -82,6 +94,7 @@ and `export TF_VAR_db_password='…'`.
 | `create_database` | `true` | Cloud SQL |
 | `db_host`, `db_password` | `null` | Bring your own |
 | `db_port`, `db_name`, `db_user` | `5432`, `turboea`, `turboea` | |
+| `db_sslmode` / `db_sslrootcert` | `verify-full` / `""` | Existing databases only; created databases verify their automatically mounted instance CA |
 | `cloudsql_instance_name` | `<name>-db` | |
 | `cloudsql_tier` | `db-custom-1-3840` | |
 | `cloudsql_database_version` | `POSTGRES_17` | |

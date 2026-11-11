@@ -12,14 +12,13 @@ the backend's PostgreSQL advisory lock keeps the two from migrating at once.
 ## What you bring
 
 - An existing resource group.
-- Optionally, for VNet integration: a `/27` (or larger) subnet delegated to
-  `Microsoft.App/environments` (`infrastructure_subnet_id`).
-- Optionally, for a privately reachable database: a **different** subnet
+- A `/27` (or larger) subnet delegated to `Microsoft.App/environments`
+  (`infrastructure_subnet_id`), with the `Microsoft.Storage` service endpoint enabled.
+- For a created database: a **different** subnet
   delegated to `Microsoft.DBforPostgreSQL/flexibleServers`
   (`postgresql_delegated_subnet_id`) and a private DNS zone ending in
   `.postgres.database.azure.com` linked to the VNet
-  (`postgresql_private_dns_zone_id`). Without them the created server keeps a
-  public endpoint restricted to Azure services.
+  (`postgresql_private_dns_zone_id`). Created databases have no public endpoint.
 - Globally unique names for the storage account and the server
   (`storage_account_name`, `postgresql_server_name`).
 
@@ -80,8 +79,10 @@ then set `public_url = "https://ea.example.com"` and apply again.
 | `allowed_origins` / `embed_allowed_origins` | `[]` | CORS / iframe allow-lists |
 | `nginx_trusted_proxies` | `""` | Container Apps ingress addresses whose `X-Forwarded-For` nginx trusts (e.g. the infrastructure subnet), so the audit log records each user's own address |
 | `db_pool_size` / `db_max_overflow` | `10` / `5` | Backend connection budget |
-| `infrastructure_subnet_id` | `null` | VNet integration |
-| `postgresql_delegated_subnet_id`, `postgresql_private_dns_zone_id` | `null` | Private database access (both or neither) |
+| `infrastructure_subnet_id` | required | VNet integration; enable the Microsoft.Storage service endpoint |
+| `postgresql_delegated_subnet_id`, `postgresql_private_dns_zone_id` | `null` | Both required for a created database |
+| `storage_replication_type` | `GRS` | Azure Files redundancy; explicit LRS/ZRS/GZRS overrides supported |
+| `storage_allowed_subnet_ids` / `storage_allowed_ip_rules` | `[]` / `[]` | Additional administrative storage access; the application subnet is always allowed |
 | `storage_account_name` | derived | 3–24 lowercase alphanumerics, globally unique |
 | `file_share_name` / `file_share_quota_gb` | `turbo-ea-data` / `50` | |
 | `storage_deletion_protection` | `true` | Lock on the storage account |
@@ -102,3 +103,24 @@ then set `public_url = "https://ea.example.com"` and apply again.
 
 `fqdn`, `container_app_name`, `environment_name`, `environment_id`,
 `custom_domain_verification_id`, `postgres_fqdn`, `storage_account_name`.
+
+## Security upgrade
+
+Storage denies networks outside the application subnet and explicit administrative
+rules. Azure Files read/write/delete diagnostics go to Log Analytics. Storage
+defaults to GRS with infrastructure encryption. An existing account may need
+replacement to enable infrastructure encryption: back up and migrate its data,
+and review the plan and deletion locks before applying. Never accept a destructive
+replacement just to clear a scanner warning.
+
+Moving an existing public database into a delegated subnet can also require a
+replacement. Back up the database and restore/migrate it to the private server,
+verify connectivity and data, and plan a controlled cutover before removing the
+old server. Review all replacement actions in `terraform plan` before applying.
+
+Created PostgreSQL servers require private networking and TLS 1.2 or newer.
+The backend verifies the server hostname and certificate using the system trust
+store (`POSTGRES_SSLMODE=verify-full`). Connection/checkpoint logging is enabled;
+failed-login throttling is enabled on versions below 18, where it is supported.
+Bring-your-own servers must also present a trusted certificate for their hostname.
+Deploy an image containing this release's TLS settings before enforcing them.

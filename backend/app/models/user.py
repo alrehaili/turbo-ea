@@ -172,9 +172,16 @@ class User(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    # Session tokens issued before this moment are refused. Set whenever the
-    # password is set or replaced (``services/session_revocation.py``), so a
-    # reset evicts whoever held an older token. Instance-local: not transferred.
+    # When every session of the account was last ended (password set or
+    # replaced). A record only; the check is ``session_generation``.
+    # Instance-local: not transferred.
     sessions_valid_after: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # Bumped whenever the password is set or replaced
+    # (``services/session_revocation.py``). A token whose ``gen`` claim differs
+    # is refused, so a reset evicts whoever held an older token — including one
+    # issued earlier in the same second. Instance-local: not transferred.
+    session_generation: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
     )

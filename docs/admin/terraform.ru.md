@@ -7,7 +7,7 @@
 | Модуль | Платформа | Создаёт | Вы предоставляете |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | Кластер, задачу и сервис, Application Load Balancer с HTTPS, EFS, секреты Secrets Manager, RDS for PostgreSQL (опционально) | VPC с публичными и приватными подсетями (NAT), сертификат ACM |
-| `azure-container-apps` | Azure Container Apps | Окружение, container app, Log Analytics, учётную запись хранилища и файловый ресурс, Flexible Server (опционально) | Группу ресурсов; при желании делегированную подсеть и частную зону DNS |
+| `azure-container-apps` | Azure Container Apps | Окружение, container app, Log Analytics, учётную запись хранилища и файловый ресурс, Flexible Server (опционально) | Группа ресурсов, подсеть приложения с Microsoft.Storage и частная подсеть/DNS для создаваемой базы |
 | `cloud-run` | Google Cloud Run | Сервис, Filestore, секреты Secret Manager, удалённый репозиторий Artifact Registry, глобальный HTTPS-балансировщик с управляемым сертификатом, Cloud SQL (опционально) | Проект, VPC с подсетью, доступ к частным сервисам в этой VPC |
 | `kubernetes` | Любой кластер Kubernetes | Namespace, Secret с учётными данными, релиз Helm | Кластер и kubeconfig, сервер PostgreSQL |
 
@@ -48,7 +48,7 @@ terraform apply
 
 ## Azure Container Apps
 
-**Перед началом**: существующая группа ресурсов. Для интеграции с VNet — подсеть `/27`, делегированная `Microsoft.App/environments`. Для базы, недоступной из интернета, — *вторая* подсеть, делегированная `Microsoft.DBforPostgreSQL/flexibleServers`, и частная зона DNS с окончанием `.postgres.database.azure.com`, привязанная к VNet: задавайте `postgresql_delegated_subnet_id` и `postgresql_private_dns_zone_id` вместе. Без них создаваемый сервер сохраняет публичную конечную точку, ограниченную сервисами Azure.
+**Перед началом**: существующая группа ресурсов и подсеть приложения размером `/27` или больше, делегированная `Microsoft.App/environments`, с включённой конечной точкой службы `Microsoft.Storage`. Задайте `infrastructure_subnet_id`. Для создаваемой базы также нужны другая подсеть, делегированная `Microsoft.DBforPostgreSQL/flexibleServers`, и частная зона DNS, связанная с VNet приложения: `postgresql_delegated_subnet_id` и `postgresql_private_dns_zone_id`. Публичный доступ к базе отключён.
 
 Задаваемые параметры: `subscription_id`, `resource_group_name`, `location`, `public_url`, `image_tag`, а также глобально уникальные `storage_account_name` и `postgresql_server_name`. Первое развёртывание отвечает на выходе `fqdn`; привяжите собственный домен через `az containerapp hostname add` / `bind`, как описано на странице управляемых контейнерных сервисов, затем задайте `public_url` и примените снова. У Flexible Server в Azure нет флага защиты от удаления, поэтому модуль ставит блокировки `CanNotDelete` на сервер и учётную запись хранилища (`db_deletion_protection`, `storage_deletion_protection`).
 
@@ -85,3 +85,9 @@ terraform apply
 | `db_host is required when create_database is false` | Для собственной базы нужны `db_host` и `db_password` (`TF_VAR_db_password`). |
 | `terraform destroy` отказывает | Включена защита от удаления или блокировка `CanNotDelete`; см. *Обновление и удаление*. |
 | Приложение отвечает по URL платформы, но не по `public_url` | DNS указывает в другое место, или в `public_url` всё ещё FQDN платформы — задайте окончательный origin и примените; cookie сессии привязан к нему. |
+
+## Изменения безопасности в версии 2.47.2
+
+Azure Storage запрещает неразрешённые сети, по умолчанию использует GRS, включает шифрование инфраструктуры и журналирование операций Azure Files. Для существующей учётной записи включение этого шифрования может потребовать замены: сохраните и перенесите файлы, проверьте план и блокировки удаления. Не выполняйте разрушительную замену только ради устранения предупреждения сканера. Перенос публичной базы в частную делегированную подсеть также может заменить сервер: сохраните и перенесите базу перед контролируемым переключением.
+
+AWS ограничивает исходящие соединения базой, EFS и HTTPS; SMTP/LDAP и другие интеграции требуют явных `additional_egress_rules`. По возможности сузьте `https_egress_cidrs`. Секреты и журналы используют управляемые клиентом ключи. Создаваемые Google Cloud SQL требуют TLS; сервер приложения проверяет автоматически подключённый CA экземпляра. Azure проверяет сертификат и имя узла базы. Перед включением требований разверните образ приложения с этими настройками TLS; перед обновлением прочитайте README каждого модуля.

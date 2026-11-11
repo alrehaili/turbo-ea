@@ -38,6 +38,27 @@ resource "google_sql_database_instance" "this" {
     disk_autoresize   = true
     user_labels       = var.labels
 
+    database_flags {
+      name  = "log_temp_files"
+      value = "0"
+    }
+    database_flags {
+      name  = "log_connections"
+      value = "on"
+    }
+    database_flags {
+      name  = "log_disconnections"
+      value = "on"
+    }
+    database_flags {
+      name  = "log_lock_waits"
+      value = "on"
+    }
+    database_flags {
+      name  = "log_checkpoints"
+      value = "on"
+    }
+
     backup_configuration {
       enabled                        = true
       point_in_time_recovery_enabled = true
@@ -50,6 +71,7 @@ resource "google_sql_database_instance" "this" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = local.network_self_link
+      ssl_mode        = "ENCRYPTED_ONLY"
     }
   }
 

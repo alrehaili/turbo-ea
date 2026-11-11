@@ -118,6 +118,14 @@ resource "google_cloud_run_v2_service" "this" {
         mount_path = "/app/data"
       }
 
+      dynamic "volume_mounts" {
+        for_each = var.create_database ? [1] : []
+        content {
+          name       = "db-ca"
+          mount_path = "/etc/turbo-ea/db-ca"
+        }
+      }
+
       # Migrations and seeding run before /api/health answers: 5 × 48 = 240 s,
       # exactly the Cloud Run maximum.
       startup_probe {
@@ -215,6 +223,21 @@ resource "google_cloud_run_v2_service" "this" {
         read_only = false
       }
     }
+
+    dynamic "volumes" {
+      for_each = var.create_database ? [1] : []
+      content {
+        name = "db-ca"
+        secret {
+          secret = google_secret_manager_secret.db_ca[0].secret_id
+          items {
+            version = google_secret_manager_secret_version.db_ca[0].version
+            path    = "server-ca.pem"
+            mode    = 292 # 0444: readable by the non-root backend, never writable
+          }
+        }
+      }
+    }
   }
 
   depends_on = [
@@ -224,6 +247,8 @@ resource "google_cloud_run_v2_service" "this" {
     google_secret_manager_secret_version.db_password,
     google_secret_manager_secret_iam_member.secret_key,
     google_secret_manager_secret_iam_member.db_password,
+    google_secret_manager_secret_version.db_ca,
+    google_secret_manager_secret_iam_member.db_ca,
     google_artifact_registry_repository.ghcr,
   ]
 }

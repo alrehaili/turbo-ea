@@ -7,7 +7,7 @@ Teams, der styrer deres cloud med Terraform, kan udrulle Turbo EA på samme måd
 | Modul | Platform | Opretter | Du medbringer |
 |---|---|---|---|
 | `ecs-fargate` | AWS ECS Fargate | Cluster, task og service, Application Load Balancer med HTTPS, EFS, Secrets Manager-hemmeligheder, RDS for PostgreSQL (valgfrit) | En VPC med offentlige og private subnets (NAT), et ACM-certifikat |
-| `azure-container-apps` | Azure Container Apps | Miljø, container app, Log Analytics, storage-konto og filshare, Flexible Server (valgfrit) | En ressourcegruppe; eventuelt et delegeret subnet og en privat DNS-zone |
+| `azure-container-apps` | Azure Container Apps | Miljø, container app, Log Analytics, storage-konto og filshare, Flexible Server (valgfrit) | Ressourcegruppe, applikationssubnet med Microsoft.Storage samt privat databasesubnet/DNS ved oprettelse af database |
 | `cloud-run` | Google Cloud Run | Service, Filestore, Secret Manager-hemmeligheder, Artifact Registry-remote-repository, global HTTPS-load balancer med administreret certifikat, Cloud SQL (valgfrit) | Et projekt, en VPC med et subnet, private services access på den VPC |
 | `kubernetes` | Ethvert Kubernetes-cluster | Namespace, Secret med legitimationsoplysninger, Helm-releasen | Et cluster og en kubeconfig, en PostgreSQL-server |
 
@@ -48,7 +48,7 @@ Udrulninger er stop-så-start (`deployment_minimum_healthy_percent = 0`), så en
 
 ## Azure Container Apps
 
-**Før du starter**: en eksisterende ressourcegruppe. Til VNet-integration et `/27`-subnet delegeret til `Microsoft.App/environments`. Til en database, der ikke kan nås fra internettet, et *andet* subnet delegeret til `Microsoft.DBforPostgreSQL/flexibleServers` og en privat DNS-zone, der ender på `.postgres.database.azure.com` og er knyttet til VNet'et — sæt `postgresql_delegated_subnet_id` og `postgresql_private_dns_zone_id` sammen. Uden dem beholder den oprettede server et offentligt endpoint begrænset til Azure-tjenester.
+**Før du starter**: en eksisterende ressourcegruppe og et applikationssubnet på mindst `/27`, delegeret til `Microsoft.App/environments`, med tjenesteendepunktet `Microsoft.Storage` aktiveret. Angiv `infrastructure_subnet_id`. En oprettet database kræver desuden et andet subnet delegeret til `Microsoft.DBforPostgreSQL/flexibleServers` og en privat DNS-zone knyttet til applikationens VNet: `postgresql_delegated_subnet_id` og `postgresql_private_dns_zone_id`. Offentlig databaseadgang er deaktiveret.
 
 Input, der skal sættes: `subscription_id`, `resource_group_name`, `location`, `public_url`, `image_tag` samt globalt unikke `storage_account_name` og `postgresql_server_name`. Den første udrulning svarer på outputtet `fqdn`; bind et brugerdefineret domæne med `az containerapp hostname add` / `bind` som beskrevet på siden om administrerede containertjenester, sæt derefter `public_url`, og kør apply igen. Azure har intet flag for sletningsbeskyttelse på en Flexible Server, så modulet sætter i stedet `CanNotDelete`-låse på serveren og storage-kontoen (`db_deletion_protection`, `storage_deletion_protection`).
 
@@ -85,3 +85,9 @@ Hvert modul leverer tests under `tests/`, der kører mod **mock-providere**: rig
 | `db_host is required when create_database is false` | Egen database kræver `db_host` og `db_password` (`TF_VAR_db_password`). |
 | `terraform destroy` nægter | Sletningsbeskyttelse eller en `CanNotDelete`-lås er slået til; se *Opgraderinger og fjernelse*. |
 | Applikationen svarer på platformens URL, men ikke på `public_url` | DNS peger et andet sted hen, eller `public_url` nævner stadig platformens FQDN — sæt den til den endelige origin, og kør apply; sessionscookien er bundet til den. |
+
+## Sikkerhedsændringer i 2.47.2
+
+Azure Storage afviser ikke-godkendte netværk, bruger GRS som standard, aktiverer infrastrukturkryptering og logger Azure Files-handlinger. På eksisterende konti kan krypteringen kræve udskiftning: sikkerhedskopiér og migrér filerne, og gennemgå planen og sletningslåsene. Anvend aldrig en destruktiv udskiftning alene for at fjerne en scanneradvarsel. Flytning af en offentlig database til et privat delegeret subnet kan også udskifte serveren: sikkerhedskopiér og migrér databasen før en kontrolleret overgang.
+
+AWS begrænser udgående forbindelser til database, EFS og HTTPS; SMTP/LDAP og andre integrationer kræver eksplicitte `additional_egress_rules`. Begræns om muligt `https_egress_cidrs`. Hemmeligheder og logs bruger kundeadministrerede nøgler. Oprettede Google Cloud SQL-databaser kræver TLS, og backenden validerer instansens automatisk monterede CA. Azure validerer databasecertifikat og værtsnavn. Udrul et applikationsimage med disse TLS-indstillinger, før de håndhæves; læs hvert moduls README før opgradering.

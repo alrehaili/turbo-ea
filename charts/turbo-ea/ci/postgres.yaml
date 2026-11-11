@@ -25,9 +25,28 @@ spec:
       labels:
         app: turbo-ea-ci-postgres
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:18-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
           env:
             - name: POSTGRES_DB
               value: turboea
@@ -44,6 +63,14 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql
+            - name: socket
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
+          emptyDir: {}
+        - name: socket
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}

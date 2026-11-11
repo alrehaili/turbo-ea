@@ -22,6 +22,7 @@ resource "aws_security_group" "db" {
 resource "aws_vpc_security_group_ingress_rule" "db_from_task" {
   count = var.create_database ? 1 : 0
 
+  description                  = "PostgreSQL connections from the Turbo EA task"
   security_group_id            = aws_security_group.db[0].id
   ip_protocol                  = "tcp"
   from_port                    = var.db_port
@@ -42,10 +43,14 @@ resource "aws_db_instance" "this" {
   password = random_password.db[0].result
   port     = var.db_port
 
-  allocated_storage     = var.db_allocated_storage
-  max_allocated_storage = var.db_allocated_storage * 5
-  storage_type          = "gp3"
-  storage_encrypted     = true
+  allocated_storage                     = var.db_allocated_storage
+  max_allocated_storage                 = var.db_allocated_storage * 5
+  storage_type                          = "gp3"
+  storage_encrypted                     = true
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+  performance_insights_kms_key_id       = aws_kms_key.workspace.arn
+  database_insights_mode                = "standard"
 
   db_subnet_group_name   = aws_db_subnet_group.this[0].name
   vpc_security_group_ids = [aws_security_group.db[0].id]

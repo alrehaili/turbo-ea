@@ -2,6 +2,11 @@
 name: Security - Trivy
 
 on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 5 * * *"
   workflow_dispatch:
 
 permissions:
@@ -16,22 +21,24 @@ jobs:
     steps:
       # 1. Checkout source code
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # 2. Scan dependencies and configurations
       - name: Scan dependencies and configurations
         id: scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
+          version: v0.76.2
           scan-ref: .
           scanners: vuln,misconfig
           severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
           format: json
           output: trivy-report.json
           exit-code: '0'
-          skip-dirs: node_modules,.venv,dist,build
+          skip-dirs: "**/node_modules,**/.venv,**/dist,**/build,**/.terraform"
           hide-progress: true
+          trivyignores: .github/trivy-fs-exceptions.yaml
 
       # 3. Generate readable GitHub Actions report
       - name: Generate security summary
@@ -152,7 +159,7 @@ jobs:
       # 4. Store detailed report for 7 days
       - name: Upload detailed security report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-security-report
           path: trivy-report.json
@@ -178,3 +185,55 @@ jobs:
 
           jq -e '.Results | type == "array"' \
             trivy-report.json >/dev/null
+
+          # Fail on findings as well as scanner failures. The observation and
+          # artifact steps above always preserve the full report for review.
+          findings=$(jq '[.Results[]? | (.Vulnerabilities[]?, .Misconfigurations[]?)] | length' trivy-report.json)
+          if [ "$findings" -gt 0 ]; then
+            echo "::error::$findings unaccepted security findings; review the report artifact."
+            exit 1
+          fi
+
+  python-dependencies:
+    name: Python dependency audit (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [backend, mcp-server]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Resolve and audit production dependencies
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: |
+          python -m pip install "pip<26.2" pip-tools pip-audit
+          pip-compile --quiet --strip-extras -o /tmp/requirements.txt "$PROJECT/pyproject.toml"
+          pip-audit --strict --desc -r /tmp/requirements.txt
+
+  postgres-fixture:
+    name: Hardened PostgreSQL fixture smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+        with:
+          cluster_name: security-fixture
+      - name: Boot the actual non-root, read-only CI fixture
+        run: |
+          kubectl create namespace turbo-ea-security-test
+          kubectl apply -n turbo-ea-security-test -f charts/turbo-ea/ci/postgres.yaml
+          kubectl rollout status -n turbo-ea-security-test deployment/turbo-ea-ci-postgres --timeout=180s
+          test "$(kubectl exec -n turbo-ea-security-test deployment/turbo-ea-ci-postgres -- id -u)" = 70
+          kubectl exec -n turbo-ea-security-test deployment/turbo-ea-ci-postgres -- \
+            psql -U turboea -d turboea -v ON_ERROR_STOP=1 -c 'SELECT 1'
+      - name: Fixture diagnostics
+        if: failure()
+        run: |
+          kubectl describe pods -n turbo-ea-security-test
+          kubectl logs -n turbo-ea-security-test deployment/turbo-ea-ci-postgres

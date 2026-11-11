@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 from app.config import settings
+from app.core.database_tls import database_connect_args
 from app.models import Base  # noqa: F401 – ensures all models are registered
 
 config = context.config
@@ -42,7 +43,13 @@ def do_run_migrations(connection):
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
-    connectable = create_async_engine(settings.database_url, poolclass=pool.NullPool)
+    connectable = create_async_engine(
+        settings.database_url,
+        poolclass=pool.NullPool,
+        connect_args=database_connect_args(
+            settings.POSTGRES_SSLMODE, settings.POSTGRES_SSLROOTCERT
+        ),
+    )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

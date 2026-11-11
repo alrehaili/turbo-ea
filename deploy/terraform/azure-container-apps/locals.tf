@@ -6,7 +6,6 @@ locals {
 
   storage_account_name   = coalesce(var.storage_account_name, substr(replace("${var.name}data", "-", ""), 0, 24))
   postgresql_server_name = coalesce(var.postgresql_server_name, "${var.name}-pg")
-  postgresql_private     = var.postgresql_delegated_subnet_id != null
 
   db_host     = var.create_database ? azurerm_postgresql_flexible_server.this[0].fqdn : var.db_host
   db_password = var.create_database ? random_password.db[0].result : var.db_password
@@ -17,6 +16,7 @@ locals {
     POSTGRES_PORT           = tostring(var.db_port)
     POSTGRES_DB             = var.db_name
     POSTGRES_USER           = var.db_user
+    POSTGRES_SSLMODE        = "verify-full"
     ENVIRONMENT             = "production"
     ALLOWED_ORIGINS         = join(",", coalescelist(var.allowed_origins, [var.public_url]))
     DB_POOL_SIZE            = tostring(var.db_pool_size)
