@@ -336,6 +336,7 @@
   "history.withdrawalReason": "Reason",
   "history.fields.lifecycle": "Lifecycle",
   "detail.aliasPlaceholder": "e.g. CRM-v2",
+  "detail.arabicAlias": "Alias (Arabic)",
   "history.fields.alias": "Alias",
   "history.fields.externalId": "External ID",
   "history.fields.approvalStatus": "Approval Status",

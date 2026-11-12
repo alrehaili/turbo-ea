@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent } from "react";
-import { localizedCardText } from "@/lib/cardTranslations";
+import { localizedCardText, setTranslation } from "@/lib/cardTranslations";
 import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -154,6 +154,8 @@ export default function CardDetail() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [aliasDraft, setAliasDraft] = useState("");
+  const [nameArDraft, setNameArDraft] = useState("");
+  const [aliasArDraft, setAliasArDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
@@ -464,6 +466,8 @@ export default function CardDetail() {
   const beginEditName = () => {
     setNameDraft(card.name);
     setAliasDraft(card.alias ?? "");
+    setNameArDraft(card.translations?.ar?.name ?? "");
+    setAliasArDraft(card.translations?.ar?.alias ?? "");
     setNameError(null);
     setEditingName(true);
   };
@@ -494,7 +498,15 @@ export default function CardDetail() {
     // clearing an alias is unambiguous, which is why the Excel importer
     // deliberately treats an empty cell as "leave it alone" instead.
     const alias = aliasDraft.trim() || null;
-    if (trimmed === card.name && alias === (card.alias ?? null)) {
+    const translations = setTranslation(
+      setTranslation(card.translations, "ar", "name", nameArDraft),
+      "ar",
+      "alias",
+      aliasArDraft,
+    );
+    const translationsChanged =
+      JSON.stringify(translations) !== JSON.stringify(card.translations ?? {});
+    if (trimmed === card.name && alias === (card.alias ?? null) && !translationsChanged) {
       setEditingName(false);
       return;
     }
@@ -504,6 +516,7 @@ export default function CardDetail() {
       const updated = await api.patch<Card>(`/cards/${card.id}`, {
         name: trimmed,
         alias,
+        ...(translationsChanged ? { translations } : {}),
       });
       setCard(updated);
       setEditingName(false);
@@ -723,6 +736,28 @@ export default function CardDetail() {
                   disabled={nameSaving}
                   // The buttons above act on both fields, so the alias row keeps
                   // their width free rather than growing under them.
+                  sx={{ pr: { sm: 9 } }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t("cards:description.arabicName")}
+                  value={nameArDraft}
+                  onChange={(e) => setNameArDraft(e.target.value)}
+                  onKeyDown={titleKeyDown}
+                  disabled={nameSaving}
+                  slotProps={{ htmlInput: { dir: "rtl", lang: "ar" } }}
+                  sx={{ pr: { sm: 9 } }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t("cards:detail.arabicAlias")}
+                  value={aliasArDraft}
+                  onChange={(e) => setAliasArDraft(e.target.value)}
+                  onKeyDown={titleKeyDown}
+                  disabled={nameSaving}
+                  slotProps={{ htmlInput: { dir: "rtl", lang: "ar" } }}
                   sx={{ pr: { sm: 9 } }}
                 />
               </Box>

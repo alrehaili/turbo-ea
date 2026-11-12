@@ -349,6 +349,7 @@
   "history.withdrawalReason": "السبب",
   "history.fields.lifecycle": "دورة الحياة",
   "detail.aliasPlaceholder": "مثال: CRM-v2",
+  "detail.arabicAlias": "الاسم المستعار (بالعربية)",
   "history.fields.alias": "الاسم المستعار",
   "history.fields.externalId": "المعرّف الخارجي",
   "history.fields.approvalStatus": "حالة الموافقة",
