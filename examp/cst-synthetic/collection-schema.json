@@ -33454,6 +33454,7 @@
     "change_type",
     "lifecycle",
     "attributes",
+    "translations",
     "created_via",
     "source_id"
   ],

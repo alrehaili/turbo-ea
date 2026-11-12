@@ -54,6 +54,18 @@ def value(v,f):
         return result
     return str(v)
 
+#: Optional Arabic content columns -> cards.translations.ar (Turbo EA 2.48+).
+ARABIC_COLUMNS={'name_ar':('name',500),'description_ar':('description',50000),'alias_ar':('alias',500)}
+def arabic(row):
+    out={}
+    for col,(field,limit) in ARABIC_COLUMNS.items():
+        text=str(row.get(col) or '').strip()
+        if not text:continue
+        if len(text)>limit:raise ValueError(f'{col} exceeds {limit} characters')
+        if field=='name' and any(x in text for x in ('\\',' / ')):raise ValueError('Use an Arabic name without backslashes or " / "')
+        out[field]=text
+    return {'ar':out} if out else {}
+
 def collect(source,schema):
     wb=load_workbook(source,read_only=True,data_only=True)
     cards=[];owners=[];errors=[];ids=set();refs={}
@@ -63,7 +75,10 @@ def collect(source,schema):
         if name not in wb.sheetnames:errors.append(f'Missing type sheet: {name}');continue
         fs=[f for s in t.get('fields_schema') or [] for f in s.get('fields',[])]
         for rn,row in records(wb[name],4):
-            if not row.get('name'):
+            # Trimmed first: a whitespace-only name would otherwise pass here and
+            # reach the bundle as "" — which the native import then refuses.
+            row['name']=str(row.get('name') or '').strip()
+            if not row['name']:
                 errors.append(f'{name} row {rn}: populated row has no card name');continue
             try:
                 ext=str(row.get('external_id') or '').strip()
@@ -80,7 +95,7 @@ def collect(source,schema):
                 if any(x in str(row['name']) for x in ('\\',' / ')):raise ValueError('Use a card name without backslashes or the reserved path separator " / "')
                 state=row.get('architecture_state') or 'current'
                 if state not in ('current','transition','target'):raise ValueError('unknown architecture_state')
-                c={'type':tk,'name':str(row['name']).strip(),'parent_path':parent,'subtype':subtype,'description':str(row.get('description') or ''),'external_id':ext,'alias':None,'approval_status':'DRAFT','status':'ACTIVE','source_system':'Organization collection workbook','confidence':'medium','architecture_state':state,'change_type':None,'lifecycle':{},'attributes':attrs,'created_via':'api','source_id':stable('collection:'+ext)}
+                c={'type':tk,'name':str(row['name']).strip(),'parent_path':parent,'subtype':subtype,'description':str(row.get('description') or ''),'external_id':ext,'alias':None,'approval_status':'DRAFT','status':'ACTIVE','source_system':'Organization collection workbook','confidence':'medium','architecture_state':state,'change_type':None,'lifecycle':{},'attributes':attrs,'translations':arabic(row),'created_via':'api','source_id':stable('collection:'+ext)}
                 ownref=(parent+' / ' if parent else '')+c['name']
                 if (tk,ownref) in refs:raise ValueError('duplicate type/path/name')
                 refs[(tk,ownref)]=c
@@ -98,6 +113,8 @@ def collect(source,schema):
                 else:
                     for k in ('alias','approval_status','status','change_type','source_system','confidence'):
                         if row.get(k) is not None and row[k]!='':c[k]=row[k]
+                    extra=arabic(row)
+                    if extra:c['translations']={'ar':{**c['translations'].get('ar',{}),**extra['ar']}}
                     if c['approval_status'] not in ('DRAFT','IN_REVIEW','APPROVED','REJECTED'):raise ValueError('unknown approval_status')
                     if c['status'] not in ('ACTIVE','ARCHIVED'):raise ValueError('unknown status')
             except (ValueError,TypeError) as exc:errors.append(f'{sheet} row {rn}: {exc}')
@@ -120,8 +137,15 @@ def collect(source,schema):
                 seen.add(key)
                 attrs=jsonvalue(row.get('attributes'),{})
                 if not isinstance(attrs,dict):raise ValueError('attributes must be a JSON object')
-                for f in rt.get('attributes_schema') or []:
-                    if f['key'] in attrs:attrs[f['key']]=value(attrs[f['key']],f)
+                declared=rt.get('attributes_schema') or []
+                unknown=sorted(set(attrs)-{f['key'] for f in declared})
+                if unknown:raise ValueError('unknown relation attribute(s): '+', '.join(unknown))
+                # Every declared field, present or not, so a missing required one fails.
+                checked={}
+                for f in declared:
+                    v=value(attrs.get(f['key']),f)
+                    if v is not None:checked[f['key']]=v
+                attrs=checked
                 rels.append({'type':rt['key'],'source_type':sk[0],'source_ref':sk[1],'target_type':tk[0],'target_ref':tk[1],'description':row.get('description') or '', 'attributes':attrs,'source_id':stable('collection-rel:'+':'.join(key)),'source_card_id':source['source_id'],'target_card_id':target['source_id']})
             except (ValueError,TypeError,json.JSONDecodeError) as exc:errors.append(f'Relations row {rn}: {exc}')
     stakeholders=[]
