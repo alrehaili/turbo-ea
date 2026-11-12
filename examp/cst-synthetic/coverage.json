@@ -12,7 +12,11 @@
     "stakeholders": 456,
     "documents": 456,
     "relation_types_used": 222,
-    "unlinked_cards": 0
+    "unlinked_cards": 0,
+    "cards_with_arabic_content": 456,
+    "arabic_names": 456,
+    "arabic_descriptions": 456,
+    "arabic_aliases": 456
   },
   "types": [
     {

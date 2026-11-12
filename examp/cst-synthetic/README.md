@@ -2,7 +2,9 @@
 
 This is a fictional enterprise architecture inspired by the public service remit of Saudi Arabia's Communications, Space & Technology Commission (CST). It is **not an official CST inventory, organization chart, strategy, compliance statement or disclosure of internal systems**. Departments, applications, architecture, suppliers, infrastructure, budgets, personnel roles, measurements and targets are synthetic. No real personal data or credentials are included.
 
-Prepared against the local Turbo-EA 2.43.0 NORA metamodel on 30 October 2026.
+Prepared against the local Turbo-EA 2.43.0 NORA metamodel on 30 October 2026. Updated on 12 November 2026 for Turbo-EA 2.48.2 with bilingual card content. Use Turbo-EA 2.48 or later to preserve Arabic translations.
+
+All 456 sample cards include English content and Arabic names, descriptions and aliases. The English descriptions have been rewritten, glossary terms now have actual definitions, and KPI formulas state their numerator, denominator and handling of a zero denominator. Stored option keys, field keys, identifiers, technical values and hierarchy references remain in their original format; only the supported card content fields are localized.
 
 ## Files and which one to upload
 
@@ -10,7 +12,7 @@ Prepared against the local Turbo-EA 2.43.0 NORA metamodel on 30 October 2026.
 - **CSTD-full-organization.xlsx** — readable, editable example with one sheet per card type, plus relations, lifecycle dates, card metadata, field guidance, valid options and sources. This is a collection workbook, not a platform snapshot.
 - **CSTD-blank-collection-template.xlsx** — matching blank workbook for collecting another organization's real data.
 - **prepare_import.py** and **collection-schema.json** — offline converter and the exact schema it validates against. Keep these files together. The converter does not access a database or the network.
-- **import-validation.json** — actual local native-import preview result; the preview was rolled back.
+- **import-validation.json** — historical native-import preview of the original English pack; the preview was rolled back. **content-validation.json** records offline validation of this bilingual revision.
 - **coverage.json** — all card types and record/field counts.
 
 The outer **CSTD-complete-kit.zip** is a download container. Do not upload the outer kit ZIP to Turbo-EA; extract it and upload `CSTD-full-import.zip`.
@@ -23,6 +25,7 @@ The outer **CSTD-complete-kit.zip** is a download container. Do not upload the o
 | Types visible in NORA | 48 |
 | Types hidden in NORA | 16 |
 | Cards | 456 |
+| Cards with Arabic name, description and alias | 456 |
 | Configured field entries across types | 384 |
 | Populated attribute values | 3,389 |
 | Relationships | 2,805 |
@@ -57,7 +60,7 @@ No metamodel, permissions, branding, feature settings, passwords, SSO configurat
 4. Use exact stored subtype and option keys from **Type Guide** and **Options**. Numbers/costs must be numeric. Use actual Excel dates or ISO `YYYY-MM-DD`. Boolean values may be TRUE/FALSE. Multiple-select fields use a JSON array of option keys.
 5. Put hierarchy parents in `parent_path`; a child's parent must be included in the same workbook and have the same type. Paths use ` / ` between ancestor names. Avoid backslashes and ` / ` inside individual card names.
 6. Use **Lifecycle** for lifecycle phase dates and **Card Details** for status, approval status, alias, change type and source metadata; link those rows by `external_id`. Architecture state belongs on the type sheet.
-   Arabic content is optional: add `name_ar`, `description_ar` and `alias_ar` columns to a type sheet or to **Card Details**. They become the card's Arabic translations (Turbo EA 2.48 or later); the English `name` stays required.
+   Arabic content is optional: the `name_ar`, `description_ar` and `alias_ar` columns are provided on every type sheet. They become the card's Arabic translations (Turbo EA 2.48 or later); the English `name` stays required. They may also be supplied on **Card Details**, where non-empty values take precedence over the type sheet.
 7. Complete **Relations** with existing relation type keys from **Relation Guide**. Endpoint references are the exact full hierarchy path plus the card's name. Both endpoint cards must be in the collection workbook. Relation `attributes` must be a JSON object using declared attribute keys and valid option values.
 8. Gray fields are system-derived. The converter recomputes hierarchy depth from parent paths. Do not repurpose gray fields as manual business measurements.
 9. Install Python with `openpyxl` if not already available; the backend Python environment already includes it. From the extracted kit directory, run:
@@ -75,7 +78,9 @@ Native workspace transfer creates or skips existing cards matched by external ID
 
 ## Local validation result and limitation
 
-The actual native bundle was parsed by Turbo-EA and passed its real workspace-transfer preview engine with **0 failed rows and 0 conflicts**. The preview reported 4,722 rows created and was rolled back. Card, relationship and user table counts were checked before and after and were unchanged.
+The original English bundle passed the real workspace-transfer preview engine with **0 failed rows and 0 conflicts**. That historical preview reported 4,722 rows created and was rolled back. Card, relationship and user table counts were unchanged. The saved `import-validation.json` applies to that original bundle, not this revised ZIP.
+
+The bilingual revision has been checked offline: all 456 cards have valid Arabic content, workbook and bundle content agree, and all 2,805 relation endpoints resolve. No live database import or dry-run apply was performed for this revision. Run a fresh Workspace transfer preview on the intended target before applying. If the original sample was imported earlier, re-importing will skip matching cards rather than update their content; test the revised bundle in a fresh workspace or update the existing cards through the inventory import workflow.
 
 The local configuration already contains calculation expressions that the calculation engine cannot evaluate. The preview logged unresolved names for `Capability Coverage` (`related_applications`), `Application Total Annual Cost` (`attributes`) and `Risk Exposure Score` (`related_risks`). No calculation definitions are shipped in the kit. Imported source attributes are present in the workbook, but calculated outputs on a target with these same expressions may remain unavailable. This is an existing local calculation-configuration limitation, not a row-import failure. Those definitions were not changed.
 

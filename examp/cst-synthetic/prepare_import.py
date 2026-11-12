@@ -175,7 +175,7 @@ def main():
         for cell in ws[1]:cell.font=Font(bold=True,color='FFFFFF');cell.fill=PatternFill('solid',fgColor='17324D')
         for row in rows:ws.append([json.dumps(row[c],ensure_ascii=False) if isinstance(row.get(c),(dict,list)) else row.get(c) for c in cols])
     stream=io.BytesIO();wb.save(stream)
-    manifest={'format_version':'1','app_version':'2.43.0','exported_at':datetime.now(timezone.utc).isoformat(),'source_url':'collection-workbook','sections':list(sheets),'notes':'Cards, relationships and existing-user owner references only. No settings, metamodel or account changes.'}
+    manifest={'format_version':'1','app_version':'2.48.2','exported_at':datetime.now(timezone.utc).isoformat(),'source_url':'collection-workbook','sections':list(sheets),'notes':'Cards, relationships and existing-user owner references only. No settings, metamodel or account changes.'}
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(args.output,'w',compression=zipfile.ZIP_DEFLATED) as z:
         z.writestr('manifest.json',json.dumps(manifest,indent=2));z.writestr('workspace.xlsx',stream.getvalue())

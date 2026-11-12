@@ -1,0 +1,33 @@
+{
+  "validated_at": "2026-11-12T17:15:53.199829+00:00",
+  "validation_kind": "offline; no database apply or live preview",
+  "bundle_sha256": "aea0af8a0156a64a222055074266cd75b392481e9e012e0529ebab9d4d9e4696",
+  "cards": 456,
+  "card_types": 64,
+  "relations": 2805,
+  "owner_references": 456,
+  "arabic_names": 456,
+  "arabic_descriptions": 456,
+  "arabic_aliases": 456,
+  "checks": {
+    "collection_converter": true,
+    "blank_template_contains_no_cards": true,
+    "translations_pass_backend_normalizer": true,
+    "collection_matches_bundle_content": true,
+    "all_relation_endpoints_resolve": true,
+    "original_card_ids_and_paths_preserved": true,
+    "all_non_card_bundle_sections_unchanged": true,
+    "unintended_existing_cell_value_changes": 0,
+    "original_sheet_order_validations_filters_and_freeze_panes_preserved": true,
+    "representative_arabic_columns_visually_reviewed": true,
+    "native_backend_bundle_parser": true,
+    "plain_text_descriptions_without_html_tags": true
+  },
+  "english_corrections": {
+    "rewritten_card_descriptions": 456,
+    "defined_glossary_terms": 10,
+    "specified_kpi_formulas": 8,
+    "aligned_kpi_source_frequency": 8
+  },
+  "historical_preview": "import-validation.json applies only to the original English bundle. Run a new preview on the target before applying this revision."
+}

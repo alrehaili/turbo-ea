@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.48.2] - 2026-11-12
 
+### Changed
+- The CST-inspired example now includes Arabic content for all 456 cards, clearer English descriptions and KPI definitions, and plain-text descriptions in its import bundle.
+
 ### Fixed
 - In the Arabic interface, editing a card's name, description or alias in the inventory grid now saves what you typed; it had been saving the previous value back.
 - A card's page shows its Arabic alias in the Arabic interface, including when the card has no English alias.

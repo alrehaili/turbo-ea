@@ -1,10 +1,11 @@
 {
-  "CSTD-full-import.zip": "b58ec32fff14323d0d3bc36b3bbb1281985c830712b7bb0e8985bdc8c4c21056",
-  "CSTD-full-organization.xlsx": "27fef777e3d00ee18f5f432a5bc813bf53882eca8b80ce54b0e60765c8a8750f",
-  "CSTD-blank-collection-template.xlsx": "031772bc25a0ccab9ceb41f735590eabcebd59318cdc72c45bda2a49f896d40a",
-  "prepare_import.py": "1abbe10c95f670e5df6193698d6d1fc977b9fbcfddb79d4b5ff9f97a117174ba",
-  "collection-schema.json": "88c9fbf7f5b29a722ff519bfbba0eb31f9689a3016b404227925f1c3dd852dbf",
-  "README.md": "626b2be9f5b5aa685b6b16ac7e936a080250c097db8a18b3194f7845db1cdc52",
-  "coverage.json": "f0e5a71b45c4ee96e4854f6983e0ab5b34ca5099501f67a1a18679e304f83faa",
-  "import-validation.json": "3ca4193c8ece07074e5b19f05a3c6beb131c5d095c513cf28f45b9e7d64e063c"
+  "collection-schema.json": "2ebf3868baa6099b9b0a07751e9bda48a03e868b3bb67ab14b2d862a8b1ac154",
+  "content-validation.json": "159a92b4622724f24e2cb7c99dee176046d7d2f5fa12446a31c9f24769b30c19",
+  "coverage.json": "7640e8a2560244a3695357557a92dfd4c3003ea950741e6a1ffb4621a1637177",
+  "CSTD-blank-collection-template.xlsx": "5ed540ef9efb8f36cedaccfd478e063f94910a2ec56afd8ea5ea1982e00e29f7",
+  "CSTD-full-import.zip": "aea0af8a0156a64a222055074266cd75b392481e9e012e0529ebab9d4d9e4696",
+  "CSTD-full-organization.xlsx": "8d583ca626331cfe8f78be009c006679e5aee1bc377d63ac6e5c798b54ee60cf",
+  "import-validation.json": "3ca4193c8ece07074e5b19f05a3c6beb131c5d095c513cf28f45b9e7d64e063c",
+  "prepare_import.py": "c1dbe8d7bcfe1cc062f2194147f578eca0c9ac675fa0cba0b91a3327f1d5da10",
+  "README.md": "0e464b9a7aafef9a36ed84180383ab83ec0eb03efbb8dae12c7d93a6c9fa8324"
 }
