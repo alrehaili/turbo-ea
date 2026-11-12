@@ -3273,6 +3273,18 @@ export default function InventoryPage() {
                 : gridEditMode
                   ? p.data.translations?.[contentLoc]?.[base] ?? ""
                   : localizedCardText(p.data, base, contentLoc),
+            // Without this AG Grid writes the edit to the virtual field, then
+            // re-reads the cell through the getter above for `newValue` — and
+            // gets the unchanged translation, which is what would be saved.
+            valueSetter: (p: { data: Card; newValue: unknown }) => {
+              p.data.translations = setTranslation(
+                p.data.translations,
+                contentLoc,
+                base,
+                p.newValue == null ? "" : String(p.newValue),
+              );
+              return true;
+            },
           }
         : { field: base };
 

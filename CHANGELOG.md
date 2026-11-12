@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.48.2] - 2026-11-12
+
+### Fixed
+- In the Arabic interface, editing a card's name, description or alias in the inventory grid now saves what you typed; it had been saving the previous value back.
+- A card's page shows its Arabic alias in the Arabic interface, including when the card has no English alias.
+
 ## [2.48.1] - 2026-11-12
 
 ### Fixed

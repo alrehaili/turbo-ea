@@ -392,6 +392,7 @@ export default function CardDetail() {
   const subtypeLabel = resolveSubtypeLabel(card.type, card.subtype);
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const isArchived = card.status === "ARCHIVED";
+  const shownAlias = localizedCardText(card, "alias", i18n.language);
   const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;
 
   const handleArchitectureStateChange = async (updates: {
@@ -795,15 +796,16 @@ export default function CardDetail() {
             {/* The card's other name, under the one it is filed under. Rendered
                 only when set, so a card without an alias looks exactly as it
                 always did (#1108). */}
-            {!editingName && card.alias && (
+            {!editingName && shownAlias && (
               <Tooltip title={t("common:labels.alias")}>
                 <Typography
+                  dir="auto"
                   variant="body2"
                   color="text.secondary"
                   sx={{ overflowWrap: "anywhere" }}
                   data-testid="card-alias"
                 >
-                  {card.alias}
+                  {shownAlias}
                 </Typography>
               </Tooltip>
             )}
