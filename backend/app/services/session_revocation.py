@@ -27,13 +27,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.config import settings
 from app.models.revoked_session import RevokedSession
 from app.models.user import User
+from app.services.stream_revalidation import USER_OPTION, note_revoked_sid
 
 
 def token_generation(payload: dict) -> int | None:
@@ -63,13 +65,30 @@ async def token_is_revoked(db: AsyncSession, user: User, payload: dict) -> bool:
     return hit.first() is not None
 
 
-def revoke_all_sessions(user: User) -> None:
+async def revoke_all_sessions(db: AsyncSession, user: User) -> None:
     """Refuse every token issued to ``user`` so far. Call when a password is set.
 
-    Tokens minted afterwards must pass ``generation=user.session_generation``.
+    The increment runs in the database, not on the loaded object: two password
+    changes that both read generation N must end at N+2, or a token issued
+    between their commits would survive the second one. The ``UPDATE`` holds
+    the row lock until the caller commits, so a concurrent change waits and
+    increments the committed value. Tokens minted afterwards must pass
+    ``generation=user.session_generation``, which is set to the value written.
     """
-    user.session_generation = (user.session_generation or 0) + 1
-    user.sessions_valid_after = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(
+            session_generation=func.coalesce(User.session_generation, 0) + 1,
+            sessions_valid_after=now,
+        )
+        .returning(User.session_generation)
+        .execution_options(synchronize_session=False, **{USER_OPTION: str(user.id)})
+    )
+    # Committed values: the ORM must not write a stale copy back over them.
+    set_committed_value(user, "session_generation", result.scalar_one())
+    set_committed_value(user, "sessions_valid_after", now)
 
 
 async def revoke_session(db: AsyncSession, payload: dict | None) -> None:
@@ -80,6 +99,9 @@ async def revoke_session(db: AsyncSession, payload: dict | None) -> None:
     sid = (payload or {}).get("sid")
     if not isinstance(sid, str) or not sid:
         return
+    # The ledger is a core INSERT the ORM hooks cannot see: name the session so
+    # its open event streams re-check as soon as this commits.
+    note_revoked_sid(db.sync_session, sid[:64])
     await db.execute(
         pg_insert(RevokedSession)
         .values(

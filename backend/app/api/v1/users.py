@@ -956,7 +956,7 @@ async def update_user(
         # the new password, and sessions opened with the old one end here.
         u.password_reset_token = None
         u.password_reset_expires_at = None
-        revoke_all_sessions(u)
+        await revoke_all_sessions(db, u)
 
     for field, value in data.items():
         setattr(u, field, value)

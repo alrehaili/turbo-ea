@@ -20,6 +20,7 @@ from app.models.event import Event
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.services import stream_revalidation
 from app.services.card_read_scope import (
     CardReadScope,
     event_read_filters,
@@ -113,42 +114,62 @@ async def event_stream(request: Request, token: str = Query("")):
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    async with async_session() as db:
-        # Resolve the real user so inactive / time-boxed (rescue) accounts are
-        # rejected on the live stream too, mirroring get_current_user.
-        result = await db.execute(select(User).where(User.id == uuid.UUID(payload.get("sub"))))
-        user = result.scalar_one_or_none()
-        if user is None or not user.is_active:
-            raise HTTPException(status_code=401, detail="User not found or inactive")
-        if user.access_expires_at is not None and user.access_expires_at < datetime.now(
-            timezone.utc
-        ):
-            raise HTTPException(status_code=401, detail="Account access has expired")
-        if await token_is_revoked(db, user, payload):
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user_uuid = uuid.UUID(payload.get("sub"))
+    user_id = str(user_uuid)
+    # Watch first, check second: a logout or password change committed at any
+    # point after this line marks the stream, even one landing while the check
+    # below is still reading — the generator then re-checks before it sends.
+    watch = stream_revalidation.watch(user_id, payload.get("sid"))
+    try:
+        async with async_session() as db:
+            # Resolve the real user so inactive / time-boxed (rescue) accounts
+            # are rejected on the live stream too, mirroring get_current_user.
+            result = await db.execute(select(User).where(User.id == user_uuid))
+            user = result.scalar_one_or_none()
+            if user is None or not user.is_active:
+                raise HTTPException(status_code=401, detail="User not found or inactive")
+            if user.access_expires_at is not None and user.access_expires_at < datetime.now(
+                timezone.utc
+            ):
+                raise HTTPException(status_code=401, detail="Account access has expired")
+            if await token_is_revoked(db, user, payload):
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-        is_events_admin = await PermissionService.has_app_permission(db, user, "admin.events")
-        user_id = str(user.id)
-    # Session closed: its connection is back in the pool before the stream opens.
+            is_events_admin = await PermissionService.has_app_permission(db, user, "admin.events")
+        # Session closed: its connection is back in the pool before the stream opens.
+    except BaseException:
+        stream_revalidation.unwatch(watch)
+        raise
 
     async def generate():
         admin_view = is_events_admin
         checked_at = time.monotonic()
-        async for message in event_bus.subscribe():
-            if await request.is_disconnected():
-                break
-            if _token_expired(payload):
-                break
-            # Re-ask before sending once the last answer is old: a logout,
-            # password reset, deactivation or role change made while the
-            # stream is open must end what it receives.
-            if time.monotonic() - checked_at >= STREAM_REVALIDATE_SECONDS:
-                admin_view = await _stream_permission(payload)
-                if admin_view is None:
+        try:
+            async for message in event_bus.subscribe():
+                if await request.is_disconnected():
                     break
-                checked_at = time.monotonic()
-            if _event_visible_to(admin_view, message, user_id):
-                yield f"data: {json.dumps(message, default=str)}\n\n"
+                if _token_expired(payload):
+                    break
+                # Re-ask before sending when a committed logout, password
+                # change, deactivation or role change marked this stream, and
+                # in any case once the last answer is old (a fallback for
+                # changes made by another process).
+                if watch.stale or time.monotonic() - checked_at >= STREAM_REVALIDATE_SECONDS:
+                    # Cleared before each check, and checked again while a mark
+                    # landed during the last one: that answer may predate the
+                    # commit that marked it, so it must not decide this send.
+                    while True:
+                        watch.stale = False
+                        admin_view = await _stream_permission(payload)
+                        if admin_view is None or not watch.stale:
+                            break
+                    if admin_view is None:
+                        break
+                    checked_at = time.monotonic()
+                if _event_visible_to(admin_view, message, user_id):
+                    yield f"data: {json.dumps(message, default=str)}\n\n"
+        finally:
+            stream_revalidation.unwatch(watch)
 
     return StreamingResponse(
         generate(),

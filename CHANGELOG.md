@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.47.3] - 2026-11-12
+
+### Security
+- An open live-update connection now stops the moment its session is signed out, the password is changed or reset, the account is deactivated or deleted, or its role or role permissions change, instead of up to five seconds later — including a sign-out that lands while the connection is still opening.
+- Two password changes to the same account made at the same moment now both end the account's earlier sessions; before, a session signed in between them could survive the second change.
+
 ## [2.47.2] - 2026-11-11
 
 ### Security

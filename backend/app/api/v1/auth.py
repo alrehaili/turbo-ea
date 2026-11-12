@@ -1128,7 +1128,7 @@ async def set_password(
     # A new password ends every other way in: older sessions and reset links.
     user.password_reset_token = None
     user.password_reset_expires_at = None
-    revoke_all_sessions(user)
+    await revoke_all_sessions(db, user)
     if user.auth_provider != "sso":
         user.auth_provider = "local"
     # The user has now accepted the invite (set-password effectively logs them
@@ -1455,7 +1455,7 @@ async def reset_password(
     user.password_reset_expires_at = None
     user.password_setup_token = None
     # The point of a reset: whoever held a session before it is signed out.
-    revoke_all_sessions(user)
+    await revoke_all_sessions(db, user)
     # A successful reset clears any account lockout — the user proved
     # control of their inbox.
     user.failed_login_attempts = 0
