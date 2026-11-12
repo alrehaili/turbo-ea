@@ -53,6 +53,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services import card_reference, card_type_categories, kpi_metric_link
 from app.services.card_resolver import CardResolver
+from app.services.card_translations import normalize_translations
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.principle_service import ensure_principle_references
 from app.services.relation_orientation import oriented
@@ -157,6 +158,18 @@ class ApplyResult:
                 "failed": self.total_failed,
             },
         }
+
+
+def _bundle_translations(value: Any) -> dict:
+    """A bundle's card translations, cleaned as the API cleans them.
+
+    A hand-edited bundle carrying a locale or field the target does not know
+    imports the card without its translations rather than refusing the row.
+    """
+    try:
+        return normalize_translations(value)
+    except ValueError:
+        return {}
 
 
 def _coerce(row: dict[str, Any], columns: tuple[str, ...], json_cols: frozenset[str]) -> dict:
@@ -1212,6 +1225,7 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
                     external_id=external_id,
                     reference=resolved_reference,
                     alias=data.get("alias"),
+                    translations=_bundle_translations(data.get("translations")),
                     status=data.get("status") or "ACTIVE",
                     approval_status=data.get("approval_status") or "DRAFT",
                     source_system=data.get("source_system"),

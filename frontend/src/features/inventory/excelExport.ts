@@ -312,6 +312,10 @@ function buildCardRowForType(
     external_id: card.external_id ?? "",
     reference: card.reference ?? "",
     alias: card.alias ?? "",
+    // Arabic content (cards.translations.ar); read back by excelImport.
+    name_ar: card.translations?.ar?.name ?? "",
+    description_ar: card.translations?.ar?.description ?? "",
+    alias_ar: card.translations?.ar?.alias ?? "",
     approval_status: card.approval_status ?? "",
     // `; `, not `, `: a tag name may hold a comma ("Acme, Inc."), and the
     // importer would read it as two tags (#1171).

@@ -59,6 +59,15 @@ def normalize_parent_id(value: str | None) -> str | None:
         raise ValueError("parent_id must be a UUID") from None
 
 
+def _validate_translations(v: dict | None) -> dict | None:
+    # Imported lazily: schemas stay importable without the services package.
+    from app.services.card_translations import normalize_translations
+
+    if v is None:
+        return None
+    return normalize_translations(v)
+
+
 class CardCreate(BaseModel):
     type: str
     subtype: str | None = None
@@ -72,6 +81,8 @@ class CardCreate(BaseModel):
     attributes: dict | None = None
     external_id: str | None = None
     alias: str | None = None
+    # Per-locale content, e.g. {"ar": {"name", "description", "alias"}}.
+    translations: dict | None = None
     # Architecture-state dimension (NORA current/target — WP2.1).
     architecture_state: str | None = Field(default=None, pattern="^(current|transition|target)$")
     change_type: str | None = Field(
@@ -101,6 +112,11 @@ class CardCreate(BaseModel):
     def validate_attributes(cls, v: dict | None) -> dict | None:
         return _validate_jsonb_dict(v, "attributes")
 
+    @field_validator("translations")
+    @classmethod
+    def validate_translations(cls, v: dict | None) -> dict | None:
+        return _validate_translations(v)
+
 
 class CardUpdate(BaseModel):
     name: str | None = None
@@ -115,6 +131,8 @@ class CardUpdate(BaseModel):
     status: str | None = None
     external_id: str | None = None
     alias: str | None = None
+    # Replaces the whole map when sent; ``{}`` clears every translation.
+    translations: dict | None = None
     # Architecture-state dimension (NORA current/target — WP2.1).
     architecture_state: str | None = Field(default=None, pattern="^(current|transition|target)$")
     change_type: str | None = Field(
@@ -138,6 +156,11 @@ class CardUpdate(BaseModel):
     @classmethod
     def validate_attributes(cls, v: dict | None) -> dict | None:
         return _validate_jsonb_dict(v, "attributes")
+
+    @field_validator("translations")
+    @classmethod
+    def validate_translations(cls, v: dict | None) -> dict | None:
+        return _validate_translations(v)
 
 
 class CardBulkUpdate(BaseModel):
@@ -185,6 +208,7 @@ class CardResponse(BaseModel):
     external_id: str | None = None
     reference: str | None = None
     alias: str | None = None
+    translations: dict = {}
     architecture_state: str = "current"
     change_type: str | None = None
     successor_id: str | None = None
@@ -533,6 +557,7 @@ class CardBulkCreateItem(BaseModel):
     attributes: dict | None = None
     external_id: str | None = None
     alias: str | None = None
+    translations: dict | None = None
     approval_status: str | None = None
 
     @field_validator("lifecycle")
@@ -544,6 +569,11 @@ class CardBulkCreateItem(BaseModel):
     @classmethod
     def validate_attributes(cls, v: dict | None) -> dict | None:
         return _validate_jsonb_dict(v, "attributes")
+
+    @field_validator("translations")
+    @classmethod
+    def validate_translations(cls, v: dict | None) -> dict | None:
+        return _validate_translations(v)
 
 
 class CardBulkCreateRequest(BaseModel):

@@ -810,6 +810,7 @@ async def create_card(
     attributes: dict | None = None,
     external_id: str | None = None,
     alias: str | None = None,
+    translations: dict | None = None,
     architecture_state: str = "current",
     change_type: str | None = None,
     successor_id: uuid.UUID | None = None,
@@ -847,6 +848,7 @@ async def create_card(
         attributes=attributes or {},
         external_id=external_id,
         alias=alias,
+        translations=translations or {},
         architecture_state=architecture_state or "current",
         change_type=change_type,
         successor_id=successor_id,
@@ -928,6 +930,11 @@ async def update_card(
     # update (defensive: CardUpdate no longer carries it, but drop any stray).
     updates = dict(updates)
     updates.pop("reference", None)
+    # The column is never NULL from the API: an explicit null clears it.
+    if "translations" in updates:
+        updates["translations"] = updates["translations"] or {}
+        if (card.translations or {}) == updates["translations"]:
+            updates.pop("translations")
 
     # Validate URL- and percentage-typed attributes
     if "attributes" in updates and updates["attributes"]:

@@ -3,9 +3,15 @@ import * as XLSX from "xlsx";
 import { api } from "@/api/client";
 import { fieldLabel, typeLabel } from "@/hooks/useResolveLabel";
 import i18n from "@/i18n";
+import {
+  ARABIC_CONTENT_COLUMNS,
+  mergeArabicContent,
+  readArabicContent,
+} from "@/lib/cardTranslations";
 import type {
   CalculatedFieldsMap,
   Card,
+  CardTranslations,
   CardType,
   FieldDef,
   Relation,
@@ -437,6 +443,12 @@ function buildPatch(
     }
   }
 
+  const merged = mergeArabicContent(ex.translations, d.translations as CardTranslations | undefined);
+  if (merged) {
+    patch.translations = merged;
+    changes.translations = { old: ex.translations ?? {}, new: merged };
+  }
+
   // Lifecycle: compare phase-by-phase
   if (d.lifecycle) {
     const newLc = d.lifecycle as Record<string, string>;
@@ -633,6 +645,7 @@ export function validateImport(
     "id", "type", "name", "description", "subtype", "parent_id", "parent_path",
     "parent_label",
     "external_id", "reference", "alias", "approval_status", "tags",
+    ...ARABIC_CONTENT_COLUMNS.map(([col]) => col),
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
   // Build set of all known attribute columns across all types
@@ -765,6 +778,7 @@ export function validateImport(
     const parentLabel = str(raw["parent_label"]);
     const externalId = str(raw["external_id"]);
     const alias = str(raw["alias"] ?? raw["Alias"]);
+    const translationAr = readArabicContent(raw);
     const approvalStatus = str(raw["approval_status"]).toUpperCase();
 
     // Rule 2: name required
@@ -1216,6 +1230,7 @@ export function validateImport(
     if (parentLabel) data.parent_label = parentLabel;
     if (externalId) data.external_id = externalId;
     if (alias) data.alias = alias;
+    if (translationAr) data.translations = { ar: translationAr };
     if (Object.keys(lifecycle).length > 0) data.lifecycle = lifecycle;
     if (Object.keys(attributes).length > 0) data.attributes = attributes;
 
@@ -2370,6 +2385,7 @@ export async function executeMultiSheetImport(
           attributes: d.attributes as Record<string, unknown> | undefined,
           external_id: d.external_id as string | undefined,
           alias: d.alias as string | undefined,
+          translations: d.translations as CardTranslations | undefined,
         };
       }),
     };

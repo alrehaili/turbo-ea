@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.48.0] - 2026-11-12
+
+### Added
+- Cards can carry Arabic content: an Arabic name and description, edited in the card's Description section, shown when the interface is in Arabic (falling back to English), found by search in either language, and carried through Excel import/export (`name_ar`, `description_ar`, `alias_ar`) and workspace transfer.
+
 ## [2.47.4] - 2026-11-12
 
 ### Fixed

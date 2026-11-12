@@ -3395,6 +3395,9 @@ async def create_cards_bulk(
               show in the UI — match the type's `fields_schema`.
             - `lifecycle` (dict, optional): `{phase, start_date, end_date}`.
             - `external_id`, `alias`, `approval_status` (str, optional).
+            - `translations` (dict, optional): per-locale content, e.g.
+              `{"ar": {"name": "...", "description": "...", "alias": "..."}}`.
+              `name`/`description`/`alias` stay the English baseline.
             Single-row imports work too — pass a 1-item list.
         dry_run: When True (default), validate every row and return the
             preview without persisting. The agent should show the result

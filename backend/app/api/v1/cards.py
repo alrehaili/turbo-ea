@@ -176,6 +176,7 @@ def _card_to_response(
         external_id=card.external_id,
         reference=card.reference,
         alias=card.alias,
+        translations=card.translations or {},
         architecture_state=card.architecture_state or "current",
         change_type=card.change_type,
         successor_id=str(card.successor_id) if card.successor_id else None,
@@ -732,6 +733,7 @@ async def create_card(
         attributes=body.attributes,
         external_id=body.external_id,
         alias=body.alias,
+        translations=body.translations,
         strict_attributes=body.strict_attributes,
         architecture_state=body.architecture_state or "current",
         change_type=body.change_type,
@@ -1022,6 +1024,7 @@ async def bulk_create_cards(
                 attributes=r.attributes or {},
                 external_id=r.external_id,
                 alias=r.alias,
+                translations=r.translations or {},
                 approval_status=r.approval_status or "DRAFT",
                 created_by=user.id,
                 updated_by=user.id,
@@ -1773,6 +1776,8 @@ async def bulk_update(
     # The human-readable reference is per-card and uniqueness-gated; it is never
     # editable in bulk (auto refs are write-once, manual refs must stay unique).
     updates.pop("reference", None)
+    # Translations are one card's own text; a bulk edit never stamps them.
+    updates.pop("translations", None)
     if "attributes" in updates and updates["attributes"]:
         # Strict-attribute validation runs per distinct type because
         # `fields_schema` is per-type.

@@ -34,7 +34,8 @@ import {
   type SectionEditRequest,
 } from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
-import type { Card, FieldDef } from "@/types";
+import type { Card, CardTranslations, FieldDef } from "@/types";
+import { localizedCardText, setTranslation } from "@/lib/cardTranslations";
 import { brand } from "@/theme/tokens";
 
 // ── Section: Description ────────────────────────────────────────
@@ -74,13 +75,15 @@ function DescriptionSection({
    *  on the `__description` field it names. */
   editOn?: SectionEditRequest;
 }) {
-  const { t } = useTranslation(["cards", "common", "validation"]);
+  const { t, i18n } = useTranslation(["cards", "common", "validation"]);
   const fieldLabel = useFieldLabel();
   const fieldHelp = useFieldHelp();
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(card.description || "");
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
+  const [translations, setTranslations] = useState<CardTranslations>(card.translations || {});
+  const shownDescription = localizedCardText(card, "description", i18n.language);
   const [saveError, setSaveError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -107,14 +110,16 @@ function DescriptionSection({
     if (!editing) {
       setDescription(card.description || "");
       setAttrs(card.attributes || {});
+      setTranslations(card.translations || {});
     }
-  }, [card.description, card.attributes, editing]);
+  }, [card.description, card.attributes, card.translations, editing]);
 
   // Report unsaved-changes state up so the page can warn on navigation (#843).
   const dirty =
     editing &&
     (description !== (card.description || "") ||
-      JSON.stringify(attrs) !== JSON.stringify(card.attributes || {}));
+      JSON.stringify(attrs) !== JSON.stringify(card.attributes || {}) ||
+      JSON.stringify(translations) !== JSON.stringify(card.translations || {}));
   useEffect(() => {
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
@@ -158,6 +163,9 @@ function DescriptionSection({
     setSaveError(null);
     try {
       const updates: Record<string, unknown> = { description };
+      if (JSON.stringify(translations) !== JSON.stringify(card.translations || {})) {
+        updates.translations = translations;
+      }
       if (extraFields && extraFields.length > 0) {
         updates.attributes = { ...(card.attributes || {}), ...attrs };
       }
@@ -233,6 +241,31 @@ function DescriptionSection({
               size="small"
               sx={{ mb: 2 }}
             />
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              {t("description.arabicContent")}
+            </Typography>
+            <TextField
+              fullWidth
+              label={t("description.arabicName")}
+              value={translations.ar?.name ?? ""}
+              onChange={(e) => setTranslations((p) => setTranslation(p, "ar", "name", e.target.value))}
+              size="small"
+              slotProps={{ htmlInput: { dir: "rtl", lang: "ar" } }}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label={t("description.arabicDescription")}
+              value={translations.ar?.description ?? ""}
+              onChange={(e) =>
+                setTranslations((p) => setTranslation(p, "ar", "description", e.target.value))
+              }
+              multiline
+              rows={4}
+              size="small"
+              slotProps={{ htmlInput: { dir: "rtl", lang: "ar" } }}
+              sx={{ mb: 2 }}
+            />
             {extraFields && extraFields.map((field) =>
               field.readonly || calculatedFieldKeys.includes(field.key) ? (
                 <Box key={field.key} sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
@@ -260,6 +293,7 @@ function DescriptionSection({
                 onClick={() => {
                   setDescription(card.description || "");
                   setAttrs(card.attributes || {});
+                  setTranslations(card.translations || {});
                   setEditing(false);
                   setSaveError(null);
                 }}
@@ -273,13 +307,13 @@ function DescriptionSection({
           </Box>
         ) : (
           <Box sx={{ containerType: "inline-size" }}>
-            <Box sx={{ typography: "body2", color: "text.secondary", whiteSpace: "pre-wrap", overflowWrap: "anywhere", mb: extraFields?.length ? 1 : 0 }}>
-              {looksLikeHtml(card.description) ? (
+            <Box dir="auto" sx={{ typography: "body2", color: "text.secondary", whiteSpace: "pre-wrap", overflowWrap: "anywhere", mb: extraFields?.length ? 1 : 0 }}>
+              {looksLikeHtml(shownDescription) ? (
                 <Box
                   sx={{ "& > :first-child": { mt: 0 }, "& > :last-child": { mb: 0 } }}
-                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.description) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(shownDescription) }}
                 />
-              ) : card.description ? <LinkifiedText text={card.description} /> : t("description.noDescription")}
+              ) : shownDescription ? <LinkifiedText text={shownDescription} /> : t("description.noDescription")}
             </Box>
             {extraFields && extraFields.length > 0 && (
               <Box sx={{ display: "flex", flexDirection: "column", rowGap: 1 }}>

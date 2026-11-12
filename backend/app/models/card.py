@@ -42,6 +42,11 @@ class Card(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     # feature off. Distinct from ``external_id`` (import identity).
     reference: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     alias: Mapped[str | None] = mapped_column(String(500))
+    # Per-locale content: {"ar": {"name", "description", "alias"}}. The plain
+    # columns stay the English baseline; see services/card_translations.py.
+    translations: Mapped[dict | None] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     # Repository-freshness metadata (Wave 2 #4). last_confirmed_at is stamped
     # when a steward confirms the card is still accurate; source_system records

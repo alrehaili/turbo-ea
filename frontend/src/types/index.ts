@@ -1113,6 +1113,16 @@ export interface StakeholderRef {
   role_label?: string;
 }
 
+/** Translatable card text for one locale. */
+export interface CardContentTranslation {
+  name?: string;
+  description?: string;
+  alias?: string;
+}
+
+/** Per-locale card content (`cards.translations`); keys are locale codes. */
+export type CardTranslations = Partial<Record<string, CardContentTranslation>>;
+
 export interface Card {
   id: string;
   type: string;
@@ -1132,6 +1142,8 @@ export interface Card {
   external_id?: string;
   reference?: string | null;
   alias?: string;
+  /** Per-locale content; `name` / `description` / `alias` are the English baseline. */
+  translations?: CardTranslations;
   /** Architecture-state slice (NORA current/target — [FORK] WP2.1). */
   architecture_state?: "current" | "transition" | "target";
   change_type?: "create" | "modify" | "replace" | "retire" | "consolidate" | null;

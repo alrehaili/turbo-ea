@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent } from "react";
+import { localizedCardText } from "@/lib/cardTranslations";
 import { useParams, useNavigate, useSearchParams, Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -95,7 +96,7 @@ const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
 
 // ── Main Detail Page ────────────────────────────────────────────
 export default function CardDetail() {
-  const { t } = useTranslation(["cards", "common", "validation"]);
+  const { t, i18n } = useTranslation(["cards", "common", "validation"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -734,8 +735,8 @@ export default function CardDetail() {
                   "&:hover .edit-name-btn": { opacity: 1 },
                 }}
               >
-                <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                  {card.name}
+                <Typography dir="auto" variant={isMobile ? "h6" : "h5"} fontWeight={700} sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                  {localizedCardText(card, "name", i18n.language)}
                 </Typography>
                 {perms.can_edit && !isArchived && (
                   <Tooltip title={t("common:actions.edit")}>

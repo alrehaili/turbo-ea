@@ -96,6 +96,7 @@ import ExtFieldCell from "./ExtFieldCell";
 import LinkifiedText from "@/components/LinkifiedText";
 import MuiLink from "@mui/material/Link";
 import { isLinkableHref } from "@/lib/linkify";
+import { localizedCardText } from "@/lib/cardTranslations";
 import { richHtmlToText } from "@/lib/richHtml";
 import { PercentBar, percentValue } from "@/components/PercentBar";
 
@@ -3335,8 +3336,9 @@ export default function InventoryPage() {
                         e.stopPropagation();
                       }
                     }}
+                    dir="auto"
                   >
-                    {p.value}
+                    {localizedCardText(p.data, "name", i18n.language)}
                   </Box>
                 </Box>
               );

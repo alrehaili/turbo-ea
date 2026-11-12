@@ -131,11 +131,13 @@ CARD_COLUMNS = (
     "change_type",
     "lifecycle",
     "attributes",
+    # Per-locale content (migration 1180). A bundle without it imports as {}.
+    "translations",
     # The channel that created the card (migration 157). ``updated_via`` is
     # deliberately not carried: the import re-stamps it, like ``updated_by``.
     "created_via",
 )
-CARD_JSON = frozenset({"lifecycle", "attributes"})
+CARD_JSON = frozenset({"lifecycle", "attributes", "translations"})
 
 RELATION_COLUMNS = (
     "type",

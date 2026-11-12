@@ -24,13 +24,23 @@ from app.services.search_rank import search_filter, search_rank
 
 __all__ = ["card_search_filter", "card_search_rank"]
 
+# Translated content (``cards.translations``) is searched too, so a card is
+# found by its Arabic name whatever the UI language (services/card_translations).
+_AR = Card.translations["ar"]
+_AR_NAME = _AR["name"].astext
+_AR_DESCRIPTION = _AR["description"].astext
+_AR_ALIAS = _AR["alias"].astext
+
 
 def card_search_filter(search: str) -> ColumnElement[bool]:
-    """The three texts every card search box matches: name, description, alias."""
+    """Every card search box matches name, description and alias, in each locale."""
     return or_(
         search_filter(Card.name, search),
         search_filter(Card.description, search),
         search_filter(Card.alias, search),
+        search_filter(_AR_NAME, search),
+        search_filter(_AR_DESCRIPTION, search),
+        search_filter(_AR_ALIAS, search),
     )
 
 
@@ -44,4 +54,6 @@ def card_search_rank(search: str) -> ColumnElement[int]:
     return func.least(
         search_rank(Card.name, search),
         search_rank(Card.alias, search),
+        search_rank(_AR_NAME, search),
+        search_rank(_AR_ALIAS, search),
     )
