@@ -3740,6 +3740,18 @@
             ],
             "title": "Subtype"
           },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -4219,6 +4231,18 @@
               }
             ],
             "title": "Successor Id"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
           },
           "type": {
             "title": "Type",
@@ -4858,6 +4882,12 @@
             "title": "Tags",
             "type": "array"
           },
+          "translations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Translations",
+            "type": "object"
+          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -5222,6 +5252,18 @@
               }
             ],
             "title": "Successor Id"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
           }
         },
         "title": "CardUpdate",

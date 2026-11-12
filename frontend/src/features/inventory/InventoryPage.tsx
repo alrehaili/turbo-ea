@@ -96,7 +96,13 @@ import ExtFieldCell from "./ExtFieldCell";
 import LinkifiedText from "@/components/LinkifiedText";
 import MuiLink from "@mui/material/Link";
 import { isLinkableHref } from "@/lib/linkify";
-import { localizedCardText } from "@/lib/cardTranslations";
+import {
+  CONTENT_LOCALES,
+  contentLocale,
+  localizedCardText,
+  setTranslation,
+  type TranslatableField,
+} from "@/lib/cardTranslations";
 import { richHtmlToText } from "@/lib/richHtml";
 import { PercentBar, percentValue } from "@/components/PercentBar";
 
@@ -691,7 +697,26 @@ export function currentFieldValue(card: Card, field: string): unknown {
   if (field.startsWith("attr_")) return (card.attributes ?? {})[field.slice("attr_".length)];
   if (field === "parent_id") return card.parent_id ?? null;
   if (field === "parent_label") return card.parent_label ?? null;
+  const tr = parseTranslationField(field);
+  if (tr) return card.translations?.[tr.locale]?.[tr.field] ?? "";
   return (card as unknown as Record<string, unknown>)[field];
+}
+
+/**
+ * Grid fields for translated content: `tr_<locale>_<field>`. In a non-English
+ * UI the Name / Description / Alias columns read and write the card's
+ * translation under these fields, so an edit never overwrites the English
+ * baseline the cell is not showing. Exported for tests.
+ */
+export function translationField(locale: string, field: TranslatableField): string {
+  return `tr_${locale}_${field}`;
+}
+
+export function parseTranslationField(
+  field: string,
+): { locale: string; field: TranslatableField } | null {
+  const m = /^tr_([a-z]+)_(name|description|alias)$/.exec(field);
+  return m ? { locale: m[1], field: m[2] as TranslatableField } : null;
 }
 
 /**
@@ -2268,6 +2293,19 @@ export default function InventoryPage() {
       newValue: unknown,
       oldValue: unknown,
     ): Promise<{ needsReload: boolean }> => {
+      const tr = parseTranslationField(field);
+      if (tr) {
+        // The cell's field is virtual, so the row's `translations` is stale
+        // until the reload; merge onto what the card holds now.
+        const translations = setTranslation(
+          card.translations,
+          tr.locale,
+          tr.field,
+          newValue == null ? "" : String(newValue),
+        );
+        await api.patch(`/cards/${card.id}`, { translations });
+        return { needsReload: true };
+      }
       if (field === "name" || field === "description") {
         await api.patch(`/cards/${card.id}`, { [field]: newValue });
       } else if (field === "subtype" || field === "alias") {
@@ -3220,6 +3258,24 @@ export default function InventoryPage() {
       },
     };
 
+    // In a translated UI the Name / Description / Alias cells show — and edit —
+    // the card's translation; viewing falls back to English, editing does not,
+    // so a save can never land on the English baseline by accident.
+    const contentLoc = contentLocale(i18n.language);
+    const translatedContent = (CONTENT_LOCALES as readonly string[]).includes(contentLoc);
+    const contentColumn = (base: TranslatableField): Partial<ColDef> =>
+      translatedContent
+        ? {
+            field: translationField(contentLoc, base),
+            valueGetter: (p: { data?: Card }) =>
+              !p.data
+                ? ""
+                : gridEditMode
+                  ? p.data.translations?.[contentLoc]?.[base] ?? ""
+                  : localizedCardText(p.data, base, contentLoc),
+          }
+        : { field: base };
+
     const cols: ColDef[] = [
       {
         colId: "core_type",
@@ -3246,7 +3302,7 @@ export default function InventoryPage() {
       },
       {
         colId: "core_name",
-        field: "name",
+        ...contentColumn("name"),
         headerName: t("common:labels.name"),
         flex: 1,
         minWidth: 220,
@@ -3338,7 +3394,7 @@ export default function InventoryPage() {
                     }}
                     dir="auto"
                   >
-                    {localizedCardText(p.data, "name", i18n.language)}
+                    {p.value}
                   </Box>
                 </Box>
               );
@@ -3401,7 +3457,7 @@ export default function InventoryPage() {
         // Description column — `isInventoryFillable` needs no special case,
         // since the column has a `field` to persist through.
         colId: "core_alias",
-        field: "alias",
+        ...contentColumn("alias"),
         headerName: t("common:labels.alias"),
         width: 160,
         sortable: true,
@@ -3507,7 +3563,7 @@ export default function InventoryPage() {
         : []),
       {
         colId: "core_description",
-        field: "description",
+        ...contentColumn("description"),
         headerName: t("common:labels.description"),
         flex: 1,
         minWidth: 200,
