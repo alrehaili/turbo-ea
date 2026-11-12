@@ -29,6 +29,7 @@ import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
 import ResourceTypesAdmin from "@/features/admin/ResourceTypesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType as FSType, RelationType as RType } from "@/types";
 import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
@@ -75,6 +76,7 @@ function emptyNewType(category: string | null): NewTypeDraft {
 export default function MetamodelAdmin() {
   const theme = useTheme();
   const { t, i18n } = useTranslation(["admin", "common"]);
+  const typeLabel = useTypeLabel();
   const { invalidateCache } = useMetamodel();
   const { categories } = useCardTypeCategories();
   // A new type starts in "Application" (fork: NORA layer) — the default before the
@@ -292,7 +294,7 @@ export default function MetamodelAdmin() {
                       </Box>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography fontWeight={600} noWrap>
-                          {ct.label}
+                          {typeLabel(ct)}
                         </Typography>
                         <Typography
                           variant="caption"

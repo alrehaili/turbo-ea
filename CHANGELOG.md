@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - In the Arabic interface, editing a card's name in the inventory grid now edits its Arabic name instead of overwriting the English one.
 - The inventory's Description and Alias columns now show the Arabic text in the Arabic interface, and edit it there too.
+- Admin → Metamodel now shows card type names in the interface language on the type list, the metamodel graph and the relation-type pickers, as the type drawer already did.
 
 ## [2.48.0] - 2026-11-12
 

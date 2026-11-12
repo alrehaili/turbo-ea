@@ -12,6 +12,7 @@ import { readableTextColor } from "@/lib/color";
 import { successorRelationKeys } from "@/lib/successorRelation";
 import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import {
   NODE_W,
   NODE_H,
@@ -118,6 +119,7 @@ export interface GraphProps {
 
 const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
   const { t, i18n } = useTranslation(["admin"]);
+  const typeLabel = useTypeLabel();
   const theme = useTheme();
   const { categories } = useCardTypeCategories();
   const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
@@ -724,7 +726,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
                 fill={readableTextColor(t.color)}
                 fontFamily="Inter, Roboto, system-ui, sans-serif"
               >
-                {truncate(t.label, 14)}
+                {truncate(typeLabel(t), 14)}
               </text>
             </g>
           );

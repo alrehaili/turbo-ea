@@ -611,7 +611,7 @@ export default function RelationTypesPanel({
                       sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: ct.color }}
                     />
                     <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
-                    {ct.label}
+                    {typeLabel(ct)}
                   </Box>
                 </MenuItem>
               ))}
@@ -638,7 +638,7 @@ export default function RelationTypesPanel({
                       sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: ct.color }}
                     />
                     <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
-                    {ct.label}
+                    {typeLabel(ct)}
                   </Box>
                 </MenuItem>
               ))}
