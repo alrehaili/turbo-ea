@@ -26,6 +26,7 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.services.card_read_scope import CardReadScope
+from app.services.type_groups import ORGANIZATION_TYPE_KEYS
 
 
 async def build_portfolio_payload(
@@ -207,10 +208,11 @@ async def build_portfolio_payload(
     visible_type_keys = {t.key for t in all_types if not t.is_hidden}
     fields_schema = card_type.fields_schema or []
 
-    # 7. Get all organizations for org filter options (backwards-compat)
+    # 7. Get all organizations for org filter options (backwards-compat) —
+    # Organization and, under NORA, Organizational Unit.
     orgs_result = await db.execute(
         select(Card)
-        .where(Card.type == "Organization", Card.status == "ACTIVE", *readable)
+        .where(Card.type.in_(ORGANIZATION_TYPE_KEYS), Card.status == "ACTIVE", *readable)
         .order_by(Card.name)
     )
     orgs = orgs_result.scalars().all()

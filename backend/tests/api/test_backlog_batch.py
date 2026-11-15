@@ -244,3 +244,48 @@ class TestStrategyCascade:
             )
         ).json()
         assert data["summary"]["unaligned"] == 0
+
+    async def test_an_organizational_unit_owns_an_objective(self, client, db, batch_env):
+        """Under NORA the owning unit is an Organizational Unit (Organization is
+        hidden), so the owner chip reads either organization type."""
+        from tests.conftest import create_relation, create_relation_type
+
+        await create_card_type(db, key="Pillar", label="Strategic Pillar", built_in=True)
+        await create_card_type(db, key="Objective", label="Objective", built_in=True)
+        await create_card_type(db, key="OrganizationalUnit", label="Organizational Unit")
+        await create_card_type(db, key="Application", label="Application")
+        await create_relation_type(
+            db,
+            key="relObjectiveToPillar",
+            label="supports",
+            source_type_key="Objective",
+            target_type_key="Pillar",
+        )
+        await create_relation_type(
+            db,
+            key="relUnitToObjective",
+            label="owns",
+            source_type_key="OrganizationalUnit",
+            target_type_key="Objective",
+        )
+        pillar = await create_card(db, card_type="Pillar", name="Digital Government")
+        objective = await create_card(db, card_type="Objective", name="Paperless services")
+        unit = await create_card(db, card_type="OrganizationalUnit", name="Digital Sector")
+        stranger = await create_card(db, card_type="Application", name="Not an owner")
+        await create_relation(
+            db, type_key="relObjectiveToPillar", source_id=objective.id, target_id=pillar.id
+        )
+        await create_relation(
+            db, type_key="relUnitToObjective", source_id=unit.id, target_id=objective.id
+        )
+        await db.flush()
+
+        data = (
+            await client.get(
+                "/api/v1/reports/strategy-cascade", headers=auth_headers(batch_env["admin"])
+            )
+        ).json()
+
+        o = data["pillars"][0]["objectives"][0]
+        assert o["owner"] == {"id": str(unit.id), "name": "Digital Sector"}
+        assert str(stranger.id) not in str(data)

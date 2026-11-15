@@ -80,7 +80,7 @@ def _match_bool(value: Any) -> bool | None:
     if not folded:
         return None
     for token, flag in sorted(mappings.YES_NO.items(), key=lambda kv: -len(kv[0])):
-        if _fold(token) == folded or folded.startswith(_fold(token)):
+        if _fold(token) == folded or (len(token) > 1 and folded.startswith(_fold(token))):
             return flag
     return None
 
@@ -150,6 +150,26 @@ def _split_multi(value: Any) -> list[str]:
 #   date / bool / parent_name / rel_targets / rel_sources /
 #   beneficiary_group / lifecycle_status / skip
 # ---------------------------------------------------------------------------
+
+# The columns that identify a data attribute and its data entity, shared by the
+# two data-attribute sheets. The English names are matched first so the Arabic
+# ones (the same words plus "(عربي)") reach the right rule.
+_DATA_ATTRIBUTE_IDENTITY: list[tuple[str, tuple]] = [
+    ("معرف كيان البيانات", ("skip",)),
+    ("اسم كيان البيانات (انجليزي", ("skip",)),
+    ("اسم كيان البيانات", ("rel_sources", "dataObjectToAttribute", "DataObject")),
+    ("معرف سمه البيانات", ("attr", "code")),
+    ("اسم السمه (انجليزي", ("skip",)),
+    ("اسم السمه", ("name",)),
+]
+
+# The four support / cost columns every technology and security sheet ends with.
+_SUPPORT_AND_COST: list[tuple[str, tuple]] = [
+    ("حاله عقد الدعم", ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS)),
+    ("نوع التشغيل", ("option", "typeOfOperation", mappings.TYPE_OF_OPERATION)),
+    ("التكلفه الاوليه", ("cost", "capitalCost")),
+    ("التكلفه التشغيليه", ("cost", "operatingCost")),
+]
 
 _SHEET_SPECS: list[dict[str, Any]] = [
     {
@@ -267,24 +287,94 @@ _SHEET_SPECS: list[dict[str, Any]] = [
             ),
         ],
     },
+    {
+        "sheet_token": "دليل السياسات",
+        "native_type": "Policy",
+        "columns": [
+            ("رمز السياسه", ("attr", "policyCode")),
+            ("اسم السياسه", ("name",)),
+            ("وصف السياسه", ("description",)),
+            ("نوع السياسه", ("option", "policyType", mappings.POLICY_TYPE)),
+            ("نطاق السياسه", ("attr", "policyScope")),
+            ("حاله السياسه", ("option", "policyStatus", mappings.POLICY_STATUS)),
+            ("تاريخ تفعيل", ("date", "activationDate")),
+            ("خدمات ذات علاقه", ("rel_targets", "policyToService", "GovService")),
+            ("اجراءات ذات علاقه", ("rel_targets", "policyToProcess", "BusinessProcess")),
+            ("بنود السياسه", ("attr", "policyClauses")),
+        ],
+    },
+    {
+        "sheet_token": "دليل النماذج",
+        "native_type": "ModelTemplate",
+        "columns": [
+            ("رمز النموذج", ("attr", "code")),
+            ("اسم النموذج", ("name",)),
+            ("وصف النموذج", ("description",)),
+            ("نوع النموذج", ("option", "modelType", mappings.MODEL_TYPE)),
+            ("خدمات ذات علاقه", ("rel_sources", "serviceToModel", "GovService")),
+            ("اجراءات ذات علاقه", ("rel_sources", "processToModel", "BusinessProcess")),
+        ],
+    },
+    # ---- Data attributes: two sheets describe the same attributes, so a row
+    # merges into the attribute the other sheet already produced ("merge"). The
+    # Arabic name is the card name; the English one is not kept. ----
+    {
+        "sheet_token": "سمات البيانات",
+        "native_type": "DataAttribute",
+        "merge": True,
+        "columns": [
+            *_DATA_ATTRIBUTE_IDENTITY,
+            ("نطاق العمل", ("attr", "businessScope")),
+            ("مصدر البيانات", ("attr", "dataSource")),
+            ("مفتاح اساسي", ("bool", "primaryKey")),
+            ("امكانيه قبول الفراغ", ("bool", "nullable")),
+            ("نوع البيانات", ("attr", "dataType")),
+            ("طول البيانات", ("number", "dataLength")),
+            ("تنسيق البيانات", ("attr", "dataFormat")),
+            ("اسم ممثل", ("attr", "dataOwner")),
+            ("اسم مختص", ("attr", "dataSteward")),
+            ("اسم الجدول", ("attr", "tableName")),
+            ("اسم مخطط", ("attr", "schemaName")),
+        ],
+    },
+    {
+        "sheet_token": "فهرس الاعمال",
+        "native_type": "DataAttribute",
+        "merge": True,
+        "columns": [
+            *_DATA_ATTRIBUTE_IDENTITY,
+            ("وصف السمه (انجليزي", ("skip",)),
+            ("وصف السمه", ("description",)),
+            ("امكانيه قبول الفراغ", ("bool", "nullable")),
+            ("عينه من القيم", ("attr", "sampleValues")),
+            ("القوائم المعتمده", ("attr", "lookupSource")),
+            ("قواعد اعمال السمه", ("attr", "qualityRules")),
+            ("اسم ممثل", ("attr", "dataOwner")),
+            ("اسم مختص", ("attr", "dataSteward")),
+            ("تصنيف البيانات", ("option", "dataClassification", mappings.DATA_CLASSIFICATION)),
+        ],
+    },
     # ---- Technology architecture (بنية التقنية) ----
+    # The NORA technology building blocks' own field keys (§5.3.8). A row's
+    # columns are matched in order, so a longer, more specific token comes
+    # before a token it contains.
     {
         "sheet_token": "المضيف المادي",
         "native_type": "PhysicalHost",
         "columns": [
             ("اسم المضيف", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
-            ("الطراز", ("attr", "modelNumber")),
+            ("الطراز", ("attr", "model")),
             ("معرف الكتله", ("attr", "clusterId")),
-            ("قطاع الشبكه", ("attr", "securityZone")),
+            ("نوع مراقب", ("attr", "hypervisorType")),
+            ("اصدار مراقب", ("attr", "hypervisorVersion")),
+            ("قطاع الشبكه", ("option", "networkSegment", mappings.NETWORK_SEGMENT)),
+            ("العدد الكلي لنوي", ("number", "physicalCpuCores")),
+            ("المعالج", ("attr", "centralProcessingUnit")),
+            ("الذاكره العشوائيه", ("number", "physicalRam")),
+            ("السعه التخزينيه", ("number", "localStorageCapacity")),
             ("تاريخ نهايه الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
     {
@@ -292,14 +382,17 @@ _SHEET_SPECS: list[dict[str, Any]] = [
         "native_type": "VirtualServer",
         "columns": [
             ("اسم المضيف", ("name",)),
+            ("نوع نظام التشغيل", ("attr", "operatingSystemType")),
+            ("اصدار نظام التشغيل", ("attr", "operatingSystemVersion")),
             ("معرف الكتله", ("attr", "clusterId")),
-            ("قطاع الشبكه", ("attr", "securityZone")),
-            ("البيئه", ("option", "environment", mappings.ENVIRONMENT)),
+            ("قطاع الشبكه", ("option", "networkSegment", mappings.NETWORK_SEGMENT)),
+            ("وحدات المعالجه المركزيه", ("number", "centralProcessingUnits")),
+            ("الذاكره العشوائيه", ("number", "ram")),
+            ("القرص الافتراضي", ("number", "disk")),
+            ("البيئه", ("option", "environment", mappings.SERVER_ENVIRONMENT)),
             ("النسخ الاحتياطي", ("bool", "inBackupPolicy")),
             ("التعافي من الكوارث", ("bool", "inDrPolicy")),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
     {
@@ -308,18 +401,14 @@ _SHEET_SPECS: list[dict[str, Any]] = [
         "columns": [
             ("اسم المضيف", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
-            ("الطراز", ("attr", "modelNumber")),
-            ("جزء الشبكه", ("attr", "securityZone")),
-            ("الوظيفه", ("attr", "deviceFunction")),
+            ("الطراز", ("attr", "model")),
+            ("الموقع", ("attr", "location")),
+            ("جزء الشبكه", ("option", "networkSegment", mappings.NETWORK_SEGMENT)),
+            ("الوظيفه", ("attr", "function")),
             ("اصدار البرنامج الثابت", ("attr", "firmwareVersion")),
             ("تاريخ انتهاء الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
+            ("النوع", ("attr", "deviceType")),
         ],
     },
     {
@@ -328,17 +417,12 @@ _SHEET_SPECS: list[dict[str, Any]] = [
         "columns": [
             ("اسم المضيف", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
-            ("الطراز", ("attr", "modelNumber")),
+            ("الطراز", ("attr", "model")),
             ("اصدار البرنامج الثابت", ("attr", "firmwareVersion")),
-            ("جزء الشبكه", ("attr", "securityZone")),
+            ("جزء الشبكه", ("option", "networkSegment", mappings.NETWORK_SEGMENT)),
+            ("التخزين المحلي", ("number", "storageCapacity")),
             ("تاريخ نهايه الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
     {
@@ -348,88 +432,61 @@ _SHEET_SPECS: list[dict[str, Any]] = [
             ("اسم المضيف", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
             ("الاصدار", ("attr", "version")),
-            ("الوظيفه", ("attr", "deviceFunction")),
+            ("الوظيفه", ("attr", "function")),
             ("تاريخ نهايه الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
     {
         "sheet_token": "خدمات التقنيه التحتيه",
         "native_type": "InfraService",
         "columns": [
-            ("رمز الخدمه", ("attr", "serviceCode")),
+            ("رمز الخدمه", ("attr", "code")),
             ("اسم المضيف", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
             ("الاصدار", ("attr", "version")),
-            ("الوظيفه", ("attr", "deviceFunction")),
+            ("الوظيفه", ("attr", "function")),
             ("تاريخ نهايه الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
-    # ---- Security architecture (بنية الأمن) ----
+    # ---- Security architecture (بنية الأمن) — §5.3.9 ----
     {
         "sheet_token": "اجهزه الامن",
         "native_type": "SecurityHardware",
         "columns": [
+            ("الرمز", ("attr", "code")),
             ("اسم المضيف", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
-            ("الطراز", ("attr", "modelNumber")),
-            ("جزء الشبكه", ("attr", "securityZone")),
-            ("الوظيفه", ("attr", "deviceFunction")),
+            ("الطراز", ("attr", "model")),
+            ("جزء الشبكه", ("option", "networkSegment", mappings.NETWORK_SEGMENT)),
+            ("الوظيفه", ("attr", "function")),
             ("اصدار البرنامج الثابت", ("attr", "firmwareVersion")),
             ("تاريخ انتهاء الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
     {
         "sheet_token": "برمجيات الامن",
         "native_type": "SecuritySoftware",
         "columns": [
+            ("الرمز", ("attr", "code")),
             ("الاسم", ("name",)),
             ("الشركه المصنعه", ("attr", "manufacturer")),
             ("الاصدار", ("attr", "version")),
             ("تاريخ نهايه الدعم", ("date", "supportEndDate")),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
     {
         "sheet_token": "خدمات الامن",
         "native_type": "SecurityService",
         "columns": [
+            ("الرمز", ("attr", "code")),
             ("اسم الخدمه", ("name",)),
-            ("الوظيفه", ("attr", "deviceFunction")),
+            ("الوظيفه", ("attr", "function")),
             ("الوصف", ("description",)),
-            (
-                "حاله عقد الدعم",
-                ("option", "supportContractStatus", mappings.SUPPORT_CONTRACT_STATUS),
-            ),
-            ("نوع التشغيل", ("option", "operationType", mappings.OPERATION_TYPE)),
-            ("التكلفه الاوليه", ("cost", "initialCost")),
-            ("التكلفه التشغيليه", ("cost", "costTotalAnnual")),
+            *_SUPPORT_AND_COST,
         ],
     },
 ]
@@ -439,11 +496,7 @@ _SHEET_SPECS: list[dict[str, Any]] = [
 _SKIPPED_SHEET_TOKENS: list[str] = [
     "المقدمه",
     "lookup",
-    "دليل النماذج",
-    "دليل السياسات",
     "اصحاب المصلحه",
-    "فهرس الاعمال",
-    "سمات البيانات",
     "التحسينات علي رحلات",
 ]
 
@@ -664,18 +717,27 @@ def _parse_sheet(
             source_id=entity_id,
             type=native_type,
             name=name,
-            category=mappings.ITC_SUBTYPE_BY_NATIVE_TYPE.get(native_type),
+            category=mappings.SUBTYPE_BY_NATIVE_TYPE.get(native_type),
             description=description,
             lifecycle=lifecycle,
             parent_id=parent_id,
             custom_fields=attrs,
             raw={"sheet": _norm_name(ws.title)},
         )
-        if entity_id in entities and not entities[entity_id].raw.get("nora_stub"):
-            parse_errors.append(
-                f"Sheet '{ws.title.strip()}': duplicate name '{name}' — later row wins"
-            )
-        entities[entity_id] = entity
+        existing = entities.get(entity_id)
+        if spec.get("merge") and existing is not None and not existing.raw.get("nora_stub"):
+            # The other sheet already described this attribute: fill what it
+            # left empty, keep what it set.
+            for key, value in attrs.items():
+                existing.custom_fields.setdefault(key, value)
+            if not existing.description and description:
+                existing.description = description
+        else:
+            if existing is not None and not existing.raw.get("nora_stub"):
+                parse_errors.append(
+                    f"Sheet '{ws.title.strip()}': duplicate name '{name}' — later row wins"
+                )
+            entities[entity_id] = entity
 
         seen_rel_ids = {r.source_id for r in relations}
         for rel_name, other_type, other_name, direction in row_relations:

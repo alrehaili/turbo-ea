@@ -4,7 +4,9 @@ This is a fictional enterprise architecture inspired by the public service remit
 
 Prepared against the local Turbo-EA 2.43.0 NORA metamodel on 30 October 2026. Updated on 12 November 2026 for Turbo-EA 2.48.2 with bilingual card content. Use Turbo-EA 2.48 or later to preserve Arabic translations.
 
-All 456 sample cards include English content and Arabic names, descriptions and aliases. The English descriptions have been rewritten, glossary terms now have actual definitions, and KPI formulas state their numerator, denominator and handling of a zero denominator. Stored option keys, field keys, identifiers, technical values and hierarchy references remain in their original format; only the supported card content fields are localized.
+All 455 sample cards include English content and Arabic names, descriptions and aliases. The English descriptions have been rewritten, glossary terms now have actual definitions, and KPI formulas state their numerator, denominator and handling of a zero denominator. Stored option keys, field keys, identifiers, technical values and hierarchy references remain in their original format; only the supported card content fields are localized.
+
+Organizations and beneficiary personas use the NORA building blocks. On 15 November 2026 the four Organization cards and three Beneficiary Persona cards were re-typed to Organizational Unit and Persona, as the DGA Content Meta Model guideline defines them; "Commission Enterprise" existed as both and is now a single Organizational Unit. Their relations moved to the native NORA relation types; the 60 with no native equivalent (for example Business Process → Organization) and 3 that became duplicates were removed. The other hidden types still carry sample records.
 
 ## Files and which one to upload
 
@@ -24,19 +26,19 @@ The outer **CSTD-complete-kit.zip** is a download container. Do not upload the o
 | Card types | 64 |
 | Types visible in NORA | 48 |
 | Types hidden in NORA | 16 |
-| Cards | 456 |
-| Cards with Arabic name, description and alias | 456 |
+| Cards | 455 |
+| Cards with Arabic name, description and alias | 455 |
 | Configured field entries across types | 384 |
-| Populated attribute values | 3,389 |
-| Relationships | 2,805 |
-| Distinct existing relation types used | 222 |
-| Stakeholder assignments | 456 |
-| Public-context document links | 456 |
+| Populated attribute values | 3,378 |
+| Relationships | 2,742 |
+| Distinct existing relation types used | 209 |
+| Stakeholder assignments | 455 |
+| Public-context document links | 455 |
 | Inactive fictional stakeholder accounts | 6 |
 
 Every card participates in at least one relationship. Names start with `CSTD |`, external IDs start with `CSTD-`, and every sample card carries the `CSTD Dataset / Synthetic test data` tag. All sample cards are drafts. Costs are illustrative SAR amounts.
 
-All 384 configured field definitions are represented. System-derived hierarchy fields use sample hierarchy values. `metricKey` is intentionally empty on the eight manually measured KPIs: assigning an executive metric would make the application calculate a different measure. Empty parent paths on roots and absent subtypes where the type defines none are intentional. Unknown real-world values should remain blank in your real collection rather than being invented.
+All configured field definitions are represented except the six on Organization and Beneficiary Persona, which are left empty (see below). System-derived hierarchy fields use sample hierarchy values. `metricKey` is intentionally empty on the eight manually measured KPIs: assigning an executive metric would make the application calculate a different measure. Empty parent paths on roots and absent subtypes where the type defines none are intentional. Unknown real-world values should remain blank in your real collection rather than being invented.
 
 This covers the card inventory and its supporting relations, tags, stakeholder assignments and source links. It does **not** claim to seed every independent module: GRC risk registers, ADRs, BPMN diagrams, PPM task plans, surveys and other module tables are outside this kit.
 
@@ -45,7 +47,7 @@ This covers the card inventory and its supporting relations, tags, stakeholder a
 1. Use an administrator account in the intended test workspace. Keep the current NORA metamodel active and use a compatible Turbo-EA code version.
 2. Open **Admin → Settings → Migration → Workspace transfer**.
 3. Upload **CSTD-full-import.zip**.
-4. Read the preview before applying. On a workspace that does not already contain the sample IDs, the core counts should be 456 new cards and 2,805 new relationships. Supporting rows bring the total to 4,722 created rows.
+4. Read the preview before applying. On a workspace that does not already contain the sample IDs, the core counts should be 455 new cards and 2,742 new relationships. Supporting rows bring the total to 4,655 created rows.
 5. Apply the preview when the rows and workspace are correct. No deployment or import was performed on your live system during preparation of this kit.
 6. Browse the visible inventory using the `CSTD Dataset` tag. Start with the cloud registration service and follow its process, application, data, owning unit and capability links.
 7. Hidden-type records remain hidden under NORA. Use the workbook's Overview and Type Guide to inspect coverage. Unhide a type through the metamodel UI only if you intentionally want to expose it; the import does not change type visibility.

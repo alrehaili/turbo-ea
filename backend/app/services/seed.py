@@ -5254,7 +5254,7 @@ TYPES = [
         "description": "Government services delivered to beneficiaries and other stakeholders.",
         "icon": "handshake",
         "color": "#00897b",
-        "category": "Beneficiary Experience",
+        "category": "Business",
         "has_hierarchy": True,
         "subtypes": [
             {

@@ -119,7 +119,6 @@ const ExperienceHeatmap = lazy(() => import("@/features/reports/ExperienceHeatma
 const BeneficiaryLandscape = lazy(() => import("@/features/reports/BeneficiaryLandscape"));
 const ServiceTouchpointTraceability = lazy(() => import("@/features/reports/ServiceTouchpointTraceability"));
 const PersonaBeneficiaryMapping = lazy(() => import("@/features/reports/PersonaBeneficiaryMapping"));
-const NEAViewpointsDashboard = lazy(() => import("@/features/reports/NEAViewpointsDashboard"));
 const CostReport = lazy(() => import("@/features/reports/CostReport"));
 const MatrixReport = lazy(() => import("@/features/reports/MatrixReport"));
 const DataQualityReport = lazy(() => import("@/features/reports/DataQualityReport"));
@@ -368,7 +367,7 @@ function AppRoutes() {
                 <Route path="/reports/beneficiary-landscape" element={<BeneficiaryLandscape />} />
                 <Route path="/reports/service-touchpoints" element={<ServiceTouchpointTraceability />} />
                 <Route path="/reports/persona-beneficiary-mapping" element={<PersonaBeneficiaryMapping />} />
-                <Route path="/reports/nea-viewpoints" element={<NEAViewpointsDashboard />} />
+                <Route path="/reports/nea-viewpoints" element={<Navigate to="/view-library" replace />} />
                 {/* Phase 4: NORA Specialized Renderers */}
                 <Route path="/reports/strategic-house-nora" element={<StrategicHouseSpecReport />} />
                 <Route path="/reports/journey-map-nora" element={<BeneficiaryJourneyMapReport />} />

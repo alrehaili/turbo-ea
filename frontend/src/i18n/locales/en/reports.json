@@ -946,7 +946,7 @@
   "dataExchangeMap.colTargets": "Target apps",
   "orgChart.title": "Organization Chart",
   "orgChart.subtitle": "The organizational hierarchy — the NORA Business Architecture org-chart artifact.",
-  "orgChart.empty": "No Organization cards yet.",
+  "orgChart.empty": "No organizational units yet.",
   "serviceTraceability.title": "Service Traceability",
   "serviceTraceability.subtitle": "How a government service is delivered: processes, applications, data and technology within two relation hops.",
   "serviceTraceability.pickService": "Government Service",
@@ -1213,10 +1213,10 @@
     "level": {
       "0": "Not assessed",
       "1": "Initial",
-      "2": "Managed",
-      "3": "Defined",
-      "4": "Measured",
-      "5": "Optimizing"
+      "2": "Under development",
+      "3": "Functioning",
+      "4": "Managed",
+      "5": "Optimized"
     },
     "suggested": "Suggested",
     "suggestedHint": "Suggested from live repository evidence — the assessor confirms or overrides.",
@@ -1249,8 +1249,22 @@
       "target_state_modeling": "Target-state modelling",
       "lifecycle_planning": "Cards with lifecycle plans",
       "catalogue_alignment": "Capabilities aligned to the national catalogue",
-      "nea_evidence": "NEA evidence packs generated"
-    }
+      "nea_evidence": "NEA evidence packs generated",
+      "stakeholder_coverage": "Cards with a named stakeholder",
+      "repository_quality": "Repository data quality"
+    },
+    "builtinDimension": {
+      "dga_strategic_alignment": "Strategic Alignment",
+      "dga_management_support": "Corporate Management Support",
+      "dga_framework_deliverables": "EA Framework and Deliverables",
+      "dga_governance_management": "EA Governance and Management",
+      "dga_capability": "EA Capability",
+      "dga_architecture_content": "Architecture Content",
+      "dga_digital_transformation": "EA Role in the Digital Transformation",
+      "dga_value_realization": "Value Realization"
+    },
+    "accreditationReady": "Average level {{level}} — DGA accreditation level reached",
+    "accreditationNotYet": "Average level {{level}} — DGA accreditation needs level 3"
   },
   "serviceCatalogue": {
     "title": "Service Catalogue",
@@ -1845,29 +1859,6 @@
       "touchpoints": "Touchpoints",
       "satisfaction": "Satisfaction"
     }
-  },
-  "neaDashboard": {
-    "title": "NEA Viewpoints Dashboard",
-    "subtitle": "Complete reference of all 47 National EA viewpoints organized by methodology phase and domain.",
-    "metric": {
-      "total": "Total Viewpoints",
-      "phases": "Methodology Phases",
-      "domains": "EA Domains",
-      "filtered": "Filtered"
-    },
-    "search": "Search viewpoints, domains, or questions…",
-    "filter": {
-      "phase": "Phase:",
-      "domain": "Domain:"
-    },
-    "loading": "Loading viewpoints…",
-    "noResults": "No viewpoints match your filters.",
-    "key": "Key",
-    "status": {
-      "available": "Available"
-    },
-    "summary": "Summary",
-    "summaryText": "All 47 NEA viewpoints are organized across {{phases}} methodology phases and {{domains}} EA domains. Each viewpoint is defined by its stakeholder questions, visualization kind (list/matrix/diagram), and abstraction level (conceptual/logical/physical)."
   },
   "arb.approveTitle": "Approve review",
   "arb.approveDeadlineHelp": "Optionally set the implementation deadline approved with this decision. Later changes need a reason and are recorded.",

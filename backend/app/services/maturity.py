@@ -19,12 +19,67 @@ from app.models.maturity import (
     MaturityDimensionScore,
 )
 
-# NORA/Qiyas-style default EA maturity dimensions. Names are stored as data
-# (admin-editable, like card names) — the frontend translates only the fixed
-# 1–5 level labels, not these. Ten dimensions spanning governance, the four
-# architecture domains, security, methodology, performance, change, and
-# national alignment.
+# The DGA EA maturity model's eight domains — "Enterprise Architecture
+# Establishment for Government Entities" (DGA-1-2-1-211, Issue 1.0, 2022),
+# §4.5 Table 4. Each description lists the domain's criteria from that table.
+# Names are stored as data (admin-editable); the frontend shows a translated
+# name only while the stored name is still the seeded English one.
 DEFAULT_MATURITY_DIMENSIONS: tuple[tuple[str, str, str], ...] = (
+    (
+        "dga_strategic_alignment",
+        "Strategic Alignment",
+        "EA objectives and scope; alignment of business and IT with the strategic goals; "
+        "use of international best practice and technology trends.",
+    ),
+    (
+        "dga_management_support",
+        "Corporate Management Support",
+        "Stakeholders' support and involvement; business support; IT support; "
+        "EA communication plan with stakeholders; EA awareness.",
+    ),
+    (
+        "dga_framework_deliverables",
+        "EA Framework and Deliverables",
+        "EA framework; EA meta-modelling.",
+    ),
+    (
+        "dga_governance_management",
+        "EA Governance and Management",
+        "EA governance structure; EA governance operationalisation; EA processes and KPIs; "
+        "EA interaction.",
+    ),
+    (
+        "dga_capability",
+        "EA Capability",
+        "EA team; EA tools and repository; continuous learning, training and knowledge sharing.",
+    ),
+    (
+        "dga_architecture_content",
+        "Architecture Content",
+        "EA requirements; EA principles; EA standards and policies; EA deliverables; "
+        "EA data documentation.",
+    ),
+    (
+        "dga_digital_transformation",
+        "EA Role in the Digital Transformation",
+        "Target architecture; transition planning and roadmap; EA compliance and assurance; "
+        "architecture change management.",
+    ),
+    (
+        "dga_value_realization",
+        "Value Realization",
+        "EA continuous improvement; EA reporting.",
+    ),
+)
+
+# DGA grants its National EA accreditation certificate from level 3
+# ("Functioning") upwards (DGA-1-2-1-211 §4.5).
+DGA_ACCREDITATION_LEVEL = 3
+
+# The ten dimensions this fork seeded before the DGA model was adopted (NORA
+# profile < 17). Kept so `retire_legacy_dimensions` can recognise them and the
+# automated indicators can still serve an install that re-activated them.
+LEGACY_MATURITY_DIMENSIONS: tuple[tuple[str, str, str], ...] = (
     (
         "governance",
         "EA Governance & Organization",
@@ -116,6 +171,39 @@ async def seed_maturity_dimensions(db: AsyncSession) -> int:
         created += 1
     await db.flush()
     return created
+
+
+LEGACY_MATURITY_DIMENSION_KEYS: frozenset[str] = frozenset(
+    key for key, _, _ in LEGACY_MATURITY_DIMENSIONS
+)
+
+
+async def retire_legacy_dimensions(db: AsyncSession) -> list[str]:
+    """Deactivate the pre-DGA built-in dimensions, keeping every row.
+
+    Non-destructive: the rows stay (so past assessments keep their
+    ``dimension_id`` and the snapshotted name), they simply stop being added
+    to new assessments. Custom dimensions are never touched. Returns the keys
+    it deactivated. The caller runs this once per install, so an admin who
+    re-activates a legacy dimension afterwards keeps it.
+    """
+    rows = (
+        (
+            await db.execute(
+                select(MaturityDimension).where(
+                    MaturityDimension.key.in_(LEGACY_MATURITY_DIMENSION_KEYS),
+                    MaturityDimension.built_in.is_(True),
+                    MaturityDimension.is_active.is_(True),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for row in rows:
+        row.is_active = False
+    await db.flush()
+    return sorted(row.key for row in rows)
 
 
 def dimension_dict(d: MaturityDimension) -> dict:

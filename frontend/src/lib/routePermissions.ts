@@ -137,7 +137,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: "/reports/beneficiary-landscape", permission: "inventory.view" },
   { path: "/reports/service-touchpoints", permission: "inventory.view" },
   { path: "/reports/persona-beneficiary-mapping", permission: "inventory.view" },
-  { path: "/reports/nea-viewpoints", permission: "nora.view" },
   { path: "/reports/strategic-house-nora", permission: "inventory.view" },
   { path: "/reports/journey-map-nora", permission: "inventory.view" },
   { path: "/reports/datacenter-distribution", permission: "inventory.view" },
@@ -213,6 +212,8 @@ export const INTENTIONALLY_UNGATED: string[] = [
   // Public viewpoint catalogue metadata only; target pages enforce their own policies.
   "/view-library",
   "/reports/view-library",
+  // Old NEA Viewpoints Dashboard address — now redirects to the View Library.
+  "/reports/nea-viewpoints",
   // The universal fallback — for the catch-all, for RequirePermission's and
   // ModuleGate's Back buttons, and for the post-sign-in denial redirect.
   // Gating it would leave some users with no reachable page at all.

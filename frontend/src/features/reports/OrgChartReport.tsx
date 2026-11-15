@@ -1,8 +1,9 @@
 /**
- * OrgChartReport — the NORA BA "Organization Chart" artifact: the Organization
+ * OrgChartReport — the NORA BA "Organization Chart" artifact: the organization
  * hierarchy rendered as an indented tree. [FORK FEATURE] — noraPlan.md WP3.4.
+ * Draws Organizational Units under NORA, Organization cards otherwise
+ * (`pickOrgChartType`).
  */
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
@@ -12,23 +13,16 @@ import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
-import { useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import type { Card } from "@/types";
+import { orgNodeIcon, orgNodeKind, pickOrgChartType } from "./orgChart";
 
 interface TreeNode {
   card: Card;
   children: TreeNode[];
 }
-
-// Mapping of Organization subtypes to Material Symbols icons (WP100.2 UI Polish)
-const ORG_SUBTYPE_ICONS: Record<string, string> = {
-  sector: "account_balance", // Sector level
-  generalDepartment: "domain", // General Department
-  department: "apartment", // Department
-  sectionUnit: "work", // Section/Unit
-};
 
 // Color mapping for org hierarchy levels (business layer colors)
 const ORG_LEVEL_COLORS: Record<number, string> = {
@@ -56,19 +50,20 @@ function buildTree(cards: Card[]): TreeNode[] {
 
 export default function OrgChartReport() {
   const { t } = useTranslation(["reports", "common"]);
-  const [cards, setCards] = useState<Card[] | null>(null);
-  const { types } = useMetamodel();
+  const { types, loading: typesLoading } = useMetamodel();
   const subtypeLabel = useSubtypeLabel();
-  const orgType = types.find((ty) => ty.key === "Organization");
+  const optionLabel = useOptionLabel();
+  const orgType = pickOrgChartType(types);
+  const { data, loading, error } = useApiQuery<{ items: Card[] }>(
+    orgType ? `/cards?type=${encodeURIComponent(orgType.key)}&page_size=10000` : null,
+  );
+  const cards = error ? [] : data?.items;
+  const unitTypeOptions =
+    orgType?.fields_schema
+      ?.flatMap((section) => section.fields)
+      .find((field) => field.key === "unitType")?.options ?? [];
 
-  useEffect(() => {
-    api
-      .get<{ items: Card[] }>("/cards?type=Organization&page_size=10000")
-      .then((res) => setCards(res.items))
-      .catch(() => setCards([]));
-  }, []);
-
-  if (!cards) {
+  if (typesLoading || loading || (orgType && !cards)) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
@@ -78,10 +73,10 @@ export default function OrgChartReport() {
 
   const renderNode = (node: TreeNode, level: number) => {
     const subtypeDef = orgType?.subtypes?.find((s) => s.key === node.card.subtype);
-    // Use subtype-specific icon, or fallback to corporate_fare
-    const icon = node.card.subtype
-      ? ORG_SUBTYPE_ICONS[node.card.subtype] || "corporate_fare"
-      : "corporate_fare";
+    const unitTypeDef = subtypeDef
+      ? undefined
+      : unitTypeOptions.find((o) => o.key === node.card.attributes?.unitType);
+    const icon = orgNodeIcon(orgNodeKind(node.card));
     // Use hierarchical color or fallback to grey for deep levels
     const color = ORG_LEVEL_COLORS[level] || "#546e7a";
 
@@ -107,9 +102,9 @@ export default function OrgChartReport() {
           >
             {node.card.name}
           </Link>
-          {subtypeDef && (
+          {(subtypeDef || unitTypeDef) && (
             <Typography variant="caption" color="text.secondary">
-              {subtypeLabel(subtypeDef)}
+              {subtypeDef ? subtypeLabel(subtypeDef) : optionLabel(unitTypeDef)}
             </Typography>
           )}
         </Box>
@@ -118,7 +113,7 @@ export default function OrgChartReport() {
     );
   };
 
-  const roots = buildTree(cards);
+  const roots = buildTree(cards ?? []);
 
   return (
     <Box sx={{ p: 3 }}>

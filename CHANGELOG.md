@@ -5,6 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.49.0] - 2026-11-15
+
+### Added
+- EA Maturity scores the eight domains of DGA's EA maturity model (Strategic Alignment, Corporate Management Support, EA Framework and Deliverables, EA Governance and Management, EA Capability, Architecture Content, EA Role in the Digital Transformation, Value Realization), each with suggested levels from repository evidence; the ten earlier dimensions are switched off on upgrade and past assessments keep their scores.
+- The maturity page shows the average level behind the overall score and whether it reaches DGA's accreditation level (3), and names the levels as DGA does: Initial, Under development, Functioning, Managed, Optimized.
+- Policy cards carry a code, a type (internal / external), a status (active / suspended / cancelled), an effective date, a scope, the policy's clauses and a link to the policy document, as the DGA Content Meta Model guideline and data-collection template define them.
+- Government services show their beneficiary types, delivery channels, maturity, fee model, SLA, monthly volume and use of national shared services; strategic pillars their code and order; personas their code. These fields were defined but never reached an installed workspace.
+- Security hardware, software and services carry a code, version or firmware, support contract status, type of operation and capital and operating cost; physical hosts their hypervisor; virtual servers their backup and disaster-recovery cover; models/templates a code, type and link; infrastructure services and integration points their code, as the DGA templates collect them.
+
+### Changed
+- Government Service now sits in the Business layer, where the DGA Content Meta Model guideline (June 2025) defines Service; installs where it is still in Beneficiary Experience are moved once on upgrade.
+- A NORA install with no display currency chosen shows costs in Saudi riyals (SAR); a currency already chosen is kept.
+- The Organization Chart, the strategy cascade's owning unit and the application portfolio's organization filter read Organizational Units, so they show the organization under NORA; without NORA they read Organization cards as before.
+- Data attributes carry the attributes DGA collects for them: an ID, data type, length and format, primary key, whether empty values are accepted, quality / business rules, business scope, data source, database table and schema, sample values, the approved value list, data owner and steward, and the data classification.
+- Importing the DGA data-collection templates now also reads the policies, models/templates and data-attribute sheets (the attributes sheet and the business catalogue are merged into one card per attribute), with their links to services, procedures and data entities.
+- Importing the DGA data-collection templates puts technology and security rows on their NORA card types (Physical Host, Server, Network Device, Storage, Infrastructure Management Tool and Service, Security Hardware, Software and Service) with each column on that type's own field, and now also reads the hypervisor, CPU, memory, storage, location, device type, operating system and code columns; they used to land on the hidden IT Component type.
+- The NORA demo data models its organization as Organizational Units and its beneficiary personas as Personas, and the NORA report presets for organization and persona views read those types; presets you have not changed are updated on upgrade.
+- The CST-inspired example uses the NORA building blocks for its organization and beneficiary personas: its Organization and Beneficiary Persona cards are now Organizational Units and Personas, "Commission Enterprise" is a single card, and their links use the native NORA relation types (455 cards, 2,742 relations).
+
+### Fixed
+- The old NEA Viewpoints Dashboard address, which never finished loading and showed conflicting viewpoint counts, now opens the View Library with DGA's 67 core viewpoints.
+
 ## [2.48.2] - 2026-11-12
 
 ### Changed

@@ -3,20 +3,20 @@
     "card_types": 64,
     "visible_types": 48,
     "hidden_types": 16,
-    "cards": 456,
-    "relations": 2805,
+    "cards": 455,
+    "relations": 2742,
     "configured_fields": 384,
-    "populated_attribute_values": 3389,
+    "populated_attribute_values": 3378,
     "manual_metric_link_blanks": 8,
     "inactive_synthetic_users": 6,
-    "stakeholders": 456,
-    "documents": 456,
-    "relation_types_used": 222,
+    "stakeholders": 455,
+    "documents": 455,
+    "relation_types_used": 209,
     "unlinked_cards": 0,
-    "cards_with_arabic_content": 456,
-    "arabic_names": 456,
-    "arabic_descriptions": 456,
-    "arabic_aliases": 456
+    "cards_with_arabic_content": 455,
+    "arabic_names": 455,
+    "arabic_descriptions": 455,
+    "arabic_aliases": 455
   },
   "types": [
     {
@@ -74,10 +74,10 @@
       "label": "Organization",
       "category": "Business",
       "hidden": true,
-      "records": 4,
+      "records": 0,
       "fields": 5,
-      "populated_cells": 20,
-      "intentional_blanks": ""
+      "populated_cells": 0,
+      "intentional_blanks": "Records are Organizational Units / Personas, the NORA building blocks; this hidden type is left empty."
     },
     {
       "type": "BusinessCapability",
@@ -154,10 +154,10 @@
       "label": "Beneficiary Persona",
       "category": "Business",
       "hidden": true,
-      "records": 3,
+      "records": 0,
       "fields": 1,
-      "populated_cells": 3,
-      "intentional_blanks": ""
+      "populated_cells": 0,
+      "intentional_blanks": "Records are Organizational Units / Personas, the NORA building blocks; this hidden type is left empty."
     },
     {
       "type": "Interface",
@@ -174,9 +174,9 @@
       "label": "Organizational Unit",
       "category": "Business",
       "hidden": false,
-      "records": 14,
+      "records": 17,
       "fields": 3,
-      "populated_cells": 42,
+      "populated_cells": 51,
       "intentional_blanks": ""
     },
     {
@@ -314,9 +314,9 @@
       "label": "Persona",
       "category": "Business",
       "hidden": false,
-      "records": 6,
+      "records": 9,
       "fields": 4,
-      "populated_cells": 24,
+      "populated_cells": 27,
       "intentional_blanks": ""
     },
     {

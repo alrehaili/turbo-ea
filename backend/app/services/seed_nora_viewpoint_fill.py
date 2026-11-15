@@ -2,7 +2,7 @@
 completion (Phases 2/3/6 of viewsPlan.md) that ship empty, so every viewpoint
 in the View Library renders real data:
 
-Beneficiary, BeneficiaryPersona, ModelTemplate, Position, Mandate,
+Beneficiary, Persona, ModelTemplate, Position, Mandate,
 JourneyImprovement, DataDictionary, DataTerm, DataAttribute, DataVault,
 Location, Datacenter, NetworkCircuit, SecurityService, SecurityFunction.
 
@@ -50,7 +50,7 @@ BENEFICIARIES: list[tuple[str, str | None, dict]] = [
 PERSONAS: list[tuple[str, str | None, dict]] = [
     (
         "Abu Salem — SME Owner",
-        None,
+        "beneficiary",
         {
             "demographics": "35-55, owner of a small trading establishment",
             "goals": "Renew CR quickly, track inspections, avoid branch visits",
@@ -60,7 +60,7 @@ PERSONAS: list[tuple[str, str | None, dict]] = [
     ),
     (
         "Sara — New Entrepreneur",
-        None,
+        "beneficiary",
         {
             "demographics": "25-35, first-time business founder",
             "goals": "Register a new business in one session",
@@ -70,7 +70,7 @@ PERSONAS: list[tuple[str, str | None, dict]] = [
     ),
     (
         "Khalid — Compliance Officer",
-        None,
+        "beneficiary",
         {
             "demographics": "30-50, corporate compliance department",
             "goals": "Verify certificates in bulk, download audit evidence",
@@ -80,7 +80,7 @@ PERSONAS: list[tuple[str, str | None, dict]] = [
     ),
     (
         "Norah — Field Inspector",
-        None,
+        "beneficiary",
         {
             "demographics": "28-45, ministry field workforce",
             "goals": "Complete inspection reports on-site from a tablet",
@@ -90,7 +90,7 @@ PERSONAS: list[tuple[str, str | None, dict]] = [
     ),
     (
         "Um Faisal — Retired Citizen",
-        None,
+        "beneficiary",
         {
             "demographics": "60+, low digital literacy",
             "goals": "Verify a contractor's certificate before hiring",
@@ -215,17 +215,17 @@ SECURITY_FUNCTIONS: list[tuple[str, str | None, dict]] = [
 
 RELATIONS: list[tuple[str, str, str]] = [
     # Beneficiary ↔ Persona
-    ("relBeneficiaryToPersona", "Private Sector Establishments", "Abu Salem — SME Owner"),
-    ("relBeneficiaryToPersona", "Private Sector Establishments", "Sara — New Entrepreneur"),
-    ("relBeneficiaryToPersona", "Private Sector Establishments", "Khalid — Compliance Officer"),
-    ("relBeneficiaryToPersona", "Citizens", "Um Faisal — Retired Citizen"),
-    ("relBeneficiaryToPersona", "Government Entities", "Norah — Field Inspector"),
+    ("relNora2PersonaBeneficiary", "Abu Salem — SME Owner", "Private Sector Establishments"),
+    ("relNora2PersonaBeneficiary", "Sara — New Entrepreneur", "Private Sector Establishments"),
+    ("relNora2PersonaBeneficiary", "Khalid — Compliance Officer", "Private Sector Establishments"),
+    ("relNora2PersonaBeneficiary", "Um Faisal — Retired Citizen", "Citizens"),
+    ("relNora2PersonaBeneficiary", "Norah — Field Inspector", "Government Entities"),
     # GovService ↔ Persona
-    ("relGovServiceToPersona", "Issue Commercial Registration", "Sara — New Entrepreneur"),
-    ("relGovServiceToPersona", "Renew Commercial Registration", "Abu Salem — SME Owner"),
-    ("relGovServiceToPersona", "Verify Commercial Certificate", "Khalid — Compliance Officer"),
-    ("relGovServiceToPersona", "Verify Commercial Certificate", "Um Faisal — Retired Citizen"),
-    ("relGovServiceToPersona", "Book Inspection Appointment", "Norah — Field Inspector"),
+    ("relPersonaToGovService", "Sara — New Entrepreneur", "Issue Commercial Registration"),
+    ("relPersonaToGovService", "Abu Salem — SME Owner", "Renew Commercial Registration"),
+    ("relPersonaToGovService", "Khalid — Compliance Officer", "Verify Commercial Certificate"),
+    ("relPersonaToGovService", "Um Faisal — Retired Citizen", "Verify Commercial Certificate"),
+    ("relPersonaToGovService", "Norah — Field Inspector", "Book Inspection Appointment"),
     # GovService ↔ Journey (existing journeys)
     ("relGovServiceToJourney", "Issue Commercial Registration", "Register a New Business"),
     ("relGovServiceToJourney", "Renew Commercial Registration", "Renew Commercial Registration"),
@@ -276,19 +276,23 @@ RELATIONS: list[tuple[str, str, str]] = [
     ("relAppToBeneficiary", "Unified Licensing Platform", "Private Sector Establishments"),
     ("relAppToBeneficiary", "National Integration Layer", "Government Entities"),
     # Organization ↔ Position
-    ("relOrgToPosition", "Demo Ministry of Commerce", "Chief Executive Officer"),
+    ("relNora2PositionOrganizationalUnit", "Chief Executive Officer", "Demo Ministry of Commerce"),
     (
-        "relOrgToPosition",
-        "General Department of Information Technology",
+        "relNora2PositionOrganizationalUnit",
         "Chief Information Officer",
-    ),
-    ("relOrgToPosition", "Digital Transformation Sector", "Director of Digital Transformation"),
-    (
-        "relOrgToPosition",
         "General Department of Information Technology",
-        "Enterprise Architecture Manager",
     ),
-    ("relOrgToPosition", "Applications Department", "Data Management Specialist"),
+    (
+        "relNora2PositionOrganizationalUnit",
+        "Director of Digital Transformation",
+        "Digital Transformation Sector",
+    ),
+    (
+        "relNora2PositionOrganizationalUnit",
+        "Enterprise Architecture Manager",
+        "General Department of Information Technology",
+    ),
+    ("relNora2PositionOrganizationalUnit", "Data Management Specialist", "Applications Department"),
     # Position ↔ Mandate
     ("relPositionToMandate", "Chief Executive Officer", "Service Delivery Excellence Mandate"),
     ("relPositionToMandate", "Chief Information Officer", "Digital Government Authority Mandate"),
@@ -300,13 +304,6 @@ RELATIONS: list[tuple[str, str, str]] = [
     ),
     ("relPositionToMandate", "Data Management Specialist", "National Data Governance Mandate"),
     # Organization ↔ Mandate
-    ("relOrgToMandate", "Demo Ministry of Commerce", "Service Delivery Excellence Mandate"),
-    (
-        "relOrgToMandate",
-        "General Department of Information Technology",
-        "Cybersecurity Regulatory Mandate",
-    ),
-    ("relOrgToMandate", "Digital Transformation Sector", "Digital Government Authority Mandate"),
     # DataDictionary ↔ DataTerm
     ("relDataDictToTerm", "National Core Data Dictionary", "Beneficiary"),
     ("relDataDictToTerm", "National Core Data Dictionary", "Establishment"),
@@ -490,7 +487,7 @@ async def seed_nora_viewpoint_fill(db: AsyncSession) -> dict:
 
     groups: list[tuple[str, list[tuple[str, str | None, dict]]]] = [
         ("Beneficiary", BENEFICIARIES),
-        ("BeneficiaryPersona", PERSONAS),
+        ("Persona", PERSONAS),
         ("ModelTemplate", MODEL_TEMPLATES),
         ("Position", POSITIONS),
         ("Mandate", MANDATES),
@@ -515,13 +512,14 @@ async def seed_nora_viewpoint_fill(db: AsyncSession) -> dict:
     created_cards = 0
 
     for card_type, specs in groups:
-        # Skip a type that already has cards (partial installs).
-        existing_count = (
-            await db.execute(select(Card.id).where(Card.type == card_type).limit(1))
-        ).scalar_one_or_none()
-        if existing_count is not None:
-            continue
+        # Skip a card whose name its type already holds (partial installs, and
+        # Persona, which earlier NORA seeders also populate).
+        existing_names = set(
+            (await db.execute(select(Card.name).where(Card.type == card_type))).scalars().all()
+        )
         for name, subtype, attrs in specs:
+            if name in existing_names:
+                continue
             card = Card(
                 type=card_type,
                 subtype=subtype,

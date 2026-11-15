@@ -48,6 +48,7 @@ from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+from app.services.nora_dga_fields import NORA_DGA_TYPE_FIELDS
 
 # v2 (WP6.2): field alignment to the Dec-2024 EA Content Meta Model + the six
 # official حصر البيانات data-collection templates (see noraPlan.md Phase 6).
@@ -78,7 +79,13 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 # v16: seven architecture layers — the Strategy layer, the strategy and
 # beneficiary types moved out of Business, and a set type order per layer
 # (``apply_architecture_layout``; the registry half is migration 1178).
-NORA_PROFILE_VERSION = 16
+# v17: DGA alignment (NORAreadiness.md) — the eight DGA maturity domains
+# replace the ten legacy dimensions (DGA-1-2-1-211), SAR becomes the display
+# currency when none was chosen, Government Service moves to the Business
+# layer, and the NORA types gain the attributes of the June 2025 Content Meta
+# Model guideline and DGA's data-collection templates (NORA_DGA_TYPE_FIELDS,
+# NORA_CARD_TYPE_FIELD_LANDING).
+NORA_PROFILE_VERSION = 17
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -134,7 +141,7 @@ SIX_LAYER_CATEGORY_MOVES: dict[str, tuple[str, str]] = {
     "BusinessCapability": ("Business Architecture", "Business"),
     "BusinessContext": ("Business Architecture", "Business"),
     "BusinessProcess": ("Business Architecture", "Business"),
-    "GovService": ("Business Architecture", "Beneficiary Experience"),
+    "GovService": ("Business Architecture", "Business"),
     "Application": ("Application & Data", "Application"),
     "Interface": ("Application & Data", "Application"),
     "DataObject": ("Application & Data", "Data"),
@@ -175,6 +182,9 @@ ARCHITECTURE_LAYOUT: list[tuple[str, list[str]]] = [
             "Role",
             "Policy",
             "ServiceProvider",
+            # B1 (Content Meta Model guideline, June 2025) defines Service
+            # (خدمة) in the Business domain (profile v17).
+            "GovService",
             "Product",
             "ModelTemplate",
         ],
@@ -182,7 +192,6 @@ ARCHITECTURE_LAYOUT: list[tuple[str, list[str]]] = [
     (
         "Beneficiary Experience",
         [
-            "GovService",
             "Beneficiary",
             "Persona",
             "BeneficiaryJourney",
@@ -236,7 +245,7 @@ ARCHITECTURE_LAYER_MOVES: dict[str, tuple[str, str]] = {
     },
     **{
         key: ("Business", "Beneficiary Experience")
-        for key in ("GovService", "Beneficiary", "Persona", "BeneficiaryJourney", "Phase", "Step")
+        for key in ("Beneficiary", "Persona", "BeneficiaryJourney", "Phase", "Step")
     },
     "DataVault": ("Technology", "Data"),
 }
@@ -244,6 +253,28 @@ ARCHITECTURE_LAYER_MOVES: dict[str, tuple[str, str]] = {
 # One-shot marker in general_settings: the type order is written once, so a
 # later profile upgrade never undoes an order an admin set by hand.
 ARCHITECTURE_LAYOUT_MARKER = "architectureLayoutV1Applied"
+
+# Set once the DGA maturity domains replaced the legacy ten (profile v17).
+DGA_MATURITY_MARKER = "dgaMaturityDomainsApplied"
+
+# Display currency a NORA install starts with when none was chosen (v17).
+NORA_DEFAULT_CURRENCY = "SAR"
+
+# Set once Government Service was moved back to the Business layer (v17).
+GOV_SERVICE_BUSINESS_MARKER = "govServiceBusinessLayerApplied"
+
+
+def plan_gov_service_move(category: str | None) -> tuple[str, int] | None:
+    """Where Government Service goes on an install the v16 layout already
+    ran on: the Business layer at its B1 position, but only while it still
+    sits in Beneficiary Experience — an admin's own choice is kept. Pure."""
+    if category != "Beneficiary Experience":
+        return None
+    for layer_index, (layer, keys) in enumerate(ARCHITECTURE_LAYOUT):
+        if layer == "Business":
+            return layer, layer_index * _LAYER_STRIDE + keys.index("GovService")
+    return None
+
 
 # Room between layers in the global ``sort_order``: layer N's types are
 # N * 100 + position, so the API's flat order is also layer order.
@@ -4759,7 +4790,7 @@ NORA_CARD_TYPES: list[dict] = [
         ),
         "icon": "assured_workload",
         "color": "#00838f",
-        "category": "Beneficiary Experience",
+        "category": "Business",
         # v2 (WP6.2): hierarchy enabled — sub-services (خدمة فرعية) attach to
         # their main service via parent_id.
         "has_hierarchy": True,
@@ -7248,6 +7279,53 @@ NORA_CARD_TYPES: list[dict] = [
     },
 ]
 
+
+# Profile v17 (NORAreadiness.md B-6): fields that the type definitions above
+# declare but that never reached a real install — the base seed creates these
+# types first, so pass 1 skips their definition. Landed by key through pass 4
+# (zero weight, like every injected field). Persona's demographicInfo /
+# personaGoals and the journey's stage stay out: the seeded Persona already
+# has demographics / goals, and journey stages are Phase cards in B1.
+NORA_CARD_TYPE_FIELD_LANDING: dict[str, list[str]] = {
+    "GovService": [
+        "beneficiaryType",
+        "deliveryChannel",
+        "serviceMaturity",
+        "feeModel",
+        "slaDays",
+        "monthlyTransactions",
+        "sharedServiceConsumer",
+    ],
+    "Pillar": ["pillarCode", "pillarOrder"],
+    "Persona": ["personaCode"],
+    "Policy": ["policyCode", "policyType", "policyStatus", "activationDate", "policyLink"],
+}
+
+
+def _landing_fields(type_key: str, keys: list[str]) -> list[dict]:
+    type_def = next(t for t in NORA_CARD_TYPES if t["key"] == type_key)
+    by_key = {
+        f["key"]: f for section in type_def.get("fields_schema") or [] for f in section["fields"]
+    }
+    return [{**deepcopy(by_key[k]), "weight": 0} for k in keys]
+
+
+for _type_key, _keys in NORA_CARD_TYPE_FIELD_LANDING.items():
+    NORA_TYPE_FIELDS.setdefault(_type_key, []).extend(_landing_fields(_type_key, _keys))
+# Profile v17: DGA attributes the NORA types lacked (B1 + the templates).
+for _type_key, _fields in NORA_DGA_TYPE_FIELDS.items():
+    NORA_TYPE_FIELDS.setdefault(_type_key, []).extend(deepcopy(_fields))
+# A data attribute carries the same NDMO classification as its data entity
+# (B1 §5.3.6.2.3).
+NORA_TYPE_FIELDS["DataAttribute"].append(
+    {
+        **deepcopy(
+            next(f for f in NORA_TYPE_FIELDS["DataObject"] if f["key"] == "dataClassification")
+        ),
+        "weight": 0,
+    }
+)
+
 # Relation attribute injected on every Initiative relation type so transition
 # projects declare what they do to each linked card (noraPlan.md WP2.4).
 TRANSITION_ROLE_ATTRIBUTE: dict = {
@@ -8774,6 +8852,21 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     for moved in await apply_architecture_layout(db, layout_general):
         summary.setdefault("categories_moved", []).append(moved)
 
+    # Profile v17: Government Service back to Business (B1 puts Service there)
+    # on installs the v16 layout already moved into Beneficiary Experience.
+    # Once per install, guarded on its current layer and on the built-in row.
+    if not layout_general.get(GOV_SERVICE_BUSINESS_MARKER):
+        gov_ct = (
+            await db.execute(select(CardType).where(CardType.key == "GovService"))
+        ).scalar_one_or_none()
+        if gov_ct is not None and gov_ct.built_in:
+            target = plan_gov_service_move(gov_ct.category)
+            if target is not None:
+                gov_ct.category, gov_ct.sort_order = target
+                summary.setdefault("categories_moved", []).append(f"GovService → {target[0]}")
+        layout_general[GOV_SERVICE_BUSINESS_MARKER] = True
+    layout_row.general_settings = layout_general
+
     # ── Pass 5: seed the EA Program deliverable catalogue (WP3.1 + WP6.1) ──
     # Methodology resolution: an explicit stored version wins; otherwise an
     # install that already carries deliverable rows is a pre-WP6.1 v1
@@ -8803,9 +8896,18 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     summary["practice_checklist_created"] = await seed_practice_checklist(db)
 
     # ── Pass 6: seed the EA maturity dimension catalogue (WP5.2) ───────────
-    from app.services.maturity import seed_maturity_dimensions
+    from app.services.maturity import retire_legacy_dimensions, seed_maturity_dimensions
 
     summary["maturity_dimensions_created"] = await seed_maturity_dimensions(db)
+    # Profile v17: the DGA eight-domain model replaces the fork's original ten
+    # dimensions. Once per install (marker), so a legacy dimension an admin
+    # re-activates afterwards stays active.
+    maturity_row = await _get_or_create_settings_row(db)
+    maturity_general = dict(maturity_row.general_settings or {})
+    if not maturity_general.get(DGA_MATURITY_MARKER):
+        summary["maturity_dimensions_retired"] = await retire_legacy_dimensions(db)
+        maturity_general[DGA_MATURITY_MARKER] = True
+        maturity_row.general_settings = maturity_general
 
     # ── Pass 7: seed the kit-preview reference-model starters (WP100.3) ────
     from app.services.reference_models import seed_reference_model_starters
@@ -8830,6 +8932,12 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
     general["noraProfileVersion"] = NORA_PROFILE_VERSION
     general["noraMethodologyVersion"] = methodology
     general[ARCHITECTURE_LAYOUT_MARKER] = True
+    # Profile v17: a Saudi government install shows costs in riyals. Only
+    # when no display currency was ever chosen — an explicit choice (USD
+    # included) is stored under the key and is kept.
+    if "currency" not in general:
+        general["currency"] = NORA_DEFAULT_CURRENCY
+        summary["currency_set"] = NORA_DEFAULT_CURRENCY
     row.general_settings = general
 
     await db.commit()

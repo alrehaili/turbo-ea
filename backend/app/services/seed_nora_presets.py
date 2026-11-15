@@ -57,7 +57,7 @@ NORA_PRESETS = [
         "viewpoint_code": "BIZ_ORG_DIAGRAM",
         "report_type": "org-chart",
         "config": {
-            "filters": {"type": "Organization"},
+            "filters": {"type": "OrganizationalUnit"},
             "columns": ["name", "description"],
         },
     },
@@ -102,7 +102,7 @@ NORA_PRESETS = [
         "viewpoint_code": "BIZ_ORG_SVC_MTX",
         "report_type": "matrix",
         "config": {
-            "source": "Organization",
+            "source": "OrganizationalUnit",
             "target": "GovService",
             "columns": ["name"],
         },
@@ -115,7 +115,7 @@ NORA_PRESETS = [
         "report_type": "matrix",
         "config": {
             "source": "BusinessCapability",
-            "target": "Organization",
+            "target": "OrganizationalUnit",
         },
     },
     {
@@ -126,7 +126,7 @@ NORA_PRESETS = [
         "report_type": "matrix",
         "config": {
             "source": "Position",
-            "target": "Organization",
+            "target": "OrganizationalUnit",
         },
     },
     {
@@ -170,7 +170,7 @@ NORA_PRESETS = [
         "viewpoint_code": "BEN_PERSONA_LIST",
         "report_type": "inventory",
         "config": {
-            "filters": {"type": "BeneficiaryPersona"},
+            "filters": {"type": "Persona"},
             "columns": ["name", "description"],
         },
     },
@@ -190,7 +190,7 @@ NORA_PRESETS = [
         "report_type": "matrix",
         "config": {
             "source": "Beneficiary",
-            "target": "BeneficiaryPersona",
+            "target": "Persona",
         },
     },
     {
@@ -201,7 +201,7 @@ NORA_PRESETS = [
         "report_type": "matrix",
         "config": {
             "source": "GovService",
-            "target": "BeneficiaryPersona",
+            "target": "Persona",
         },
     },
     {
@@ -222,7 +222,7 @@ NORA_PRESETS = [
         "viewpoint_code": "BEN_PERSONA_JOURNEY_MTX",
         "report_type": "matrix",
         "config": {
-            "source": "BeneficiaryPersona",
+            "source": "Persona",
             "target": "BeneficiaryJourney",
         },
     },
@@ -303,7 +303,7 @@ NORA_PRESETS = [
         "report_type": "matrix",
         "config": {
             "source": "Application",
-            "target": "Organization",
+            "target": "OrganizationalUnit",
         },
     },
     {
@@ -464,6 +464,32 @@ NORA_PRESETS = [
     },
 ]
 
+# Hidden generic type → the NORA building block a preset should read instead.
+PRESET_TYPE_RETARGET: dict[str, str] = {
+    "Organization": "OrganizationalUnit",
+    "BeneficiaryPersona": "Persona",
+}
+
+
+def retarget_preset_config(config: dict | None) -> dict | None:
+    """The config with its hidden organization / persona type swapped for the
+    NORA one, or ``None`` when nothing changes. Only a NORA preset
+    (``_noraPreset``) is touched, and only a value still equal to the old type
+    — a filter an admin changed is left alone. Pure."""
+    if not config or not config.get("_noraPreset"):
+        return None
+    out = dict(config)
+    changed = False
+    filters = out.get("filters")
+    if isinstance(filters, dict) and filters.get("type") in PRESET_TYPE_RETARGET:
+        out["filters"] = {**filters, "type": PRESET_TYPE_RETARGET[filters["type"]]}
+        changed = True
+    for side in ("source", "target"):
+        if out.get(side) in PRESET_TYPE_RETARGET:
+            out[side] = PRESET_TYPE_RETARGET[out[side]]
+            changed = True
+    return out if changed else None
+
 
 async def seed_nora_presets(db: AsyncSession) -> None:
     """Seed NORA-configured saved report presets for all available viewpoints.
@@ -481,6 +507,18 @@ async def seed_nora_presets(db: AsyncSession) -> None:
 
     # Fetch existing preset names once (dedup by name).
     existing_names = set((await db.execute(select(SavedReport.name))).scalars().all())
+
+    # Presets seeded before the NORA building-block fix point at the hidden
+    # Organization / BeneficiaryPersona types; move those still untouched.
+    seeded = (
+        (await db.execute(select(SavedReport).where(SavedReport.name.in_(existing_names))))
+        .scalars()
+        .all()
+    )
+    for report in seeded:
+        retargeted = retarget_preset_config(report.config)
+        if retargeted is not None:
+            report.config = retargeted
 
     for preset in NORA_PRESETS:
         if preset["name"] in existing_names:

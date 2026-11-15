@@ -35,9 +35,55 @@ def test_compute_overall_score_none_when_nothing_scored():
 def test_default_dimensions_are_unique_and_nonempty():
     keys = [k for k, _, _ in DEFAULT_MATURITY_DIMENSIONS]
     assert len(keys) == len(set(keys))
-    assert len(keys) == 10
     for key, name, desc in DEFAULT_MATURITY_DIMENSIONS:
         assert key and name and desc
+
+
+def test_default_dimensions_are_the_eight_dga_domains():
+    # DGA-1-2-1-211 §4.5 Table 4, in the guideline's order.
+    assert [name for _, name, _ in DEFAULT_MATURITY_DIMENSIONS] == [
+        "Strategic Alignment",
+        "Corporate Management Support",
+        "EA Framework and Deliverables",
+        "EA Governance and Management",
+        "EA Capability",
+        "Architecture Content",
+        "EA Role in the Digital Transformation",
+        "Value Realization",
+    ]
+
+
+def test_legacy_dimensions_do_not_overlap_the_dga_domains():
+    from app.services.maturity import LEGACY_MATURITY_DIMENSION_KEYS
+
+    assert len(LEGACY_MATURITY_DIMENSION_KEYS) == 10
+    assert not LEGACY_MATURITY_DIMENSION_KEYS & {k for k, _, _ in DEFAULT_MATURITY_DIMENSIONS}
+
+
+def test_dga_accreditation_starts_at_functioning():
+    from app.services.maturity import DGA_ACCREDITATION_LEVEL
+
+    assert DGA_ACCREDITATION_LEVEL == 3
+
+
+def test_every_dga_domain_has_indicators_from_known_sources():
+    import json
+    from pathlib import Path
+
+    from app.services.maturity import LEGACY_MATURITY_DIMENSION_KEYS
+    from app.services.maturity_indicators import DGA_DOMAIN_INDICATORS
+
+    labels = json.loads(
+        (
+            Path(__file__).resolve().parents[3] / "frontend/src/i18n/locales/en/reports.json"
+        ).read_text(encoding="utf-8")
+    )["maturity"]["indicator"]
+    assert set(DGA_DOMAIN_INDICATORS) == {k for k, _, _ in DEFAULT_MATURITY_DIMENSIONS}
+    for domain, sources in DGA_DOMAIN_INDICATORS.items():
+        assert sources, domain
+        for dim_key, indicator_key in sources:
+            assert dim_key is None or dim_key in LEGACY_MATURITY_DIMENSION_KEYS, domain
+            assert indicator_key in labels, indicator_key
 
 
 # --------------------------------------------------------------------------- #
@@ -45,6 +91,7 @@ def test_default_dimensions_are_unique_and_nonempty():
 # --------------------------------------------------------------------------- #
 from app.services.maturity_indicators import (  # noqa: E402
     _adoption,
+    _pick,
     _ratio,
     suggest_level,
 )
@@ -71,3 +118,16 @@ def test_ratio_indicator_skips_empty_denominator():
 def test_adoption_indicator_caps_at_100():
     assert _adoption("x", 20, 10)["value"] == 100.0
     assert _adoption("x", 5, 10)["value"] == 50.0
+
+
+def test_pick_reads_one_indicator_by_dimension_and_key():
+    found = {"key": "adr_practice", "value": 50.0}
+    out = {"governance": {"indicators": [{"key": "principles_defined"}, found]}}
+    extra = {"stakeholder_coverage": {"key": "stakeholder_coverage", "value": 10.0}}
+
+    assert _pick(out, extra, ("governance", "adr_practice")) is found
+    assert _pick(out, extra, (None, "stakeholder_coverage"))["value"] == 10.0
+    # Skipped (empty denominator) or unknown → None, so the domain is not scored on it.
+    assert _pick(out, extra, ("governance", "missing")) is None
+    assert _pick(out, extra, ("methodology", "adm_adoption")) is None
+    assert _pick(out, {"repository_quality": None}, (None, "repository_quality")) is None

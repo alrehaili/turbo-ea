@@ -37,54 +37,50 @@ MARKER_SERVICE = "Issue Commercial Registration"
 # (ref, type, subtype, parent_ref, architecture_state, change_type,
 #  successor_ref, attributes)
 DEMO_CARDS: list[dict] = [
-    # ── Organizations ────────────────────────────────────────────────
+    # ── Organizational units (the NORA building block — Organization is a
+    # hidden generic type under NORA) ─────────────────────────────────
     {
         "ref": "org_root",
-        "type": "Organization",
+        "type": "OrganizationalUnit",
         "name": "Demo Ministry of Commerce",
-        "attributes": {},
+        "attributes": {"unitType": "ministry"},
     },
-    # Saudi org ladder (profile v7 subtypes): sector ⊃ general department ⊃
-    # department ⊃ section/unit — the org chart demos the full four levels.
+    # Saudi org ladder: ministry ⊃ sector ⊃ general department ⊃ department ⊃
+    # section/unit — the org chart demos the full hierarchy through parents.
     {
         "ref": "org_dt",
-        "type": "Organization",
-        "subtype": "sector",
+        "type": "OrganizationalUnit",
         "name": "Digital Transformation Sector",
         "parent": "org_root",
-        "attributes": {},
+        "attributes": {"unitType": "sector"},
     },
     {
         "ref": "org_bs",
-        "type": "Organization",
-        "subtype": "sector",
+        "type": "OrganizationalUnit",
         "name": "Business Services Sector",
         "parent": "org_root",
-        "attributes": {},
+        "attributes": {"unitType": "sector"},
     },
     {
         "ref": "org_dt_it",
-        "type": "Organization",
-        "subtype": "generalDepartment",
+        "type": "OrganizationalUnit",
         "name": "General Department of Information Technology",
         "parent": "org_dt",
-        "attributes": {},
+        "attributes": {"unitType": "publicAdministration"},
     },
     {
         "ref": "org_dt_it_apps",
-        "type": "Organization",
-        "subtype": "department",
+        "type": "OrganizationalUnit",
         "name": "Applications Department",
         "parent": "org_dt_it",
-        "attributes": {},
+        "attributes": {"unitType": "department"},
     },
     {
         "ref": "org_dt_it_apps_int",
-        "type": "Organization",
-        "subtype": "sectionUnit",
+        "type": "OrganizationalUnit",
         "name": "Integration Unit",
         "parent": "org_dt_it_apps",
-        "attributes": {},
+        "attributes": {"unitType": "department"},
     },
     # ── Strategic pillars (strategy cascade roots — profile v6) ──────
     {
@@ -844,8 +840,8 @@ DEMO_RELATIONS: list[tuple[str, str, str, dict]] = [
     ("relGovServiceToBC", "svc_renew_cr", "bc_licensing", {}),
     ("relGovServiceToBC", "svc_book_inspection", "bc_inspection", {}),
     ("relGovServiceToDO", "svc_issue_cr", "do_cr_record", {}),
-    ("relOrgToGovService", "org_bs", "svc_issue_cr", {}),
-    ("relOrgToGovService", "org_bs", "svc_renew_cr", {}),
+    ("relNora2GovServiceOrganizationalUnit", "svc_issue_cr", "org_bs", {}),
+    ("relNora2GovServiceOrganizationalUnit", "svc_renew_cr", "org_bs", {}),
     # Processes → applications
     ("relProcessToApp", "proc_issue_cr", "app_cr_core", {}),
     ("relProcessToApp", "proc_inspection", "app_legacy_licensing", {}),

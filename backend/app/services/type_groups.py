@@ -43,6 +43,12 @@ INFRASTRUCTURE_TYPE_KEYS: list[str] = ["ITComponent", *NORA_TECH_COMPONENT_TYPE_
 # Types eligible for End-of-Life tracking: Applications plus all infrastructure.
 EOL_TYPE_KEYS: list[str] = ["Application", *INFRASTRUCTURE_TYPE_KEYS]
 
+# The types that model an organization: the generic Organization and the NORA
+# Organizational Unit (DGA Content Meta Model §5.3.3, which the NORA profile
+# uses — Organization is hidden there). Views that group or filter by "the
+# owning organization" read both, so they work under either profile.
+ORGANIZATION_TYPE_KEYS: list[str] = ["Organization", "OrganizationalUnit"]
+
 # NORA-native security building blocks (§5.3.7).
 SECURITY_TYPE_KEYS: list[str] = ["SecurityHardware", "SecuritySoftware", "SecurityService"]
 

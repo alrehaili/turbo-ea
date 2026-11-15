@@ -421,7 +421,81 @@ async def compute_indicators(db: AsyncSession) -> dict[str, dict]:
         ],
     )
 
+    # ── DGA maturity domains (DGA-1-2-1-211 §4.5) ────────────────────────
+    # Built from the indicators above, plus two the legacy set lacked.
+    cards_with_stakeholder = await _count(
+        db,
+        select(func.count(func.distinct(Stakeholder.card_id)))
+        .join(Card, Card.id == Stakeholder.card_id)
+        .where(_ACTIVE),
+    )
+    quality_avg = (await db.execute(select(func.avg(Card.data_quality)).where(_ACTIVE))).scalar()
+    extra = {
+        "stakeholder_coverage": _ratio("stakeholder_coverage", cards_with_stakeholder, total_cards),
+        "repository_quality": _quality(
+            "repository_quality",
+            float(quality_avg) if quality_avg is not None else None,
+            total_cards,
+        ),
+    }
+    for dim_key, sources in DGA_DOMAIN_INDICATORS.items():
+        emit(dim_key, [_pick(out, extra, source) for source in sources])
+
     return out
 
 
-__all__ = ["compute_indicators", "suggest_level", "MATURITY_MAX_LEVEL"]
+# Which indicators evidence each DGA domain: ``(legacy dimension, indicator)``
+# pairs from the set above, or ``(None, indicator)`` for the two DGA-only ones.
+DGA_DOMAIN_INDICATORS: dict[str, tuple[tuple[str | None, str], ...]] = {
+    "dga_strategic_alignment": (
+        ("national_alignment", "catalogue_alignment"),
+        ("business_architecture", "capability_app_mapping"),
+        ("national_alignment", "nea_evidence"),
+    ),
+    "dga_management_support": ((None, "stakeholder_coverage"),),
+    "dga_framework_deliverables": (
+        ("methodology", "adm_adoption"),
+        ("methodology", "soaw_coverage"),
+        ("governance", "principles_defined"),
+    ),
+    "dga_governance_management": (
+        ("governance", "approval_coverage"),
+        ("governance", "adr_practice"),
+        ("performance", "kpi_trend_tracking"),
+    ),
+    "dga_capability": ((None, "repository_quality"),),
+    "dga_architecture_content": (
+        ("business_architecture", "process_documentation"),
+        ("application_architecture", "integration_documentation"),
+        ("data_architecture", "data_ownership"),
+        ("data_architecture", "data_usage_mapping"),
+        ("application_architecture", "lifecycle_coverage"),
+    ),
+    "dga_digital_transformation": (
+        ("change_transition", "initiative_planning"),
+        ("change_transition", "target_state_modeling"),
+        ("security_compliance", "compliance_posture"),
+        ("security_compliance", "risk_hygiene"),
+    ),
+    "dga_value_realization": (
+        ("performance", "status_reporting"),
+        ("performance", "budget_tracking"),
+    ),
+}
+
+
+def _pick(
+    out: dict[str, dict], extra: dict[str, dict | None], source: tuple[str | None, str]
+) -> dict | None:
+    """One indicator by ``(dimension, key)`` — ``None`` when it was skipped
+    (empty denominator) so the domain is not scored on it."""
+    dim_key, indicator_key = source
+    if dim_key is None:
+        return extra.get(indicator_key)
+    for indicator in out.get(dim_key, {}).get("indicators", []):
+        if indicator["key"] == indicator_key:
+            return indicator
+    return None
+
+
+__all__ = ["DGA_DOMAIN_INDICATORS", "compute_indicators", "suggest_level", "MATURITY_MAX_LEVEL"]

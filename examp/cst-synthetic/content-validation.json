@@ -1,21 +1,21 @@
 {
-  "validated_at": "2026-11-12T17:15:53.199829+00:00",
+  "validated_at": "2026-11-15T17:21:57.965689+00:00",
   "validation_kind": "offline; no database apply or live preview",
-  "bundle_sha256": "aea0af8a0156a64a222055074266cd75b392481e9e012e0529ebab9d4d9e4696",
-  "cards": 456,
+  "bundle_sha256": "755d6d8a13b11075dbfea799bb614fc1ab8f68fb9f9063f83d944ecdeed0b5e5",
+  "cards": 455,
   "card_types": 64,
-  "relations": 2805,
-  "owner_references": 456,
-  "arabic_names": 456,
-  "arabic_descriptions": 456,
-  "arabic_aliases": 456,
+  "relations": 2742,
+  "owner_references": 455,
+  "arabic_names": 455,
+  "arabic_descriptions": 455,
+  "arabic_aliases": 455,
   "checks": {
     "collection_converter": true,
     "blank_template_contains_no_cards": true,
     "translations_pass_backend_normalizer": true,
     "collection_matches_bundle_content": true,
     "all_relation_endpoints_resolve": true,
-    "original_card_ids_and_paths_preserved": true,
+    "original_card_ids_and_paths_preserved": false,
     "all_non_card_bundle_sections_unchanged": true,
     "unintended_existing_cell_value_changes": 0,
     "original_sheet_order_validations_filters_and_freeze_panes_preserved": true,
@@ -29,5 +29,6 @@
     "specified_kpi_formulas": 8,
     "aligned_kpi_source_frequency": 8
   },
-  "historical_preview": "import-validation.json applies only to the original English bundle. Run a new preview on the target before applying this revision."
+  "historical_preview": "import-validation.json applies only to the original English bundle. Run a new preview on the target before applying this revision.",
+  "nora_building_block_revision": "15 November 2026: the four Organization cards and three Beneficiary Persona cards were re-typed to Organizational Unit and Persona (Commission Enterprise merged into its Organizational Unit). 59 of their relations moved to native NORA relation types; 60 with no native equivalent and 3 duplicates were removed. The converter validates the workbook and its output matches the bundle on every card, relation and owner reference."
 }

@@ -1,11 +1,11 @@
 {
   "collection-schema.json": "2ebf3868baa6099b9b0a07751e9bda48a03e868b3bb67ab14b2d862a8b1ac154",
-  "content-validation.json": "159a92b4622724f24e2cb7c99dee176046d7d2f5fa12446a31c9f24769b30c19",
-  "coverage.json": "7640e8a2560244a3695357557a92dfd4c3003ea950741e6a1ffb4621a1637177",
+  "content-validation.json": "d010cb137a3df9a9bbfcf2ad2d655ed5e562c710d1c5b7fba5146b363a228a75",
+  "coverage.json": "aef47b4a765a789e242b6475943401e36093df2874d170431b8fef6739836c24",
   "CSTD-blank-collection-template.xlsx": "5ed540ef9efb8f36cedaccfd478e063f94910a2ec56afd8ea5ea1982e00e29f7",
-  "CSTD-full-import.zip": "aea0af8a0156a64a222055074266cd75b392481e9e012e0529ebab9d4d9e4696",
-  "CSTD-full-organization.xlsx": "8d583ca626331cfe8f78be009c006679e5aee1bc377d63ac6e5c798b54ee60cf",
+  "CSTD-full-import.zip": "755d6d8a13b11075dbfea799bb614fc1ab8f68fb9f9063f83d944ecdeed0b5e5",
+  "CSTD-full-organization.xlsx": "acc20cf5727190a3191fc47d046559cbe34e3aa366e5f138221c57c344e57144",
   "import-validation.json": "3ca4193c8ece07074e5b19f05a3c6beb131c5d095c513cf28f45b9e7d64e063c",
   "prepare_import.py": "c1dbe8d7bcfe1cc062f2194147f578eca0c9ac675fa0cba0b91a3327f1d5da10",
-  "README.md": "0e464b9a7aafef9a36ed84180383ab83ec0eb03efbb8dae12c7d93a6c9fa8324"
+  "README.md": "46f02c5ddaeab4243c16602912810f93fba5b5f9338b2a5819a28283996d6e4b"
 }

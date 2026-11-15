@@ -22,32 +22,28 @@ TYPE_MAPPING: dict[str, str] = {
     "Application": "Application",
     "Interface": "Interface",
     "DataObject": "DataObject",
-    # Technology-architecture sheets — all land on ITComponent, the NEA
-    # building block is the subtype (profile v2 pass 4d seeds them).
-    "PhysicalHost": "ITComponent",
-    "VirtualServer": "ITComponent",
-    "NetworkDevice": "ITComponent",
-    "Storage": "ITComponent",
-    "InfraTool": "ITComponent",
-    "InfraService": "ITComponent",
-    # Security-architecture sheets.
-    "SecurityHardware": "ITComponent",
-    "SecuritySoftware": "ITComponent",
-    "SecurityService": "ITComponent",
+    "Policy": "Policy",
+    "ModelTemplate": "ModelTemplate",
+    "DataAttribute": "DataAttribute",
+    # Technology-architecture sheets land on the NORA technology building
+    # blocks (DGA Content Meta Model §5.3.8) — never on the generic
+    # ITComponent, which the NORA profile hides (NORAreadiness.md B-6).
+    "PhysicalHost": "PhysicalHost",
+    "VirtualServer": "Server",
+    "NetworkDevice": "NetworkDevice",
+    "Storage": "Storage",
+    "InfraTool": "InfrastructureManagementTool",
+    "InfraService": "InfrastructureService",
+    # Security-architecture sheets (§5.3.9).
+    "SecurityHardware": "SecurityHardware",
+    "SecuritySoftware": "SecuritySoftware",
+    "SecurityService": "SecurityService",
 }
 
-# ITComponent subtype per native type (goes into SourceEntity.category).
-ITC_SUBTYPE_BY_NATIVE_TYPE: dict[str, str] = {
-    "PhysicalHost": "physicalHost",
-    "VirtualServer": "virtualServer",
-    "NetworkDevice": "networkDevice",
-    "Storage": "storage",
-    "InfraTool": "infraTool",
-    "InfraService": "infraService",
-    "SecurityHardware": "securityHardware",
-    "SecuritySoftware": "securitySoftware",
-    "SecurityService": "securityService",
-}
+# Subtype per native type (goes into SourceEntity.category): a virtual-server
+# row is a Server of the ``virtual`` subtype; the other sheets are a type of
+# their own.
+SUBTYPE_BY_NATIVE_TYPE: dict[str, str] = {"VirtualServer": "virtual"}
 
 # Native relation name → Turbo EA relation-type key. Directions are
 # already emitted in TEA convention by the parser, so FLIP_DIRECTION is
@@ -61,6 +57,14 @@ RELATION_MAPPING: dict[str, str] = {
     "processToApplication": "relProcessToApp",
     # Integration-point row's consumer / producer columns.
     "applicationToInterface": "relAppToInterface",
+    # Policy row's related services / procedures columns.
+    "policyToService": "relPolicyToGovService",
+    "policyToProcess": "relPolicyToProcess",
+    # Model/template row's related services / procedures columns.
+    "serviceToModel": "relGovServiceToTemplate",
+    "processToModel": "relNora2BusinessProcessModelTemplate",
+    # Data-attribute rows name their data entity.
+    "dataObjectToAttribute": "relDataObjectToAttribute",
 }
 
 FLIP_DIRECTION: frozenset[str] = frozenset()
@@ -175,22 +179,49 @@ SUPPORT_CONTRACT_STATUS = {
     "منتهي": "expired",
     "expire": "expired",
 }
-OPERATION_TYPE = {
-    "فريق داخلي": "internalTeam",
-    "internal team": "internalTeam",
+# NORA technology fields (the template's "جزء/قطاع الشبكة", "نوع التشغيل" and
+# "البيئة" columns → the native types' option keys).
+NETWORK_SEGMENT = {
+    "dmz": "dmz",
+    "extranet": "extranet",
+    "internet": "internet",
+    "wan": "wan",
+    "lan": "lan",
+    "air gapped": "airGapped",
+    "airgapped": "airGapped",
+    "data center": "dataCenter",
+    "datacenter": "dataCenter",
+    "مركز البيانات": "dataCenter",
+}
+TYPE_OF_OPERATION = {
+    "فريق داخلي": "inHouse",
+    "internal team": "inHouse",
+    "in-house": "inHouse",
     "مزود خدم": "serviceProvider",
     "service provider": "serviceProvider",
-    "مختلط": "hybrid",
-    "hybrid": "hybrid",
+    "مختلط": "other",
+    "hybrid": "other",
 }
-ENVIRONMENT = {
-    "انتاجي": "production",
+SERVER_ENVIRONMENT = {
+    "انتاج": "production",
     "production": "production",
-    "اختباري": "test",
-    "test": "test",
-    "تجريبي": "staging",
-    "staging": "staging",
-    "التعافي": "disasterRecovery",
-    "dr": "disasterRecovery",
+    "تطوير": "development",
+    "development": "development",
+    "اختبار": "testing",
+    "test": "testing",
+    "تجريبي": "testing",
+    "staging": "testing",
 }
-YES_NO = {"نعم": True, "yes": True, "لا": False, "no": False}
+# Policy, model/template and data-attribute sheets (NORAreadiness.md B-6).
+POLICY_TYPE = {"داخلي": "internal", "خارجي": "external", "حكومي": "external"}
+POLICY_STATUS = {"مفعل": "active", "موقوف": "suspended", "ملغي": "cancelled"}
+MODEL_TYPE = {
+    "طلب خدمه": "serviceRequestForm",
+    "حصر بيانات": "dataCollectionForm",
+    "قالب دليل": "guideTemplate",
+    "قالب سياسه": "policyTemplate",
+    "اخري": "other",
+}
+# "Y" / "N" (the data-attribute sheets) match only on their own: a longer
+# value that merely starts with "n" is not read as "no".
+YES_NO = {"نعم": True, "yes": True, "y": True, "لا": False, "no": False, "n": False}

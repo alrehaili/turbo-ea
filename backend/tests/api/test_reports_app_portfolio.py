@@ -181,6 +181,31 @@ class TestAppPortfolio:
         assert len(data["organizations"]) == 1
         assert data["organizations"][0]["name"] == "Sales"
 
+    async def test_org_mapping_reads_organizational_units(self, client, db, portfolio_env):
+        """Under NORA the organization is an Organizational Unit; it fills the
+        same organization filter as an Organization card."""
+        admin = portfolio_env["admin"]
+        await create_card_type(db, key="OrganizationalUnit", label="Organizational Unit")
+        await create_relation_type(
+            db,
+            key="unit_to_app",
+            label="uses",
+            source_type_key="OrganizationalUnit",
+            target_type_key="Application",
+        )
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        unit = await create_card(
+            db, card_type="OrganizationalUnit", name="Sales Department", user_id=admin.id
+        )
+        await create_relation(db, type_key="unit_to_app", source_id=unit.id, target_id=app.id)
+
+        data = (
+            await client.get("/api/v1/reports/app-portfolio", headers=auth_headers(admin))
+        ).json()
+
+        assert data["items"][0]["org_ids"] == [str(unit.id)]
+        assert [o["name"] for o in data["organizations"]] == ["Sales Department"]
+
     async def test_fields_schema_exposed(self, client, portfolio_env):
         resp = await client.get(
             "/api/v1/reports/app-portfolio",

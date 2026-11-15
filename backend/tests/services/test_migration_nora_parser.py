@@ -11,6 +11,7 @@ from openpyxl import Workbook  # type: ignore[import-untyped]
 
 from app.services.migration.registry import SOURCES
 from app.services.migration.sources.nora_xlsx.xlsx_parser import (
+    _entity_id,
     is_xlsx_payload,
     parse_xlsx_path,
 )
@@ -424,27 +425,148 @@ def test_technology_and_security_sheets(tmp_path):
     ents = _by_id(snapshot)
 
     host = ents["nora:PhysicalHost:ryd-host01"]
-    assert host.category == "physicalHost"
+    # The NORA technology building blocks' own fields (§5.3.8), no subtype.
+    assert host.category is None
     assert host.custom_fields["manufacturer"] == "DELL"
-    assert host.custom_fields["modelNumber"] == "Tier 3"
+    assert host.custom_fields["model"] == "Tier 3"
     assert host.custom_fields["clusterId"] == "Cluster01"
-    assert host.custom_fields["securityZone"] == "DMZ"
+    assert host.custom_fields["networkSegment"] == "dmz"
     assert host.custom_fields["supportEndDate"] == "2028-12-31"
     assert host.custom_fields["supportContractStatus"] == "active"
-    assert host.custom_fields["operationType"] == "internalTeam"
-    assert host.custom_fields["initialCost"] == 165000
-    assert host.custom_fields["costTotalAnnual"] == 50000
+    assert host.custom_fields["typeOfOperation"] == "inHouse"
+    assert host.custom_fields["capitalCost"] == 165000
+    assert host.custom_fields["operatingCost"] == 50000
+    assert not {"modelNumber", "securityZone", "initialCost", "operationType"} & set(
+        host.custom_fields
+    )
 
     vm = ents["nora:VirtualServer:rydvm0081"]
-    assert vm.category == "virtualServer"
+    assert vm.category == "virtual"
     assert vm.custom_fields["environment"] == "production"
     assert vm.custom_fields["inBackupPolicy"] is True
     assert vm.custom_fields["inDrPolicy"] is False
 
     dlp = ents["nora:SecuritySoftware:data leakage prevention (dlp)"]
-    assert dlp.category == "securitySoftware"
+    assert dlp.category is None
+    assert dlp.custom_fields["code"] == "SecuritySoftware007"
     assert dlp.custom_fields["supportContractStatus"] == "expired"
     assert dlp.custom_fields["version"] == "DLP 15.5"
+
+
+def test_template_types_map_to_visible_nora_types():
+    from app.services.migration.sources.nora_xlsx.mappings import TYPE_MAPPING
+    from app.services.nora_profile import NORA_HIDDEN_TYPE_KEYS
+
+    assert not set(TYPE_MAPPING.values()) & set(NORA_HIDDEN_TYPE_KEYS)
+    assert TYPE_MAPPING["VirtualServer"] == "Server"
+    assert TYPE_MAPPING["InfraTool"] == "InfrastructureManagementTool"
+
+
+def test_every_template_field_exists_on_its_target_type():
+    """Each column rule writes a field the NORA type really has, so nothing a
+    template carries is stored where no card page shows it."""
+    from app.services.migration.sources.nora_xlsx.mappings import TYPE_MAPPING
+    from app.services.migration.sources.nora_xlsx.xlsx_parser import _SHEET_SPECS
+    from app.services.nora_profile import (
+        NORA_CARD_TYPES,
+        NORA_SECTIONED_FIELDS,
+        NORA_TYPE_FIELDS,
+        NORA_V2_TYPE_FIELDS,
+        NORA_V4_TYPE_FIELDS,
+        NORA_V8_TYPE_FIELDS,
+    )
+    from app.services.seed import TYPES
+
+    defs = {t["key"]: t for t in TYPES}
+    for t in NORA_CARD_TYPES:
+        defs.setdefault(t["key"], t)
+
+    def keys(type_key):
+        out = {f["key"] for s in defs[type_key].get("fields_schema") or [] for f in s["fields"]}
+        for extra in (
+            NORA_TYPE_FIELDS,
+            NORA_V2_TYPE_FIELDS,
+            NORA_V4_TYPE_FIELDS,
+            NORA_V8_TYPE_FIELDS,
+        ):
+            out |= {f["key"] for f in extra.get(type_key, [])}
+        out |= {f["key"] for s in NORA_SECTIONED_FIELDS.get(type_key, []) for f in s["fields"]}
+        return out
+
+    synthetic = {"__name_en", "__desc_en", "beneficiaryType"}
+    missing = []
+    for spec in _SHEET_SPECS:
+        type_key = TYPE_MAPPING[spec["native_type"]]
+        known = keys(type_key)
+        for token, rule in spec["columns"]:
+            if rule[0] in ("attr", "option", "multi_option", "number", "cost", "date", "bool"):
+                if rule[1] not in known and rule[1] not in synthetic:
+                    missing.append(f"{type_key}.{rule[1]} ({token})")
+    assert not missing
+
+
+def test_network_device_reads_location_type_and_function(tmp_path):
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        "دليل الأجهزة الشبكية",
+        [
+            ["دليل الأجهزة الشبكية"],
+            ["اسم المضيف", "الطراز", "الموقع", "جزء الشبكة", "النوع", "الوظيفة", "نوع التشغيل"],
+            ["شرح"] * 7,
+            [
+                "Core-SW01",
+                "Catalyst 9500",
+                "HQ",
+                "WAN",
+                "Switch",
+                "Core Switch",
+                "Service Provider",
+            ],
+        ],
+    )
+    sw = _by_id(parse_xlsx_path(_save(wb, tmp_path)))["nora:NetworkDevice:core-sw01"]
+    assert sw.custom_fields == {
+        "model": "Catalyst 9500",
+        "location": "HQ",
+        "networkSegment": "wan",
+        "deviceType": "Switch",
+        "function": "Core Switch",
+        "typeOfOperation": "serviceProvider",
+    }
+
+
+def test_physical_host_reads_hypervisor_cpu_memory_and_storage(tmp_path):
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        "أجهزة المضيف المادي",
+        [
+            ["دليل أجهزة المضيف المادي"],
+            [
+                "اسم المضيف",
+                "نوع مراقب الآلة الافتراضي",
+                "إصدار مراقب الآلة الافتراضي",
+                "قطاع الشبكة",
+                "العدد الكلي لنوى وحدات المعالجة المركزية",
+                "المعالج",
+                "الذاكرة العشوائية",
+                "السعة التخزينية المحلية",
+            ],
+            ["شرح"] * 8,
+            ["RYD-Host02", "ESXi", "6.5.0", "Data Center", 24, "3", 256, 900],
+        ],
+    )
+    host = _by_id(parse_xlsx_path(_save(wb, tmp_path)))["nora:PhysicalHost:ryd-host02"]
+    assert host.custom_fields == {
+        "hypervisorType": "ESXi",
+        "hypervisorVersion": "6.5.0",
+        "networkSegment": "dataCenter",
+        "physicalCpuCores": 24,
+        "centralProcessingUnit": "3",
+        "physicalRam": 256,
+        "localStorageCapacity": 900,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -506,6 +628,252 @@ def test_experience_workbook_is_descoped(tmp_path):
     snapshot = parse_xlsx_path(_save(wb, tmp_path))
     assert snapshot.entities == []
     assert any("التحسينات" in e for e in snapshot.parse_errors)
+
+
+# ---------------------------------------------------------------------------
+# Policy, model/template and data-attribute sheets (NORAreadiness.md B-6)
+# ---------------------------------------------------------------------------
+
+
+def _rels(snapshot):
+    return {(r.type, r.from_entity_id, r.to_entity_id) for r in snapshot.relations}
+
+
+def test_policy_sheet(tmp_path):
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        "دليل السياسات",
+        [
+            ["دليل السياسات"],
+            [
+                "رمز السياسة",
+                "اسم السياسة",
+                "وصف السياسة",
+                "الإدارة العامة المالكة للسياسة",
+                "نوع السياسة",
+                "نطاق السياسة",
+                "حالة السياسة",
+                "تاريخ تفعيل السياسة",
+                "قدرة العمل ذات العلاقة",
+                "خدمات ذات علاقة",
+                "إجراءات ذات علاقة",
+                "بنود السياسة",
+            ],
+            ["شرح"] * 12,
+            [
+                "P002",
+                "سياسة التعامل مع الشكاوى",
+                "تهدف السياسة إلى تحديد مبادئ معالجة الشكاوى",
+                "الإدارة العامة لحماية حقوق المستفيدين",
+                "سياسة داخلية",
+                "تنطبق على جميع موظفي الجهة",
+                "مفعّلة",
+                "2023-01-15",
+                "علاقات العملاء",
+                "خدمة تقديم شكوى",
+                "معالجة شكاوى المستفيدين",
+                "البند الأول",
+            ],
+        ],
+    )
+    snapshot = parse_xlsx_path(_save(wb, tmp_path))
+    policy = _by_id(snapshot)[_entity_id("Policy", "سياسة التعامل مع الشكاوى")]
+    assert policy.description == "تهدف السياسة إلى تحديد مبادئ معالجة الشكاوى"
+    assert policy.custom_fields == {
+        "policyCode": "P002",
+        "policyType": "internal",
+        "policyScope": "تنطبق على جميع موظفي الجهة",
+        "policyStatus": "active",
+        "activationDate": "2023-01-15",
+        "policyClauses": "البند الأول",
+    }
+    pid = policy.source_id
+    assert _rels(snapshot) == {
+        ("policyToService", pid, _entity_id("GovService", "خدمة تقديم شكوى")),
+        ("policyToProcess", pid, _entity_id("BusinessProcess", "معالجة شكاوى المستفيدين")),
+    }
+
+
+def test_policy_type_and_status_options():
+    from app.services.migration.sources.nora_xlsx import mappings
+    from app.services.migration.sources.nora_xlsx.xlsx_parser import _match_option
+
+    assert _match_option("سياسة خارجية/ حكومية", mappings.POLICY_TYPE) == "external"
+    assert _match_option("موقوفة", mappings.POLICY_STATUS) == "suspended"
+    assert _match_option("ملغيّة", mappings.POLICY_STATUS) == "cancelled"
+
+
+def test_model_sheet(tmp_path):
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        "دليل النماذج",
+        [
+            ["دليل النماذج"],
+            [
+                "رمز النموذج",
+                "اسم النموذج",
+                "وصف النموذج",
+                "نوع النموذج",
+                "خدمات ذات علاقة",
+                "إجراءات ذات علاقة",
+                "المرفقات",
+            ],
+            ["شرح"] * 7,
+            [
+                "1002",
+                "نموذج الشكوى",
+                "حصر بيانات الشاكي",
+                "نموذج طلب خدمة",
+                "خدمة تقديم شكوى",
+                "إجراء تقديم شكوى",
+                "الوثائق الداعمة",
+            ],
+        ],
+    )
+    snapshot = parse_xlsx_path(_save(wb, tmp_path))
+    model = _by_id(snapshot)[_entity_id("ModelTemplate", "نموذج الشكوى")]
+    assert model.custom_fields == {"code": "1002", "modelType": "serviceRequestForm"}
+    mid = model.source_id
+    assert _rels(snapshot) == {
+        ("serviceToModel", _entity_id("GovService", "خدمة تقديم شكوى"), mid),
+        ("processToModel", _entity_id("BusinessProcess", "إجراء تقديم شكوى"), mid),
+    }
+
+
+def _attribute_header(*extra: str) -> list[str]:
+    return [
+        "معرف كيان البيانات",
+        "اسم كيان البيانات (انجليزي)",
+        "اسم كيان البيانات(عربي)",
+        "معرف سمة البيانات",
+        "اسم السمة (انجليزي)",
+        "اسم السمة (عربي)",
+        *extra,
+    ]
+
+
+def test_data_attribute_sheets_merge_into_one_attribute(tmp_path):
+    wb = Workbook()
+    # Business catalogue first, as in the template.
+    _write_sheet(
+        wb,
+        "دليل فهرس الأعمال",
+        [
+            ["فهرس الأعمال"],
+            _attribute_header(
+                "وصف السمة (انجليزي)",
+                "وصف السمة(عربي)",
+                "إمكانية قبول الفراغ",
+                "عينة من القيم",
+                "القوائم المعتمدة لايجاد بيانات محددة",
+                "قواعد أعمال السمة",
+                "اسم ممثل بيانات الأعمال",
+                "اسم مختص بيانات الأعمال",
+                "تصنيف البيانات",
+            ),
+            ["شرح"] * 15,
+            [
+                "ENT_1",
+                "Employee",
+                "موظف",
+                "ATR1",
+                "name",
+                "الاسم",
+                "employee name",
+                "اسم الموظف",
+                "N",
+                "احمد",
+                "N/A",
+                "إلزامي",
+                "مدير الموارد البشرية",
+                "محلل البيانات",
+                "مقيد",
+            ],
+        ],
+    )
+    _write_sheet(
+        wb,
+        "دليل سمات البيانات",
+        [
+            ["سمات البيانات"],
+            _attribute_header(
+                "نطاق العمل",
+                "مصدر البيانات",
+                "مفتاح أساسي",
+                "إمكانية قبول الفراغ",
+                "نوع البيانات",
+                "طول البيانات",
+                "تنسيق البيانات",
+                "اسم ممثل البيانات",
+                "اسم مختص البيانات",
+                "اسم الجدول في قاعدة البيانات",
+                "اسم مخطط قاعدة البيانات",
+            ),
+            ["شرح"] * 17,
+            [
+                "ENT_1",
+                "Employee",
+                "موظف",
+                "ATR1",
+                "name",
+                "الاسم",
+                "الموارد البشرية",
+                "نظام الموارد",
+                "Y",
+                "Y",
+                "Alphabetical",
+                20,
+                "Arabic Characters",
+                "مدير آخر",
+                "مختص آخر",
+                "EMPLOYEE",
+                "HR",
+            ],
+        ],
+    )
+    snapshot = parse_xlsx_path(_save(wb, tmp_path))
+    attrs = [e for e in snapshot.entities if e.type == "DataAttribute"]
+    assert len(attrs) == 1
+    attr = attrs[0]
+    assert attr.name == "الاسم"
+    assert attr.description == "اسم الموظف"
+    assert attr.custom_fields == {
+        # From the catalogue (first sheet) — the second sheet never overrides.
+        "code": "ATR1",
+        "nullable": False,
+        "sampleValues": "احمد",
+        "lookupSource": "N/A",
+        "qualityRules": "إلزامي",
+        "dataOwner": "مدير الموارد البشرية",
+        "dataSteward": "محلل البيانات",
+        "dataClassification": "restricted",
+        # Added by the attributes sheet.
+        "businessScope": "الموارد البشرية",
+        "dataSource": "نظام الموارد",
+        "primaryKey": True,
+        "dataType": "Alphabetical",
+        "dataLength": 20,
+        "dataFormat": "Arabic Characters",
+        "tableName": "EMPLOYEE",
+        "schemaName": "HR",
+    }
+    assert not snapshot.parse_errors
+    assert _rels(snapshot) == {
+        ("dataObjectToAttribute", _entity_id("DataObject", "موظف"), attr.source_id)
+    }
+
+
+def test_single_letter_yes_no_match_only_on_their_own():
+    from app.services.migration.sources.nora_xlsx.xlsx_parser import _match_bool
+
+    assert _match_bool("Y") is True
+    assert _match_bool("n") is False
+    assert _match_bool("No") is False
+    # A word that only starts with "n" is not "no".
+    assert _match_bool("Nasser") is None
+    assert _match_bool("yes please") is True
 
 
 # ---------------------------------------------------------------------------

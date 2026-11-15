@@ -54,6 +54,7 @@ import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { STATUS_COLORS } from "@/theme/tokens";
+import { averageLevel, dimensionLabel, isAccreditationReady } from "./maturityLabels";
 import type {
   MaturityAssessment,
   MaturityDimension,
@@ -115,11 +116,11 @@ export default function MaturityPage() {
   const radarData = useMemo(
     () =>
       (overview?.radar ?? []).map((r) => ({
-        dimension: r.dimension_name,
+        dimension: dimensionLabel(r.dimension_key, r.dimension_name, t),
         level: r.level,
         target: r.target_level,
       })),
-    [overview],
+    [overview, t],
   );
 
   const trendData = useMemo(
@@ -204,6 +205,17 @@ export default function MaturityPage() {
           label={t("maturity.overallScore")}
           value={summary?.overall_score != null ? `${summary.overall_score}%` : "—"}
           icon="speed"
+          note={
+            summary?.overall_score != null
+              ? t(
+                  isAccreditationReady(summary.overall_score)
+                    ? "maturity.accreditationReady"
+                    : "maturity.accreditationNotYet",
+                  { level: averageLevel(summary.overall_score) },
+                )
+              : undefined
+          }
+          noteOk={isAccreditationReady(summary?.overall_score)}
         />
         <MetricTile
           label={t("maturity.dimensionsCount")}
@@ -383,11 +395,16 @@ function MetricTile({
   value,
   icon,
   alert,
+  note,
+  noteOk,
 }: {
   label: string;
   value: string;
   icon: string;
   alert?: boolean;
+  /** A second line under the label (the DGA accreditation reading). */
+  note?: string;
+  noteOk?: boolean;
 }) {
   return (
     <Grid item xs={6} md={3}>
@@ -404,6 +421,15 @@ function MetricTile({
           <Typography variant="caption" color="text.secondary">
             {label}
           </Typography>
+          {note && (
+            <Typography
+              variant="caption"
+              display="block"
+              sx={{ color: noteOk ? STATUS_COLORS.success : "text.secondary" }}
+            >
+              {note}
+            </Typography>
+          )}
         </Box>
       </Card>
     </Grid>
@@ -570,7 +596,9 @@ function AssessmentDialog({
                 return (
                   <TableRow key={s.id}>
                     <TableCell>
-                      <Typography variant="body2">{s.dimension_name}</Typography>
+                      <Typography variant="body2">
+                        {dimensionLabel(s.dimension_key, s.dimension_name, t)}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       {(s.suggested_level ?? 0) > 0 ? (
@@ -778,7 +806,7 @@ function DimensionsDialog({
               <TableRow key={d.id}>
                 <TableCell>
                   <Typography variant="body2" sx={{ opacity: d.is_active ? 1 : 0.5 }}>
-                    {d.name}
+                    {dimensionLabel(d.key, d.name, t)}
                     {!d.built_in && (
                       <Chip label={t("maturity.custom")} size="small" sx={{ ml: 1 }} />
                     )}

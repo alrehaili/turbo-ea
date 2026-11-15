@@ -87,6 +87,7 @@ from app.services.resilience_service import gather_resilience
 from app.services.strategy_map_service import gather_strategy_map
 from app.services.type_groups import (
     INFRASTRUCTURE_TYPE_KEYS,
+    ORGANIZATION_TYPE_KEYS,
     SECURITY_TYPE_KEYS,
     TECH_CONTAINMENT_RELATION_KEYS,
     TECH_LANDSCAPE_TYPE_KEYS,
@@ -2118,7 +2119,7 @@ async def capability_heatmap(
             "lifecycle": _get_lifecycle_heatmap(a),
             # Deduped: a related card reached through two relation types is one
             # card, and these lists drive filter matching and counts.
-            "org_ids": sorted(set(by_type.get("Organization", []))),
+            "org_ids": sorted({i for k in ORGANIZATION_TYPE_KEYS for i in by_type.get(k, [])}),
             "related_by_type": {k: sorted(set(v)) for k, v in by_type.items()},
             "related_by_rel_type": {
                 k: sorted(set(v)) for k, v in app_related_by_rel.get(aid, {}).items()
@@ -3828,11 +3829,13 @@ async def strategy_cascade_report(
             elif rel.target_id in obj_ids and rel.source_id in pillar_card_ids:
                 pillar_links.setdefault(rel.source_id, []).append(rel.target_id)
 
-    # Owning organizational unit per objective (WP100.2) — the Organization
-    # that "owns" the objective via whatever Org↔Objective relation the install
-    # models (never hardcode the key). First owner wins for the chip.
+    # Owning organizational unit per objective (WP100.2) — the Organization or
+    # Organizational Unit that "owns" the objective via whatever relation the
+    # install models (never hardcode the key). First owner wins for the chip.
     owner_by_obj: dict[uuid.UUID, dict] = {}
-    org_obj_keys = await _pair_link_keys("Organization", "Objective")
+    org_obj_keys: set[str] = set()
+    for org_type in ORGANIZATION_TYPE_KEYS:
+        org_obj_keys |= await _pair_link_keys(org_type, "Objective")
     if org_obj_keys and obj_ids:
         org_rel_rows = await db.execute(select(Relation).where(Relation.type.in_(org_obj_keys)))
         org_of_obj: dict[uuid.UUID, uuid.UUID] = {}
@@ -3852,7 +3855,7 @@ async def strategy_cascade_report(
                 await db.execute(
                     select(Card.id, Card.name).where(
                         Card.id.in_(needed_org_ids),
-                        Card.type == "Organization",
+                        Card.type.in_(ORGANIZATION_TYPE_KEYS),
                         Card.status != "ARCHIVED",
                         *readable,
                     )

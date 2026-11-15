@@ -6,7 +6,7 @@
 ✓ Strategic Pillars (Pillar cards) → Objectives (Objective cards) via the
   relObjectiveToPillar "supports" relation (what GET /reports/strategy-cascade reads)
 ✓ Strategic Initiatives (Initiative cards, program subtype)
-✓ EA Maturity: 5 assessment runs + 50 dimension scores across the 10 built-in
+✓ EA Maturity: 5 assessment runs + 40 dimension scores across the 8 DGA built-in
   maturity dimensions, showing an improvement trajectory Q1 2024 → Q1 2025
 
 The Strategic House does NOT model vision/mission as cards — they are agency
@@ -416,37 +416,34 @@ STRATEGIC_INITIATIVES = [
 # EA MATURITY SELF-ASSESSMENT (Qiyas/CMMI 1-5 Scale)
 # ════════════════════════════════════════════════════════════════════════════
 
-# The maturity dimensions themselves are the 10 built-in ones seeded by
+# The maturity dimensions themselves are the 8 DGA domains seeded by
 # ensure_framework_profile() (app.services.maturity.DEFAULT_MATURITY_DIMENSIONS).
 # We do NOT create dimensions here — we score the existing catalogue. Keys must
 # match the built-in dimension keys exactly.
 BUILTIN_DIMENSION_KEYS = [
-    "governance",
-    "business_architecture",
-    "application_architecture",
-    "data_architecture",
-    "technology_architecture",
-    "security_compliance",
-    "methodology",
-    "performance",
-    "change_transition",
-    "national_alignment",
+    "dga_strategic_alignment",
+    "dga_management_support",
+    "dga_framework_deliverables",
+    "dga_governance_management",
+    "dga_capability",
+    "dga_architecture_content",
+    "dga_digital_transformation",
+    "dga_value_realization",
 ]
 
-# Improvement trajectory per built-in dimension across the 5 assessment runs
+# Improvement trajectory per DGA domain across the 5 assessment runs
 # (Q1 2024 → Q1 2025). Each list is [q1'24, q2'24, q3'24, q4'24, q1'25] on the
-# CMMI/Qiyas 1–5 scale, telling a credible "climbing the maturity curve" story.
+# DGA 1–5 scale, telling a credible "climbing the maturity curve" story that
+# crosses the accreditation threshold (level 3) along the way.
 MATURITY_TRAJECTORY = {
-    "governance": [2, 2, 3, 3, 4],
-    "business_architecture": [1, 2, 2, 3, 3],
-    "application_architecture": [1, 2, 2, 3, 4],
-    "data_architecture": [1, 2, 3, 3, 4],
-    "technology_architecture": [1, 2, 3, 3, 4],
-    "security_compliance": [2, 3, 3, 4, 5],
-    "methodology": [1, 2, 3, 3, 4],
-    "performance": [1, 1, 2, 2, 3],
-    "change_transition": [1, 2, 2, 3, 3],
-    "national_alignment": [2, 2, 3, 4, 4],
+    "dga_strategic_alignment": [2, 2, 3, 4, 4],
+    "dga_management_support": [2, 2, 3, 3, 4],
+    "dga_framework_deliverables": [1, 2, 3, 3, 4],
+    "dga_governance_management": [2, 2, 3, 3, 4],
+    "dga_capability": [1, 2, 2, 3, 3],
+    "dga_architecture_content": [1, 2, 2, 3, 4],
+    "dga_digital_transformation": [1, 2, 2, 3, 3],
+    "dga_value_realization": [1, 1, 2, 2, 3],
 }
 
 # Assessment runs over 12 months (showing improvement trajectory)
@@ -486,11 +483,11 @@ MATURITY_ASSESSMENTS = [
 # Per-assessment score notes keyed by the ordinal level reached (1-5), so the
 # audit trail reads sensibly at every maturity stage.
 LEVEL_NOTES = {
-    1: "Ad-hoc / initial — no repeatable practice yet",
-    2: "Developing — framework defined, partial adoption",
-    3: "Defined — documented and followed in new work",
-    4: "Managed — measured, enforced enterprise-wide",
-    5: "Optimized — continuously improved, best-in-class",
+    1: "Initial — EA is at an early stage; requirements and value being understood",
+    2: "Under development — EA is being implemented but not yet effective",
+    3: "Functioning — EA is established and producing information",
+    4: "Managed — EA is part of the governance culture and measured",
+    5: "Optimized — EA is continuously improved across the entity",
 }
 
 
@@ -508,8 +505,8 @@ async def seed_strategic_house_and_maturity(db: AsyncSession) -> dict:
     - 15 Objectives (3-5 per pillar), each linked to its pillar via the
       relObjectiveToPillar "supports" relation — what the cascade report reads
     - 5 Strategic Initiatives (Initiative cards, program subtype)
-    - 5 Assessment runs (Q1 2024 → Q1 2025) scored against the 10 built-in
-      maturity dimensions → 50 dimension scores (improvement trajectory)
+    - 5 Assessment runs (Q1 2024 → Q1 2025) scored against the 8 DGA built-in
+      maturity domains → 40 dimension scores (improvement trajectory)
 
     Idempotent: skips if the seed's signature Pillar already exists. Dimensions
     are NOT created here — they are the built-in catalogue seeded by

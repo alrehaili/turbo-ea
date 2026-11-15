@@ -566,8 +566,6 @@ RELATIONS: list[tuple[str, str, str]] = [
     ("relBizCtxToBC", "Business Registration Value Stream", "Licence Issuance"),
     ("relBizCtxToBC", "Licensing & Permits Value Stream", "Licensing & Permits"),
     ("relBizCtxToBC", "Inspection & Compliance", "Inspections & Enforcement"),
-    ("relOrgToBizCtx", "Business Services Sector", "Business Registration Value Stream"),
-    ("relOrgToBizCtx", "Business Services Sector", "Licensing & Permits Value Stream"),
     ("relAppToBizCtx", "Unified Licensing Platform", "Licensing & Permits Value Stream"),
     ("relAppToBizCtx", "CR Core System", "Business Registration Value Stream"),
     # BusinessProcess → BusinessCapability / Application / DataObject / Org / Objective / BusinessContext
@@ -580,8 +578,6 @@ RELATIONS: list[tuple[str, str, str]] = [
     ("relProcessToDataObj", "Commercial Registration Renewal", "Commercial Registration Record"),
     ("relProcessToDataObj", "Inspection Scheduling & Execution", "Inspection Report"),
     ("relProcessToDataObj", "Certificate Verification", "Business Licence"),
-    ("relProcessToOrg", "Commercial Registration Renewal", "Business Services Sector"),
-    ("relProcessToOrg", "Compliance Reporting", "Digital Transformation Sector"),
     ("relProcessToObjective", "Fee Payment & Settlement", "Increase Process Automation to 85%"),
     ("relProcessToObjective", "Certificate Verification", "Optimize Core Business Processes"),
     ("relProcessToBizCtx", "Commercial Registration Renewal", "Business Registration Value Stream"),

@@ -109,12 +109,12 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_16(self):
+    def test_profile_version_is_17(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
         # v11: KPI metricKey (D-26); v12 GOV-03; v13 GOV-05 (D-41); v14 RSK-01 (D-42);
-        # v15 GOV-01 (D-37); v16 seven architecture layers.
-        assert NORA_PROFILE_VERSION == 16
+        # v15 GOV-01 (D-37); v16 seven architecture layers; v17 DGA alignment.
+        assert NORA_PROFILE_VERSION == 17
 
     def test_kpi_metric_key_offers_every_registered_metric(self):
         from app.services.executive.registry import METRICS
@@ -583,11 +583,13 @@ class TestApplyNoraProfile:
         # v4: KPI likewise receives its v4 fields via pass 4, and the
         # profile-created BeneficiaryJourney gets Journey Mapping via pass 4f.
         # v8: SecurityControl receives srmCode via pass 4.
+        # v17: the profile-created Policy receives its B1 attributes via pass 4.
         assert set(summary["types_updated"]) == {
             "GovService",
             "KPI",
             "BeneficiaryJourney",
             "SecurityControl",
+            "Policy",
         }
         assert (await get_framework_profile(db))["profile"] == "nora"
 
@@ -617,7 +619,7 @@ class TestApplyNoraProfile:
         from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
         gov = (await db.execute(select(CardType).where(CardType.key == "GovService"))).scalar_one()
-        assert gov.category == "Beneficiary Experience"
+        assert gov.category == "Business"  # v17: B1 puts Service in Business
         assert gov.built_in is True
         field_keys = {f["key"] for s in gov.fields_schema for f in s["fields"]}
         assert {
@@ -1021,7 +1023,7 @@ class TestProfileV3SixLayers:
             ("BeneficiaryJourney", "Beneficiary Experience"),
             ("Channel", "Beneficiary Experience"),
             ("SecurityControl", "Security"),
-            ("GovService", "Beneficiary Experience"),
+            ("GovService", "Business"),  # v17: B1 puts Service in Business
             ("KPI", "Strategy"),  # v16: the Strategy layer
             ("DataExchange", "Data"),
         ):
@@ -1210,11 +1212,17 @@ class TestArchitectureLayoutPlan:
         from app.services.nora_profile import plan_architecture_layout
 
         plan = plan_architecture_layout(
-            {"Vision": "Business", "GovService": "Business", "DataVault": "Technology"}
+            {"Vision": "Business", "Persona": "Business", "DataVault": "Technology"}
         )
         assert plan["Vision"][0] == "Strategy"
-        assert plan["GovService"][0] == "Beneficiary Experience"
+        assert plan["Persona"][0] == "Beneficiary Experience"
         assert plan["DataVault"][0] == "Data"
+
+    def test_gov_service_stays_in_business(self):
+        from app.services.nora_profile import plan_architecture_layout
+
+        # v17: B1 (June 2025 Content Meta Model) defines Service in Business.
+        assert plan_architecture_layout({"GovService": "Business"})["GovService"][0] == ("Business")
 
     def test_orders_types_by_layer_then_position(self):
         from app.services.nora_profile import plan_architecture_layout
@@ -1286,3 +1294,191 @@ class TestArchitectureLayoutApply:
 
         assert moved == []
         assert (vision.category, vision.sort_order) == ("Business", 42)
+
+
+class TestDgaAlignmentPlan:
+    """Profile v17 — DGA alignment, as pure definitions (no database)."""
+
+    def test_gov_service_moves_from_beneficiary_experience_to_business(self):
+        from app.services.nora_profile import ARCHITECTURE_LAYOUT, plan_gov_service_move
+
+        business = dict(ARCHITECTURE_LAYOUT)["Business"]
+        assert plan_gov_service_move("Beneficiary Experience") == (
+            "Business",
+            100 + business.index("GovService"),
+        )
+
+    def test_gov_service_elsewhere_is_left_alone(self):
+        from app.services.nora_profile import plan_gov_service_move
+
+        assert plan_gov_service_move("Business") is None
+        assert plan_gov_service_move("My Layer") is None
+        assert plan_gov_service_move(None) is None
+
+    def test_gov_service_is_not_moved_out_of_business_by_the_v16_layout(self):
+        from app.services.nora_profile import ARCHITECTURE_LAYER_MOVES
+
+        assert "GovService" not in ARCHITECTURE_LAYER_MOVES
+
+    def test_policy_fields_follow_the_meta_model_guideline(self):
+        fields = {f["key"]: f for f in NORA_TYPE_FIELDS["Policy"]}
+        # B1 §5.3.3.2.11 + the template's scope and clauses.
+        assert set(fields) == {
+            "policyCode",
+            "policyType",
+            "policyStatus",
+            "activationDate",
+            "policyLink",
+            "policyScope",
+            "policyClauses",
+        }
+        assert fields["activationDate"]["type"] == "date"
+        assert fields["policyLink"]["type"] == "url"
+        assert [o["key"] for o in fields["policyType"]["options"]] == ["internal", "external"]
+        assert [o["key"] for o in fields["policyStatus"]["options"]] == [
+            "active",
+            "suspended",
+            "cancelled",
+        ]
+
+    def test_lost_type_definition_fields_now_land(self):
+        from app.services.nora_profile import NORA_CARD_TYPE_FIELD_LANDING
+
+        # The seed creates these types first, so their profile definition never
+        # applied; pass 4 now lands the listed fields, at zero weight.
+        for type_key, keys in NORA_CARD_TYPE_FIELD_LANDING.items():
+            landed = {f["key"]: f for f in NORA_TYPE_FIELDS[type_key]}
+            for key in keys:
+                assert landed[key]["weight"] == 0, (type_key, key)
+        assert "deliveryChannel" in {f["key"] for f in NORA_TYPE_FIELDS["GovService"]}
+        assert "demographicInfo" not in {f["key"] for f in NORA_TYPE_FIELDS.get("Persona", [])}
+
+    def test_dga_fields_reach_the_security_and_technology_types(self):
+        keys = {k: {f["key"] for f in NORA_TYPE_FIELDS[k]} for k in NORA_TYPE_FIELDS}
+        assert {"code", "supportContractStatus", "typeOfOperation", "capitalCost"} <= keys[
+            "SecurityHardware"
+        ]
+        assert {"hypervisorType", "hypervisorVersion"} <= keys["PhysicalHost"]
+        assert {"inBackupPolicy", "inDrPolicy"} <= keys["Server"]
+        assert {"code", "modelType", "modelLink"} <= keys["ModelTemplate"]
+
+
+async def _settings(db, general: dict):
+    from app.models.app_settings import AppSettings
+
+    db.add(AppSettings(id="default", email_settings={}, general_settings=general))
+    await db.flush()
+
+
+async def _general(db) -> dict:
+    from sqlalchemy import select
+
+    from app.models.app_settings import AppSettings
+
+    row = (await db.execute(select(AppSettings).where(AppSettings.id == "default"))).scalar_one()
+    return row.general_settings or {}
+
+
+class TestDgaAlignmentApply:
+    """Profile v17 against the database."""
+
+    async def test_moves_gov_service_to_business_on_an_upgraded_install(self, db):
+        from app.services.nora_profile import (
+            ARCHITECTURE_LAYOUT_MARKER,
+            GOV_SERVICE_BUSINESS_MARKER,
+        )
+
+        # A v16 install: the layout already ran and put the service in BX.
+        await _settings(db, {ARCHITECTURE_LAYOUT_MARKER: True})
+        gov = await create_card_type(
+            db, key="GovService", label="Government Service", category="Beneficiary Experience"
+        )
+        gov.built_in = True
+        await db.flush()
+
+        summary = await apply_nora_profile(db)
+
+        assert gov.category == "Business"
+        assert "GovService → Business" in summary["categories_moved"]
+        assert (await _general(db))[GOV_SERVICE_BUSINESS_MARKER] is True
+
+    async def test_keeps_a_layer_chosen_after_the_move(self, db):
+        from app.services.nora_profile import (
+            ARCHITECTURE_LAYOUT_MARKER,
+            GOV_SERVICE_BUSINESS_MARKER,
+        )
+
+        await _settings(db, {ARCHITECTURE_LAYOUT_MARKER: True, GOV_SERVICE_BUSINESS_MARKER: True})
+        gov = await create_card_type(
+            db, key="GovService", label="Government Service", category="Beneficiary Experience"
+        )
+        gov.built_in = True
+        await db.flush()
+
+        await apply_nora_profile(db)
+
+        assert gov.category == "Beneficiary Experience"
+
+    async def test_sets_sar_when_no_currency_was_chosen(self, db):
+        summary = await apply_nora_profile(db)
+
+        assert (await _general(db))["currency"] == "SAR"
+        assert summary["currency_set"] == "SAR"
+
+    async def test_keeps_an_explicit_currency(self, db):
+        await _settings(db, {"currency": "USD"})
+
+        summary = await apply_nora_profile(db)
+
+        assert (await _general(db))["currency"] == "USD"
+        assert "currency_set" not in summary
+
+    async def test_adds_the_policy_attributes(self, db):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        await apply_nora_profile(db)
+
+        policy = (await db.execute(select(CardType).where(CardType.key == "Policy"))).scalar_one()
+        keys = {f["key"] for s in policy.fields_schema for f in s.get("fields") or []}
+        assert {
+            "policyCode",
+            "policyStatus",
+            "activationDate",
+            "policyLink",
+            "policyClauses",
+        } <= keys
+
+    async def test_replaces_legacy_maturity_dimensions_once(self, db):
+        from sqlalchemy import select
+
+        from app.models.maturity import MaturityDimension
+        from app.services.maturity import DEFAULT_MATURITY_DIMENSIONS
+        from app.services.nora_profile import DGA_MATURITY_MARKER
+
+        legacy = MaturityDimension(
+            key="governance", name="EA Governance & Organization", built_in=True, is_active=True
+        )
+        custom = MaturityDimension(key="cloud", name="Cloud", built_in=False, is_active=True)
+        db.add_all([legacy, custom])
+        await db.flush()
+
+        summary = await apply_nora_profile(db)
+
+        active = {
+            d.key
+            for d in (
+                await db.execute(select(MaturityDimension).where(MaturityDimension.is_active))
+            ).scalars()
+        }
+        assert active == {k for k, _, _ in DEFAULT_MATURITY_DIMENSIONS} | {"cloud"}
+        assert summary["maturity_dimensions_retired"] == ["governance"]
+        assert (await _general(db))[DGA_MATURITY_MARKER] is True
+
+        # An admin re-activates the legacy row; a later upgrade leaves it.
+        legacy.is_active = True
+        await db.flush()
+        summary = await apply_nora_profile(db)
+        assert legacy.is_active is True
+        assert "maturity_dimensions_retired" not in summary

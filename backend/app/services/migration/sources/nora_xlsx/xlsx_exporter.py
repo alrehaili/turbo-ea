@@ -37,9 +37,9 @@ from app.services.migration.sources.nora_xlsx.xlsx_parser import _SHEET_SPECS
 # Domain key → the native sheet types it contains (mirrors the six DGA
 # workbooks). One workbook per domain.
 DOMAIN_NATIVE_TYPES: dict[str, list[str]] = {
-    "business": ["GovService", "BusinessProcess"],
+    "business": ["GovService", "BusinessProcess", "Policy", "ModelTemplate"],
     "applications": ["Application", "Interface"],
-    "data": ["DataObject"],
+    "data": ["DataObject", "DataAttribute"],
     "technology": [
         "PhysicalHost",
         "VirtualServer",
@@ -112,7 +112,7 @@ class NoraTemplateExporter:
     async def _add_spec_sheet(self, spec: dict) -> None:
         native_type = spec["native_type"]
         card_type = mappings.TYPE_MAPPING.get(native_type, native_type)
-        subtype = mappings.ITC_SUBTYPE_BY_NATIVE_TYPE.get(native_type)
+        subtype = mappings.SUBTYPE_BY_NATIVE_TYPE.get(native_type)
 
         stmt = select(Card).where(Card.type == card_type, Card.status != "ARCHIVED")
         if subtype is not None:

@@ -165,8 +165,10 @@ async def test_business_workbook_stages_and_applies(db, tmp_path):
     assert rel_stats2["skip"] == 1
 
 
-async def test_technology_sheet_routes_subtypes(db, tmp_path):
-    await create_card_type(db, key="ITComponent", label="IT Component")
+async def test_technology_sheet_routes_to_the_nora_types(db, tmp_path):
+    """Template rows land on the NORA building block (Physical Host), not on
+    the generic ITComponent the NORA profile hides (NORAreadiness.md B-6)."""
+    await create_card_type(db, key="PhysicalHost", label="Physical Host")
     user = await create_user(db, email="importer2@test.com", role="admin")
 
     wb = Workbook()
@@ -196,8 +198,8 @@ async def test_technology_sheet_routes_subtypes(db, tmp_path):
     assert counts["errors"] == 0
 
     host = (
-        await db.execute(select(Card).where(Card.type == "ITComponent", Card.name == "RYD-Host01"))
+        await db.execute(select(Card).where(Card.type == "PhysicalHost", Card.name == "RYD-Host01"))
     ).scalar_one()
-    assert host.subtype == "physicalHost"
+    assert host.subtype is None
     assert host.attributes["manufacturer"] == "DELL"
     assert host.attributes["supportContractStatus"] == "active"
