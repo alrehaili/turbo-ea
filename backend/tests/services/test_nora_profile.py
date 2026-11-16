@@ -109,13 +109,14 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_18(self):
+    def test_profile_version_is_19(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
         # v11: KPI metricKey (D-26); v12 GOV-03; v13 GOV-05 (D-41); v14 RSK-01 (D-42);
         # v15 GOV-01 (D-37); v16 seven architecture layers; v17 DGA alignment;
-        # v18 B1 Beneficiary / Data Vault type lists.
-        assert NORA_PROFILE_VERSION == 18
+        # v18 B1 Beneficiary / Data Vault type lists; v19 B1 attributes of the
+        # template-less blocks.
+        assert NORA_PROFILE_VERSION == 19
 
     def test_b1_beneficiary_and_data_vault_subtypes_are_appended(self):
         from app.services.nora_profile import NORA_TYPE_FIELDS, NORA_V2_SUBTYPES
@@ -127,6 +128,35 @@ class TestNoraProfileDefinitions:
         ]
         assert NORA_V2_SUBTYPES["DataVault"][1]["translations"]["ar"] == "أرشيف ورقي"
         assert {f["key"] for f in NORA_TYPE_FIELDS["DataVault"]} >= {"code", "dataStructure"}
+
+    def test_b1_attributes_of_the_template_less_blocks(self):
+        # NORAreadiness.md Appendix B-6: B1 gives these blocks a code, the
+        # Initiative a type, the Position its tasks and qualifications.
+        from app.services.nora_profile import NORA_TYPE_FIELDS
+
+        def keys(type_key):
+            return [f["key"] for f in NORA_TYPE_FIELDS[type_key]]
+
+        for type_key in (
+            "Objective",
+            "Initiative",
+            "Project",
+            "KPI",
+            "Activity",
+            "Product",
+            "Datacenter",
+            "NetworkCircuit",
+            "License",
+            "PeripheralDevice",
+        ):
+            assert keys(type_key).count("code") == 1, type_key
+        assert keys("Phase") == ["code"]
+        assert keys("Step") == ["code", "implementationFeasibility"]
+        assert keys("Position") == ["positionTasks", "positionQualifications"]
+        init_type = next(f for f in NORA_TYPE_FIELDS["Initiative"] if f["key"] == "initiativeType")
+        assert init_type["type"] == "single_select"
+        assert [o["key"] for o in init_type["options"]] == ["strategic", "technical", "operational"]
+        assert init_type["options"][0]["translations"]["ar"] == "مبادرة استراتيجية"
 
     def test_relabel_subtypes_only_renames_untouched_seed_labels(self):
         from app.services.nora_dga_fields import relabel_subtypes

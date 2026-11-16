@@ -613,21 +613,93 @@ def test_data_dictionary_sheet(tmp_path):
     assert obj.custom_fields["__name_en"] == "Employee"
 
 
-def test_experience_workbook_is_descoped(tmp_path):
+_JOURNEY_HEADER = [
+    "رحلة المستفيد",
+    "المرحلة",
+    "الفجوة",
+    "الفرصة التحسينية",
+    "الأثر المتوقع",
+    "امكانية التطبيق",
+    "الأولولية",
+]
+
+
+def test_journey_improvements_land_as_steps_in_their_phase(tmp_path):
     wb = Workbook()
     _write_sheet(
         wb,
         " التحسينات على رحلات المس",
         [
             ["قائمة التحسينات على رحلات المستفيدين"],
-            ["رحلة المستفيد", "المرحلة", "الفجوة"],
-            ["شرح"] * 3,
-            ["رحلة التقديم على شكوى", "المتابعة", "لا يمكن الاطلاع على الحالة"],
+            _JOURNEY_HEADER,
+            ["شرح"] * 7,
+            [
+                "رحلة التقديم على شكوى",
+                "المتابعة",
+                "لا يمكن الاطلاع على الحالة",
+                "توفير متابعة حالة الشكوى",
+                "عالي",
+                "متوسطة",
+                "متوسط",
+            ],
+            # The same phase name in another journey stays a separate phase.
+            [
+                "رحلة طلب شهادة",
+                "المتابعة",
+                "لا إشعارات",
+                "إرسال إشعار عند الإصدار",
+                "متوسط",
+                "عالية",
+                "عالي",
+            ],
         ],
     )
     snapshot = parse_xlsx_path(_save(wb, tmp_path))
-    assert snapshot.entities == []
-    assert any("التحسينات" in e for e in snapshot.parse_errors)
+    assert not [e for e in snapshot.parse_errors if "التحسينات" in e]
+    ents = _by_id(snapshot)
+    step = ents[_entity_id("Step", "توفير متابعة حالة الشكوى")]
+    assert step.type == "Step"
+    assert step.custom_fields == {
+        "associatedGaps": "لا يمكن الاطلاع على الحالة",
+        "expectedImpact": "عالي",
+        "implementationFeasibility": "متوسطة",
+        "priority": "متوسط",
+    }
+    phase_a = _entity_id("Phase", "المتابعة — رحلة التقديم على شكوى")
+    phase_b = _entity_id("Phase", "المتابعة — رحلة طلب شهادة")
+    assert ents[phase_a].type == "Phase" and ents[phase_b].type == "Phase"
+    journey = _entity_id("BeneficiaryJourney", "رحلة التقديم على شكوى")
+    assert ents[journey].type == "BeneficiaryJourney"
+    rels = _rels(snapshot)
+    assert ("stepToPhase", step.source_id, phase_a) in rels
+    assert ("phaseToJourney", phase_a, journey) in rels
+    assert ("phaseToJourney", phase_b, _entity_id("BeneficiaryJourney", "رحلة طلب شهادة")) in rels
+
+
+def test_journey_improvement_without_a_journey_keeps_the_bare_phase(tmp_path):
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        " التحسينات على رحلات المس",
+        [
+            ["قائمة التحسينات على رحلات المستفيدين"],
+            _JOURNEY_HEADER,
+            ["شرح"] * 7,
+            [None, "المتابعة", None, "تحسين", None, None, None],
+        ],
+    )
+    snapshot = parse_xlsx_path(_save(wb, tmp_path))
+    step = _by_id(snapshot)[_entity_id("Step", "تحسين")]
+    assert _rels(snapshot) == {("stepToPhase", step.source_id, _entity_id("Phase", "المتابعة"))}
+
+
+def test_journey_improvement_mappings_point_at_real_relation_types():
+    from app.services.migration.sources.nora_xlsx.mappings import RELATION_MAPPING
+    from app.services.seed import RELATIONS
+
+    pairs = {r["key"]: (r["source_type_key"], r["target_type_key"]) for r in RELATIONS}
+    assert pairs[RELATION_MAPPING["stepToPhase"]] == ("Step", "Phase")
+    assert pairs[RELATION_MAPPING["phaseToJourney"]] == ("Phase", "BeneficiaryJourney")
 
 
 # ---------------------------------------------------------------------------

@@ -25,6 +25,9 @@ TYPE_MAPPING: dict[str, str] = {
     "Policy": "Policy",
     "ModelTemplate": "ModelTemplate",
     "DataAttribute": "DataAttribute",
+    "Step": "Step",
+    "Phase": "Phase",
+    "BeneficiaryJourney": "BeneficiaryJourney",
     # Technology-architecture sheets land on the NORA technology building
     # blocks (DGA Content Meta Model §5.3.8) — never on the generic
     # ITComponent, which the NORA profile hides (NORAreadiness.md B-6).
@@ -65,6 +68,9 @@ RELATION_MAPPING: dict[str, str] = {
     "processToModel": "relNora2BusinessProcessModelTemplate",
     # Data-attribute rows name their data entity.
     "dataObjectToAttribute": "relDataObjectToAttribute",
+    # Journey-improvement rows: the step sits in a phase of a journey.
+    "stepToPhase": "relNora2StepPhase",
+    "phaseToJourney": "relNora2PhaseBeneficiaryJourney",
 }
 
 FLIP_DIRECTION: frozenset[str] = frozenset()

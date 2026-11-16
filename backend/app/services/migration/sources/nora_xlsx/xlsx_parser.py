@@ -366,6 +366,25 @@ _SHEET_SPECS: list[dict[str, Any]] = [
             ("تصنيف البيانات", ("option", "dataClassification", mappings.DATA_CLASSIFICATION)),
         ],
     },
+    # ---- Beneficiary experience (بنية التجربة): improvement opportunities.
+    # B1 (§5.3.4.2) records gaps, improvement opportunities, expected impact and
+    # priority on a journey Step, so each row lands as a Step named after its
+    # opportunity, in the row's phase of the row's journey. Phase names repeat
+    # across journeys ("المتابعة"), so the phase card carries the journey name.
+    {
+        "sheet_token": "التحسينات علي رحلات",
+        "native_type": "Step",
+        "columns": [
+            ("رحله المستفيد", ("journey_name",)),
+            ("المرحله", ("journey_phase", "stepToPhase", "phaseToJourney")),
+            ("الفجوه", ("attr", "associatedGaps")),
+            ("الفرصه التحسينيه", ("name",)),
+            ("الاثر المتوقع", ("attr", "expectedImpact")),
+            ("امكانيه التطبيق", ("attr", "implementationFeasibility")),
+            ("الاولوليه", ("attr", "priority")),
+            ("الاولويه", ("attr", "priority")),
+        ],
+    },
     # ---- Technology architecture (بنية التقنية) ----
     # The NORA technology building blocks' own field keys (§5.3.8). A row's
     # columns are matched in order, so a longer, more specific token comes
@@ -509,7 +528,6 @@ _SKIPPED_SHEET_TOKENS: list[str] = [
     "المقدمه",
     "lookup",
     "اصحاب المصلحه",
-    "التحسينات علي رحلات",
 ]
 
 
@@ -651,6 +669,8 @@ def _parse_sheet(
         beneficiary: list[str] = []
         lifecycle_phase: str | None = None
         row_relations: list[tuple[str, str, str, str]] = []  # (rel, other_type, other_name, dir)
+        journey_name: str | None = None
+        journey_phase: tuple[str, str, str] | None = None
 
         for idx, rule in col_rules:
             value = row[idx] if idx < len(row) else None
@@ -693,6 +713,10 @@ def _parse_sheet(
                     attrs[rule[1]] = b
             elif kind == "parent_name":
                 parent_name = _norm_name(value)
+            elif kind == "journey_name":
+                journey_name = _norm_name(value)
+            elif kind == "journey_phase":
+                journey_phase = (_norm_name(value), rule[1], rule[2])
             elif kind == "beneficiary_flag":
                 if _match_bool(value) is True:
                     beneficiary.append(rule[2])
@@ -707,6 +731,19 @@ def _parse_sheet(
 
         if beneficiary:
             attrs["beneficiaryType"] = beneficiary
+
+        # Journey-improvement rows: link the step to its phase, and the phase to
+        # its journey. The phase card is named "<phase> — <journey>" so the
+        # same phase name in two journeys stays two cards.
+        stub_relations: list[tuple[str, str, str, str, str]] = []
+        if journey_phase is not None:
+            phase, to_phase, to_journey = journey_phase
+            phase_name = f"{phase} — {journey_name}" if journey_name else phase
+            row_relations.append((to_phase, "Phase", phase_name, "out"))
+            if journey_name:
+                stub_relations.append(
+                    ("Phase", phase_name, to_journey, "BeneficiaryJourney", journey_name)
+                )
 
         # GSB-routed integration points also flip the WP1.1 viaGsb flag.
         if attrs.get("linkType") == "gsb":
@@ -756,6 +793,23 @@ def _parse_sheet(
             other_id = _entity_id(other_type, other_name)
             stub_names.setdefault(other_id, (other_type, other_name))
             from_id, to_id = (entity_id, other_id) if direction == "out" else (other_id, entity_id)
+            rel_id = f"{from_id}::{rel_name}::{to_id}"
+            if rel_id in seen_rel_ids:
+                continue
+            seen_rel_ids.add(rel_id)
+            relations.append(
+                Relation(
+                    source_id=rel_id,
+                    type=rel_name,
+                    from_entity_id=from_id,
+                    to_entity_id=to_id,
+                )
+            )
+        for from_type, from_name, rel_name, to_type, to_name in stub_relations:
+            from_id = _entity_id(from_type, from_name)
+            to_id = _entity_id(to_type, to_name)
+            stub_names.setdefault(from_id, (from_type, from_name))
+            stub_names.setdefault(to_id, (to_type, to_name))
             rel_id = f"{from_id}::{rel_name}::{to_id}"
             if rel_id in seen_rel_ids:
                 continue

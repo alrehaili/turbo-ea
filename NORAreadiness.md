@@ -25,14 +25,14 @@ Every alignment finding is measured against these documents.
 | Section | In scope | Readiness |
 |---|---:|---:|
 | A. Methodology & viewpoints | 5 of 5 | 94% |
-| B. Metamodel alignment (B1) | 10 of 10 | 89% |
+| B. Metamodel alignment (B1) | 10 of 10 | 90% |
 | C. Maturity model (B5) | 3 of 3 | 87% |
 | D. Live instance defects | 8 of 8 | 58% |
 | E. Localisation (Saudi context) | 3 of 4 | 95% |
 | F. Security & compliance | 0 of 7 | Deferred |
 | G. Operations & scale | 0 of 3 | Deferred |
 | H. Procurement & source documents | 1 of 5 | 100% |
-| **Overall (in scope)** | **30 of 45** | **82%** |
+| **Overall (in scope)** | **30 of 45** | **83%** |
 | Overall (all 45 rows) | 45 | 62% |
 
 > Update the section figures whenever a row's % Done changes. In-scope overall = average of the rows not marked `Won't fix` or `Deferred`.
@@ -60,7 +60,7 @@ B1 defines **45 building blocks in 7 domains**: Strategic Alignment 7, Business 
 | B-3 | **Policy** has no attributes. B1 requires code, name, description, owner, type (internal / external-government), status (active / suspended / cancelled), effective date and document link | `seed.py` Policy has `fields_schema: []`; B1 §5.3.3.2.11 | **v2.49.0:** profile v17 adds policyCode, policyType, policyStatus, policyEffectiveDate, policyLink (EN + AR). The owner is the Responsible stakeholder role. Verify on the live instance | **High** | S | 90% | Verify |
 | B-4 | **Beneficiary** type list differs. B1 lists internal, government entity, business sector and individuals. The app's subtypes are citizen / business / government, so **internal** is missing | `seed.py` Beneficiary subtypes; B1 §5.3.4.2.1 | **v2.50.0:** the NORA profile adds the `internal` subtype and renames the built-in ones to B1's words (Individuals, Business Sector, Government Entity) while they still carry the seed's labels. Verify after the reset | Medium | S | 90% | Verify |
 | B-5 | **Data Vault** type list differs. B1 lists electronic database, digital archive and **paper archive**, plus a *structure* attribute. The app offers database / data lake / warehouse and has no fields | `seed.py` DataVault; B1 §5.3.6.2.2 | **v2.50.0:** Digital Archive and Paper Archive subtypes added, Database renamed Electronic Database (guarded), Data Lake and Data Warehouse kept as extensions; code and structure fields added. Verify after the reset | Medium | S | 90% | Verify |
-| B-6 | The other blocks have few or no attributes compared with B1: Vision, Mission, Pillar, Model/Template, Application Module, Application Function, Phase, Position, Data Attribute, Security Service (at least) | `seed.py` field counts; B1 §5.3.x.2 tables | **v2.49.0:** reviewed against B1 and the six DGA templates (Appendix B-6). Added the missing attributes for the security types, physical host, server, model/template, policy, data attribute, infrastructure service and integration point; landed 15 fields that were defined but never reached an install (service, pillar, persona, policy); the template importer writes technology/security rows to the NORA types and now also imports the policy, model/template and data-attribute sheets. **Open:** the journey-improvement sheet (no visible NORA type), the strategic and other types not yet compared with B1, and a TRM code on the native technology types | **High** | L | 80% | In progress |
+| B-6 | The other blocks have few or no attributes compared with B1: Vision, Mission, Pillar, Model/Template, Application Module, Application Function, Phase, Position, Data Attribute, Security Service (at least) | `seed.py` field counts; B1 §5.3.x.2 tables | **v2.49.0–v2.51.0:** every B1 block compared (Appendix B-6). Added the missing attributes on the security, technology, data, business, strategy and journey types (codes, types, Position tasks and qualifications, Data Attribute fields, …); the template importer writes to the NORA types and reads every DGA sheet except the stakeholders one (no e-mails to match users). **Open:** a TRM code on the native technology types, and the attributes B1 wants as lists that are still text (B-9) | **High** | L | 95% | Verify |
 | B-7 | Relationships have not been compared with B1's relationship table for each domain | B1 §5.3.x.3 (one table per domain); app has 206 relation types | **v2.50.0:** crosswalk done (Appendix B-7) — 126 of B1's 179 relation pairs had a relation type (70%); 48 relation types added, so 174 are covered (97%). Guarded by `test_nora_b1_relations.py`. KPI → KPI added (operational contributes to strategic). **Open:** 4 same-type links (Vision, Mission, Objective, Organizational Unit) | **High** | L | 95% | Open |
 | B-8 | **"Defined once" is broken in the live data.** "Commission Enterprise" exists as both an Organizational Unit and an Organization. Hidden legacy types (`Organization`, `BeneficiaryPersona`) still hold cards and show under "Uncategorized" | live card relations panel; `NORA_HIDDEN_TYPE_KEYS` | **v2.49.0:** the CST kit and the `SEED_NORA` demo use Organizational Units and Personas (the demo's 6 organizations, the fill seeders' 5 personas; their relations moved to native types). The Org Chart, strategy-cascade owner and portfolio org filter read Organizational Units; the NORA presets were retargeted (existing untouched ones too). Guard: `tests/services/test_nora_seed_building_blocks.py`. **Left:** reset the live database (the NORA demo reseeds with Units/Personas); import the CSTD kit again only if wanted. The demo's IT Component cards stay until the native tech types carry TRM fields (see B-6) | **High** | M | 90% | Verify |
 | B-9 | B1 asks for fixed values (currency, date/time format, priorities) as predefined lists | B1 §5.2 | The three B1 names are covered: currency is a setting (SAR, E2) and a list on projects, date format is a setting, and project and initiative priorities are lists. **Open:** B1 marks about 100 attributes as predefined lists; the ones the app keeps as text (e.g. data attribute type, server OS, journey step priority) are not yet audited | Low | M | 80% | Open |
@@ -142,6 +142,7 @@ B1 defines **45 building blocks in 7 domains**: Strategic Alignment 7, Business 
 | 16 Nov 2026 | A5: filled sample of the business and data templates in `examp/dga-templates-sample/`; both parse with no errors and every link resolves (import into a live install still to verify) |
 | 16 Nov 2026 | v2.50.0 quick wins: B-4 internal beneficiary, B-5 archive data vaults, E4 View Library block names, line breaks kept on import; B-9 narrowed to the attribute audit |
 | 16 Nov 2026 | B-7: relationship crosswalk against B1 (Appendix B-7); 48 relation types added, then KPI → KPI; 175 of 179 pairs covered |
+| 16 Nov 2026 | v2.51.0 B-6: the remaining blocks compared with B1; codes, Initiative type and Position fields added; journey-improvement sheet imported onto Step |
 
 ## Appendix B-6 — building-block attributes vs B1 and the DGA templates
 
@@ -158,7 +159,7 @@ Reviewed 15 Nov 2026 against B1 (June 2025 Content Meta Model guideline) and the
 | Technical Integration Interface (`Interface`) | نقاط الربط التقني | ✅ Match | Integration point number added |
 | Data Entity (`DataObject`) | دليل قاموس البيانات | ✅ Match | |
 | Data Attribute (`DataAttribute`) | سمات البيانات / فهرس الأعمال | ✅ Match | 16 fields added (B1 type, quality rules and classification + both sheets); both sheets are imported and merged per attribute, linked to their data entity. CRUD owners and owner e-mails are not kept |
-| Data Vault (`DataVault`) | — | 🟡 Partial | See B-5 |
+| Data Vault (`DataVault`) | — | ✅ Match | B1 types (electronic database, digital and paper archive) and the code and structure fields added in v2.50.0 (B-5) |
 | Physical Host (`PhysicalHost`) | أجهزة المضيف المادي | ✅ Match | Hypervisor type and version added |
 | Server (`Server`, subtype virtual) | دليل الخوادم الافتراضية | ✅ Match | Backup and DR cover added; the power-state column is not kept |
 | Network Device (`NetworkDevice`) | دليل الأجهزة الشبكية | ✅ Match | |
@@ -169,14 +170,14 @@ Reviewed 15 Nov 2026 against B1 (June 2025 Content Meta Model guideline) and the
 | Security Software | برمجيات الأمن | ✅ Fields added | Code, version, contract status, type of operation, costs |
 | Security Service | خدمات الأمن | ✅ Fields added | Code, function, contract status, type of operation, costs |
 | Beneficiary Journey | — | ✅ Match | Code and objective were already present (v4) |
-| Journey improvement (`JourneyImprovement`, hidden) | التحسينات على رحلات المستفيدين | ❌ Hidden type | The sheet's rows have no visible NORA home; decide between a visible type or fields on the journey (B-7) |
+| Journey improvement | التحسينات على رحلات المستفيدين | ✅ Imported | B1 puts gaps, improvement opportunities, expected impact and priority on the journey **Step**, so each row becomes a Step named after its opportunity, linked to its phase (named "<phase> — <journey>") and the phase to its journey; feasibility added to Step. The hidden `JourneyImprovement` type stays unused |
 | Persona | — | ✅ Match | Code landed |
-| Beneficiary | — | 🟡 Partial | See B-4 |
+| Beneficiary | — | ✅ Match | B1 type list (internal, government entity, business sector, individuals) since v2.50.0 (B-4) |
 | Pillar | — | ✅ Match | Code and order landed |
-| Vision, Mission, Objective, Initiative, Project, KPI | — | ⚪ Not compared | No template; compare with B1 §5.3.2 |
-| Capability, Org Unit, Service Provider, Activity, Product, Position, Role | — | ⚪ Not compared | Compare with B1 §5.3.3 |
-| Application Module, Application Function | — | ⚪ Not compared | Compare with B1 §5.3.7 |
-| Data Center, Network Link, Containerization Engine, License, Peripheral Device | — | ⚪ Not compared | No template sheet; compare with B1 §5.3.8 |
+| Vision, Mission, Pillar, Objective, Initiative, Project, KPI | — | ✅ Match | Compared with B1 §5.3.1.2 (16 Nov 2026). Vision, Mission and Pillar matched; v2.51.0 adds the code on Objective, Initiative, Project and KPI and the Initiative type (strategic / technical / operational). KPI unit and Initiative owner are free text where B1 has a list or a relation (B-9; owner is now also the *owned by* relation) |
+| Capability, Org Unit, Service Provider, Activity, Product, Position, Role | — | ✅ Match | Compared with B1 §5.3.2.2. Capability, Organizational Unit (B1 *tasks* sit in the *mandates* field), Service Provider and Role matched; v2.51.0 adds the code on Activity and Product and the Position's tasks and qualifications (it had no fields). Service provider field of activity and location are text where B1 has lists (B-9) |
+| Application Module, Application Function | — | ✅ Match | B1 §5.3.5.2 gives them only a name and a description |
+| Data Center, Network Link, Containerization Engine, License, Peripheral Device | — | ✅ Match | Compared with B1 §5.3.6.2. Every attribute was present except the code on Datacenter, Network Circuit, License and Peripheral Device, added in v2.51.0. Datacenter type (on premises / co-located / cloud) is the subtype; manufacturer, location and licence type are text where B1 has lists (B-9) |
 
 Guard: `test_every_template_field_exists_on_its_target_type` fails when a template column writes a field its NORA type does not have.
 

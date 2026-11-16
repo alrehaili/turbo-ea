@@ -93,7 +93,13 @@ from app.services.nora_dga_fields import (
 # subtype, the digital and paper archive Data Vault subtypes, B1 labels on the
 # built-in ones (guarded), the Data Vault code and structure fields, and the
 # KPI → KPI link (operational KPI contributes to strategic KPI, B-7).
-NORA_PROFILE_VERSION = 18
+# v19: B1 attributes of the template-less blocks (NORAreadiness.md Appendix
+# B-6) — a code on Objective, Initiative, Project, KPI, Activity, Product,
+# Phase, Step, Datacenter, Network Circuit, License and Peripheral Device, the
+# Initiative type, the Position's tasks and
+# qualifications, and the Step's implementation feasibility (the journey-
+# improvement sheet now lands on Step).
+NORA_PROFILE_VERSION = 19
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA

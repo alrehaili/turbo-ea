@@ -926,3 +926,147 @@ def relabel_subtypes(type_key: str, subtypes: list[dict]) -> tuple[list[dict], l
                 sub["translations"] = deepcopy(translations)
                 changed.append(sub_key)
     return out, changed
+
+
+# ---------------------------------------------------------------------------
+# Template-less blocks compared with B1 (NORAreadiness.md Appendix B-6, 16 Nov
+# 2026). B1 gives every one of these a code; Initiative also has a type,
+# Position its tasks and qualifications, and a journey Step the feasibility
+# column of DGA's journey-improvement sheet.
+# ---------------------------------------------------------------------------
+
+
+def _option(key: str, label: str, translations: dict) -> dict:
+    return {"key": key, "label": label, "translations": translations}
+
+
+_INITIATIVE_TYPE = {
+    "key": "initiativeType",
+    "label": "Initiative Type",
+    "type": "single_select",
+    "weight": 0,
+    "translations": _tr(
+        "Initiativentyp",
+        "Type d'initiative",
+        "Tipo de iniciativa",
+        "Tipo di iniziativa",
+        "Tipo de iniciativa",
+        "举措类型",
+        "Тип инициативы",
+        "Initiativtype",
+        "نوع المبادرة",
+    ),
+    "options": [
+        _option(
+            "strategic",
+            "Strategic",
+            _tr(
+                "Strategisch",
+                "Stratégique",
+                "Estratégica",
+                "Strategica",
+                "Estratégica",
+                "战略",
+                "Стратегическая",
+                "Strategisk",
+                "مبادرة استراتيجية",
+            ),
+        ),
+        _option(
+            "technical",
+            "Technical",
+            _tr(
+                "Technisch",
+                "Technique",
+                "Técnica",
+                "Tecnica",
+                "Técnica",
+                "技术",
+                "Техническая",
+                "Teknisk",
+                "مبادرة تقنية",
+            ),
+        ),
+        _option(
+            "operational",
+            "Operational",
+            _tr(
+                "Operativ",
+                "Opérationnelle",
+                "Operativa",
+                "Operativa",
+                "Operacional",
+                "运营",
+                "Операционная",
+                "Operationel",
+                "مبادرة تشغيلية",
+            ),
+        ),
+    ],
+}
+
+for _key in (
+    "Objective",
+    "Initiative",
+    "Project",
+    "KPI",
+    "Activity",
+    "Product",
+    "Phase",
+    "Step",
+    "Datacenter",
+    "NetworkCircuit",
+    "License",
+    "PeripheralDevice",
+):
+    NORA_DGA_TYPE_FIELDS.setdefault(_key, []).append(deepcopy(_CODE))
+NORA_DGA_TYPE_FIELDS["Initiative"].append(_INITIATIVE_TYPE)
+NORA_DGA_TYPE_FIELDS["Position"] = [
+    _text(
+        "positionTasks",
+        "Tasks",
+        _tr(
+            "Aufgaben",
+            "Missions",
+            "Tareas",
+            "Compiti",
+            "Tarefas",
+            "职责",
+            "Задачи",
+            "Opgaver",
+            "مهام المسمى الوظيفي",
+        ),
+    ),
+    _text(
+        "positionQualifications",
+        "Qualifications",
+        _tr(
+            "Qualifikationen",
+            "Qualifications",
+            "Cualificaciones",
+            "Qualifiche",
+            "Qualificações",
+            "任职资格",
+            "Квалификация",
+            "Kvalifikationer",
+            "مؤهلات المسمى الوظيفي",
+        ),
+    ),
+]
+NORA_DGA_TYPE_FIELDS["Step"].append(
+    _text(
+        "implementationFeasibility",
+        "Implementation Feasibility",
+        _tr(
+            "Umsetzbarkeit",
+            "Faisabilité",
+            "Viabilidad",
+            "Fattibilità",
+            "Viabilidade",
+            "实施可行性",
+            "Осуществимость",
+            "Gennemførlighed",
+            "إمكانية التطبيق",
+        ),
+    )
+)

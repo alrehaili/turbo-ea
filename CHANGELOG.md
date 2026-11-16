@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.51.0] - 2026-11-16
+
+### Added
+- With the NORA profile, objectives, initiatives, projects, KPIs, activities, products journey phases and steps, datacenters, network circuits, licences and peripheral devices carry a code, initiatives a type (strategic, technical, operational), and positions their tasks and qualifications, as in DGA's Content Meta Model guideline.
+- Importing the DGA data-collection templates now reads the journey-improvement sheet: each improvement opportunity becomes a journey step with its gap, expected impact, feasibility and priority, in its phase of its beneficiary journey.
+
 ## [2.50.0] - 2026-11-16
 
 ### Added
