@@ -99,7 +99,13 @@ setting an unreferenced variable in a Compose `.env` file alone does not pass it
 into a container. Never pass backend settings into the frontend build.
 
 `RESET_DB`, `RESET_NORA_DEMO`, all sample-data `SEED_*` flags, and
-`AI_AUTO_CONFIGURE` are fixed false in this production Compose file. This does
+`AI_AUTO_CONFIGURE` default to false in this Compose file and are read from the
+deployment's environment, so they can be switched on there (in Coolify, the
+resource's environment variables) without editing the file. For a demo, set
+`SEED_NORA=true`; to start from an empty database add `RESET_DB=true` for **one**
+deploy and then set it back to `false` — it drops every table on every start.
+The seeders run once per install. With the flags left unset, startup creates
+no demo inventory. Either way this does
 **not** suppress normal built-in configuration initialization: upstream startup
 still installs missing metamodel/roles/presets and this fork's NORA profile
 (`SEED_PROFILE=nora`, or explicitly `togaf` to opt out). It creates no demo

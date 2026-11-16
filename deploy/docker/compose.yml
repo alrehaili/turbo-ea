@@ -27,16 +27,19 @@ services:
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
       DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-      # No reset or sample landscape on this production path.
-      RESET_DB: "false"
-      RESET_NORA_DEMO: "false"
-      SEED_DEMO: "false"
-      SEED_BPM: "false"
-      SEED_PPM: "false"
-      SEED_SECURITY: "false"
-      SEED_NORA: "false"
+      # Reset and sample landscapes are off unless set in the deployment's
+      # environment (Coolify: the resource's environment variables).
+      # RESET_DB=true drops every table on EVERY start — set it for one deploy,
+      # then set it back to false. The seeders run once per install.
+      RESET_DB: ${RESET_DB:-false}
+      RESET_NORA_DEMO: ${RESET_NORA_DEMO:-false}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      SEED_BPM: ${SEED_BPM:-false}
+      SEED_PPM: ${SEED_PPM:-false}
+      SEED_SECURITY: ${SEED_SECURITY:-false}
+      SEED_NORA: ${SEED_NORA:-false}
       SEED_PROFILE: ${SEED_PROFILE:-nora}
-      AI_AUTO_CONFIGURE: "false"
+      AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
