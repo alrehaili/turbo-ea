@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.52.0] - 2026-11-16
+
+### Added
+- The NORA demo data now runs one completed governance cycle: governance mode is on, the strategy and current core cards are approved through the approval chain, a few cards are in review or rejected, and the first Phase 2 deliverable of the EA program is approved, so the approval coverage and program pages show figures.
+
 ## [2.51.0] - 2026-11-16
 
 ### Added

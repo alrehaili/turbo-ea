@@ -27,13 +27,13 @@ Every alignment finding is measured against these documents.
 | A. Methodology & viewpoints | 5 of 5 | 94% |
 | B. Metamodel alignment (B1) | 10 of 10 | 90% |
 | C. Maturity model (B5) | 3 of 3 | 87% |
-| D. Live instance defects | 8 of 8 | 58% |
+| D. Live instance defects | 8 of 8 | 68% |
 | E. Localisation (Saudi context) | 3 of 4 | 95% |
 | F. Security & compliance | 0 of 7 | Deferred |
 | G. Operations & scale | 0 of 3 | Deferred |
 | H. Procurement & source documents | 1 of 5 | 100% |
-| **Overall (in scope)** | **30 of 45** | **83%** |
-| Overall (all 45 rows) | 45 | 62% |
+| **Overall (in scope)** | **30 of 45** | **85%** |
+| Overall (all 45 rows) | 45 | 64% |
 
 > Update the section figures whenever a row's % Done changes. In-scope overall = average of the rows not marked `Won't fix` or `Deferred`.
 
@@ -82,7 +82,7 @@ B1 defines **45 building blocks in 7 domains**: Strategic Alignment 7, Business 
 | D2 | Maturity page is empty | live `/maturity` | Same as C3 | **High** | — | 80% | Verify |
 | D3 | Costs display in USD ("Service Fee $0") | live card; `settings.py` `DEFAULT_CURRENCY = "USD"` | **v2.49.0:** a NORA install with no currency chosen switches to SAR on upgrade. Verify on the live instance (or set it in Admin → Settings) | **High** | XS | 90% | Verify |
 | D4 | Hidden types show under "Uncategorized" | live card relations panel | Same as B-8: reset the live database | **High** | — | 90% | Verify |
-| D5 | The governance workflow isn't exercised in the demo data: every card is Draft, approvals are at 0%, and KPIs and initiatives have no targets, owners or status reports. Executive and NORA dashboards are almost empty | live Executive dashboard and `/nora-program` | Extend the NORA demo seed with one completed approval cycle: approved cards, ratified KPI targets with measurements, initiative status reports, a signed ARB decision and at least one Phase 2 deliverable marked done | Medium | M | 0% | Open |
+| D5 | The governance workflow isn't exercised in the demo data: every card is Draft, approvals are at 0%, and KPIs and initiatives have no targets, owners or status reports. Executive and NORA dashboards are almost empty | live Executive dashboard and `/nora-program` | **v2.52.0:** `seed_nora_governance` (last NORA seeder) turns governance mode on and runs the approval chain over the landscape: strategy and current core cards approved (per-step reviewers, approval events), 3 in review, 1 rejected; Phase 2 business scope approved and data collection in review. Ratified KPI targets with verified values, initiative status reports, signed ADRs and decided ARB reviews already come from `seed_demo_executive` (it runs for SEED_NORA too; the live site was probably seeded before it existed). Verify after the reset | Medium | M | 80% | Verify |
 | D6 | After switching the UI to Arabic, the browser tab stopped responding to navigation, and a new tab kept redirecting off-domain | Chrome session, 15 Nov 2026 | Reproduce by hand (could be the browser extension rather than the app). If it reproduces, check the locale-switch reload and the auth redirect | Medium | S | 0% | Verify |
 | D7 | Clicking an item in the Governance menu once failed to navigate | Chrome session | Reproduce by hand. If it reproduces, fix and add a test | Low | XS | 0% | Verify |
 | D8 | Arabic RTL works, including translated card content | live card in Arabic | None | — | — | 100% | Done |
@@ -143,6 +143,7 @@ B1 defines **45 building blocks in 7 domains**: Strategic Alignment 7, Business 
 | 16 Nov 2026 | v2.50.0 quick wins: B-4 internal beneficiary, B-5 archive data vaults, E4 View Library block names, line breaks kept on import; B-9 narrowed to the attribute audit |
 | 16 Nov 2026 | B-7: relationship crosswalk against B1 (Appendix B-7); 48 relation types added, then KPI → KPI; 175 of 179 pairs covered |
 | 16 Nov 2026 | v2.51.0 B-6: the remaining blocks compared with B1; codes, Initiative type and Position fields added; journey-improvement sheet imported onto Step |
+| 16 Nov 2026 | v2.52.0 D5: NORA demo governance cycle (approvals, Phase 2 deliverable) |
 
 ## Appendix B-6 — building-block attributes vs B1 and the DGA templates
 

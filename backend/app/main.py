@@ -1344,6 +1344,26 @@ async def _migrate_and_seed(extension_load_report) -> list[asyncio.Task]:
         except Exception as exc:  # noqa: BLE001
             logger.exception("[seed_benefits] FAILED: %s", exc)
 
+    # One completed governance cycle over the NORA landscape (approved, in
+    # review and rejected cards through the approval chain, a Phase 2
+    # deliverable approved). Last: every other NORA seeder's cards must exist.
+    if settings.SEED_NORA:
+        from app.services.seed_nora_governance import seed_nora_governance
+
+        try:
+            async with async_session() as db:
+                result = await seed_nora_governance(db)
+            if result.get("skipped"):
+                print(f"[seed_nora_governance] Skipped: {result.get('reason', 'unknown')}")
+            else:
+                print(
+                    f"[seed_nora_governance] Approved {result['approved']} cards, "
+                    f"{result['in_review']} in review, {result['rejected']} rejected; "
+                    f"{result['deliverables']} program deliverable(s) updated"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[seed_nora_governance] FAILED: %s", exc)
+
     # ── Extension Store: mint/load the instance ID (licensing identity —
     # must exist before the registry evaluates license binding), then
     # reconcile statuses, load license/registry, run per-extension
