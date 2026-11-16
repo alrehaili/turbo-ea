@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.50.0] - 2026-11-16
+
+### Added
+- NORA relation types for the relations DGA's Content Meta Model guideline defines that the metamodel lacked: security hardware, software and services securing each technology component and application module or function; the service provider, owning organizational unit, datacenter and licence of each security component; the service provider of datacenters and network circuits; the organizational unit that owns an objective or an initiative; and infrastructure management tools supporting applications and interfaces.
+- With the NORA profile, a KPI can contribute to another KPI, so each strategic KPI can be linked to the operational KPIs that support it.
+- With the NORA profile, a Beneficiary can be an Internal Beneficiary, and a Data Vault can be a Digital Archive or a Paper Archive, as in DGA's Content Meta Model guideline. A Data Vault also records its code and structure.
+
+### Changed
+- With the NORA profile, the existing Beneficiary and Data Vault subtypes take the guideline's names (Individuals, Business Sector, Government Entity, Electronic Database), unless an administrator has already renamed them.
+- The View Library names each viewpoint's building blocks by their card type names, in the current language, instead of internal keys.
+
+### Fixed
+- Importing the DGA data-collection templates keeps the line breaks in multi-line cells, so policy clauses and service steps stay one item per line.
+
 ## [2.49.0] - 2026-11-15
 
 ### Added

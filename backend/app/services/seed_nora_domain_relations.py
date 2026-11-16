@@ -900,8 +900,38 @@ _VERBS: dict[str, dict] = {
     ),
 }
 
-# Shared verbs from the technology registry (uses / owned-by / provided-by).
-for _name in ("uses", "ownedBy", "providedBy"):
+# "supports" — an infrastructure management tool supporting an application
+# or an integration interface (B1 §5.3.6.3, NORAreadiness.md B-7).
+_VERBS["supports"] = _v(
+    "supports",
+    "is supported by",
+    "n:m",
+    _tx(
+        de="unterstützt",
+        fr="prend en charge",
+        es="da soporte a",
+        it="supporta",
+        pt="suporta",
+        zh="支持",
+        ru="поддерживает",
+        da="understøtter",
+        ar="يدعم",
+    ),
+    _tx(
+        de="wird unterstützt von",
+        fr="est pris en charge par",
+        es="recibe soporte de",
+        it="è supportato da",
+        pt="é suportado por",
+        zh="由…支持",
+        ru="поддерживается",
+        da="understøttes af",
+        ar="مدعوم من",
+    ),
+)
+
+# Shared verbs from the technology registry (uses / owned-by / provided-by / hosts).
+for _name in ("uses", "ownedBy", "providedBy", "hosts"):
     _VERBS.setdefault(_name, _TECH_VERBS[_name])
 
 # ---------------------------------------------------------------------------
@@ -995,6 +1025,50 @@ _TRIPLES: list[tuple[str, str, str]] = [
     ("securedThrough", "Server", "SecurityHardware"),
     ("securedThrough", "Server", "SecuritySoftware"),
     ("securedThrough", "Server", "SecurityService"),
+    # ── B1 crosswalk (June 2025 Content Meta Model guideline, §5.3.x.3 —
+    # NORAreadiness.md B-7, Appendix B-7): the pairs B1 relates that had no
+    # relation type between two visible NORA types.
+    # Technology and application components secured by security components.
+    *(
+        ("securedThrough", _component, _security)
+        for _component in (
+            "PhysicalHost",
+            "NetworkDevice",
+            "NetworkCircuit",
+            "Storage",
+            "ContainerizationEngine",
+            "InfrastructureManagementTool",
+            "InfrastructureService",
+            "PeripheralDevice",
+            "ApplicationModule",
+            "ApplicationFunction",
+        )
+        for _security in ("SecurityHardware", "SecuritySoftware", "SecurityService")
+    ),
+    # Provided by a service provider. The base metamodel links Datacenter and
+    # Security Service to the generic Provider type, which NORA hides.
+    ("providedBy", "Datacenter", "ServiceProvider"),
+    ("providedBy", "NetworkCircuit", "ServiceProvider"),
+    ("providedBy", "SecurityHardware", "ServiceProvider"),
+    ("providedBy", "SecuritySoftware", "ServiceProvider"),
+    ("providedBy", "SecurityService", "ServiceProvider"),
+    # Owned by an organizational unit. The base metamodel links Objective and
+    # Initiative to the hidden Organization type.
+    ("ownedBy", "Objective", "OrganizationalUnit"),
+    ("ownedBy", "Initiative", "OrganizationalUnit"),
+    ("ownedBy", "SecurityHardware", "OrganizationalUnit"),
+    ("ownedBy", "SecuritySoftware", "OrganizationalUnit"),
+    ("ownedBy", "SecurityService", "OrganizationalUnit"),
+    # Security components: where they are hosted and the licences they use.
+    ("hosts", "Datacenter", "SecurityHardware"),
+    ("hosts", "Datacenter", "SecuritySoftware"),
+    ("hosts", "Datacenter", "SecurityService"),
+    ("uses", "SecurityHardware", "License"),
+    ("uses", "SecuritySoftware", "License"),
+    ("uses", "SecurityService", "License"),
+    # Infrastructure management tools support applications and interfaces.
+    ("supports", "InfrastructureManagementTool", "Application"),
+    ("supports", "InfrastructureManagementTool", "Interface"),
 ]
 
 

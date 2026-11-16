@@ -48,7 +48,11 @@ from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
-from app.services.nora_dga_fields import NORA_DGA_TYPE_FIELDS
+from app.services.nora_dga_fields import (
+    NORA_DGA_SUBTYPES,
+    NORA_DGA_TYPE_FIELDS,
+    relabel_subtypes,
+)
 
 # v2 (WP6.2): field alignment to the Dec-2024 EA Content Meta Model + the six
 # official حصر البيانات data-collection templates (see noraPlan.md Phase 6).
@@ -85,7 +89,11 @@ from app.services.nora_dga_fields import NORA_DGA_TYPE_FIELDS
 # layer, and the NORA types gain the attributes of the June 2025 Content Meta
 # Model guideline and DGA's data-collection templates (NORA_DGA_TYPE_FIELDS,
 # NORA_CARD_TYPE_FIELD_LANDING).
-NORA_PROFILE_VERSION = 17
+# v18: B1 type lists (NORAreadiness.md B-4, B-5) — the internal Beneficiary
+# subtype, the digital and paper archive Data Vault subtypes, B1 labels on the
+# built-in ones (guarded), the Data Vault code and structure fields, and the
+# KPI → KPI link (operational KPI contributes to strategic KPI, B-7).
+NORA_PROFILE_VERSION = 18
 
 # [FORK] NORA exact-fidelity metamodel (noraPlanMeta.md Phase 3). When the NORA
 # profile is active the inventory / create-card picker shows ONLY the exact NORA
@@ -4152,6 +4160,10 @@ NORA_V2_SUBTYPES: dict[str, list[dict]] = {
         },
     ],
 }
+
+# Profile v18: B1's Beneficiary and Data Vault type lists.
+for _type_key, _subs in NORA_DGA_SUBTYPES.items():
+    NORA_V2_SUBTYPES.setdefault(_type_key, []).extend(deepcopy(_subs))
 
 
 # ---------------------------------------------------------------------------
@@ -8332,6 +8344,41 @@ NORA_RELATION_TYPES: list[dict] = [
             ),
         },
     },
+    # B1 §5.3.1.3 (row 28; NORAreadiness.md B-7): every strategic KPI links to
+    # one or more operational KPIs. The operational KPI is the source.
+    {
+        "key": "relKPIToKPI",
+        "label": "contributes to",
+        "reverse_label": "is supported by",
+        "source_type_key": "KPI",
+        "target_type_key": "KPI",
+        "cardinality": "n:m",
+        "sort_order": 263,
+        "translations": {
+            "label": _tr(
+                "trägt bei zu",
+                "contribue à",
+                "contribuye a",
+                "contribuisce a",
+                "contribui para",
+                "支撑",
+                "способствует",
+                "bidrager til",
+                "يساهم في",
+            ),
+            "reverse_label": _tr(
+                "wird unterstützt von",
+                "est soutenu par",
+                "está respaldado por",
+                "è supportato da",
+                "é apoiado por",
+                "由…支撑",
+                "поддерживается",
+                "understøttes af",
+                "مدعوم من",
+            ),
+        },
+    },
 ]
 
 
@@ -8760,6 +8807,22 @@ async def apply_nora_profile(db: AsyncSession) -> dict:
             added = True
         if added:
             ct.subtypes = subtypes
+
+    # ── Pass 4i (profile v18): B1's labels on the built-in Beneficiary and
+    # Data Vault subtypes. Guarded: only a subtype still carrying the seed's
+    # English label is renamed, so an admin's own wording survives.
+    for type_key in ("Beneficiary", "DataVault"):
+        ct = (
+            await db.execute(select(CardType).where(CardType.key == type_key))
+        ).scalar_one_or_none()
+        if ct is None:
+            continue
+        relabelled, changed_keys = relabel_subtypes(type_key, list(ct.subtypes or []))
+        if changed_keys:
+            ct.subtypes = relabelled
+            summary.setdefault("subtypes_relabelled", []).extend(
+                f"{type_key}.{k}" for k in changed_keys
+            )
 
     # ── Pass 4g (profile v7, WP100.2): Arabic-label fix on the existing
     # `orgUnitType.publicAdministration` option — «إدارة عامة» now names the

@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useMetamodel } from '@/hooks/useMetamodel';
+import { blockLabel } from './blockLabel';
 import {
   Alert,
   Box,
@@ -119,6 +121,7 @@ const LEVEL_ORDER = ['conceptual', 'logical', 'physical'];
 
 export default function ViewLibraryPage() {
   const { i18n } = useTranslation();
+  const { types } = useMetamodel();
   const theme = useTheme();
   const navigate = useNavigate();
   const [viewpoints, setViewpoints] = useState<Viewpoint[]>([]);
@@ -541,7 +544,7 @@ export default function ViewLibraryPage() {
                                 {vp.building_blocks.slice(0, 3).map((block) => (
                                   <Chip
                                     key={block}
-                                    label={block}
+                                    label={blockLabel(block, types, i18n.language)}
                                     size="small"
                                     variant="outlined"
                                     sx={{

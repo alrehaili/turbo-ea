@@ -60,6 +60,18 @@ def _norm_name(value: Any) -> str:
     return _WS.sub(" ", str(value or "")).strip()
 
 
+_LINE_BREAK = re.compile(r"\r\n|\r|\n")
+
+
+def _norm_text(value: Any) -> str:
+    """Free-text normalization for descriptions and text attributes: collapse
+    whitespace within each line but keep the cell's line breaks, so a numbered
+    or bulleted list (policy clauses, service steps) stays one item per line.
+    Blank lines are dropped."""
+    lines = (_norm_name(line) for line in _LINE_BREAK.split(str(value or "")))
+    return "\n".join(line for line in lines if line)
+
+
 def is_xlsx_payload(prefix: bytes) -> bool:
     return prefix[:4] == b"PK\x03\x04"
 
@@ -648,9 +660,9 @@ def _parse_sheet(
             if kind == "name":
                 continue
             elif kind == "description":
-                description = _norm_name(value)
+                description = _norm_text(value)
             elif kind == "attr":
-                attrs[rule[1]] = _norm_name(value)
+                attrs[rule[1]] = _norm_text(value)
             elif kind == "option":
                 hit = _match_option(value, rule[2])
                 if hit is not None:

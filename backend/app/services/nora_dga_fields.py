@@ -749,3 +749,180 @@ NORA_DGA_TYPE_FIELDS: dict[str, list[dict]] = {
         ),
     ],
 }
+
+# Template-less B1 attributes: Data Vault (B1 §5.3.6.2.2) — code and the
+# structure of what it stores (name, description and type are built in).
+NORA_DGA_TYPE_FIELDS["DataVault"] = [
+    deepcopy(_CODE),
+    _text(
+        "dataStructure",
+        "Structure",
+        _tr(
+            "Struktur",
+            "Structure",
+            "Estructura",
+            "Struttura",
+            "Estrutura",
+            "结构",
+            "Структура",
+            "Struktur",
+            "الهيكلة",
+        ),
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# Subtypes (NORAreadiness.md B-4, B-5). B1 fixes the type lists:
+# Beneficiary (§5.3.4.2.1) — internal, government entity, business sector,
+# individuals; Data Vault (§5.3.6.2.2) — electronic database, digital archive,
+# paper archive. Missing subtypes are appended by key (pass 4d); the built-in
+# ones keep their keys and are relabelled to B1's words, only while they still
+# carry the seed's label (an admin's own wording is never overwritten).
+# Data lake and data warehouse stay as entity extensions.
+# ---------------------------------------------------------------------------
+
+
+def _subtype(key: str, label: str, translations: dict) -> dict:
+    return {"key": key, "label": label, "translations": translations, "hidden_fields": []}
+
+
+NORA_DGA_SUBTYPES: dict[str, list[dict]] = {
+    "Beneficiary": [
+        _subtype(
+            "internal",
+            "Internal Beneficiary",
+            _tr(
+                "Interner Leistungsempfänger",
+                "Bénéficiaire interne",
+                "Beneficiario interno",
+                "Beneficiario interno",
+                "Beneficiário interno",
+                "内部受益人",
+                "Внутренний получатель",
+                "Intern modtager",
+                "مستفيد داخلي",
+            ),
+        ),
+    ],
+    "DataVault": [
+        _subtype(
+            "digitalArchive",
+            "Digital Archive",
+            _tr(
+                "Digitales Archiv",
+                "Archive numérique",
+                "Archivo digital",
+                "Archivio digitale",
+                "Arquivo digital",
+                "数字档案",
+                "Цифровой архив",
+                "Digitalt arkiv",
+                "أرشيف رقمي",
+            ),
+        ),
+        _subtype(
+            "paperArchive",
+            "Paper Archive",
+            _tr(
+                "Papierarchiv",
+                "Archive papier",
+                "Archivo en papel",
+                "Archivio cartaceo",
+                "Arquivo em papel",
+                "纸质档案",
+                "Бумажный архив",
+                "Papirarkiv",
+                "أرشيف ورقي",
+            ),
+        ),
+    ],
+}
+
+# (type key, subtype key, seed label it replaces, B1 label, translations)
+NORA_DGA_SUBTYPE_RELABEL: list[tuple[str, str, str, str, dict]] = [
+    (
+        "Beneficiary",
+        "citizen",
+        "Citizen",
+        "Individuals",
+        _tr(
+            "Einzelpersonen",
+            "Particuliers",
+            "Personas físicas",
+            "Privati",
+            "Particulares",
+            "个人",
+            "Физические лица",
+            "Privatpersoner",
+            "أفراد",
+        ),
+    ),
+    (
+        "Beneficiary",
+        "business",
+        "Business",
+        "Business Sector",
+        _tr(
+            "Unternehmenssektor",
+            "Secteur des entreprises",
+            "Sector empresarial",
+            "Settore delle imprese",
+            "Setor empresarial",
+            "商业部门",
+            "Деловой сектор",
+            "Erhvervssektor",
+            "قطاع أعمال",
+        ),
+    ),
+    (
+        "Beneficiary",
+        "government",
+        "Government",
+        "Government Entity",
+        _tr(
+            "Behörde",
+            "Entité gouvernementale",
+            "Entidad gubernamental",
+            "Ente governativo",
+            "Entidade governamental",
+            "政府机构",
+            "Государственный орган",
+            "Offentlig myndighed",
+            "جهة حكومية",
+        ),
+    ),
+    (
+        "DataVault",
+        "database",
+        "Database",
+        "Electronic Database",
+        _tr(
+            "Elektronische Datenbank",
+            "Base de données électronique",
+            "Base de datos electrónica",
+            "Database elettronico",
+            "Base de dados eletrónica",
+            "电子数据库",
+            "Электронная база данных",
+            "Elektronisk database",
+            "قاعدة بيانات إلكترونية",
+        ),
+    ),
+]
+
+
+def relabel_subtypes(type_key: str, subtypes: list[dict]) -> tuple[list[dict], list[str]]:
+    """Return ``subtypes`` with B1's labels on the built-in ones that still
+    carry the seed's label, and the keys that changed. Never mutates input."""
+    out = [dict(s) for s in subtypes]
+    changed: list[str] = []
+    for t_key, sub_key, old_label, new_label, translations in NORA_DGA_SUBTYPE_RELABEL:
+        if t_key != type_key:
+            continue
+        for sub in out:
+            if sub.get("key") == sub_key and sub.get("label") == old_label:
+                sub["label"] = new_label
+                sub["translations"] = deepcopy(translations)
+                changed.append(sub_key)
+    return out, changed

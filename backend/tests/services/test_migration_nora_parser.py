@@ -917,3 +917,29 @@ def test_stub_payload_never_blanks_description():
     )
     payload = build_card_payload(src, real, "Application")
     assert payload["description"] == "d"
+
+
+def test_free_text_keeps_its_line_breaks():
+    from app.services.migration.sources.nora_xlsx.xlsx_parser import _norm_text
+
+    assert _norm_text("1-  الرد خلال المدة\r\n\n2- سرية  البيانات ") == (
+        "1- الرد خلال المدة\n2- سرية البيانات"
+    )
+    assert _norm_text("  سطر واحد  ") == "سطر واحد"
+
+
+def test_policy_clauses_and_description_keep_one_item_per_line(tmp_path):
+    wb = Workbook()
+    _write_sheet(
+        wb,
+        "دليل السياسات",
+        [
+            ["دليل السياسات"],
+            ["رمز السياسة", "اسم السياسة", "وصف السياسة", "بنود السياسة"],
+            ["شرح"] * 4,
+            ["P1", "سياسة الشكاوى", "سطر أول\nسطر ثان", "1- البند الأول\n2- البند الثاني"],
+        ],
+    )
+    policy = _by_id(parse_xlsx_path(_save(wb, tmp_path)))["nora:Policy:سياسة الشكاوى"]
+    assert policy.description == "سطر أول\nسطر ثان"
+    assert policy.custom_fields["policyClauses"] == "1- البند الأول\n2- البند الثاني"

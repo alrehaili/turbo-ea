@@ -13,12 +13,14 @@ The Card Types tab lists all types in the system. With the NORA profile, Turbo E
 | Layer | Types |
 |-------|-------|
 | **Strategy Architecture** | Vision, Mission, Pillar, Objective, KPI, Platform, Initiative, Project |
-| **Business Architecture** | Business Capability, Processes Group, Business Process, Activity, Organizational Unit, Position, Role, Policy, Service Provider, Product, Model/Template |
-| **Beneficiary Experience Architecture** | Government Service, Beneficiary, Persona, Beneficiary Journey, Phase, Step, Channel |
+| **Business Architecture** | Business Capability, Processes Group, Business Process, Activity, Organizational Unit, Position, Role, Policy, Service Provider, Government Service, Product, Model/Template |
+| **Beneficiary Experience Architecture** | Beneficiary, Persona, Beneficiary Journey, Phase, Step, Channel |
 | **Application Architecture** | Application, Application Module, Application Function, Interface |
 | **Data Architecture** | Data Object, Data Attribute, Data Exchange, Data Vault |
 | **Technology Architecture** | Datacenter, Physical Host, Server, Storage, Network Device, Network Circuit, Containerization Engine, Infrastructure Service, Infrastructure Management Tool, Peripheral Device, License |
 | **Security Architecture** | Security Service, Security Control, Security Software, Security Hardware |
+
+With the NORA profile, two types carry the type lists of DGA's Content Meta Model guideline (June 2025): a **Beneficiary** is an Internal Beneficiary, a Government Entity, the Business Sector or Individuals, and a **Data Vault** is an Electronic Database, a Digital Archive or a Paper Archive (Data Lake and Data Warehouse remain as extensions). A Data Vault also records its code and the structure of what it stores. An upgrade renames the existing subtypes only while they still have their original names.
 
 Types are listed in this order inside each layer wherever types are listed by layer: the Inventory's type filter, the type picker and this tab. You can change the order of types afterwards; an upgrade does not reset it.
 
@@ -227,7 +229,7 @@ Translations are stored alongside each card type and are resolved at render time
 
 ## Relation Types
 
-Relation types define the allowed connections between card types. Each relation type specifies:
+Relation types define the allowed connections between card types. With the NORA profile, every pair of building blocks that DGA's Content Meta Model guideline (June 2025) relates has a relation type, apart from a few links between two blocks of the same type. These include an operational KPI that contributes to a strategic KPI, the security components that protect each technology and application component, the provider, owning unit, datacenter and licence of each security component, and the infrastructure tools that support applications and interfaces. Each relation type specifies:
 
 | Field | Description |
 |-------|-------------|

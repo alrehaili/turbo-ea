@@ -109,12 +109,44 @@ class TestNoraProfileDefinitions:
 
     # ── Profile v2 (WP6.2) — Dec-2024 Meta Model / template alignment ──────
 
-    def test_profile_version_is_17(self):
+    def test_profile_version_is_18(self):
         from app.services.nora_profile import NORA_PROFILE_VERSION
 
         # v11: KPI metricKey (D-26); v12 GOV-03; v13 GOV-05 (D-41); v14 RSK-01 (D-42);
-        # v15 GOV-01 (D-37); v16 seven architecture layers; v17 DGA alignment.
-        assert NORA_PROFILE_VERSION == 17
+        # v15 GOV-01 (D-37); v16 seven architecture layers; v17 DGA alignment;
+        # v18 B1 Beneficiary / Data Vault type lists.
+        assert NORA_PROFILE_VERSION == 18
+
+    def test_b1_beneficiary_and_data_vault_subtypes_are_appended(self):
+        from app.services.nora_profile import NORA_TYPE_FIELDS, NORA_V2_SUBTYPES
+
+        assert [s["key"] for s in NORA_V2_SUBTYPES["Beneficiary"]] == ["internal"]
+        assert [s["key"] for s in NORA_V2_SUBTYPES["DataVault"]] == [
+            "digitalArchive",
+            "paperArchive",
+        ]
+        assert NORA_V2_SUBTYPES["DataVault"][1]["translations"]["ar"] == "أرشيف ورقي"
+        assert {f["key"] for f in NORA_TYPE_FIELDS["DataVault"]} >= {"code", "dataStructure"}
+
+    def test_relabel_subtypes_only_renames_untouched_seed_labels(self):
+        from app.services.nora_dga_fields import relabel_subtypes
+
+        before = [
+            {"key": "citizen", "label": "Citizen"},
+            {"key": "business", "label": "Companies"},  # an admin's own wording
+            {"key": "government", "label": "Government"},
+        ]
+        after, changed = relabel_subtypes("Beneficiary", before)
+        assert changed == ["citizen", "government"]
+        assert [s["label"] for s in after] == ["Individuals", "Companies", "Government Entity"]
+        assert after[0]["translations"]["ar"] == "أفراد"
+        assert before[0]["label"] == "Citizen"  # input untouched
+        assert relabel_subtypes("DataVault", before) == (before, [])
+        db_after, db_changed = relabel_subtypes(
+            "DataVault", [{"key": "database", "label": "Database"}]
+        )
+        assert db_changed == ["database"]
+        assert db_after[0]["label"] == "Electronic Database"
 
     def test_kpi_metric_key_offers_every_registered_metric(self):
         from app.services.executive.registry import METRICS
