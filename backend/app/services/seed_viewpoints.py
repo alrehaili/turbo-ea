@@ -426,7 +426,7 @@ NORA_VIEWPOINTS = [
         "level": "physical",
         "type": "list",
         "description_en": "Dictionary of data terms, definitions, and business meanings",
-        "description_ar": "قاموس مصطلحات البيانات والتعريفات والمعاني التجارية",
+        "description_ar": "قاموس مصطلحات البيانات والتعريفات ومعاني الأعمال",
         "building_blocks": ["DataDictionary", "DataTerm"],
         "target_route": "/inventory?type=DataDictionary",
         "status": "available",

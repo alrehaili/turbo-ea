@@ -1,5 +1,5 @@
 {
-  "page.title": "إدارة العمليات التجارية",
+  "page.title": "إدارة عمليات الأعمال",
 
   "tabs.processNavigator": "مستكشف العمليات",
   "tabs.dashboard": "لوحة المعلومات",
@@ -17,7 +17,7 @@
   "dashboard.processes": "العمليات",
   "dashboard.risk": "المخاطر",
   "dashboard.maturity": "النضج",
-  "dashboard.loadFailed": "تعذّر تحميل لوحة معلومات إدارة العمليات التجارية.",
+  "dashboard.loadFailed": "تعذّر تحميل لوحة معلومات إدارة عمليات الأعمال.",
   "dashboard.allProcesses": "جميع العمليات",
 
   "flowTab.processFlow": "تدفّق العملية",
@@ -96,7 +96,7 @@
   "flowTab.submittedByOnRevision": "أرسلها {{name}} بتاريخ {{date}} — المراجعة {{revision}}",
   "flowTab.archivedOnOriginallyApproved": "بتاريخ {{archivedDate}}. اعتُمدت في الأصل بواسطة {{name}} بتاريخ {{approvedDate}} — المراجعة {{revision}}",
   "flowTab.confirmSubmitTitle": "إرسال للاعتماد؟",
-  "flowTab.confirmSubmitDescription": "ستُرسَل هذه المسودّة إلى مالك العملية التجارية للاعتماد. لن تتمكّن من تحريرها أثناء انتظار الاعتماد.",
+  "flowTab.confirmSubmitDescription": "ستُرسَل هذه المسودّة إلى مالك عملية الأعمال للاعتماد. لن تتمكّن من تحريرها أثناء انتظار الاعتماد.",
   "flowTab.confirmApproveTitle": "اعتماد ونشر؟",
   "flowTab.confirmApproveDescription": "سيؤدّي هذا إلى نشر تدفّق العملية. وستُؤرشف النسخة المنشورة الحالية (إن وجدت). لا يمكن التراجع عن هذا الإجراء.",
   "flowTab.confirmRejectTitle": "رفض المسودّة؟",
@@ -133,7 +133,7 @@
   "assessment.helpEfficiencyTitle": "الكفاءة",
   "assessment.helpEfficiencyDesc": "مدى اقتصادية استخدام العملية للموارد (الوقت والتكلفة والجهد) لإنتاج مخرجاتها. انظر إلى زمن الدورة وتكلفة المعاملة وإعادة العمل والهدر. المراجع: Lean / Six Sigma، APQC PCF.",
   "assessment.helpEffectivenessTitle": "الفعّالية",
-  "assessment.helpEffectivenessDesc": "مدى تحقيق العملية للنتيجة التجارية المقصودة وتلبية توقّعات أصحاب المصلحة. انظر إلى الجودة ورضا العملاء والصواب من المرة الأولى وتحقيق مؤشّرات الأداء الرئيسية. المراجع: Balanced Scorecard، OKRs.",
+  "assessment.helpEffectivenessDesc": "مدى تحقيق العملية لنتيجة الأعمال المقصودة وتلبية توقّعات أصحاب المصلحة. انظر إلى الجودة ورضا العملاء والصواب من المرة الأولى وتحقيق مؤشّرات الأداء الرئيسية. المراجع: Balanced Scorecard، OKRs.",
   "assessment.helpComplianceTitle": "الامتثال",
   "assessment.helpComplianceDesc": "مدى التزام العملية بالسياسة الداخلية والمتطلّبات التنظيمية وضوابط التدقيق. انظر إلى نتائج التدقيق وثغرات الضوابط والفصل بين المهام. المراجع: COBIT، ISO 9001، SOX، GDPR.",
   "assessment.helpAutomationTitle": "الأتمتة",
@@ -271,7 +271,7 @@
   "navigator.totalProcesses_many": "{{count}} عملية",
   "navigator.totalProcesses_other": "{{count}} عمليات",
   "navigator.allProcesses": "جميع العمليات",
-  "navigator.noProcessesFound": "لم يتم العثور على عمليات تجارية. أضِف عمليات لرؤية بيت العمليات.",
+  "navigator.noProcessesFound": "لم يتم العثور على عمليات أعمال. أضِف عمليات لرؤية بيت العمليات.",
   "navigator.processRow": "عمليات {{type}}",
   "navigator.noProcessesDefined": "لم يتم تعريف {{type}}",
 

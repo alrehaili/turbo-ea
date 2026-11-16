@@ -60,7 +60,7 @@
   "filter.favoritesOnly": "المفضلة فقط",
   "favorite.add": "إضافة إلى المفضلة",
   "favorite.remove": "إزالة من المفضلة",
-  "empty.noInitiatives": "لم يتم العثور على مبادرات. أنشئ المبادرات في المخزون أولًا، ثم عُد إلى هنا لإدارة المخرجات.",
+  "empty.noInitiatives": "لم يتم العثور على مبادرات. أنشئ المبادرات في المستودع أولًا، ثم عُد إلى هنا لإدارة المخرجات.",
   "empty.noMatch": "لا توجد مبادرات مطابقة للمرشحات الحالية.",
   "list.diagramCount_zero": "{{count}} مخطط",
   "list.diagramCount_one": "مخطط {{count}}",

@@ -599,7 +599,7 @@ Month 2+: CONSERVATIVE mode, staging OFF (skip), automated daily cron
 | `attributes.version` | `version` | SNOW يقود | Direct | |
 | `attributes.vendor` | `manufacturer.name` | **Turbo يقود** | Direct | |
 
-**بعد الاستيراد**: انتقل إلى **الإدارة > EOL** واستخدم Mass Search لمطابقة المكوّنات التقنية المستوردة تلقائيًا مع منتجات endoflife.date. يمنحك هذا تتبّعًا آليًا لمخاطر EOL يجمع بين مخزون CMDB وبيانات دورة الحياة العامة.
+**بعد الاستيراد**: انتقل إلى **الإدارة > EOL** واستخدم Mass Search لمطابقة المكوّنات التقنية المستوردة تلقائيًا مع منتجات endoflife.date. يمنحك هذا تتبّعًا آليًا لمخاطر EOL يجمع بين مستودع CMDB وبيانات دورة الحياة العامة.
 
 ---
 

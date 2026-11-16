@@ -1,5 +1,5 @@
 {
-  "page.title": "المخزون",
+  "page.title": "المستودع",
   "selectedCount_zero": "تم تحديد {{count}} بطاقات",
   "selectedCount_one": "تم تحديد بطاقة واحدة ({{count}})",
   "selectedCount_two": "تم تحديد بطاقتين ({{count}})",
@@ -309,7 +309,7 @@
   "import.fileTypes": ".xlsx أو .xls",
   "import.selected": "محدّد",
   "import.tip": "نصيحة",
-  "import.tipDescription": "صدّر مخزونك الحالي أولًا للحصول على قالب بتنسيق الأعمدة الصحيح ومعرّفات البطاقات.",
+  "import.tipDescription": "صدّر مستودعك الحالي أولًا للحصول على قالب بتنسيق الأعمدة الصحيح ومعرّفات البطاقات.",
   "import.fileInfo": "الملف: {{fileName}} — {{totalRows}} صف (صفوف)",
   "import.skippedRows": "تم تخطّي {{count}} صف غير متغيّر/فارغ",
   "import.toCreate": "{{count}} للإنشاء",

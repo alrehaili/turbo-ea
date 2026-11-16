@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.53.1] - 2026-11-16
+
+### Changed
+- Arabic: the inventory is called المستودع instead of المخزون, and "Business" in terms such as business process, capability, value, service and context is translated الأعمال instead of تجارية / تجاري (brand and "commercial" keep their wording).
+
 ## [2.53.0] - 2026-11-16
 
 ### Changed
