@@ -28,4 +28,6 @@ def test_migration_history_has_a_single_head():
 def test_head_includes_fork_and_upstream_session_branches():
     script = _script()
     ancestors = {rev.revision for rev in script.walk_revisions("base", script.get_current_head())}
-    assert {"1178", "166", "167"} <= ancestors
+    # The session migrations are 1181 / 1182 since upstream reused 166 / 167;
+    # upstream's 166..174 follow the fork head 1180.
+    assert {"1178", "1181", "1182", "1179", "1180", "166", "174"} <= ancestors

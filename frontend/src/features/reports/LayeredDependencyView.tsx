@@ -8,6 +8,7 @@ import {
   createContext,
   useContext,
 } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -39,7 +40,6 @@ import {
   buildFieldCatalog,
   EMPTY_VALUE,
   formatFieldValue,
-  MAX_CARD_LINES,
   type DisplayLine,
   type FieldMeta,
 } from "@/lib/cardDisplayFields";
@@ -51,6 +51,7 @@ import LdvShowOnCard from "./LdvShowOnCard";
 import LdvTypeFilter from "./LdvTypeFilter";
 import LdvAggregateSelect from "./LdvAggregateSelect";
 import LdvCluster from "./LdvCluster";
+import LdvGroup from "./LdvGroup";
 import LdvLineStyleSelect from "./LdvLineStyleSelect";
 import {
   ReactFlow,
@@ -97,7 +98,6 @@ import {
   type GNode,
   type GEdge,
   type LdvNodeData,
-  type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import { LDV_HANDLE_SPECS } from "./ldvHandles";
@@ -106,6 +106,9 @@ import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
+import { wrapEdgeLabel } from "./ldvEdgeLabel";
+import LdvEdgeLabelText from "./LdvEdgeLabelText";
+import { detachForDrag, dragIds, fitParentForDrag, reattachAfterDrag } from "./ldvLaneSizing";
 import {
   clusterMembersOf,
   hoveredNeighborsOf,
@@ -134,6 +137,7 @@ import {
   DOT_INSET,
   edgeColors,
   edgeIsActive,
+  edgeLabelHeight,
   edgeLabelWidth,
   edgeStrokeWidth,
   exportFileName,
@@ -141,6 +145,7 @@ import {
   handleStyle,
   hidesCardsOnView,
   movedBeyondClick,
+  cardLineBudget,
   nameLineClamp,
   nextBackground,
   paintOrder,
@@ -148,7 +153,6 @@ import {
   placeEdgeLabel,
   safeTypeColor,
   touchesHovered,
-  truncateEdgeLabel,
   typeIconPlacement,
   type InteractionMode,
 } from "./ldvViewModel";
@@ -255,6 +259,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const lifecyclePhase = (data.lifecyclePhase as string | null | undefined) ?? null;
   const extraLines = (data.extraLines as DisplayLine[] | undefined) ?? [];
   const showType = data.showType !== false;
+  const lineBudget = cardLineBudget(showType, extraLines.length);
   const detailText = (data.detailText as string | undefined) ?? data.name;
   const dotColor = phaseDotColor(lifecyclePhase);
   // Minimalistic hierarchy affordances: a hidden parent (above) / hidden
@@ -679,7 +684,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             // normally, one when the reader has switched on two extra fields.
             // Without this a full card spills past its own border, which
             // nothing clips (the badges deliberately overhang it).
-            WebkitLineClamp: nameLineClamp(extraLines.length),
+            WebkitLineClamp: nameLineClamp(lineBudget.total),
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             wordBreak: "break-word",
@@ -687,27 +692,10 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         >
           {name}
         </Typography>
-        {extraLines.length > 0 ? (
-          extraLines.slice(0, MAX_CARD_LINES).map((line) => (
-            <Typography
-              key={line.label}
-              variant="caption"
-              sx={{
-                lineHeight: 1.25,
-                maxWidth: "100%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                color: "text.secondary",
-              }}
-            >
-              <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
-                {line.label}:
-              </Box>{" "}
-              {line.value}
-            </Typography>
-          ))
-        ) : showType ? (
+        {/* Menu order: the type first, then as many extra lines as the card
+            has room left for (#1377 — the type used to show only when nothing
+            else was ticked). */}
+        {showType && (
           <Typography
             variant="caption"
             sx={{
@@ -723,52 +711,33 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           >
             [{typeLabel({ key: data.typeKey, label: data.typeLabel }) || data.typeLabel}]
           </Typography>
-        ) : null}
+        )}
+        {extraLines.slice(0, lineBudget.extraShown).map((line) => (
+          <Typography
+            key={line.label}
+            variant="caption"
+            sx={{
+              lineHeight: 1.25,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "text.secondary",
+            }}
+          >
+            <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
+              {line.label}:
+            </Box>{" "}
+            {line.value}
+          </Typography>
+        ))}
       </Box>
     </Box>
   );
 });
 LdvNode.displayName = "LdvNode";
 
-/* ------------------------------------------------------------------ */
-/*  Custom Layered Dependency View Group (layer boundary)              */
-/* ------------------------------------------------------------------ */
-
-const LdvGroup = memo(({ data }: NodeProps<Node<LdvGroupData>>) => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
-  const accent = readableTypeColor(data.color, isDark);
-
-  return (
-    <Box
-      sx={{
-        width: "100%",
-        height: "100%",
-        border: `1.5px dashed ${accent}`,
-        borderRadius: "12px",
-        bgcolor: isDark
-          ? alpha(theme.palette.common.white, 0.02)
-          : alpha(theme.palette.common.black, 0.012),
-        position: "relative",
-      }}
-    >
-      <Typography
-        variant="subtitle2"
-        sx={{
-          position: "absolute",
-          top: 8,
-          left: 14,
-          fontWeight: 700,
-          color: accent,
-          fontSize: "0.8rem",
-        }}
-      >
-        {data.label}
-      </Typography>
-    </Box>
-  );
-});
-LdvGroup.displayName = "LdvGroup";
+/* The layer lane (`ldvGroup`) lives in LdvGroup.tsx, beside LdvCluster. */
 
 /* ------------------------------------------------------------------ */
 /*  Custom Layered Dependency View Edge (smoothstep + hover highlight) */
@@ -905,10 +874,13 @@ const LdvEdgeComponent = memo(
     // verb, and with the verbs hidden the count is all the line has left to say.
     const mergedCount = edgeData?.count;
     const countText = mergedCount !== undefined ? String(mergedCount) : "";
-    const displayLabel = truncateEdgeLabel(label);
+    // A long label wraps (verb, then its attribute values) instead of being
+    // cut off; `LdvEdgeLabelText` draws the lines one under the other.
+    const labelLines = useMemo(() => wrapEdgeLabel(label), [label]);
     // A connector's count is a filled pill beside the verb, wider than the
     // bracketed text it replaces.
-    const labelW = edgeLabelWidth(displayLabel, Boolean(flowDir), countText);
+    const labelW = edgeLabelWidth(labelLines, Boolean(flowDir), countText);
+    const labelH = edgeLabelHeight(labelLines);
     // A connector standing for N relations is ONE heavy solid line, never the
     // dotted idle style — a 1.2 px dotted line is what the eye reads as several
     // thin lines running together, which is the picture aggregating exists to
@@ -926,9 +898,9 @@ const LdvEdgeComponent = memo(
         return { x: pt.x, y: pt.y };
       };
       setLabelPos(
-        placeEdgeLabel(at, labelT, { width: labelW, height: 20, margin: 6 }, obstacleBounds),
+        placeEdgeLabel(at, labelT, { width: labelW, height: labelH, margin: 6 }, obstacleBounds),
       );
-    }, [path, labelT, label, countText, obstacleBounds, labelW]);
+    }, [path, labelT, label, countText, obstacleBounds, labelW, labelH]);
 
     const finalLx = labelPos?.x ?? lx;
     const finalLy = labelPos?.y ?? ly;
@@ -993,7 +965,7 @@ const LdvEdgeComponent = memo(
               }}
             >
               {flowDir && <LdvDirectionArrow dir={flowDir} />}
-              {displayLabel && <span>{displayLabel}</span>}
+              <LdvEdgeLabelText lines={labelLines} />
               {isConnector && (
                 // The count as a filled pill in the line's own colour: the one
                 // number a merged connector exists to carry, readable at
@@ -1181,8 +1153,9 @@ function LayeredDependencyInner({
     [lifecycleFiltered, hiddenTypes, centerId],
   );
 
-  /* ---- Resolve a relation's single-select attribute value(s) into a
-         bracketed label suffix (e.g. " [Leading]"), using the metamodel's
+  /* ---- Resolve a relation's attribute values — single-select values and
+         ticked yes/no flags — into a bracketed label suffix (e.g. " [Leading]",
+         " [Create · Read]"), using the metamodel's
          relation-type attribute schemas. flowDirection is excluded — it is
          shown as a direction arrow, not a bracket. ---- */
   const relValueResolver = useCallback(
@@ -1681,6 +1654,41 @@ function LayeredDependencyInner({
     );
   }, [cardDisplayData, setNodes]);
 
+  // A card dragged past the edge of its layer lane (or aggregate box) grows
+  // the box so it follows the card, and moving it back shrinks the box again,
+  // never below its laid-out size (#1295). For the length of the drag each
+  // dragged card is taken out of its box and moves in page coordinates
+  // (`detachForDrag`): React Flow keeps its own copy of a dragged card's
+  // position relative to its parent, and moving the box's left or top edge
+  // under it made that copy stale, so moves were swallowed and the box stopped
+  // following (see ldvLaneSizing.ts). `fitParentForDrag` returns the same array
+  // when nothing changes, so React drops the update. Like a drag, a refitted
+  // box lasts until the view is re-laid out.
+  // Committed synchronously: React Flow works out each move against the
+  // card's parent as its store holds it, so the detach must be there before
+  // the next pointer move arrives, not whenever React next renders.
+  const handleNodeDragStart = useCallback(
+    (_: unknown, node: Node, dragged?: Node[]) => {
+      flushSync(() => setNodes((prev) => detachForDrag(prev, dragIds(node, dragged))));
+    },
+    // Stryker disable next-line ArrayDeclaration: setNodes is stable for the life of the view
+    [setNodes],
+  );
+  const handleNodeDrag = useCallback(
+    (_: unknown, node: Node) => {
+      setNodes((prev) => fitParentForDrag(prev, node.id));
+    },
+    // Stryker disable next-line ArrayDeclaration: setNodes is stable for the life of the view
+    [setNodes],
+  );
+  const handleNodeDragStop = useCallback(
+    (_: unknown, node: Node, dragged?: Node[]) => {
+      setNodes((prev) => reattachAfterDrag(prev, dragIds(node, dragged)));
+    },
+    // Stryker disable next-line ArrayDeclaration: setNodes is stable for the life of the view
+    [setNodes],
+  );
+
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
   const handlePaneClick = useCallback(() => {
     if (modeRef.current === "highlight") setHoveredNode(null);
@@ -1976,6 +1984,9 @@ function LayeredDependencyInner({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}

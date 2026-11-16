@@ -213,9 +213,9 @@ Where a role has a **description**, an info icon appears beside its name: hover 
 
 Pick a stakeholder via the **searchable autocomplete** — start typing and the dropdown filters on both name and email (email appears as the secondary line so two users with the same name can be told apart at a glance).
 
-If the email you type doesn't match an existing user, an **"Invite «email» as a new user"** option appears at the end of the dropdown. Selecting it expands an inline mini-form right inside the picker — pick a role (Member or Viewer by default), optionally edit the display name, and submit. The new user is invited via the standard invitation email **and** assigned the chosen stakeholder role on the card in a single action, so you never have to leave the card to onboard a contributor.
+If the email you type doesn't match an existing user, an **"Invite «email» as a new user"** option appears at the end of the dropdown. Selecting it expands an inline mini-form right inside the picker — optionally edit the display name, and submit. The new user receives the **default role** set in [Users & Roles](../admin/users.md#roles). The new user is invited via the standard invitation email **and** assigned the chosen stakeholder role on the card in a single action, so you never have to leave the card to onboard a contributor.
 
-The invite path requires the **`users.invite`** permission, a delegated form of `admin.users` that admins can grant to trusted members. A privilege-escalation guard prevents non-admins from inviting users into admin roles — the role dropdown silently filters to roles the inviter is allowed to delegate.
+The invite path requires the **`users.invite`** permission, a delegated form of `admin.users` that admins can grant to trusted members. A privilege-escalation guard prevents non-admins from inviting users into any other role: without `admin.users`, an invited user can only receive the default role, Member or Viewer.
 
 ## History Tab
 
@@ -229,9 +229,11 @@ Everything that moves the card's **Modified** date appears here — an edit by h
 
 ## ADRs Tab
 
-Every card carries an **ADRs** tab listing the [Architecture Decision Records](delivery.md) linked to it, showing each decision's reference, title, status, all of its linked cards, and when it was last modified. Click a row to open the decision.
+Every card carries an **ADRs** tab listing the [Architecture Decision Records](delivery.md) linked to it — the current revision of each decision, plus any revision being drafted — showing each decision's reference, title, standing (or its status while it is not signed yet), all of its linked cards, and when it was last modified. Click a row to open the decision; earlier revisions are reached from it.
 
 If you are allowed to manage ADR links, the tab also offers **Link ADR** to attach an existing decision and **Create ADR** to start a new one that is pre-linked to this card, plus an unlink action on every row. On cards with no linked decisions the tab is hidden unless you hold that permission, so read-only users never see an empty tab.
+
+Below the list, **Mentioned in** lists the decisions and Statements of Architecture Work whose text mentions this card, and those whose discussion mentions it (marked *in the discussion*), with each document's reference or revision and its standing or status. A mention does not link the card to the decision; it only shows here. The list shows only the documents you can open and is left out when there are none. See [Mentions](grc.md#decision-mentions).
 
 ## Risks Tab (GRC enabled, when present)
 

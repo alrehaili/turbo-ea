@@ -6,14 +6,17 @@ architecture layers) and upstream's 166 (session revocation ledger) -> 167
 ("multiple heads"). This joins the histories without changing the schema; a
 database at 1178 runs 166 and 167 on its way here, one at 167 runs 1178.
 
+Since the upstream v2.205.0 merge the session migrations are the fork's 1181 and
+1182 (upstream reused 166 / 167), so this revision is a plain step after 1182.
+
 Revision ID: 1179
-Revises: 1178, 167
+Revises: 1182 (was 1178, 167)
 """
 
 from collections.abc import Sequence
 
 revision: str = "1179"
-down_revision: str | Sequence[str] | None = ("1178", "167")
+down_revision: str | Sequence[str] | None = "1182"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

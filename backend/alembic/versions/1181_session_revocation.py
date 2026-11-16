@@ -4,8 +4,10 @@
 was set or replaced; ``revoked_sessions`` holds the session ids signed out at
 logout until their last token has expired.
 
-Revision ID: 166
-Revises: 165
+Revision ID: 1181
+Revises: 1178
+Renumbered from 166 / 167 (fork-owned, v2.47.1) when upstream took those
+numbers for its own migrations; a database already past 1179 has run it.
 Create Date: 2026-11-11
 """
 
@@ -15,8 +17,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "166"
-down_revision: Union[str, None] = "165"
+revision: str = "1181"
+down_revision: Union[str, None] = "1178"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

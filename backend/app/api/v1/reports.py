@@ -60,6 +60,8 @@ from app.services.cost_attribution import (
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.cost_value import cost_value
 from app.services.data_flow_service import gather_data_flow
+from app.services.data_quality_bands import DQ_BAND_BOUNDS, band_of, dq_band_condition
+from app.services.document_event_scope import document_event_read_filters
 from app.services.eol_custom_service import is_custom_product, load_custom_cycles
 from app.services.eol_service import (
     eol_status,
@@ -83,6 +85,7 @@ from app.services.portfolio_payload import (
     has_timeline_dates,
     roadmap_from_portfolio,
 )
+from app.services.ppm_fiscal_costs import load_fiscal_costs
 from app.services.resilience_service import gather_resilience
 from app.services.strategy_map_service import gather_strategy_map
 from app.services.type_groups import (
@@ -223,10 +226,12 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         # Recent Activity is landscape activity, card-less or not (a SoAW
         # signature, a rollback). ``ops.*`` events are operator actions on the
         # instance itself and would show a viewer what admins did, so they are
-        # the one family left out.
+        # the one family left out. Decision and SoAW events name the document,
+        # so they reach only a reader who may open it.
         .where(
             ~Event.event_type.startswith("ops.", autoescape=True),
             *event_read_filters(read_scope),
+            *await document_event_read_filters(db, user),
         )
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
@@ -634,7 +639,10 @@ async def admin_dashboard_summary(
     # ---- Recent system activity (50 events) ------------------------------
     sys_events_result = await db.execute(
         select(Event)
-        .where(*event_read_filters(await CardReadScope.load(db, user)))
+        .where(
+            *event_read_filters(await CardReadScope.load(db, user)),
+            *await document_event_read_filters(db, user),
+        )
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .limit(50)
@@ -1480,7 +1488,13 @@ async def cost_report(
     """Cost aggregation report for the current fiscal year.
 
     Only cards live in the current fiscal year count, by the same rule as
-    ``GET /reports/cost-treemap``.
+    ``GET /reports/cost-treemap``. An Initiative's ``costBudget`` /
+    ``costActual`` count only its PPM lines in the current fiscal year when it
+    has lines of that kind (``app.services.ppm_fiscal_costs``). An item whose
+    lines also fall outside the current fiscal year carries ``lifetime_cost``,
+    the all-years total of those lines (summed over the type's cost fields,
+    a field without such lines adding its year's figure); it is absent when
+    the year's figure is already the whole.
     """
     # `costs.view` is the whole gate here, not an add-on. Elsewhere a report
     # carries its own base permission and adds `costs.view` only when the
@@ -1511,15 +1525,24 @@ async def cost_report(
     sheets = [
         c for c in result.scalars().all() if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
     ]
+    # An Initiative's PPM-owned fields count this year's lines only.
+    fiscal_costs = await load_fiscal_costs(
+        db,
+        card_type=type,
+        field_keys=cost_field_keys,
+        initiative_ids=[c.id for c in sheets],
+        fiscal_year=fy,
+        start_month=fy_start,
+    )
     items = []
     total = 0
     for card in sheets:
-        attrs = card.attributes or {}
-        cost = 0
-        for ck in cost_field_keys:
-            cost += cost_value(attrs.get(ck))
+        cost, lifetime = fiscal_costs.total(card.id, cost_field_keys, card.attributes)
         if cost:
-            items.append({"id": str(card.id), "name": card.name, "cost": cost})
+            item: dict = {"id": str(card.id), "name": card.name, "cost": cost}
+            if lifetime is not None:
+                item["lifetime_cost"] = lifetime
+            items.append(item)
             total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)
     return {"items": items, "total": total, "fiscal_year": fy, "fiscal_year_start": fy_start}
@@ -1552,6 +1575,24 @@ async def cost_treemap(
     cards being summed, so a retired IT Component stops adding to its
     Application's total. The response names the fiscal year (``fiscal_year``)
     and the workspace's start month (``fiscal_year_start``).
+
+    An Initiative's PPM-owned fields (``costBudget``, ``costActual``) store the
+    all-years total of its PPM lines, so wherever they are read here — as
+    ``cost_field`` or as an ``aggregate`` source — an Initiative that has
+    budget lines counts only those of the current fiscal year, and one that
+    has cost lines counts only the actuals dated in it (an undated line counts
+    in no year). An Initiative without lines of that kind keeps its stored
+    figure. Outside ``aggregate`` mode, an item whose lines also fall outside
+    the current fiscal year carries ``lifetime_cost``: the all-years total of
+    its PPM lines, absent when it equals the year's figure; in a ``split``
+    drill (``parent_card_id`` set) it is shared by the same count as ``cost``,
+    so both are this tile's share (``app.services.ppm_fiscal_costs``). Such an
+    item also says where its figure comes from in ``cost_basis``:
+    ``"ppm_lines"`` when it is read from the Initiative's PPM lines, or
+    ``"card_value"`` when the Initiative has no lines of that kind and the
+    figure is the card's stored field, counted as it is (typed, imported or
+    written by a calculation — the value does not say which); absent for any
+    other card or field.
 
     When ``aggregate`` is non-empty, each entry is a ``"<typeKey>:<costFieldKey>"``
     pair identifying a cost field on a related card type. The endpoint sums that
@@ -1713,8 +1754,17 @@ async def cost_treemap(
                 for c in rel_result.scalars().all()
                 if is_live_in_fiscal_year(c.lifecycle, fy, fy_start)
             ]
+            # An Initiative's PPM-owned field counts this year's lines only.
+            related_costs = await load_fiscal_costs(
+                db,
+                card_type=type_key,
+                field_keys=[field_key],
+                initiative_ids=[c.id for c in related_cards],
+                fiscal_year=fy,
+                start_month=fy_start,
+            )
             related_cost_by_id = {
-                str(c.id): cost_value((c.attributes or {}).get(field_key)) for c in related_cards
+                str(c.id): related_costs.value(c.id, field_key, c.attributes) for c in related_cards
             }
             related_id_set = {str(c.id) for c in related_cards}
             related_ids = [c.id for c in related_cards]
@@ -1788,21 +1838,41 @@ async def cost_treemap(
             parent_links = await _parent_type_link_counts(
                 db, read_scope, parent.type, [c.id for c in sheets], fy, fy_start
             )
+        # An Initiative's PPM-owned field counts this year's lines only, before
+        # any split, so Split equally divides the year's figure.
+        fiscal_costs = await load_fiscal_costs(
+            db,
+            card_type=type,
+            field_keys=[cost_field],
+            initiative_ids=[c.id for c in sheets],
+            fiscal_year=fy,
+            start_month=fy_start,
+        )
         for card in sheets:
-            cost = cost_value((card.attributes or {}).get(cost_field))
+            cost = fiscal_costs.value(card.id, cost_field, card.attributes)
+            lifetime = fiscal_costs.lifetime(card.id, cost_field)
             if parent is not None and attribution == SPLIT:
-                cost = split_share(cost, parent_links.get(str(card.id), 0))
+                # The all-years figure is shared the same way, so the note
+                # compares the tile's share of the year with its share of all.
+                count = parent_links.get(str(card.id), 0)
+                cost = split_share(cost, count)
+                if lifetime is not None:
+                    lifetime = split_share(lifetime, count)
             if not cost:
                 continue
-            items.append(
-                {
-                    "id": str(card.id),
-                    "name": card.name,
-                    "cost": cost,
-                    "lifecycle": card.lifecycle,
-                    "attributes": card.attributes,
-                }
-            )
+            out_item: dict = {
+                "id": str(card.id),
+                "name": card.name,
+                "cost": cost,
+                "lifecycle": card.lifecycle,
+                "attributes": card.attributes,
+            }
+            if lifetime is not None:
+                out_item["lifetime_cost"] = lifetime
+            basis = fiscal_costs.basis(type, card.id, cost_field, card.attributes)
+            if basis is not None:
+                out_item["cost_basis"] = basis
+            items.append(out_item)
             total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)
 
@@ -2539,12 +2609,7 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
         ts["total"] += 1
         ts["sum_data_quality"] += card.data_quality or 0
         all_data_quality_scores.append(card.data_quality or 0)
-        if card.data_quality >= 80:
-            ts["complete"] += 1
-        elif card.data_quality >= 40:
-            ts["partial"] += 1
-        else:
-            ts["minimal"] += 1
+        ts[band_of(card.data_quality)] += 1
 
     # Overall completion
     overall = (
@@ -2645,17 +2710,6 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     }
 
 
-# Band boundaries MUST stay in lock-step with the counting in `data_quality`
-# above (>=80 complete, >=40 partial, else minimal) and with DATA_QUALITY_BANDS
-# in the frontend — the panel opened from a bar segment has to list exactly the
-# cards that segment counted.
-_DQ_BAND_BOUNDS: dict[str, tuple[float | None, float | None]] = {
-    "complete": (80.0, None),
-    "partial": (40.0, 80.0),
-    "minimal": (None, 40.0),
-}
-
-
 @router.get("/data-quality/cards")
 async def data_quality_cards(
     type: str | None = Query(default=None, description="Card type key"),
@@ -2680,7 +2734,7 @@ async def data_quality_cards(
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
-    if band is not None and band not in _DQ_BAND_BOUNDS:
+    if band is not None and band not in DQ_BAND_BOUNDS:
         raise HTTPException(status_code=400, detail=f"Unknown band: {band}")
     eol_scopes = {f"eol_{bucket}": bucket for bucket in EOL_BUCKETS}
     if scope is not None and scope not in ("orphaned", "stale", *eol_scopes):
@@ -2691,11 +2745,7 @@ async def data_quality_cards(
     if type:
         conditions.append(Card.type == type)
     if band:
-        low, high = _DQ_BAND_BOUNDS[band]
-        if low is not None:
-            conditions.append(Card.data_quality >= low)
-        if high is not None:
-            conditions.append(Card.data_quality < high)
+        conditions.append(dq_band_condition([band]))
     if scope == "stale":
         conditions.append(stale_condition())
     elif scope == "orphaned":

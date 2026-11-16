@@ -17,47 +17,30 @@ import Collapse from "@mui/material/Collapse";
 import Tooltip from "@mui/material/Tooltip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
 import { ADR_COLUMN_DEFS, ADR_LOCKED_COLUMN_KEYS } from "./adrGridPrefs";
-import { STATUS_COLORS } from "@/theme/tokens";
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-export interface AdrFilters {
-  cardTypes: string[];
-  linkedCards: string[];
-  statuses: string[];
-  signedBy: string[];
-  committees: string[];
-  stages: number[];
-  dateCreatedFrom: string;
-  dateCreatedTo: string;
-  dateModifiedFrom: string;
-  dateModifiedTo: string;
-  dateSignedFrom: string;
-  dateSignedTo: string;
-}
-
-export const EMPTY_ADR_FILTERS: AdrFilters = {
-  cardTypes: [],
-  linkedCards: [],
-  statuses: [],
-  signedBy: [],
-  committees: [],
-  stages: [],
-  dateCreatedFrom: "",
-  dateCreatedTo: "",
-  dateModifiedFrom: "",
-  dateModifiedTo: "",
-  dateSignedFrom: "",
-  dateSignedTo: "",
-};
+import {
+  DECISION_STANDINGS,
+  DECISION_STATUSES,
+  NO_STANDING,
+  NO_STANDING_LABEL_KEY,
+  STANDING_CHIP,
+  STATUS_CHIP,
+  type ChipStyle,
+} from "./decisionStanding";
+import {
+  EMPTY_ADR_FILTERS,
+  countActiveAdrFilters,
+  isInForcePreset,
+  toggleInForcePreset,
+  type AdrFilters,
+} from "./adrRegisterFilters";
 
 interface Props {
   filters: AdrFilters;
@@ -84,10 +67,21 @@ interface Props {
   extensionColumns: { colId: string; label: string }[];
 }
 
-const STATUS_OPTIONS = [
-  { key: "draft", tKey: "status.draft" as const, color: STATUS_COLORS.neutral },
-  { key: "in_review", tKey: "status.inReview" as const, color: STATUS_COLORS.warning },
-  { key: "signed", tKey: "status.signed" as const, color: STATUS_COLORS.success },
+/** Workflow statuses, from the shared vocabulary. A recorded decision is
+ *  `signed`, so the Signed option keeps it. */
+const STATUS_OPTIONS = DECISION_STATUSES.map((key) => ({
+  key,
+  tKey: STATUS_CHIP[key].labelKey,
+  color: STATUS_CHIP[key].dot,
+}));
+
+/** Standings in reading order, then "Not signed yet". */
+const STANDING_OPTIONS: { key: string; style: ChipStyle }[] = [
+  ...DECISION_STANDINGS.map((key) => ({ key, style: STANDING_CHIP[key] })),
+  {
+    key: NO_STANDING,
+    style: { ...STATUS_CHIP.draft, labelKey: NO_STANDING_LABEL_KEY, variant: "outlined" },
+  },
 ];
 
 const MIN_WIDTH = 220;
@@ -99,10 +93,16 @@ const MAX_WIDTH = 500;
 
 function SectionHeader({
   label,
+  icon,
+  count,
   expanded,
   onToggle,
 }: {
   label: string;
+  /** Material Symbol of the section (Inventory sidebar anatomy). */
+  icon?: string;
+  /** Active selections in the section, shown as a chip when > 0. */
+  count?: number;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -112,20 +112,21 @@ function SectionHeader({
       sx={{
         display: "flex",
         alignItems: "center",
+        gap: 0.75,
         cursor: "pointer",
         py: 0.5,
         userSelect: "none",
         "&:hover": { bgcolor: "action.hover", borderRadius: 1 },
       }}
     >
-      <MaterialSymbol
-        icon={expanded ? "expand_more" : "chevron_right"}
-        size={18}
-        style={{ marginRight: 4 }}
-      />
-      <Typography variant="subtitle2" sx={{ fontSize: 13, fontWeight: 600 }}>
+      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={18} />
+      {icon && <MaterialSymbol icon={icon} size={16} />}
+      <Typography variant="subtitle2" sx={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
         {label}
       </Typography>
+      {count != null && count > 0 && (
+        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
+      )}
     </Box>
   );
 }
@@ -331,10 +332,12 @@ export default function AdrFilterSidebar({
     status: true,
     committees: false,
     stages: false,
+    standing: true,
     signedBy: false,
     dateCreated: false,
     dateModified: false,
     dateSigned: false,
+    dateDecided: false,
   });
 
   const [linkedCardSearch, setLinkedCardSearch] = useState("");
@@ -361,6 +364,22 @@ export default function AdrFilterSidebar({
         : [...filters.statuses, key];
       onFiltersChange({ ...filters, statuses: next });
     },
+    [filters, onFiltersChange],
+  );
+
+  const toggleStanding = useCallback(
+    (key: string) => {
+      const next = filters.standings.includes(key)
+        ? filters.standings.filter((k) => k !== key)
+        : [...filters.standings, key];
+      onFiltersChange({ ...filters, standings: next });
+    },
+    [filters, onFiltersChange],
+  );
+
+  const inForceActive = isInForcePreset(filters.standings);
+  const toggleInForce = useCallback(
+    () => onFiltersChange({ ...filters, standings: toggleInForcePreset(filters.standings) }),
     [filters, onFiltersChange],
   );
 
@@ -415,22 +434,7 @@ export default function AdrFilterSidebar({
 
   const clearAll = () => onFiltersChange({ ...EMPTY_ADR_FILTERS });
 
-  const activeCount = useMemo(
-    () =>
-      filters.cardTypes.length +
-      filters.linkedCards.length +
-      filters.statuses.length +
-      filters.committees.length +
-      filters.stages.length +
-      filters.signedBy.length +
-      (filters.dateCreatedFrom ? 1 : 0) +
-      (filters.dateCreatedTo ? 1 : 0) +
-      (filters.dateModifiedFrom ? 1 : 0) +
-      (filters.dateModifiedTo ? 1 : 0) +
-      (filters.dateSignedFrom ? 1 : 0) +
-      (filters.dateSignedTo ? 1 : 0),
-    [filters],
-  );
+  const activeCount = useMemo(() => countActiveAdrFilters(filters), [filters]);
 
   /* ---- Resize drag ---- */
 
@@ -599,10 +603,54 @@ export default function AdrFilterSidebar({
             </Button>
           )}
 
+          {/* ---- Register scope: the In force preset and earlier revisions ---- */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 1 }}>
+            <Tooltip title={t("adr.filter.inForceHint")}>
+              <Button
+                size="small"
+                variant={inForceActive ? "contained" : "outlined"}
+                color={inForceActive ? "success" : "inherit"}
+                aria-pressed={inForceActive}
+                onClick={toggleInForce}
+                startIcon={<MaterialSymbol icon="verified" size={16} />}
+                sx={{ textTransform: "none", fontSize: 12, alignSelf: "flex-start" }}
+              >
+                {t("adr.filter.inForce")}
+              </Button>
+            </Tooltip>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={filters.showEarlierRevisions}
+                  onChange={(e) =>
+                    onFiltersChange({ ...filters, showEarlierRevisions: e.target.checked })
+                  }
+                />
+              }
+              label={
+                <Tooltip title={t("adr.filter.showEarlierRevisionsHint")}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                    <MaterialSymbol icon="history" size={16} />
+                    <Typography variant="body2" fontSize={13}>
+                      {t("adr.filter.showEarlierRevisions")}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              }
+              // Cancels FormControlLabel's default -11px (Inventory sidebar).
+              sx={{ ml: 0 }}
+            />
+          </Box>
+
+          <Divider sx={{ my: 1 }} />
+
           {/* ---- Card Types ---- */}
           {/* adr.filter.cardTypes = "Card Types" */}
           <SectionHeader
             label={t("adr.filter.cardTypes")}
+            icon="category"
+            count={filters.cardTypes.length}
             expanded={expandedSections.cardTypes}
             onToggle={() => toggleSection("cardTypes")}
           />
@@ -657,6 +705,8 @@ export default function AdrFilterSidebar({
           {/* ---- Linked Cards ---- */}
           <SectionHeader
             label={t("adr.filter.linkedCards")}
+            icon="link"
+            count={filters.linkedCards.length}
             expanded={expandedSections.linkedCards}
             onToggle={() => toggleSection("linkedCards")}
           />
@@ -726,6 +776,8 @@ export default function AdrFilterSidebar({
           {/* adr.filter.status = "Status" */}
           <SectionHeader
             label={t("adr.filter.status")}
+            icon="flag"
+            count={filters.statuses.length}
             expanded={expandedSections.status}
             onToggle={() => toggleSection("status")}
           />
@@ -768,9 +820,42 @@ export default function AdrFilterSidebar({
 
           <Divider sx={{ my: 1 }} />
 
+          {/* ---- Standing ---- */}
+          {/* A mutually-exclusive state: filled-vs-outlined coloured chips. */}
+          <SectionHeader
+            label={t("adr.filter.standing")}
+            icon="gavel"
+            count={filters.standings.length}
+            expanded={expandedSections.standing}
+            onToggle={() => toggleSection("standing")}
+          />
+          <Collapse in={expandedSections.standing}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1, mt: 0.5, px: 0.5 }}>
+              {STANDING_OPTIONS.map((opt) => {
+                const selected = filters.standings.includes(opt.key);
+                return (
+                  <Chip
+                    key={opt.key}
+                    label={t(opt.style.labelKey)}
+                    size="small"
+                    color={opt.style.color}
+                    variant={selected ? "filled" : "outlined"}
+                    aria-pressed={selected}
+                    onClick={() => toggleStanding(opt.key)}
+                    sx={{ fontSize: 12 }}
+                  />
+                );
+              })}
+            </Box>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
           {/* ---- Committee ---- */}
           <SectionHeader
             label={t("adr.filter.committee")}
+            icon="groups"
+            count={filters.committees.length}
             expanded={expandedSections.committees}
             onToggle={() => toggleSection("committees")}
           />
@@ -815,6 +900,8 @@ export default function AdrFilterSidebar({
           {/* ---- Stage ---- */}
           <SectionHeader
             label={t("adr.filter.stage")}
+            icon="flag"
+            count={filters.stages.length}
             expanded={expandedSections.stages}
             onToggle={() => toggleSection("stages")}
           />
@@ -859,6 +946,8 @@ export default function AdrFilterSidebar({
           {/* ---- Signed By ---- */}
           <SectionHeader
             label={t("adr.filter.signedBy")}
+            icon="draw"
+            count={filters.signedBy.length}
             expanded={expandedSections.signedBy}
             onToggle={() => toggleSection("signedBy")}
           />
@@ -904,6 +993,8 @@ export default function AdrFilterSidebar({
           {/* adr.filter.dateCreated = "Date Created" */}
           <SectionHeader
             label={t("adr.filter.dateCreated")}
+            icon="calendar_today"
+            count={(filters.dateCreatedFrom ? 1 : 0) + (filters.dateCreatedTo ? 1 : 0)}
             expanded={expandedSections.dateCreated}
             onToggle={() => toggleSection("dateCreated")}
           />
@@ -932,6 +1023,8 @@ export default function AdrFilterSidebar({
           {/* adr.filter.dateModified = "Date Modified" */}
           <SectionHeader
             label={t("adr.filter.dateModified")}
+            icon="edit_calendar"
+            count={(filters.dateModifiedFrom ? 1 : 0) + (filters.dateModifiedTo ? 1 : 0)}
             expanded={expandedSections.dateModified}
             onToggle={() => toggleSection("dateModified")}
           />
@@ -960,6 +1053,8 @@ export default function AdrFilterSidebar({
           {/* adr.filter.dateSigned = "Date Signed" */}
           <SectionHeader
             label={t("adr.filter.dateSigned")}
+            icon="event_available"
+            count={(filters.dateSignedFrom ? 1 : 0) + (filters.dateSignedTo ? 1 : 0)}
             expanded={expandedSections.dateSigned}
             onToggle={() => toggleSection("dateSigned")}
           />
@@ -978,6 +1073,36 @@ export default function AdrFilterSidebar({
                 label={t("adr.filter.to")}
                 value={filters.dateSignedTo}
                 onChange={(v) => setDateField("dateSignedTo", v)}
+              />
+            </Box>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Date Decided (signed and recorded decisions) ---- */}
+          {/* adr.filter.dateDecided = "Date Decided" */}
+          <SectionHeader
+            label={t("adr.filter.dateDecided")}
+            icon="gavel"
+            count={(filters.dateDecidedFrom ? 1 : 0) + (filters.dateDecidedTo ? 1 : 0)}
+            expanded={expandedSections.dateDecided}
+            onToggle={() => toggleSection("dateDecided")}
+          />
+          <Collapse in={expandedSections.dateDecided}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
+              <DateField
+                size="small"
+                fullWidth
+                label={t("adr.filter.from")}
+                value={filters.dateDecidedFrom}
+                onChange={(v) => setDateField("dateDecidedFrom", v)}
+              />
+              <DateField
+                size="small"
+                fullWidth
+                label={t("adr.filter.to")}
+                value={filters.dateDecidedTo}
+                onChange={(v) => setDateField("dateDecidedTo", v)}
               />
             </Box>
           </Collapse>

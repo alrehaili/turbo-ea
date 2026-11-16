@@ -17,6 +17,7 @@ import {
   brand,
   surface,
 } from "@/theme/tokens";
+import { MAX_CARD_LINES } from "@/lib/cardDisplayFields";
 import type { ObstacleBounds } from "./ldvObstacles";
 import type { LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { TimelineChange } from "./timelineRange";
@@ -114,9 +115,27 @@ export function typeIconPlacement(
   return { right: hasDot ? TYPE_ICON_RIGHT_BESIDE_DOT : DOT_INSET };
 }
 
-/** Lines the card's name may wrap to: two, or one when two extra fields are shown. */
-export function nameLineClamp(extraLineCount: number): number {
-  return extraLineCount > 1 ? 1 : 2;
+/**
+ * How a card's caption lines are shared out under its name.
+ *
+ * The type line is the first pick in the Show on card menu, so it takes the
+ * first of the card's `MAX_CARD_LINES` and the extra lines (subtype, alias,
+ * attribute fields, in that order) take what is left. It used to be drawn only
+ * when there was no extra line at all, so ticking Alias beside Card type made
+ * the type disappear (#1377).
+ */
+export function cardLineBudget(
+  showType: boolean,
+  extraLineCount: number,
+): { extraShown: number; total: number } {
+  const typeLines = showType ? 1 : 0;
+  const extraShown = Math.min(extraLineCount, MAX_CARD_LINES - typeLines);
+  return { extraShown, total: extraShown + typeLines };
+}
+
+/** Lines the card's name may wrap to: two, or one when two caption lines are shown. */
+export function nameLineClamp(captionLineCount: number): number {
+  return captionLineCount > 1 ? 1 : 2;
 }
 
 /** A mirrored handle (`ts-N`, `bt-N`) shares its visibility with its base (`t-N`, `b-N`). */
@@ -203,23 +222,20 @@ export function edgeColors(
   };
 }
 
-/** The longest verb a line label shows before it is cut with an ellipsis. */
-export const MAX_EDGE_LABEL_CHARS = 24;
-
-export function truncateEdgeLabel(label: string): string {
-  return label.length > MAX_EDGE_LABEL_CHARS
-    ? label.slice(0, MAX_EDGE_LABEL_CHARS - 1) + "…"
-    : label;
-}
-
-/** The label box's estimated width: the verb, the flow arrow, and the count pill. */
-export function edgeLabelWidth(displayLabel: string, hasFlow: boolean, countText: string): number {
+/** The label box's estimated width: its longest line, the flow arrow, and the count pill. */
+export function edgeLabelWidth(lines: readonly string[], hasFlow: boolean, countText: string): number {
+  const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
   return (
-    displayLabel.length * 6.5 +
+    longest * 6.5 +
     16 +
     (hasFlow ? 17 : 0) +
     (countText ? countText.length * 7 + 14 : 0)
   );
+}
+
+/** The label box's height: one 14 px line inside 6 px of padding and border, plus 14 px a line after. */
+export function edgeLabelHeight(lines: readonly string[]): number {
+  return 20 + 14 * Math.max(0, lines.length - 1);
 }
 
 /**

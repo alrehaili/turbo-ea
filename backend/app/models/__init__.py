@@ -4,6 +4,13 @@ from app.models.approval_step import ApprovalStep
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_diagram import ArchitectureDecisionDiagram
+from app.models.architecture_decision_file import (
+    ArchitectureDecisionFile,
+    ArchitectureDecisionFileContent,
+)
+from app.models.architecture_decision_link import ArchitectureDecisionLink
+from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.audit_log import AuditLogEntry
 from app.models.authoritative_source import AuthoritativeSource
 from app.models.base import Base
@@ -26,6 +33,9 @@ from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
+from app.models.document_comment import DocumentComment
+from app.models.document_history import DocumentHistoryEntry
+from app.models.document_image import DocumentImage
 from app.models.ea_principle import EAPrinciple
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.ea_review_applicability import EaReviewApplicability
@@ -134,6 +144,11 @@ __all__ = [
     "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
+    "ArchitectureDecisionDiagram",
+    "ArchitectureDecisionFile",
+    "ArchitectureDecisionFileContent",
+    "ArchitectureDecisionLink",
+    "ArchitectureDecisionPerson",
     "Base",
     "FileAttachment",
     "User",
@@ -182,6 +197,9 @@ __all__ = [
     "ExtensionLicense",
     "ExtensionSchemaVersion",
     "Document",
+    "DocumentComment",
+    "DocumentHistoryEntry",
+    "DocumentImage",
     "EAPrinciple",
     "AuthoritativeSource",
     "Bookmark",

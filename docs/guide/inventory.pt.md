@@ -10,7 +10,7 @@ O **Inventário** é o coração do Turbo EA. Aqui todos os **cards** (component
 
 O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 
-- **Pesquisa** — Busca de texto livre nos nomes dos cards, desde a primeira letra. As melhores correspondências aparecem primeiro: nomes exatos, depois os que começam pelo que você digitou, depois aqueles em que inicia uma palavra e então os restantes. Todos os campos de busca do Turbo EA ordenam assim — a busca global (**Ctrl+K** / **⌘K**), cada seletor de cards, o registo de riscos, as decisões e os portais publicados — a não ser que você tenha escolhido uma ordenação própria, que prevalece sempre. O **alias** do card e a sua descrição também são pesquisados, de modo que um card é encontrado pelo nome que a sua organização realmente usa — e um alias que corresponde exatamente vale tanto quanto um nome que corresponde exatamente
+- **Pesquisa** — Busca de texto livre nos nomes dos cards, desde a primeira letra. As melhores correspondências aparecem primeiro: nomes exatos, depois os que começam pelo que você digitou, depois aqueles em que inicia uma palavra e então os restantes. Todos os campos de busca do Turbo EA ordenam assim — a busca global (**Ctrl+K** / **⌘K** — exceto dentro do texto de uma decisão ou de um SoAW que esteja a editar, onde o atalho abre a [caixa de diálogo de ligação](grc.md#decision-text-links)), cada seletor de cards, o registo de riscos, as decisões e os portais publicados — a não ser que você tenha escolhido uma ordenação própria, que prevalece sempre. O **alias** do card e a sua descrição também são pesquisados, de modo que um card é encontrado pelo nome que a sua organização realmente usa — e um alias que corresponde exatamente vale tanto quanto um nome que corresponde exatamente
 - **Tipos** — Filtrar por um ou mais tipos de card, agrupados pela camada de arquitetura à qual cada tipo pertence: Estratégia e Transformação (Objetivo, Plataforma, Iniciativa), Arquitetura de Negócio (Organização, Capacidade de Negócio, Contexto de Negócio, Processo de Negócio), Aplicação e Dados (Aplicação, Interface, Objeto de Dados) e Arquitetura Técnica (Componente de TI, Categoria Tecnológica, Fornecedor). Um tipo que o seu administrador coloque numa camada própria recebe o seu próprio cabeçalho depois dessas quatro, e qualquer tipo sem camada definida é listado por último em **Sem categoria**
 - **Subtipos** — Quando um tipo é selecionado, filtre ainda mais por subtipo (ex.: Aplicação -> Aplicação de Negócio, Microsserviço, Agente de IA, Implantação)
 - **Status de Aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
@@ -35,7 +35,7 @@ Um **contador de filtros ativos** mostra quantos filtros estão atualmente aplic
 
 Clique com o botão direito em qualquer célula da grelha (toque longo em dispositivos táteis) para abrir um menu de contexto com ações rápidas sobre o que está sob o cursor, ao estilo do ServiceNow:
 
-- **Pré-visualizar ficha** — abrir a ficha que a célula indica no painel lateral, sem sair da grelha; o painel deixa a grelha utilizável, pelo que pode continuar a deslocar-se, filtrar e clicar noutras linhas enquanto está aberto, e fechá-lo com o respetivo botão de fechar
+- **Pré-visualizar ficha** — abrir a ficha que a célula indica no painel lateral, sem sair da grelha; o painel deixa a grelha utilizável, pelo que pode continuar a deslocar-se, filtrar e clicar noutras linhas enquanto está aberto, e fechá-lo com o respetivo botão de fechar; se uma secção tiver alterações não guardadas, o painel pergunta antes de as descartar quando pré-visualiza outra ficha, fecha o painel ou sai da página
 - **Mostrar correspondências** — manter apenas as linhas cujo valor é igual ao da célula clicada
 - **Excluir** — ocultar as linhas cujo valor é igual ao da célula clicada
 - **Copiar valor** — copiar o texto da célula para a área de transferência
@@ -60,7 +60,7 @@ As colunas são agrupadas em cinco categorias:
 | **Colunas padrão** | Colunas sempre ativas: Tipo, Nome, Caminho, Descrição, Subtipo, Ciclo de vida, Estado de aprovação, Qualidade dos dados. Desmarque-as para ocultá-las da grade — útil para ajustar uma visualização salva apenas às colunas que você realmente usa. |
 | **Metadados** | Criado, Modificado, Criado por, Modificado por, Criado via, Modificado via. **Modificado** é quando o conteúdo do card mudou pela última vez — por uma pessoa ou uma integração, nunca por um recálculo do sistema — assim você pode filtrar por essa data para encontrar cards que precisam de revisão pelo responsável. **Criado via** e **Modificado via** mostram o canal por trás da criação e da última alteração como um chip (MCP, API, Extensão, Sistema); a célula fica vazia para a interface web. |
 | **Atributos** | Campos personalizados definidos no metamodelo (texto, número, custo, data, seleção, etc.) |
-| **Relações** | Tipos de cartões relacionados (por ex., Aplicações vinculadas a uma Capacidade de Negócio) |
+| **Relações** | Uma coluna por relação, com o nome do seu verbo e do tipo de cartão relacionado — por exemplo *utiliza Componente de TI* ou *é suportado por Aplicação*. Quando dois tipos de relação ligam os mesmos tipos de cartão, cada um tem a sua própria coluna, e um tipo de relação entre cartões do mesmo tipo (uma Aplicação que *envia dados para* outra) tem uma coluna para cada sentido. Pesquise a lista pelo verbo ou pelo tipo de cartão. |
 | **Partes interessadas** | Uma coluna por cada papel de parte interessada definido para o tipo selecionado (por ex. *Partes interessadas: Responsible*), mostrando os utilizadores atribuídos como chips. No modo de edição da grade, faça duplo clique numa célula para atribuir ou remover utilizadores desse papel diretamente na grade (requer a permissão de gestão de partes interessadas). |
 
 A coluna **Pai** mostra apenas o cartão diretamente acima, enquanto **Caminho** mostra toda a cadeia. No modo de edição da grelha, faça duplo clique numa célula Pai para mover o cartão, ou esvazie o campo para o levar ao nível superior. A coluna só é editável quando a grelha está filtrada por um único tipo de cartão com suporte a hierarquia. Se um movimento for recusado — por criar um ciclo, colidir com um cartão do mesmo nome sob o destino ou exceder a profundidade máxima —, o motivo aparece no fundo do ecrã e a célula é revertida.
@@ -93,7 +93,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 | **Ciclo de Vida** | Estado atual do ciclo de vida |
 | **Status de Aprovação** | Badge de status de revisão |
 | **Qualidade dos Dados** | Porcentagem de completude com anel visual |
-| **Relacionamentos** | Nomes dos cartões relacionados, em ordem alfabética, com um popover clicável para adicionar ou remover relacionamentos — os cartões já ligados ficam ocultos do seu seletor, exceto num tipo hierárquico, onde o seletor mostra toda a hierarquia como uma árvore indentada e deixa esses cartões a cinzento no lugar |
+| **Relacionamentos** | Uma coluna por relação, encabeçada pelo seu verbo e pelo tipo de cartão relacionado (por ex. *utiliza Componente de TI*): os nomes dos cartões ligados através dessa relação, em ordem alfabética, com um popover clicável para adicionar ou remover relacionamentos desse tipo — os cartões já ligados ficam ocultos do seu seletor, exceto num tipo hierárquico, onde o seletor mostra toda a hierarquia como uma árvore indentada e deixa esses cartões a cinzento no lugar. As vistas guardadas e os layouts de colunas anteriores à divisão das colunas de relação por relação abrem com as novas colunas no lugar da antiga |
 
 **Recursos da tabela:**
 
@@ -103,7 +103,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 - **Seleção múltipla** — Selecione múltiplas linhas para operações em massa
 - **Exibição de hierarquia** — Relacionamentos pai/filho mostrados como caminhos em breadcrumb
 - **Configuração de colunas** — Mostrar, ocultar e reordenar colunas
-- **Fixar uma coluna** — Passe o rato sobre o cabeçalho de uma coluna e clique no ícone de pino para fixar essa coluna na margem esquerda, para que continue visível enquanto desloca a tabela lateralmente. Clique novamente no pino para a libertar. Cada coluna tem também esse pino no separador **Colunas** do painel de filtros, pelo que pode fixar uma coluna sem procurar o respetivo cabeçalho. As colunas fixadas são memorizadas por tabela e o mesmo controlo está disponível em todas as tabelas de dados do Turbo EA (Registo de riscos, Decisões, Constatações de conformidade, Utilizadores, Recursos, Registo de auditoria).
+- **Fixar uma coluna** — Passe o rato sobre o cabeçalho de uma coluna e clique no ícone de pino para fixar essa coluna na margem esquerda, para que continue visível enquanto desloca a tabela lateralmente. Clique novamente no pino para a libertar. Cada coluna tem também esse pino no separador **Colunas** do painel de filtros, pelo que pode fixar uma coluna sem procurar o respetivo cabeçalho. As colunas fixadas são memorizadas por tabela e o mesmo controlo está disponível em todas as tabelas de dados do Turbo EA (Registo de riscos, Decisões, Constatações de conformidade, Utilizadores, Recursos, Registo de auditoria, Gestão de riscos PPM).
 - **Reordenar colunas** — Arraste o cabeçalho de uma coluna para a mover, ou abra a secção **Ordem das colunas** no topo do separador **Colunas** e arraste uma linha pela respetiva pega. Essa lista *é* a ordem da tabela, pelo que as duas coincidem sempre, e as colunas fixadas são agrupadas à cabeça porque são sempre apresentadas no início — liberte aí o pino de uma coluna se quiser retirá-la desse grupo. A pega funciona também com o teclado (Espaço para agarrar uma coluna, setas para a mover, Espaço para a largar) e por toque, pelo que a ordem pode ser alterada num telemóvel. A sua ordem de colunas é memorizada por tabela, em todas as tabelas de dados do Turbo EA.
 
 ### Barra de Ferramentas
@@ -228,6 +228,70 @@ Visualizações salvas aparecem na barra lateral do painel de filtros. Clique em
 - **Compartilhadas Comigo** — Visualizações que outros compartilharam com você
 - **Visualizações Públicas** — Visualizações disponíveis para todos
 
+### Visualizações de consulta { #query-views }
+<a id="mcp-views"></a>
+
+Uma **visualização de consulta** é uma visualização salva cujos filtros são uma **consulta de vários saltos** — uma cadeia de relações com condições em cada etapa, como *Organizações que usam uma Aplicação ativa afetada por uma Iniciativa com status On Track*. Várias consultas deste tipo podem ser empilhadas numa visualização e combinadas com **E** e **OU** (veja abaixo). A visualização guarda a consulta, não os seus resultados: ela é executada novamente sempre que a visualização é aberta, de modo que a lista reflete sempre o panorama atual.
+
+![Uma visualização de consulta no inventário](../assets/img/pt/98d_inventario_visao_mcp.png)
+
+**Criar uma visualização de consulta.** Na aba **Visualizações** da barra lateral de filtros, clique em **Nova visualização de consulta** ao lado de *Salvar atual* (exibido para quem pode gerir visualizações). Se algum filtro estiver ativo, incluindo o tipo de card selecionado, uma confirmação pergunta antes de limpá-los; **Cancelar** no rascunho os restaura. A faixa acima da grade abre-se como um construtor de consultas:
+
+1. Clique no chip inicial (*Escolher um tipo*) e escolha o tipo de card de que a consulta parte, ou seja, o que ela lista.
+2. Clique em **+ relação** após o último card para adicionar um salto. O menu lista cada verbo de relação com o tipo de card para o qual leva; uma relação entre cards do mesmo tipo é oferecida nos dois sentidos. Cada linha de consulta é uma única cadeia de até três saltos.
+3. Clique em **+ condição** sob qualquer card para restringi-lo: **Ciclo de vida**, **Subtipos**, **Status de aprovação**, **Qualidade dos dados** (*Completo*, *Parcial* ou *Mínimo*, as mesmas faixas do filtro da barra lateral), **Fim de vida** (ver abaixo), **Etiquetas**, **Cards específicos**, ou um campo de seleção ou sim/não desse tipo de card. Para etiquetas, um card corresponde se tiver qualquer uma das etiquetas escolhidas de um grupo, e deve corresponder a cada grupo adicionado; só são oferecidos os grupos de etiquetas que se aplicam a esse tipo de card. **Cards específicos** abre o seletor de cards desse tipo, e a etapa passa então a corresponder apenas aos cards escolhidos; para um tipo de card hierárquico, uma chave **Incluir subcards** faz corresponder também os cards abaixo de cada escolha. Um card escolhido que você não pode ver aparece como *(card oculto)*.
+4. Clique em **Salvar**. Abre-se a caixa de diálogo habitual de salvar visualização para o nome, a visibilidade, o compartilhamento e a configuração OData. **Cancelar** descarta a consulta.
+
+![Criação de uma visualização de consulta](../assets/img/pt/98e_inventario_editor_consulta.png)
+
+Enquanto você constrói, a grade filtra em tempo real e o contador da barra de ferramentas mostra quantos cards correspondem, de modo que você vê o efeito de cada salto e condição antes de salvar.
+
+**Filtrar por fim de vida.** A condição **Fim de vida** é oferecida num tipo de card que acompanha o fim de vida — por predefinição Aplicação e Componente de TI; segue a secção Fim de vida do tipo no metamodelo. Os seus valores são **Fim de vida**, **Aproximando-se do EOL**, **Suportado**, **Desconhecido** e *(vazio)* para os cards sem dados de fim de vida. O estado é o que a coluna **Fim de vida** do inventário mostra: vem do produto endoflife.date associado ou de um produto EOL personalizado, ou de uma data de fim de vida introduzida manualmente, e é independente da fase do ciclo de vida do card. A condição funciona no card de partida e em qualquer passo de relação, tanto em linhas E como em linhas OU — por exemplo, *Aplicações que utilizam um Componente de TI em fim de vida*. Enquanto uma consulta filtra por ela no card de partida, a grelha mostra a coluna Fim de vida para que veja porque é que cada card corresponde; as colunas que escolheu não mudam. Se o endoflife.date não puder ser contactado e não houver nada em cache, os cards associados são lidos como *Desconhecido*, tal como na coluna Fim de vida.
+
+A condição exige a permissão para ver os dados de fim de vida (**Ver dados de EOL**, `eol.view`). Sem ela, a condição não é oferecida, e abrir, pré-visualizar ou guardar uma visualização que a use é recusado com *Esta visualização filtra pelo estado de fim de vida, que a sua função não pode ver.*
+
+**Alterar saltos e condições.** Clique no chip de verbo de um salto para abrir o seu menu: **não tem** transforma o salto no requisito de que o card **não** tenha nenhuma relação assim, e **Remover este salto** remove-o junto com todos os saltos seguintes. Clique num chip de condição para alterar os seus valores, ou no seu **×** para removê-lo.
+
+**Combinar consultas com E e OU.** Uma visualização pode conter várias linhas de consulta empilhadas. Cada linha é uma consulta completa — card inicial, relações e condições — construída exatamente como a consulta única acima. As linhas são agrupadas:
+
+- **E** adiciona uma linha ao mesmo grupo: um card só é listado quando corresponde a **todas** as linhas do grupo. Uma linha E parte do mesmo tipo de card que o seu grupo, mostrado como um chip fixo, e a primeira linha do grupo não pode mudar o seu tipo de card enquanto tiver linhas E.
+- **OU** inicia um novo grupo abaixo de um divisor **OU**: os seus resultados são **adicionados** à lista. Um novo grupo pode partir de outro tipo de card, pelo que uma visualização pode listar, por exemplo, Aplicações e Organizações em conjunto. Quando uma visualização lista vários tipos de card, a grade mostra as colunas que esses tipos têm em comum.
+
+No modo de edição, um **mais** dentro de um círculo abaixo de cada grupo pergunta **E** ou **OU**: E adiciona uma linha a esse grupo, OU abre um novo grupo depois dele. O **×** no fim de uma linha remove-a; é mostrado quando a visualização tem mais de uma linha.
+
+Por exemplo, a visualização de demonstração *Active apps on aging tech, and the organizations using apps* tem um grupo de Aplicação com duas linhas — uma Aplicação ativa que usa um Componente de TI em descontinuação ou em fim de vida, **E** uma Aplicação afetada por uma Iniciativa — **OU** uma Organização que usa uma Aplicação. A lista mostra as Aplicações que cumprem ambas as linhas, juntamente com cada Organização que usa uma Aplicação.
+
+![Combinar consultas com E e OU](../assets/img/pt/98f_inventario_consultas_combinadas.png)
+
+Uma visualização contém no máximo **seis** linhas de consulta, **doze** relações em todas as suas linhas e **três** relações em profundidade em cada linha. As linhas de um grupo E encontram-se apenas no card inicial: o Componente de TI de uma linha e a Iniciativa da outra podem ser cards diferentes. Dois requisitos sobre o **mesmo** card a meio de uma linha — por exemplo, que o mesmo Componente de TI seja oferecido por um Fornecedor **e** pertença a uma Categoria tecnológica — não podem ser construídos no construtor de consultas; um assistente de IA pode escrever uma consulta assim através do [servidor MCP](../admin/mcp.md#multi-hop-card-queries), e a faixa passa então a mostrá-la.
+
+**Editar uma visualização de consulta salva.** Quando uma visualização de consulta está aberta, a faixa mostra o seu caminho: os tipos de card como chips, unidos pelo verbo de relação que liga cada etapa (por exemplo *Organização → usa Aplicação → é afetada por Iniciativa*), com as condições de cada card abaixo. Uma visualização com várias linhas mostra a mesma pilha, com os seus marcadores E e divisores OU, sem os controles de edição. Se você é o proprietário da visualização ou tem direitos de edição sobre ela, um **lápis** na faixa a muda para o mesmo construtor; **Salvar** atualiza a visualização. O botão **×** (*Sair desta visualização*) volta ao inventário normal. **Salvar visualização atual** enquanto uma visualização de consulta está aberta salva uma nova visualização de consulta com a mesma consulta.
+
+#### Ver os cards por trás de uma correspondência { #query-view-matches }
+
+Uma visualização de consulta lista apenas o primeiro card da sua consulta. Para ver que cards mais adiante na cadeia fizeram uma linha corresponder, clique no tipo de card deles no caminho da consulta. Em *Organizações que usam uma Aplicação que usa um Componente de TI em fim de vida ou perto dele*, clique em **Aplicação** e uma coluna lista, para cada Organização, as Aplicações através das quais ela corresponde; clique em **Componente de TI** e outra coluna lista os Componentes de TI que cumprem a condição. Clique novamente no tipo de card para remover a sua coluna.
+
+![Uma visualização de consulta com as suas colunas de correspondências](../assets/img/pt/98g_inventario_correspondencias_consulta.png)
+
+- **Como é um interruptor.** Um tipo de card clicável mostra um ponteiro e a dica *Mostrá-los numa coluna*. Quando a sua coluna está ativa, o chip fica preenchido com a cor do tipo de card e tem um pequeno ícone de coluna; a sua dica diz *Ocultar a coluna*.
+- **Que tipos de card são interruptores.** Todos os tipos de card depois do primeiro da sua linha de consulta. O primeiro tipo de card de uma linha de consulta não é, porque os seus cards são as linhas da tabela, nem um tipo de card a seguir a **não tem**, que representa uma relação em falta. Numa visualização com várias linhas de consulta, os tipos de card de cada linha são interruptores; com **OU**, uma linha da tabela mostra cards apenas para as linhas de consulta que cumpre. Os interruptores não estão disponíveis enquanto edita a consulta, e as colunas ficam ocultas até salvar ou cancelar.
+- **Onde aparece a coluna.** Logo a seguir a **Nome**, intitulada com o tipo de card e *correspondentes* — por exemplo *Aplicação · correspondentes* — para não ser confundida com uma coluna de relação como *utiliza Aplicação*, que lista todas as Aplicações relacionadas dessa forma. Quando dois passos têm o mesmo tipo de card, os títulos são numerados. Passe o rato sobre o título para ver o caminho que a coluna segue.
+- **O que mostra uma célula.** Os nomes dos cards correspondentes, separados por ponto e vírgula; passe o rato sobre a célula para ver a lista completa. Uma célula lista no máximo **100** nomes; uma lista mais longa termina em *…* e a sua dica indica que são mostrados os primeiros 100. Pode ordenar e filtrar a coluna como uma coluna de texto, e **Exportar vista atual** inclui-a.
+- **Todos os cards ao longo da cadeia, não quem leva a quem.** Uma linha lista todos os cards correspondentes nesse passo: todas as Aplicações da Organização que cumprem a condição e todos os Componentes de TI dessas Aplicações que a cumprem. Não mostra que Componente de TI pertence a que Aplicação. Para listar os próprios Componentes de TI, um por linha, escreva antes a consulta a partir de Componente de TI.
+- **Salvas com a visualização.** As colunas que ativar são salvas com a visualização (o **lápis** na lista de visualizações e depois **Atualizar**), pelo que voltam quando a abrir de novo. Editar a consulta mantém uma coluna enquanto o seu passo ainda existir, e remove-a quando remove esse passo ou muda o seu tipo de card.
+
+Só vê os cards que tem permissão para ver: um card oculto para si nunca é nomeado numa célula, e uma linha que corresponde apenas através de cards ocultos não é listada.
+
+A visualização de demonstração *Organizations on applications with components at or near end of life* abre com ambas as colunas ativas.
+
+**Visualizações criadas por um assistente de IA.** Um assistente conectado pelo [servidor MCP](../admin/mcp.md) também pode criar visualizações de consulta. Uma visualização assim mostra um chip **MCP** e a nota *Criada via MCP* na sua faixa, e um selo de robô na lista de visualizações; é editada como qualquer outra visualização de consulta. Na lista de visualizações, cada visualização de consulta traz um pequeno selo de visualização de consulta (um cubo; o selo de robô quando foi criada por um assistente) e o seu caminho compacto (*Organização › usa Aplicação › é afetada por Iniciativa*) como segunda linha; uma visualização empilhada lê-se *… E … OU …*. Quando a visualização tem condições, o seu número segue o caminho (*… › é afetada por Iniciativa · 2 condições*).
+
+**Abrir uma visualização por link.** Quando um assistente salva uma visualização, devolve um link no formato `/inventory?view=<view id>`; abri-lo aplica diretamente a visualização salva. O mesmo link funciona para qualquer visualização salva que você possa ver.
+
+**OData.** O feed OData de uma visualização de consulta devolve os mesmos cards que o inventário: a consulta também é aplicada ao feed.
+
+Para a gramática de consultas, os seus limites e as ferramentas MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`), consulte [Consultas de cards de vários saltos](../admin/mcp.md#multi-hop-card-queries).
+
 ## Importação / Exportação Excel { #excel-import }
 
 As importações e exportações do inventário usam uma **pasta de trabalho Excel com várias planilhas** que reconstrói uma sub-paisagem inteira — cards de qualquer número de tipos e as relações entre eles — sem nunca exigir a cópia de um UUID.
@@ -261,6 +325,8 @@ Em cada planilha de fichas, as colunas `stakeholder:<chave_do_papel>` carregam o
 !!! note "Folhas exportadas antes de as chaves passarem a camelCase"
     As chaves dos papéis de partes interessadas seguem a mesma convenção camelCase de qualquer outra chave do metamodelo. Uma folha exportada antes dessa mudança contém cabeçalhos como `stakeholder:technical_application_owner`; continuam a ser importados — o cabeçalho é associado ao papel em camelCase quando nenhum papel corresponde literalmente. As folhas novas usam a forma camelCase.
 
+
+**Células de data do ciclo de vida** — as colunas `lifecycle_<phase>` (`lifecycle_plan`, `lifecycle_phaseIn`, `lifecycle_active`, `lifecycle_phaseOut`, `lifecycle_endOfLife`) seguem a mesma regra, uma data por coluna: **esvaziar uma célula remove essa data** do cartão, e omitir a coluna por completo deixa essa data inalterada. As células de valor simples funcionam ao contrário: uma célula vazia de descrição, subtipo, alias, ID externo, rótulo do pai ou atributo (`attr_<field>`) deixa o valor armazenado inalterado; limpe-os no cartão ou na grelha do Inventário.
 
 ### Planilha `Relations`
 

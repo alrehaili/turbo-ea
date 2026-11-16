@@ -35,17 +35,30 @@ beforeEach(() => resetExtensionHost());
 afterEach(() => vi.restoreAllMocks());
 
 describe("buildAdrPrintBody", () => {
+  it("carries no inline style and wraps each stored section in .doc-content", () => {
+    const html = buildAdrPrintBody(
+      adr({ consequences: '<p>See <a href="https://example.com/x">x</a> and <code>k</code></p>' }),
+    );
+    expect(html).not.toContain("style=");
+    expect(html.split('<div class="doc-content">')).toHaveLength(4);
+    expect(html).toContain(
+      '<h2>Consequences</h2><div class="doc-content"><p>See <a href="https://example.com/x">x</a> and <code>k</code></p></div>',
+    );
+    // Generated tables stay outside the wrapper.
+    expect(html).toMatch(/<h2>Linked Cards<\/h2><table>/);
+  });
+
   it("renders the metadata, sections, linked cards and signatures in document order", () => {
     const html = buildAdrPrintBody(adr());
-    // The SoAW cover: document type, then "reference — title — Revision n".
-    expect(html).toContain('<h1 style="text-align:center;border:none;">Architecture Decision Record</h1>');
-    expect(html).toContain(">ADR-0001 — Adopt event bus — Revision 2</p>");
+    // The SoAW cover: document type, then "ADR-0001 · Rev 2 — title".
+    expect(html).toContain('<h1 class="doc-title">Architecture Decision Record</h1>');
+    expect(html).toContain(">ADR-0001 · Rev 2 — Adopt event bus</p>");
     expect(html).toContain("<h2>Document Information</h2>");
     expect(html).toContain("Signed");
     expect(html).toContain("Ada Lovelace");
     expect(html).toContain("Grace Hopper");
-    expect(html).toContain("<h2>Context</h2><p>Because <strong>latency</strong></p>");
-    expect(html).toContain("<h2>Decision</h2><p>Use Kafka</p>");
+    expect(html).toContain('<h2>Context</h2><div class="doc-content"><p>Because <strong>latency</strong></p></div>');
+    expect(html).toContain('<h2>Decision</h2><div class="doc-content"><p>Use Kafka</p></div>');
     // Empty / whitespace-only sections are omitted.
     expect(html).not.toContain("<h2>Consequences</h2>");
     expect(html).not.toContain("<h2>Alternatives");
@@ -98,10 +111,139 @@ describe("buildAdrPrintBody", () => {
   });
 });
 
+describe("buildAdrPrintBody — decision register", () => {
+  const REGISTERED = adr({
+    standing: "in_force",
+    decided_on: "2026-06-01",
+    effective_from: "2026-06-03",
+    valid_until: "2027-06-01",
+    decision_makers: [{ user_id: "u1", display_name: "Ada Lovelace" }],
+    participants: [{ user_id: null, display_name: "Architecture Board" }],
+    change_summary: "Narrowed to §3\nDropped the pilot",
+    links: {
+      outgoing: [
+        {
+          id: "l1",
+          kind: "replaces",
+          note: "§3 only",
+          decision: {
+            id: "b",
+            reference_number: "ADR-0003",
+            revision_number: 1,
+            title: "Use RabbitMQ",
+            status: "signed",
+            standing: "superseded",
+          },
+        },
+      ],
+      incoming: [
+        {
+          id: null,
+          kind: "relates",
+          note: null,
+          decision: {
+            id: "c",
+            reference_number: "ADR-0009",
+            revision_number: 1,
+            title: "Event naming",
+            status: "signed",
+            standing: "in_force",
+          },
+        },
+      ],
+    },
+    files: [
+      {
+        id: "f1",
+        name: "board-minutes.pdf",
+        mime_type: "application/pdf",
+        size: 10,
+        created_at: null,
+        created_by: null,
+      },
+    ],
+  });
+
+  it("lists the standing, the dates and the people in the facts table", () => {
+    const html = buildAdrPrintBody(REGISTERED);
+    expect(html).toContain('<td class="meta-label">Standing</td><td class="pre">In force</td>');
+    expect(html).toContain('<td class="meta-label">Decided on</td>');
+    expect(html).toContain('<td class="meta-label">Effective from</td>');
+    expect(html).toContain('<td class="meta-label">Valid until</td>');
+    expect(html).toContain(
+      '<td class="meta-label">Decision makers</td><td class="pre">Ada Lovelace</td>',
+    );
+    expect(html).toContain(
+      '<td class="meta-label">Participants</td><td class="pre">Architecture Board</td>',
+    );
+  });
+
+  it("prints the change summary, both link directions with notes, and the file names", () => {
+    const html = buildAdrPrintBody(REGISTERED);
+    expect(html).toContain('<h2>Change summary</h2><p class="pre">Narrowed to §3\nDropped the pilot</p>');
+    expect(html).toContain("<h2>Linked decisions</h2>");
+    expect(html).toContain("<th>Relation</th><th>Decision</th><th>Note</th>");
+    expect(html).toContain("<td>Replaces</td><td>ADR-0003 — Use RabbitMQ</td><td>§3 only</td>");
+    expect(html).toContain("<td>Related to</td><td>ADR-0009 — Event naming</td><td></td>");
+    expect(html).toContain("<h2>Files</h2>");
+    expect(html).toContain("<td>board-minutes.pdf</td>");
+    expect(html.indexOf("<h2>Linked decisions</h2>")).toBeLessThan(html.indexOf("<h2>Files</h2>"));
+  });
+
+  it("lists the diagrams' names after the files, and nothing else of them", () => {
+    const html = buildAdrPrintBody({
+      ...REGISTERED,
+      diagrams: [
+        { id: "d1", name: "Landscape <v2>", thumbnail: "<svg><text>x</text></svg>", updated_at: null },
+        { id: "d2", name: "Flows", thumbnail: null, updated_at: null },
+      ],
+    });
+    expect(html).toContain("<h2>Diagrams</h2><table>");
+    expect(html).toContain("<th>Diagram</th>");
+    expect(html).toContain("<td>Landscape &lt;v2&gt;</td>");
+    expect(html).toContain("<td>Flows</td>");
+    expect(html.indexOf("<h2>Files</h2>")).toBeLessThan(html.indexOf("<h2>Diagrams</h2>"));
+    expect(html.indexOf("<h2>Diagrams</h2>")).toBeLessThan(html.indexOf("<h2>Linked Cards</h2>"));
+    expect(html).not.toContain("<svg");
+  });
+
+  it("leaves out the empty register blocks", () => {
+    const html = buildAdrPrintBody(adr());
+    expect(html).not.toContain("Change summary");
+    expect(html).not.toContain("Linked decisions");
+    expect(html).not.toContain("<h2>Files</h2>");
+    expect(html).not.toContain("<h2>Diagrams</h2>");
+    expect(buildAdrPrintBody(adr({ diagrams: [] }))).not.toContain("<h2>Diagrams</h2>");
+    expect(html).not.toContain("Standing");
+  });
+
+  it("replaces the signatures with one line for a recorded decision", () => {
+    const html = buildAdrPrintBody(
+      adr({
+        signatories: [],
+        signed_at: null,
+        recorded_at: "2026-05-01T08:00:00Z",
+        recorded_by: { user_id: "u9", display_name: "Grace Hopper" },
+      }),
+    );
+    expect(html).toContain('<td class="meta-label">Status</td><td class="pre">Recorded</td>');
+    expect(html).toMatch(
+      /<h2>Signatures<\/h2><p>Recorded by Grace Hopper on .+, not signed in Turbo EA\.<\/p>/,
+    );
+    expect(html).not.toContain("doc-signatures");
+  });
+
+  it("handles a signed decision with no signatories", () => {
+    const html = buildAdrPrintBody(adr({ signatories: [] }));
+    expect(html).not.toContain("doc-signatures");
+    expect(adrPrintDocument(adr({ signatories: [] })).footerParts).toEqual([]);
+  });
+});
+
 describe("adrPrintDocument / printAdr", () => {
   it("names the document by reference and carries approver, approval date and print date in the footer", () => {
     const doc = adrPrintDocument(adr());
-    expect(doc.title).toBe("ADR-0001 — Adopt event bus");
+    expect(doc.title).toBe("ADR-0001 · Rev 2 — Adopt event bus");
     expect(doc.footerParts?.[0]).toBe("Approved by: Grace Hopper");
     expect(doc.footerParts?.[1]).toMatch(/^Date of approval: /);
     expect(doc.footerParts?.[2]).toMatch(/^Printed: /);
@@ -120,5 +262,40 @@ describe("adrPrintDocument / printAdr", () => {
     expect(openSpy).not.toHaveBeenCalled();
     expect(win.document.write).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe("buildAdrPrintBody — mentions", () => {
+  it("fills restricted and deleted mention labels, leaving resolved ones as written", () => {
+    const html = buildAdrPrintBody(
+      adr({
+        context:
+          '<p><span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34"></span> ' +
+          '<span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span></p>',
+        decision:
+          '<p><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true"></span></p>',
+      }),
+    );
+    expect(html).toContain(
+      '<p><span data-type="mention" data-kind="card" data-restricted="true" data-token="ab12cd34">Restricted card</span> ' +
+        '<span data-type="mention" data-kind="card" data-id="0b0e5b1e-6a0e-4c43-9b8e-2d1c4a5f7e01">@SAP ERP</span></p>',
+    );
+    expect(html).toContain(
+      '<p><span data-type="mention" data-kind="decision" data-id="1c1f6c2f-7b1f-4d54-8c9f-3e2d5b6a8f02" data-missing="true">Deleted decision</span></p>',
+    );
+  });
+});
+
+describe("buildAdrPrintBody — pictures", () => {
+  const PIC = "/api/v1/document-images/adr/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+
+  it("prints a section holding only a picture, picture included", () => {
+    const html = buildAdrPrintBody(adr({ consequences: `<img src="${PIC}" width="200">` }));
+    expect(html).toContain(`<h2>Consequences</h2><div class="doc-content"><img src="${PIC}" width="200"></div>`);
+  });
+
+  it("still leaves out a section holding only an external picture", () => {
+    const html = buildAdrPrintBody(adr({ consequences: '<img src="https://cdn.example.com/a.png">' }));
+    expect(html).not.toContain("<h2>Consequences</h2>");
   });
 });

@@ -53,6 +53,12 @@ vi.mock("@/features/ea-delivery/CreateAdrDialog", () => dialogStub("CreateAdrDia
 vi.mock("@/features/ea-delivery/LinkDiagramsDialog", () => dialogStub("LinkDiagramsDialog"));
 vi.mock("@/features/diagrams/CreateDiagramDialog", () => dialogStub("CreateDiagramDialog"));
 
+// The signed-in role's app-level permissions; the wildcard unless a test narrows it.
+const auth = vi.hoisted(() => ({ permissions: { "*": true } as Record<string, boolean> }));
+vi.mock("@/hooks/AuthContext", () => ({
+  useAuthContext: () => ({ user: { id: "u1", permissions: auth.permissions } }),
+}));
+
 import EaDeliveryReport from "./EaDeliveryReport";
 
 type Fn = (...args: unknown[]) => unknown;
@@ -123,6 +129,7 @@ function collectErrors() {
 }
 
 beforeEach(() => {
+  auth.permissions = { "*": true };
   mockApi.reset();
   mockApi.lenient([]);
   for (const k of Object.keys(captured)) delete captured[k];
@@ -353,7 +360,7 @@ describe("EaDeliveryReport — the SoAW context menu", () => {
   async function openMenu() {
     const anchor = document.createElement("div");
     document.body.appendChild(anchor);
-    await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1" });
+    await call("InitiativesTab", "onSoawContextMenu", anchor, { id: "soaw-1", status: "draft" });
     return screen.findByRole("menu");
   }
 

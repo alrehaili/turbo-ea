@@ -191,6 +191,14 @@ LOOPS = [
         [3600, 3600],
     ),
     (
+        main._purge_document_images_loop,
+        "app.main._purge_document_images_once",
+        lambda: AsyncMock(return_value=0),
+        [3600, 3600],
+        "Error in document picture purge loop",
+        [3600, 3600],
+    ),
+    (
         main._ops_access_maintenance_loop,
         "app.main._ops_access_maintenance_once",
         lambda: AsyncMock(return_value=(0, 0)),
@@ -281,6 +289,9 @@ async def test_each_loop_runs_its_delegate_once_and_honours_cancellation(
     with pytest.raises(asyncio.CancelledError):
         await loop()
     assert mock.await_count == 1
+    if target.startswith("app.main."):
+        # The loop's own ``*_once`` body gets the session the loop opened.
+        assert mock.await_args.args == (db,)
     _check_sleeps(fake_asyncio.sleeps, sleeps)
 
 
@@ -297,7 +308,7 @@ async def test_each_loop_logs_a_failure_and_goes_on(
     )
     with caplog.at_level(logging.ERROR), pytest.raises(asyncio.CancelledError):
         await loop()
-    assert message in caplog.text
+    assert message in [r.getMessage() for r in caplog.records]
     _check_sleeps(fake_asyncio.sleeps, sleeps)
 
 

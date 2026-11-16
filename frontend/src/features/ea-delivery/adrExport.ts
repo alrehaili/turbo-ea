@@ -5,261 +5,63 @@ import {
   Paragraph,
   TextRun,
   Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  HeadingLevel,
   AlignmentType,
-  ShadingType,
   BorderStyle,
   PageBreak,
-  convertInchesToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
 import { getExtensionAdrExportSections } from "@/lib/extensionRegistry";
+import { toLocalDate } from "@/lib/dates";
 import type { ArchitectureDecision } from "@/types";
+import {
+  adrDiagramNames,
+  adrFactRows,
+  adrFileNames,
+  adrHeading,
+  adrLinkHeaders,
+  adrLinkRows,
+  adrRecordedLine,
+  type ExportableDecision,
+} from "./adrDocumentFacts";
+import { decisionRefLabel, statusLabelKey } from "./decisionStanding";
+import { richHtmlHasContent } from "@/lib/richHtmlContent";
+import {
+  COLOR_BODY,
+  COLOR_PREAMBLE,
+  DOCX_PAGE_MARGIN_TWIP,
+  FONT,
+  LINE_SPACING,
+  SIZE_BODY,
+  SPACING_AFTER_DEFAULT,
+  buildDocxTable,
+  htmlToParagraphs,
+  prefetchDocumentImages,
+} from "./docxHtml";
 
 // ─── style constants (mirroring soawExport.ts) ──────────────────────────────
 
-const FONT = "Segoe UI";
-const COLOR_BODY = "222222";
 const COLOR_H1 = "1a1a2e";
 const COLOR_H2 = "333333";
-const COLOR_H3 = "444444";
 const COLOR_PART = "1976d2";
 const COLOR_SUBTITLE = "555555";
-const COLOR_PREAMBLE = "666666";
-const COLOR_BORDER = "cccccc";
 
-const SIZE_BODY = 22; // 11pt
 const SIZE_TITLE = 44; // 22pt
 const SIZE_SUBTITLE = 28; // 14pt
 const SIZE_PART = 36; // 18pt
 const SIZE_H2 = 32; // 16pt
-const SIZE_H3 = 26; // 13pt
-const SIZE_TABLE = 20; // 10pt
 
-const LINE_SPACING = 384;
-const SPACING_AFTER_DEFAULT = 160;
 const SPACING_PART_BEFORE = 540;
 const SPACING_PART_AFTER = 200;
 const SPACING_H2_BEFORE = 420;
-const SPACING_H3_BEFORE = 300;
 const SPACING_AFTER_TABLE = 240;
 
-const CELL_BORDER = {
-  style: BorderStyle.SINGLE,
-  size: 1,
-  color: COLOR_BORDER,
-};
+// ─── helpers ────────────────────────────────────────────────────────────────
 
-// ─── helpers (HTML → docx Paragraphs) ───────────────────────────────────────
-
-function htmlToParagraphs(html: string): Paragraph[] {
-  if (!html || html === "<p></p>") return [];
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const paragraphs: Paragraph[] = [];
-
-  const processNode = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
-      if (text) {
-        paragraphs.push(
-          new Paragraph({
-            children: [new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
-            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-          }),
-        );
-      }
-      return;
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-    const tag = el.tagName.toLowerCase();
-
-    if (tag === "p") {
-      const runs = inlineRuns(el);
-      if (runs.length > 0) {
-        paragraphs.push(
-          new Paragraph({
-            children: runs,
-            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-          }),
-        );
-      }
-    } else if (tag === "h3" || tag === "h4") {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: el.textContent ?? "",
-              bold: true,
-              font: FONT,
-              size: SIZE_H3,
-              color: COLOR_H3,
-            }),
-          ],
-          heading: tag === "h3" ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_4,
-          spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
-        }),
-      );
-    } else if (tag === "ul" || tag === "ol") {
-      el.querySelectorAll("li").forEach((li, idx) => {
-        const prefix = tag === "ol" ? `${idx + 1}. ` : "•  ";
-        paragraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: prefix + (li.textContent ?? ""),
-                font: FONT,
-                size: SIZE_BODY,
-                color: COLOR_BODY,
-              }),
-            ],
-            indent: { left: 720 },
-            spacing: { line: LINE_SPACING, after: 80 },
-          }),
-        );
-      });
-    } else if (tag === "blockquote") {
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: el.textContent ?? "",
-              italics: true,
-              font: FONT,
-              size: SIZE_BODY,
-              color: COLOR_PREAMBLE,
-            }),
-          ],
-          indent: { left: 720 },
-          spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
-        }),
-      );
-    } else {
-      el.childNodes.forEach(processNode);
-    }
-  };
-
-  doc.body.childNodes.forEach(processNode);
-  return paragraphs;
-}
-
-function inlineRuns(el: HTMLElement): TextRun[] {
-  const runs: TextRun[] = [];
-  el.childNodes.forEach((child) => {
-    if (child.nodeType === Node.TEXT_NODE) {
-      const text = child.textContent ?? "";
-      if (text) runs.push(new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY }));
-    } else if (child.nodeType === Node.ELEMENT_NODE) {
-      const c = child as HTMLElement;
-      const tag = c.tagName.toLowerCase();
-      const text = c.textContent ?? "";
-      runs.push(
-        new TextRun({
-          text,
-          font: FONT,
-          size: SIZE_BODY,
-          color: COLOR_BODY,
-          bold: tag === "strong" || tag === "b",
-          italics: tag === "em" || tag === "i",
-          underline: tag === "u" ? {} : undefined,
-          strike: tag === "s" || tag === "del",
-        }),
-      );
-    }
-  });
-  return runs;
-}
-
-function buildDocxTable(columns: string[], rows: string[][]): Table {
-  const cellBorders = {
-    top: CELL_BORDER,
-    bottom: CELL_BORDER,
-    left: CELL_BORDER,
-    right: CELL_BORDER,
-  };
-  const cellMargins = {
-    top: convertInchesToTwip(0.04),
-    bottom: convertInchesToTwip(0.04),
-    left: convertInchesToTwip(0.07),
-    right: convertInchesToTwip(0.07),
-  };
-
-  const headerCells = columns.map(
-    (col) =>
-      new TableCell({
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: col,
-                bold: true,
-                font: FONT,
-                size: SIZE_TABLE,
-                color: COLOR_BODY,
-              }),
-            ],
-          }),
-        ],
-        shading: { type: ShadingType.CLEAR, fill: "f5f5f5" },
-        borders: cellBorders,
-        margins: cellMargins,
-      }),
-  );
-
-  const dataRows = rows.map(
-    (row) =>
-      new TableRow({
-        children: row.map(
-          (cell) =>
-            new TableCell({
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: cell,
-                      font: FONT,
-                      size: SIZE_TABLE,
-                      color: COLOR_BODY,
-                    }),
-                  ],
-                }),
-              ],
-              borders: cellBorders,
-              margins: cellMargins,
-            }),
-        ),
-      }),
-  );
-
-  return new Table({
-    rows: [new TableRow({ children: headerCells }), ...dataRows],
-    width: { size: 100, type: WidthType.PERCENTAGE },
-  });
-}
-
-function htmlIsEmpty(html: string | null | undefined): boolean {
-  if (!html) return true;
-  const text = (new DOMParser().parseFromString(html, "text/html").body.textContent ?? "").trim();
-  return !text;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleDateString();
-  } catch {
-    return iso;
-  }
-}
-
-function statusLabel(status: string, t: (key: string) => string): string {
-  if (status === "draft") return t("status.draft");
-  if (status === "in_review") return t("status.inReview");
-  if (status === "signed") return t("status.signed");
-  return status;
+/** A timestamp or a `YYYY-MM-DD` day as a local date (a bare day is read as
+ *  that calendar day, never UTC midnight). */
+function formatDate(iso: string | null | undefined): string {
+  const d = toLocalDate(iso);
+  return d ? d.toLocaleDateString() : "";
 }
 
 // ─── ADR export ─────────────────────────────────────────────────────────────
@@ -283,7 +85,7 @@ export function adrDocxCover(adrs: ArchitectureDecision[]): AdrDocxCover {
     const [adr] = adrs;
     return {
       title: t("adr.export.documentTitle"),
-      subtitle: `${adr.reference_number} — ${adr.title}`,
+      subtitle: adrHeading(adr, t),
       generatedOn: null,
     };
   }
@@ -300,12 +102,16 @@ export function adrDocxCover(adrs: ArchitectureDecision[]): AdrDocxCover {
  * standard ADR sections (Context, Decision, Consequences, Alternatives,
  * Linked Cards, Signatures).
  */
-export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<void> {
+export async function exportAdrsToDocx(adrs: ExportableDecision[]): Promise<void> {
   if (adrs.length === 0) return;
   const t = (key: string, opts?: Record<string, unknown>) =>
     String(i18n.t(`delivery:${key}`, opts as never));
 
   const children: (Paragraph | Table)[] = [];
+  // Every picture the decisions show, fetched once before building.
+  const images = await prefetchDocumentImages(
+    adrs.flatMap((a) => [a.context, a.decision, a.consequences, a.alternatives_considered]),
+  );
 
   // ── Cover / document title — the SoAW cover: document type, then the name
   // under a blue rule. Only a multi-decision export adds the count and date.
@@ -381,7 +187,7 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
     children.push(
       buildDocxTable(
         [t("adr.grid.reference"), t("adr.grid.title"), t("adr.grid.status")],
-        adrs.map((a) => [a.reference_number, a.title, statusLabel(a.status, t)]),
+        adrs.map((a) => [decisionRefLabel(a, t), a.title, t(statusLabelKey(a))]),
       ),
     );
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
@@ -412,7 +218,7 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
         new Paragraph({
           children: [
             new TextRun({
-              text: `${adr.reference_number} — ${adr.title}`,
+              text: adrHeading(adr, t),
               bold: true,
               font: FONT,
               size: SIZE_PART,
@@ -427,26 +233,9 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       );
     }
 
-    // Metadata table (status, created, signed, signatories)
-    const metaRows: [string, string][] = [];
-    metaRows.push([t("adr.grid.status"), statusLabel(adr.status, t)]);
-    if (adr.creator_name) metaRows.push([t("adr.grid.createdBy"), adr.creator_name]);
-    if (adr.created_at) metaRows.push([t("adr.grid.created"), formatDate(adr.created_at)]);
-    if (adr.updated_at) metaRows.push([t("adr.grid.lastModified"), formatDate(adr.updated_at)]);
-    if (adr.signed_at) metaRows.push([t("adr.grid.signed"), formatDate(adr.signed_at)]);
-    if (adr.revision_number && adr.revision_number > 1) {
-      metaRows.push([
-        t("adr.export.revisionLabel"),
-        String(adr.revision_number),
-      ]);
-    }
-    const signedNames = (adr.signatories ?? [])
-      .filter((s) => s.status === "signed")
-      .map((s) => s.display_name)
-      .filter(Boolean);
-    if (signedNames.length > 0) {
-      metaRows.push([t("adr.grid.signedBy"), signedNames.join(", ")]);
-    }
+    // Facts table (status, standing, dates, people, authoring, signing):
+    // the same rows the print view shows, empty ones left out.
+    const metaRows = adrFactRows(adr, t, formatDate).filter(([, value]) => value !== "");
 
     children.push(
       new Paragraph({
@@ -467,9 +256,38 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
     );
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
 
+    // Heading helper
+    const addHeading = (title: string) =>
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: title, bold: true, font: FONT, size: SIZE_H2, color: COLOR_H2 }),
+          ],
+          spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
+        }),
+      );
+    const addTable = (headers: string[], rows: string[][]) => {
+      children.push(buildDocxTable(headers, rows));
+      children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+    };
+
+    // What changed in this revision (plain text, line breaks kept).
+    if (adr.change_summary && adr.change_summary.trim()) {
+      addHeading(t("adr.export.changeSummary"));
+      for (const line of adr.change_summary.split("\n")) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: line, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
+            spacing: { after: SPACING_AFTER_DEFAULT },
+          }),
+        );
+      }
+    }
+
     // Section helper
     const addSection = (title: string, html: string | null) => {
-      if (htmlIsEmpty(html)) return;
+      // Text, a picture, or a restricted / deleted mention is something to say.
+      if (!richHtmlHasContent(html)) return;
       children.push(
         new Paragraph({
           children: [
@@ -484,7 +302,7 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
           spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
         }),
       );
-      for (const p of htmlToParagraphs(html ?? "")) {
+      for (const p of htmlToParagraphs(html ?? "", images)) {
         children.push(p);
       }
     };
@@ -493,6 +311,29 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
     addSection(t("adr.decision"), adr.decision);
     addSection(t("adr.consequences"), adr.consequences);
     addSection(t("adr.alternativesConsidered"), adr.alternatives_considered);
+
+    // Linked decisions, both directions, and the files on the decision.
+    const linkRows = adrLinkRows(adr, t);
+    if (linkRows.length > 0) {
+      addHeading(t("adr.export.links"));
+      addTable(adrLinkHeaders(t), linkRows);
+    }
+    const fileNames = adrFileNames(adr);
+    if (fileNames.length > 0) {
+      addHeading(t("adr.export.files"));
+      addTable(
+        [t("adr.export.fileName")],
+        fileNames.map((name) => [name]),
+      );
+    }
+    const diagramNames = adrDiagramNames(adr);
+    if (diagramNames.length > 0) {
+      addHeading(t("adr.export.diagrams"));
+      addTable(
+        [t("adr.export.diagramName")],
+        diagramNames.map((name) => [name]),
+      );
+    }
 
     // Linked cards
     const linked = adr.linked_cards ?? [];
@@ -562,9 +403,19 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       }
     }
 
-    // Signatures detail
+    // Signatures detail. A recorded decision was not signed here: one line
+    // says so instead.
+    const recorded = adrRecordedLine(adr, t, formatDate);
     const sigs = adr.signatories ?? [];
-    if (sigs.length > 0) {
+    if (recorded) {
+      addHeading(t("adr.editor.signatures"));
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: recorded, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
+          spacing: { after: SPACING_AFTER_DEFAULT },
+        }),
+      );
+    } else if (sigs.length > 0) {
       children.push(
         new Paragraph({
           children: [
@@ -606,7 +457,12 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       {
         properties: {
           page: {
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+            margin: {
+              top: DOCX_PAGE_MARGIN_TWIP,
+              right: DOCX_PAGE_MARGIN_TWIP,
+              bottom: DOCX_PAGE_MARGIN_TWIP,
+              left: DOCX_PAGE_MARGIN_TWIP,
+            },
           },
         },
         children,
@@ -618,9 +474,14 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
   const stamp = exportTimestamp();
   const filename =
     adrs.length === 1
-      ? `${adrs[0].reference_number}_${stamp}.docx`
+      ? `${adrs[0].reference_number}${revisionSuffix(adrs[0])}_${stamp}.docx`
       : `ADRs_${stamp}.docx`;
   saveAs(blob, filename);
+}
+
+/** "-rev2" in a file name from revision 2 on. */
+function revisionSuffix(adr: ArchitectureDecision): string {
+  return adr.revision_number > 1 ? `-rev${adr.revision_number}` : "";
 }
 
 function exportTimestamp(now: Date = new Date()): string {

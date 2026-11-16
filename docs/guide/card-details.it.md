@@ -155,7 +155,7 @@ L'icona **apri in una nuova scheda** nella barra degli strumenti apre il [report
 
 Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della modalità del gruppo, potete selezionare un tag (selezione singola) o più tag (selezione multipla).
 
-### Scheda Risorse
+### Scheda Risorse {: #resources-tab }
 
 La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
@@ -213,9 +213,9 @@ Dove un ruolo ha una **descrizione**, accanto al suo nome compare un'icona infor
 
 Scegli uno stakeholder tramite l'**autocomplete ricercabile** — inizia a digitare e il menu a tendina filtra sia per nome che per e-mail (l'e-mail appare come riga secondaria, così due utenti con lo stesso nome possono essere distinti a colpo d'occhio).
 
-Se l'e-mail che digiti non corrisponde a un utente esistente, alla fine del menu a tendina appare un'opzione **«Invita «email» come nuovo utente»**. Selezionandola si espande un mini-modulo inline proprio dentro il selettore — scegli un ruolo (Member o Viewer per default), modifica facoltativamente il nome visualizzato e invia. Il nuovo utente viene invitato tramite l'e-mail di invito standard **e** assegnato al ruolo di stakeholder scelto sulla card in un'unica azione, così non devi mai lasciare la card per onboardare un collaboratore.
+Se l'e-mail che digiti non corrisponde a un utente esistente, alla fine del menu a tendina appare un'opzione **«Invita «email» come nuovo utente»**. Selezionandola si espande un mini-modulo inline proprio dentro il selettore — modifica facoltativamente il nome visualizzato e invia. Il nuovo utente riceve il **ruolo predefinito** impostato in [Utenti e ruoli](../admin/users.md#ruoli). Il nuovo utente viene invitato tramite l'e-mail di invito standard **e** assegnato al ruolo di stakeholder scelto sulla card in un'unica azione, così non devi mai lasciare la card per onboardare un collaboratore.
 
-Il percorso di invito richiede il permesso **`users.invite`**, una forma delegata di `admin.users` che gli admin possono concedere a membri di fiducia. Una salvaguardia anti-escalation di privilegi impedisce ai non-admin di invitare utenti in ruoli admin — il menu a tendina dei ruoli filtra silenziosamente sui ruoli che l'invitante è autorizzato a delegare.
+Il percorso di invito richiede il permesso **`users.invite`**, una forma delegata di `admin.users` che gli admin possono concedere a membri di fiducia. Una salvaguardia anti-escalation di privilegi impedisce ai non-admin di invitare utenti in qualsiasi altro ruolo: senza `admin.users`, un utente invitato può ricevere solo il ruolo predefinito, Member o Viewer.
 
 ## Scheda Cronologia
 
@@ -229,9 +229,11 @@ Tutto ciò che sposta la data **Modificato** della card compare qui: una modific
 
 ## Scheda ADR
 
-Ogni card dispone di una scheda **ADR** che elenca le [decisioni architetturali](delivery.md) collegate, mostrando riferimento, titolo, stato, tutte le card collegate e la data dell'ultima modifica. Fare clic su una riga per aprire la decisione.
+Ogni card dispone di una scheda **ADR** che elenca le [decisioni architetturali](delivery.md) collegate — la revisione corrente di ogni decisione, più l'eventuale revisione in fase di redazione — mostrando riferimento, titolo, vigenza (o lo stato, finché non è ancora firmata), tutte le card collegate e la data dell'ultima modifica. Fare clic su una riga per aprire la decisione; le revisioni precedenti sono raggiungibili da lì.
 
 Se si è autorizzati a gestire i collegamenti ADR, la scheda offre anche **Collega ADR** per allegare una decisione esistente e **Crea ADR** per crearne una già collegata a questa card, oltre a un'azione di scollegamento su ogni riga. Sulle card prive di decisioni collegate la scheda resta nascosta a meno che non si disponga di tale autorizzazione, così gli utenti in sola lettura non vedono mai una scheda vuota.
+
+Sotto l'elenco, **Menzionata in** elenca le decisioni e gli Statement of Architecture Work il cui testo menziona questa card, e quelli la cui discussione la menziona (contrassegnati *nella discussione*), con il riferimento o la revisione di ciascun documento e la sua vigenza o il suo stato. Una menzione non collega la card alla decisione; compare soltanto qui. L'elenco mostra solo i documenti che si possono aprire e viene omesso quando non ce ne sono. Vedere [Menzioni](grc.md#decision-mentions).
 
 ## Scheda Rischi (GRC abilitato, quando presente)
 

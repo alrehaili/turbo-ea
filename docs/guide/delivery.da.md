@@ -28,6 +28,20 @@ Hver trærække viser:
 
 Den syntetiske række **Unlinked artefacts** øverst i træet vises, når der er SoAW'er, diagrammer eller ADR'er, som endnu ikke er linket til et initiativ. Åbn den for at gen-linke dem.
 
+### Hvem ser hvad
+
+EA Delivery åbner for enhver rolle, der har **Se SoAW-dokumenter** (`soaw.view`) eller **Se arkitekturbeslutningsposter** (`adr.view`). Hver slags artefakt følger derefter sin egen tilladelse:
+
+| Artefakt | Vises med | Oprettes med |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagram** | `diagrams.view` | `diagrams.manage` (kræves også for at linke eller fjerne linket til et diagram) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+En gruppe, du ikke må se, udelades fra arbejdsområdet, og **+ Ny artefakt** og **+ Tilføj …** tilbyder kun de slags, du må oprette — en rolle, der kun kan læse, ser ingen af knapperne. En rolle med kun `adr.view` får derfor siden med hvert initiativs beslutninger og intet om SoAW'er.
+
+Diagrammerne, der er vedhæftet en beslutning, følger også `diagrams.view`: en rolle uden den ser ingen sektion [Diagrammer](grc.md#decision-diagrams) på en beslutning.
+
 ## Statement of Architecture Work (SoAW)
 
 En **Statement of Architecture Work (SoAW)** er et formelt dokument defineret af [TOGAF-standarden](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Den fastlægger omfanget, tilgangen, leverancerne og styringen for et arkitekturengagement. I TOGAF produceres SoAW'en under **Preliminary Phase** og **Phase A (Architecture Vision)** og fungerer som en aftale mellem arkitekturteamet og dets interessenter.
@@ -45,34 +59,69 @@ Turbo EA tilbyder en indbygget SoAW-editor med TOGAF-tilpassede sektions­skabel
 
 Editoren tilbyder:
 
-- **Rich text-redigering** — Komplet formateringsværktøjslinje (overskrifter, fed, kursiv, lister, links) drevet af TipTap-editoren
-- **Links** — En URL, du skriver eller indsætter, bliver til et link, mens du skriver, og hvert link i et dokument åbner i en ny fane. Adresser i dokumenter skrevet før links blev understøttet, linkes når dokumentet vises
+- **Rich text-redigering** — en formateringsværktøjslinje på hver tekstsektion: fed, kursiv, understreget, gennemstreget, inline-kode, en overskrift og en underoverskrift, punktlister og nummererede lister, citater, kodeblokke, skillelinjer, links, tabeller, omtaler og billeder
+- **Links** — markér nogle ord, og klik på **Link**, eller tryk på **Ctrl+K** (**Cmd+K** på en Mac) for at linke dem til en web- eller e-mailadresse; samme knap eller genvej redigerer eller fjerner linket under markøren. En webadresse, du skriver eller indsætter, bliver af sig selv til et link. Mens du redigerer, placerer et klik på et link markøren i det, og **Ctrl+klik** (**Cmd+klik**) åbner det; i forhåndsvisningen og et låst dokument åbner et klik det. Hvert link åbner i en ny fane, og adresser i dokumenter skrevet før links blev understøttet, linkes når dokumentet vises. Se [Links i teksten](grc.md#decision-text-links)
 - **Sektions­skabeloner** — Foruddefinerede sektioner, der følger TOGAF-standarder (f.eks. Problembeskrivelse, Mål, Tilgang, Interessenter, Begrænsninger, Arbejdsplan)
-- **Indlejret redigerbare tabeller** — Tilføj og rediger tabeller inden for en sektion
+- **Skabelontabeller** — skabelonens tabelsektioner (mål, interessenter, risici og lignende) er gitre med faste kolonner: tilføj og fjern rækker direkte
+- **Tabeller i teksten** — indsæt din egen tabel i en hvilken som helst tekstsektion (se [Tabeller](#soaw-tables))
+- **Omtaler** — skriv **@** i en sektions tekst for at omtale et kort eller en beslutning (se [Diskussion, omtaler og historik](#soaw-collaboration))
+- **Billeder** — indsæt et skærmbillede eller et diagram i en sektions tekst (se [Billeder](#soaw-pictures))
+- **Dokumentets versionshistorik** — en tabel, som forfatterne udfylder i hånden (version, dato, revideret af, beskrivelse). Den er en del af dokumentet og er ikke visningen [Historik](#soaw-collaboration)
 - **Status­arbejdsproces** — Dokumenter bevæger sig gennem definerede stadier:
 
 | Status | Betydning |
 |--------|-----------|
 | **Draft** | Under skrivning, endnu ikke klar til gennemgang |
-| **In Review** | Indsendt til interessent­gennemgang |
+| **In Review** | Sendt til underskrift — låst, indtil underskrifterne tilbagekaldes |
 | **Approved** | Gennemgået og accepteret |
 | **Signed** | Formelt underskrevet |
 
+### Billeder {: #soaw-pictures }
+
+En sektions tekst kan indeholde billeder, ligesom en beslutnings. Klik på **Indsæt billede** i sektionens værktøjslinje og vælg en fil, indsæt et billede fra udklipsholderen, eller træk en billedfil hen på sektionen. Træk i et billedes hjørne for at ændre størrelsen (proportionerne bevares), og markér det for at venstrejustere, centrere eller højrejustere det fra værktøjslinjen. PNG, JPEG, GIF og WebP accepteres, op til 5 MB pr. billede; SVG accepteres ikke.
+
+Billeder vises i forhåndsvisningen, i PDF-/printkopien og i Word-eksporten samt i [Historik](#soaw-collaboration), hvor **Ændringer** markerer et tilføjet eller fjernet billede som *[Billede]*. En revision og en gendannet version beholder deres billeder. Kun billeder, der er uploadet til en SoAW, bevares: et billede, der linker til et andet websted, fjernes, når dokumentet gemmes. Kommentarer i diskussionen kan ikke indeholde billeder, og billedkontrollerne forsvinder, når en administrator har [slået filupload fra](../admin/resources.md#when-file-uploads-are-disabled). Den fulde beskrivelse findes i GRC-guiden: [Billeder](grc.md#decision-pictures).
+
+### Tabeller {: #soaw-tables }
+
+En sektions tekst kan indeholde tabeller, ligesom en beslutnings. Klik på **Tabel** i sektionens værktøjslinje, og vælg **Indsæt tabel** for en tabel med tre rækker og tre kolonner med en overskriftsrække; med markøren i en tabel markerer, tilføjer, flytter og sletter den samme menu rækker og kolonner, slår overskriftsrækken til eller fra, fletter og opdeler celler og sletter tabellen. De samme handlinger åbnes med et højreklik i en celle, og mens du redigerer, åbner håndtag ved siden af en række og over en kolonne den pågældende rækkes eller kolonnes handlinger, og et **+** eller en bjælke ved tabellens kant tilføjer en række eller en kolonne. Træk i en kolonnekant for at ændre bredden, og brug **Tab** / **Skift+Tab** til at flytte mellem cellerne. Formatering, links, omtaler og billeder virker i en celle.
+
+Tabeller vises i forhåndsvisningen, PDF-/printkopien (tilpasset siden) og Word-eksporten (som en rigtig Word-tabel) samt i [Historik](#soaw-collaboration), hvor **Ændringer** læser en række som én linje. Kommentarer i diskussionen kan ikke indeholde tabeller. Den fulde beskrivelse findes i GRC-guiden: [Tabeller](grc.md#decision-tables).
+
 ### Underskrifts­arbejdsproces
 
-Når en SoAW er godkendt, kan du anmode om underskrifter fra interessenter. Klik på **Request Signatures**, og brug derefter søgefeltet til at finde og tilføje underskrivere efter navn eller e-mail. Systemet sporer, hvem der har underskrevet, og sender notifikationer til afventende underskrivere.
+Fra en kladde eller en godkendt SoAW kan du anmode om underskrifter fra interessenter. Klik på **Request Signatures**, og brug derefter søgefeltet til at finde og tilføje underskrivere efter navn eller e-mail. Systemet sporer, hvem der har underskrevet, og sender notifikationer til afventende underskrivere.
+
+En SoAW under gennemgang er **låst**, så underskriverne underskriver præcis det, de fik tilsendt: kun dens initiativ kan stadig ændres. Klik på **Recall Signatures** for at redigere indholdet; det sender den tilbage til kladde. En underskriver, der klikker på **Reject**, sender den også tilbage til kladde, under samme revisionsnummer. Kun en SoAW i kladde kan slettes.
+
+### Revisioner
+
+En underskrevet SoAW er skrivebeskyttet. Klik på **New Revision** for at starte en ny kladde ud fra den, under samme navn med det næste revisionsnummer. Der er én åben revision ad gangen: mens en revision er under udarbejdelse, oplyser den underskrevne SoAW det og tilbyder **Open the revision** i stedet for at starte en ny. Kun den seneste revision kan revideres, og en afvisning ændrer ikke revisionsnummeret.
+
+En tidligere revision viser et banner med et link til den aktuelle, og **Revisions**-båndet på hver revision viser dem alle. Lister over SoAW'er — initiativets leverancer, SoAW-fanen, EA Delivery-rapporten — viser den aktuelle revision af hvert dokument og enhver revision under udarbejdelse.
+
+### Diskussion, omtaler og historik {: #soaw-collaboration }
+
+En SoAW har samme diskussion, omtaler og historik som en beslutning: diskussionen i et panel ved siden af dens editor og forhåndsvisning, historikken bag knappen **Historik** øverst på siden. Den fælles adfærd er beskrevet ét sted, i GRC-vejledningen: [Diskussion](grc.md#decision-discussion), [Omtaler](grc.md#decision-mentions), [Historik](grc.md#decision-history) og [Kendte begrænsninger](grc.md#collaboration-limits). Det, der er anderledes for en SoAW:
+
+- **Hvem der kan skrive.** At skrive, svare, løse og genåbne kræver tilladelsen `soaw.comment`, som medlemmer og administratorer har som standard, og læsere ikke har; læsning af diskussionen følger `soaw.view`. SoAW'ens underskrivere kan altid kommentere den. Alle, der kan redigere SoAW'er (`soaw.manage`), kan slette enhver kommentar.
+- **Sektioner.** En tråd knyttes med en sektionschip til en af SoAW'ens egne sektioner eller til ingen (en generel tråd). En SoAW har mange sektioner, så indtastningsfeltet viser en chip for hver sektion, der allerede er diskuteret, og for den valgte; **Flere…** åbner en søgbar liste over de øvrige. Chipsene øverst i diskussionen filtrerer den efter sektion, som for en beslutning. En tråd knyttet til en brugerdefineret sektion, der siden er fjernet, viser *Fjernet afsnit*. Hver sektion har det samme chatikon ved siden af sin overskrift som en beslutnings, i editoren og forhåndsvisningen, med antallet af åbne tråde, når der er diskussion; klik på det for at åbne diskussionen om den sektion med sektionen allerede valgt til en ny kommentar.
+- **Afvisning.** Enhver underskriver med underskriftstilladelsen (`soaw.sign`) — eller redigeringstilladelsen — kan afvise en SoAW, som for beslutninger; hidtil krævede afvisning redigeringstilladelsen. Begrundelsen åbner en tråd **Begrundelse for afvisning** i diskussionen.
+- **Omtaler.** En SoAW har ingen tilknyttede kort, så når der ikke er skrevet noget efter **@**, vises kortene alfabetisk; i en kommentar kommer SoAW'ens underskrivere først blandt personerne. **Gennemse…** virker som for en beslutning.
+- **Note til underskrift.** **Underskriv** åbner nu en dialog, hvor underskriveren kan tilføje en valgfri note; den vises i diskussionen som en **Note til underskrift** og i historikken.
+- **Historik.** En version indeholder SoAW'ens navn, dens dokumentoplysninger, dens tabel Dokumentets versionshistorik og hver sektion; initiativet er ikke en del af en version. Historikken registrerer, hvad der sker med dokumentet; tabellen Dokumentets versionshistorik i dokumentet indeholder kun det, forfatterne skriver i den. En SoAW med status **Godkendt** kan stadig redigeres, så ligesom for en kladde gemmes dens lagringer som versioner, og en tidligere version kan gendannes i den.
 
 ### Preview og eksport
 
 - **Preview-tilstand** — Skrivebeskyttet visning af det komplette SoAW-dokument
-- **DOCX-eksport** — Download SoAW'en som et formateret Word-dokument til offline-deling eller udskrift
+- **DOCX-eksport** — Download SoAW'en som et formateret Word-dokument til offline-deling eller udskrift. Formatering og klikbare links bevares i alle dele af teksten, kode beholder en skrift med fast bredde, og tabeller i teksten bliver til rigtige Word-tabeller
 - **PDF-eksport** — Åbner en printklar visning i en ny fane; brug browserens *Gem som PDF*. Tillad pop op-vinduer for dette websted, hvis intet åbnes.
 
 ### SoAW-fane på initiativkort
 
 ![Initiativkort — SoAW-fane](../assets/img/da/55_initiative_soaw_tab.png)
 
-Initiativer eksponerer også en dedikeret **SoAW**-fane direkte på deres kortdetaljeside. Fanen viser hver SoAW linket til det initiativ (titel, statuschip, revisionsnummer, sidst-ændret-dato) med en **+ New SoAW**-knap, der på forhånd vælger det aktuelle initiativ — så du kan forfatte eller hoppe til en SoAW uden at forlade det kort, du arbejder på. Oprettelse genbruger den samme dialog som EA Delivery-siden, og det nye dokument vises begge steder. Synligheden af fanen følger de almindelige kort-tilladelsesregler.
+Initiativer eksponerer også en dedikeret **SoAW**-fane direkte på deres kortdetaljeside. Fanen viser den aktuelle revision af hver SoAW linket til det initiativ samt enhver revision under udarbejdelse (titel, statuschip, revisionsnummer, sidst-ændret-dato) med en **+ New SoAW**-knap, der på forhånd vælger det aktuelle initiativ — så du kan forfatte eller hoppe til en SoAW uden at forlade det kort, du arbejder på. Oprettelse genbruger den samme dialog som EA Delivery-siden, og det nye dokument vises begge steder. Fanen vises for roller, der har **Se SoAW-dokumenter** (`soaw.view`); knappen **+ New SoAW** og slettehandlingen på en kladde kræver **Opret og rediger SoAW-dokumenter** (`soaw.manage`), uanset om du selv kan redigere initiativet.
 
 ## Architecture Decision Records (ADR)
 

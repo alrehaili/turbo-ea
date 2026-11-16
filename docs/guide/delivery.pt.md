@@ -28,6 +28,20 @@ Cada linha da árvore mostra:
 
 A linha sintética **Artefatos não vinculados** no topo da árvore aparece quando há SoAWs, diagramas ou ADRs ainda não vinculados a uma iniciativa. Abra-a para os religar.
 
+### Quem vê o quê
+
+As Entregas de EA abrem para qualquer papel que tenha **Ver documentos SoAW** (`soaw.view`) ou **Ver registos de decisões de arquitetura** (`adr.view`). Cada tipo de artefato segue então a sua própria permissão:
+
+| Artefato | Listado com | Criado com |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagrama** | `diagrams.view` | `diagrams.manage` (também necessário para vincular ou desvincular um diagrama) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Um grupo que não pode ver fica fora do espaço de trabalho, e **+ Novo artefato** e **+ Adicionar …** oferecem apenas os tipos que pode criar — um papel que só pode ler não vê nenhum dos dois botões. Assim, um papel apenas com `adr.view` obtém a página com as decisões de cada iniciativa e nada sobre SoAW.
+
+Os diagramas anexados a uma decisão seguem também `diagrams.view`: um papel sem esta permissão não vê nenhuma secção [Diagramas](grc.md#decision-diagrams) numa decisão.
+
 ## Statement of Architecture Work (SoAW)
 
 Um **Statement of Architecture Work (SoAW)** é um documento formal definido pelo [padrão TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Ele estabelece o escopo, abordagem, entregáveis e governança para um engajamento de arquitetura. No TOGAF, o SoAW é produzido durante a **Fase Preliminar** e **Fase A (Visão de Arquitetura)** e serve como um acordo entre a equipe de arquitetura e suas partes interessadas.
@@ -45,34 +59,69 @@ O Turbo EA fornece um editor de SoAW integrado com templates de seções alinhad
 
 O editor oferece:
 
-- **Edição de texto rico** — Barra de ferramentas completa de formatação (títulos, negrito, itálico, listas, links) alimentada pelo editor TipTap
-- **Links** — Uma URL digitada ou colada torna-se um link enquanto você escreve, e todo link em um documento abre em uma nova aba. Endereços em documentos escritos antes do suporte a links são convertidos em links ao serem exibidos
+- **Edição de texto rico** — uma barra de ferramentas de formatação em cada secção de texto: negrito, itálico, sublinhado, tachado, código em linha, um título e um subtítulo, listas com marcadores e numeradas, citações, blocos de código, divisores, ligações, tabelas, menções e imagens
+- **Ligações** — selecione algumas palavras e clique em **Ligação**, ou prima **Ctrl+K** (**Cmd+K** num Mac), para as ligar a um endereço web ou de e-mail; o mesmo botão ou atalho edita ou remove a ligação sob o cursor. Um endereço web escrito ou colado torna-se uma ligação por si só. Durante a edição, um clique numa ligação coloca o cursor nela e **Ctrl+clique** (**Cmd+clique**) abre-a; na pré-visualização e num documento bloqueado, um clique abre-a. Todas as ligações abrem em uma nova aba, e os endereços em documentos escritos antes do suporte a ligações são convertidos em ligações ao serem apresentados. Ver [Ligações no texto](grc.md#decision-text-links)
 - **Templates de seções** — Seções predefinidas seguindo os padrões TOGAF (ex.: Descrição do Problema, Objetivos, Abordagem, Partes Interessadas, Restrições, Plano de Trabalho)
-- **Tabelas editáveis inline** — Adicione e edite tabelas dentro de qualquer seção
+- **Tabelas do modelo** — as secções de tabela do modelo (objetivos, partes interessadas, riscos e afins) são grelhas com colunas fixas: adicione e remova linhas diretamente
+- **Tabelas no texto** — insira uma tabela sua em qualquer secção de texto (ver [Tabelas](#soaw-tables))
+- **Menções** — escreva **@** no texto de uma seção para mencionar um card ou uma decisão (ver [Discussão, menções e histórico](#soaw-collaboration))
+- **Imagens** — insira uma captura de ecrã ou um diagrama no texto de uma seção (ver [Imagens](#soaw-pictures))
+- **Histórico de versões do documento** — uma tabela que os autores preenchem à mão (versão, data, revisado por, descrição). Faz parte do documento e não é a vista [Histórico](#soaw-collaboration)
 - **Fluxo de status** — Documentos progridem através de estágios definidos:
 
 | Status | Significado |
 |--------|-------------|
 | **Rascunho** | Sendo escrito, ainda não pronto para revisão |
-| **Em Revisão** | Submetido para revisão das partes interessadas |
+| **Em Revisão** | Enviado para assinatura — bloqueado até que as assinaturas sejam recolhidas |
 | **Aprovado** | Revisado e aceito |
 | **Assinado** | Formalmente assinado |
 
+### Imagens {: #soaw-pictures }
+
+O texto de uma seção pode conter imagens, tal como o de uma decisão. Clique em **Inserir imagem** na barra de ferramentas da seção e escolha um ficheiro, cole uma imagem da área de transferência ou arraste um ficheiro de imagem para a seção. Arraste o canto de uma imagem para a redimensionar (as suas proporções são mantidas) e selecione-a para a alinhar à esquerda, ao centro ou à direita a partir da barra de ferramentas. São aceites PNG, JPEG, GIF e WebP, até 5 MB por imagem; SVG não.
+
+As imagens aparecem na pré-visualização, na cópia PDF / impressa e na exportação para Word, bem como no [Histórico](#soaw-collaboration), onde **Alterações** assinala uma imagem adicionada ou removida como *[Imagem]*. Uma revisão e uma versão restaurada mantêm as suas imagens. Só são mantidas as imagens carregadas num SoAW: uma imagem que aponta para outro site é removida quando o documento é guardado. Os comentários na discussão não aceitam imagens, e os controlos de imagem desaparecem quando um administrador [desligou o carregamento de ficheiros](../admin/resources.md#when-file-uploads-are-disabled). A descrição completa está no guia de GRC: [Imagens](grc.md#decision-pictures).
+
+### Tabelas {: #soaw-tables }
+
+O texto de uma secção pode conter tabelas, tal como o de uma decisão. Clique em **Tabela** na barra de ferramentas da secção e escolha **Inserir tabela** para uma tabela de três linhas e três colunas com uma linha de cabeçalho; com o cursor numa tabela, o mesmo menu seleciona, adiciona, move e elimina linhas e colunas, ativa ou desativa a linha de cabeçalho, une e divide células e elimina a tabela. As mesmas ações abrem-se com um clique direito numa célula e, durante a edição, pegas ao lado de uma linha e por cima de uma coluna abrem as ações dessa linha ou coluna, e um **+** ou uma barra na margem da tabela adiciona uma linha ou uma coluna. Arraste a margem de uma coluna para a redimensionar, e use **Tab** / **Shift+Tab** para passar de uma célula para outra. A formatação, as ligações, as menções e as imagens funcionam numa célula.
+
+As tabelas aparecem na pré-visualização, na cópia PDF / impressa (ajustadas à página) e na exportação para Word (como uma verdadeira tabela Word), bem como no [Histórico](#soaw-collaboration), onde **Alterações** lê uma linha da tabela como uma só linha. Os comentários na discussão não aceitam tabelas. A descrição completa está no guia de GRC: [Tabelas](grc.md#decision-tables).
+
 ### Fluxo de Assinatura
 
-Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes interessadas. Clique em **Solicitar Assinaturas** e use o campo de pesquisa para encontrar e adicionar signatários por nome ou e-mail. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
+A partir de um SoAW em rascunho ou aprovado, você pode solicitar assinaturas das partes interessadas. Clique em **Solicitar Assinaturas** e use o campo de pesquisa para encontrar e adicionar signatários por nome ou e-mail. O sistema rastreia quem assinou e envia notificações para os signatários pendentes.
+
+Um SoAW em revisão fica **bloqueado**, para que os signatários assinem exatamente o que lhes foi enviado: apenas a sua iniciativa ainda pode mudar. Para editar o conteúdo, clique em **Recolher assinaturas**, o que o devolve a rascunho. Um signatário que clique em **Rejeitar** também o devolve a rascunho, com o mesmo número de revisão. Só um SoAW em rascunho pode ser eliminado.
+
+### Revisões
+
+Um SoAW assinado é somente leitura. Clique em **Nova revisão** para iniciar um novo rascunho a partir dele, com o mesmo nome e o número de revisão seguinte. Existe uma única revisão aberta de cada vez: enquanto uma revisão está a ser redigida, o SoAW assinado indica-o e oferece **Abrir a revisão** em vez de iniciar outra. Só a revisão mais recente pode ser revisada, e uma rejeição não altera o número de revisão.
+
+Uma revisão anterior mostra um banner com uma ligação para a revisão atual, e a faixa **Revisões** em cada revisão lista-as todas. As listas de SoAW — os entregáveis da iniciativa, a aba SoAW, o relatório de Entregas de EA — mostram a revisão atual de cada documento e qualquer revisão em redação.
+
+### Discussão, menções e histórico {: #soaw-collaboration }
+
+Um SoAW tem a mesma discussão, as mesmas menções e o mesmo histórico que uma decisão: a discussão num painel ao lado do seu editor e da sua pré-visualização, o histórico atrás do botão **Histórico** no topo da página. O comportamento comum é descrito uma única vez, no guia de GRC: [Discussão](grc.md#decision-discussion), [Menções](grc.md#decision-mentions), [Histórico](grc.md#decision-history) e [Limitações conhecidas](grc.md#collaboration-limits). O que muda num SoAW:
+
+- **Quem pode publicar.** Publicar, responder, resolver e reabrir exigem a permissão `soaw.comment`, que os membros e administradores têm por predefinição e os visualizadores não; a leitura da discussão segue `soaw.view`. Os signatários do SoAW podem sempre comentá-lo. Quem pode editar SoAW (`soaw.manage`) pode eliminar qualquer comentário.
+- **Seções.** Um tópico é associado a uma das seções próprias do SoAW com uma etiqueta de seção, ou a nenhuma (um tópico geral). Um SoAW tem muitas seções, por isso a caixa de redação mostra uma etiqueta para cada seção já discutida e para a escolhida; **Mais…** abre uma lista pesquisável das restantes. As etiquetas no topo da discussão filtram-na por seção, tal como numa decisão. Um tópico associado a uma seção personalizada entretanto removida mostra *Seção removida*. Cada seção apresenta ao lado do seu título o mesmo ícone de chat que a de uma decisão, no editor e na pré-visualização, com o número de tópicos abertos quando há discussão; clique nele para abrir a discussão sobre essa seção com a seção já selecionada para um novo comentário.
+- **Rejeição.** Qualquer signatário que tenha a permissão de assinar (`soaw.sign`) — ou a permissão de edição — pode rejeitar um SoAW, tal como nas decisões; até agora, rejeitar exigia a permissão de edição. O motivo abre um tópico **Motivo da rejeição** na discussão.
+- **Menções.** Um SoAW não tem cards ligados, por isso, sem nada escrito depois de **@**, os cards são listados por ordem alfabética; num comentário, os signatários do SoAW aparecem primeiro entre as pessoas. **Procurar…** funciona como numa decisão.
+- **Nota de assinatura.** **Assinar** abre agora uma caixa de diálogo onde o signatário pode acrescentar uma nota opcional; esta aparece na discussão como **Nota de assinatura** e no Histórico.
+- **Histórico.** Uma versão contém o nome do SoAW, as suas informações de documento, a sua tabela Histórico de versões do documento e todas as seções; a iniciativa não faz parte de uma versão. O Histórico regista o que acontece ao documento; a tabela Histórico de versões do documento, no documento, só regista o que os seus autores nela escrevem. Um SoAW com o status **Aprovado** ainda pode ser editado, por isso, tal como num rascunho, as suas gravações são guardadas como versões e uma versão anterior pode ser restaurada nele.
 
 ### Pré-visualização e Exportação
 
 - **Modo de pré-visualização** — Visualização somente leitura do documento SoAW completo
-- **Exportação DOCX** — Baixe o SoAW como um documento Word formatado para compartilhamento offline ou impressão
+- **Exportação DOCX** — Baixe o SoAW como um documento Word formatado para compartilhamento offline ou impressão. A formatação e as ligações clicáveis são mantidas em todas as partes do texto, o código mantém um tipo de letra monoespaçado e as tabelas no texto tornam-se verdadeiras tabelas Word
 - **Exportação PDF** — Abre uma visualização pronta para impressão em uma nova aba; use *Salvar como PDF* do navegador. Permita pop-ups para este site se nada abrir.
 
 ### Aba SoAW nos cards de Iniciativa
 
 ![Card de iniciativa — aba SoAW](../assets/img/pt/55_iniciativa_soaw_tab.png)
 
-As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista cada SoAW vinculado àquela iniciativa (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A visibilidade da aba segue as regras padrão de permissão dos cards.
+As iniciativas também expõem uma aba **SoAW** dedicada diretamente na sua página de detalhe. A aba lista a revisão atual de cada SoAW vinculado àquela iniciativa, mais qualquer revisão em redação (título, chip de status, número de revisão, data da última modificação) com um botão **+ Novo SoAW** que pré-seleciona a iniciativa atual — para que você possa redigir ou abrir um SoAW sem sair do card no qual está trabalhando. A criação reutiliza o mesmo diálogo da página Entregas de EA, e o novo documento aparece em ambos os lugares. A aba é mostrada aos papéis que têm **Ver documentos SoAW** (`soaw.view`); o botão **+ Novo SoAW** e a ação de excluir um rascunho exigem **Criar e editar documentos SoAW** (`soaw.manage`), quer você possa ou não editar a própria iniciativa.
 
 ## Registros de Decisões de Arquitetura (ADR)
 

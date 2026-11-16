@@ -212,7 +212,8 @@ export default function CardDetailContent({
     let cancelled = false;
     setAdrCount(null);
     api
-      .get<ArchitectureDecision[]>(`/adr/by-card/${card.id}`)
+      // Counted like the tab lists them: earlier revisions are not counted.
+      .get<ArchitectureDecision[]>(`/adr/by-card/${card.id}?include_earlier=false`)
       .then((rows) => {
         if (!cancelled) setAdrCount(rows.length);
       })
@@ -578,6 +579,7 @@ export default function CardDetailContent({
     risksCount,
     canViewCompliance,
     complianceCount,
+    canViewSoaw: can("soaw.view"),
     canViewAdr,
     adrCount,
     canManageAdrLinks: perms.can_manage_adr_links,
@@ -736,7 +738,9 @@ export default function CardDetailContent({
         <ErrorBoundary label="SoAW">
           <MuiCard>
             <CardContent>
-              <SoAWTab initiativeId={card.id} canManage={perms.can_edit} />
+              {/* Create and delete are what `POST` / `DELETE /soaw` ask for:
+                  `soaw.manage`, not the right to edit this card. */}
+              <SoAWTab initiativeId={card.id} canManage={can("soaw.manage")} />
             </CardContent>
           </MuiCard>
         </ErrorBoundary>

@@ -36,7 +36,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     display_name: str
     password: str | None = None
-    role: str = "member"
+    # Omitted (or null) means "the default role" — the one flagged in
+    # Admin → Users & Roles → Roles, resolved in ``create_user`` (#1388).
+    role: str | None = None
     send_email: bool = False
     # Optional — when set, forces the auth provider on the new user.
     # When None, falls back to the legacy heuristic (local iff a password is
@@ -679,10 +681,18 @@ async def create_user(
 ):
     await PermissionService.require_permission(db, current_user, "admin.users")
 
+    # No role given means the admin-configured default role — the same one
+    # self-registration and SSO provisioning hand out (#1388). Imported here
+    # for the same reason as ``generate_setup_token`` below.
+    from app.api.v1.auth import _default_role_key
+
+    default_role = await _default_role_key(db)
+    role_key = body.role or default_role
+
     # Validate role key exists in roles table
-    role_result = await db.execute(select(Role).where(Role.key == body.role))
+    role_result = await db.execute(select(Role).where(Role.key == role_key))
     if not role_result.scalar_one_or_none():
-        raise HTTPException(400, f"Unknown role '{body.role}'")
+        raise HTTPException(400, f"Unknown role '{role_key}'")
 
     email = body.email.lower().strip()
 
@@ -742,7 +752,7 @@ async def create_user(
         email=email,
         display_name=body.display_name,
         password_hash=pw_hash,
-        role=body.role,
+        role=role_key,
         auth_provider=auth_provider,
         password_setup_token=setup_token,
     )
@@ -760,7 +770,7 @@ async def create_user(
     if body.send_email:
         sso_inv = SsoInvitation(
             email=email,
-            role=body.role,
+            role=role_key,
             invited_by=current_user.id,
         )
         db.add(sso_inv)
@@ -775,7 +785,7 @@ async def create_user(
         subject_email=email,
         target=_user_target(u),
         context={
-            "role": await _role_label(db, body.role),
+            "role": await _role_label(db, role_key),
             "auth_provider": auth_provider,
             "invited": body.send_email,
         },

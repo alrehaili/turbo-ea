@@ -28,6 +28,18 @@
             ],
             "title": "Alternatives Considered"
           },
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
           "committee": {
             "anyOf": [
               {
@@ -62,6 +74,18 @@
             ],
             "title": "Context"
           },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
           "decision": {
             "anyOf": [
               {
@@ -72,6 +96,21 @@
               }
             ],
             "title": "Decision"
+          },
+          "decision_makers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Makers"
           },
           "delay_attribution": {
             "anyOf": [
@@ -97,6 +136,18 @@
             ],
             "title": "Delay Reason"
           },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
           "linked_card_ids": {
             "anyOf": [
               {
@@ -111,6 +162,36 @@
             ],
             "title": "Linked Card Ids"
           },
+          "linked_diagram_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Diagram Ids"
+          },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRLinkIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links"
+          },
           "meeting_date": {
             "anyOf": [
               {
@@ -122,6 +203,21 @@
               }
             ],
             "title": "Meeting Date"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
           },
           "related_decisions": {
             "default": [],
@@ -149,6 +245,18 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "required": [
@@ -187,6 +295,21 @@
           }
         },
         "title": "ADRDelayNote",
+        "type": "object"
+      },
+      "ADRDiagramLink": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /adr/{id}/diagrams``.",
+        "properties": {
+          "diagram_id": {
+            "title": "Diagram Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "diagram_id"
+        ],
+        "title": "ADRDiagramLink",
         "type": "object"
       },
       "ADRImportItem": {
@@ -263,6 +386,21 @@
             "maxItems": 500,
             "title": "Related References",
             "type": "array"
+          },
+          "revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Number"
           },
           "row_index": {
             "title": "Row Index",
@@ -415,9 +553,105 @@
         "title": "ADRImportResult",
         "type": "object"
       },
+      "ADRLinkIn": {
+        "additionalProperties": false,
+        "description": "One typed link from the decision being saved to another decision.",
+        "properties": {
+          "decision_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "decision_id",
+          "kind"
+        ],
+        "title": "ADRLinkIn",
+        "type": "object"
+      },
+      "ADRPersonIn": {
+        "additionalProperties": false,
+        "description": "A decision maker or participant: a user of this instance, or a name.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "title": "ADRPersonIn",
+        "type": "object"
+      },
+      "ADRRecordRequest": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /adr/{id}/record``: when a decision taken outside Turbo EA was made.",
+        "properties": {
+          "decided_on": {
+            "format": "date",
+            "title": "Decided On",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          }
+        },
+        "required": [
+          "decided_on"
+        ],
+        "title": "ADRRecordRequest",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
+            "maxLength": 4000,
             "title": "Comment",
             "type": "string"
           },
@@ -450,6 +684,34 @@
           "comment"
         ],
         "title": "ADRRejectRequest",
+        "type": "object"
+      },
+      "ADRReviseRequest": {
+        "additionalProperties": false,
+        "description": "Optional body of ``POST /adr/{id}/revise``.",
+        "properties": {
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
+          "consolidates": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Consolidates",
+            "type": "array"
+          }
+        },
+        "title": "ADRReviseRequest",
         "type": "object"
       },
       "ADRSignRequest": {
@@ -525,6 +787,18 @@
             ],
             "title": "Attributes"
           },
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
           "committee": {
             "anyOf": [
               {
@@ -559,6 +833,18 @@
             ],
             "title": "Context"
           },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
           "decision": {
             "anyOf": [
               {
@@ -569,6 +855,33 @@
               }
             ],
             "title": "Decision"
+          },
+          "decision_makers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Makers"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
           },
           "linked_card_ids": {
             "anyOf": [
@@ -584,6 +897,36 @@
             ],
             "title": "Linked Card Ids"
           },
+          "linked_diagram_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Diagram Ids"
+          },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRLinkIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links"
+          },
           "meeting_date": {
             "anyOf": [
               {
@@ -595,6 +938,21 @@
               }
             ],
             "title": "Meeting Date"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
           },
           "related_decisions": {
             "anyOf": [
@@ -646,6 +1004,18 @@
               }
             ],
             "title": "Title"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "title": "ADRUpdate",
@@ -2284,6 +2654,20 @@
         "title": "Body_replace_file_attachment_api_v1_file_attachments__attachment_id__content_put",
         "type": "object"
       },
+      "Body_upload_adr_file_api_v1_adr__adr_id__files_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_adr_file_api_v1_adr__adr_id__files_post",
+        "type": "object"
+      },
       "Body_upload_bundle_api_v1_admin_extensions_install_post": {
         "properties": {
           "file": {
@@ -2325,6 +2709,20 @@
           }
         },
         "title": "Body_upload_card_logo_api_v1_cards__card_id__logo_post",
+        "type": "object"
+      },
+      "Body_upload_document_image_api_v1_document_images__kind__post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_document_image_api_v1_document_images__kind__post",
         "type": "object"
       },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
@@ -2499,6 +2897,18 @@
             "title": "Odata Enabled",
             "type": "boolean"
           },
+          "query": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
           "shared_with": {
             "anyOf": [
               {
@@ -2648,6 +3058,18 @@
               }
             ],
             "title": "Odata Enabled"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
           },
           "shared_with": {
             "anyOf": [
@@ -4362,6 +4784,106 @@
         "title": "CardListResponse",
         "type": "object"
       },
+      "CardQueryMatchCard": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CardQueryMatchCard",
+        "type": "object"
+      },
+      "CardQueryMatchCell": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/CardQueryMatchCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "more": {
+            "description": "True when cards past the first 100 exist.",
+            "title": "More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cards",
+          "more"
+        ],
+        "title": "CardQueryMatchCell",
+        "type": "object"
+      },
+      "CardQueryMatchesRequest": {
+        "description": "``POST /cards/query/matches``: the cards behind a match, per row.",
+        "properties": {
+          "ids": {
+            "description": "The rows (cards the query lists) to answer for.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          },
+          "nodes": {
+            "description": "Node keys `<line>:<hop path>`: the zero-based line among every line of the query in document order, then the dot-joined zero-based indices into `related` from the line's first card down to the node (`0:0`, `0:0.1`, `2:0`). The first card of a line, a negated hop and a hop below one have no key (400 `unknown_node`).",
+            "items": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "query": {
+            "additionalProperties": true,
+            "description": "The card query, in the grammar of `GET /cards?query=` (a plain query, `all_of` or `any_of`).",
+            "title": "Query",
+            "type": "object"
+          }
+        },
+        "required": [
+          "query",
+          "nodes",
+          "ids"
+        ],
+        "title": "CardQueryMatchesRequest",
+        "type": "object"
+      },
+      "CardQueryMatchesResponse": {
+        "properties": {
+          "rows": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/CardQueryMatchCell"
+              },
+              "type": "object"
+            },
+            "description": "`{row card id: {node key: cell}}`; only non-empty cells, and a row with none is absent.",
+            "title": "Rows",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "CardQueryMatchesResponse",
+        "type": "object"
+      },
       "CardRef": {
         "properties": {
           "id": {
@@ -5350,47 +5872,6 @@
           "reason"
         ],
         "title": "CloseBody",
-        "type": "object"
-      },
-      "CommentCreate": {
-        "properties": {
-          "content": {
-            "maxLength": 10000,
-            "minLength": 1,
-            "title": "Content",
-            "type": "string"
-          },
-          "parent_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Id"
-          }
-        },
-        "required": [
-          "content"
-        ],
-        "title": "CommentCreate",
-        "type": "object"
-      },
-      "CommentUpdate": {
-        "properties": {
-          "content": {
-            "maxLength": 10000,
-            "minLength": 1,
-            "title": "Content",
-            "type": "string"
-          }
-        },
-        "required": [
-          "content"
-        ],
-        "title": "CommentUpdate",
         "type": "object"
       },
       "ComplianceBundleOut": {
@@ -16330,6 +16811,7 @@
       "RejectRequest": {
         "properties": {
           "comment": {
+            "maxLength": 4000,
             "title": "Comment",
             "type": "string"
           }
@@ -19572,6 +20054,25 @@
         "title": "SetPasswordRequest",
         "type": "object"
       },
+      "SignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "SignRequest",
+        "type": "object"
+      },
       "SignatureRequest": {
         "properties": {
           "message": {
@@ -22141,9 +22642,15 @@
             "title": "Password"
           },
           "role": {
-            "default": "member",
-            "title": "Role",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
           },
           "send_email": {
             "default": false,
@@ -23381,6 +23888,59 @@
           "kind"
         ],
         "title": "EvidenceRef",
+        "type": "object"
+      },
+      "app__api__v1__document_comments__CommentCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 100000,
+            "title": "Body",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "CommentCreate",
+        "type": "object"
+      },
+      "app__api__v1__document_comments__CommentUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 100000,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "CommentUpdate",
         "type": "object"
       },
       "app__api__v1__ea_applicability__AssessmentCreate": {
@@ -24664,6 +25224,47 @@
           "name"
         ],
         "title": "AiSuggestRequest",
+        "type": "object"
+      },
+      "app__schemas__common__CommentCreate": {
+        "properties": {
+          "content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "CommentCreate",
+        "type": "object"
+      },
+      "app__schemas__common__CommentUpdate": {
+        "properties": {
+          "content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "CommentUpdate",
         "type": "object"
       }
     }
@@ -26941,6 +27542,44 @@
             }
           },
           {
+            "description": "Only decisions decided on or after this date (signed or recorded)",
+            "in": "query",
+            "name": "decided_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions decided on or after this date (signed or recorded)",
+              "title": "Decided From"
+            }
+          },
+          {
+            "description": "Only decisions decided on or before this date (signed or recorded)",
+            "in": "query",
+            "name": "decided_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions decided on or before this date (signed or recorded)",
+              "title": "Decided To"
+            }
+          },
+          {
             "description": "Also return every section's text and related decision references (the spreadsheet export)",
             "in": "query",
             "name": "include_content",
@@ -26950,6 +27589,36 @@
               "description": "Also return every section's text and related decision references (the spreadsheet export)",
               "title": "Include Content",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Also list earlier revisions superseded inside their own chain",
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Also list earlier revisions superseded inside their own chain",
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only decisions with this standing (comma-separated allowed)",
+            "in": "query",
+            "name": "standing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions with this standing (comma-separated allowed)",
+              "title": "Standing"
             }
           }
         ],
@@ -27070,6 +27739,36 @@
             "schema": {
               "title": "Card Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Also list earlier revisions superseded inside their own chain",
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Also list earlier revisions superseded inside their own chain",
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only decisions with this standing (comma-separated allowed)",
+            "in": "query",
+            "name": "standing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions with this standing (comma-separated allowed)",
+              "title": "Standing"
             }
           }
         ],
@@ -27316,6 +28015,409 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/comments": {
+      "get": {
+        "description": "The decision's discussion: ``{can: {comment, moderate}, open_count, threads}``;\n``scope=chain`` adds the threads of every revision of its chain.",
+        "operationId": "list_adr_comments_api_v1_adr__adr_id__comments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "document",
+              "enum": [
+                "document",
+                "chain"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr Comments",
+        "tags": [
+          "document-collaboration"
+        ]
+      },
+      "post": {
+        "description": "Start a thread or reply to one; the thread comes back with\n``unnotified_mentions``.",
+        "operationId": "create_adr_comment_api_v1_adr__adr_id__comments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__document_comments__CommentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Adr Comment",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/comments/{comment_id}": {
+      "delete": {
+        "description": "Delete a comment (it stays as a placeholder; a deleted thread start\ncloses the thread to replies).",
+        "operationId": "delete_adr_comment_api_v1_adr__adr_id__comments__comment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Adr Comment",
+        "tags": [
+          "document-collaboration"
+        ]
+      },
+      "patch": {
+        "description": "Edit your own comment; the thread comes back with ``unnotified_mentions``.",
+        "operationId": "update_adr_comment_api_v1_adr__adr_id__comments__comment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__document_comments__CommentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Adr Comment",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/comments/{comment_id}/reopen": {
+      "post": {
+        "description": "Reopen a thread; the thread comes back.",
+        "operationId": "reopen_adr_thread_api_v1_adr__adr_id__comments__comment_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reopen Adr Thread",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/comments/{comment_id}/resolve": {
+      "post": {
+        "description": "Resolve a thread; the thread comes back.",
+        "operationId": "resolve_adr_thread_api_v1_adr__adr_id__comments__comment_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Adr Thread",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/diagrams": {
+      "post": {
+        "description": "Link an existing free-draw diagram to a decision (a live link).\n\n404 without ``diagrams.view`` or for an unknown diagram; 409 when already\nlinked. Returns the decision's detail payload.",
+        "operationId": "link_diagram_api_v1_adr__adr_id__diagrams_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRDiagramLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Diagram",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/diagrams/{diagram_id}": {
+      "delete": {
+        "description": "Remove a diagram's link from a decision; the diagram itself stays.\n\n404 without ``diagrams.view``, for an unknown diagram, or when it is not linked.",
+        "operationId": "unlink_diagram_api_v1_adr__adr_id__diagrams__diagram_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Diagram",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/duplicate": {
       "post": {
         "description": "Duplicate an ADR as a new draft with a new reference number.",
@@ -27354,6 +28456,355 @@
         "summary": "Duplicate Adr",
         "tags": [
           "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files": {
+      "get": {
+        "description": "The files on a decision, oldest first.",
+        "operationId": "list_adr_files_api_v1_adr__adr_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr Files",
+        "tags": [
+          "adr"
+        ]
+      },
+      "post": {
+        "description": "Attach a file to a draft decision. Same checks as a card attachment.",
+        "operationId": "upload_adr_file_api_v1_adr__adr_id__files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_adr_file_api_v1_adr__adr_id__files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files/{attachment_id}": {
+      "delete": {
+        "description": "Remove a file from a draft decision; its bytes go once no decision shares them.\n\nAllowed while file uploads are switched off, like a card attachment's\ndelete: otherwise a file could not leave a draft and would be signed with it.",
+        "operationId": "delete_adr_file_api_v1_adr__adr_id__files__attachment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/files/{attachment_id}/download": {
+      "get": {
+        "description": "One file of a decision, as a download.",
+        "operationId": "download_adr_file_api_v1_adr__adr_id__files__attachment_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Adr File",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/history": {
+      "get": {
+        "description": "The decision's timeline, newest first:\n``{can_view_versions, can_restore, total, entries}``.",
+        "operationId": "list_adr_history_api_v1_adr__adr_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr History",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/history/{entry_id}": {
+      "get": {
+        "description": "One saved version of the decision: ``{entry, content}``.",
+        "operationId": "get_adr_version_api_v1_adr__adr_id__history__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adr Version",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/history/{entry_id}/restore": {
+      "post": {
+        "description": "Restore a saved version into the draft decision; the decision's detail.",
+        "operationId": "restore_adr_version_api_v1_adr__adr_id__history__entry_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Adr Version",
+        "tags": [
+          "document-collaboration"
         ]
       }
     },
@@ -27415,9 +28866,60 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/record": {
+      "post": {
+        "description": "Record a draft as a decision already taken outside Turbo EA.\n\nThe decision locks like a signed one (``status`` ``signed``) with\n``recorded_at`` / ``recorded_by`` set instead of signatures. Draft only\n(409 ``not_draft``); at least one decision maker, ``decided_on`` not in\nthe future and, on a revision, not before the revised decision's date\n(400 ``invalid_record``); then the same lock checks as a request for\nsignatures (409).",
+        "operationId": "record_adr_api_v1_adr__adr_id__record_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRRecordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Adr",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/reject": {
       "post": {
-        "description": "Reject the ADR as a signatory. Resets to draft, increments revision\nnumber, clears all signatories, and notifies the creator.",
+        "description": "Reject the ADR as a signatory. Resets to draft (the revision number\nstays: revisions count signed versions), clears all signatories, and\nnotifies the creator.",
         "operationId": "reject_adr_api_v1_adr__adr_id__reject_post",
         "parameters": [
           {
@@ -27519,7 +29021,7 @@
     },
     "/api/v1/adr/{adr_id}/revise": {
       "post": {
-        "description": "Create a new revision of a signed ADR.",
+        "description": "Create the next revision of a signed ADR: same reference, next number.\n\n409 when the chain already has a revision being drafted, when a later\nrevision is signed, or when another decision revoked or replaced it.",
         "operationId": "revise_adr_api_v1_adr__adr_id__revise_post",
         "parameters": [
           {
@@ -27532,6 +29034,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ADRReviseRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -27560,7 +29079,7 @@
     },
     "/api/v1/adr/{adr_id}/revisions": {
       "get": {
-        "description": "List all revisions in the chain for this ADR.",
+        "description": "List all revisions in the chain for this ADR, in chain order.",
         "operationId": "list_revisions_api_v1_adr__adr_id__revisions_get",
         "parameters": [
           {
@@ -33001,6 +34520,24 @@
             }
           },
           {
+            "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, `data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, `unknown`, `__empty__` for no EOL data; computed from endoflife.date or a custom EOL product, on a card type that tracks End of Life, and needs `eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, `tags` (tag ids: any tag of a group, every group named) and `cards` (card ids). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. Queries stack: `{\"all_of\": [<query>, \u2026]}` keeps the cards matching every query (AND; two or more, one start type), `{\"any_of\": [<query or all_of>, \u2026]}` the cards matching any group (OR; two or more, the groups may start from different card types, so the list can hold several types). At most 6 queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, `too_many_lines`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, `data_quality_band`, `eol_status` (`eol`, `approaching`, `supported`, `unknown`, `__empty__` for no EOL data; computed from endoflife.date or a custom EOL product, on a card type that tracks End of Life, and needs `eol.view`: 403 `eol_view_required` otherwise), `attributes` value lists, `tags` (tag ids: any tag of a group, every group named) and `cards` (card ids). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. Queries stack: `{\"all_of\": [<query>, \u2026]}` keeps the cards matching every query (AND; two or more, one start type), `{\"any_of\": [<query or all_of>, \u2026]}` the cards matching any group (OR; two or more, the groups may start from different card types, so the list can hold several types). At most 6 queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, `too_many_lines`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
+              "title": "Query"
+            }
+          },
+          {
             "in": "query",
             "name": "page",
             "required": false,
@@ -33645,6 +35182,48 @@
         ]
       }
     },
+    "/api/v1/cards/query/matches": {
+      "post": {
+        "description": "The cards behind a match: for the rows `ids` that `query` lists, the\ncards at each requested step (`nodes`) through which the row matches \u2014\nunder the list's own rules (ACTIVE, readable related cards; sibling and\nnegated hops kept). Per row and node, distinct cards by name then id, the\nfirst 100, `more` when a further one exists. Only non-empty cells; a\ncard the caller may not read never appears. Same permission as\n`GET /cards`; a bad query answers the list's 400 / 403 codes, a bad node\nkey 400 `unknown_node`. A read, sent as POST for its body (like\n`resolve-refs`).",
+        "operationId": "card_query_matches_route_api_v1_cards_query_matches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardQueryMatchesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardQueryMatchesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Card Query Matches Route",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
     "/api/v1/cards/resolve-refs": {
       "post": {
         "description": "Resolve a batch of human-readable card references (`name` or\n`parent_path/name`) to UUIDs in one round-trip.\n\nUsed by the spreadsheet importer's validation pass to surface\nambiguous or missing references **before** anything is written. Each\nref carries the originating `row` + `column` so the importer can\npin the result to the cell that produced it.\n\nReturns one result per ref with status `resolved`, `ambiguous`, or\n`missing`. Ambiguous results include up to a handful of candidate\npaths so the UI can render a useful disambiguation hint.",
@@ -33689,7 +35268,7 @@
     },
     "/api/v1/cards/{card_id}": {
       "delete": {
-        "description": "Permanently delete a card plus optional descendants and related peer cards.\n\nMirrors `archive_card`'s body shape and rules. The primary is always deleted;\ndescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.\nRelated cards are processed single-hop only.\n\nReturns 409 if the primary has direct children and `child_strategy` is None.",
+        "description": "Permanently delete a card plus optional descendants and related peer cards.\n\nMirrors `archive_card`'s body shape and rules. The primary is always deleted;\ndescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.\nRelated cards are processed single-hop only.\n\nReturns 409 if the primary has active direct children and `child_strategy` is\nNone. Archived children need no decision: they are detached, not deleted.",
         "operationId": "delete_card_api_v1_cards__card_id__delete",
         "parameters": [
           {
@@ -33939,7 +35518,7 @@
     },
     "/api/v1/cards/{card_id}/archive": {
       "post": {
-        "description": "Archive a card (soft delete) plus optional descendants and related peer cards.\n\nBody shape:\n  - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the\n    primary card has direct children \u2014 otherwise 409).\n  - `related_card_ids`: peer cards (capped at 200) to also archive in the\n    same operation. Single-hop only \u2014 the related cards' own peer relations\n    are NOT recursed.\n  - `cascade_all_related`: bulk-mode shortcut that resolves all direct\n    relations of the primary on the server side.\n\nPermission check runs against every affected card; first denial aborts.",
+        "description": "Archive a card (soft delete) plus optional descendants and related peer cards.\n\nBody shape:\n  - `child_strategy`: `cascade` | `disconnect` | `reparent` (required if the\n    primary card has active direct children \u2014 otherwise 409). Archived\n    children need no decision and are left as they are.\n  - `related_card_ids`: peer cards (capped at 200) to also archive in the\n    same operation. Single-hop only \u2014 the related cards' own peer relations\n    are NOT recursed.\n  - `cascade_all_related`: bulk-mode shortcut that resolves all direct\n    relations of the primary on the server side.\n\nPermission check runs against every affected card; first denial aborts.",
         "operationId": "archive_card_api_v1_cards__card_id__archive_post",
         "parameters": [
           {
@@ -34088,7 +35667,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CommentCreate"
+                "$ref": "#/components/schemas/app__schemas__common__CommentCreate"
               }
             }
           },
@@ -35641,7 +37220,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CommentUpdate"
+                "$ref": "#/components/schemas/app__schemas__common__CommentUpdate"
               }
             }
           },
@@ -38016,6 +39595,119 @@
         "summary": "Publish Diagram",
         "tags": [
           "diagrams"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}": {
+      "post": {
+        "description": "Store one picture for the text of a ``kind`` document.",
+        "operationId": "upload_document_image_api_v1_document_images__kind__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_document_image_api_v1_document_images__kind__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Upload Document Image Api V1 Document Images  Kind  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Document Image",
+        "tags": [
+          "document-images"
+        ]
+      }
+    },
+    "/api/v1/document-images/{kind}/{image_id}": {
+      "get": {
+        "description": "One picture of a ``kind`` document, inline.",
+        "operationId": "get_document_image_api_v1_document_images__kind___image_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "adr",
+                "soaw"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Document Image",
+        "tags": [
+          "document-images"
         ]
       }
     },
@@ -40738,6 +42430,88 @@
         "summary": "Get Overview",
         "tags": [
           "maturity"
+        ]
+      }
+    },
+    "/api/v1/mentions/cards/{card_id}": {
+      "get": {
+        "description": "``{decisions: [...], soaws: [...]}`` that mention the card.",
+        "operationId": "card_mentioned_in_api_v1_mentions_cards__card_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Card Mentioned In",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/mentions/decisions/{adr_id}": {
+      "get": {
+        "description": "``{decisions: [...], soaws: [...]}`` that mention the decision.",
+        "operationId": "decision_mentioned_in_api_v1_mentions_decisions__adr_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decision Mentioned In",
+        "tags": [
+          "document-collaboration"
         ]
       }
     },
@@ -49516,7 +51290,7 @@
     },
     "/api/v1/reports/cost": {
       "get": {
-        "description": "Cost aggregation report for the current fiscal year.\n\nOnly cards live in the current fiscal year count, by the same rule as\n``GET /reports/cost-treemap``.",
+        "description": "Cost aggregation report for the current fiscal year.\n\nOnly cards live in the current fiscal year count, by the same rule as\n``GET /reports/cost-treemap``. An Initiative's ``costBudget`` /\n``costActual`` count only its PPM lines in the current fiscal year when it\nhas lines of that kind (``app.services.ppm_fiscal_costs``). An item whose\nlines also fall outside the current fiscal year carries ``lifetime_cost``,\nthe all-years total of those lines (summed over the type's cost fields,\na field without such lines adding its year's figure); it is absent when\nthe year's figure is already the whole.",
         "operationId": "cost_report_api_v1_reports_cost_get",
         "parameters": [
           {
@@ -49558,7 +51332,7 @@
     },
     "/api/v1/reports/cost-treemap": {
       "get": {
-        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.\n\n``attribution`` (``\"full\"``, the default, or ``\"split\"``) decides what a\nrelated card shared by several cards contributes to each (discussion #1362;\nthe arithmetic is ``app.services.cost_attribution``):\n\n* In ``aggregate`` mode each item lists the related cards it sums\n  (``source_ids``) and the response maps every one of them to its full cost\n  (``source_costs``). ``full`` puts a related card's whole cost on every\n  card it links to, and ``total`` counts each related card once, so it is\n  no longer the sum of the tiles when one is shared. ``split`` divides the\n  cost equally between the readable, active, live cards of ``type`` it\n  links to \u2014 counted before the ``parent_card_id`` restriction, so a drill\n  never changes a share, and never counting a card the reader cannot see \u2014\n  and ``total`` is the sum of the items.\n* Without ``aggregate`` but with ``parent_card_id``, ``split`` divides each\n  item's own cost by the number of readable live cards of the parent's\n  type it links to, so the drilled panel adds up to the parent's tile.\n  Without either, ``attribution`` changes nothing.\n* With ``group_by``, each item lists every group it links to (``groups``,\n  sorted) and is filed under the alphabetically first (``group``); a group's\n  ``cost`` counts an item in full in each of its groups (``full``) or\n  shares it equally between them (``split``).",
+        "description": "Cost treemap: items with cost, optionally grouped and segment-filtered.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nAn Initiative's PPM-owned fields (``costBudget``, ``costActual``) store the\nall-years total of its PPM lines, so wherever they are read here \u2014 as\n``cost_field`` or as an ``aggregate`` source \u2014 an Initiative that has\nbudget lines counts only those of the current fiscal year, and one that\nhas cost lines counts only the actuals dated in it (an undated line counts\nin no year). An Initiative without lines of that kind keeps its stored\nfigure. Outside ``aggregate`` mode, an item whose lines also fall outside\nthe current fiscal year carries ``lifetime_cost``: the all-years total of\nits PPM lines, absent when it equals the year's figure; in a ``split``\ndrill (``parent_card_id`` set) it is shared by the same count as ``cost``,\nso both are this tile's share (``app.services.ppm_fiscal_costs``). Such an\nitem also says where its figure comes from in ``cost_basis``:\n``\"ppm_lines\"`` when it is read from the Initiative's PPM lines, or\n``\"card_value\"`` when the Initiative has no lines of that kind and the\nfigure is the card's stored field, counted as it is (typed, imported or\nwritten by a calculation \u2014 the value does not say which); absent for any\nother card or field.\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.\n\n``attribution`` (``\"full\"``, the default, or ``\"split\"``) decides what a\nrelated card shared by several cards contributes to each (discussion #1362;\nthe arithmetic is ``app.services.cost_attribution``):\n\n* In ``aggregate`` mode each item lists the related cards it sums\n  (``source_ids``) and the response maps every one of them to its full cost\n  (``source_costs``). ``full`` puts a related card's whole cost on every\n  card it links to, and ``total`` counts each related card once, so it is\n  no longer the sum of the tiles when one is shared. ``split`` divides the\n  cost equally between the readable, active, live cards of ``type`` it\n  links to \u2014 counted before the ``parent_card_id`` restriction, so a drill\n  never changes a share, and never counting a card the reader cannot see \u2014\n  and ``total`` is the sum of the items.\n* Without ``aggregate`` but with ``parent_card_id``, ``split`` divides each\n  item's own cost by the number of readable live cards of the parent's\n  type it links to, so the drilled panel adds up to the parent's tile.\n  Without either, ``attribution`` changes nothing.\n* With ``group_by``, each item lists every group it links to (``groups``,\n  sorted) and is filed under the alphabetically first (``group``); a group's\n  ``cost`` counts an item in full in each of its groups (``full``) or\n  shares it equally between them (``split``).",
         "operationId": "cost_treemap_api_v1_reports_cost_treemap_get",
         "parameters": [
           {
@@ -57490,6 +59264,16 @@
               ],
               "title": "Doc Type"
             }
+          },
+          {
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -57752,6 +59536,477 @@
         ]
       }
     },
+    "/api/v1/soaw/{soaw_id}/comments": {
+      "get": {
+        "description": "The SoAW's discussion: ``{can: {comment, moderate}, open_count, threads}``;\n``scope=chain`` adds the threads of every revision of its chain.",
+        "operationId": "list_soaw_comments_api_v1_soaw__soaw_id__comments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "document",
+              "enum": [
+                "document",
+                "chain"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Soaw Comments",
+        "tags": [
+          "document-collaboration"
+        ]
+      },
+      "post": {
+        "description": "Start a thread or reply to one; the thread comes back with\n``unnotified_mentions``.",
+        "operationId": "create_soaw_comment_api_v1_soaw__soaw_id__comments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__document_comments__CommentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Soaw Comment",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/comments/{comment_id}": {
+      "delete": {
+        "description": "Delete a comment (it stays as a placeholder; a deleted thread start\ncloses the thread to replies).",
+        "operationId": "delete_soaw_comment_api_v1_soaw__soaw_id__comments__comment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Soaw Comment",
+        "tags": [
+          "document-collaboration"
+        ]
+      },
+      "patch": {
+        "description": "Edit your own comment; the thread comes back with ``unnotified_mentions``.",
+        "operationId": "update_soaw_comment_api_v1_soaw__soaw_id__comments__comment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__v1__document_comments__CommentUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Soaw Comment",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/comments/{comment_id}/reopen": {
+      "post": {
+        "description": "Reopen a thread; the thread comes back.",
+        "operationId": "reopen_soaw_thread_api_v1_soaw__soaw_id__comments__comment_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reopen Soaw Thread",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/comments/{comment_id}/resolve": {
+      "post": {
+        "description": "Resolve a thread; the thread comes back.",
+        "operationId": "resolve_soaw_thread_api_v1_soaw__soaw_id__comments__comment_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Soaw Thread",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/history": {
+      "get": {
+        "description": "The SoAW's timeline, newest first:\n``{can_view_versions, can_restore, total, entries}``.",
+        "operationId": "list_soaw_history_api_v1_soaw__soaw_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Soaw History",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/history/{entry_id}": {
+      "get": {
+        "description": "One saved version of the SoAW: ``{entry, content}``.",
+        "operationId": "get_soaw_version_api_v1_soaw__soaw_id__history__entry_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Soaw Version",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/history/{entry_id}/restore": {
+      "post": {
+        "description": "Restore a saved version into the draft SoAW; the SoAW's detail.",
+        "operationId": "restore_soaw_version_api_v1_soaw__soaw_id__history__entry_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Soaw Version",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
     "/api/v1/soaw/{soaw_id}/recall-signatures": {
       "post": {
         "description": "Recall all pending signature requests. Only the creator or an admin\ncan recall. Resets status to draft and clears signatories.",
@@ -57795,7 +60050,7 @@
     },
     "/api/v1/soaw/{soaw_id}/reject": {
       "post": {
-        "description": "Reject the SoAW as a signatory. Resets to draft, increments revision\nnumber, clears all signatories, and notifies the creator.",
+        "description": "Reject the SoAW as a signatory. Resets to draft (the revision number\nstays: revisions count signed versions), clears all signatories, notifies\nthe creator and opens a rejection thread carrying the reason.\n\nLike signing: a signatory holding ``soaw.sign`` (or ``soaw.manage``).",
         "operationId": "reject_soaw_api_v1_soaw__soaw_id__reject_post",
         "parameters": [
           {
@@ -57897,7 +60152,7 @@
     },
     "/api/v1/soaw/{soaw_id}/revise": {
       "post": {
-        "description": "Create a new revision of a signed SoAW. Copies the document content\ninto a new draft linked to the same initiative, with an incremented\nrevision number and parent_id pointing to the original.",
+        "description": "Create a new revision of a signed SoAW. Copies the document content\ninto a new draft linked to the same initiative, numbered after the chain's\nhighest revision, with parent_id pointing to the original. Refused (409)\nwhile the chain already has an unsigned revision, and on a signed revision\nthat a later signed revision superseded.",
         "operationId": "revise_soaw_api_v1_soaw__soaw_id__revise_post",
         "parameters": [
           {
@@ -57938,7 +60193,7 @@
     },
     "/api/v1/soaw/{soaw_id}/revisions": {
       "get": {
-        "description": "List all revisions in the chain for this SoAW (traverses parent_id).",
+        "description": "List all revisions in the chain for this SoAW, in chain order (fork-safe;\na dangling parent is a root).",
         "operationId": "list_revisions_api_v1_soaw__soaw_id__revisions_get",
         "parameters": [
           {
@@ -57992,6 +60247,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SignRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

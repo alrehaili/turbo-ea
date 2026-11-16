@@ -28,6 +28,20 @@ Jede Baumzeile zeigt:
 
 Die synthetische Zeile **Nicht verknüpfte Artefakte** oben im Baum erscheint, wenn es SoAWs, Diagramme oder ADRs gibt, die noch keiner Initiative zugeordnet sind. Öffnen Sie sie, um sie wieder zu verknüpfen.
 
+### Wer was sieht
+
+EA Delivery öffnet sich für jede Rolle, die **SoAW-Dokumente anzeigen** (`soaw.view`) oder **Architekturentscheidungen anzeigen** (`adr.view`) besitzt. Jede Art von Artefakt folgt dann ihrer eigenen Berechtigung:
+
+| Artefakt | Aufgelistet mit | Erstellt mit |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagramm** | `diagrams.view` | `diagrams.manage` (auch zum Verknüpfen oder Lösen eines Diagramms erforderlich) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Eine Gruppe, die Sie nicht sehen dürfen, fehlt im Arbeitsbereich, und **+ Neues Artefakt** sowie **+ Hinzufügen …** bieten nur die Arten an, die Sie erstellen dürfen — eine Rolle, die nur lesen kann, sieht keine der beiden Schaltflächen. Eine Rolle mit nur `adr.view` erhält also die Seite mit den Entscheidungen jeder Initiative und nichts zu SoAWs.
+
+Die an eine Entscheidung angehängten Diagramme folgen ebenfalls `diagrams.view`: Eine Rolle ohne diese Berechtigung sieht bei einer Entscheidung keinen Abschnitt [Diagramme](grc.md#decision-diagrams).
+
 ## Statement of Architecture Work (SoAW)
 
 Ein **Statement of Architecture Work (SoAW)** ist ein formales Dokument, das durch den [TOGAF-Standard](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework) definiert wird. Es legt den Umfang, Ansatz, die Ergebnisse und die Governance für ein Architekturvorhaben fest. In TOGAF wird das SoAW während der **Vorbereitungsphase** und **Phase A (Architekturvision)** erstellt und dient als Vereinbarung zwischen dem Architekturteam und seinen Stakeholdern.
@@ -45,34 +59,69 @@ Turbo EA bietet einen integrierten SoAW-Editor mit TOGAF-konformen Abschnittsvor
 
 Der Editor bietet:
 
-- **Rich-Text-Bearbeitung** — Vollständige Formatierungswerkzeugleiste (Überschriften, Fett, Kursiv, Listen, Links) unterstützt durch den TipTap-Editor
-- **Links** — Eine eingegebene oder eingefügte URL wird beim Tippen zu einem Link, und jeder Link in einem Dokument öffnet sich in einem neuen Tab. Adressen in Dokumenten, die vor der Link-Unterstützung geschrieben wurden, werden bei der Anzeige verlinkt
+- **Rich-Text-Bearbeitung** — eine Formatierungsleiste in jedem Textabschnitt: Fett, Kursiv, Unterstrichen, Durchgestrichen, Inline-Code, eine Überschrift und eine Unterüberschrift, Aufzählungen und nummerierte Listen, Zitate, Codeblöcke, Trennlinien, Links, Tabellen, Erwähnungen und Bilder
+- **Links** — markieren Sie einige Wörter und klicken Sie auf **Link** oder drücken Sie **Strg+K** (**Cmd+K** auf einem Mac), um sie mit einer Web- oder E-Mail-Adresse zu verlinken; dieselbe Schaltfläche oder dasselbe Tastenkürzel bearbeitet oder entfernt den Link unter dem Cursor. Eine eingegebene oder eingefügte Webadresse wird von selbst zu einem Link. Während Sie bearbeiten, setzt ein Klick auf einen Link den Cursor hinein, und **Strg+Klick** (**Cmd+Klick**) öffnet ihn; in der Vorschau und in einem gesperrten Dokument öffnet ein Klick ihn. Jeder Link öffnet sich in einem neuen Tab, und Adressen in Dokumenten, die vor der Link-Unterstützung geschrieben wurden, werden bei der Anzeige verlinkt. Siehe [Links im Text](grc.md#decision-text-links)
 - **Abschnittsvorlagen** — Vordefinierte Abschnitte gemäß TOGAF-Standards (z.B. Problembeschreibung, Ziele, Ansatz, Stakeholder, Einschränkungen, Arbeitsplan)
-- **Inline bearbeitbare Tabellen** — Tabellen in jedem Abschnitt hinzufügen und bearbeiten
+- **Vorlagentabellen** — die Tabellenabschnitte der Vorlage (Ziele, Stakeholder, Risiken und Ähnliches) sind Raster mit festen Spalten: Zeilen inline hinzufügen und entfernen
+- **Tabellen im Text** — fügen Sie in einen beliebigen Textabschnitt eine eigene Tabelle ein (siehe [Tabellen](#soaw-tables))
+- **Erwähnungen** — geben Sie **@** in den Text eines Abschnitts ein, um eine Karte oder eine Entscheidung zu erwähnen (siehe [Diskussion, Erwähnungen und Verlauf](#soaw-collaboration))
+- **Bilder** — fügen Sie einen Screenshot oder ein Diagramm in den Text eines Abschnitts ein (siehe [Bilder](#soaw-pictures))
+- **Dokumentversionshistorie** — eine Tabelle, die die Autoren von Hand ausfüllen (Version, Datum, überarbeitet von, Beschreibung). Sie ist Teil des Dokuments und nicht die Ansicht [Verlauf](#soaw-collaboration)
 - **Status-Workflow** — Dokumente durchlaufen definierte Phasen:
 
 | Status | Bedeutung |
 |--------|-----------|
 | **Entwurf** | Wird geschrieben, noch nicht bereit zur Überprüfung |
-| **In Überprüfung** | Zur Stakeholder-Überprüfung eingereicht |
+| **In Überprüfung** | Zur Unterschrift gesendet — gesperrt, bis die Unterschriften zurückgerufen werden |
 | **Genehmigt** | Überprüft und akzeptiert |
 | **Unterschrieben** | Formal abgezeichnet |
 
+### Bilder {: #soaw-pictures }
+
+Der Text eines Abschnitts kann Bilder enthalten, wie der einer Entscheidung. Klicken Sie in der Symbolleiste des Abschnitts auf **Bild einfügen** und wählen Sie eine Datei, fügen Sie ein Bild aus der Zwischenablage ein oder ziehen Sie eine Bilddatei auf den Abschnitt. Ziehen Sie an der Ecke eines Bildes, um seine Größe zu ändern (seine Proportionen bleiben erhalten), und wählen Sie es aus, um es über die Symbolleiste links, zentriert oder rechts auszurichten. PNG, JPEG, GIF und WebP werden akzeptiert, bis zu 5 MB pro Bild; SVG nicht.
+
+Bilder erscheinen in der Vorschau, in der PDF-/Druckfassung und im Word-Export sowie im [Verlauf](#soaw-collaboration), wo **Änderungen** ein hinzugefügtes oder entferntes Bild als *[Bild]* markiert. Eine Revision und eine wiederhergestellte Version behalten ihre Bilder. Nur Bilder, die zu einem SoAW hochgeladen wurden, bleiben erhalten: Ein Bild, das auf eine andere Website verweist, wird beim Speichern des Dokuments entfernt. Kommentare in der Diskussion nehmen keine Bilder auf, und die Bild-Steuerelemente verschwinden, wenn ein Administrator [Datei-Uploads deaktiviert](../admin/resources.md#when-file-uploads-are-disabled) hat. Die vollständige Beschreibung steht im GRC-Leitfaden: [Bilder](grc.md#decision-pictures).
+
+### Tabellen {: #soaw-tables }
+
+Der Text eines Abschnitts kann Tabellen enthalten, wie der einer Entscheidung. Klicken Sie in der Symbolleiste des Abschnitts auf **Tabelle** und wählen Sie **Tabelle einfügen** für eine Tabelle mit drei Zeilen und drei Spalten und einer Kopfzeile; steht der Cursor in einer Tabelle, markiert, fügt hinzu, verschiebt und löscht dasselbe Menü Zeilen und Spalten, schaltet die Kopfzeile ein oder aus, verbindet und teilt Zellen und löscht die Tabelle. Dieselben Aktionen öffnen sich per Rechtsklick in eine Zelle, und während Sie bearbeiten, öffnen Griffe neben einer Zeile und über einer Spalte die Aktionen dieser Zeile oder Spalte, und ein **+** oder eine Leiste am Rand der Tabelle fügt eine Zeile oder Spalte hinzu. Ziehen Sie eine Spaltengrenze, um ihre Breite zu ändern, und wechseln Sie mit **Tab** / **Umschalt+Tab** zwischen den Zellen. Formatierung, Links, Erwähnungen und Bilder funktionieren in einer Zelle.
+
+Tabellen erscheinen in der Vorschau, in der PDF-/Druckfassung (an die Seite angepasst) und im Word-Export (als echte Word-Tabelle) sowie im [Verlauf](#soaw-collaboration), wo **Änderungen** eine Tabellenzeile als eine Zeile liest. Kommentare in der Diskussion nehmen keine Tabellen auf. Die vollständige Beschreibung steht im GRC-Leitfaden: [Tabellen](grc.md#decision-tables).
+
 ### Abzeichnungsworkflow
 
-Sobald ein SoAW genehmigt ist, können Sie Abzeichnungen von Stakeholdern anfordern. Klicken Sie auf **Unterschriften anfordern** und verwenden Sie das Suchfeld, um Unterzeichner nach Name oder E-Mail zu finden und hinzuzufügen. Das System verfolgt, wer unterschrieben hat, und sendet Benachrichtigungen an ausstehende Unterzeichner.
+Für ein SoAW im Entwurf oder ein genehmigtes SoAW können Sie Abzeichnungen von Stakeholdern anfordern. Klicken Sie auf **Unterschriften anfordern** und verwenden Sie das Suchfeld, um Unterzeichner nach Name oder E-Mail zu finden und hinzuzufügen. Das System verfolgt, wer unterschrieben hat, und sendet Benachrichtigungen an ausstehende Unterzeichner.
+
+Ein SoAW in Überprüfung ist **gesperrt**, sodass die Unterzeichner genau das unterschreiben, was ihnen gesendet wurde: Nur seine Initiative lässt sich noch ändern. Um den Inhalt zu bearbeiten, klicken Sie auf **Unterschriften zurückrufen**; das SoAW kehrt dann in den Entwurf zurück. Ein Unterzeichner, der auf **Ablehnen** klickt, setzt es ebenfalls auf Entwurf zurück, unter derselben Revisionsnummer. Nur ein SoAW im Entwurf kann gelöscht werden.
+
+### Revisionen
+
+Ein unterzeichnetes SoAW ist schreibgeschützt. Klicken Sie auf **Neue Revision**, um daraus einen neuen Entwurf unter demselben Namen mit der nächsten Revisionsnummer zu beginnen. Es gibt jeweils nur eine offene Revision: Solange eine Revision entworfen wird, weist das unterzeichnete SoAW darauf hin und bietet **Revision öffnen** an, statt eine weitere zu beginnen. Nur die neueste Revision kann überarbeitet werden, und eine Ablehnung ändert die Revisionsnummer nicht.
+
+Eine frühere Revision zeigt ein Banner mit einem Link zur aktuellen, und die Leiste **Revisionen** auf jeder Revision listet alle auf. Listen von SoAWs — die Lieferobjekte der Initiative, der SoAW-Reiter, der EA-Delivery-Bericht — zeigen die aktuelle Revision jedes Dokuments sowie jede Revision, die gerade entworfen wird.
+
+### Diskussion, Erwähnungen und Verlauf {: #soaw-collaboration }
+
+Ein SoAW hat dieselbe Diskussion, dieselben Erwähnungen und denselben Verlauf wie eine Entscheidung: die Diskussion in einem Bereich neben seinem Editor und seiner Vorschau, den Verlauf hinter der Schaltfläche **Verlauf** oben auf der Seite. Das gemeinsame Verhalten ist einmal beschrieben, im GRC-Leitfaden: [Diskussion](grc.md#decision-discussion), [Erwähnungen](grc.md#decision-mentions), [Verlauf](grc.md#decision-history) und [Bekannte Einschränkungen](grc.md#collaboration-limits). Was bei einem SoAW anders ist:
+
+- **Wer posten darf.** Posten, Antworten, Erledigen und Wieder öffnen erfordern die Berechtigung `soaw.comment`, die Mitglieder und Administratoren standardmäßig besitzen und Betrachter nicht; das Lesen der Diskussion folgt `soaw.view`. Die Unterzeichner des SoAW können es immer kommentieren. Wer SoAWs bearbeiten darf (`soaw.manage`), kann jeden Kommentar löschen.
+- **Abschnitte.** Ein Diskussionsstrang wird mit einem Abschnitts-Chip einem der eigenen Abschnitte des SoAW zugeordnet oder keinem (ein allgemeiner Diskussionsstrang). Ein SoAW hat viele Abschnitte, daher zeigt das Eingabefeld einen Chip für jeden bereits diskutierten Abschnitt und für den gewählten; **Mehr…** öffnet eine durchsuchbare Liste der übrigen. Die Chips oben in der Diskussion filtern sie nach Abschnitt, wie bei einer Entscheidung. Ein Diskussionsstrang, der einem inzwischen entfernten benutzerdefinierten Abschnitt zugeordnet ist, zeigt *Entfernter Abschnitt*. Jeder Abschnitt trägt neben seiner Überschrift dasselbe Chat-Symbol wie bei einer Entscheidung, im Editor und in der Vorschau, mit der Anzahl der offenen Diskussionsstränge, wenn es eine Diskussion gibt; ein Klick darauf öffnet die Diskussion zu diesem Abschnitt, mit dem bereits für einen neuen Kommentar ausgewählten Abschnitt.
+- **Ablehnen.** Jeder Unterzeichner mit der Unterzeichnungsberechtigung (`soaw.sign`) — oder der Bearbeitungsberechtigung — darf ein SoAW ablehnen, wie bei Entscheidungen; bisher erforderte das Ablehnen die Bearbeitungsberechtigung. Der Grund eröffnet in der Diskussion einen Diskussionsstrang **Ablehnungsgrund**.
+- **Erwähnungen.** Ein SoAW hat keine verknüpften Karten, daher werden die Karten, solange nach **@** nichts eingegeben ist, alphabetisch aufgelistet; in einem Kommentar stehen unter den Personen die Unterzeichner des SoAW zuerst. **Durchsuchen…** funktioniert wie bei einer Entscheidung.
+- **Unterzeichnungsnotiz.** **Unterzeichnen** öffnet jetzt einen Dialog, in dem der Unterzeichner eine optionale Notiz hinzufügen kann; sie erscheint in der Diskussion als **Unterzeichnungsnotiz** und im Verlauf.
+- **Verlauf.** Eine Version enthält den Namen des SoAW, seine Dokumentinformationen, seine Tabelle Dokumentversionshistorie und jeden Abschnitt; die Initiative ist nicht Teil einer Version. Der Verlauf hält fest, was mit dem Dokument geschieht; die Tabelle Dokumentversionshistorie im Dokument enthält nur, was ihre Autoren hineinschreiben. Ein SoAW im Status **Genehmigt** kann weiterhin bearbeitet werden; seine Speicherungen werden daher wie bei einem Entwurf als Versionen aufbewahrt, und eine frühere Version kann darin wiederhergestellt werden.
 
 ### Vorschau und Export
 
 - **Vorschaumodus** — Schreibgeschützte Ansicht des vollständigen SoAW-Dokuments
-- **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen
+- **DOCX-Export** — Das SoAW als formatiertes Word-Dokument zum Offline-Teilen oder Drucken herunterladen. Formatierung und anklickbare Links bleiben in jedem Teil des Textes erhalten, Code behält eine Festbreitenschrift, und Tabellen im Text werden zu echten Word-Tabellen
 - **PDF-Export** — Öffnet eine druckfertige Ansicht in einem neuen Tab; nutzen Sie *Als PDF speichern* im Browser. Erlauben Sie Pop-ups für diese Seite, falls sich nichts öffnet.
 
 ### SoAW-Reiter auf Initiative-Karten
 
 ![Initiative-Karte — SoAW-Reiter](../assets/img/de/55_initiative_soaw_tab.png)
 
-Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet jedes mit dieser Initiative verknüpfte SoAW auf (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Die Sichtbarkeit des Reiters folgt den Standard-Karten-Berechtigungsregeln.
+Initiativen zeigen außerdem direkt auf ihrer Karten-Detailseite einen eigenen **SoAW**-Reiter. Der Reiter listet die aktuelle Revision jedes mit dieser Initiative verknüpften SoAW auf, dazu jede Revision, die gerade entworfen wird (Titel, Status-Chip, Revisionsnummer, Datum der letzten Änderung) mit einer **+ Neues SoAW**-Schaltfläche, die die aktuelle Initiative vorauswählt — so kannst du SoAWs erstellen oder öffnen, ohne die Karte zu verlassen. Die Erstellung verwendet denselben Dialog wie die EA-Delivery-Seite, und das neue Dokument erscheint an beiden Stellen. Der Reiter wird Rollen angezeigt, die **SoAW-Dokumente anzeigen** (`soaw.view`) besitzen; die Schaltfläche **+ Neues SoAW** und die Lösch-Aktion bei einem Entwurf erfordern **SoAW-Dokumente erstellen und bearbeiten** (`soaw.manage`) — unabhängig davon, ob Sie die Initiative selbst bearbeiten können.
 
 ## Architecture Decision Records (ADR)
 

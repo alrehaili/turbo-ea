@@ -7,7 +7,8 @@ import { brand } from "@/theme/tokens";
 
 interface Props {
   label: string;
-  value: string | number;
+  /** The figure; a node when it carries a mark of its own (a derived figure's glyph). */
+  value: ReactNode;
   icon?: string;
   iconColor?: string;
   /**

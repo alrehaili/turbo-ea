@@ -213,9 +213,9 @@ Lorsqu'un rôle possède une **description**, une icône d'information apparaît
 
 Choisissez une partie prenante via l'**autocomplétion recherchable** — commencez à taper et la liste déroulante filtre à la fois sur le nom et sur l'e-mail (l'e-mail apparaît sur une ligne secondaire, pour que deux utilisateurs portant le même nom soient distinguables d'un coup d'œil).
 
-Si l'e-mail que vous tapez ne correspond à aucun utilisateur existant, une option **« Inviter «email» comme nouvel utilisateur »** apparaît à la fin du menu déroulant. La sélectionner développe un mini-formulaire en ligne directement dans le sélecteur — choisissez un rôle (Membre ou Visualiseur par défaut), modifiez éventuellement le nom affiché et soumettez. Le nouvel utilisateur est invité via l'e-mail d'invitation standard **et** assigné au rôle de partie prenante choisi sur la fiche en une seule action, vous n'avez donc jamais besoin de quitter la fiche pour intégrer un contributeur.
+Si l'e-mail que vous tapez ne correspond à aucun utilisateur existant, une option **« Inviter «email» comme nouvel utilisateur »** apparaît à la fin du menu déroulant. La sélectionner développe un mini-formulaire en ligne directement dans le sélecteur — modifiez éventuellement le nom affiché et soumettez. Le nouvel utilisateur reçoit le **rôle par défaut** défini dans [Utilisateurs et rôles](../admin/users.md#roles). Le nouvel utilisateur est invité via l'e-mail d'invitation standard **et** assigné au rôle de partie prenante choisi sur la fiche en une seule action, vous n'avez donc jamais besoin de quitter la fiche pour intégrer un contributeur.
 
-Le chemin d'invitation nécessite la permission **`users.invite`**, une forme déléguée de `admin.users` que les administrateurs peuvent accorder aux membres de confiance. Un garde-fou anti-élévation de privilèges empêche les non-administrateurs d'inviter des utilisateurs dans des rôles d'administrateur — le menu déroulant des rôles filtre silencieusement sur les rôles que l'inviteur est autorisé à déléguer.
+Le chemin d'invitation nécessite la permission **`users.invite`**, une forme déléguée de `admin.users` que les administrateurs peuvent accorder aux membres de confiance. Un garde-fou anti-élévation de privilèges empêche les non-administrateurs d'inviter des utilisateurs dans tout autre rôle : sans `admin.users`, un utilisateur invité ne peut recevoir que le rôle par défaut, Membre ou Lecteur.
 
 ## Onglet Historique
 
@@ -229,9 +229,11 @@ Tout ce qui déplace la date **Modifié** de la fiche apparaît ici — une modi
 
 ## Onglet ADR
 
-Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'architecture](delivery.md) qui lui sont liées, avec la référence, le titre, le statut, toutes les fiches liées et la date de dernière modification. Cliquez sur une ligne pour ouvrir la décision.
+Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'architecture](delivery.md) qui lui sont liées — la révision actuelle de chaque décision, plus toute révision en cours de rédaction — avec la référence, le titre, la validité (ou le statut tant que la décision n'est pas encore signée), toutes les fiches liées et la date de dernière modification. Cliquez sur une ligne pour ouvrir la décision ; les révisions antérieures sont accessibles depuis celle-ci.
 
 Si vous êtes autorisé à gérer les liens ADR, l'onglet propose également **Lier une ADR** pour rattacher une décision existante et **Créer une ADR** pour en créer une déjà liée à cette fiche, ainsi qu'une action de dissociation sur chaque ligne. Sur les fiches sans décision liée, l'onglet est masqué sauf si vous disposez de cette permission : les utilisateurs en lecture seule ne voient donc jamais d'onglet vide.
+
+Sous la liste, **Mentionné dans** répertorie les décisions et les Statements of Architecture Work dont le texte mentionne cette fiche, ainsi que ceux dont la discussion la mentionne (signalés *dans la discussion*), avec la référence ou la révision de chaque document et sa validité ou son statut. Une mention ne lie pas la fiche à la décision ; elle s'affiche seulement ici. La liste ne montre que les documents que vous pouvez ouvrir et n'apparaît pas lorsqu'il n'y en a aucun. Voir [Mentions](grc.md#decision-mentions).
 
 ## Onglet Risques (GRC activé, le cas échéant)
 

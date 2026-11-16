@@ -22,7 +22,7 @@ DISPLAY = "display names / labels, not ids"
 PICTURE = "a rendered picture; regenerated on the next save"
 KEYS = "metamodel keys (types, fields, roles, options), not ids"
 BINARY = "uploaded file bytes"
-USER_IDS = "user ids, not card / relation / tag ids (signatures stay a separate concern)"
+# [FORK] benefits / implementation evidence: module row ids, kept on import.
 MODULE_IDS = "ids of module rows, which keep their primary keys on import"
 ENUM = "a fixed status / category value stored as text"
 
@@ -156,17 +156,11 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("KpiTargetRatifications", "unit"): DISPLAY,
     ("ComplianceFindings", "remediation"): PROSE,
     ("ComplianceFindings", "review_note"): PROSE,
-    ("Adrs", "context"): PROSE,
-    ("Adrs", "decision"): PROSE,
-    ("Adrs", "consequences"): PROSE,
-    ("Adrs", "alternatives_considered"): PROSE,
-    ("Adrs", "related_decisions"): MODULE_IDS,
+    ("DocumentImages", "data"): BINARY,
     ("Adrs", "attributes"): "an extension's own ext.<key>.* bag; core cannot know its shape",
-    ("Adrs", "signatories"): USER_IDS,
+    ("AdrFileContents", "data"): BINARY,
     ("Soaws", "document_info"): PROSE,
     ("Soaws", "version_history"): PROSE,
-    ("Soaws", "sections"): PROSE,
-    ("Soaws", "signatories"): USER_IDS,
     ("SavedReports", "description"): PROSE,
     ("SavedReports", "thumbnail"): PICTURE,
     ("Bookmarks", "columns"): KEYS,
@@ -238,8 +232,18 @@ def test_the_sections_that_hold_ids_are_the_known_ones():
         "ProcessElements": ("called_element",),
         "ProcessFlowVersions": ("bpmn_xml", "draft_element_links"),
         "ComplianceFindings": ("finding_key",),
+        "Adrs": (
+            "context",
+            "decision",
+            "consequences",
+            "alternatives_considered",
+            "signatories",
+        ),
+        "Soaws": ("sections", "signatories"),
+        "DocumentComments": ("body",),
+        "DocumentHistory": ("content", "signatories"),
         "SavedReports": ("config",),
-        "Bookmarks": ("filters",),
+        "Bookmarks": ("filters", "query"),
         "WebPortals": ("filters", "tiles"),
         "Surveys": ("target_filters",),
         "SurveyResponses": ("responses",),

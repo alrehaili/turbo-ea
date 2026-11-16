@@ -265,6 +265,39 @@ def card_update_sql(db):
     sa_event.remove(bind, "before_cursor_execute", _record)
 
 
+@pytest.fixture
+def publish_commit_log(db, monkeypatch):
+    """Record, in call order, every ``commit()`` of the shared test session and
+    every ``event_bus.publish``.
+
+    The ``get_db`` override hands each request the test's own session, so an
+    event flushed *after* the route's last commit is still readable by the test
+    and the defect "published after the commit, then rolled back when the
+    request's session closed" never shows in a plain assertion. This log makes
+    the order visible: entries are ``("commit",)`` and
+    ``("publish", event_type, persisted)``, ``persisted`` being whether the
+    call carried a ``db=`` session (only those write an ``Event`` row).
+    """
+    from app.services.event_bus import event_bus
+
+    log: list[tuple] = []
+    real_commit = db.commit
+    real_publish = event_bus.publish
+
+    async def _commit():
+        log.append(("commit",))
+        await real_commit()
+
+    async def _publish(event_type, data, *args, **kwargs):
+        session = kwargs.get("db", args[0] if args else None)
+        log.append(("publish", event_type, session is not None))
+        await real_publish(event_type, data, *args, **kwargs)
+
+    monkeypatch.setattr(db, "commit", _commit)
+    monkeypatch.setattr(event_bus, "publish", _publish)
+    return log
+
+
 # ---------------------------------------------------------------------------
 # Permission cache cleanup (autouse)
 # ---------------------------------------------------------------------------
@@ -421,6 +454,22 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
     db.add(card)
     await db.flush()
     return card
+
+
+async def create_diagram(db, *, name="Test Diagram", data=None, user_id=None, card_ids=()):
+    """Insert a free-draw diagram into the test database, linked to ``card_ids``."""
+    from app.models.diagram import Diagram, diagram_cards
+
+    diagram = Diagram(
+        name=name,
+        data=data if data is not None else {"xml": "<mxGraphModel/>"},
+        created_by=user_id,
+    )
+    db.add(diagram)
+    await db.flush()
+    for card_id in card_ids:
+        await db.execute(diagram_cards.insert().values(diagram_id=diagram.id, card_id=card_id))
+    return diagram
 
 
 async def create_budget_line(
@@ -591,6 +640,29 @@ async def create_relation(db, *, type_key="app_to_itc", source_id=None, target_i
     db.add(rel)
     await db.flush()
     return rel
+
+
+async def create_tag_group(db, *, name="Group", mode="multi", restrict_to_types=None, **kwargs):
+    """Insert a tag group. ``restrict_to_types`` ``None`` (or ``[]``) means
+    every card type."""
+    from app.models.tag import TagGroup
+
+    group = TagGroup(name=name, mode=mode, restrict_to_types=restrict_to_types, **kwargs)
+    db.add(group)
+    await db.flush()
+    return group
+
+
+async def create_tag(db, *, group, name="Tag", cards=(), **kwargs):
+    """Insert a tag in ``group`` and put it on each of ``cards``."""
+    from app.models.tag import CardTag, Tag
+
+    tag = Tag(tag_group_id=group.id, name=name, **kwargs)
+    db.add(tag)
+    await db.flush()
+    db.add_all([CardTag(card_id=card.id, tag_id=tag.id) for card in cards])
+    await db.flush()
+    return tag
 
 
 async def create_stakeholder_role_def(

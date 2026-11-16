@@ -4,7 +4,8 @@ the generic :mod:`entities` engine.
 Listed in dependency order: a section's intra-module parents come first
 (``PpmWbs`` before ``PpmTask`` before ``PpmTaskComment``; ``Risk`` before
 ``RiskCard``/``RiskMitigationTask`` before the occurrences; ``ArchitectureDecision``
-before its card links; ``Survey`` before ``SurveyResponse``). Cards and relations
+before its card links, decision links, people, files and diagram links, with the
+file contents before the files; ``Survey`` before ``SurveyResponse``). Cards and relations
 are applied earlier by the bespoke core sections, so card FKs always resolve.
 
 Deliberately absent: ``events``, ``mutation_batches`` and ``audit_log``. They are
@@ -22,6 +23,13 @@ from app.models.adm import AdmPhase, AdmPhaseArtefact, AdmWorkspace
 from app.models.arb_review import ArbReview
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_diagram import ArchitectureDecisionDiagram
+from app.models.architecture_decision_file import (
+    ArchitectureDecisionFile,
+    ArchitectureDecisionFileContent,
+)
+from app.models.architecture_decision_link import ArchitectureDecisionLink
+from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.benefit import Benefit, BenefitLink
 from app.models.benefit_actual import BenefitActual, BenefitAllocation
 from app.models.benefit_assessment import BenefitAssessment, BenefitHistory
@@ -33,6 +41,9 @@ from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
+from app.models.document_comment import DocumentComment
+from app.models.document_history import DocumentHistoryEntry
+from app.models.document_image import DocumentImage
 from app.models.ea_requirement import EaRequirement, EaRequirementCard
 from app.models.ea_review_applicability import EaReviewApplicability
 from app.models.file_attachment import FileAttachment
@@ -280,19 +291,89 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         id_bearing_columns=("finding_key",),
     ),
     # --- Governance / delivery -------------------------------------------
+    # The pictures in decision and SoAW text, before the documents that show
+    # them. The text names a picture by its id
+    # (``/api/v1/document-images/{kind}/{id}``), which survives the transfer
+    # like every module PK, so no text is rewritten. ``used_at`` travels with
+    # the row: a picture a document holds is never purged as unused.
+    EntitySection(
+        "DocumentImages",
+        DocumentImage,
+        user_fk_columns=("created_by",),
+        asset_columns=(("data", "bytes", "bin"),),
+    ),
     EntitySection(
         "Adrs",
         ArchitectureDecision,
-        user_fk_columns=("created_by",),
+        user_fk_columns=("created_by", "recorded_by"),
         self_parent_column="parent_id",
+        # Mention spans name cards and users in the four text sections; the
+        # signatories name users.
+        rewrite=remap.rewrite_adr_row,
+        id_bearing_columns=(
+            "context",
+            "decision",
+            "consequences",
+            "alternatives_considered",
+            "signatories",
+        ),
     ),
     EntitySection("AdrCards", ArchitectureDecisionCard, card_fk_columns=("card_id",)),
+    # Decision-to-decision links: both ends are decision ids, preserved
+    # verbatim like every module PK, so they need no remap.
+    EntitySection("AdrLinks", ArchitectureDecisionLink),
+    # A person whose user has no match on the target keeps the stored name
+    # with user_id null (the FK is nullable).
+    EntitySection("AdrPeople", ArchitectureDecisionPerson, user_fk_columns=("user_id",)),
+    # The bytes before the file rows that point at them: one content row may
+    # be shared by the file rows of several revisions.
+    EntitySection(
+        "AdrFileContents",
+        ArchitectureDecisionFileContent,
+        asset_columns=(("data", "bytes", "bin"),),
+    ),
+    EntitySection("AdrFiles", ArchitectureDecisionFile, user_fk_columns=("created_by",)),
+    # Live links from a decision to a free-draw diagram. Both ends are module
+    # PKs (``Diagrams`` and ``Adrs`` both come earlier and keep their ids), so
+    # they resolve verbatim with no remap, like ``AdrLinks``.
+    EntitySection("AdrDiagrams", ArchitectureDecisionDiagram),
     EntitySection(
         "Soaws",
         SoAW,
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
+        # Mention spans in each section's rich text; signatories name users.
+        rewrite=remap.rewrite_soaw_row,
+        id_bearing_columns=("sections", "signatories"),
+    ),
+    # The discussion and the timeline of decisions and SoAWs, after both
+    # owners. A reply's parent is a preserved PK, placed before it. Both carry
+    # ``created_at`` (threads and replies are ordered by it; it is a timeline
+    # row's date) and keep an empty ``body`` (a deleted comment, a rejection
+    # without a reason) as ``""``.
+    EntitySection(
+        "DocumentComments",
+        DocumentComment,
+        user_fk_columns=("author_id", "resolved_by"),
+        self_parent_column="parent_id",
+        rewrite=remap.rewrite_document_comment_row,
+        id_bearing_columns=("body",),
+        carry_timestamps=("created_at",),
+        keep_empty_text=True,
+    ),
+    # ``seq`` is an identity the target assigns: never carried. Exported in
+    # ``seq`` order and inserted in sheet order, so the timeline keeps it.
+    EntitySection(
+        "DocumentHistory",
+        DocumentHistoryEntry,
+        user_fk_columns=("actor_id",),
+        exclude_columns=("seq",),
+        export_order_by=(DocumentHistoryEntry.seq,),
+        rewrite=remap.rewrite_document_history_row,
+        id_bearing_columns=("content", "signatories"),
+        carry_timestamps=("created_at",),
+        keep_empty_text=True,
     ),
     # --- ADM Governance Workspace (workspace → phases → artefacts) ---------
     # SoAW module rows keep their UUIDs on import, so ``soaw_id`` resolves
@@ -525,7 +606,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         Bookmark,
         user_fk_columns=("user_id",),
         rewrite=remap.rewrite_bookmark_row,
-        id_bearing_columns=("filters",),
+        id_bearing_columns=("filters", "query"),
     ),
     EntitySection(
         "WebPortals",

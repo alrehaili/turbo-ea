@@ -215,9 +215,9 @@ Cuando un rol tiene una **descripción**, aparece un icono de información junto
 
 Elige a una parte interesada mediante el **autocompletar buscable** — empieza a escribir y el desplegable filtra tanto por nombre como por correo (el correo aparece como línea secundaria, de modo que dos usuarios con el mismo nombre puedan distinguirse de un vistazo).
 
-Si el correo que escribes no coincide con un usuario existente, aparece una opción **«Invitar a «email» como nuevo usuario»** al final del desplegable. Al seleccionarla se expande un mini-formulario en línea dentro del propio selector — elige un rol (Miembro o Visualizador por defecto), edita opcionalmente el nombre mostrado y envía. El nuevo usuario es invitado mediante el correo de invitación estándar **y** asignado al rol de parte interesada elegido en la ficha en una sola acción, así nunca tienes que abandonar la ficha para incorporar a un colaborador.
+Si el correo que escribes no coincide con un usuario existente, aparece una opción **«Invitar a «email» como nuevo usuario»** al final del desplegable. Al seleccionarla se expande un mini-formulario en línea dentro del propio selector — edita opcionalmente el nombre mostrado y envía. El nuevo usuario recibe el **rol predeterminado** definido en [Usuarios y Roles](../admin/users.md#roles). El nuevo usuario es invitado mediante el correo de invitación estándar **y** asignado al rol de parte interesada elegido en la ficha en una sola acción, así nunca tienes que abandonar la ficha para incorporar a un colaborador.
 
-La ruta de invitación requiere el permiso **`users.invite`**, una forma delegada de `admin.users` que los administradores pueden conceder a miembros de confianza. Un guardián anti-escalada de privilegios impide que los no administradores inviten usuarios a roles de administrador — el desplegable de roles filtra silenciosamente a los roles que el invitador tiene permitido delegar.
+La ruta de invitación requiere el permiso **`users.invite`**, una forma delegada de `admin.users` que los administradores pueden conceder a miembros de confianza. Un guardián anti-escalada de privilegios impide que los no administradores inviten usuarios a cualquier otro rol: sin `admin.users`, un usuario invitado solo puede recibir el rol predeterminado, Miembro o Visor.
 
 ## Pestaña de Historial
 
@@ -231,9 +231,11 @@ Todo lo que mueve la fecha **Modificado** de la ficha aparece aquí: una edició
 
 ## Pestaña de ADR
 
-Cada ficha cuenta con una pestaña **ADR** que enumera las [decisiones de arquitectura](delivery.md) vinculadas a ella, mostrando la referencia, el título, el estado, todas sus fichas vinculadas y la fecha de la última modificación. Haga clic en una fila para abrir la decisión.
+Cada ficha cuenta con una pestaña **ADR** que enumera las [decisiones de arquitectura](delivery.md) vinculadas a ella — la revisión actual de cada decisión, más cualquier revisión en redacción — mostrando la referencia, el título, la vigencia (o su estado mientras aún no esté firmada), todas sus fichas vinculadas y la fecha de la última modificación. Haga clic en una fila para abrir la decisión; las revisiones anteriores se abren desde ella.
 
 Si tiene permiso para gestionar vínculos de ADR, la pestaña también ofrece **Vincular ADR** para adjuntar una decisión existente y **Crear ADR** para crear una nueva ya vinculada a esta ficha, además de una acción de desvinculación en cada fila. En las fichas sin decisiones vinculadas la pestaña permanece oculta salvo que tenga ese permiso, de modo que los usuarios de solo lectura nunca ven una pestaña vacía.
+
+Debajo de la lista, **Mencionado en** enumera las decisiones y Declaraciones de Trabajo de Arquitectura cuyo texto menciona esta ficha, y aquellas cuya discusión la menciona (marcadas *en la discusión*), con la referencia o revisión de cada documento y su vigencia o estado. Una mención no vincula la ficha a la decisión; solo se muestra aquí. La lista solo muestra los documentos que puede abrir y no aparece cuando no hay ninguno. Véase [Menciones](grc.md#decision-mentions).
 
 ## Pestaña de Riesgos (GRC activado, cuando aplique)
 

@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.53.0] - 2026-11-16
+
+### Changed
+- Merged upstream Turbo EA v2.193.0 → v2.205.0: the decision register (standing, revisions that keep their reference, typed links between decisions, decision makers and participants, files and diagrams on decisions), discussions, mentions and edit history on decisions and SoAWs, pictures, links, code and tables in the document editor, multi-hop inventory query views and one relation column per relation type, a PPM Initiative Report and a full risk grid with Excel round trip, and upstream's fixes. See the upstream changelog for the details.
+- Decisions keep the NORA committee, meeting date and stage, and their status history and delay reasons, through upstream's new revisions and duplicates; a decision's related decisions are now typed links.
+- SoAW revisions keep their NORA document template; restricted cost figures stay hidden in upstream's new PPM cost tables.
+
 ## [2.52.0] - 2026-11-16
 
 ### Added

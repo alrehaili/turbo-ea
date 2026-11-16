@@ -316,6 +316,13 @@ export const NOTIFICATION_TYPE_COLORS = {
   adr_signed: RAG_COLORS.green, // #2e7d32
   adr_sign_recalled: "#795548", // brown 500
   adr_rejected: RAG_COLORS.red, // #d32f2f
+  // A decision's standing moved (replaced, amended, revoked): informational,
+  // the decision family's amber rather than an alarm.
+  adr_standing_changed: RAG_COLORS.amber, // #f57c00
+  // Discussion on a decision or SoAW: the card-comment green for a comment,
+  // the primary blue for being named in one.
+  document_comment: RAG_COLORS.green, // #2e7d32
+  document_mention: brand.primary, // #1976d2
   process_flow_approval_requested: RAG_COLORS.amber, // #f57c00
   process_flow_approved: RAG_COLORS.green, // #2e7d32
   process_flow_rejected: RAG_COLORS.red, // #d32f2f
@@ -590,6 +597,17 @@ export const BPM_ASSESSMENT_COLORS = {
 } as const;
 
 // ── PPM ─────────────────────────────────────────────────────────────────
+
+/** The two cost categories on the PPM Budget & Costs spend charts — the
+ *  cumulative lines and their dashed budget lines, on screen and in the
+ *  initiative PDF. CapEx is the brand blue; OpEx is the purple the charts
+ *  have always drawn, MUI's default `secondary.main` per mode (purple 500 in
+ *  light, purple 200 in dark: the app theme sets only `primary`). The PDF is
+ *  paper, so it always takes `light`. */
+export const PPM_COST_COLORS = {
+  light: { capex: brand.primary, opex: "#9c27b0" },
+  dark: { capex: brand.primary, opex: "#ce93d8" },
+} as const;
 
 /** The PPM Gantt's task bars, one set per task status (`PpmTaskStatus`). Each
  *  status has four shades: `bar` is the bar's remaining (not yet done) part,

@@ -10,7 +10,6 @@ import {
   DOT_BOX,
   DOT_INSET,
   FALLBACK_TYPE_COLOR,
-  MAX_EDGE_LABEL_CHARS,
   PHASE_DOT,
   TYPE_ICON_RIGHT_BESIDE_DOT,
   cardBorder,
@@ -22,6 +21,7 @@ import {
   countByType,
   edgeColors,
   edgeIsActive,
+  edgeLabelHeight,
   edgeLabelWidth,
   edgeStrokeWidth,
   exportFileName,
@@ -31,6 +31,7 @@ import {
   hidesCardsOnView,
   labelHitsObstacle,
   movedBeyondClick,
+  cardLineBudget,
   nameLineClamp,
   nextBackground,
   paintOrder,
@@ -38,7 +39,6 @@ import {
   placeEdgeLabel,
   safeTypeColor,
   touchesHovered,
-  truncateEdgeLabel,
   typeIconPlacement,
 } from "./ldvViewModel";
 import {
@@ -153,6 +153,19 @@ describe("card chrome placement", () => {
     expect(nameLineClamp(1)).toBe(2);
     expect(nameLineClamp(2)).toBe(1);
     expect(nameLineClamp(3)).toBe(1);
+  });
+
+  it("gives the type line the first of the card's two lines (#1377)", () => {
+    expect(cardLineBudget(true, 0)).toEqual({ extraShown: 0, total: 1 });
+    expect(cardLineBudget(true, 1)).toEqual({ extraShown: 1, total: 2 });
+    expect(cardLineBudget(true, 3)).toEqual({ extraShown: 1, total: 2 });
+  });
+
+  it("leaves both lines to the extra fields when the type is off", () => {
+    expect(cardLineBudget(false, 0)).toEqual({ extraShown: 0, total: 0 });
+    expect(cardLineBudget(false, 1)).toEqual({ extraShown: 1, total: 1 });
+    expect(cardLineBudget(false, 2)).toEqual({ extraShown: 2, total: 2 });
+    expect(cardLineBudget(false, 5)).toEqual({ extraShown: 2, total: 2 });
   });
 });
 
@@ -276,20 +289,22 @@ describe("line state", () => {
 });
 
 describe("line label", () => {
-  it("cuts a verb past 24 characters with an ellipsis", () => {
-    expect(MAX_EDGE_LABEL_CHARS).toBe(24);
-    expect(truncateEdgeLabel("")).toBe("");
-    expect(truncateEdgeLabel("a".repeat(24))).toBe("a".repeat(24));
-    expect(truncateEdgeLabel("is supported by the platform")).toBe("is supported by the pla…");
-    expect(truncateEdgeLabel("a".repeat(25))).toHaveLength(24);
+  it("sizes the label box from its longest line, the arrow and the count", () => {
+    expect(edgeLabelWidth([], false, "")).toBe(16);
+    expect(edgeLabelWidth(["uses"], false, "")).toBe(42);
+    expect(edgeLabelWidth(["uses"], true, "")).toBe(59);
+    expect(edgeLabelWidth(["uses"], false, "12")).toBe(70);
+    expect(edgeLabelWidth(["uses"], true, "3")).toBe(80);
+    // Two lines are as wide as the longer one, whichever comes first.
+    expect(edgeLabelWidth(["uses", "[Create · Read]"], false, "")).toBe(15 * 6.5 + 16);
+    expect(edgeLabelWidth(["[Create · Read]", "uses"], false, "")).toBe(15 * 6.5 + 16);
   });
 
-  it("sizes the label box from the verb, the arrow and the count", () => {
-    expect(edgeLabelWidth("", false, "")).toBe(16);
-    expect(edgeLabelWidth("uses", false, "")).toBe(42);
-    expect(edgeLabelWidth("uses", true, "")).toBe(59);
-    expect(edgeLabelWidth("uses", false, "12")).toBe(70);
-    expect(edgeLabelWidth("uses", true, "3")).toBe(80);
+  it("makes the label box a line taller for every line after the first", () => {
+    expect(edgeLabelHeight([])).toBe(20);
+    expect(edgeLabelHeight(["uses"])).toBe(20);
+    expect(edgeLabelHeight(["uses", "[Read]"])).toBe(34);
+    expect(edgeLabelHeight(["a", "b", "c"])).toBe(48);
   });
 });
 

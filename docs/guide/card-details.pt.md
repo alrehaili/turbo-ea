@@ -154,7 +154,7 @@ O ícone **abrir em nova aba** na barra de ferramentas abre o [relatório de dep
 
 Aplique tags dos [grupos de tags](../admin/tags.md) configurados. Dependendo do modo do grupo, você pode selecionar uma tag (seleção única) ou múltiplas tags (seleção múltipla).
 
-### Aba de Recursos
+### Aba de Recursos {: #resources-tab }
 
 A aba de **Recursos** consolida todos os materiais de apoio de um card:
 
@@ -212,9 +212,9 @@ Onde um papel tem uma **descrição**, um ícone de informação aparece ao lado
 
 Escolha uma parte interessada via o **autocompletar pesquisável** — comece a digitar e o menu suspenso filtra tanto por nome quanto por e-mail (o e-mail aparece como linha secundária, para que dois usuários com o mesmo nome possam ser distinguidos num relance).
 
-Se o e-mail que você digita não corresponder a um usuário existente, uma opção **«Convidar «email» como novo usuário»** aparece no final do menu suspenso. Selecioná-la expande um mini-formulário inline dentro do próprio seletor — escolha um papel (Membro ou Visualizador por padrão), edite opcionalmente o nome exibido e envie. O novo usuário é convidado via o e-mail de convite padrão **e** atribuído ao papel de parte interessada escolhido no card numa única ação, assim você nunca precisa deixar o card para integrar um colaborador.
+Se o e-mail que você digita não corresponder a um usuário existente, uma opção **«Convidar «email» como novo usuário»** aparece no final do menu suspenso. Selecioná-la expande um mini-formulário inline dentro do próprio seletor — edite opcionalmente o nome exibido e envie. O novo usuário recebe o **papel padrão** definido em [Usuários e Papéis](../admin/users.md#papeis). O novo usuário é convidado via o e-mail de convite padrão **e** atribuído ao papel de parte interessada escolhido no card numa única ação, assim você nunca precisa deixar o card para integrar um colaborador.
 
-O caminho de convite requer a permissão **`users.invite`**, uma forma delegada de `admin.users` que administradores podem conceder a membros confiáveis. Uma proteção contra escalada de privilégios impede que não-admins convidem usuários para papéis de admin — o menu suspenso de papéis filtra silenciosamente para os papéis que o convidante tem permissão para delegar.
+O caminho de convite requer a permissão **`users.invite`**, uma forma delegada de `admin.users` que administradores podem conceder a membros confiáveis. Uma proteção contra escalada de privilégios impede que não-admins convidem usuários para qualquer outro papel: sem `admin.users`, um usuário convidado só pode receber o papel padrão, Membro ou Visualizador.
 
 ## Aba de Histórico
 
@@ -228,9 +228,11 @@ Tudo o que move a data **Modificado** do card aparece aqui: uma edição manual,
 
 ## Aba de ADR
 
-Cada card possui uma aba **ADR** que lista as [decisões de arquitetura](delivery.md) vinculadas a ele, exibindo a referência, o título, o status, todos os cards vinculados e a data da última modificação. Clique em uma linha para abrir a decisão.
+Cada card possui uma aba **ADR** que lista as [decisões de arquitetura](delivery.md) vinculadas a ele — a revisão atual de cada decisão, mais qualquer revisão em redação — exibindo a referência, o título, a vigência (ou o status, enquanto ainda não está assinada), todos os cards vinculados e a data da última modificação. Clique em uma linha para abrir a decisão; as revisões anteriores são acessíveis a partir dela.
 
 Se você tiver permissão para gerenciar vínculos de ADR, a aba também oferece **Vincular ADR** para anexar uma decisão existente e **Criar ADR** para criar uma nova já vinculada a este card, além de uma ação de desvinculação em cada linha. Em cards sem decisões vinculadas a aba fica oculta, a menos que você tenha essa permissão, de modo que usuários somente leitura nunca veem uma aba vazia.
+
+Abaixo da lista, **Mencionado em** lista as decisões e os Statements of Architecture Work cujo texto menciona este card, e aqueles cuja discussão o menciona (assinalados *na discussão*), com a referência ou revisão de cada documento e a sua vigência ou status. Uma menção não vincula o card à decisão; apenas aparece aqui. A lista mostra apenas os documentos que você pode abrir e não aparece quando não há nenhum. Ver [Menções](grc.md#decision-mentions).
 
 ## Aba de Riscos (GRC habilitado, quando presente)
 

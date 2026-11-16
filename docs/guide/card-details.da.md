@@ -152,7 +152,7 @@ Ikonet **åbn i ny fane** i værktøjslinjen åbner den fulde [afhængighedsrapp
 
 Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af gruppe-tilstanden kan du vælge ét tag (single select) eller flere tags (multi select).
 
-### Resources-fane
+### Resources-fane {: #resources-tab }
 
 **Resources**-fanen konsoliderer al understøttende materiale for et kort:
 
@@ -210,9 +210,9 @@ Hvor en rolle har en **beskrivelse**, vises et infoikon ved siden af dens navn: 
 
 Vælg en interessent via den **søgbare autocomplete** — begynd at skrive, og dropdownen filtrerer på både navn og e-mail (e-mail vises som den sekundære linje, så to brugere med samme navn kan skelnes med et øjekast).
 
-Hvis den e-mail, du skriver, ikke matcher en eksisterende bruger, vises muligheden **"Invite «email» as a new user"** i slutningen af dropdownen. Vælger du den, udvides en inline mini-formular lige inde i vælgeren — vælg en rolle (Member eller Viewer som standard), rediger eventuelt visningsnavnet, og indsend. Den nye bruger inviteres via standard-invitations-e-mailen **og** tildeles den valgte interessentrolle på kortet i én enkelt handling, så du aldrig behøver at forlade kortet for at onboarde en bidragsyder.
+Hvis den e-mail, du skriver, ikke matcher en eksisterende bruger, vises muligheden **"Invite «email» as a new user"** i slutningen af dropdownen. Vælger du den, udvides en inline mini-formular lige inde i vælgeren — rediger eventuelt visningsnavnet, og indsend. Den nye bruger får den **standardrolle**, der er angivet under [Brugere og roller](../admin/users.md#roller). Den nye bruger inviteres via standard-invitations-e-mailen **og** tildeles den valgte interessentrolle på kortet i én enkelt handling, så du aldrig behøver at forlade kortet for at onboarde en bidragsyder.
 
-Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `admin.users`, som administratorer kan give til betroede medlemmer. En privilegie-eskalerings-vagt forhindrer ikke-administratorer i at invitere brugere ind i admin-roller — rolle-dropdownen filtrerer stille til roller, som indbyderen har lov til at delegere.
+Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `admin.users`, som administratorer kan give til betroede medlemmer. En privilegie-eskalerings-vagt forhindrer ikke-administratorer i at invitere brugere ind i andre roller: uden `admin.users` kan en inviteret bruger kun få standardrollen, Member eller Viewer.
 
 ## History-fane
 
@@ -226,9 +226,11 @@ Alt, der flytter kortets **Ændret**-dato, vises her — en manuel redigering, e
 
 ## ADRs-fane
 
-Hvert kort har en **ADRs**-fane, der viser de [arkitekturbeslutninger](delivery.md), som er tilknyttet kortet, med reference, titel, status, alle tilknyttede kort og tidspunktet for seneste ændring. Klik på en række for at åbne beslutningen.
+Hvert kort har en **ADRs**-fane, der viser de [arkitekturbeslutninger](delivery.md), som er tilknyttet kortet — den aktuelle revision af hver beslutning samt en eventuel revision under udarbejdelse — med reference, titel, gyldighed (eller status, så længe beslutningen endnu ikke er underskrevet), alle tilknyttede kort og tidspunktet for seneste ændring. Klik på en række for at åbne beslutningen; tidligere revisioner nås derfra.
 
 Hvis du må administrere ADR-tilknytninger, tilbyder fanen desuden **Tilknyt ADR** til at vedhæfte en eksisterende beslutning og **Opret ADR** til at oprette en ny, der på forhånd er tilknyttet dette kort, samt en frakoblingshandling på hver række. På kort uden tilknyttede beslutninger er fanen skjult, medmindre du har den tilladelse, så brugere med skrivebeskyttet adgang aldrig ser en tom fane.
+
+Under listen viser **Omtalt i** de beslutninger og Statements of Architecture Work, hvis tekst omtaler dette kort, og dem, hvis diskussion omtaler det (markeret *i diskussionen*), med hvert dokuments reference eller revision og dets gyldighed eller status. En omtale tilknytter ikke kortet til beslutningen; den vises kun her. Listen viser kun de dokumenter, du kan åbne, og udelades, når der ingen er. Se [Omtaler](grc.md#decision-mentions).
 
 ## Risks-fane (GRC aktiveret, når til stede)
 

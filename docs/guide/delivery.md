@@ -28,6 +28,20 @@ Each tree row shows:
 
 The synthetic **Unlinked artefacts** row at the top of the tree appears when there are SoAWs, diagrams, or ADRs that aren't yet linked to an initiative. Open it to relink them.
 
+### Who sees what
+
+EA Delivery opens for any role that holds **View SoAW documents** (`soaw.view`) or **View architecture decision records** (`adr.view`). Each kind of artefact then follows its own permission:
+
+| Artefact | Listed with | Created with |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagram** | `diagrams.view` | `diagrams.manage` (also needed to link or unlink a diagram) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+A group you may not view is left out of the workspace, and **+ New artefact** and **+ Add …** offer only the kinds you may create — a role that can only read sees neither button. So a role with `adr.view` alone gets the page with the decisions of each initiative and nothing about SoAWs.
+
+The diagrams attached to a decision follow `diagrams.view` too: a role without it sees no [Diagrams](grc.md#decision-diagrams) section on a decision.
+
 ## Statement of Architecture Work (SoAW)
 
 A **Statement of Architecture Work (SoAW)** is a formal document defined by the [TOGAF standard](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). It establishes the scope, approach, deliverables, and governance for an architecture engagement. In TOGAF, the SoAW is produced during the **Preliminary Phase** and **Phase A (Architecture Vision)** and serves as an agreement between the architecture team and its stakeholders.
@@ -45,34 +59,69 @@ Turbo EA provides a built-in SoAW editor with TOGAF-aligned section templates, r
 
 The editor provides:
 
-- **Rich text editing** — Full formatting toolbar (headings, bold, italic, lists, links) powered by the TipTap editor
-- **Links** — A URL you type or paste becomes a link as you type, and every link in a document opens in a new tab. Addresses in documents written before links were supported are linked when the document is displayed
+- **Rich text editing** — a formatting toolbar on every text section: bold, italic, underline, strikethrough, inline code, a heading and a sub-heading, bulleted and numbered lists, quotes, code blocks, dividers, links, tables, mentions and pictures
+- **Links** — select some words and click **Link**, or press **Ctrl+K** (**Cmd+K** on a Mac), to link them to a web or e-mail address; the same button or shortcut edits or removes the link under the caret. A web address you type or paste becomes a link on its own. While you are editing, a click on a link places the caret in it and **Ctrl+click** (**Cmd+click**) opens it; in the preview and a locked document a click opens it. Every link opens in a new tab, and addresses in documents written before links were supported are linked when the document is displayed. See [Links in the text](grc.md#decision-text-links)
 - **Section templates** — Pre-defined sections following TOGAF standards (e.g., Problem Description, Objectives, Approach, Stakeholders, Constraints, Work Plan)
-- **Inline editable tables** — Add and edit tables within any section
+- **Template tables** — the template's table sections (objectives, stakeholders, risks and the like) are grids with fixed columns: add and remove rows inline
+- **Tables in the text** — insert a table of your own in any text section (see [Tables](#soaw-tables))
+- **Mentions** — type **@** in a section's text to mention a card or a decision (see [Discussion, mentions and history](#soaw-collaboration))
+- **Pictures** — insert a screenshot or a diagram into a section's text (see [Pictures](#soaw-pictures))
+- **Document Version History** — a table the authors fill in by hand (version, date, revised by, description). It is part of the document and is not the [History](#soaw-collaboration) view
 - **Status workflow** — Documents progress through defined stages:
 
 | Status | Meaning |
 |--------|---------|
 | **Draft** | Being written, not yet ready for review |
-| **In Review** | Submitted for stakeholder review |
+| **In Review** | Sent for signature — locked until the signatures are recalled |
 | **Approved** | Reviewed and accepted |
 | **Signed** | Formally signed off |
 
+### Pictures {: #soaw-pictures }
+
+A section's text can hold pictures, as a decision's can. Click **Insert picture** in the section's toolbar and choose a file, paste a picture from the clipboard, or drag a picture file onto the section. Drag a picture's corner to resize it (its proportions are kept), and select it to align it left, centre or right from the toolbar. PNG, JPEG, GIF and WebP are accepted, up to 5 MB each; SVG is not.
+
+Pictures appear in the preview, the PDF / printed copy and the Word export, and in the [History](#soaw-collaboration), where **Changes** marks a picture added or removed as *[Picture]*. A revision and a restored version keep their pictures. Only pictures uploaded to a SoAW are kept: a picture that links to another website is removed when the document is saved. Comments in the discussion take no pictures, and the picture controls disappear when an administrator has [switched file uploads off](../admin/resources.md#when-file-uploads-are-disabled). The full description is in the GRC guide: [Pictures](grc.md#decision-pictures).
+
+### Tables {: #soaw-tables }
+
+A section's text can hold tables, as a decision's can. Click **Table** in the section's toolbar and choose **Insert table** for a table of three rows and three columns with a header row; with the caret in a table the same menu selects, adds, moves and deletes rows and columns, turns the header row on or off, merges and splits cells and deletes the table. The same actions open on a right-click in a cell, and while you edit, grips beside a row and above a column open that row's or column's actions, and a **+** or a bar at the table's edge adds a row or a column. Drag a column border to resize it, and use **Tab** / **Shift+Tab** to move between cells. Formatting, links, mentions and pictures work in a cell.
+
+Tables appear in the preview, the PDF / printed copy (fitted to the page) and the Word export (as a real Word table), and in the [History](#soaw-collaboration), where **Changes** reads a row as one line. Comments in the discussion take no tables. The full description is in the GRC guide: [Tables](grc.md#decision-tables).
+
 ### Sign-off Workflow
 
-Once a SoAW is approved, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
+From a draft or an approved SoAW, you can request sign-offs from stakeholders. Click **Request Signatures**, then use the search field to find and add signatories by name or email. The system tracks who has signed and sends notifications to pending signers.
+
+A SoAW in review is **locked**, so signatories sign exactly what they were sent: only its initiative can still change. To edit the content, click **Recall Signatures**, which returns it to draft. A signatory who clicks **Reject** also returns it to draft, under the same revision number. Only a draft SoAW can be deleted.
+
+### Revisions
+
+A signed SoAW is read-only. Click **New Revision** to start a new draft from it, under the same name with the next revision number. There is one open revision at a time: while a revision is being drafted, the signed SoAW says so and offers **Open the revision** instead of starting another. Only the latest revision can be revised, and a rejection does not change the revision number.
+
+An earlier revision shows a banner linking to the current one, and the **Revisions** strip on every revision lists them all. Lists of SoAWs — the initiative's deliverables, the SoAW tab, the EA Delivery report — show the current revision of each document and any revision being drafted.
+
+### Discussion, mentions and history {: #soaw-collaboration }
+
+A SoAW has the same discussion, mentions and history as a decision: the discussion in a panel beside its editor and preview, the history behind the **History** button at the top of the page. The behaviour they share is described once, in the GRC guide: [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [History](grc.md#decision-history) and [Known limits](grc.md#collaboration-limits). What differs for a SoAW:
+
+- **Who can post.** Posting, replying, resolving and reopening need the `soaw.comment` permission, which members and admins hold by default and viewers do not; reading the discussion follows `soaw.view`. The SoAW's signatories can always comment on it. Anyone who can edit SoAWs (`soaw.manage`) can delete any comment.
+- **Sections.** A thread is tagged to one of the SoAW's own sections with a section chip, or to none (a general thread). A SoAW has many sections, so the composer shows a chip for each section already discussed and for the chosen one; **More…** opens a searchable list of the others. The chips at the top of the discussion filter it by section, as for a decision. A thread tagged to a custom section that has since been removed shows *Removed section*. Each section carries the same chat icon beside its heading as a decision's, on the editor and the preview, with the open-thread count when there is discussion; click it to open the discussion on that section with the section already selected for a new comment.
+- **Rejecting.** Any signatory who holds the sign permission (`soaw.sign`) — or the edit permission — may reject a SoAW, as for decisions; until now rejecting needed the edit permission. The reason opens a **Rejection reason** thread in the discussion.
+- **Mentions.** A SoAW has no linked cards, so with nothing typed after **@** the cards are listed alphabetically; in a comment, the SoAW's signatories come first among the people. **Browse…** works as for a decision.
+- **Signing note.** **Sign** now opens a dialog where the signatory can add an optional note; it appears in the discussion as a **Signing note** and in the History.
+- **History.** A version holds the SoAW's name, its document information, its Document Version History table and every section; the initiative is not part of a version. The History records what happens to the document; the Document Version History table in the document records only what its authors write in it. A SoAW in the **Approved** status can still be edited, so, as for a draft, its saves are kept as versions and an earlier version can be restored into it.
 
 ### Preview and Export
 
 - **Preview mode** — Read-only view of the complete SoAW document
-- **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing
+- **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing. Formatting and clickable links are kept in every part of the text, code keeps a monospace font, and tables in the text become real Word tables
 - **PDF export** — Opens a print-ready view in a new tab; use the browser's *Save as PDF*. Allow pop-ups for this site if nothing opens.
 
 ### SoAW Tab on Initiative Cards
 
 ![Initiative card — SoAW tab](../assets/img/en/55_initiative_soaw_tab.png)
 
-Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists every SoAW linked to that initiative (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. Visibility of the tab follows the standard card permission rules.
+Initiatives also expose a dedicated **SoAW** tab directly on their card detail page. The tab lists the current revision of every SoAW linked to that initiative, plus any revision being drafted (title, status chip, revision number, last-modified date) with a **+ New SoAW** button that pre-selects the current initiative — so you can author or jump to a SoAW without leaving the card you're working on. Creation reuses the same dialog as the EA Delivery page, and the new document appears in both places. The tab is shown to roles that hold **View SoAW documents** (`soaw.view`); the **+ New SoAW** button and the delete action on a draft need **Create and edit SoAW documents** (`soaw.manage`), whether or not you can edit the initiative itself.
 
 ## Architecture Decision Records (ADR)
 

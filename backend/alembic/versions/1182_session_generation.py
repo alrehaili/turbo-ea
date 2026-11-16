@@ -8,8 +8,8 @@ earlier in the same second as a password reset from one issued just after it,
 because JWT ``iat`` is whole seconds. ``sessions_valid_after`` stays as the
 record of when sessions were last ended.
 
-Revision ID: 167
-Revises: 166
+Revision ID: 1182
+Revises: 1181
 Create Date: 2026-11-11
 """
 
@@ -19,8 +19,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "167"
-down_revision: Union[str, None] = "166"
+revision: str = "1182"
+down_revision: Union[str, None] = "1181"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router";
+import { Link as RouterLink, useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import Tooltip from "@mui/material/Tooltip";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
@@ -21,6 +25,7 @@ import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmGanttTab from "./PpmGanttTab";
 import CardDetailContent from "@/features/cards/CardDetailContent";
+import { PPM_ACTUAL_FIELD, PPM_BUDGET_FIELD } from "@/lib/ppmCostFields";
 import type {
   Card,
   CardEffectivePermissions,
@@ -68,6 +73,8 @@ export default function PpmProjectDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation(["ppm", "common"]);
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
   const subtypeLabel = useCardSubtypeLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
@@ -189,8 +196,8 @@ export default function PpmProjectDetail() {
   // When PPM has budget/cost lines, mark card cost fields as auto-computed
   const ppmAutoFieldKeys = useMemo(() => {
     const keys: string[] = [];
-    if (budgetLines.length > 0) keys.push("costBudget");
-    if (costLines.length > 0) keys.push("costActual");
+    if (budgetLines.length > 0) keys.push(PPM_BUDGET_FIELD);
+    if (costLines.length > 0) keys.push(PPM_ACTUAL_FIELD);
     return keys;
   }, [budgetLines.length, costLines.length]);
 
@@ -241,6 +248,31 @@ export default function PpmProjectDetail() {
             variant="outlined"
             sx={{ marginInlineStart: 1, flexShrink: 0 }}
           />
+        )}
+        {compact ? (
+          <Tooltip title={t("pdfDocumentTitle")}>
+            <IconButton
+              component={RouterLink}
+              to={`/ppm/${card.id}/report`}
+              aria-label={t("pdfDocumentTitle")}
+              // Stryker disable next-line ObjectLiteral: equivalent: MUI's IconButton root already sets flex: 0 0 auto, so the button never shrinks either way
+              sx={{ flexShrink: 0 }}
+            >
+              <MaterialSymbol icon="analytics" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Tooltip title={t("pdfDocumentTitle")}>
+            <Button
+              size="small"
+              component={RouterLink}
+              to={`/ppm/${card.id}/report`}
+              startIcon={<MaterialSymbol icon="analytics" size={18} />}
+              sx={{ textTransform: "none", flexShrink: 0 }}
+            >
+              {t("reportButton")}
+            </Button>
+          </Tooltip>
         )}
       </Box>
 
@@ -295,6 +327,8 @@ export default function PpmProjectDetail() {
           initiativeId={id!}
           risks={risks}
           onRefresh={loadData}
+          // Stryker disable next-line OptionalChaining: equivalent: card is non-null here, the page returned the error view above when it is null
+          initiativeName={card?.name}
         />
       )}
       {tab === 4 && <PpmTaskBoard initiativeId={id!} />}

@@ -29,7 +29,27 @@ La sub-pestaña Decisiones es el **registro maestro de los Architecture Decision
 
 Los ADR documentan decisiones de arquitectura importantes junto con su contexto, consecuencias y alternativas consideradas. Las decisiones emitidas por el asistente TurboLens Architect aterrizan aquí como borradores para revisión.
 
-La cuadrícula también puede **agruparse por estado** mediante el botón *Agrupar por* junto al cuadro de búsqueda: los borradores, las decisiones en revisión y las firmadas se pliegan bajo sus propias cabeceras, y la casilla de la cabecera selecciona todo el grupo para una exportación masiva.
+El registro responde primero a una pregunta: **¿qué decisiones están vigentes hoy?** Cada decisión firmada tiene una [vigencia](#standing) que Turbo EA deduce de sus fechas, sus revisiones y las demás decisiones que actúan sobre ella, y la cuadrícula solo lista la revisión actual de cada decisión, a menos que pida las anteriores.
+
+La cuadrícula también puede **agruparse por estado** o **por vigencia** mediante el botón *Agrupar por* junto al cuadro de búsqueda: cada estado o vigencia se pliega bajo su propia cabecera, y la casilla de la cabecera selecciona todo el grupo para una exportación masiva.
+
+#### Estado y vigencia {: #standing }
+
+Una decisión tiene dos estados distintos:
+
+- El **estado** es el flujo de firma, y es sobre lo que usted actúa: **Borrador** → **En Revisión** (firmas solicitadas) → **Firmado**. Una decisión tomada fuera de Turbo EA y [registrada como decidida](#recording-a-past-decision) muestra **Registrado** en lugar de Firmado.
+- La **vigencia** indica en qué situación se encuentra hoy una decisión firmada o registrada. Se deduce — nunca se fija a mano — y un borrador o una decisión en revisión no tiene ninguna (*Aún no firmada*).
+
+| Vigencia | Significado |
+|----------|-------------|
+| **Programada** | Firmada, pero aún no ha llegado su fecha *Vigente desde* |
+| **Vigente** | Firmada y en vigor |
+| **Vigente (modificada)** | Vigente, y otra decisión firmada la modifica; la modificación aún no se ha incorporado a una [revisión consolidada](#amendments-and-consolidated-revisions) |
+| **Sustituida** | Ha entrado en vigor una revisión posterior de la misma decisión, o una decisión que la sustituye |
+| **Revocada** | Ha entrado en vigor una decisión firmada que la revoca |
+| **Caducada** | Ha pasado su fecha *Válida hasta* (está vigente hasta ese día inclusive) |
+
+La página de la decisión indica el motivo con un banner — *Esta decisión ha sido sustituida por …*, *Esta decisión entra en vigor el …*, *La revisión 3 entra en vigor el …* — con un enlace a la decisión correspondiente.
 
 #### Columnas de la tabla
 
@@ -37,8 +57,9 @@ La cuadrícula de ADR refleja el diseño de la cuadrícula de Inventario:
 
 | Columna | Descripción |
 |---------|-------------|
-| **N.º de referencia** | Número de referencia generado automáticamente (ADR-001, ADR-002, …) con un punto de estado |
-| **Estado** | Chip de color — Borrador, En Revisión o Firmado |
+| **N.º de referencia** | Número de referencia generado automáticamente (ADR-001, ADR-002, …) con un punto de estado; una revisión posterior a la primera añade su número (ADR-012 · Rev 2) |
+| **Estado** | Chip de color — Borrador, En Revisión, Firmado o Registrado |
+| **Vigencia** | En qué situación está hoy una decisión firmada — consulte [Estado y vigencia](#standing); vacía hasta que se firma |
 | **Título** | Título del ADR |
 | **Decisión** | Extracto en texto plano de la decisión |
 | **Tarjetas vinculadas** | Píldoras de color que coinciden con el color del tipo de cada tarjeta vinculada |
@@ -47,6 +68,8 @@ La cuadrícula de ADR refleja el diseño de la cuadrícula de Inventario:
 | **Modificado** | Fecha de última modificación |
 | **Firmado** | Fecha de firma |
 | **Firmado por** | Una píldora por cada firmante que ha firmado |
+| **Decidida el** / **Vigente desde** / **Válida hasta** | Las [fechas](#decision-dates) de la decisión |
+| **Responsables de la decisión** | Las personas que tomaron la decisión |
 
 Cada columna dispone de un **filtro de encabezado** — filtros de texto en las columnas de texto, filtros de fecha en las columnas de fecha — cada uno con su propio botón **Restablecer**. En cuanto algún filtro de columna está activo, aparece un botón **Borrar filtros de columna** en la barra de herramientas de la cuadrícula para borrarlos todos a la vez. El ancho, el orden y la ordenación de las columnas, así como los filtros activos, se recuerdan por navegador.
 
@@ -55,18 +78,21 @@ Cada columna dispone de un **filtro de encabezado** — filtros de texto en las 
 La barra lateral persistente a la izquierda tiene dos pestañas:
 
 - **Filtros** — filtros de facetas sobre la lista de ADR:
+    - **Vigente** — un clic muestra solo las decisiones vigentes hoy (Vigente y Vigente (modificada)); haga clic de nuevo para quitarlo
+    - **Mostrar revisiones anteriores** — desactivado por defecto, de modo que cada decisión aparece una vez, como su revisión actual (más una revisión en redacción). Actívelo para listar también las revisiones anteriores; el botón **Exportar** sigue el mismo ajuste
     - **Tipos de tarjeta** — casillas con puntos coloreados que filtran por tipos de tarjetas vinculadas
     - **Tarjetas vinculadas** — filtrar por tarjetas vinculadas específicas
-    - **Estado** — Borrador / En Revisión / Firmado
+    - **Estado** — Borrador / En Revisión / Firmado (una decisión registrada cuenta como firmada)
+    - **Vigencia** — Programada / Vigente / Vigente (modificada) / Sustituida / Revocada / Caducada / Aún no firmada
     - **Firmado por** — filtrar por firmante
-    - **Fecha de creación** / **modificación** / **firma** — rangos de fechas desde/hasta
+    - **Fecha de creación** / **modificación** / **firma** / **Fecha de decisión** — rangos de fechas desde/hasta (**Fecha de decisión** se aplica a la fecha *Decidida el* de una decisión firmada o registrada)
 - **Columnas** — elegir qué columnas de la cuadrícula son visibles. **N.º de referencia** y **Título** se muestran siempre; **Restablecer** restaura la selección predeterminada. Su elección se recuerda por navegador.
 
 Use la barra de **filtro rápido** para búsqueda de texto completo. Haga clic derecho en cualquier fila para un menú contextual (**Editar**, **Vista previa**, **Duplicar**, **Eliminar**).
 
 #### Exportar e importar decisiones {: #decisions-import }
 
-**Exportar** (junto a **+ Nueva decisión**) descarga las decisiones que muestra actualmente la barra lateral de filtros como un archivo `.xlsx`, una fila por decisión: referencia, título, estado, revisión, las cuatro secciones (Contexto, Decisión, Consecuencias, Alternativas consideradas) como texto sin formato, fichas vinculadas y decisiones relacionadas (separadas por punto y coma), autor, firmantes y las fechas de creación, modificación y firma. El formato, como las negritas o los enlaces, no se traslada a la hoja de cálculo. Para compartir decisiones con todo su formato, seleccione filas en la cuadrícula y use el botón **Export** de la propia cuadrícula, que genera un documento de Word.
+**Exportar** (junto a **+ Nueva decisión**) descarga las decisiones que muestra actualmente la barra lateral de filtros como un archivo `.xlsx`, una fila por revisión de decisión. Las columnas, en orden: `reference_number`, `title`, `status`, `revision_number`, las cuatro secciones (`context`, `decision`, `consequences`, `alternatives_considered`) como texto sin formato, `cards` y `related_decisions` (separadas por punto y coma), `author`, `signatories`, `signed_at`, `created_at`, `updated_at`, y después los datos propios del registro — `standing` (como clave, por ejemplo `in_force`), `decided_on`, `effective_from`, `valid_until`, `decision_makers`, `participants`, y los vínculos tipados `replaces`, `amends`, `revokes` y `consolidates` como referencias. El formato, como las negritas o los enlaces, no se traslada a la hoja de cálculo, y una tabla de una sección se escribe como una línea por fila, con sus celdas separadas por ` | `. Para compartir decisiones con todo su formato, seleccione filas en la cuadrícula y use el botón **Export** de la propia cuadrícula, que genera un documento de Word.
 
 **Importar** crea decisiones de forma masiva desde un archivo `.xlsx`. Haga clic en **Descargar plantilla** para obtener un libro de partida, rellene una decisión por fila y súbalo:
 
@@ -74,7 +100,9 @@ Use la barra de **filtro rápido** para búsqueda de texto completo. Haga clic d
 - Una fila cuya `reference_number` ya pertenece a una decisión se **omite**: la importación nunca modifica una decisión existente, por lo que reimportar una exportación no cambia nada.
 - `title` es obligatorio. En las cuatro columnas de sección, una línea en blanco inicia un nuevo párrafo, las líneas que empiezan por `- ` se convierten en una lista con viñetas y las que empiezan por `1. ` en una lista numerada.
 - `cards` vincula fichas por su nombre exacto, entre las fichas que usted puede ver; una ficha que no se encuentra, o cuyo nombre comparten varias fichas, se omite con una advertencia y la decisión se importa igualmente.
-- `related_decisions` lista referencias, ya sea de decisiones existentes o de otras filas del mismo archivo (incluso filas posteriores).
+- `related_decisions` lista referencias, ya sea de decisiones existentes o de otras filas del mismo archivo (incluso filas posteriores); cada una se convierte en un vínculo **Se relaciona con**. Una referencia con varias revisiones se vincula a su revisión actual.
+- Todas las demás columnas — incluidas la vigencia, las fechas, las personas y los vínculos tipados — se ignoran: una importación crea borradores, nunca decisiones firmadas o registradas.
+- Una exportación contiene una fila por revisión, así que un archivo puede llevar varias filas para una misma referencia (una revisión abierta, o revisiones anteriores cuando **Mostrar revisiones anteriores** está activado). En la instancia de la que procede se omiten todas; en otras, solo se importa la fila con el `revision_number` más alto (la última fila cuando los números son iguales o faltan) y cada una de las demás filas se omite con la advertencia *Revisión anterior de ADR-012 omitida*. Una entrada de `related_decisions` que nombra esa referencia se vincula a la fila importada.
 
 La vista previa muestra cuántas filas se crearán, omitirán y fallarán, con cada error y advertencia listados por fila; no se escribe nada hasta que confirme. La importación requiere el permiso `adr.manage`.
 
@@ -92,31 +120,226 @@ En todos los casos puede buscar y vincular tarjetas adicionales durante la creac
 
 El editor proporciona:
 
-- Edición de texto enriquecido para cada sección (Contexto, Decisión, Consecuencias, Alternativas Consideradas)
+- Edición de texto enriquecido para cada sección (Contexto, Decisión, Consecuencias, Alternativas Consideradas): negrita, cursiva, subrayado, tachado, **Código en línea**, un **Encabezado** y un **Subencabezado**, listas con viñetas y numeradas, citas, un **Bloque de código** para un comando o un extracto de configuración (en sus propias líneas con una fuente monoespaciada) y separadores
+- **Enlaces** — enlace el texto seleccionado a una página web o a una dirección de correo electrónico (consulte [Enlaces en el texto](#decision-text-links))
+- **Tablas** — inserte y edite una tabla en una sección (consulte [Tablas](#decision-tables))
+- **Menciones** — escriba **@** en una sección para mencionar una ficha u otra decisión (consulte [Menciones](#decision-mentions))
+- **Imágenes** — inserte una captura de pantalla o un diagrama en una sección (consulte [Imágenes](#decision-pictures))
+- **Discusión** — un panel junto al documento con su discusión (consulte [Discusión](#decision-discussion))
+- **Historial** — un botón en la parte superior de la página que abre la cronología de la decisión y sus versiones guardadas (consulte [Historial](#decision-history))
 - Vinculación de tarjetas — conecte el ADR a tarjetas relevantes (aplicaciones, componentes TI, iniciativas, …). Las iniciativas se vinculan a través de la vinculación estándar de tarjetas, no por un campo dedicado, lo que permite que un ADR referencie múltiples iniciativas
-- Decisiones relacionadas — referencie otros ADR
+- **Fechas** — *Decidida el*, *Vigente desde* y un *Válida hasta* opcional (consulte [Fechas](#decision-dates))
+- **Personas** — los *Responsables de la decisión* y los *Participantes* (consulte [Personas](#decision-people))
+- **Esta decisión…** — vínculos tipados con otras decisiones (consulte [Vínculos entre decisiones](#decision-links))
+- **Resumen de cambios** — solo en una revisión: qué ha cambiado en esta revisión y por qué
+- **Archivos** — documentos adjuntos a la decisión (consulte [Archivos](#decision-files))
+- **Diagramas** — diagramas del módulo Diagramas adjuntos a la decisión (consulte [Diagramas](#decision-diagrams))
+
+#### Imágenes {: #decision-pictures }
+
+Cada una de las cuatro secciones puede contener imágenes — una captura de pantalla, un diagrama exportado, la foto de una pizarra. Haga clic en **Insertar imagen** en la barra de herramientas de la sección y elija un archivo, pegue una imagen desde el portapapeles o arrastre un archivo de imagen a la sección. La imagen se sube al insertarla y aparece en su propia línea.
+
+- **Cambiar el tamaño.** Arrastre la esquina de una imagen para cambiar su tamaño: se mantienen sus proporciones.
+- **Alinear.** Seleccione la imagen y haga clic en **Alinear a la izquierda**, **Centrar** o **Alinear a la derecha** en la barra de herramientas.
+- **Formatos.** PNG, JPEG, GIF y WebP, hasta 5 MB por imagen. Una imagen más grande se rechaza, no se reduce. SVG no se acepta.
+- **Dónde se muestra.** Las imágenes aparecen en la [vista previa](#preview), en la copia PDF / impresa y en la exportación a Word. En el [Historial](#decision-history), una versión muestra sus imágenes, y **Cambios** marca una imagen añadida o eliminada como *[Imagen]*. Una revisión, un duplicado y una versión restaurada conservan las imágenes del texto del que proceden.
+- **Solo imágenes subidas aquí.** Una decisión solo conserva las imágenes subidas a decisiones. Una imagen que enlaza a otro sitio web, o una copiada de un SoAW, se elimina al guardar la decisión.
+- **Los comentarios** de la [discusión](#decision-discussion) no admiten imágenes.
+- **Cuando la carga de archivos está desactivada.** El botón **Insertar imagen**, así como pegar y arrastrar imágenes, desaparecen cuando un administrador ha [desactivado la carga de archivos](../admin/resources.md#when-file-uploads-are-disabled). Las imágenes que ya están en el texto siguen visibles.
+
+#### Enlaces en el texto {: #decision-text-links }
+
+Seleccione algunas palabras y haga clic en **Enlace** en la barra de herramientas de la sección, o pulse **Ctrl+K** (**Cmd+K** en un Mac), para enlazarlas. Escriba la **Dirección** y haga clic en **Aplicar**. Si no hay nada seleccionado, el diálogo también pide el **Texto que se mostrará**; si se deja vacío, se muestra la propia dirección. Una dirección web o de correo electrónico escrita o pegada en el texto se convierte en enlace por sí sola.
+
+- **Qué puede ser un enlace.** Direcciones web (`http://`, `https://`) y direcciones de correo electrónico (`mailto:`). Una dirección sin esquema se completa: `example.com` pasa a ser `https://example.com` y `ann@example.com` un enlace de correo. Cualquier otra cosa — otro esquema, o una dirección dentro de Turbo EA como `/cards/…` — se rechaza con *Introduzca una dirección web (https://…) o una dirección de correo electrónico*.
+- **Editar o quitar un enlace.** Coloque el cursor en el enlace y vuelva a hacer clic en **Enlace** o a pulsar Ctrl/Cmd+K: el diálogo se abre con la dirección rellenada y ofrece además **Quitar enlace** y **Abrir en una pestaña nueva**.
+- **Seguir un enlace.** Mientras edita, un clic en un enlace coloca el cursor en él, para que pueda editarse como cualquier otro texto; **Ctrl+clic** (**Cmd+clic** en un Mac) lo abre en una pestaña nueva. En la vista previa, el historial y una decisión bloqueada o firmada, un clic lo abre en una pestaña nueva.
+- **Ctrl/Cmd+K.** Dentro de una sección que está editando, el atajo abre el diálogo de enlace en lugar de la [búsqueda global](inventory.md); en cualquier otro lugar sigue abriendo la búsqueda.
+- **Los comentarios** de la [discusión](#decision-discussion) admiten enlaces de la misma manera.
+- **Dónde se muestran.** Los enlaces siguen siendo clicables en la vista previa, la copia PDF / impresa y la exportación a Word. En el [Historial](#decision-history), **Cambios** indica como cambio una dirección de enlace modificada.
+
+#### Tablas {: #decision-tables }
+
+Cada una de las cuatro secciones puede contener tablas. Haga clic en **Tabla** en la barra de herramientas de la sección y elija **Insertar tabla**: se inserta una tabla de tres filas y tres columnas, con la primera fila como fila de encabezado. Una celda contiene texto como el resto de la sección: el formato, los enlaces, las menciones y las imágenes funcionan en ella.
+
+Hay tres formas de llegar a las acciones de una tabla, y cada una actúa sobre la celda que contiene el cursor o sobre las celdas que haya seleccionado:
+
+- **El menú Tabla de la barra de herramientas** — con el cursor en una tabla, **Tabla** muestra todas las acciones que siguen.
+- **Clic derecho** en una celda — las mismas acciones se abren junto al puntero.
+- **Los tiradores** alrededor de la tabla — un tirador junto a una fila o encima de una columna abre las acciones de esa fila o columna, y un **+** inserta una (consulte *Tiradores* más abajo).
+
+Las acciones:
+
+- **Seleccionar fila** y **Seleccionar columna** seleccionan la fila o la columna entera del cursor, o de cada celda seleccionada.
+- **Añadir fila encima**, **Añadir fila debajo**, **Añadir columna antes** y **Añadir columna después**. **Añadir fila encima** no está disponible en la fila de encabezado: una fila nueva siempre va debajo de ella.
+- **Mover fila arriba**, **Mover fila abajo**, **Mover columna antes** y **Mover columna después** mueven la fila o la columna un lugar y la mantienen seleccionada. Un movimiento no está disponible en el borde de la tabla, a través de la fila de encabezado, con más de una fila o columna seleccionada, ni en una tabla en la que una celda combinada abarque varias filas (para las filas) o varias columnas (para las columnas).
+- **Eliminar fila** y **Eliminar columna** eliminan todas las filas o columnas de la selección e indican cuántas (*Eliminar 2 filas*). Una tabla conserva al menos una fila y una columna: con todas las filas seleccionadas, **Eliminar fila** no está disponible, y con todas las columnas seleccionadas, tampoco lo está **Eliminar columna**.
+- **Fila de encabezado** activa o desactiva el formato de encabezado de la primera fila.
+- **Combinar celdas** une las celdas que haya seleccionado arrastrando sobre ellas, y **Dividir celda** vuelve a dividir una celda combinada.
+- **Eliminar tabla**.
+
+Antes y después siguen el sentido de lectura: en un idioma que se escribe de derecha a izquierda, la columna de antes es la de la derecha.
+
+**Tiradores.** Mientras edita, la tabla tiene a su alrededor un margen estrecho que contiene sus tiradores. Se muestran para la celda bajo el puntero y, mientras trabaja en la sección, para la celda que contiene el cursor:
+
+- **Un tirador de fila** junto a la fila y **un tirador de columna** encima de la columna. Un clic selecciona la fila o la columna y abre sus acciones: para una fila, **Añadir fila encima**, **Añadir fila debajo**, **Mover fila arriba**, **Mover fila abajo**, **Eliminar fila** y, en la primera fila, **Fila de encabezado**; para una columna, **Añadir columna antes**, **Añadir columna después**, **Mover columna antes**, **Mover columna después** y **Eliminar columna**. Un clic derecho en un tirador hace lo mismo. En una celda combinada, el tirador representa todas las filas o columnas que abarca la celda, y su menú lo indica (*Eliminar 2 filas*).
+- **Un +** en el borde inferior de una fila inserta una fila debajo, y **un +** en el borde final de una columna inserta una columna después. La última fila y la última columna tienen en su lugar las barras.
+- **Una barra** bajo la última fila añade una fila al final, y **una barra** después de la última columna añade una columna al final.
+
+Una fila o columna añadida de este modo coloca el cursor en su primera celda, y un solo deshacer la elimina. En una pantalla táctil, los tiradores son más grandes y se muestran para la celda que haya tocado.
+
+**El menú del clic derecho.** Un clic derecho en una celda abre las acciones de la tabla junto al puntero. Si el clic se hace dentro de celdas que haya seleccionado, la selección se conserva, de modo que las acciones se aplican a todas ellas; en cualquier otro lugar, el cursor pasa primero a la celda en la que hizo clic.
+
+- **Mayús+clic derecho** abre en su lugar el menú propio del navegador, para sus sugerencias ortográficas o **Pegar**.
+- Un clic derecho en un **enlace** o una **imagen** de una celda también abre el menú del navegador, para abrirlo o copiarlo.
+- En una pantalla táctil, una pulsación larga selecciona texto como de costumbre; use allí los tiradores.
+- Con el teclado, **Mayús+F10** o la tecla **Menú** abre el mismo menú en la celda del cursor.
+
+**Teclado.** **Tab** pasa a la celda siguiente y **Mayús+Tab** a la anterior; Tab en la última celda añade una fila. El menú **Tabla** de la barra de herramientas da acceso a todas las acciones desde el teclado; los tiradores son para el puntero y la pantalla táctil y no forman parte del orden de tabulación.
+
+**Anchos y tablas anchas.** Arrastre el borde entre dos columnas para cambiar su anchura. Una tabla más ancha que la sección se desplaza lateralmente; el tirador de una fila sale entonces de la vista junto con la primera columna, mientras que el menú del clic derecho y el menú **Tabla** de la barra de herramientas siguen dando acceso a todas las acciones.
+
+Una decisión bloqueada o firmada muestra sus tablas sin tiradores, y un clic derecho en ella abre el menú del navegador.
+
+- **Dónde se muestran.** Las tablas aparecen en la [vista previa](#preview) y en el [Historial](#decision-history), donde **Cambios** lee cada fila como una sola línea, con sus celdas separadas por ` | `. En la copia PDF / impresa, una tabla conserva las proporciones de sus columnas y se ajusta al ancho de la página. La exportación a Word escribe una tabla real de Word, con sus celdas combinadas, sus anchos de columna y una fila de encabezado repetida al principio de cada página.
+- **Los comentarios** de la [discusión](#decision-discussion) no admiten tablas: una tabla pegada en un comentario se convierte en el texto de sus celdas.
+
+#### Fechas {: #decision-dates }
+
+- **Decidida el** — el día en que se tomó la decisión. No puede estar en el futuro.
+- **Vigente desde** — el día en que entra en vigor. Hasta entonces, una decisión firmada está **Programada**.
+- **Válida hasta** — opcional, para una decisión con plazo limitado, como una excepción. Al día siguiente, la decisión está **Caducada**. No puede ser anterior a *Vigente desde*, ni haber pasado ya cuando la decisión se envía a revisión.
+
+Si se dejan vacías, *Decidida el* y *Vigente desde* toman la fecha de la última firma. La renovación de una decisión caducada es una nueva revisión o una nueva decisión, que se firma como cualquier otra.
+
+#### Personas {: #decision-people }
+
+Los **Responsables de la decisión** son las personas que la tomaron; los **Participantes** son las personas que tomaron parte en ella. Elija un usuario de Turbo EA, o escriba un nombre y pulse Intro para alguien sin cuenta. Ambos se registran por separado de los **firmantes**, que aprueban el registro en Turbo EA. Al solicitar firmas, **Añadir responsables de la decisión** en el diálogo añade a los firmantes, con un clic, a cada responsable de la decisión que sea usuario de Turbo EA.
+
+#### Vínculos entre decisiones {: #decision-links }
+
+La sección **Esta decisión…** de una decisión la vincula con otras. Elija el tipo de vínculo y la decisión, y añada opcionalmente una nota para un caso parcial — por ejemplo *solo la sección 3*:
+
+| Vínculo | Se muestra en la otra decisión como | Efecto una vez que esta decisión está firmada y en vigor |
+|---------|-------------------------------------|---------------------------------------------------------|
+| **Sustituye a** | Sustituida por | La otra decisión pasa a **Sustituida** |
+| **Modifica** | Modificada por | La otra decisión pasa a **Vigente (modificada)** |
+| **Revoca** | Revocada por | La otra decisión pasa a **Revocada** |
+| **Se relaciona con** | Relacionada con | Ninguno — una referencia cruzada |
+
+Los vínculos se muestran en ambas decisiones y apuntan a la revisión actual de la decisión. Actúan sobre la decisión completa, incluidas todas sus revisiones, y solo una vez que la decisión que los lleva está firmada y en vigor: un borrador que revoca otra decisión no cambia nada hasta que se firma, y uno con una fecha *Vigente desde* posterior actúa en esa fecha (la otra decisión indica *Esta decisión será revocada por … el …*). Una decisión no puede vincularse a una de sus propias revisiones, y cada decisión con la que se vincula debe estar firmada antes de enviarla a revisión o registrarla.
+
+Estos son vínculos entre decisiones; para los enlaces a páginas web en el texto de una sección, consulte [Enlaces en el texto](#decision-text-links).
+
+#### Revocar o sustituir una decisión {: #revoking-or-replacing-a-decision }
+
+Una decisión firmada nunca se retira a mano: se revoca o se sustituye mediante otra decisión firmada, de modo que el registro conserva quién la tomó y cuándo. Abra la decisión firmada y use el menú **Revisar**:
+
+- **Revisar esta decisión** — una nueva revisión de la misma decisión, con la misma referencia (consulte [Revisiones](#revisiones)).
+- **Sustituir por una nueva decisión** — un nuevo borrador titulado *Sustituye a: …* que ya lleva un vínculo **Sustituye a** y las mismas tarjetas vinculadas.
+- **Revocar** — un nuevo borrador titulado *Revocación de ADR-012 — …* que ya lleva un vínculo **Revoca** y las mismas tarjetas vinculadas.
+
+Complete el nuevo borrador y páselo por el flujo de firma como cualquier otra decisión. El menú no se ofrece en una revisión anterior (abra la actual) ni en una decisión que ya ha sido revocada o sustituida. Cuando una decisión firmada sustituye, modifica o revoca otra, el autor de esa decisión recibe una notificación **Vigencia de ADR cambiada**.
+
+#### Modificaciones y revisiones consolidadas {: #amendments-and-consolidated-revisions }
+
+Una decisión modificada por otra sigue vigente, y su página lista las decisiones que la modifican. Para ofrecer a los lectores un único texto actual, haga clic en **Crear revisión consolidada** en ese banner: se inicia una revisión de la decisión modificada que nombra la decisión que la modifica (*Consolida la modificación de …*). Incorpore la modificación al texto, descríbala en el **Resumen de cambios** y envíe la revisión a firma. Una vez firmada y en vigor, la decisión vuelve a estar **Vigente**, y la decisión que la modificaba muestra *La modificación introducida por esta decisión está consolidada en …*. Una modificación también deja de contar cuando la decisión que la introduce se revoca, se sustituye o caduca — pero no cuando simplemente se revisa: su revisión conserva la modificación, y el banner nombra la revisión actual de esa decisión.
+
+#### Archivos {: #decision-files }
+
+La sección **Archivos** adjunta documentos a una decisión — un acta firmada, un análisis de apoyo. Los archivos admiten los mismos formatos que los [adjuntos de las fichas](card-details.md#pestana-de-recursos), hasta 20 MB cada uno, y solo se pueden subir mientras la subida de archivos esté activada (eliminarlos siempre es posible). Solo se pueden añadir y eliminar en un borrador guardado: una vez que la decisión se envía a revisión, quedan bloqueados con ella. Una revisión conserva los archivos de su decisión.
+
+#### Diagramas {: #decision-diagrams }
+
+La sección **Diagramas**, después de **Archivos**, adjunta a una decisión diagramas del módulo [Diagramas](diagrams.md), por ejemplo el diagrama de contexto del que trata la decisión. Haga clic en **Adjuntar diagrama**, busque en la lista y elija uno; se adjunta de inmediato, sin guardar. Cada diagrama adjunto muestra su miniatura y su nombre, y un clic lo abre. Para quitar uno, haga clic en su botón de quitar y confirme: el diagrama en sí se conserva.
+
+- **Siempre el diagrama actual.** La decisión enlaza con el diagrama, no guarda una copia: siempre muestra el diagrama tal como está ahora, también una vez firmada la decisión. Eliminar el diagrama lo quita de todas las decisiones a las que estaba adjunto, incluidas las firmadas.
+- **Cuándo puede cambiar.** Los diagramas se pueden adjuntar y quitar mientras la decisión es un borrador o está en revisión. Una vez firmada, quedan fijos: para cambiarlos, cree una nueva revisión.
+- **Quién los ve.** Ver la sección requiere el permiso para ver diagramas (`diagrams.view`); adjuntar y quitar requieren además `adr.manage`. Un lector sin `diagrams.view` no ve ninguna sección Diagramas. Una decisión que no se puede editar y no tiene diagramas tampoco muestra la sección.
+- **Dónde se muestran.** La [vista previa](#preview) muestra los diagramas en modo de solo lectura; la copia PDF / impresa y la exportación a Word enumeran sus nombres. Una revisión y un duplicado conservan los diagramas. Los diagramas no forman parte de una versión del [Historial](#decision-history).
 
 #### Flujo de Firma
 
 Los ADR soportan un proceso formal de firma:
 
 1. Cree el ADR en estado **Borrador**.
-2. Haga clic en **Solicitar Firmas** y busque firmantes por nombre o correo electrónico.
+2. Haga clic en **Solicitar Firmas** y busque firmantes por nombre o correo electrónico (o haga clic en **Añadir responsables de la decisión**). Solo se pueden solicitar firmas desde un borrador.
 3. El ADR pasa a **En Revisión** — cada firmante recibe una notificación y una tarea.
 4. Los firmantes revisan y hacen clic en **Firmar**.
 5. Cuando todos hayan firmado, el ADR pasa automáticamente al estado **Firmado**.
 
+**Una decisión en revisión está bloqueada**, para que los firmantes firmen exactamente lo que se les envió: el texto, las fechas, las personas, los vínculos con otras decisiones, los archivos y los paneles de extensiones son de solo lectura, y solo las tarjetas vinculadas y los [diagramas](#decision-diagrams) adjuntos pueden cambiar todavía. Para editarla, haga clic en **Retirar firmas**, lo que la devuelve a borrador. Un firmante que hace clic en **Rechazar** también la devuelve a borrador, con el mismo número de revisión.
+
 Los ADR firmados están bloqueados y no pueden editarse — para cambios cree una nueva revisión.
+
+#### Registrar una decisión pasada {: #recording-a-past-decision }
+
+Una decisión tomada fuera de Turbo EA — por ejemplo, en una reunión del comité de dirección antes de que existiera el registro — puede introducirse como decidida sin recoger firmas. Redáctela como borrador, indique al menos un responsable de la decisión y, a continuación, haga clic en **Registrar como decidida** e indique la fecha **Decidida el** (no en el futuro) y, si es distinta, la fecha **Vigente desde** (por defecto, la fecha de decisión).
+
+La decisión queda entonces bloqueada como una firmada y recibe su vigencia, pero su estado es **Registrado**, y su página indica *Registrada por … el …, no firmada en Turbo EA.* Registrar requiere el permiso `adr.record`, que por defecto solo tiene el rol Admin, y cada registro aparece en el [registro de Seguridad y administración](../admin/audit-log.md) como `admin.adr.recorded`. También se puede registrar un borrador de revisión, siempre que su fecha de decisión no sea anterior a la de su revisión previa.
 
 #### Revisiones
 
-Abra un ADR firmado y haga clic en **Revisar** para crear un nuevo borrador basado en la versión firmada. La nueva revisión hereda el contenido y los vínculos de tarjetas y recibe un número de revisión incremental. Cada revisión conserva su propio rastro de firmas.
+Abra un ADR firmado y elija **Revisar → Revisar esta decisión** para crear un nuevo borrador basado en la versión firmada. La revisión conserva la referencia de la decisión y toma el siguiente número de revisión — **ADR-012 · Rev 2** — y hereda el contenido, las tarjetas vinculadas, los diagramas adjuntos, los vínculos **Se relaciona con**, las personas, los archivos y la fecha *Válida hasta*. No hereda las fechas de decisión y de entrada en vigor, los firmantes, el resumen de cambios ni los vínculos sustituye / modifica / revoca, que permanecen en la revisión que los creó. Cada revisión conserva su propio rastro de firmas.
 
-#### Vista previa
+- **Una sola revisión abierta a la vez.** Mientras se redacta una revisión, la revisión actual lo indica y el menú **Revisar** abre ese borrador en lugar de iniciar otro.
+- **La revisión actual es la vigente.** Una vez que una revisión está firmada y en vigor, las anteriores quedan **Sustituidas** y muestran un banner con un enlace a la actual. La franja **Revisiones** de cada revisión lista toda la cadena y marca la actual.
+- **Solo se puede revisar la revisión actual**, y ya no una vez que la decisión ha sido revocada o sustituida. Una decisión caducada o modificada todavía se puede revisar.
+- **Un rechazo no cuenta como revisión**: el número de revisión solo cambia cuando se crea una nueva revisión.
+- Las decisiones revisadas antes de la versión 2.199.0 conservan los números de referencia con que se emitieron, y se siguen leyendo como una sola decisión con una sola franja de revisiones.
 
-Haga clic en el icono de vista previa para ver una versión de solo lectura y formateada del ADR — útil para revisión antes de firmar.
+#### Vista previa {: #preview }
 
-Desde la vista previa, haga clic en **PDF** para abrir una copia lista para imprimir en una pestaña nueva — metadatos, las cuatro secciones, tarjetas vinculadas, secciones de extensiones y el bloque de firmas, con el aprobador y la fecha de impresión en el pie. El editor tiene el mismo botón **PDF** más **Word**, que descarga la decisión como `.docx` mientras no esté firmada; ambos exportan el estado actual del editor, incluidos los cambios sin guardar.
+Haga clic en el icono de vista previa para ver una versión de solo lectura y formateada del ADR — útil para revisión antes de firmar. También muestra los diagramas adjuntos, y sus enlaces se abren en una pestaña nueva.
+
+Desde la vista previa, haga clic en **PDF** para abrir una copia lista para imprimir en una pestaña nueva — metadatos y fechas, las cuatro secciones, personas, tarjetas vinculadas, vínculos con otras decisiones, nombres de archivo, nombres de los diagramas, secciones de extensiones y el bloque de firmas (o la línea de registro), con el aprobador y la fecha de impresión en el pie. El editor tiene el mismo botón **PDF** más **Word**, que descarga la decisión como `.docx` mientras no esté firmada; ambos exportan el estado actual del editor, incluidos los cambios sin guardar. En el documento de Word, el formato y los enlaces se conservan en todas partes — también en listas, citas y encabezados —, los enlaces son clicables, el código mantiene una fuente monoespaciada y las tablas son tablas reales de Word.
+
+#### Discusión {: #decision-discussion }
+
+Cada decisión tiene su propia **Discusión**, de modo que una decisión puede resolverse en Turbo EA en lugar de en un hilo de chat aparte. Ábrala con el botón de discusión del editor o de la vista previa de la decisión: en una pantalla ancha se abre como un panel junto al documento, en una más estrecha como un cajón lateral. El título del panel muestra cuántos hilos están abiertos. El [Historial](#decision-history) de la decisión no está en este panel: se abre con el botón **Historial** de la parte superior de la página.
+
+- **Hilos y respuestas.** Escriba en el cuadro de la parte superior del panel y haga clic en **Publicar** (o pulse Ctrl+Intro, Cmd+Intro en Mac) para iniciar un hilo. Para asociarlo a una sección, haga clic en una de las etiquetas de sección situadas sobre el cuadro — *Contexto*, *Decisión*, *Alternativas Consideradas* o *Consecuencias*; vuelva a hacer clic en la etiqueta elegida para desasociarlo. Un hilo sin sección es un hilo general. Cada hilo admite respuestas, con un solo nivel de profundidad; un hilo conserva la sección con la que se inició, y su etiqueta de sección se muestra en la parte superior del hilo.
+- **Filtrar por sección.** En cuanto un hilo tiene una sección, una fila de etiquetas en la parte superior de la discusión enumera cada sección que tiene hilos, con cuántos (*Decisión (2)*), y una etiqueta **General** cuando algunos hilos no tienen sección. Haga clic en una etiqueta para mostrar solo sus hilos; active varias para ver los hilos de cualquiera de ellas, vuelva a hacer clic en una para desactivarla o haga clic en **Borrar**. Hacer clic en la etiqueta de sección de un hilo activa su filtro. El filtro funciona con los hilos resueltos plegados o no y con las revisiones anteriores visibles, y solo cuenta los hilos listados. No se conserva al salir del documento, y un hilo abierto desde una notificación siempre se muestra.
+- **Discusión en una sección.** Cada sección muestra un pequeño icono de chat junto a su encabezado, en el editor y en la vista previa, para las personas que pueden comentar (quienes solo pueden leer lo ven únicamente en las secciones con hilos): el número de hilos abiertos cuando la sección tiene discusión, o un icono atenuado cuando todos están resueltos. Haga clic en él para abrir la discusión filtrada por esa sección, con los hilos resueltos desplegados cuando ninguno está abierto y la sección ya seleccionada para un nuevo comentario (el icono nunca se imprime ni se exporta).
+- **Resolver y reabrir.** Haga clic en **Resolver** cuando un hilo esté zanjado y en **Reabrir** si no lo está. Los hilos resueltos quedan plegados tras **Mostrar N hilos resueltos**.
+- **Formato.** Un comentario admite negrita, cursiva, tachado, **Código en línea**, listas con viñetas y numeradas, citas y [enlaces](#decision-text-links) (el botón **Enlace** o Ctrl/Cmd+K). Los encabezados, los bloques de código, las imágenes y las tablas van en las secciones, no en los comentarios.
+- **Quién puede publicar.** La lectura de la discusión sigue a quién puede abrir la decisión (`adr.view`). Publicar, responder, resolver y reabrir requieren el permiso `adr.comment`, que los miembros y administradores tienen por defecto y los visores no; un administrador puede cambiarlo por rol. Los firmantes de la decisión siempre pueden comentarla, incluidas las personas a las que se pidió firmarla en una ronda de revisión anterior que se retiró o se rechazó.
+- **Durante la revisión y tras la firma.** El [bloqueo de revisión](#flujo-de-firma) afecta al contenido, no a la conversación: la discusión sigue abierta mientras la decisión está en revisión y después de firmarse.
+- **Notas de revisión.** Cuando un firmante rechaza una decisión, el motivo abre un hilo marcado como **Motivo del rechazo** (*No se indicó ningún motivo* si el firmante lo dejó vacío), que se responde y se resuelve como cualquier otro. Un firmante puede añadir una nota opcional al firmar; aparece en la discusión como **Nota de firma**. Ninguno de los dos se pierde ya cuando se retiran las firmas, y ambos se muestran también en el [Historial](#decision-history).
+- **Hilos abiertos antes de la revisión.** **Solicitar firmas**, **Firmar** y **Rechazar** advierten cuando la decisión aún tiene hilos abiertos (*2 hilos de discusión abiertos en este documento.*). Es solo una advertencia: no se bloquea nada.
+- **Notificaciones.** Un comentario nuevo notifica al autor de la decisión, a sus firmantes, a sus responsables de la decisión y participantes que sean usuarios de Turbo EA, y a las personas que comentaron antes; nunca a quien lo publicó. Escriba **@** en un comentario para mencionar a un colega: recibirá una notificación de mención en su lugar. Una persona mencionada que no puede abrir la decisión no recibe notificación, y el panel se lo indica (*… no fue notificado: no puede abrir este documento.*). Las notificaciones no incluyen el texto del comentario, y al hacer clic en una se abre la vista previa de la decisión con el panel en ese hilo. Consulte [Notificaciones](notifications.md#tipos-de-notificaciones).
+- **Editar y eliminar.** Puede editar sus propios comentarios; un comentario editado se marca como *(editado)*. Puede eliminar sus propios comentarios, y cualquiera que pueda editar la decisión (`adr.manage`) puede eliminar cualquier comentario; un comentario eliminado se reduce en su lugar a una pequeña línea, con su autor, su fecha y *Comentario eliminado*. Eliminar el primer comentario de un hilo cierra el hilo: las respuestas que ya tiene se mantienen, pero nadie puede responderlo, resolverlo ni reabrirlo. Un motivo de rechazo y una nota de firma no se pueden editar ni eliminar: un rechazo se resuelve en su lugar.
+- **Revisiones anteriores.** Un hilo pertenece a la revisión en la que se inició. Active **Mostrar la discusión de revisiones anteriores** para leer los hilos de las revisiones anteriores de la decisión, agrupados por revisión.
+
+#### Menciones {: #decision-mentions }
+
+Mientras redacta una decisión, escriba **@** en cualquiera de sus cuatro secciones para mencionar una **ficha** u otra **decisión**. Una ventana emergente muestra las fichas y decisiones que coinciden a medida que escribe; use las flechas e Intro (o haga clic) para elegir una, y Escape para cerrarla. En un comentario, **@** también ofrece **personas**. Cada entrada indica qué es: una ficha muestra el color y el icono de su tipo, su tipo, su subtipo y la ficha de la que depende (*Aplicación · Microservicio · en Finance Suite*, cuando usted puede ver esa ficha); una decisión muestra su referencia (*ADR-012 · Rev 2*), su título y su estado; una persona muestra un nombre y una dirección de correo electrónico. Una mención aparece como una etiqueta (chip) con el nombre actual de aquello a lo que apunta —el nombre de una ficha, la referencia y el título de una decisión—, de modo que renombrar una ficha nunca cambia el texto. Haga clic en una etiqueta de ficha o de decisión para abrirla.
+
+- **Qué aparece primero.** Si no se escribe nada después de **@**, aparecen primero las fichas vinculadas a la decisión y después las demás fichas por orden alfabético; en un comentario, los firmantes, los responsables de la decisión y los participantes aparecen primero entre las personas. A medida que escribe, las mejores coincidencias aparecen primero, como en el resto de Turbo EA, y entre coincidencias igual de buenas van delante las fichas vinculadas y las personas de la decisión.
+- **Examinar.** La última entrada de la ventana emergente, **Examinar…**, y el botón **Mencionar…** (**@**) de la barra de herramientas del editor abren un cuadro de diálogo con los selectores habituales: **Fichas** (el selector de fichas del resto de Turbo EA, con su lista de tipos, su jerarquía y su búsqueda), **Decisiones** (una lista con búsqueda) y, en un comentario, **Personas**. Elija tantos como necesite en cualquier pestaña y haga clic en **Insertar**: se inserta una mención por cada elección, en el orden en que las eligió, separadas por espacios — en lugar de lo que escribió después de **@** cuando el cuadro de diálogo se abrió desde la ventana emergente. **Cancelar** no inserta nada.
+- Un lector que no puede ver una ficha mencionada ve **Ficha restringida** en lugar de su nombre en todas partes: el editor, la vista previa, las exportaciones a PDF y Word, la cuadrícula, el historial y la discusión. Un lector que no puede abrir decisiones ve **Decisión restringida**. Al guardar el texto, esas menciones se conservan tal cual, aunque quien guarda no pueda verlas.
+- Una ficha mencionada que se ha eliminado después aparece como **Ficha eliminada** (una decisión eliminada, **Decisión eliminada**), ya que el texto no almacena nombres.
+- Una mención no vincula la ficha. Cuando el texto menciona fichas que no están vinculadas, el editor las enumera bajo *Fichas mencionadas en el texto pero no vinculadas:*, cada una con un botón **Vincular esta ficha**. Vincular fichas en el editor usa el mismo selector de fichas que el resto de Turbo EA.
+- **Mencionado en.** La [pestaña ADR](card-details.md#pestana-de-adr) de una ficha y la vista previa de una decisión enumeran, bajo **Mencionado en**, las decisiones y SoAW cuyo texto menciona esa ficha o decisión, y aquellos cuya discusión la menciona (marcados *en la discusión*). La lista solo muestra los documentos que puede abrir.
+
+#### Historial {: #decision-history }
+
+El botón **Historial** de la parte superior del editor o de la vista previa de la decisión, junto a la franja de revisiones cuando la decisión tiene varias, abre una vista amplia: la cronología a la izquierda y la versión seleccionada a la derecha. La cronología registra lo que le ha ocurrido a la decisión, de lo más reciente a lo más antiguo: creada, guardada, enviada a revisión, cada firma (con su nota), rechazada (con el motivo), firmas retiradas, completamente firmada, registrada como decidida, una revisión iniciada, una versión anterior restaurada. Todos los que pueden abrir la decisión ven esta cronología. Los eventos de revisión —enviada a revisión, firmada, retirada, rechazada— se conservan a partir de la versión 2.200.0; antes se mostraban en vivo pero nunca se almacenaban. Las decisiones que existían antes de esa versión empiezan con una cronología reconstruida a partir de lo almacenado: creada, revisada, enviada a revisión (para una decisión en revisión en el momento de la actualización, con los firmantes a los que se envió), cada firma, firmada y registrada.
+
+El Historial no es la tabla **Historial de Versiones del Documento**, mantenida a mano, de una [Declaración de Trabajo de Arquitectura](delivery.md#el-editor-de-soaw), que registra lo que los autores deciden escribir en ella.
+
+- **Versiones.** Se conserva una versión cada vez que se guarda un borrador con cambios. Contiene el título, las cuatro secciones, las fechas, el resumen de cambios y las personas; los vínculos con otras decisiones, las fichas vinculadas, los archivos y los diagramas no forman parte de una versión. Los pasos que contienen una versión están marcados en la cronología; las personas que pueden editar la decisión y sus firmantes seleccionan uno para mostrarlo a la derecha, y la versión más reciente queda seleccionada al abrir la vista. Los demás lectores ven la cronología sin las versiones (*Las versiones guardadas solo se muestran a editores y firmantes.*). En una pantalla estrecha, la vista muestra primero la cronología y después la versión seleccionada con un botón **Atrás**.
+- **Cambios.** Encima de la versión seleccionada, **Versión** la muestra tal como se guardó y **Cambios** muestra qué cambió entre ella y la versión anterior, palabra por palabra en cada sección, junto con las fechas y personas que cambiaron; elija cualquier otra versión en **Comparar con**. Solo se pueden comparar las versiones ya cargadas en la cronología: cuando la versión anterior a la seleccionada aún no está cargada, **Cambios** lo indica, y **Cargar más** la carga. Un cambio solo de formato se indica como *Solo formato: las palabras son las mismas.*; un enlace cuya dirección cambió cuenta como cambio, y una fila de tabla se lee como una sola línea, con sus celdas separadas por ` | `.
+- **Restaurar.** En un borrador, alguien que pueda editar la decisión puede restaurar la versión seleccionada con **Restaurar esta versión**. Restaurar solo avanza: el texto, las fechas y las personas de la versión sustituyen a los del borrador y se conservan como una nueva versión, y el estado del borrador antes de la restauración permanece en el historial. Los vínculos con otras decisiones, las fichas vinculadas, los archivos y los diagramas no se restauran. Si el editor tiene ediciones sin guardar, la confirmación advierte de que se descartarán. Una vez restaurada, la página muestra la decisión restaurada y la vista se cierra. Una decisión en revisión o firmada no se puede restaurar.
+
+#### Limitaciones conocidas {: #collaboration-limits }
+
+- Una ficha eliminada aparece como **Ficha eliminada** dondequiera que se mencionara: el texto no almacena nombres, por lo que no se puede mostrar el nombre anterior.
+- Dos personas que guardan el mismo borrador siguen sobrescribiéndose: gana el último guardado. El historial conserva ambos guardados, así que la redacción sobrescrita puede encontrarse y restaurarse.
+- La discusión no forma parte de las exportaciones a PDF, Word u hoja de cálculo, ni de la copia impresa.
+- Un rol que puede abrir decisiones pero no tiene acceso al inventario no puede buscar fichas en la ventana de menciones (*Su rol no puede buscar fichas; aún puede mencionar decisiones.*).
+- El texto copiado de un documento a otro pierde sus etiquetas **Restringido**: una mención restringida solo puede conservarse en el documento en el que se escribió.
+- No se puede reconstruir a quién se pidió firmar en una ronda de revisión rechazada o retirada antes de la versión 2.200.0, por lo que esas personas no cuentan como firmantes de esa revisión. Una ronda aún abierta en el momento de la actualización conserva sus firmantes.
 
 ## Riesgo
 
@@ -139,7 +362,12 @@ La misma pestaña Cumplimiento también aparece en el Detalle de la ficha (auto-
 |---------|-------------------|
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
+| `adr.view` / `adr.manage` / `adr.sign` | `adr.view`: admin, bpm_admin, member, viewer; `adr.manage` y `adr.sign`: admin, bpm_admin, member |
+| `adr.record` | admin — [registrar una decisión pasada como decidida](#recording-a-past-decision) |
+| `adr.comment` | admin, bpm_admin, member — publicar en la [discusión](#decision-discussion) de una decisión; los firmantes de una decisión siempre pueden comentarla |
 | `risks.view` / `risks.manage` | ver [Registro de riesgos § Permisos](risks.md) |
 | `compliance.view` / `compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
+
+La sección [Diagramas](#decision-diagrams) de una decisión también requiere `diagrams.view` (admin, bpm_admin, member, viewer de forma predeterminada): sin él, un lector no ve diagramas en ninguna decisión.
 
 `grc.view` controla la visibilidad de la propia ruta GRC — sin él, la entrada del menú superior queda oculta. Cada pestaña además exige su permiso de dominio, de modo que una visualizadora puede leer el registro sin poder disparar un escaneo LLM, por ejemplo.

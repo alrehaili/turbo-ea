@@ -28,6 +28,20 @@ Chaque ligne de l'arbre affiche :
 
 La ligne synthétique **Artefacts non liés** en haut de l'arbre apparaît s'il existe des SoAWs, diagrammes ou ADRs qui ne sont pas encore liés à une initiative. Ouvrez-la pour les rattacher.
 
+### Qui voit quoi
+
+EA Delivery s'ouvre pour tout rôle qui détient **Voir les documents SoAW** (`soaw.view`) ou **Voir les décisions d'architecture** (`adr.view`). Chaque type d'artefact suit ensuite sa propre permission :
+
+| Artefact | Listé avec | Créé avec |
+|----------|-------------|--------------|
+| **SoAW** | `soaw.view` | `soaw.manage` |
+| **Diagramme** | `diagrams.view` | `diagrams.manage` (également nécessaire pour lier ou délier un diagramme) |
+| **ADR** | `adr.view` | `adr.manage` |
+
+Un groupe que vous n'avez pas le droit de voir est absent de l'espace de travail, et **+ Nouvel artefact** et **+ Ajouter …** ne proposent que les types que vous pouvez créer — un rôle en lecture seule ne voit aucun des deux boutons. Ainsi, un rôle qui n'a que `adr.view` obtient la page avec les décisions de chaque initiative et rien sur les SoAW.
+
+Les diagrammes joints à une décision suivent aussi `diagrams.view` : un rôle qui ne l'a pas ne voit aucune section [Diagrammes](grc.md#decision-diagrams) sur une décision.
+
 ## Statement of Architecture Work (SoAW)
 
 Un **Statement of Architecture Work (SoAW)** est un document formel défini par le [standard TOGAF](https://pubs.opengroup.org/togaf-standard/) (The Open Group Architecture Framework). Il établit la portée, l'approche, les livrables et la gouvernance d'un engagement d'architecture. Dans TOGAF, le SoAW est produit pendant la **Phase préliminaire** et la **Phase A (Vision de l'architecture)** et sert d'accord entre l'équipe d'architecture et ses parties prenantes.
@@ -45,34 +59,69 @@ Turbo EA fournit un éditeur SoAW intégré avec des modèles de sections align�
 
 L'éditeur offre :
 
-- **Édition de texte riche** -- Barre d'outils de mise en forme complète (titres, gras, italique, listes, liens) propulsée par l'éditeur TipTap
-- **Liens** -- Une URL saisie ou collée devient un lien au fil de la frappe, et chaque lien d'un document s'ouvre dans un nouvel onglet. Les adresses des documents rédigés avant la prise en charge des liens sont converties en liens à l'affichage
+- **Édition de texte riche** -- une barre d'outils de mise en forme sur chaque section de texte : gras, italique, souligné, barré, code en ligne, un titre et un sous-titre, listes à puces et numérotées, citations, blocs de code, séparateurs, liens, tableaux, mentions et images
+- **Liens** -- sélectionnez quelques mots et cliquez sur **Lien**, ou appuyez sur **Ctrl+K** (**Cmd+K** sur Mac), pour les lier à une adresse web ou e-mail ; le même bouton ou raccourci modifie ou supprime le lien sous le curseur. Une adresse web saisie ou collée devient un lien d'elle-même. Pendant l'édition, un clic sur un lien y place le curseur et **Ctrl+clic** (**Cmd+clic**) l'ouvre ; dans l'aperçu et dans un document verrouillé, un clic l'ouvre. Chaque lien s'ouvre dans un nouvel onglet, et les adresses des documents rédigés avant la prise en charge des liens sont converties en liens à l'affichage. Voir [Liens dans le texte](grc.md#decision-text-links)
 - **Modèles de sections** -- Sections prédéfinies suivant les standards TOGAF (par ex. Description du problème, Objectifs, Approche, Parties prenantes, Contraintes, Plan de travail)
-- **Tableaux éditables en ligne** -- Ajoutez et éditez des tableaux dans n'importe quelle section
+- **Tableaux du modèle** -- les sections tabulaires du modèle (objectifs, parties prenantes, risques, etc.) sont des grilles à colonnes fixes : ajoutez et supprimez des lignes directement
+- **Tableaux dans le texte** -- insérez votre propre tableau dans n'importe quelle section de texte (voir [Tableaux](#soaw-tables))
+- **Mentions** -- tapez **@** dans le texte d'une section pour mentionner une fiche ou une décision (voir [Discussion, mentions et historique](#soaw-collaboration))
+- **Images** -- insérez une capture d'écran ou un diagramme dans le texte d'une section (voir [Images](#soaw-pictures))
+- **Historique des versions du document** -- un tableau que les auteurs remplissent à la main (version, date, révisé par, description). Il fait partie du document et n'est pas la vue [Historique](#soaw-collaboration)
 - **Workflow de statut** -- Les documents progressent à travers des étapes définies :
 
 | Statut | Signification |
 |--------|---------------|
 | **Brouillon** | En cours de rédaction, pas encore prêt pour examen |
-| **En revue** | Soumis pour examen par les parties prenantes |
+| **En revue** | Envoyé pour signature — verrouillé jusqu'au rappel des signatures |
 | **Approuvé** | Examiné et accepté |
 | **Signé** | Formellement validé |
 
+### Images {: #soaw-pictures }
+
+Le texte d'une section peut contenir des images, comme celui d'une décision. Cliquez sur **Insérer une image** dans la barre d'outils de la section et choisissez un fichier, collez une image depuis le presse-papiers ou faites glisser un fichier image sur la section. Faites glisser le coin d'une image pour la redimensionner (ses proportions sont conservées) et sélectionnez-la pour l'aligner à gauche, au centre ou à droite depuis la barre d'outils. PNG, JPEG, GIF et WebP sont acceptés, jusqu'à 5 Mo par image ; SVG ne l'est pas.
+
+Les images apparaissent dans l'aperçu, dans la copie PDF / imprimée et dans l'export Word, ainsi que dans l'[Historique](#soaw-collaboration), où **Modifications** signale une image ajoutée ou supprimée par *[Image]*. Une révision et une version restaurée conservent leurs images. Seules les images téléversées dans un SoAW sont conservées : une image qui pointe vers un autre site web est supprimée à l'enregistrement du document. Les commentaires de la discussion n'acceptent pas d'images, et les commandes d'image disparaissent lorsqu'un administrateur a [désactivé le téléversement de fichiers](../admin/resources.md#when-file-uploads-are-disabled). La description complète se trouve dans le guide GRC : [Images](grc.md#decision-pictures).
+
+### Tableaux {: #soaw-tables }
+
+Le texte d'une section peut contenir des tableaux, comme celui d'une décision. Cliquez sur **Tableau** dans la barre d'outils de la section et choisissez **Insérer un tableau** pour un tableau de trois lignes et trois colonnes avec une ligne d'en-tête ; lorsque le curseur est dans un tableau, le même menu sélectionne, ajoute, déplace et supprime des lignes et des colonnes, active ou désactive la ligne d'en-tête, fusionne et scinde des cellules et supprime le tableau. Les mêmes actions s'ouvrent d'un clic droit dans une cellule et, pendant la modification, des poignées à côté d'une ligne et au-dessus d'une colonne ouvrent les actions de cette ligne ou de cette colonne, tandis qu'un **+** ou une barre au bord du tableau ajoute une ligne ou une colonne. Faites glisser la bordure d'une colonne pour la redimensionner, et utilisez **Tab** / **Maj+Tab** pour passer d'une cellule à l'autre. La mise en forme, les liens, les mentions et les images fonctionnent dans une cellule.
+
+Les tableaux apparaissent dans l'aperçu, la copie PDF / imprimée (ajustés à la page) et l'export Word (sous forme de vrai tableau Word), ainsi que dans l'[Historique](#soaw-collaboration), où **Modifications** lit une ligne de tableau comme une seule ligne. Les commentaires de la discussion n'acceptent pas de tableaux. La description complète se trouve dans le guide GRC : [Tableaux](grc.md#decision-tables).
+
 ### Workflow de signature
 
-Une fois qu'un SoAW est approuvé, vous pouvez demander des signatures aux parties prenantes. Cliquez sur **Demander des signatures** puis utilisez le champ de recherche pour trouver et ajouter des signataires par nom ou e-mail. Le système suit qui a signé et envoie des notifications aux signataires en attente.
+À partir d'un SoAW en brouillon ou approuvé, vous pouvez demander des signatures aux parties prenantes. Cliquez sur **Demander des signatures** puis utilisez le champ de recherche pour trouver et ajouter des signataires par nom ou e-mail. Le système suit qui a signé et envoie des notifications aux signataires en attente.
+
+Un SoAW en revue est **verrouillé**, afin que les signataires signent exactement ce qui leur a été envoyé : seule son initiative peut encore changer. Pour modifier le contenu, cliquez sur **Rappeler les signatures**, ce qui le remet en brouillon. Un signataire qui clique sur **Rejeter** le remet également en brouillon, sous le même numéro de révision. Seul un SoAW en brouillon peut être supprimé.
+
+### Révisions
+
+Un SoAW signé est en lecture seule. Cliquez sur **Nouvelle révision** pour démarrer un nouveau brouillon à partir de celui-ci, sous le même nom avec le numéro de révision suivant. Il n'y a qu'une révision ouverte à la fois : tant qu'une révision est en cours de rédaction, le SoAW signé l'indique et propose **Ouvrir la révision** au lieu d'en démarrer une autre. Seule la dernière révision peut être révisée, et un rejet ne change pas le numéro de révision.
+
+Une révision antérieure affiche un bandeau avec un lien vers la révision actuelle, et la barre **Révisions** de chaque révision les liste toutes. Les listes de SoAW — les livrables de l'initiative, l'onglet SoAW, le rapport EA Delivery — affichent la révision actuelle de chaque document et toute révision en cours de rédaction.
+
+### Discussion, mentions et historique {: #soaw-collaboration }
+
+Un SoAW dispose de la même discussion, des mêmes mentions et du même historique qu'une décision : la discussion dans un panneau à côté de son éditeur et de son aperçu, l'historique derrière le bouton **Historique** en haut de la page. Le comportement commun est décrit une seule fois, dans le guide GRC : [Discussion](grc.md#decision-discussion), [Mentions](grc.md#decision-mentions), [Historique](grc.md#decision-history) et [Limites connues](grc.md#collaboration-limits). Ce qui diffère pour un SoAW :
+
+- **Qui peut publier.** Publier, répondre, résoudre et rouvrir requièrent la permission `soaw.comment`, que les membres et les administrateurs détiennent par défaut et les lecteurs non ; la lecture de la discussion suit `soaw.view`. Les signataires du SoAW peuvent toujours le commenter. Toute personne pouvant modifier les SoAW (`soaw.manage`) peut supprimer n'importe quel commentaire.
+- **Sections.** Un fil est rattaché à l'une des sections propres au SoAW par une puce de section, ou à aucune (un fil général). Un SoAW a de nombreuses sections : la zone de saisie affiche donc une puce pour chaque section déjà discutée et pour celle qui est choisie ; **Plus…** ouvre une liste des autres avec recherche. Les puces en haut de la discussion la filtrent par section, comme pour une décision. Un fil rattaché à une section personnalisée supprimée depuis affiche *Section supprimée*. Chaque section porte à côté de son titre la même icône de bulle que celle d'une décision, dans l'éditeur et dans l'aperçu, avec le nombre de fils ouverts lorsqu'il y a une discussion ; cliquez dessus pour ouvrir la discussion sur cette section, avec la section déjà sélectionnée pour un nouveau commentaire.
+- **Rejet.** Tout signataire qui détient la permission de signer (`soaw.sign`) — ou la permission de modification — peut rejeter un SoAW, comme pour les décisions ; jusqu'ici, rejeter nécessitait la permission de modification. Le motif ouvre un fil **Motif du rejet** dans la discussion.
+- **Mentions.** Un SoAW n'a pas de fiches liées : lorsque rien n'est saisi après **@**, les fiches sont donc listées par ordre alphabétique ; dans un commentaire, les signataires du SoAW viennent en premier parmi les personnes. **Parcourir…** fonctionne comme pour une décision.
+- **Note de signature.** **Signer** ouvre désormais une boîte de dialogue où le signataire peut ajouter une note facultative ; elle apparaît dans la discussion comme **Note de signature** et dans l'Historique.
+- **Historique.** Une version contient le nom du SoAW, ses informations de document, son tableau Historique des versions du document et chaque section ; l'initiative ne fait pas partie d'une version. L'Historique consigne ce qui arrive au document ; le tableau Historique des versions du document, dans le document, ne consigne que ce que ses auteurs y écrivent. Un SoAW au statut **Approuvé** peut encore être modifié : comme pour un brouillon, ses enregistrements sont donc conservés comme versions et une version antérieure peut y être restaurée.
 
 ### Aperçu et export
 
 - **Mode aperçu** -- Vue en lecture seule du document SoAW complet
-- **Export DOCX** -- Téléchargez le SoAW sous forme de document Word formaté pour le partage hors ligne ou l'impression
+- **Export DOCX** -- Téléchargez le SoAW sous forme de document Word formaté pour le partage hors ligne ou l'impression. La mise en forme et les liens cliquables sont conservés dans toutes les parties du texte, le code garde une police à chasse fixe, et les tableaux du texte deviennent de vrais tableaux Word
 - **Export PDF** -- Ouvre une vue prête à imprimer dans un nouvel onglet ; utilisez *Enregistrer au format PDF* du navigateur. Autorisez les fenêtres pop-up pour ce site si rien ne s'ouvre.
 
 ### Onglet SoAW sur les fiches d'initiative
 
 ![Fiche d'initiative — onglet SoAW](../assets/img/fr/55_initiative_soaw_tab.png)
 
-Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste chaque SoAW lié à cette initiative (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. La visibilité de l'onglet suit les règles de permission standard des fiches.
+Les initiatives exposent également un onglet **SoAW** dédié directement sur leur page de détail. L'onglet liste la révision actuelle de chaque SoAW lié à cette initiative, plus toute révision en cours de rédaction (titre, puce de statut, numéro de révision, date de dernière modification) avec un bouton **+ Nouveau SoAW** qui pré-sélectionne l'initiative en cours — vous pouvez ainsi rédiger ou ouvrir un SoAW sans quitter la fiche sur laquelle vous travaillez. La création réutilise le même dialogue que la page EA Delivery, et le nouveau document apparaît aux deux endroits. L'onglet est affiché aux rôles qui détiennent **Voir les documents SoAW** (`soaw.view`) ; le bouton **+ Nouveau SoAW** et l'action de suppression d'un brouillon nécessitent **Créer et modifier les documents SoAW** (`soaw.manage`), que vous puissiez ou non modifier l'initiative elle-même.
 
 ## Architecture Decision Records (ADR)
 

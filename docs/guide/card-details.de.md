@@ -215,9 +215,9 @@ Hat eine Rolle eine **Beschreibung**, erscheint neben ihrem Namen ein Info-Symbo
 
 Wähle einen Stakeholder über das **durchsuchbare Autocomplete** — beginne zu tippen und das Dropdown filtert sowohl nach Name als auch nach E-Mail (die E-Mail erscheint als sekundäre Zeile, sodass zwei Nutzer mit demselben Namen auf einen Blick unterschieden werden können).
 
-Wenn die eingegebene E-Mail keinem bestehenden Nutzer entspricht, erscheint am Ende des Dropdowns eine Option **«Einladen «email» als neuen Nutzer»**. Bei Auswahl klappt direkt im Picker ein Inline-Mini-Formular auf — wähle eine Rolle (standardmäßig Member oder Viewer), bearbeite optional den Anzeigenamen und sende ab. Der neue Nutzer wird über die Standard-Einladungs-E-Mail eingeladen **und** in einem einzigen Schritt mit der gewählten Stakeholder-Rolle auf der Karte zugewiesen, sodass du die Karte nie verlassen musst, um einen Mitwirkenden zu onboarden.
+Wenn die eingegebene E-Mail keinem bestehenden Nutzer entspricht, erscheint am Ende des Dropdowns eine Option **«Einladen «email» als neuen Nutzer»**. Bei Auswahl klappt direkt im Picker ein Inline-Mini-Formular auf — bearbeite optional den Anzeigenamen und sende ab. Der neue Nutzer erhält die unter [Benutzer & Rollen](../admin/users.md#rollen) festgelegte **Standardrolle**. Der neue Nutzer wird über die Standard-Einladungs-E-Mail eingeladen **und** in einem einzigen Schritt mit der gewählten Stakeholder-Rolle auf der Karte zugewiesen, sodass du die Karte nie verlassen musst, um einen Mitwirkenden zu onboarden.
 
-Der Einladungspfad erfordert die **`users.invite`**-Berechtigung, eine delegierte Form von `admin.users`, die Admins an vertrauenswürdige Mitglieder vergeben können. Eine Schutzmechanik gegen Privilege-Escalation verhindert, dass Nicht-Admins Nutzer in Admin-Rollen einladen — das Rollen-Dropdown filtert stillschweigend auf Rollen, die der Einladende delegieren darf.
+Der Einladungspfad erfordert die **`users.invite`**-Berechtigung, eine delegierte Form von `admin.users`, die Admins an vertrauenswürdige Mitglieder vergeben können. Eine Schutzmechanik gegen Privilege-Escalation verhindert, dass Nicht-Admins Nutzer in andere Rollen einladen: Ohne `admin.users` kann ein eingeladener Nutzer nur die Standardrolle, Member oder Viewer erhalten.
 
 ## Verlauf-Tab
 
@@ -231,9 +231,11 @@ Alles, was das Datum **Geändert** der Karte verschiebt, erscheint hier — eine
 
 ## ADRs-Tab
 
-Jede Karte besitzt einen **ADRs**-Tab, der die mit ihr verknüpften [Architekturentscheidungen](delivery.md) auflistet — mit Referenz, Titel, Status, allen verknüpften Karten und dem Zeitpunkt der letzten Änderung. Klicken Sie auf eine Zeile, um die Entscheidung zu öffnen.
+Jede Karte besitzt einen **ADRs**-Tab, der die mit ihr verknüpften [Architekturentscheidungen](delivery.md) auflistet — die aktuelle Revision jeder Entscheidung sowie jede Revision, die gerade entworfen wird — mit Referenz, Titel, Geltung (oder ihrem Status, solange sie noch nicht unterzeichnet ist), allen verknüpften Karten und dem Zeitpunkt der letzten Änderung. Klicken Sie auf eine Zeile, um die Entscheidung zu öffnen; frühere Revisionen erreichen Sie von dort aus.
 
 Wenn Sie ADR-Verknüpfungen verwalten dürfen, bietet der Tab zusätzlich **ADR verknüpfen**, um eine bestehende Entscheidung anzuhängen, und **ADR erstellen**, um eine neue anzulegen, die bereits mit dieser Karte verknüpft ist — sowie eine Aktion zum Aufheben der Verknüpfung in jeder Zeile. Auf Karten ohne verknüpfte Entscheidungen ist der Tab ausgeblendet, sofern Sie diese Berechtigung nicht besitzen; Benutzer mit reinem Lesezugriff sehen also nie einen leeren Tab.
+
+Unter der Liste führt **Erwähnt in** die Entscheidungen und Statements of Architecture Work auf, deren Text diese Karte erwähnt, sowie jene, deren Diskussion sie erwähnt (markiert mit *in der Diskussion*), jeweils mit der Referenz oder Revision des Dokuments und seiner Geltung oder seinem Status. Eine Erwähnung verknüpft die Karte nicht mit der Entscheidung; sie erscheint nur hier. Die Liste zeigt nur Dokumente, die Sie öffnen können, und entfällt, wenn es keine gibt. Siehe [Erwähnungen](grc.md#decision-mentions).
 
 ## Risiken-Tab (GRC aktiviert, falls vorhanden)
 
